@@ -26,6 +26,15 @@ test('selection retains direction while ranges normalize endpoints', () => {
   assert.throws(() => new Position(-1, 0), RangeError);
 });
 
+test('positions beyond the final line clamp to EOF and valid ranges retain identity', () => {
+  const document = new TextDocument({ uri: 'untitled:test', text: 'first\nlast', version: 1 });
+  assert.deepEqual(document.validatePosition(new Position(100, 0)), new Position(1, 4));
+  assert.equal(document.offsetAt(new Position(100, 0)), 10);
+  const range = new Range(0, 1, 1, 2);
+  assert.equal(document.validateRange(range), range);
+  assert.throws(() => document.validatePosition({ line: 1, character: 0 }), /Invalid position/);
+});
+
 test('file URI round trips spaces Unicode and reserved filename characters', () => {
   const file = path.resolve('folder with space', '猫#%.rs');
   const uri = Uri.file(file);

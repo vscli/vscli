@@ -158,10 +158,18 @@ class TextDocument {
     return this._text.slice(this.offsetAt(range.start), this.offsetAt(range.end));
   }
   validatePosition(position) {
-    const line = Math.max(0, Math.min(position.line, this.lineCount - 1));
-    return new Position(line, Math.max(0, Math.min(position.character, this._lines[line].length)));
+    if (!(position instanceof Position)) throw new TypeError('Invalid position');
+    if (position.line >= this.lineCount) {
+      return new Position(this.lineCount - 1, this._lines[this.lineCount - 1].length);
+    }
+    const character = Math.min(position.character, this._lines[position.line].length);
+    return character === position.character ? position : new Position(position.line, character);
   }
-  validateRange(range) { return new Range(this.validatePosition(range.start), this.validatePosition(range.end)); }
+  validateRange(range) {
+    if (!(range instanceof Range)) throw new TypeError('Invalid range');
+    const start = this.validatePosition(range.start), end = this.validatePosition(range.end);
+    return start === range.start && end === range.end ? range : new Range(start, end);
+  }
   offsetAt(position) {
     position = this.validatePosition(position);
     return this._starts[position.line] + position.character;
