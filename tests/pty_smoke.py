@@ -78,6 +78,20 @@ class Screen:
             if self.pending.startswith("\x1b"):
                 if len(self.pending) < 2:
                     return
+                # Character-set designations have a third byte (e.g. ESC ( B).
+                # Treating that byte as text shifts the screen oracle's cursor.
+                if self.pending[1] in "()*+":
+                    if len(self.pending) < 3:
+                        return
+                    self.pending = self.pending[3:]
+                    continue
+                # OSC and DCS payloads are terminal control strings, not cells.
+                if self.pending[1] in "]P_^":
+                    ending = re.search(r"\x07|\x1b\\", self.pending[2:])
+                    if not ending:
+                        return
+                    self.pending = self.pending[2 + ending.end():]
+                    continue
                 self.pending = self.pending[2:]
                 continue
             ch, self.pending = self.pending[0], self.pending[1:]

@@ -50,4 +50,6 @@ The longer-term design lives in:
 
 The architecture documents describe the intended larger IDE; not every component is implemented in this alpha. Their timelines and performance budgets are planning targets, not measured results.
 
+See [performance evidence](docs/PERFORMANCE.md) for the reproducible PTY benchmark, comparison boundaries, and remaining qualification. No fastest-editor claim is established.
+
 Original project code is available under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option. Dependencies retain their own licenses; exact versions are recorded in Cargo.lock.
