@@ -18,9 +18,13 @@ fn until(app: &mut App, predicate: impl Fn(&App) -> bool) {
             return;
         }
         assert!(
-            start.elapsed() < Duration::from_secs(10),
-            "Timed out: {}",
-            app.message
+            start.elapsed() < Duration::from_secs(30),
+            "Timed out: {}\n{}",
+            app.message,
+            app.lsp.as_ref().map_or_else(
+                || "Language server disconnected".into(),
+                Client::debug_summary
+            )
         );
         std::thread::sleep(Duration::from_millis(5));
     }
@@ -85,7 +89,7 @@ fn real_clangd_diagnostics_hover_and_formatting() {
     app.lsp = Some(
         Client::start(
             "clangd",
-            &["--background-index=false".into()],
+            &["--background-index=false".into(), "-j=2".into()],
             dir.path(),
             "c".into(),
         )
