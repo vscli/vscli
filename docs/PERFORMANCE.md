@@ -30,6 +30,29 @@ Boundaries and limitations:
 
 Hosted CI checks that the screen oracle works with the debug executable on Linux/macOS. **There is no hosted-CI timing threshold.** Record release-build baselines and investigate repeatable regressions on controlled hardware before setting gates.
 
+## Recorded run: 2026-10-08
+
+[Raw observations and executable/fixture hashes](benchmarks/2026-10-08-linux.json), captured with benchmark commit `3f870ce` and native code from `8a90288`. Host: Intel Core i9-13900H, Linux x86_64; release VSCLI 0.1.0, Neovim 0.12.5, Vim 9.2 (patches 1–1046). Each row has five process launches and, when successful, 200 serial key samples. No builds or test suites ran concurrently with this recorded run; other host activity, scheduling, and thermal state were not controlled.
+
+| Editor | File size | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Tree RSS median MiB | Failed trials |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| vscli | 10 KiB | 8.12 | 0.973 | 1.288 | 1.394 | 8.62 | 0/5 |
+| nvim | 10 KiB | 31.42 | 0.475 | 0.810 | 1.055 | 23.97 | 0/5 |
+| vim | 10 KiB | 7.88 | 0.195 | 0.473 | 0.573 | 10.15 | 0/5 |
+| vscli | 1 MiB | 8.74 | 0.960 | 1.339 | 1.452 | 10.70 | 0/5 |
+| nvim | 1 MiB | 34.18 | 0.315 | 0.868 | 0.953 | 25.08 | 0/5 |
+| vim | 1 MiB | 9.91 | 0.139 | 0.451 | 0.529 | 11.36 | 0/5 |
+| vscli | 10 MiB | 22.11 | 0.918 | 1.157 | 1.283 | 30.15 | 0/5 |
+| nvim | 10 MiB | 47.60 | 0.585 | 0.849 | 0.905 | 35.36 | 0/5 |
+| vim | 10 MiB | 22.49 | 0.219 | 0.438 | 0.539 | 21.63 | 0/5 |
+| vscli | 100 MiB | — | — | — | — | — | 5/5 |
+| nvim | 100 MiB | 161.78 | 0.412 | 0.853 | 1.009 | 138.55 | 0/5 |
+| vim | 100 MiB | 141.53 | 0.161 | 0.376 | 0.495 | 124.62 | 0/5 |
+
+VSCLI was slower on the measured typing path in every file size it opened. Its startup and memory results were competitive in some cases, but neither establishes an overall performance lead. All five VSCLI 100 MiB attempts exited with an error: the alpha's `MAX_FILE_BYTES` limit is 32 MiB. This is a capability failure, not a missing sample to exclude from the comparison. A real large-file mode remains required work; raising the limit alone would not qualify its performance or reliability.
+
+These are one-machine baseline observations with Python-oracle overhead, not isolated native handler timings or a statistically established editor ranking. VS Code, Helix, source highlighting, extensions, and full IDE workloads have not been compared.
+
 ## Remaining performance qualification
 
 The next workloads must measure source highlighting and incremental parsing, 100 MiB files and very long lines, Unicode movement/multiple cursors, undo/paste/save, 100,000-file indexing and search, and editing under LSP/extension/task contention. Add matched VS Code and Helix measurements with versioned configurations, cold-cache procedures, real-terminal input-to-display latency, process-tree peak memory, and sustained CPU sampling. A single favorable component or empty-editor benchmark cannot answer which editor is fastest overall.
