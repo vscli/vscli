@@ -1,7 +1,9 @@
 pub mod document;
+pub mod files;
 pub mod keys;
 pub mod languages;
 pub mod recovery;
 pub mod search;
 pub mod settings;
+pub mod watch;
 pub mod workspace;
