@@ -134,8 +134,7 @@ function createConfiguration() {
       },
     }));
   }
-  function inspect(key, scope) {
-    const id = scopeOverride(scope)?.languageId;
+  function inspect(key, id) {
     const global = model(layers.slice(0, -1), false), workspace = model(layers.slice(-1), false);
     const ids = [...new Set(current.overrides.flatMap(group => group.ids))]
       .filter(id => lookup(current.override(id), key) !== undefined);
@@ -167,14 +166,15 @@ function createConfiguration() {
     },
     update, onDidChange: changed.event,
     get(section = '', scope) {
-      const snapshot = lookup(current.effective(scopeOverride(scope)?.languageId), section);
+      const languageId = scopeOverride(scope)?.languageId;
+      const snapshot = lookup(current.effective(languageId), section);
       const result = {
         get(key, fallback) {
           const value = key ? lookup(snapshot, key) : undefined;
           return value === undefined ? fallback : structuredClone(value);
         },
         has(key) { return Boolean(key) && lookup(snapshot, key) !== undefined; },
-        inspect(key) { return inspect(section ? `${section}.${key}` : key, scope); },
+        inspect(key) { return inspect(section ? `${section}.${key}` : key, languageId); },
         update() { return Promise.reject(new Error('VSCLI configuration writes are not implemented')); },
       };
       if (record(snapshot)) for (const [key, value] of Object.entries(snapshot)) {
