@@ -64,6 +64,12 @@ Verify three layers independently: physical combination reaches the application 
 
 Early releases may have incomplete command implementations. Keep their original bindings reserved and show unsupported commands explicitly; do not repurpose those combinations. Publish separate input, resolver, and command-behavior coverage over the complete baseline inventory. An exact-parity claim requires all applicable baseline cases to pass for the declared environment; any excluded cases must be explicit limitations rather than silently removed from the denominator.
 
+### Current reference harness
+
+The [pinned reference harness](../tests/vscode-reference/README.md) exports the actual VS Code 1.95.0 default rule inventory, built-in extension metadata, and observed keyboard layout on each CI platform. It compares all exported rules with the native defaults and runs 25 shared configuration observations against both APIs. The fixture does not establish physical input, resolver, command-effect, or full extension parity; the three keyboard verification layers above remain required.
+
+The first local Linux US-layout export contains 984 rules for 834 distinct command IDs. VSCLI has 110 native rules for 107 IDs. Of the reference rules, 27 match all compared fields, 77 match key/command/arguments with a different context, 14 match only a command ID, and 866 have no matching ID in the native default table. These are structural categories, not a percentage of supported features. Context equivalence, rule ordering effects, and behavior remain unmeasured by this inventory comparison.
+
 ## Configuration and migration
 
 Provide a read-only migration preview before writing the project's own configuration. Parse JSON with comments, preserve the user's source files, and show imported settings, approximations, unsupported settings, extension requirements, and unavailable shortcuts.
