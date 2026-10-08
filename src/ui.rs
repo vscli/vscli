@@ -1,6 +1,6 @@
 use crate::{
     app::{App, COMMANDS, Focus, Modal, PromptKind},
-    document::{display_width, grapheme_width},
+    document::{Document, display_width, grapheme_width, graphemes},
 };
 use ratatui::{
     Frame,
@@ -408,8 +408,20 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 MUTED
             }),
         );
-        let line = doc.line(row);
         let grammar = app.syntax.get(doc);
+        // The fallback lexer still needs the full line for word/string context.
+        // Plain text and completed grammar results can use only the viewport
+        // prefix, with enough lookahead for find matches crossing its edge.
+        let line = if grammar.is_some() || app.language() == "plaintext" {
+            viewport_line(
+                doc,
+                row,
+                doc.left + text_area.width as usize,
+                app.find_query.len(),
+            )
+        } else {
+            graphemes::as_text(doc.line_slice(row))
+        };
         let styles = if grammar.is_none() {
             syntax_styles(&line, app.language())
         } else {
@@ -474,11 +486,8 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
     if focused && app.focus == Focus::Editor && app.prompt.is_none() && app.modal.is_none() {
         for selection in &doc.secondary {
             let row = doc.text.char_to_line(selection.cursor);
-            let prefix = doc
-                .text
-                .slice(doc.line_start(row)..selection.cursor)
-                .to_string();
-            let column = doc.display_width(&prefix);
+            let column =
+                doc.display_width_slice(doc.text.slice(doc.line_start(row)..selection.cursor));
             if row >= doc.top
                 && row < doc.top + text_area.height as usize
                 && column >= doc.left
@@ -496,6 +505,34 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
             text_area.y + (doc.row() - doc.top) as u16,
         ));
     }
+}
+
+fn viewport_line(
+    doc: &Document,
+    row: usize,
+    right: usize,
+    lookahead_bytes: usize,
+) -> std::borrow::Cow<'_, str> {
+    let line = doc.line_slice(row);
+    if line.len_bytes() <= right {
+        return graphemes::as_text(line);
+    }
+    let mut end = 0;
+    let mut column = 0;
+    let mut clusters = graphemes::Graphemes::new(line);
+    while column < right {
+        let Some(g) = clusters.next() else {
+            break;
+        };
+        column += doc.grapheme_width(&graphemes::as_text(g), column);
+        end += g.len_bytes();
+    }
+    end = end.saturating_add(lookahead_bytes).min(line.len_bytes());
+    // A byte-sized search query may leave lookahead inside a UTF-8 scalar.
+    while end < line.len_bytes() && line.byte(end) & 0xc0 == 0x80 {
+        end += 1;
+    }
+    graphemes::as_text(line.byte_slice(..end))
 }
 
 fn line_graphemes(line: &str) -> impl Iterator<Item = (usize, &str)> {
@@ -1112,6 +1149,54 @@ fn draw_modal(frame: &mut Frame, app: &App) {
 mod tests {
     use super::*;
     use ratatui::{Terminal, backend::TestBackend};
+    #[test]
+    fn viewport_prefix_preserves_visible_clusters_and_search_matches() {
+        for line in [
+            "a\tbc def ".repeat(1000),
+            "e\u{301} 猫 👩\u{200d}💻 🇬🇧🇺🇸 ".repeat(500),
+            format!("a{}TAIL", "\u{301}".repeat(4000)),
+        ] {
+            let mut doc = Document::default();
+            doc.insert(&format!("{line}\r\nsecond"), false);
+            for right in [0, 1, 2, 7, 80, 499, 1003] {
+                for query in ["", "bc def", "猫 👩\u{200d}💻", "🇬🇧🇺🇸", "TAIL"] {
+                    let prefix = viewport_line(&doc, 0, right, query.len());
+                    let mut column = 0;
+                    let mut visible_end = 0;
+                    let expected: Vec<_> = line
+                        .grapheme_indices(true)
+                        .take_while(|(byte, g)| {
+                            if column >= right {
+                                return false;
+                            }
+                            column += doc.grapheme_width(g, column);
+                            visible_end = byte + g.len();
+                            true
+                        })
+                        .collect();
+                    assert_eq!(
+                        prefix
+                            .grapheme_indices(true)
+                            .take(expected.len())
+                            .collect::<Vec<_>>(),
+                        expected
+                    );
+                    assert!(prefix.len() <= (visible_end + query.len() + 3).min(line.len()));
+                    if !query.is_empty() {
+                        let matches = |text: &str| {
+                            text.match_indices(query)
+                                .map(|(offset, _)| offset)
+                                .take_while(|offset| *offset < visible_end)
+                                .collect::<Vec<_>>()
+                        };
+                        assert_eq!(matches(&prefix), matches(&line));
+                    }
+                }
+            }
+            assert_eq!(viewport_line(&doc, 1, 80, 0), "second");
+        }
+    }
+
     #[test]
     fn fast_grapheme_iteration_matches_unicode_segmentation() {
         let ascii: String = (0..=127).map(char::from).collect();

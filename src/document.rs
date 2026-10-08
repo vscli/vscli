@@ -11,6 +11,7 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 mod editing;
+pub(crate) mod graphemes;
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
@@ -354,11 +355,16 @@ impl Document {
         self.text.len_lines()
     }
     pub fn line(&self, row: usize) -> String {
-        self.text
-            .line(row.min(self.line_count() - 1))
-            .to_string()
-            .trim_end_matches(['\r', '\n'])
-            .to_string()
+        self.line_slice(row).to_string()
+    }
+    pub fn line_slice(&self, row: usize) -> ropey::RopeSlice<'_> {
+        let line = self.text.line(row.min(self.line_count() - 1));
+        let trailing = line
+            .chars_at(line.len_chars())
+            .reversed()
+            .take_while(|c| matches!(c, '\r' | '\n'))
+            .count();
+        line.slice(..line.len_chars() - trailing)
     }
     pub fn row(&self) -> usize {
         self.text.char_to_line(self.cursor.min(self.len()))
@@ -367,17 +373,21 @@ impl Document {
         self.text.line_to_char(row.min(self.line_count() - 1))
     }
     pub fn line_end(&self, row: usize) -> usize {
-        self.line_start(row) + self.line(row).chars().count()
+        self.line_start(row) + self.line_slice(row).len_chars()
     }
     pub fn column(&self) -> usize {
         self.cursor - self.line_start(self.row())
     }
     pub fn visual_column(&self) -> usize {
-        let prefix = self
-            .text
-            .slice(self.line_start(self.row())..self.cursor)
-            .to_string();
-        self.display_width(&prefix)
+        self.display_width_slice(self.text.slice(self.line_start(self.row())..self.cursor))
+    }
+    pub fn display_width_slice(&self, text: ropey::RopeSlice<'_>) -> usize {
+        if let Some(text) = text.as_str() {
+            return self.display_width(text);
+        }
+        graphemes::Graphemes::new(text).fold(0, |column, g| {
+            column + self.grapheme_width(&graphemes::as_text(g), column)
+        })
     }
     pub fn display_width(&self, text: &str) -> usize {
         text.graphemes(true)
@@ -417,16 +427,16 @@ impl Document {
     }
     pub fn position_at(&self, row: usize, column: usize) -> usize {
         let row = row.min(self.line_count() - 1);
-        let line = self.line(row);
+        let line = self.line_slice(row);
         let mut width = 0;
         let mut chars = 0;
-        for g in line.graphemes(true) {
-            let w = self.grapheme_width(g, width);
+        for g in graphemes::Graphemes::new(line) {
+            let w = self.grapheme_width(&graphemes::as_text(g), width);
             if width + w > column {
                 break;
             }
             width += w;
-            chars += g.chars().count();
+            chars += g.len_chars();
         }
         self.line_start(row) + chars
     }
@@ -610,11 +620,7 @@ impl Document {
         if pos == start {
             return self.line_end(row - 1);
         }
-        let text = self.text.slice(start..pos).to_string();
-        pos - text
-            .graphemes(true)
-            .next_back()
-            .map_or(1, |g| g.chars().count())
+        start + graphemes::previous_boundary(self.text.slice(start..pos))
     }
     pub fn next(&self, pos: usize) -> usize {
         if pos >= self.len() {
@@ -629,8 +635,9 @@ impl Document {
                 self.len()
             };
         }
-        let text = self.text.slice(pos..end).to_string();
-        pos + text.graphemes(true).next().map_or(1, |g| g.chars().count())
+        pos + graphemes::Graphemes::new(self.text.slice(pos..end))
+            .next()
+            .map_or(1, |g| g.len_chars())
     }
     pub fn word_left(&self) -> usize {
         let mut p = self.cursor;
@@ -1134,6 +1141,51 @@ mod tests {
         assert_eq!(doc.text, original);
         assert_eq!(doc.disk_content.as_ref().unwrap(), &Rope::from_str(&saved));
         assert_eq!(fs::read_to_string(&path).unwrap(), external);
+    }
+
+    #[test]
+    fn long_line_navigation_matches_contiguous_layout_and_preserves_saved_text() {
+        let line = "a\te\u{301} 猫 👩\u{200d}💻 🇬🇧🇺🇸 ".repeat(400);
+        let original = format!("{line}\r\nshort\r\n");
+        let mut doc = Document::from_text(&original);
+        assert_eq!(doc.line(0), line);
+        assert_eq!(doc.line_end(0), line.chars().count());
+        for column in [0, 1, 2, 7, 79, 501, 1003, 7000, 100000] {
+            let mut width = 0;
+            let mut chars = 0;
+            for g in line.graphemes(true) {
+                let next = width + doc.grapheme_width(g, width);
+                if next > column {
+                    break;
+                }
+                width = next;
+                chars += g.chars().count();
+            }
+            assert_eq!(doc.position_at(0, column), chars);
+            doc.cursor = chars;
+            assert_eq!(doc.visual_column(), width);
+            let prefix = doc.text.slice(..chars).to_string();
+            let suffix = doc.text.slice(chars..doc.line_end(0)).to_string();
+            if chars > 0 {
+                assert_eq!(
+                    doc.previous(chars),
+                    chars - prefix.graphemes(true).next_back().unwrap().chars().count()
+                );
+            }
+            if !suffix.is_empty() {
+                assert_eq!(
+                    doc.next(chars),
+                    chars + suffix.graphemes(true).next().unwrap().chars().count()
+                );
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("long.txt");
+        doc.cursor = doc.position_at(0, 1003);
+        doc.insert("INSERTED🙂", false);
+        doc.undo();
+        doc.save_to(&path, false).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), original.as_bytes());
     }
 
     #[test]

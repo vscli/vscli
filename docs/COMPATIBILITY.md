@@ -8,6 +8,14 @@ Publish three independent records: supported VS Code API behavior, verified exte
 
 Exact VS Code keybindings are a firm user requirement on qualified terminal configurations. Extension compatibility remains progressive. Do not advertise “all VS Code extensions” or “all shortcuts on every terminal”; qualify the reference version, platform profile, keyboard layout, terminal, and any multiplexer configuration used for an exact-keybinding claim.
 
+Native rope navigation uses Unicode 17 extended grapheme boundaries, with two
+upstream chunk-boundary fixes backported to unicode-segmentation 1.13.3. The
+bundled Unicode corpus passes forward/backward and boundary-query checks with
+scalar-sized chunks; document and PTY tests cover movement, edits, undo, and
+CRLF persistence on long lines. These are native correctness checks, not a
+differential claim that every VS Code cursor or display-width behavior matches.
+See [dependency provenance](../vendor/README.md) and [current limits](USAGE.md).
+
 ## Feature disposition
 
 | VS Code feature family | Planned terminal behavior | Scope |
