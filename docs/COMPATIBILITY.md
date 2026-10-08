@@ -41,6 +41,14 @@ See [dependency provenance](../vendor/README.md) and [current limits](USAGE.md).
 
 The presence of one native alternative does not mean the original extension works. A native Markdown preview and an arbitrary webview extension are different compatibility claims.
 
+## Editor reload behavior
+
+Native external reloads preserve each view's cursors and selections in the
+common unchanged prefix/suffix, including through undo/redo. Tests cover two
+views, secondary selections, Unicode/CRLF saves, and typing after a real watched
+reload. The current single-replacement mapping is not a qualified match for
+VS Code's handling of multiple disjoint external changes.
+
 ## Keyboard compatibility
 
 Use the exact keybinding rules from a pinned VS Code reference, including command IDs, arguments, chords, platform overrides, context expressions, user overrides, and removal rules. VS Code resolves matching rules from the bottom upward; context and ordering are part of behavior, not incidental syntax. [Keyboard rules](https://code.visualstudio.com/docs/configure/keybindings).

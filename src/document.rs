@@ -317,9 +317,9 @@ impl Document {
             .count();
         let suffix = self
             .text
-            .chars()
+            .chars_at(self.text.len_chars())
             .reversed()
-            .zip(next.chars().reversed())
+            .zip(next.chars_at(next.len_chars()).reversed())
             .take(self.len().min(next.len_chars()).saturating_sub(prefix))
             .take_while(|(a, b)| a == b)
             .count();
@@ -1191,6 +1191,74 @@ mod tests {
         doc.undo();
         doc.save_to(&path, false).unwrap();
         assert_eq!(fs::read(&path).unwrap(), original.as_bytes());
+    }
+
+    #[test]
+    fn reload_preserves_tail_selections_in_all_views_through_undo_redo_and_save() {
+        let original = "head OLD\r\nmiddle 猫🙂 tail\r\nlast";
+        let next = "head replacement🙂\r\nmiddle 猫🙂 tail\r\nlast";
+        let original_tail = original[..original.find("middle").unwrap()].chars().count();
+        let next_tail = next[..next.find("middle").unwrap()].chars().count();
+        let mut doc = Document::from_text(original);
+        let id = doc.id;
+        for (view, offset) in [(1, 2), (2, 7)] {
+            doc.activate_view(view);
+            doc.set_selections(vec![
+                Selection {
+                    cursor: original_tail + offset + 2,
+                    anchor: Some(original_tail + offset),
+                    desired_column: None,
+                },
+                Selection::caret(original.chars().count() - 1),
+            ]);
+        }
+        let verify = |doc: &mut Document, text: &str, tail: usize| {
+            assert_eq!(doc.id, id);
+            assert_eq!(doc.text.to_string(), text);
+            for (view, offset) in [(1, 2), (2, 7)] {
+                doc.activate_view(view);
+                assert_eq!(doc.cursor, tail + offset + 2, "view {view}");
+                assert_eq!(doc.anchor, Some(tail + offset));
+                assert_eq!(
+                    doc.secondary,
+                    vec![Selection::caret(text.chars().count() - 1)]
+                );
+            }
+        };
+        doc.activate_view(1);
+        doc.reload_content(Rope::from_str(next));
+        assert!(!doc.dirty());
+        verify(&mut doc, next, next_tail);
+        // Undo from the other view must restore both independent selections.
+        doc.undo();
+        assert!(doc.dirty());
+        verify(&mut doc, original, original_tail);
+        doc.redo();
+        assert!(!doc.dirty());
+        verify(&mut doc, next, next_tail);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("reloaded.txt");
+        doc.save_to(&path, false).unwrap();
+        assert_eq!(fs::read(path).unwrap(), next.as_bytes());
+    }
+
+    #[test]
+    fn reload_handles_insertions_deletions_and_overlapping_equal_ends() {
+        for (original, next, cursor, expected) in [
+            ("abc tail", "aXYZbc tail", 6, 9),
+            ("aXYZbc tail", "abc tail", 9, 6),
+            ("aaaa", "aaa", 2, 2),
+            ("aaa", "aaaa", 2, 2),
+            ("same🙂", "same🙂", 4, 4),
+            ("", "猫", 0, 1),
+            ("猫", "", 1, 0),
+        ] {
+            let mut doc = Document::from_text(original);
+            doc.cursor = cursor;
+            doc.reload_content(Rope::from_str(next));
+            assert_eq!(doc.text.to_string(), next);
+            assert_eq!(doc.cursor, expected, "{original:?} -> {next:?}");
+        }
     }
 
     #[test]
