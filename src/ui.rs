@@ -773,6 +773,7 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
     let title = match p.kind {
         PromptKind::Palette => " Command Palette ",
         PromptKind::QuickOpen => " Go to File ",
+        PromptKind::Snippet => " Insert Snippet · name, prefix or description ",
         PromptKind::Open => " Open File (absolute or workspace-relative) ",
         PromptKind::SaveAs => " Save As (existing files are protected) ",
         PromptKind::DebugEvaluate => {
@@ -791,7 +792,10 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::ReplaceWith(_) => " Replace All · Replacement (Enter applies, Undo restores) ",
         PromptKind::Goto => " Go to Line · line:column ",
     };
-    let list = matches!(p.kind, PromptKind::Palette | PromptKind::QuickOpen);
+    let list = matches!(
+        p.kind,
+        PromptKind::Palette | PromptKind::QuickOpen | PromptKind::Snippet
+    );
     let inner = popup(frame, title, 84, if list { 19 } else { 5 });
     if inner.width == 0 || inner.height == 0 {
         return;
@@ -837,6 +841,23 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
             app.palette_items(&p.text)
                 .into_iter()
                 .map(|(name, id)| format!("{name}  {}", app.keymap.shortcut(id)))
+                .collect()
+        } else if matches!(p.kind, PromptKind::Snippet) {
+            app.snippet_items(&p.text)
+                .into_iter()
+                .map(|entry| {
+                    format!(
+                        "{}  {}  {}  [{}]",
+                        entry.name,
+                        entry.prefixes.join(", "),
+                        entry.description.replace('\n', " "),
+                        entry
+                            .source
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                    )
+                })
                 .collect()
         } else {
             app.workspace

@@ -3,6 +3,7 @@ mod extensions;
 mod files;
 mod language;
 mod panes;
+mod snippet_catalogs;
 mod snippets;
 mod source_control;
 mod tasks;
@@ -29,6 +30,7 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 
 pub const COMMANDS: &[(&str, &str)] = &[
+    ("Insert Snippet", "editor.action.insertSnippet"),
     ("Extensions: Stop Host", "vscli.extensions.stop"),
     ("Settings: Compatibility Report", "vscli.settings.report"),
     (
@@ -186,6 +188,7 @@ pub enum Focus {
 pub enum PromptKind {
     Palette,
     QuickOpen,
+    Snippet,
     Open,
     SaveAs,
     Find,
@@ -322,6 +325,7 @@ pub struct App {
     pub tab_area: Rect,
     pub pending: Option<AfterSave>,
     snippet_pending: Option<snippets::Pending>,
+    snippet_catalog: snippet_catalogs::State,
     clipboard: String,
     pub clipboard_line: bool,
 }
@@ -379,6 +383,7 @@ impl App {
             tab_area: Rect::default(),
             pending: None,
             snippet_pending: None,
+            snippet_catalog: snippet_catalogs::State::default(),
             clipboard: String::new(),
             clipboard_line: false,
         }
@@ -422,6 +427,7 @@ impl App {
         changed |= self.poll_debugger();
         changed |= self.poll_extensions();
         changed |= self.poll_snippet();
+        changed |= self.poll_snippet_catalog();
         let visible: Vec<_> = self
             .documents
             .iter()
@@ -1553,6 +1559,7 @@ impl App {
     fn accept_prompt(&mut self) {
         let p = self.prompt.take().unwrap();
         match p.kind {
+            PromptKind::Snippet => self.accept_snippet(&p.text, p.selected),
             PromptKind::DebugEvaluate => {
                 if let Some(client) = self.debugger.as_mut() {
                     if let Err(e) = client.evaluate(&p.text) {

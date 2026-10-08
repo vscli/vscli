@@ -29,10 +29,34 @@ match the request. A failed system clipboard read falls back to the editor's
 internal clipboard, as its current paste path does. The existing external tools
 cover Linux/macOS; Windows system clipboard integration remains incomplete.
 
-This is a partial snippet feature. Calls without `args.snippet` report that catalog
-selection is not implemented. User/workspace snippet files, name/language lookup,
-choice presentation, extension contributions, nested session merging and
-completion integration remain pending. LSP still advertises `snippetSupport:
+Native user/workspace catalogs now provide a searchable Insert Snippet picker
+and `args.name`/`args.langId` lookup. The loader reads user `snippets/<language>.json`
+and user/workspace `*.code-snippets` files, accepting JSONC, body/description
+arrays, prefix arrays, grouped definitions, no-prefix entries and comma scopes.
+Language-specific user files use their filename scope; global scopes also match
+dotted parent language identifiers. Files are read afresh on each invocation in
+one background worker with one bounded reply. Both replies and picker acceptance
+validate the original document identity, revision, selections, pane and language.
+User catalogs are searched before workspace catalogs; duplicate-name precedence
+within these groups, MRU order, embedded-language detection and VS Code's language
+registry behavior are not differential-qualified. The picker uses native fuzzy
+matching and displays at most 100 filtered results. It retains `isFileTemplate`
+metadata but has no separate Populate File from Snippet command yet.
+
+Loading is limited to 128 files, 4096 directory entries per directory, 4096 snippets,
+1 MiB per file and 16 MiB of file bytes in total. The source template limit remains
+64 KiB. Truncation and malformed files produce visible warnings; valid entries
+remain usable. Only regular directory entries are loaded (symlinked snippet files
+are currently skipped). Unit tests cover schema/scopes, malformed/oversized files,
+read budgets, stale replies, picker acceptance and fresh named lookup with undo.
+A PTY workflow covers workspace JSONC selection, user language lookup, linked
+editing and CRLF save/undo. Catalog behavior is source-informed by the pinned
+[snippet file reader](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/contrib/snippets/browser/snippetsFile.ts)
+and [insert command](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/contrib/snippets/browser/commands/insertSnippet.ts);
+it does not extend the differential evidence below.
+
+This remains a partial snippet feature. Choice presentation, extension
+contributions, nested session merging and completion integration remain pending. LSP still advertises `snippetSupport:
 false`; the optional extension API does not yet provide `TextEditor.insertSnippet`.
 See [usage](USAGE.md#snippets) for a literal-template binding.
 

@@ -110,8 +110,35 @@ comment tokens. Multiline insertion follows the document's indentation and EOLs.
 Clipboard reads run in the background and cancel insertion if the editor context
 changes before the reply arrives.
 
-Catalog selection, snippet files, choice menus, nested snippet merging, extension
-insertion and completion snippets are still unfinished. Unsupported regex
+F1 → **Insert Snippet** opens a searchable native picker. Type a name, prefix or
+description, then press Enter; Escape cancels. Catalogs load in the background
+when the command runs. User files live in `snippets/` beside the active user
+settings file (`--settings` can select a VS Code user settings file). Put
+language-specific snippets in `<language>.json`, global snippets in
+`*.code-snippets`, and project snippets in `.vscode/*.code-snippets`.
+Comments and trailing commas, string/array bodies, prefix arrays, descriptions,
+comma-separated scopes and no-prefix entries are supported. For example:
+
+```jsonc
+{
+  "Log value": {
+    "scope": "javascript,typescript",
+    "prefix": ["log", "print"],
+    "body": "console.log(${1:value});$0",
+    "description": "Log a value"
+  }
+}
+```
+
+A binding can use `"args": {"name": "Log value", "langId": "javascript"}`
+for direct insertion; omit `langId` to use the current document language.
+Catalog edits are picked up on the next invocation. Replies and picker acceptance
+are checked against the original document revision, cursor selections, view and
+language so changed work is not overwritten. Malformed or oversized files show
+catalog warnings while valid files remain available.
+
+Choice menus, nested snippet merging, extension insertion and completion
+snippets are still unfinished. Unsupported regex
 constructs fail explicitly. See [snippet evidence and limits](SNIPPETS.md).
 
 ## Multiple cursors and line commands
