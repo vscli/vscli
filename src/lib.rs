@@ -8,6 +8,7 @@ pub mod lsp;
 pub mod recovery;
 pub mod search;
 pub mod settings;
+pub mod syntax;
 pub mod tasks;
 pub mod terminal;
 pub mod transport;
