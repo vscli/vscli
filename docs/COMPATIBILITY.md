@@ -68,7 +68,15 @@ Early releases may have incomplete command implementations. Keep their original 
 
 The [pinned reference harness](../tests/vscode-reference/README.md) exports the actual VS Code 1.95.0 default rule inventory, built-in extension metadata, and observed keyboard layout on each CI platform. It compares all exported rules with the native defaults and runs 25 shared configuration observations against both APIs. The fixture does not establish physical input, resolver, command-effect, or full extension parity; the three keyboard verification layers above remain required.
 
-The first local Linux US-layout export contains 984 rules for 834 distinct command IDs. VSCLI has 110 native rules for 107 IDs. Of the reference rules, 27 match all compared fields, 77 match key/command/arguments with a different context, 14 match only a command ID, and 866 have no matching ID in the native default table. These are structural categories, not a percentage of supported features. Context equivalence, rule ordering effects, and behavior remain unmeasured by this inventory comparison.
+[Recorded inventories and provenance](../tests/vscode-reference/baselines/1.95.0/provenance.json) come from the same [successful three-platform CI run](https://github.com/vscli/vscli/actions/runs/37831323012). All observed layouts were US; macOS used arm64, Linux and Windows x64. The 25 configuration observations matched on all three platforms.
+
+| Platform | Reference rules | Native rules | All fields match | Key/command/args match, context differs | Only command ID matches | No native-default command ID |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Linux | 984 | 110 | 27 | 77 | 14 | 866 |
+| macOS | 1,078 | 117 | 27 | 78 | 26 | 947 |
+| Windows | 993 | 108 | 26 | 76 | 18 | 873 |
+
+The four comparison categories partition the reference rules, including duplicates. These are structural categories, not a percentage of supported features. Context equivalence, rule ordering effects, input delivery, and command behavior remain unmeasured by this inventory comparison. The reference is VS Code 1.95.0, not the latest release.
 
 ## Configuration and migration
 

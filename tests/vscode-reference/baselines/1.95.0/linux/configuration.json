@@ -1,0 +1,367 @@
+[
+  {
+    "name": "initial.get.enabled",
+    "value": true
+  },
+  {
+    "name": "initial.inspect.enabled",
+    "value": {
+      "key": "vscliReference.enabled",
+      "defaultValue": false,
+      "globalValue": false,
+      "workspaceValue": true,
+      "workspaceFolderValue": {
+        "$undefined": true
+      },
+      "defaultLanguageValue": {
+        "$undefined": true
+      },
+      "globalLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceFolderLanguageValue": {
+        "$undefined": true
+      },
+      "languageIds": {
+        "$undefined": true
+      }
+    }
+  },
+  {
+    "name": "initial.get.object",
+    "value": {
+      "left": 1,
+      "nested": {
+        "a": 4,
+        "b": 2
+      },
+      "list": [
+        3
+      ]
+    }
+  },
+  {
+    "name": "initial.inspect.object",
+    "value": {
+      "key": "vscliReference.object",
+      "defaultValue": {
+        "left": 1,
+        "nested": {
+          "a": 1
+        },
+        "list": [
+          1,
+          2
+        ]
+      },
+      "globalValue": {
+        "nested": {
+          "b": 2
+        },
+        "list": [
+          3
+        ]
+      },
+      "workspaceValue": {
+        "nested": {
+          "a": 4
+        }
+      },
+      "workspaceFolderValue": {
+        "$undefined": true
+      },
+      "defaultLanguageValue": {
+        "$undefined": true
+      },
+      "globalLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceFolderLanguageValue": {
+        "$undefined": true
+      },
+      "languageIds": {
+        "$undefined": true
+      }
+    }
+  },
+  {
+    "name": "initial.get.null",
+    "value": null
+  },
+  {
+    "name": "initial.inspect.null",
+    "value": {
+      "key": "vscliReference.null",
+      "defaultValue": null,
+      "globalValue": {
+        "$undefined": true
+      },
+      "workspaceValue": {
+        "$undefined": true
+      },
+      "workspaceFolderValue": {
+        "$undefined": true
+      },
+      "defaultLanguageValue": {
+        "$undefined": true
+      },
+      "globalLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceFolderLanguageValue": {
+        "$undefined": true
+      },
+      "languageIds": {
+        "$undefined": true
+      }
+    }
+  },
+  {
+    "name": "initial.get.language",
+    "value": 3
+  },
+  {
+    "name": "initial.inspect.language",
+    "value": {
+      "key": "vscliReference.language",
+      "defaultValue": 1,
+      "globalValue": {
+        "$undefined": true
+      },
+      "workspaceValue": 3,
+      "workspaceFolderValue": {
+        "$undefined": true
+      },
+      "defaultLanguageValue": {
+        "$undefined": true
+      },
+      "globalLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceFolderLanguageValue": {
+        "$undefined": true
+      },
+      "languageIds": [
+        "javascript",
+        "typescript"
+      ]
+    }
+  },
+  {
+    "name": "initial.get.machine",
+    "value": "user"
+  },
+  {
+    "name": "initial.inspect.machine",
+    "value": {
+      "key": "vscliReference.machine",
+      "defaultValue": "default",
+      "globalValue": "user",
+      "workspaceValue": {
+        "$undefined": true
+      },
+      "workspaceFolderValue": {
+        "$undefined": true
+      },
+      "defaultLanguageValue": {
+        "$undefined": true
+      },
+      "globalLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceFolderLanguageValue": {
+        "$undefined": true
+      },
+      "languageIds": {
+        "$undefined": true
+      }
+    }
+  },
+  {
+    "name": "initial.direct.object",
+    "value": {
+      "left": 1,
+      "nested": {
+        "a": 4,
+        "b": 2
+      },
+      "list": [
+        3
+      ]
+    }
+  },
+  {
+    "name": "missing.fallback",
+    "value": "fallback"
+  },
+  {
+    "name": "missing.inspect",
+    "value": {
+      "key": "vscliReference.missing",
+      "defaultValue": {
+        "$undefined": true
+      },
+      "globalValue": {
+        "$undefined": true
+      },
+      "workspaceValue": {
+        "$undefined": true
+      },
+      "workspaceFolderValue": {
+        "$undefined": true
+      },
+      "defaultLanguageValue": {
+        "$undefined": true
+      },
+      "globalLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceFolderLanguageValue": {
+        "$undefined": true
+      },
+      "languageIds": {
+        "$undefined": true
+      }
+    }
+  },
+  {
+    "name": "has",
+    "value": [
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  {
+    "name": "language.uri",
+    "value": 3
+  },
+  {
+    "name": "language.javascript",
+    "value": 2
+  },
+  {
+    "name": "language.typescript",
+    "value": 4
+  },
+  {
+    "name": "language.inspect",
+    "value": {
+      "key": "vscliReference.language",
+      "defaultValue": 1,
+      "globalValue": {
+        "$undefined": true
+      },
+      "workspaceValue": 3,
+      "workspaceFolderValue": {
+        "$undefined": true
+      },
+      "defaultLanguageValue": {
+        "$undefined": true
+      },
+      "globalLanguageValue": 2,
+      "workspaceLanguageValue": 4,
+      "workspaceFolderLanguageValue": {
+        "$undefined": true
+      },
+      "languageIds": [
+        "javascript",
+        "typescript"
+      ]
+    }
+  },
+  {
+    "name": "masked.event",
+    "value": {
+      "parent": true,
+      "exact": true,
+      "sibling": false,
+      "partial": false,
+      "child": false,
+      "uri": false,
+      "null": false
+    }
+  },
+  {
+    "name": "masked.listenerRead",
+    "value": true
+  },
+  {
+    "name": "changed.event",
+    "value": {
+      "parent": true,
+      "exact": true,
+      "sibling": false,
+      "partial": false,
+      "child": false,
+      "uri": true,
+      "null": true
+    }
+  },
+  {
+    "name": "changed.listenerRead",
+    "value": false
+  },
+  {
+    "name": "held.get",
+    "value": true
+  },
+  {
+    "name": "held.inspect",
+    "value": {
+      "key": "vscliReference.enabled",
+      "defaultValue": false,
+      "globalValue": true,
+      "workspaceValue": false,
+      "workspaceFolderValue": {
+        "$undefined": true
+      },
+      "defaultLanguageValue": {
+        "$undefined": true
+      },
+      "globalLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceLanguageValue": {
+        "$undefined": true
+      },
+      "workspaceFolderLanguageValue": {
+        "$undefined": true
+      },
+      "languageIds": {
+        "$undefined": true
+      }
+    }
+  },
+  {
+    "name": "retained.event",
+    "value": {
+      "parent": true,
+      "exact": true,
+      "sibling": false,
+      "partial": false,
+      "child": false,
+      "uri": false,
+      "null": false
+    }
+  }
+]

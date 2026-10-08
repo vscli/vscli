@@ -70,6 +70,28 @@ test job and preserves the evidence as `vscode-reference-<runner>` artifacts for
 a new checked-in baseline. Record its run URL and commit; do not mix platforms
 from different runs.
 
+## Recorded baseline
+
+The [1.95.0 baseline](baselines/1.95.0/provenance.json) preserves the parsed rule
+inventories, observed keyboard maps, reference configuration traces, and comparison
+summaries from [CI run 37831323012](https://github.com/vscli/vscli/actions/runs/37831323012).
+The provenance file records the tested source revision and SHA-256 of each saved
+file. All three platforms passed the same 25 observations. The Linux/macOS/Windows
+inventories contain 984/1,078/993 rules respectively. The full raw JSONC and detailed
+per-rule comparison are in the CI artifacts; the committed inventory preserves
+all parsed binding fields and their order.
+
+An offline comparison against the recorded Linux data can be run with:
+
+```sh
+node tests/vscode-reference/compare.cjs tests/vscode-reference/baselines/1.95.0/linux target/debug/vscli
+```
+
+The comparator writes `comparison.json` and `configuration-vscli.json` in its input
+directory. Prefer copying a baseline directory under `target/` before comparing
+to keep the checkout clean. This reuses saved observations; it does not replace
+running the current shared fixture against the actual reference.
+
 ## Provenance
 
 The default document and keyboard diagnostic come from the pinned upstream

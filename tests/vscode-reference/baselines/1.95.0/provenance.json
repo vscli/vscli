@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "referenceVersion": "1.95.0",
+  "referenceCommit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "vscliHeadCommit": "e3e2bbde51679aafab116384582f7ebf4d4e8b4c",
+  "run": "https://github.com/vscli/vscli/actions/runs/37831323012",
+  "date": "2026-10-08",
+  "files": {
+    "darwin/configuration.json": "a6f994eff97a880a4b88ff1a5ac86782568e9a54754492dce513ce08419c4a91",
+    "darwin/inventory.json": "a17b0f8a37179a17548ec4476e641e568e9580de271ae06151cf010d2ffa3519",
+    "darwin/keyboard.json": "dc4729f7030910871108a2f9d05392613eecbd4b900f4f0a52ff96021bd30621",
+    "darwin/summary.json": "1d9c521d705a8b1a5a55733ad427ff591de9e6619314435cf4e072640a24a5c0",
+    "linux/configuration.json": "a6f994eff97a880a4b88ff1a5ac86782568e9a54754492dce513ce08419c4a91",
+    "linux/inventory.json": "cb4613da6ef15f44c2e89ef91e2489836877a96cd8c65b6f324b3811e321d483",
+    "linux/keyboard.json": "4ed1e75dcaef4ffc48ed7d8530d8cb7de4bd055e5624a5171e4f82cfa09b9fc0",
+    "linux/summary.json": "c936cbdd08249984d910be517454206e1fb92a5481806b2dbef27c0efaa86935",
+    "win32/configuration.json": "a6f994eff97a880a4b88ff1a5ac86782568e9a54754492dce513ce08419c4a91",
+    "win32/inventory.json": "75ab9acf1a52f6862e7ef5996ff77be44bd4370874d2a6adfd2826ab99fee94e",
+    "win32/keyboard.json": "8677c30c26216761876e61c60d9537ca0d10fcd2e938f052cc488a7052b5fc88",
+    "win32/summary.json": "b6ea43ee2391796ca6c7f774ba45fad2931ca9221926871d71eb54f3e99edf42"
+  }
+}
