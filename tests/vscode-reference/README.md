@@ -18,16 +18,32 @@ xvfb-run -a node tests/vscode-reference/run.cjs target/vscode-reference/result
 node tests/vscode-reference/run.cjs target/vscode-reference/result
 node tests/vscode-reference/compare.cjs target/vscode-reference/result target/debug/vscli
 # Use target/debug/vscli.exe on Windows.
-node --test tests/vscode-reference/compare.test.cjs
+node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs
 ```
 
 The test extension contributes only fixture settings, with no keybindings. User
 extensions, user settings, and the user's workspace are isolated. Built-in
 extensions remain enabled and are inventoried with their declared licenses and
 versions. Telemetry, updates, and extension auto-updates are disabled. The runner
-removes its temporary profile/workspace afterward; downloads remain in ignored
-`target/vscode-reference/cache`. The extension suite has a 120-second timeout;
-CI additionally bounds each complete platform job to 20 minutes.
+removes its temporary profile/workspace after stopping the reference worker;
+downloads remain in ignored `target/vscode-reference/cache`. The extension suite
+has a 120-second timeout. A supervisor bounds the entire download/test worker to
+five minutes; CI additionally bounds each complete platform job to 20 minutes.
+
+The worker reports the awaited download/test result explicitly. The supervisor
+then terminates its process group on POSIX or its process tree with `taskkill` on
+Windows, including extraction children left behind by interrupted download
+retries. Success requires a successful result and cleanup; a timeout, missing
+result, interruption, or cleanup failure fails the run. This addresses a Linux
+CI hang where the suite and VS Code exited successfully but a download extractor
+kept the launcher alive. It does not treat a timeout as successful verification.
+
+Process tests reproduce the interrupted-stream leak with a child and grandchild,
+including processes which ignore graceful termination. They exercise success,
+failure, malformed results, timeout, and premature worker exit on all platforms,
+plus supervisor signal interruption on POSIX. Cleanup relies on descendants
+remaining in the owned group/tree; detached descendants and arbitrary Windows
+worker crashes with surviving children are not qualified by these tests.
 
 ## Evidence and boundaries
 
