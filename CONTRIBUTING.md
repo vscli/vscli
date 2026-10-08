@@ -16,7 +16,7 @@ Keep each commit atomic: one coherent change, its necessary tests, and relevant 
 
 Commit messages must be one line, at most 100 characters, using Conventional Commit prefixes, for example `feat: add snippet tab stops`, `fix: preserve edits after an external rename`, or `ci: test macOS terminal restoration`. Optional scopes are supported. Do not add a body, merge commit, or unrelated cleanup.
 
-Open a feature branch and a pull request. Describe the observable change, test evidence, and remaining limitations. Main requires passing checks and linear history. Rebase merge preserves the reviewed atomic commits; squash merge is suitable only when the whole pull request is one atomic change. Resolve review threads before merging.
+Open a feature branch and a pull request. Describe the observable change, test evidence, and remaining limitations. Main requires passing checks and linear history, including for administrators. Rebase merge preserves the reviewed atomic commits; merge commits and squash merging are disabled. Resolve review threads before merging. Dependency bot commits must be normalized to the same one-line policy before merging.
 
 Tests should exercise behavior, not restate implementation. Changes to editing or persistence need data-integrity coverage. Terminal changes need a PTY scenario when practical. Compatibility claims need a named reference, platform/terminal configuration, and observable workflow evidence. Do not mark the project complete merely because a new intermediate feature works.
 
