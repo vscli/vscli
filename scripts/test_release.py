@@ -1,10 +1,13 @@
 import hashlib
+import os
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 
 from check_commits import valid
 from publish_release import verified_archives
+from package import write_zip
 
 class CommitPolicy(unittest.TestCase):
     def test_accepts_one_line_conventional_messages(self):
@@ -16,6 +19,20 @@ class CommitPolicy(unittest.TestCase):
             self.assertFalse(valid(message), message)
 
 class ReleaseIntegrity(unittest.TestCase):
+    def test_zip_preserves_epoch_dated_dependency_notices(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            package = directory / "vscli-test"
+            package.mkdir()
+            notice = package / "LICENSE"
+            notice.write_bytes(b"dependency license\n")
+            os.utime(notice, (1, 1))
+            archive = directory / "release.zip"
+            write_zip(package, archive)
+            with zipfile.ZipFile(archive) as zipped:
+                self.assertEqual(zipped.read("vscli-test/LICENSE"), notice.read_bytes())
+                self.assertEqual(zipped.getinfo("vscli-test/LICENSE").date_time[0], 1980)
+
     def test_requires_all_platforms_and_rejects_tampering(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
