@@ -1,0 +1,475 @@
+{
+  "baseline_revision": "80e3446",
+  "after_revision": "44c15a7",
+  "runs": [
+    {
+      "build": "before",
+      "sha256": "a8a71f8e97ad3cfb11c5a01dcc6190793c642e0a8b3e92df75de720b7c92bd79",
+      "measurement": {
+        "schema": 1,
+        "unicode": false,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.592,
+          "p95": 4.308,
+          "p99": 11.06,
+          "max": 23.864
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.33299999999999996,
+          "p95": 0.47800000000000004,
+          "p99": 1.639,
+          "max": 4.945
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 218.14800000000002,
+          "p95": 229.716,
+          "p99": 400.353,
+          "max": 505.559
+        }
+      }
+    },
+    {
+      "build": "after",
+      "sha256": "6a04468f868aafa1a7687e26b6423841676942a0c1ae13d40e4057331e4b75a1",
+      "measurement": {
+        "schema": 1,
+        "unicode": false,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.7009999999999996,
+          "p95": 4.357,
+          "p99": 6.496,
+          "max": 32.574
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.306,
+          "p95": 0.505,
+          "p99": 0.875,
+          "max": 6.582
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 231.20200000000003,
+          "p95": 241.939,
+          "p99": 251.649,
+          "max": 598.091
+        }
+      }
+    },
+    {
+      "build": "before",
+      "sha256": "a8a71f8e97ad3cfb11c5a01dcc6190793c642e0a8b3e92df75de720b7c92bd79",
+      "measurement": {
+        "schema": 1,
+        "unicode": true,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.8990000000000005,
+          "p95": 8.991999999999999,
+          "p99": 17.581,
+          "max": 50.814
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.401,
+          "p95": 15.322999999999999,
+          "p99": 29.996,
+          "max": 70.217
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 295.141,
+          "p95": 433.76,
+          "p99": 571.039,
+          "max": 675.293
+        }
+      }
+    },
+    {
+      "build": "after",
+      "sha256": "6a04468f868aafa1a7687e26b6423841676942a0c1ae13d40e4057331e4b75a1",
+      "measurement": {
+        "schema": 1,
+        "unicode": true,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.63,
+          "p95": 4.3420000000000005,
+          "p99": 5.424,
+          "max": 27.574
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.307,
+          "p95": 11.467,
+          "p99": 14.567,
+          "max": 45.098
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 307.827,
+          "p95": 312.663,
+          "p99": 322.435,
+          "max": 601.578
+        }
+      }
+    },
+    {
+      "build": "after",
+      "sha256": "6a04468f868aafa1a7687e26b6423841676942a0c1ae13d40e4057331e4b75a1",
+      "measurement": {
+        "schema": 1,
+        "unicode": true,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.7239999999999998,
+          "p95": 10.75,
+          "p99": 16.518,
+          "max": 39.118
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.35400000000000004,
+          "p95": 15.344999999999999,
+          "p99": 34.274,
+          "max": 64.496
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 307.161,
+          "p95": 500.76700000000005,
+          "p99": 597.4100000000001,
+          "max": 690.176
+        }
+      }
+    },
+    {
+      "build": "before",
+      "sha256": "a8a71f8e97ad3cfb11c5a01dcc6190793c642e0a8b3e92df75de720b7c92bd79",
+      "measurement": {
+        "schema": 1,
+        "unicode": true,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.563,
+          "p95": 4.287,
+          "p99": 10.424000000000001,
+          "max": 50.0
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.33299999999999996,
+          "p95": 11.556000000000001,
+          "p99": 14.833,
+          "max": 36.775
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 295.002,
+          "p95": 303.53900000000004,
+          "p99": 392.169,
+          "max": 587.326
+        }
+      }
+    },
+    {
+      "build": "after",
+      "sha256": "6a04468f868aafa1a7687e26b6423841676942a0c1ae13d40e4057331e4b75a1",
+      "measurement": {
+        "schema": 1,
+        "unicode": false,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.568,
+          "p95": 4.013000000000001,
+          "p99": 4.6770000000000005,
+          "max": 27.897000000000002
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.314,
+          "p95": 0.44,
+          "p99": 0.5780000000000001,
+          "max": 4.765
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 231.41,
+          "p95": 242.243,
+          "p99": 245.508,
+          "max": 444.804
+        }
+      }
+    },
+    {
+      "build": "before",
+      "sha256": "a8a71f8e97ad3cfb11c5a01dcc6190793c642e0a8b3e92df75de720b7c92bd79",
+      "measurement": {
+        "schema": 1,
+        "unicode": false,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.46,
+          "p95": 3.912,
+          "p99": 5.964,
+          "max": 21.625999999999998
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.325,
+          "p95": 0.453,
+          "p99": 0.67,
+          "max": 4.967
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 218.35299999999998,
+          "p95": 222.771,
+          "p99": 234.16299999999998,
+          "max": 444.222
+        }
+      }
+    },
+    {
+      "build": "refined",
+      "sha256": "d3bf25bb8a20da21facf1c4e9b8e2196df0006a9e0db57d866bde613525e1358",
+      "measurement": {
+        "schema": 1,
+        "unicode": false,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.847,
+          "p95": 12.519,
+          "p99": 16.116999999999997,
+          "max": 44.935
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.376,
+          "p95": 1.8860000000000001,
+          "p99": 2.903,
+          "max": 34.367
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 200.511,
+          "p95": 383.39599999999996,
+          "p99": 411.15200000000004,
+          "max": 621.5930000000001
+        }
+      }
+    },
+    {
+      "build": "before",
+      "sha256": "a8a71f8e97ad3cfb11c5a01dcc6190793c642e0a8b3e92df75de720b7c92bd79",
+      "measurement": {
+        "schema": 1,
+        "unicode": false,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.591,
+          "p95": 4.8,
+          "p99": 11.596,
+          "max": 35.342999999999996
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.345,
+          "p95": 0.5740000000000001,
+          "p99": 1.7469999999999999,
+          "max": 5.395
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 218.429,
+          "p95": 230.76,
+          "p99": 396.914,
+          "max": 548.65
+        }
+      }
+    },
+    {
+      "build": "refined",
+      "sha256": "d3bf25bb8a20da21facf1c4e9b8e2196df0006a9e0db57d866bde613525e1358",
+      "measurement": {
+        "schema": 1,
+        "unicode": true,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.766,
+          "p95": 4.725,
+          "p99": 6.633,
+          "max": 67.49000000000001
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.312,
+          "p95": 11.578,
+          "p99": 15.597999999999999,
+          "max": 41.776
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 276.971,
+          "p95": 288.75,
+          "p99": 303.175,
+          "max": 579.3919999999999
+        }
+      }
+    },
+    {
+      "build": "before",
+      "sha256": "a8a71f8e97ad3cfb11c5a01dcc6190793c642e0a8b3e92df75de720b7c92bd79",
+      "measurement": {
+        "schema": 1,
+        "unicode": true,
+        "rows": 10000,
+        "terminal_cells": [
+          120,
+          40
+        ],
+        "warmup_iterations": 100,
+        "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+        "event": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 3.625,
+          "p95": 4.789000000000001,
+          "p99": 7.447,
+          "max": 23.227
+        },
+        "poll": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 0.35,
+          "p95": 13.342,
+          "p99": 17.314999999999998,
+          "max": 51.226
+        },
+        "render": {
+          "n": 4000,
+          "unit": "microseconds",
+          "p50": 295.11899999999997,
+          "p95": 307.343,
+          "p99": 334.183,
+          "max": 651.7660000000001
+        }
+      }
+    }
+  ],
+  "refined_revision": "fd12d48f3a9eeedd3e0a00bffb977ca14f73ffcd"
+}
