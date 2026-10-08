@@ -5,3 +5,4 @@
 !.env.example
 *.swp
 __pycache__/
+/tests/vscode-reference/node_modules/

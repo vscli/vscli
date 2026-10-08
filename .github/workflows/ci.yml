@@ -44,6 +44,7 @@ jobs:
           fi
   test:
     name: Test (${{ matrix.os }})
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -64,6 +65,24 @@ jobs:
       - run: node --test extension-host/api-types.test.cjs extension-host/api.test.cjs extension-host/configuration.test.cjs extension-host/host.test.cjs
       - run: cargo test --locked
       - run: cargo build --locked
+      - run: node --test tests/vscode-reference/compare.test.cjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tests/vscode-reference
+      - name: Run pinned VS Code reference (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node tests/vscode-reference/run.cjs target/vscode-reference/result
+      - name: Run pinned VS Code reference (macOS and Windows)
+        if: runner.os != 'Linux'
+        run: node tests/vscode-reference/run.cjs target/vscode-reference/result
+      - name: Compare bindings and configuration contracts
+        run: node tests/vscode-reference/compare.cjs target/vscode-reference/result target/debug/vscli${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Preserve reference evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vscode-reference-${{ matrix.os }}
+          path: target/vscode-reference/result/
+          retention-days: 30
       - if: runner.os != 'Windows'
         run: python3 tests/pty_smoke.py target/debug/vscli
       - name: Check benchmark screen oracle (no timing threshold)
