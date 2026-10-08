@@ -22,11 +22,23 @@ The API reference target for this initial experiment is VS Code 1.95.0; the expo
 - Command registration/disposal/execution, contribution titles in the native palette, and single-message notifications without choices.
 - Active editor and selections as read-only mirrors; synchronous document text, lines, UTF-16 position/offset conversion, ranges, selections, URIs, and document lifecycle/change events.
 - `TextEditor.edit` replace/insert/delete on open native buffers. Rust validates identity, version, UTF-16 boundaries, overlapping ranges, and size before one native undoable transaction. Stale requests resolve `false`; malformed transactions reject without partial changes.
-- A single workspace folder and configuration reads from extension-declared defaults. User/workspace overrides for extension settings are not yet imported.
+- A single workspace folder and configuration reads from extension-declared defaults, imported user settings, and workspace `.vscode/settings.json`, including language overrides, `inspect`, and live change events.
 
-Document versions increase across edits and undo/redo observations. State generations prevent delayed responses from replacing newer mirrors. All mirrors are updated before document event callbacks run. Protocol v2 sends text only for new or changed document revisions; selection, dirty-state, and path updates reuse cached text. Ordered state notifications precede edit acknowledgements, and the native baseline advances only after a message is queued successfully. Changed text still uses full snapshots rather than edit deltas; the total mirrored text budget is 4 MiB, transport frames are limited to 16 MiB, and pending command requests are capped at 64 with a 30-second timeout. Crossing a host limit stops or rejects extension work while preserving native buffers.
+Document versions increase across edits and undo/redo observations. State generations reject outdated document notifications. All mirrors are updated before document event callbacks run. Protocol v3 sends document text only for new or changed document revisions; selection, dirty-state, and path updates reuse cached text. Ordered state notifications precede edit acknowledgements, and the native baseline advances only after a message is queued successfully. Changed text still uses full snapshots rather than edit deltas; the total mirrored text budget is 4 MiB, transport frames are limited to 16 MiB, and pending command requests are capped at 64 with a 30-second timeout. Crossing a host limit stops or rejects extension work while preserving native buffers.
 
-APIs outside this surface throw explicit errors. Browser-only packages, extension dependencies/proposed APIs, providers, webviews, notebooks, custom editors, workspace edits, settings writes, storage/secrets, automatic activation rules, multiple extension packages, extension menus, and built-in command delegation remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. There is no VSIX/registry installer yet.
+Unsupported service APIs throw explicit errors. Browser-only packages, extension dependencies/proposed APIs, providers, webviews, notebooks, custom editors, workspace edits, settings writes, storage/secrets, automatic activation rules, multiple extension packages, extension menus, and built-in command delegation remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. There is no VSIX/registry installer yet.
+
+## Extension settings
+
+Use the normal `--settings /path/to/user/settings.json` import and workspace `.vscode/settings.json`. Initial values are sent before extension activation; subsequent valid reloads update the host before firing `workspace.onDidChangeConfiguration`. The native loader checks files in the background every two seconds. Missing files become empty scopes, while malformed JSON retains the entire last valid configuration. Native input polling compares shared snapshot identities and only sends changed settings. Scope resolution is cached inside the optional host.
+
+`workspace.getConfiguration(section, scope)` supports `get`, `has`, `inspect`, and direct section properties. General objects merge recursively, arrays/scalars replace earlier values, and explicit `null` remains a value. Extension property types supply defaults when no explicit default is declared. Application/machine settings ignore workspace overrides for effective reads; `inspect` exposes raw scoped values. Extension-provided defaults do not replace the three built-in native setting definitions.
+
+Reads held across a reload remain snapshots; request a fresh configuration in a change callback. `inspect` reads current scope values. Returned `get`/`inspect` objects can be mutated without altering stored settings. A URI alone does not infer a language; pass a document or `{ uri, languageId }` to apply language overrides. Identical combined-language groups merge in their first-seen position across scopes, with single-language groups applied last. Unscoped `affectsConfiguration` can report a changed setting even when a workspace value hides its effect; scoped queries additionally compare effective values. Retained event objects keep their original before/after states.
+
+Behavior was checked against the pinned [extension configuration API](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/api/common/extHostConfiguration.ts), [configuration model](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/configuration/common/configurationModels.ts), and [schema registry](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/configuration/common/configurationRegistry.ts). These source checks and focused tests do not establish full configuration conformance. There is no reference-editor differential suite yet.
+
+Only the three supported native defaults and the enabled extension's `contributes.configuration` defaults are registered. The complete built-in defaults catalog, `configurationDefaults` contributions, folder/multi-root settings, remote/application/policy layers, profiles, trust/restricted-setting handling, and schema validation of arbitrary extension values remain incomplete. Configuration writes explicitly reject. Importing an unknown native setting makes it readable by extensions; it does not enable its native editor behavior.
 
 ## Named workflow evidence
 
@@ -36,10 +48,11 @@ APIs outside this surface throw explicit errors. Browser-only packages, extensio
 | Source | [Upstream commit eaf02bb](https://github.com/Tyriar/vscode-sort-lines/tree/eaf02bb141f1853d571b1e97574c6857e80a727c) |
 | Preparation | `npm ci --ignore-scripts --no-audit --no-fund`, then `npm run compile`; source remains unchanged |
 | Tested workflow | Select `zebra\napple\npear`, press its original **F9** shortcut (`sortLines.sortLines`), observe `apple\npear\nzebra`, undo to original |
+| Settings workflow | With no selection, workspace `sortLines.sortEntireFile: true` enables original F9 whole-file sorting; removing the override restores the user value `false`; adding it back enables sorting live |
 | Native data behavior | Edit stays unsaved; native undo/save remain authoritative |
 | Local environment | Linux x86_64, Node 26.10.0; no terminal needed for the direct integration test |
-| Automated gate | Real protocol servers CI builds this pinned source with Node 24 and runs the same workflow |
-| Package status | Experimental; the named sorting/undo workflow passes, other package workflows are unqualified |
+| Automated gate | Real protocol servers CI builds this pinned source with Node 24 and runs both workflows |
+| Package status | Experimental; the named sorting/undo and settings workflows pass, other package workflows are unqualified |
 
 Reproduce after building the pinned upstream package:
 
@@ -48,7 +61,7 @@ VSCLI_TEST_SORT_LINES=/absolute/path/to/vscode-sort-lines \
   cargo test --test extension_host -- --ignored
 ```
 
-Separate synthetic fixtures test Unicode edits, version changes through undo, stale rejection, atomic rejection of overlaps, explicit unsupported API failures, host crashes, and continued editing. The Unix PTY suite also exercises activation, palette/F9 dispatch, save, undo, and host stop through the actual executable. Node API tests cover callback lifetime and out-of-order mirror updates.
+Separate synthetic fixtures test Unicode edits, version changes through undo, stale rejection, atomic rejection of overlaps, explicit unsupported API failures, host crashes, and continued editing. The Unix PTY suite also exercises activation-time settings, live configuration events, palette/F9 dispatch, save, undo, and host stop through the actual executable. Node API tests cover callback lifetime and out-of-order mirror updates.
 
 The upstream-host extraction comparison, reference-editor differential tests, broader extension corpus, API capability reports, installation/rollback, and native adapters for richer contributions remain required work. A single successful command extension does not establish compatibility with language services, Git providers, debuggers, or graphical extensions.
 

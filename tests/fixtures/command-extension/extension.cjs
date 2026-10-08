@@ -1,6 +1,18 @@
 const vscode = require('vscode');
 exports.activate = context => {
   const register = (name, fn) => context.subscriptions.push(vscode.commands.registerCommand(name, fn));
+  const initialConfiguration = vscode.workspace.getConfiguration('fixture');
+  let configurationChanges = 0;
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+    if (event.affectsConfiguration('fixture.value')) {
+      configurationChanges++;
+      vscode.window.showInformationMessage(`configuration changed=${vscode.workspace.getConfiguration('fixture').get('value')}`);
+    }
+  }));
+  register('fixture.configuration', () => vscode.window.showInformationMessage(`config=${JSON.stringify({
+    activation: initialConfiguration.get('value'),
+    value: vscode.workspace.getConfiguration('fixture').get('value'), changes: configurationChanges,
+  })}`));
   register('fixture.sort', async () => {
     const editor = vscode.window.activeTextEditor;
     const text = editor.document.getText(editor.selection);

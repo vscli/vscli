@@ -1,11 +1,12 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
-use crate::{document::Document, lsp, transport::Process};
+use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -31,6 +32,7 @@ pub struct Client {
     process: Process,
     _runtime: tempfile::TempDir,
     mirror: MirrorState,
+    configuration: Arc<Vec<serde_json::Map<String, Value>>>,
     pending: HashMap<u64, Pending>,
     next_id: u64,
     pub keybindings: Option<Value>,
@@ -45,6 +47,7 @@ impl Client {
         root: &Path,
         documents: &[Document],
         active: usize,
+        settings: &Settings,
     ) -> Result<Self> {
         let extension =
             std::fs::canonicalize(extension).context("Cannot open extension directory")?;
@@ -55,6 +58,10 @@ impl Client {
                 include_str!("../extension-host/api-types.cjs"),
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
+            (
+                "configuration.cjs",
+                include_str!("../extension-host/configuration.cjs"),
+            ),
             ("host.cjs", include_str!("../extension-host/host.cjs")),
         ] {
             std::fs::write(runtime.path().join(name), source)?;
@@ -72,6 +79,7 @@ impl Client {
             process,
             _runtime: runtime,
             mirror: MirrorState::default(),
+            configuration: settings.extension_layers().clone(),
             pending: HashMap::new(),
             next_id: 0,
             keybindings: None,
@@ -82,7 +90,8 @@ impl Client {
         let (next, state) = client.mirror.next(documents, active)?;
         client.request(
             "initialize",
-            json!({"protocol":2, "extension": extension, "root": root, "state": state}),
+            json!({"protocol":3, "extension": extension, "root": root, "state": state,
+                "configuration": settings.extension_layers().as_ref()}),
         )?;
         client.mirror = next;
         Ok(client)
@@ -105,6 +114,15 @@ impl Client {
     }
     pub fn busy(&self) -> bool {
         !self.pending.is_empty()
+    }
+    pub fn sync_configuration(&mut self, settings: &Settings) -> Result<()> {
+        if !Arc::ptr_eq(&self.configuration, settings.extension_layers()) {
+            self.process.send(
+                json!({"method":"configuration", "params":settings.extension_layers().as_ref()}),
+            )?;
+            self.configuration = settings.extension_layers().clone();
+        }
+        Ok(())
     }
     pub fn execute(
         &mut self,
@@ -224,7 +242,7 @@ impl Client {
                     continue;
                 }
                 if pending.method == "initialize" {
-                    if message["result"]["protocol"] != 2 {
+                    if message["result"]["protocol"] != 3 {
                         bail!("Unsupported extension host protocol version");
                     }
                     self.keybindings = Some(message["result"]["keybindings"].clone());

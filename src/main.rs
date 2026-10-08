@@ -242,13 +242,14 @@ fn main() -> Result<()> {
             &app.workspace.root,
             &app.documents,
             app.active,
+            &app.settings,
         )?);
     }
     if let Some(error) = settings_error {
         app.message = format!("Settings failed to load; using defaults: {error:#}");
     } else if !app.settings.warnings.is_empty() {
         app.message = format!(
-            "{} unsupported or invalid settings · F1 → Settings: Compatibility Report",
+            "{} settings notices · F1 → Settings: Compatibility Report",
             app.settings.warnings.len()
         );
     }

@@ -47,7 +47,7 @@ async function dispatch(message) {
   try {
     switch (message.method) {
       case 'initialize': {
-        if (message.params.protocol !== 2) throw new Error('Unsupported native protocol version');
+        if (message.params.protocol !== 3) throw new Error('Unsupported native protocol version');
         if (initialized) throw new Error('Extension host already initialized');
         initialized = true;
         const folder = fs.realpathSync(message.params.extension);
@@ -60,7 +60,7 @@ async function dispatch(message) {
         const entry = require.resolve(path.resolve(folder, manifest.main));
         const relative = path.relative(folder, fs.realpathSync(entry));
         if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Extension main must be inside its directory');
-        runtime.configure(message.params.root, manifest.contributes?.configuration);
+        runtime.configure(message.params.root, manifest.contributes?.configuration, message.params.configuration);
         runtime.sync(message.params.state);
         const context = supported('ExtensionContext', {
           subscriptions, extensionPath: folder, extensionUri: Uri.file(folder),
@@ -69,12 +69,13 @@ async function dispatch(message) {
         });
         extension = require(entry);
         if (typeof extension.activate === 'function') await extension.activate(context);
-        result = { protocol: 2, id: `${manifest.publisher}.${manifest.name}`, version: manifest.version,
+        result = { protocol: 3, id: `${manifest.publisher}.${manifest.name}`, version: manifest.version,
           keybindings: manifest.contributes?.keybindings || [],
           commands: await runtime.api.commands.getCommands(), contributions: manifest.contributes?.commands || [] };
         break;
       }
       case 'state': runtime.sync(message.params); break;
+      case 'configuration': runtime.updateConfiguration(message.params); break;
       case 'execute': result = await runtime.api.commands.executeCommand(message.params.command, ...message.params.args); break;
       case 'shutdown':
         if (extension?.deactivate) await extension.deactivate();

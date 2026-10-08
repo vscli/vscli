@@ -186,7 +186,7 @@ On Linux, system clipboard integration uses `wl-copy`/`wl-paste` or `xclip` if a
 
 Files must be UTF-8, without NUL bytes, and at most 32 MiB when opened. Existing LF/CRLF bytes are preserved; newly inserted lines use the detected newline style. Very long lines, large replacements, recovery writes, and file saves can still pause this alpha; the design document's latency budgets have not been established. Full bidirectional layout and terminal-independent emoji-width agreement are not implemented.
 
-Not yet implemented: extension installation/execution, rich webviews, notebooks, full settings migration, or a remote agent. Running the executable inside an SSH session is supported in principle; the actual terminal/multiplexer combination must be tested.
+Not yet implemented: extension installation, broad extension API compatibility, rich webviews, notebooks, full settings migration, or a remote agent. An optional experimental command extension host is available as described below. Running the executable inside an SSH session is supported in principle; the actual terminal/multiplexer combination must be tested.
 
 Grammar highlighting uses a single background worker, document/revision checks, cancellation, and a 2 MiB source cap. Other languages and larger files retain lightweight lexical colors. Embedded-language injection, semantic tokens, incremental parse-tree reuse, grammar folding, and theme imports remain incomplete. Highlight work exceeding the initial time/span budget is canceled and reported; editing remains available.
 
@@ -234,6 +234,6 @@ For a manual smoke test, open a disposable file, type text, save it, select/repl
 
 ## Experimental extension commands
 
-`vscli --extension /absolute/path/to/unpacked-extension .` starts the extension's Node `main` entry in an optional process. This explicitly executes trusted extension code with your user permissions. Use `--extension-node /path/to/node` to select the runtime. Normal native editing does not require Node.
+`vscli --extension /absolute/path/to/unpacked-extension .` starts the extension's Node `main` entry in an optional process. This explicitly executes trusted extension code with your user permissions. Use `--extension-node /path/to/node` to select the runtime. Normal native editing does not require Node. Extensions receive imported user/workspace settings before activation and valid live updates through `workspace.onDidChangeConfiguration`; held configuration objects remain snapshots.
 
 Registered commands appear in F1 with an `Extension:` prefix. Manifest keybindings retain their original combinations and platform overrides beneath user overrides/removals; unsupported context expressions are reported. Commands can also be assigned in user keybindings by their original IDs. Edits are version checked and undoable, and do not save files automatically. F1 → Extensions: Stop Host terminates the process while retaining native buffers. The initial host has substantial API and contribution limitations; read the [extension evidence and scope](EXTENSIONS.md) before using an extension.

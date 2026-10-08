@@ -7,7 +7,10 @@ impl App {
         let before: Vec<_> = self.documents.iter().map(|d| d.revision).collect();
         let commands = host.commands.clone();
         let busy = host.busy();
-        match host.poll(&mut self.documents, self.active) {
+        match host
+            .sync_configuration(&self.settings)
+            .and_then(|()| host.poll(&mut self.documents, self.active))
+        {
             Ok(messages) => {
                 let changed = !messages.is_empty()
                     || busy != host.busy()
@@ -46,7 +49,10 @@ impl App {
     }
     pub(super) fn execute_extension(&mut self, command: &str, args: Option<Value>) {
         if let Some(host) = &mut self.extension_host {
-            match host.execute(command, args, &self.documents, self.active) {
+            match host
+                .sync_configuration(&self.settings)
+                .and_then(|()| host.execute(command, args, &self.documents, self.active))
+            {
                 Ok(()) => self.message = format!("Running extension command: {command}"),
                 Err(error) => self.message = format!("Extension command failed: {error:#}"),
             }

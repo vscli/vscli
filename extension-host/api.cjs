@@ -1,5 +1,6 @@
 'use strict';
 const types = require('./api-types.cjs');
+const { createConfiguration } = require('./configuration.cjs');
 const { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument } = types;
 
 function supported(name, values) {
@@ -13,7 +14,8 @@ function createApi(request, notify) {
   const documents = new Map(), editors = new Map(), commands = new Map();
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter();
-  let active, workspaceFolder, defaults = {}, generation = -1;
+  const configuration = createConfiguration();
+  let active, workspaceFolder, generation = -1;
   function sync(state) {
     // A newer notification can arrive before an edit promise callback runs.
     if (state.generation <= generation) return;
@@ -103,15 +105,8 @@ function createApi(request, notify) {
       onDidChangeTextDocument: changed.event,
       onDidOpenTextDocument: opened.event,
       onDidCloseTextDocument: closed.event,
-      getConfiguration(section = '') {
-        return supported('WorkspaceConfiguration', {
-          get(key, fallback) {
-            key = section ? `${section}.${key}` : key;
-            return Object.hasOwn(defaults, key) ? structuredClone(defaults[key]) : fallback;
-          },
-          has(key) { return Object.hasOwn(defaults, section ? `${section}.${key}` : key); },
-        });
-      },
+      getConfiguration: configuration.get,
+      onDidChangeConfiguration: configuration.onDidChange,
     }),
     commands: supported('commands', {
       registerCommand(id, callback, thisArg) {
@@ -135,15 +130,10 @@ function createApi(request, notify) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync,
-    configure(root, configuration) {
+    api, sync, updateConfiguration: configuration.update,
+    configure(root, schema, layers) {
       workspaceFolder = { uri: Uri.file(root), name: require('node:path').basename(root), index: 0 };
-      defaults = {};
-      for (const group of Array.isArray(configuration) ? configuration : [configuration]) {
-        for (const [key, value] of Object.entries(group?.properties || {})) {
-          if (Object.hasOwn(value, 'default')) defaults[key] = value.default;
-        }
-      }
+      configuration.initialize(schema, layers);
     },
   };
 }

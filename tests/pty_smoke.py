@@ -537,8 +537,20 @@ def run():
         extension = Path(__file__).resolve().parent / "fixtures" / "command-extension"
         extension_file = root / "extension.txt"
         extension_file.write_text("zebra\napple\npear")
+        extension_settings = root / ".vscode/settings.json"
+        extension_settings.write_text('{"fixture.value":"initial"}')
         app = Editor(root, "--extension", extension, extension_file)
         eventually(lambda: app.read() and "Extension ready" in app.screen.text())
+        app.send(b"\x1bOP")
+        app.send("fixture.configuration")
+        app.send(b"\r")
+        eventually(lambda: app.read() and '"activation":"initial","value":"initial","changes":0' in app.screen.text())
+        extension_settings.write_text('{"fixture.value":"reloaded"}')
+        eventually(lambda: app.read() and "configuration changed=reloaded" in app.screen.text())
+        app.send(b"\x1bOP")
+        app.send("fixture.configuration")
+        app.send(b"\r")
+        eventually(lambda: app.read() and '"activation":"initial","value":"reloaded","changes":1' in app.screen.text())
         app.send(CTRL_A)
         app.send(b"\x1bOP")  # F1 command palette.
         app.send("Fixture Sort Lines")
@@ -559,7 +571,7 @@ def run():
         app.send(b"\r")
         eventually(lambda: app.read() and "Extension host stopped" in app.screen.text())
         app.finish()
-        print("PASS: optional extension activation, palette/F9 commands, native edit/save/undo and host stop")
+        print("PASS: extension activation/settings reload, palette/F9 commands, native edit/save/undo and host stop")
 
         bindings = root / "keybindings.json"
         bindings.write_text(json.dumps([{"key": "ctrl+k ctrl+b", "command": "type", "args": {"text": "custom"}, "when": "editorTextFocus"}]))
