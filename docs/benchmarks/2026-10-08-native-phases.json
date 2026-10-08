@@ -1,0 +1,163 @@
+{
+  "schema": 1,
+  "native_before_revision": "4a91242",
+  "native_after_revision": "ea690cb",
+  "harness_revision": "ba31679",
+  "platform": "Linux-7.2.8-arch1-2-x86_64-with-glibc2.44",
+  "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900H",
+  "build_command": "cargo rustc --release --locked --example profile_editor -- -C debuginfo=1 -C strip=none",
+  "iterations": 4000,
+  "perf_sampling_enabled": false,
+  "binaries": {
+    "before": {
+      "sha256": "cdbf47075048cfe59f863fe10acc87b95aa481048ae3815cdf07ef740d2e07af"
+    },
+    "after": {
+      "sha256": "df24e6c55de77c5a5fe080adfec16c021cc8b4c4311563bbf5db9e9db9fbc5b5"
+    }
+  },
+  "ascii": {
+    "before": {
+      "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+      "event": {
+        "max": 160.055,
+        "n": 4000,
+        "p50": 25.494,
+        "p95": 30.598000000000003,
+        "p99": 56.291,
+        "unit": "microseconds"
+      },
+      "poll": {
+        "max": 150.649,
+        "n": 4000,
+        "p50": 0.512,
+        "p95": 14.224,
+        "p99": 16.81,
+        "unit": "microseconds"
+      },
+      "render": {
+        "max": 980.2019999999999,
+        "n": 4000,
+        "p50": 395.953,
+        "p95": 418.71999999999997,
+        "p99": 744.056,
+        "unit": "microseconds"
+      },
+      "rows": 10000,
+      "schema": 1,
+      "terminal_cells": [
+        120,
+        40
+      ],
+      "unicode": false,
+      "warmup_iterations": 100
+    },
+    "after": {
+      "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+      "event": {
+        "max": 10.815999999999999,
+        "n": 4000,
+        "p50": 3.5789999999999997,
+        "p95": 3.9029999999999996,
+        "p99": 4.821,
+        "unit": "microseconds"
+      },
+      "poll": {
+        "max": 3.343,
+        "n": 4000,
+        "p50": 0.313,
+        "p95": 0.38,
+        "p99": 0.523,
+        "unit": "microseconds"
+      },
+      "render": {
+        "max": 279.881,
+        "n": 4000,
+        "p50": 219.869,
+        "p95": 224.189,
+        "p99": 228.903,
+        "unit": "microseconds"
+      },
+      "rows": 10000,
+      "schema": 1,
+      "terminal_cells": [
+        120,
+        40
+      ],
+      "unicode": false,
+      "warmup_iterations": 100
+    }
+  },
+  "unicode": {
+    "before": {
+      "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+      "event": {
+        "max": 148.59199999999998,
+        "n": 4000,
+        "p50": 25.534,
+        "p95": 27.923000000000002,
+        "p99": 37.651,
+        "unit": "microseconds"
+      },
+      "poll": {
+        "max": 206.73999999999998,
+        "n": 4000,
+        "p50": 0.35600000000000004,
+        "p95": 12.3,
+        "p99": 15.103,
+        "unit": "microseconds"
+      },
+      "render": {
+        "max": 923.451,
+        "n": 4000,
+        "p50": 370.766,
+        "p95": 380.44,
+        "p99": 423.693,
+        "unit": "microseconds"
+      },
+      "rows": 10000,
+      "schema": 1,
+      "terminal_cells": [
+        120,
+        40
+      ],
+      "unicode": true,
+      "warmup_iterations": 100
+    },
+    "after": {
+      "boundary": "native App event, poll, and Ratatui TestBackend draw; no PTY or display",
+      "event": {
+        "max": 26.578,
+        "n": 4000,
+        "p50": 3.574,
+        "p95": 3.9829999999999997,
+        "p99": 5.9479999999999995,
+        "unit": "microseconds"
+      },
+      "poll": {
+        "max": 186.904,
+        "n": 4000,
+        "p50": 0.345,
+        "p95": 9.532,
+        "p99": 13.317,
+        "unit": "microseconds"
+      },
+      "render": {
+        "max": 626.313,
+        "n": 4000,
+        "p50": 295.416,
+        "p95": 304.113,
+        "p99": 313.84000000000003,
+        "unit": "microseconds"
+      },
+      "rows": 10000,
+      "schema": 1,
+      "terminal_cells": [
+        120,
+        40
+      ],
+      "unicode": true,
+      "warmup_iterations": 100
+    }
+  }
+}

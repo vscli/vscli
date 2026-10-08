@@ -67,3 +67,28 @@ The separate [extension mirror measurement](EXTENSIONS.md#mirror-performance-mea
 `cargo run --release --example profile_editor -- --iterations 4000` reports native input handling, background polling, and Ratatui rendering to an in-memory `TestBackend`. Add `--unicode` for combining marks, wide characters, emoji sequences, and tabs. Each sample inserts one character; undo restores the same document and viewport before the next sample. The first 100 iterations warm up and are excluded. The example verifies that all edits are undone at exit.
 
 These phase timings exclude the PTY, OS event decoding, terminal output, and physical display. They help locate costs inside VSCLI and must not replace the executable benchmark. For Linux CPU sampling with symbols, build using `cargo rustc --release --locked --example profile_editor -- -C debuginfo=1 -C strip=none`, then run `perf record -g --call-graph dwarf -- target/release/examples/profile_editor --iterations 4000`. Collect ordinary timings separately from `perf` to avoid treating sampling overhead as the baseline.
+
+## Native input/render optimization: 2026-10-08
+
+CPU sampling identified repeated grapheme segmentation, per-grapheme owned strings, and cell writing as substantial renderer costs. Key resolution also parsed contexts before checking whether a key could match. Commits `d49ca8b` and `ea690cb` filter unrelated keybindings before evaluating contexts, avoid owned strings for glyphs, and use direct cell writes for printable ASCII and tabs. Unicode glyphs retain Ratatui's width and cell-reset behavior; control-containing lines retain Unicode segmentation. Plain text no longer allocates a redundant color vector per line.
+
+The resolver is compared against the previous algorithm over shipped platform bindings, chords, overrides, and context combinations. Renderer comparisons cover ASCII, tabs, combining marks, wide characters, emoji sequences, control characters, and styled cells. These preserve tested existing behavior; they do not establish full VS Code parity.
+
+[Native phase observations](benchmarks/2026-10-08-native-phases.json), 4,000 samples per workload, with ordinary timing runs separate from CPU sampling:
+
+| Text | Phase | Before median µs | After median µs |
+| --- | --- | ---: | ---: |
+| ascii | event | 25.49 | 3.58 |
+| ascii | render | 395.95 | 219.87 |
+| unicode | event | 25.53 | 3.57 |
+| unicode | render | 370.77 | 295.42 |
+
+[Interleaved executable observations](benchmarks/2026-10-08-render-change.json) compare the saved baseline binary with the optimized binary on the same machine. Each row has ten launches and 400 serial key samples per binary, with zero failed trials. No builds or tests ran during measurement. Names `vscli_comparison` and `vscli` in the raw report identify the baseline and optimized builds respectively; executable hashes are recorded.
+
+| File size | Before key median ms | After key median ms | Before key p95 ms | After key p95 ms |
+| --- | ---: | ---: | ---: | ---: |
+| 10 KiB | 0.936 | 0.669 | 1.198 | 0.963 |
+| 1 MiB | 0.914 | 0.783 | 1.313 | 1.072 |
+| 10 MiB | 0.952 | 0.759 | 1.275 | 1.021 |
+
+The 10 MiB workload's observed p95 decreased by about 20%. This is a same-machine improvement under the documented PTY boundary, not a new cross-editor ranking or a physical display measurement. It does not resolve the 32 MiB file limit, full IDE contention, or broader performance qualification gaps.
