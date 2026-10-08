@@ -1,7 +1,21 @@
 use super::*;
 impl App {
     pub fn sync_pane(&mut self) {
-        let document = self.doc().id;
+        let Some(document) = self.active_document().map(|doc| doc.id) else {
+            self.panes.clear();
+            self.pane_areas.clear();
+            self.active_pane = 0;
+            self.editor_area = Rect::default();
+            return;
+        };
+        if self.panes.is_empty() {
+            self.panes.push(Pane {
+                id: self.next_pane_id,
+                document,
+            });
+            self.next_pane_id += 1;
+            self.active_pane = 0;
+        }
         self.panes[self.active_pane].document = document;
         for pane in &mut self.panes {
             if !self.documents.iter().any(|doc| doc.id == pane.document) {
@@ -27,6 +41,9 @@ impl App {
         self.focus = Focus::Editor;
     }
     pub(super) fn split_editor(&mut self, horizontal: bool) {
+        if self.active_document().is_none() {
+            return;
+        }
         if self.panes.len() >= 4 {
             self.message = "Editor group limit reached (4)".into();
             return;
@@ -45,6 +62,9 @@ impl App {
         self.focus_pane(self.active_pane + 1);
     }
     pub(super) fn close_pane(&mut self) {
+        if self.panes.is_empty() {
+            return;
+        }
         if self.panes.len() == 1 {
             self.request_close(AfterSave::Close);
             return;
@@ -72,6 +92,10 @@ mod tests {
     fn panes_share_edits_and_close_without_losing_the_buffer() {
         let dir = tempfile::tempdir().unwrap();
         let mut app = App::new(dir.path().into(), Profile::Linux);
+        app.execute(
+            "workbench.action.files.newUntitledFile",
+            serde_json::Value::Null,
+        );
         app.doc_mut().insert("abc\nxyz", false);
         app.doc_mut().move_to(1, false);
         app.execute("workbench.action.splitEditor", Value::Null);

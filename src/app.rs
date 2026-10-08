@@ -328,19 +328,13 @@ pub struct App {
 impl App {
     pub fn new(root: PathBuf, profile: Profile) -> Self {
         let entries = directory_entries(&root);
-        let mut document = Document::default();
-        document.activate_view(1);
-        let id = document.id;
         Self {
-            panes: vec![Pane {
-                id: 1,
-                document: id,
-            }],
+            panes: Vec::new(),
             active_pane: 0,
             pane_areas: Vec::new(),
             horizontal_split: false,
             next_pane_id: 2,
-            documents: vec![document],
+            documents: Vec::new(),
             active: 0,
             workspace: Workspace::new(root.clone()),
             watch: crate::watch::State::new(root.clone()),
@@ -444,6 +438,9 @@ impl App {
         }
         changed
     }
+    pub fn active_document(&self) -> Option<&Document> {
+        self.documents.get(self.active)
+    }
     pub fn doc(&self) -> &Document {
         &self.documents[self.active]
     }
@@ -495,7 +492,9 @@ impl App {
         Ok(())
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
-        self.doc_mut().break_group();
+        if let Some(doc) = self.documents.get_mut(self.active) {
+            doc.break_group();
+        }
         self.chord = None;
         self.prompt = Some(Prompt::new(kind, text));
     }
@@ -522,25 +521,50 @@ impl App {
         HashMap::from([
             (
                 "editorTextFocus".into(),
-                json!(self.focus == Focus::Editor && self.prompt.is_none() && self.modal.is_none()),
+                json!(
+                    self.active_document().is_some()
+                        && self.focus == Focus::Editor
+                        && self.prompt.is_none()
+                        && self.modal.is_none()
+                ),
             ),
             (
                 "textInputFocus".into(),
-                json!(self.focus == Focus::Editor && self.prompt.is_none() && self.modal.is_none()),
+                json!(
+                    self.active_document().is_some()
+                        && self.focus == Focus::Editor
+                        && self.prompt.is_none()
+                        && self.modal.is_none()
+                ),
             ),
-            ("inSnippetMode".into(), json!(self.doc().in_snippet())),
+            (
+                "inSnippetMode".into(),
+                json!(self.active_document().is_some_and(Document::in_snippet)),
+            ),
             (
                 "hasNextTabstop".into(),
-                json!(self.doc().has_snippet_step(false)),
+                json!(
+                    self.active_document()
+                        .is_some_and(|d| d.has_snippet_step(false))
+                ),
             ),
             (
                 "hasPrevTabstop".into(),
-                json!(self.doc().has_snippet_step(true)),
+                json!(
+                    self.active_document()
+                        .is_some_and(|d| d.has_snippet_step(true))
+                ),
             ),
-            ("editorFocus".into(), json!(self.focus == Focus::Editor)),
+            (
+                "editorFocus".into(),
+                json!(self.active_document().is_some() && self.focus == Focus::Editor),
+            ),
             (
                 "editorHasSelection".into(),
-                json!(self.doc().selection().is_some()),
+                json!(
+                    self.active_document()
+                        .is_some_and(|d| d.selection().is_some())
+                ),
             ),
             ("inputFocus".into(), json!(self.prompt.is_some())),
             ("terminalFocus".into(), json!(self.focus == Focus::Terminal)),
@@ -561,9 +585,8 @@ impl App {
         ])
     }
     pub fn language(&self) -> &str {
-        self.doc()
-            .path
-            .as_deref()
+        self.active_document()
+            .and_then(|d| d.path.as_deref())
             .map_or("plaintext", crate::lsp::language)
     }
 
@@ -583,7 +606,10 @@ impl App {
                     {
                         self.message = e.to_string();
                     }
-                } else if self.modal.is_none() && self.focus == Focus::Editor {
+                } else if self.modal.is_none()
+                    && self.focus == Focus::Editor
+                    && self.active_document().is_some()
+                {
                     let normalized = text
                         .replace("\r\n", "\n")
                         .replace('\r', "\n")
@@ -615,7 +641,7 @@ impl App {
                     self.focus_pane(index);
                     self.editor_area = self.pane_areas[index];
                 }
-                if self.editor_area.contains(p) {
+                if self.active_document().is_some() && self.editor_area.contains(p) {
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left)
                         | MouseEventKind::Drag(MouseButton::Left) => {
@@ -730,6 +756,7 @@ impl App {
             return;
         }
         if let KeyCode::Char(c) = key.code
+            && self.active_document().is_some()
             && !key.modifiers.intersects(
                 KeyModifiers::CONTROL
                     | KeyModifiers::ALT
@@ -757,14 +784,19 @@ impl App {
         if command.is_empty() {
             return;
         }
+        if self.active_document().is_none() && Self::requires_editor(command) {
+            self.message = "Open a file or create a new file first".into();
+            return;
+        }
         if !matches!(
             command,
             "type"
                 | "jumpToNextSnippetPlaceholder"
                 | "jumpToPrevSnippetPlaceholder"
                 | "leaveSnippet"
-        ) {
-            self.doc_mut().break_group();
+        ) && let Some(doc) = self.documents.get_mut(self.active)
+        {
+            doc.break_group();
         }
         if command == "cursorUndo" {
             self.doc_mut().undo_cursor();
@@ -839,7 +871,7 @@ impl App {
             "workbench.action.focusThirdEditorGroup" => self.focus_pane(2),
             "workbench.action.focusFourthEditorGroup" => self.focus_pane(3),
             "workbench.action.focusNextGroup" => {
-                self.focus_pane((self.active_pane + 1) % self.panes.len())
+                if !self.panes.is_empty() { self.focus_pane((self.active_pane + 1) % self.panes.len()); }
             }
             "workbench.action.closeEditorsInGroup" => self.close_pane(),
             "workbench.view.scm" | "git.refresh" => {
@@ -1076,7 +1108,7 @@ impl App {
             "editor.action.clipboardPasteAction" => self.paste(),
             "workbench.action.findInFiles" => self.start_prompt(
                 PromptKind::WorkspaceSearch,
-                self.doc().selected_text().unwrap_or_else(|| {
+                self.active_document().and_then(Document::selected_text).unwrap_or_else(|| {
                     self.search
                         .as_ref()
                         .map_or(String::new(), |s| s.query.clone())
@@ -1104,6 +1136,36 @@ impl App {
             },
             _ => self.execute_extension(command, command_args),
         }
+    }
+    fn requires_editor(command: &str) -> bool {
+        command.starts_with("editor.")
+            || command.starts_with("cursor")
+            || matches!(
+                command,
+                "undo"
+                    | "redo"
+                    | "type"
+                    | "deleteLeft"
+                    | "deleteRight"
+                    | "deleteWordLeft"
+                    | "deleteWordRight"
+                    | "lineBreakInsert"
+                    | "tab"
+                    | "outdent"
+                    | "cancelSelection"
+                    | "expandLineSelection"
+                    | "jumpToNextSnippetPlaceholder"
+                    | "jumpToPrevSnippetPlaceholder"
+                    | "leaveSnippet"
+                    | "actions.find"
+                    | "workbench.action.gotoLine"
+                    | "workbench.action.files.save"
+                    | "workbench.action.files.saveAs"
+                    | "workbench.action.files.revert"
+                    | "workbench.action.closeActiveEditor"
+                    | "workbench.action.nextEditor"
+                    | "workbench.action.previousEditor"
+            )
     }
     fn add_comments(&mut self) {
         // Force adding only where absent; toggle alone would remove existing comments.
@@ -1170,9 +1232,7 @@ impl App {
     fn remove_active(&mut self) {
         self.documents.remove(self.active);
         self.active = self.active.min(self.documents.len().saturating_sub(1));
-        if self.documents.is_empty() {
-            self.documents.push(Document::default());
-        }
+        self.sync_pane();
     }
     fn complete_close(&mut self, action: AfterSave) {
         match action {
@@ -1188,7 +1248,8 @@ impl App {
                 if self.documents.iter().any(Document::dirty) {
                     self.request_close(AfterSave::CloseAll);
                 } else {
-                    self.documents = vec![Document::default()];
+                    self.documents.clear();
+                    self.sync_pane();
                     self.active = 0;
                 }
             }
@@ -1876,6 +1937,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("test.txt");
         let mut a = App::new(dir.path().into(), Profile::Linux);
+        a.execute("workbench.action.files.newUntitledFile", Value::Null);
         a.open(&p).unwrap();
         for c in "hello".chars() {
             key(&mut a, KeyCode::Char(c), KeyModifiers::NONE);
@@ -1892,10 +1954,77 @@ mod tests {
         assert!(!a.doc().dirty());
     }
     #[test]
+    fn empty_workbench_stays_empty_until_an_editor_is_opened() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = App::new(dir.path().into(), Profile::Linux);
+        assert!(app.documents.is_empty());
+        assert!(app.panes.is_empty());
+        assert_eq!(app.context()["editorTextFocus"], json!(false));
+        app.poll();
+        app.event(Event::Resize(80, 24));
+        app.event(Event::Paste("ignored".into()));
+        key(&mut app, KeyCode::Char('x'), KeyModifiers::NONE);
+        for command in COMMANDS
+            .iter()
+            .map(|(_, command)| *command)
+            .filter(|command| App::requires_editor(command))
+        {
+            app.execute(command, Value::Null);
+            assert!(app.documents.is_empty(), "{command}");
+            assert!(app.prompt.is_none(), "{command}");
+        }
+        for command in [
+            "workbench.action.splitEditor",
+            "workbench.action.closeEditorsInGroup",
+            "workbench.action.focusNextGroup",
+            "workbench.action.focusFirstEditorGroup",
+            "workbench.action.closeAllEditors",
+        ] {
+            app.execute(command, Value::Null);
+            assert!(app.documents.is_empty(), "{command}");
+        }
+        app.execute("workbench.action.showCommands", Value::Null);
+        assert!(matches!(
+            app.prompt.as_ref().map(|p| &p.kind),
+            Some(PromptKind::Palette)
+        ));
+        key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
+        app.execute("workbench.action.findInFiles", Value::Null);
+        assert!(matches!(
+            app.prompt.as_ref().map(|p| &p.kind),
+            Some(PromptKind::WorkspaceSearch)
+        ));
+        key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(app.documents.is_empty());
+        key(&mut app, KeyCode::Char('n'), KeyModifiers::CONTROL);
+        assert_eq!(app.documents.len(), 1);
+        assert_eq!(app.panes.len(), 1);
+        assert_eq!(app.context()["editorTextFocus"], json!(true));
+        app.execute("workbench.action.closeActiveEditor", Value::Null);
+        assert!(app.documents.is_empty());
+        assert!(app.panes.is_empty());
+        let path = dir.path().join("file.txt");
+        std::fs::write(&path, "saved").unwrap();
+        app.open(&path).unwrap();
+        app.doc_mut().insert("unsaved", false);
+        app.execute("workbench.action.closeActiveEditor", Value::Null);
+        assert!(matches!(app.modal, Some(Modal::Confirm(_))));
+        key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(app.doc().dirty());
+        app.execute("workbench.action.files.save", Value::Null);
+        app.execute("workbench.action.closeActiveEditor", Value::Null);
+        assert!(app.documents.is_empty());
+        assert_eq!(std::fs::read_to_string(path).unwrap(), "unsavedsaved");
+        app.execute("workbench.action.quit", Value::Null);
+        assert!(!app.running);
+    }
+
+    #[test]
     fn multicursor_commands_use_platform_shortcuts() {
         for profile in [Profile::Linux, Profile::Windows, Profile::Macos] {
             let dir = tempfile::tempdir().unwrap();
             let mut app = App::new(dir.path().into(), profile);
+            app.execute("workbench.action.files.newUntitledFile", Value::Null);
             app.documents[0] = Document::from_text("cat cat\ncat");
             let primary = if profile == Profile::Macos {
                 KeyModifiers::SUPER
@@ -1923,6 +2052,7 @@ mod tests {
     fn palette_and_chord_dispatch() {
         let dir = tempfile::tempdir().unwrap();
         let mut a = App::new(dir.path().into(), Profile::Linux);
+        a.execute("workbench.action.files.newUntitledFile", Value::Null);
         key(
             &mut a,
             KeyCode::Char('p'),

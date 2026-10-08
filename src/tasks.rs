@@ -17,7 +17,7 @@ pub struct PreparedTask {
 pub struct Variables<'a> {
     pub root: &'a Path,
     pub file: Option<&'a Path>,
-    pub line: usize,
+    pub line: Option<usize>,
     pub selected: &'a str,
 }
 pub fn load(root: &Path) -> Result<Vec<Task>> {
@@ -111,8 +111,16 @@ fn expand(text: &str, variables: &Variables<'_>) -> Result<String> {
             "fileExtname" => file()?
                 .extension()
                 .map_or(String::new(), |s| format!(".{}", s.to_string_lossy())),
-            "lineNumber" => variables.line.to_string(),
-            "selectedText" => variables.selected.to_owned(),
+            "lineNumber" => variables
+                .line
+                .context("Task variable lineNumber requires an open editor")?
+                .to_string(),
+            "selectedText" => {
+                variables
+                    .line
+                    .context("Task variable selectedText requires an open editor")?;
+                variables.selected.to_owned()
+            }
             "pathSeparator" | "/" => std::path::MAIN_SEPARATOR.to_string(),
             _ if key.starts_with("env:") => std::env::var(&key[4..]).with_context(|| {
                 format!("Task environment variable is unavailable: {}", &key[4..])
@@ -266,7 +274,7 @@ mod tests {
         let vars = Variables {
             root: dir.path(),
             file: Some(&file),
-            line: 4,
+            line: Some(4),
             selected: "selection",
         };
         let task = Task {
@@ -298,6 +306,25 @@ mod tests {
         );
         assert!(expand("${command:arbitrary}", &vars).is_err());
     }
+    #[test]
+    fn workspace_tasks_work_without_an_editor_but_editor_variables_require_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let vars = Variables {
+            root: dir.path(),
+            file: None,
+            line: None,
+            selected: "",
+        };
+        let task = Task {
+            label: "workspace".into(),
+            definition: serde_json::json!({"type":"process", "command":"echo", "args":["${workspaceFolder}"]}),
+        };
+        assert!(prepare(&task, &vars).is_ok());
+        for variable in ["${file}", "${lineNumber}", "${selectedText}"] {
+            assert!(expand(variable, &vars).is_err(), "{variable}");
+        }
+    }
+
     #[test]
     fn jsonc_platform_override_and_default_build_selection() {
         let dir = tempfile::tempdir().unwrap();

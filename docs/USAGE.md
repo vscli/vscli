@@ -20,7 +20,7 @@ cargo install --path . --locked
 vscli .
 ```
 
-An existing directory argument selects the workspace. A nonexistent file argument creates a buffer for that path, provided its parent directory exists. Creating a buffer does not write the file until Save. Without arguments the editor opens an untitled buffer in the current directory.
+An existing directory argument selects the workspace. A nonexistent file argument creates a buffer for that path, provided its parent directory exists. Creating a buffer does not write the file until Save. Without file arguments the editor opens the workspace with no document or untitled buffer. The native welcome screen shows the VSCLI logo and shortcuts for New File, Open File, Quick Open and the command palette. Closing the last editor returns to this screen. Ctrl+N (Cmd+N on macOS) explicitly creates an untitled buffer; typing or pasting into the empty welcome screen does not create one. Unsaved recovery buffers still reopen when present. Explorer, workspace search, Git, tasks and the terminal remain available without an open file.
 
 Useful options:
 

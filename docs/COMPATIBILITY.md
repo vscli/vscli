@@ -197,3 +197,7 @@ Build a fixed initial corpus of approximately 20 legally usable packages across 
 Run synthetic extension fixtures against both the pinned reference editor and VSCLI, comparing document versions, selections, event traces, command effects, and errors. Use real extension workflows as a separate layer. Static inspection of manifests and API references is useful for triage but misses dynamic behavior and bundled dependencies.
 
 On each release, publish a generated API report and the named workflow results. Upgrade the reference baseline on a deliberate cadence, such as quarterly at first, and keep a working stable baseline while the new one is evaluated. Unsupported APIs should fail clearly rather than return plausible empty values that make an extension appear functional.
+
+## Empty workbench
+
+Starting without file arguments and closing the last editor leave a true zero-document workbench. The native welcome view displays a terminal logo and keyboard actions; it does not own a hidden untitled buffer. File-specific commands require an open editor, while workspace commands and the optional extension host remain available. Dirty close confirmation and crash-recovered documents take precedence over the empty welcome view. Unit tests cover command guards, context keys, resize/rendering and save/close integrity; Unix PTY coverage exercises startup, explicit creation, dirty close, last-tab close and restarting with empty recovery state. This is a terminal welcome view, not VS Code's browser-backed walkthrough or start-page extension API.

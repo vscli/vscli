@@ -66,7 +66,8 @@ impl App {
             Err(TryRecvError::Disconnected) => None,
         };
         let pending = self.snippet_pending.take().unwrap();
-        if self.doc().id != pending.document
+        if self.active_document().is_none()
+            || self.doc().id != pending.document
             || self.doc().revision != pending.revision
             || self.panes[self.active_pane].id != pending.pane
             || self.doc().selections() != pending.selections
@@ -136,6 +137,10 @@ mod tests {
             let directory = tempfile::tempdir().unwrap();
             let mut app = App::new(directory.path().into(), profile);
             app.execute(
+                "workbench.action.files.newUntitledFile",
+                serde_json::Value::Null,
+            );
+            app.execute(
                 "editor.action.insertSnippet",
                 json!({"snippet":"${1:cat}-$1-${2:dog}$0"}),
             );
@@ -189,10 +194,36 @@ mod tests {
     }
 
     #[test]
+    fn clipboard_reply_after_last_editor_closed_does_not_recreate_a_buffer() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut app = App::new(directory.path().into(), Profile::Linux);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        let (sender, receiver) = mpsc::sync_channel(1);
+        app.snippet_pending = Some(Pending {
+            receiver,
+            template: Template::parse_user("$CLIPBOARD").unwrap(),
+            document: app.doc().id,
+            revision: app.doc().revision,
+            pane: app.panes[app.active_pane].id,
+            selections: app.doc().selections(),
+        });
+        app.execute("workbench.action.closeActiveEditor", Value::Null);
+        sender.send(Some("late".into())).unwrap();
+        assert!(app.poll_snippet());
+        assert!(app.documents.is_empty());
+        assert!(app.snippet_pending.is_none());
+        assert!(app.message.contains("context changed"));
+    }
+
+    #[test]
     fn clipboard_reply_requires_unchanged_document_view_selection_and_focus() {
         for change in 0..5 {
             let directory = tempfile::tempdir().unwrap();
             let mut app = App::new(directory.path().into(), Profile::Linux);
+            app.execute(
+                "workbench.action.files.newUntitledFile",
+                serde_json::Value::Null,
+            );
             app.doc_mut().insert("seed", false);
             let (sender, receiver) = mpsc::sync_channel(1);
             app.snippet_pending = Some(Pending {

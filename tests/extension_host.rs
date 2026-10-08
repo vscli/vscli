@@ -42,6 +42,7 @@ fn unchanged_command_extension_edits_native_unicode_buffers_and_preserves_undo()
     let path = directory.path().join("space 猫#.txt");
     std::fs::write(&path, "猫\n🙂\na").unwrap();
     let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
     app.open(&path).unwrap();
     app.doc_mut().select_all();
     fixture(&mut app);
@@ -74,6 +75,7 @@ fn unchanged_command_extension_edits_native_unicode_buffers_and_preserves_undo()
 fn invalid_stale_and_crashed_extensions_cannot_destroy_native_edits() {
     let directory = tempfile::tempdir().unwrap();
     let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
     app.doc_mut().insert("original", false);
     fixture(&mut app);
     app.execute("fixture.invalid", Value::Null);
@@ -115,6 +117,7 @@ fn upstream_sort_lines_runs_without_source_changes() {
     );
     let directory = tempfile::tempdir().unwrap();
     let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
     app.doc_mut().insert("zebra\napple\npear", false);
     app.doc_mut().select_all();
     app.extension_host = Some(
@@ -141,6 +144,7 @@ fn upstream_sort_lines_runs_without_source_changes() {
 fn extension_keybinding_arguments_preserve_arrays_null_and_absence() {
     let directory = tempfile::tempdir().unwrap();
     let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
     let bindings = directory.path().join("keybindings.json");
     std::fs::write(
         &bindings,
@@ -172,6 +176,7 @@ fn extension_settings_are_ready_at_activation_and_reload_without_losing_valid_va
     std::fs::write(&user, r#"{"fixture.value":"user"}"#).unwrap();
     std::fs::write(&workspace, r#"{"fixture.value":"workspace"}"#).unwrap();
     let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
     app.configure_settings(Some(user.clone())).unwrap();
     fixture(&mut app);
     let report = |app: &mut App, value: &str, changes: usize| {
@@ -199,6 +204,7 @@ fn extension_settings_are_ready_at_activation_and_reload_without_losing_valid_va
 fn configuration_listeners_observe_native_edits_before_the_configuration_change() {
     let directory = tempfile::tempdir().unwrap();
     let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
     fixture(&mut app);
     app.doc_mut().insert("current native edit", false);
     let configuration = directory.path().join(".vscode");
@@ -230,6 +236,7 @@ fn upstream_sort_lines_reads_user_workspace_settings_and_live_changes() {
     std::fs::write(&user, r#"{"sortLines.sortEntireFile":false}"#).unwrap();
     std::fs::write(&workspace, r#"{"sortLines.sortEntireFile":true}"#).unwrap();
     let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
     app.configure_settings(Some(user)).unwrap();
     app.doc_mut().insert("zebra\napple\npear", false);
     app.extension_host = Some(
@@ -261,4 +268,22 @@ fn upstream_sort_lines_reads_user_workspace_settings_and_live_changes() {
     until(&mut app, |a| a.message.starts_with("Settings reloaded"));
     app.event(Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::NONE)));
     until(&mut app, |a| a.doc().text == "apple\npear\nzebra");
+}
+
+#[test]
+fn extension_commands_run_with_no_open_editors_before_and_after_last_tab_closes() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    fixture(&mut app);
+    for with_editor in [false, true, false] {
+        if with_editor {
+            app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        } else if !app.documents.is_empty() {
+            app.execute("workbench.action.closeActiveEditor", Value::Null);
+        }
+        app.execute("fixture.configuration", Value::Null);
+        until(&mut app, |app| app.message.starts_with("config="));
+        assert_eq!(app.documents.is_empty(), !with_editor);
+        assert!(app.extension_host.is_some());
+    }
 }

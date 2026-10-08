@@ -28,7 +28,11 @@ impl App {
             self.message = "Configure a debugger with --debug-adapter PROGRAM and optional --debug-arg arguments".into();
             return;
         };
-        let Some(program) = config.program.clone().or_else(|| self.doc().path.clone()) else {
+        let Some(program) = config
+            .program
+            .clone()
+            .or_else(|| self.active_document().and_then(|d| d.path.clone()))
+        else {
             self.message = "Select a saved program file or use --debug-program PATH".into();
             return;
         };

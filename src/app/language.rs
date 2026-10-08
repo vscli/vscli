@@ -75,7 +75,8 @@ impl App {
         }
     }
     fn request_current(&self, request: &Request) -> Result<()> {
-        if self.doc().id != request.document_id
+        if self.active_document().is_none()
+            || self.doc().id != request.document_id
             || self.doc().revision != request.revision
             || self.doc().path.as_ref() != Some(&request.path)
         {
@@ -292,9 +293,8 @@ impl App {
         Ok(())
     }
     pub fn current_diagnostics(&self) -> &[lsp::Diagnostic] {
-        self.doc()
-            .path
-            .as_ref()
+        self.active_document()
+            .and_then(|d| d.path.as_ref())
             .and_then(|p| self.diagnostics.get(p))
             .filter(|(id, rev, _)| *id == self.doc().id && *rev == self.doc().revision)
             .map_or(&[], |(_, _, items)| items.as_slice())
