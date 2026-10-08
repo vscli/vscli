@@ -222,6 +222,15 @@ Disk reads run off the UI thread, are capped at 32 MiB per file, and are discard
 
 ## Verification
 
+Long-line movement and column lookup walk rope chunks without copying whole
+lines. Plain-text rendering and rendering with ready grammar highlights copy
+only the viewport prefix plus find-query lookahead. Unicode clusters, tabs,
+selections, and CRLF boundaries retain their existing behavior. Horizontal
+scrolling far into a line still scans its prefix, unusually large grapheme
+clusters still need complete segmentation, and the fallback syntax lexer still
+reads whole lines. This is not a qualified large-file mode: the 32 MiB opening
+limit, blocking open/save paths, and 2 MiB grammar-highlighting limit remain.
+
 ```sh
 cargo fmt --check
 cargo test --locked

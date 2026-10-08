@@ -303,6 +303,23 @@ def run():
         app.finish()
         print("PASS: raw input beyond 1 KiB reaches Save without another key")
 
+        long_file = root / "long-line.txt"
+        long_prefix = "ab" * 4096
+        long_original = long_prefix + "🇬🇧e\u0301👩\u200d💻\r\nshort\r\n"
+        long_file.write_bytes(long_original.encode())
+        app = Editor(root, long_file, enhanced=True)
+        app.send(b"\x1b[F")  # End crosses rope leaves and scrolls horizontally.
+        app.send(b"\x1b[D\x7f" + CTRL_S)  # Left over ZWJ emoji; delete accented e.
+        long_edited = long_prefix + "🇬🇧👩\u200d💻\r\nshort\r\n"
+        eventually(lambda: app.read() and long_file.read_bytes() == long_edited.encode())
+        app.send(CTRL_Z + CTRL_S)
+        eventually(lambda: app.read() and long_file.read_bytes() == long_original.encode())
+        app.send(b"\x1b[H")  # Return to the bounded viewport at the line start.
+        app.send(b"START" + CTRL_S)
+        eventually(lambda: app.read() and long_file.read_bytes() == ("START" + long_original).encode())
+        app.finish()
+        print("PASS: long-line Unicode movement, deletion, undo, scrolling and CRLF save")
+
         journal = root / "recovery"
         recover_file = root / "recover.txt"
         recover_file.write_text("disk baseline")
