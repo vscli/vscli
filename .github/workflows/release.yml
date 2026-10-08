@@ -28,6 +28,8 @@ jobs:
           python-version: '3.12'
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - run: cargo build --release --locked
+      - if: runner.os != 'Windows'
+        run: python3 tests/pty_smoke.py target/release/vscli
       - run: python scripts/package.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
