@@ -1,3 +1,4 @@
+pub mod app;
 pub mod debug;
 pub mod document;
 pub mod files;
@@ -12,5 +13,6 @@ pub mod syntax;
 pub mod tasks;
 pub mod terminal;
 pub mod transport;
+pub mod ui;
 pub mod watch;
 pub mod workspace;
