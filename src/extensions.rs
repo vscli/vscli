@@ -111,7 +111,7 @@ impl Client {
     pub fn execute(
         &mut self,
         command: &str,
-        args: Value,
+        args: Option<Value>,
         documents: &[Document],
         active: usize,
     ) -> Result<()> {
@@ -122,11 +122,7 @@ impl Client {
             bail!("Extension command is not registered: {command}");
         }
         self.sync(documents, active)?;
-        let args = match args {
-            Value::Null => vec![],
-            Value::Array(args) => args,
-            other => vec![other],
-        };
+        let args: Vec<_> = args.into_iter().collect();
         self.request("execute", json!({"command":command, "args":args}))
     }
     fn stamp(documents: &[Document], active: usize) -> Value {

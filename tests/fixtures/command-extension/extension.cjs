@@ -18,6 +18,7 @@ exports.activate = context => {
     const applied = await promise;
     await vscode.window.showInformationMessage(`stale applied=${applied}`);
   });
+  register('fixture.args', (...args) => vscode.window.showInformationMessage(`args=${JSON.stringify(args)}`));
   register('fixture.crash', () => process.exit(7));
   register('fixture.unsupported', () => vscode.window.createWebviewPanel('test'));
   register('fixture.version', () => vscode.window.showInformationMessage(`version=${vscode.window.activeTextEditor.document.version}`));

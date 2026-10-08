@@ -31,8 +31,14 @@ pub struct Binding {
     pub command: String,
     #[serde(default)]
     pub when: Option<String>,
-    #[serde(default)]
-    pub args: Value,
+    #[serde(default, deserialize_with = "binding_args")]
+    pub args: Option<Value>,
+}
+
+fn binding_args<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
 }
 
 pub struct Keymap {
@@ -43,7 +49,7 @@ pub struct Keymap {
     user: Vec<Binding>,
 }
 pub enum Resolution {
-    Command(String, Value),
+    Command(String, Option<Value>),
     Chord,
     None,
 }
@@ -383,7 +389,7 @@ impl Keymap {
             key: normalize_sequence(key),
             command: command.into(),
             when: when.map(str::to_owned),
-            args: Value::Null,
+            args: None,
         });
     }
     pub fn load(&mut self, path: &Path) -> Result<usize> {

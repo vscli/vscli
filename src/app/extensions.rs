@@ -44,7 +44,7 @@ impl App {
             }
         }
     }
-    pub(super) fn execute_extension(&mut self, command: &str, args: Value) {
+    pub(super) fn execute_extension(&mut self, command: &str, args: Option<Value>) {
         if let Some(host) = &mut self.extension_host {
             match host.execute(command, args, &self.documents, self.active) {
                 Ok(()) => self.message = format!("Running extension command: {command}"),
