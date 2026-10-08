@@ -32,6 +32,7 @@ impl App {
             self.message = "Select a saved program file or use --debug-program PATH".into();
             return;
         };
+        let program = crate::document::absolute_path(&program).unwrap_or(program);
         if self.documents.iter().any(|d| {
             d.dirty()
                 && d.path

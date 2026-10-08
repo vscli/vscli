@@ -51,6 +51,7 @@ struct Synced {
     id: u64,
     revision: u64,
     version: i64,
+    path: PathBuf,
 }
 pub struct Client {
     transport: crate::transport::Process,
@@ -69,9 +70,12 @@ pub fn file_uri(path: &Path) -> Result<String> {
         .map_err(|_| anyhow::anyhow!("Not an absolute file path: {}", path.display()))
 }
 pub fn uri_path(uri: &str) -> Result<PathBuf> {
-    Url::parse(uri)?
+    let path = Url::parse(uri)?
         .to_file_path()
-        .map_err(|_| anyhow::anyhow!("Unsupported document URI: {uri}"))
+        .map_err(|_| anyhow::anyhow!("Unsupported document URI: {uri}"))?;
+    // URL decoding drops Windows' verbatim prefix and may return a filesystem
+    // alias. Match the identity used by Document::open when the path is resolvable.
+    Ok(crate::document::absolute_path(&path).unwrap_or(path))
 }
 pub fn position(doc: &Document, cursor: usize) -> Position {
     let cursor = cursor.min(doc.len());
@@ -199,6 +203,7 @@ impl Client {
                             id: doc.id,
                             revision: doc.revision,
                             version: 1,
+                            path: path.clone(),
                         },
                     );
                 }
@@ -211,6 +216,7 @@ impl Client {
                             id: doc.id,
                             revision: doc.revision,
                             version,
+                            path: path.clone(),
                         },
                     );
                 }
@@ -330,7 +336,7 @@ impl Client {
                             serde_json::from_value(params["diagnostics"].clone())
                                 .unwrap_or_default();
                         events.push(Event::Diagnostics(
-                            uri_path(uri)?,
+                            synced.path.clone(),
                             diagnostics.into_iter().take(5000).collect(),
                         ));
                     }
@@ -371,6 +377,16 @@ mod tests {
     use super::*;
     use crate::transport::read_message;
     use std::io::BufReader;
+    #[test]
+    fn protocol_paths_preserve_document_identity_across_uri_roundtrips() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("spaces 🌍.rs");
+        std::fs::write(&path, "text").unwrap();
+        let doc = Document::open(&path).unwrap();
+        let native = doc.path.as_ref().unwrap();
+        assert_eq!(&uri_path(&file_uri(native).unwrap()).unwrap(), native);
+        assert_eq!(&uri_path(&file_uri(&path).unwrap()).unwrap(), native);
+    }
     #[test]
     fn utf16_edits_are_validated_before_mutation() {
         let mut doc = Document::from_text("猫🙂x\r\nend");
