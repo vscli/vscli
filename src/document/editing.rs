@@ -51,17 +51,17 @@ impl Document {
             .map(|(i, mut s)| {
                 s.cursor = s.cursor.min(self.len());
                 s.anchor = s.anchor.map(|p| p.min(self.len()));
-                (s, i == 0)
+                (s, i)
             })
             .collect();
         selections.sort_by_key(|(s, _)| (s.range().start, s.range().end));
-        let mut merged: Vec<(Selection, bool)> = Vec::new();
-        for (s, primary) in selections {
-            if let Some((last, last_primary)) = merged.last_mut() {
+        let mut merged: Vec<(Selection, usize)> = Vec::new();
+        for (s, order) in selections {
+            if let Some((last, last_order)) = merged.last_mut() {
                 let a = last.range();
                 let b = s.range();
                 if b.start < a.end || (b.start == a.end && (a.is_empty() || b.is_empty())) {
-                    let forward = if primary {
+                    let forward = if order < *last_order {
                         s.cursor >= s.anchor.unwrap_or(s.cursor)
                     } else {
                         last.cursor >= last.anchor.unwrap_or(last.cursor)
@@ -77,19 +77,16 @@ impl Document {
                         },
                         desired_column: None,
                     };
-                    *last_primary |= primary;
+                    *last_order = (*last_order).min(order);
                     continue;
                 }
             }
-            merged.push((s, primary));
+            merged.push((s, order));
         }
-        let primary = merged.iter().position(|(_, p)| *p).unwrap_or(0);
-        let first = merged.remove(primary).0;
-        self.assign_selections(
-            std::iter::once(first)
-                .chain(merged.into_iter().map(|(s, _)| s))
-                .collect(),
-        );
+        // Sorting is needed to merge overlapping ranges, but selection identity
+        // follows caller order (including secondaries), not file position.
+        merged.sort_by_key(|(_, order)| *order);
+        self.assign_selections(merged.into_iter().map(|(s, _)| s).collect());
     }
     pub fn replace_cursors(&mut self, text: impl Fn(&Self, &Selection) -> String) {
         self.normalize_selections();
@@ -555,6 +552,57 @@ impl Document {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn selection_order_survives_normalization_typing_and_undo() {
+        let mut doc = Document::from_text("a\r\nb\r\nc\r\nd\r\n");
+        let original: Vec<_> = [9, 3, 0, 6]
+            .into_iter()
+            .map(|start| Selection {
+                cursor: start + 1,
+                anchor: Some(start),
+                desired_column: None,
+            })
+            .collect();
+        doc.set_selections(original.clone());
+        assert_eq!(doc.selections(), original);
+        doc.insert("猫🙂", true);
+        assert_eq!(doc.text.to_string(), "猫🙂\r\n猫🙂\r\n猫🙂\r\n猫🙂\r\n");
+        assert_eq!(
+            doc.selections()
+                .iter()
+                .map(|s| s.cursor)
+                .collect::<Vec<_>>(),
+            [14, 6, 2, 10]
+        );
+        let edited = doc.selections();
+        doc.undo();
+        assert_eq!(doc.selections(), original);
+        doc.redo();
+        assert_eq!(doc.selections(), edited);
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("ordered.txt");
+        doc.save_to(&path, false).unwrap();
+        assert_eq!(fs::read_to_string(path).unwrap(), doc.text.to_string());
+
+        // The earliest original selection owns a merged range and direction.
+        doc.set_selections(vec![
+            Selection::caret(10),
+            Selection {
+                cursor: 2,
+                anchor: Some(5),
+                desired_column: None,
+            },
+            Selection {
+                cursor: 6,
+                anchor: Some(4),
+                desired_column: None,
+            },
+        ]);
+        assert_eq!(doc.selections()[0].cursor, 10);
+        assert_eq!(doc.selections()[1].cursor, 2);
+        assert_eq!(doc.selections()[1].anchor, Some(6));
+    }
+
     #[test]
     fn multicursor_typing_maps_offsets_and_groups_undo() {
         let mut d = Document::from_text("cat cat cat");
