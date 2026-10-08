@@ -85,9 +85,10 @@ impl Recovery {
                 continue;
             }
             for saved in session.documents {
-                let mut doc = Document::from_text(saved.disk_content.as_deref().unwrap_or(""));
+                let baseline = saved.disk_content.as_deref().map(ropey::Rope::from_str);
+                let mut doc = Document::from_rope(baseline.clone().unwrap_or_default());
                 doc.path = saved.path;
-                doc.disk_content = saved.disk_content;
+                doc.disk_content = baseline;
                 doc.move_to(saved.cursor.min(doc.len()), false);
                 // Undo recovered edits returns to the actual saved baseline, not a clean
                 // snapshot containing unsaved text. Empty recovered files matter too.
@@ -112,7 +113,7 @@ impl Recovery {
                 .map(|d| SavedDocument {
                     path: d.path.clone(),
                     text: d.text.to_string(),
-                    disk_content: d.disk_content.clone(),
+                    disk_content: d.disk_content.as_ref().map(ToString::to_string),
                     cursor: d.cursor,
                     selections: d.selections(),
                 })

@@ -134,7 +134,7 @@ pub struct Snapshot {
     pub revision: u64,
     pub saved_revision: u64,
     pub path: PathBuf,
-    pub content: Result<Option<String>, String>,
+    pub content: Result<Option<ropey::Rope>, String>,
 }
 pub struct DiskJob {
     receiver: Receiver<Snapshot>,

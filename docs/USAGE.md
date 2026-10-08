@@ -172,7 +172,7 @@ Prompt text boxes currently handle their own editing keys, so custom keybinding 
 
 ## Saving and recovery
 
-Saving checks the file against the contents originally read, writes a sibling temporary file, syncs that file, and replaces the destination. Existing Unix mode permissions are retained, and opening through a symlink resolves and saves the target. If external contents differ, Save refuses the overwrite; use Save As to preserve your edits or explicitly revert through the palette. Save As protects existing files rather than presenting an overwrite action in this alpha.
+Opened files stream into a rope; the saved baseline shares unchanged rope storage with the editable buffer. Saving compares disk bytes against that baseline using bounded buffers, streams the current rope to a sibling temporary file, syncs that file, and replaces the destination. It does not allocate whole-file byte/string copies for comparison or saving. Existing Unix mode permissions are retained, and opening through a symlink resolves and saves the target. If external contents differ, Save refuses the overwrite; use Save As to preserve your edits or explicitly revert through the palette. Save As protects existing files rather than presenting an overwrite action in this alpha.
 
 There is still a race between checking and replacing a file if another process writes at exactly that time. Hard-link identity, extended attributes, unusual filesystems, and power-loss durability are not guaranteed by this initial implementation. Recovery testing covers process failure; it does not prove durability across power loss.
 
