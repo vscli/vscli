@@ -1063,7 +1063,11 @@ impl App {
             "editor.action.nextMatchFindAction" => self.find(false),
             "editor.action.previousMatchFindAction" => self.find(true),
             "workbench.action.gotoLine" => self.start_prompt(PromptKind::Goto, String::new()),
-            "vscli.extensions.stop" => { self.extension_host = None; self.message = "Extension host stopped".into(); },
+            "vscli.extensions.stop" => {
+                self.extension_host = None;
+                self.keymap.clear_extension_bindings();
+                self.message = "Extension host stopped".into();
+            },
             _ => self.execute_extension(command, args),
         }
     }

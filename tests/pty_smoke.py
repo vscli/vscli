@@ -535,8 +535,17 @@ def run():
         app.send(CTRL_Z)
         app.send(CTRL_S)
         eventually(lambda: app.read() and text(extension_file) == "zebra\napple\npear")
+        app.send(CTRL_A)
+        app.send(b"\x1b[20~")  # Original extension-contributed F9 binding.
+        eventually(lambda: app.read() and "sort applied=true" in app.screen.text())
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(extension_file) == "apple\npear\nzebra")
+        app.send(b"\x1bOP")
+        app.send("Extensions: Stop Host")
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Extension host stopped" in app.screen.text())
         app.finish()
-        print("PASS: optional extension activation, palette command, native edit/save and undo")
+        print("PASS: optional extension activation, palette/F9 commands, native edit/save/undo and host stop")
 
         bindings = root / "keybindings.json"
         bindings.write_text(json.dumps([{"key": "ctrl+k ctrl+b", "command": "type", "args": {"text": "custom"}, "when": "editorTextFocus"}]))

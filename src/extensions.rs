@@ -34,6 +34,7 @@ pub struct Client {
     next_id: u64,
     generation: u64,
     last_stamp: Value,
+    pub keybindings: Option<Value>,
     pub ready: bool,
     pub commands: Vec<(String, String)>,
     pub identity: String,
@@ -76,6 +77,7 @@ impl Client {
             next_id: 0,
             generation: 0,
             last_stamp: Value::Null,
+            keybindings: None,
             ready: false,
             commands: Vec::new(),
             identity: String::new(),
@@ -262,6 +264,7 @@ impl Client {
                     if message["result"]["protocol"] != 1 {
                         bail!("Unsupported extension host protocol version");
                     }
+                    self.keybindings = Some(message["result"]["keybindings"].clone());
                     self.ready = true;
                     self.identity = message["result"]["id"]
                         .as_str()

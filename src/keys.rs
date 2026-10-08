@@ -38,6 +38,9 @@ pub struct Binding {
 pub struct Keymap {
     pub bindings: Vec<Binding>,
     pub profile: Profile,
+    defaults: Vec<Binding>,
+    extensions: Vec<Binding>,
+    user: Vec<Binding>,
 }
 pub enum Resolution {
     Command(String, Value),
@@ -50,6 +53,9 @@ impl Keymap {
         let mut map = Self {
             bindings: Vec::new(),
             profile,
+            defaults: Vec::new(),
+            extensions: Vec::new(),
+            user: Vec::new(),
         };
         let p = profile.primary();
         for (key, command) in [
@@ -369,6 +375,7 @@ impl Keymap {
             "deleteWordRight",
             Some("editorTextFocus"),
         );
+        map.defaults = map.bindings.clone();
         map
     }
     fn add(&mut self, key: &str, command: &str, when: Option<&str>) {
@@ -383,18 +390,58 @@ impl Keymap {
         let raw = std::fs::read_to_string(path)
             .with_context(|| format!("Cannot read {}", path.display()))?;
         let entries: Vec<Binding> = json5::from_str(&raw).context("Invalid keybindings.json")?;
-        // Validate the complete import before changing the working map.
-        for b in &entries {
-            if b.key.trim().is_empty() {
-                bail!("Empty keybinding");
-            }
-            if let Some(when) = &b.when {
-                evaluate(when, &HashMap::new())
-                    .with_context(|| format!("Unsupported when expression: {when}"))?;
-            }
-        }
+        validate_bindings(&entries)?;
         let count = entries.len();
-        for mut b in entries {
+        self.user.extend(entries);
+        self.rebuild();
+        Ok(count)
+    }
+    pub fn set_extension_bindings(&mut self, value: Value) -> Result<usize> {
+        let entries = match value {
+            Value::Null => Vec::new(),
+            Value::Array(entries) => entries,
+            Value::Object(_) => vec![value],
+            _ => bail!("Extension keybindings must be an object or array"),
+        };
+        if entries.len() > 1024 {
+            bail!("Extension keybinding limit exceeded");
+        }
+        let mut bindings = Vec::new();
+        let platform = match self.profile {
+            Profile::Linux => "linux",
+            Profile::Windows => "win",
+            Profile::Macos => "mac",
+        };
+        for mut entry in entries {
+            if let Some(key) = entry.get(platform).cloned() {
+                entry["key"] = key;
+            }
+            let binding: Binding = serde_json::from_value(entry)?;
+            if binding.command.starts_with('-') {
+                bail!("Extension default bindings cannot remove other defaults");
+            }
+            bindings.push(binding);
+        }
+        validate_bindings(&bindings)?;
+        let count = bindings.len();
+        self.extensions = bindings;
+        self.rebuild();
+        Ok(count)
+    }
+    pub fn clear_extension_bindings(&mut self) {
+        self.extensions.clear();
+        self.rebuild();
+    }
+    fn rebuild(&mut self) {
+        self.bindings = self.defaults.clone();
+        self.bindings
+            .extend(self.extensions.iter().cloned().map(|mut b| {
+                b.key = normalize_sequence(&b.key);
+                b
+            }));
+        // Reapply user removals after extension defaults, including extensions
+        // that activate after the user's keybindings were imported.
+        for mut b in self.user.clone() {
             b.key = normalize_sequence(&b.key);
             if let Some(command) = b.command.strip_prefix('-') {
                 self.bindings.retain(|old| {
@@ -406,7 +453,6 @@ impl Keymap {
                 self.bindings.push(b);
             }
         }
-        Ok(count)
     }
     pub fn resolve(&self, sequence: &str, context: &HashMap<String, Value>) -> Resolution {
         for b in self.bindings.iter().rev() {
@@ -433,6 +479,19 @@ impl Keymap {
             .map(|b| b.key.clone())
             .unwrap_or_default()
     }
+}
+
+fn validate_bindings(entries: &[Binding]) -> Result<()> {
+    for b in entries {
+        if b.key.trim().is_empty() {
+            bail!("Empty keybinding");
+        }
+        if let Some(when) = &b.when {
+            evaluate(when, &HashMap::new())
+                .with_context(|| format!("Unsupported when expression: {when}"))?;
+        }
+    }
+    Ok(())
 }
 
 pub fn token(event: KeyEvent) -> String {
@@ -718,6 +777,48 @@ mod tests {
         let mut map = Keymap::new(Profile::Linux);
         map.load(&p).unwrap();
         assert!(matches!(map.resolve("ctrl+s",&ctx),Resolution::Command(c,_) if c=="type"));
+    }
+    #[test]
+    fn extension_defaults_preserve_platform_keys_user_overrides_and_removals() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("keybindings.json");
+        let context = HashMap::from([("editorTextFocus".into(), Value::Bool(true))]);
+        let contribution = serde_json::json!([{"key":"f9", "mac":"cmd+alt+s", "command":"extension.sort", "when":"editorTextFocus"}]);
+        let mut map = Keymap::new(Profile::Linux);
+        map.set_extension_bindings(contribution.clone()).unwrap();
+        assert!(
+            matches!(map.resolve("f9", &context), Resolution::Command(id,_) if id == "extension.sort")
+        );
+        map.clear_extension_bindings();
+        assert!(
+            matches!(map.resolve("f9", &context), Resolution::Command(id,_) if id == "editor.debug.action.toggleBreakpoint")
+        );
+        std::fs::write(&path, r#"[{"key":"f9","command":"-extension.sort"},{"key":"ctrl+k ctrl+b","command":"extension.sort","when":"editorTextFocus"}]"#).unwrap();
+        map.load(&path).unwrap();
+        map.set_extension_bindings(contribution.clone()).unwrap();
+        assert!(
+            matches!(map.resolve("f9", &context), Resolution::Command(id,_) if id == "editor.debug.action.toggleBreakpoint")
+        );
+        assert!(
+            matches!(map.resolve("ctrl+k ctrl+b", &context), Resolution::Command(id,_) if id == "extension.sort")
+        );
+        std::fs::write(&path, r#"[{"key":"f9","command":"user.override"}]"#).unwrap();
+        map.load(&path).unwrap();
+        assert!(
+            matches!(map.resolve("f9", &context), Resolution::Command(id,_) if id == "user.override")
+        );
+        let mut mac = Keymap::new(Profile::Macos);
+        mac.set_extension_bindings(contribution).unwrap();
+        assert!(
+            matches!(mac.resolve("cmd+alt+s", &context), Resolution::Command(id,_) if id == "extension.sort")
+        );
+        assert!(
+            mac.set_extension_bindings(serde_json::json!([{"key":"", "command":"invalid"}]))
+                .is_err()
+        );
+        assert!(
+            matches!(mac.resolve("cmd+alt+s", &context), Resolution::Command(id,_) if id == "extension.sort")
+        );
     }
     #[test]
     fn terminal_key_normalization() {
