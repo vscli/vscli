@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible editing, terminal, or compatibility problem
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: VSCLI version/commit, OS, terminal/version, multiplexer, local or SSH, and keyboard profile
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps and expected behavior
+      description: Include a minimal sample and the exact keys or commands
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include relevant diagnostics with secrets and private paths removed
+    validations:
+      required: true

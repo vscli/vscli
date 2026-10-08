@@ -1,0 +1,233 @@
+# Running and testing VSCLI
+
+VSCLI 0.1 is a usable native terminal text editor. It now includes native editing, workspace search, language tooling, terminals, tasks, and Git workflows. It is an alpha with a deliberately explicit feature boundary, not full VS Code compatibility.
+
+## Launch
+
+Build with a current stable Rust toolchain (validated here with Rust 1.99):
+
+```sh
+cargo build --release --locked
+./target/release/vscli .
+./target/release/vscli src/main.rs README.md
+./target/release/vscli --workspace /path/to/project /path/to/project/file.rs
+```
+
+Optional installation into your Cargo bin directory:
+
+```sh
+cargo install --path . --locked
+vscli .
+```
+
+An existing directory argument selects the workspace. A nonexistent file argument creates a buffer for that path, provided its parent directory exists. Creating a buffer does not write the file until Save. Without arguments the editor opens an untitled buffer in the current directory.
+
+Useful options:
+
+| Option | Purpose |
+| --- | --- |
+| `--keymap linux`, `windows`, or `macos` | Select the keyboard profile, independently of the host OS |
+| `--keybindings path/to/keybindings.json` | Import supported VS Code user rules |
+| `--doctor` | Print environment, configuration paths, and feature diagnostics |
+| `--list-keybindings` | Export this alpha's implemented default rule set as JSON |
+| `--legacy-keys` | Skip enhanced keyboard negotiation for troubleshooting |
+| `--no-mouse` | Keep mouse handling with the terminal |
+| `--no-recovery` | Disable recovery snapshots and startup restoration |
+| `--recovery-dir /path` | Override recovery storage, including for isolated testing |
+
+## Implemented workflows
+
+The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary text entry, grapheme-aware horizontal movement, visual-column vertical movement, keyboard/mouse selection, undo/redo, indentation, comments, line deletion, literal find, replace all, and go to line.
+
+Quick open indexes up to 100,000 workspace files in a background worker. It respects ignore rules and skips `.git`, `target`, `node_modules`, `.venv`, and `__pycache__`. The explorer shows the current directory; Right opens a directory or file (Enter also opens in Linux/Windows profiles), Left/Backspace goes to its parent, and Escape returns focus to the editor. macOS uses Enter for rename. Quick-open indexing is a startup snapshot; newly created files can be opened by path or through the explorer.
+
+The command palette lists implemented actions. Background Tree-sitter highlighting covers Rust, Python, JavaScript/JSX, TypeScript/TSX, and JSON, including multiline constructs. Tabs switch using the profile's next/previous editor shortcuts. Multiple cursors support typing, deletion, indentation, comments, selection movement, clipboard operations, and undo. Up to four editor groups can share documents with independent cursors and scroll positions.
+
+Explorer commands in F1 create files/folders, rename the selected item, move it to system trash, and refresh the index. F2 renames in Linux/Windows, while Enter renames in macOS. Delete moves the selected item to trash in Linux/Windows; Cmd+Backspace does so in macOS. Trash always asks for confirmation and never falls back to permanent deletion. Use the OS trash interface to restore items. Open buffers under a trashed path are retained as unsaved copies.
+
+File operations run in a worker and refresh the explorer/index afterward. Saving waits while an operation is pending. Create operations require an existing parent directory and refuse existing names. Rename preserves open unsaved buffers and refuses an existing destination; the initial portable rename implementation still has a check/rename race against concurrent filesystem writers. File watching and automatic clean-buffer reload remain incomplete.
+
+## Keyboard shortcuts
+
+Default combinations for implemented actions follow the [VS Code shortcut reference](https://code.visualstudio.com/docs/reference/default-keybindings). This is a manually implemented subset, not a complete exported upstream baseline or a claim of identical command semantics in every edge case. The broader exact-parity requirement remains in [Compatibility](COMPATIBILITY.md).
+
+| Action | Linux / Windows | macOS |
+| --- | --- | --- |
+| Command palette | Ctrl+Shift+P or F1 | Cmd+Shift+P or F1 |
+| Quick open | Ctrl+P | Cmd+P |
+| Open file | Ctrl+O | Cmd+O |
+| New buffer | Ctrl+N | Cmd+N |
+| Save / Save As | Ctrl+S / Ctrl+Shift+S | Cmd+S / Cmd+Shift+S |
+| Close buffer | Ctrl+W | Cmd+W |
+| Close window | Ctrl+Shift+W | Cmd+Shift+W |
+| Undo | Ctrl+Z | Cmd+Z |
+| Redo | Ctrl+Y; also Ctrl+Shift+Z on Linux | Cmd+Shift+Z |
+| Select all | Ctrl+A | Cmd+A |
+| Copy / cut / paste | Ctrl+C / Ctrl+X / Ctrl+V | Cmd+C / Cmd+X / Cmd+V |
+| Find | Ctrl+F | Cmd+F |
+| Next / previous match | F3 / Shift+F3 | Cmd+G / Cmd+Shift+G |
+| Open replacement workflow | Ctrl+H | Cmd+Alt+F |
+| Go to line | Ctrl+G | Ctrl+G |
+| Select current line | Ctrl+L | Cmd+L |
+| Delete line | Ctrl+Shift+K | Cmd+Shift+K |
+| Toggle line comment | Ctrl+/ | Cmd+/ |
+| Add / remove line comment | Ctrl+K Ctrl+C / Ctrl+K Ctrl+U | Cmd+K Cmd+C / Cmd+K Cmd+U |
+| Indent / outdent | Ctrl+] / Ctrl+[; Tab / Shift+Tab | Cmd+] / Cmd+[; Tab / Shift+Tab |
+| Toggle explorer | Ctrl+B | Cmd+B |
+| Focus explorer | Ctrl+Shift+E | Cmd+Shift+E |
+| Next / previous tab | Ctrl+PageDown / Ctrl+PageUp | Cmd+Alt+Right / Cmd+Alt+Left |
+| Keyboard shortcuts | Ctrl+K Ctrl+S | Cmd+K Cmd+S |
+| Close all editors | Ctrl+K Ctrl+W | Cmd+K Cmd+W |
+
+Shift plus navigation extends a selection. Ctrl+Left/Right moves by words on Linux/Windows; Alt+Left/Right does so in the macOS profile. Home toggles indentation/start of line; End moves to line end. Ctrl+Home/End moves to file boundaries on Linux/Windows; Cmd+Up/Down is available on macOS. Chords wait for the second key; Escape cancels.
+
+Exact physical key delivery depends on terminal configuration. VSCLI negotiates enhanced keyboard reporting when supported. A terminal may otherwise turn Ctrl+Shift+P into Ctrl+P or consume the combination entirely. The editor does not silently replace that binding. Use F1 → Keyboard Inspector, release the conflicting terminal binding, and retest. No terminal configuration is changed automatically. OS-global, international-layout, and multiplexer behavior still require real-device qualification.
+
+## Multiple cursors and line commands
+
+Ctrl+D (Cmd+D on macOS) selects the word, then adds the next occurrence. Ctrl+Shift+L / Cmd+Shift+L selects every occurrence. Escape collapses to the primary cursor; Ctrl+U / Cmd+U undoes cursor changes. Alt-click adds a cursor. Shift+Alt+I places cursors at selected line ends.
+
+Vertical cursor shortcuts differ by platform: Linux uses Shift+Alt+Up/Down, Windows uses Ctrl+Alt+Up/Down, and macOS uses Cmd+Alt+Up/Down. Line duplication uses Ctrl+Shift+Alt+Up/Down on Linux and Shift+Alt+Up/Down on Windows/macOS. Alt+Up/Down moves the selected line block. Ctrl+Enter / Ctrl+Shift+Enter inserts a line below/above (Cmd on macOS). Bracket navigation uses Ctrl+Shift+\ / Cmd+Shift+\.
+
+Line move/copy commands preserve disjoint selections and undo together. Cursor creation is limited to 10,000 selections. Bracket matching is textual and does not yet exclude strings/comments. These are recorded parity gaps, not claims of complete VS Code editing semantics.
+
+## Split editors
+
+Ctrl+\ / Cmd+\ splits the editor to the right. F1 → View: Split Editor Down creates a vertical layout. Ctrl+1 through Ctrl+4 (Cmd on macOS) focus existing groups; clicking an editor area focuses it. Each group has independent cursor/selection and scroll state, while edits, undo history, save state, and language synchronization belong to the shared document. Closing one of several views of a dirty document retains the buffer; closing its last view still asks about saving.
+
+This first implementation supports up to four equal-sized groups in one horizontal or vertical layout. Nested/resizable groups, separate tab stacks per group, and restoring pane layout after restart remain incomplete. Undo position changes are tracked across views; inactive viewport rows are not yet anchored to text across line insertions.
+
+## Workspace search
+
+Ctrl+Shift+F / Cmd+Shift+F opens Find in Files. Alt+C toggles case sensitivity, Alt+W whole words, and Alt+R regular expressions. Enter starts a background search; arrows choose a result, Enter opens its selection, and Escape closes/cancels. Results use unsaved buffers for open files. A changed result is reported instead of selecting an outdated match.
+
+Search respects ignore files and the same excluded directories as quick open. It scans at most 100,000 file paths, skips binary/non-UTF-8/oversized/unreadable files, and returns at most 5,000 matches. The result header reports skipped files and truncation. Search is line-based; multiline regex and workspace replacement are not implemented yet. Results are snapshots, not live subscriptions.
+
+## Language servers
+
+Start an explicitly selected language server; no project-supplied executable is launched automatically:
+
+```sh
+vscli --lsp rust-analyzer --lsp-language rust .
+vscli --lsp clangd --lsp-language cpp src/main.cpp
+# Repeat --lsp-arg for individual process arguments:
+vscli --lsp clangd --lsp-language c --lsp-arg=--background-index=false example.c
+```
+
+The server must already be installed. This implementation uses native stdio JSON-RPC with bounded transport queues, UTF-16 positions, document versions, and stale-response checks. Diagnostics appear as gutter markers and in Problems. Server failure leaves editing available.
+
+| Action | Linux | Windows | macOS |
+| --- | --- | --- | --- |
+| Completion | Ctrl+Space | Ctrl+Space | Ctrl+Space |
+| Hover | Ctrl+K Ctrl+I | Ctrl+K Ctrl+I | Cmd+K Cmd+I |
+| Definition | F12 | F12 | F12 |
+| References | Shift+F12 | Shift+F12 | Shift+F12 |
+| Format document | Ctrl+Shift+I | Shift+Alt+F | Shift+Alt+F |
+| Rename symbol | F2 | F2 | F2 |
+| Problems | Ctrl+Shift+M | Ctrl+Shift+M | Cmd+Shift+M |
+
+Completion uses arrows and Enter/Tab. Formatting is undoable. Rename currently accepts unversioned text edits, stages validation before changing any buffer, and leaves files unsaved for review; undo is per file. It refuses edits to other unsaved buffers. Versioned workspace edits, file operations, completion snippets/resolve/follow-up commands, code actions, server provisioning, automatic restart, multiple simultaneous servers, and advanced capability negotiation remain incomplete. The server is terminated when the editor exits; graceful shutdown is still pending. Diagnostics lacking server versions have weaker stale-result guarantees.
+
+A deterministic subprocess fixture tests synchronization, completion, formatting, and rejection of a stale response. The local real-server integration test covers clangd diagnostics, hover, and formatting. This does not establish compatibility with every server.
+
+## Integrated terminal and tasks
+
+Ctrl+` toggles the terminal panel; Ctrl+Shift+` creates a terminal, and Ctrl+1 (Cmd+1 on macOS) focuses the editor. F1 exposes next/previous/kill terminal commands. There can be up to eight sessions. Hiding the panel leaves the process running. Shift+PageUp/PageDown or the mouse wheel scrolls its 5,000-line history.
+
+Shells run through a native PTY; a VT parser renders colors, attributes, cursor movement, alternate screens, and bracketed paste. Input and output use bounded queues. Ctrl+C reaches the shell, while palette/quick-open/panel/focus shortcuts remain available to the workbench. This is a documented initial routing subset, not the complete VS Code `commandsToSkipShell` behavior. Shell selection uses `SHELL` (Unix) or `COMSPEC` (Windows). The terminal is not yet qualified for every full-screen program, mouse-reporting mode, keyboard enhancement, or Windows ConPTY workflow. Pasting more than 1 MiB is refused. Exiting VSCLI terminates its terminal sessions; persistence/reconnection is not implemented.
+
+Tasks are read from `.vscode/tasks.json` version `2.0.0`. F1 → Tasks: Run Task opens the picker; Ctrl+Shift+B / Cmd+Shift+B selects the default build task. The first execution previews the exact prepared command and asks to trust workspace tasks for this session. No project task starts automatically. Output and input use the integrated terminal.
+
+Process and POSIX shell tasks support string arguments, a working directory, environment overrides, OS task overrides, and common `${workspaceFolder}`, `${file}`, `${relativeFile}`, `${fileBasename}`, `${fileDirname}`, `${lineNumber}`, `${selectedText}`, and `${env:NAME}` variables. With a process task, each argument remains a separate argument. For shell tasks with `args`, each value is POSIX-quoted; a command with no args can be a pipeline. Shell overrides must use compatible quoting. Windows shell tasks remain unavailable; use process tasks.
+
+Task dependencies, background readiness, extension providers, automatic task detection, inputs/command variables, and problem matchers are not implemented yet. Unsupported dependencies/variables/providers fail explicitly; a configured problem matcher produces an explicit notice while task output remains available. Tasks run saved filesystem contents; they do not automatically save dirty editor buffers.
+
+## Git
+
+Ctrl+Shift+G opens Source Control. Arrows select a file; Enter opens it, S stages it, U unstages it, D shows its working-tree diff, Shift+D shows its staged diff, R refreshes, and C enters a commit message. A commit applies to the current Git index, including entries staged outside VSCLI, and runs configured Git hooks. F1 → Git: History shows the latest 100 commits. Diff/history viewers support arrows, PageUp/PageDown, Home/End, and Escape.
+
+Git operations run in a background worker using literal path arguments and NUL-delimited status records. No push, pull, reset of working-tree contents, or automatic repository initialization occurs. Staging refuses a selected file that has unsaved editor changes. Diffs and status describe saved files. Unstaging preserves working-tree contents, including in a repository without its first commit. The current backend requires the `git` executable and limits output to 8 MiB per stream and operations to 30 seconds.
+
+Git status currently refreshes on request and after mutations. Hunk staging, conflict-resolution UI, branch management, remote operations, interactive signing/authentication, and advanced repository/submodule handling remain incomplete. Long-running commit hooks may exceed the current timeout; inspect repository state after any timed-out write operation.
+
+## Custom bindings
+
+The default configuration path is printed by `--doctor`. The file is optional. A supplied `--keybindings` path takes precedence. JSON comments and trailing commas are accepted.
+
+```jsonc
+[
+  // This explicit customization inserts text when the editor has focus.
+  {
+    "key": "ctrl+k ctrl+b",
+    "command": "type",
+    "args": { "text": "hello" },
+    "when": "editorTextFocus && !inputFocus"
+  }
+]
+```
+
+Rules resolve from bottom to top. Chords, command arguments, empty commands, and `-command.id` removal rules are supported. Available contexts include `editorTextFocus`, `editorFocus`, `editorHasSelection`, `inputFocus`, `filesExplorerFocus`, `editorLangId`, `isLinux`, `isMac`, and `isWindows`. The expression subset supports `!`, `&&`, `||`, equality/inequality, and parentheses. Regex, membership, physical scan-code bindings, and the full VS Code context inventory are not yet supported; unsupported expression syntax causes an explicit import error. Unknown commands produce an explicit unavailable-command message.
+
+Prompt text boxes currently handle their own editing keys, so custom keybinding dispatch inside those prompts is not yet supported. Imports are read at startup rather than live-reloaded.
+
+## Saving and recovery
+
+Saving checks the file against the contents originally read, writes a sibling temporary file, syncs that file, and replaces the destination. Existing Unix mode permissions are retained, and opening through a symlink resolves and saves the target. If external contents differ, Save refuses the overwrite; use Save As to preserve your edits or explicitly revert through the palette. Save As protects existing files rather than presenting an overwrite action in this alpha.
+
+There is still a race between checking and replacing a file if another process writes at exactly that time. Hard-link identity, extended attributes, unusual filesystems, and power-loss durability are not guaranteed by this initial implementation. Recovery testing covers process failure; it does not prove durability across power loss.
+
+Unsaved buffers are snapshotted roughly every two seconds when changed. Snapshots contain the full unsaved text and saved baseline in the local state directory; the Unix recovery directory is restricted to the user. They are not encrypted. Each running editor holds a session lock so another instance skips its recovery file. After a crash, the next launch restores stale snapshots as editable tabs without writing their contents to the source files. Review and save them explicitly. Undo of a recovered buffer returns to its saved baseline, not to the entire previous session history.
+
+The interval means the most recent edits can be lost on abrupt termination. Normal close asks Save, Discard, or Cancel for dirty buffers. A clean exit removes its session recovery file. `SIGTERM`/`SIGINT` on Unix attempt a final snapshot and restore the terminal; `SIGKILL` cannot restore terminal modes. Use your terminal's reset action or `reset` if necessary after a forced kill.
+
+## Clipboard and current limits
+
+On Linux, system clipboard integration uses `wl-copy`/`wl-paste` or `xclip` if available. macOS uses `pbcopy`/`pbpaste`. Without a helper, an internal clipboard remains available and bracketed terminal paste works. Clipboard helpers have bounded waits. Windows system clipboard integration is not implemented yet.
+
+Files must be UTF-8, without NUL bytes, and at most 32 MiB when opened. Existing LF/CRLF bytes are preserved; newly inserted lines use the detected newline style. Very long lines, large replacements, recovery writes, and file saves can still pause this alpha; the design document's latency budgets have not been established. Full bidirectional layout and terminal-independent emoji-width agreement are not implemented.
+
+Not yet implemented: extension installation/execution, rich webviews, notebooks, full settings migration, or a remote agent. Running the executable inside an SSH session is supported in principle; the actual terminal/multiplexer combination must be tested.
+
+Grammar highlighting uses a single background worker, document/revision checks, cancellation, and a 2 MiB source cap. Other languages and larger files retain lightweight lexical colors. Embedded-language injection, semantic tokens, incremental parse-tree reuse, grammar folding, and theme imports remain incomplete. Highlight work exceeding the initial time/span budget is canceled and reported; editing remains available.
+
+## Settings
+
+Use `--settings /path/to/settings.json` to import user settings. By default, VSCLI reads `settings.json` beside its user keybindings file. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.
+
+The current supported subset is `editor.tabSize` (1–16), `editor.insertSpaces`, and `editor.lineNumbers` (`on`, `off`, `relative`, `interval`). Indentation width applies to editing, cursor/mouse coordinates, rendering, and LSP formatting options. Language blocks such as `[python]` and `[javascript][typescript]` override general values; a single-language block takes priority over a multi-language block. Within matching scopes, workspace values override user values, following the [documented settings precedence](https://code.visualstudio.com/docs/configure/settings).
+
+Settings reload in the background every two seconds. Malformed updates retain the previous configuration. Unsupported entries and invalid values appear in F1 → Settings: Compatibility Report. Automatic indentation detection, theme imports, autosave, formatting-on-save, profiles, remote scopes, policies, and the broader settings catalog remain incomplete; importing those entries does not enable their behavior.
+
+## Native debugging
+
+Configure an installed stdio DAP adapter explicitly. For Python with `debugpy` installed in a chosen environment:
+
+```sh
+vscli program.py --debug-adapter /path/to/python --debug-arg=-m --debug-arg=debugpy.adapter
+```
+
+F9 toggles a line breakpoint in a saved file. F5 launches the active file (or `--debug-program PATH`) and continues paused execution. F10 steps over, F11 steps into, Shift+F11 steps out, and Shift+F5 stops. Repeat `--debug-program-arg` for program arguments. Save modified program and breakpoint files before launch.
+
+Ctrl+Shift+D (Cmd+Shift+D on macOS) opens the debugger view. Tab switches stack, scopes, variables, and console. Enter selects a frame or expands a scope/object. `e` prompts for an expression evaluated in the selected frame; results appear in the console. The palette also exposes pause, evaluation, and console commands. On exit the client requests debuggee termination and gives the adapter a bounded cleanup interval before reaping it; adapters that ignore disconnect can leave their own descendants running.
+
+The real Python/debugpy integration test covers breakpoint, variables, step, evaluation, and continued exit. Deterministic tests cover reversed variable replies, rejected stepping, and disconnect. This is an initial DAP launch workflow: launch.json, attach, adapter-specific launch fields, watch persistence, thread selection, conditional/log breakpoints, source-reference downloads, and test-provider UI remain incomplete. Breakpoint positions are not yet tracked through source edits or persisted. Columns currently use scalar character positions. Adapters requiring reverse terminal requests are rejected explicitly.
+
+## External file changes
+
+Native filesystem notifications refresh the workspace index and explorer after a short debounce. Clean open files reload as one undoable edit while retaining shared document/view identity. Dirty files retain unsaved text and report a conflict; the save guard continues to reject overwriting changed disk content. Deleted open files become dirty retained buffers, so quit confirmation and crash recovery preserve their contents. Explicit Revert also retains view identity and can be undone.
+
+Disk reads run off the UI thread, are capped at 32 MiB per file, and are discarded if the buffer was edited, saved, closed, or renamed while reading. Open files are checked every two seconds as a fallback, including files outside the workspace. Index notifications ignore common generated directories. If native watcher setup fails, use Refresh Explorer for index changes; the periodic open-file check continues. Network filesystem event behavior, very large directory trees, and non-Linux watcher backends still need qualification.
+
+## Verification
+
+```sh
+cargo fmt --check
+cargo test --locked
+cargo clippy --all-targets --locked -- -D warnings
+cargo build --release --locked
+python3 tests/pty_smoke.py target/release/vscli
+```
+
+The automated PTY suite drives the real executable, including legacy and emulated enhanced input, Unicode paste, save, selection, undo, comment chords, Save As, resize, quick open, custom bindings, external-change protection, unsaved-close confirmation, terminal restoration, and SIGKILL recovery. It uses Python's standard library and temporary directories. Protocol emulation is not a substitute for testing a physical keyboard in every real terminal.
+
+For a manual smoke test, open a disposable file, type text, save it, select/replace and undo, use Ctrl+P to open a second file, find text, and close with unsaved changes to exercise Save/Discard/Cancel. Use F1 → Keyboard Inspector for combinations your terminal consumes.

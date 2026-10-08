@@ -1,0 +1,53 @@
+# VSCLI completion criteria
+
+The active goal is the complete terminal IDE described by the user, not another basic editor milestone. This checklist records implementation and verification gaps. Passing a subset does not make the overall project complete. Exact compatibility claims require a named VS Code reference and qualified terminal configurations; graphical extensions and restricted services require an explicit compatibility route rather than silent omission.
+
+## Existing foundation
+
+- [x] Native Rust executable with open/edit/save, tabs, explorer, command palette, and quick open.
+- [x] Selection, grapheme movement, undo/redo, literal find/replace, comments, and indentation.
+- [x] Optimistic external-change protection and process-crash recovery snapshots.
+- [x] Platform shortcut profiles and a tested subset of custom keybinding rules.
+- [x] Unit tests, CI definition, and end-to-end PTY tests for the first alpha.
+
+## Required development and verification
+
+- [ ] Mature editing: multiple cursors, line operations, bracket matching, snippets, folding, wrapping, and independent split views.
+- [ ] Exact keybinding contract: pinned upstream inventory, context/command behavior tests, terminal configuration recipes, and real-terminal qualification.
+- [ ] Language intelligence: LSP lifecycle, diagnostics, completion, hover, navigation, references, formatting, rename, code actions, and server provisioning.
+- [ ] Workspace workflows: cancellable search, replacement, file create/rename/delete, live file/index updates, and multi-root support.
+- [ ] Git workflows: status, diffs, stage/unstage, commits, history, and conflict handling.
+- [ ] Task execution: structured process/shell tasks, output, cancellation, variable expansion, and problem matchers.
+- [ ] Integrated terminal: PTY, emulation, scrolling, resize, keyboard routing, and platform verification.
+- [ ] Debugging and tests: DAP sessions, breakpoints, stepping, stack/variables/watch, console, and test-provider UI.
+- [ ] Extensions: actual host strategy experiment, stable API baseline, package install/rollback, lifecycle, and named real-extension workflow tests.
+- [ ] Rich extension UI: native contribution adapters plus an evaluated browser compatibility route for webviews/notebooks/custom editors.
+- [ ] Configuration: settings/workspaces/profiles migration, full supported context expressions, secrets, trust, and understandable capability reporting.
+- [ ] Reliability: versioned edits, recovery/persistence failure injection, encoding handling, performance measurements, accessibility, and independent state ownership.
+- [ ] Release: platform qualification, reproducible packaging, dependency notices, upgrade/rollback, contributor tooling, and honest compatibility reports.
+
+## Current implementation pass
+
+Start with multiple cursors and missing editing commands, then workspace search and language tooling. Keep the working alpha runnable throughout. Add behavior tests for changes to document state before exposing new commands in the UI. Record completed work and remaining limitations in the usage guide as capabilities land.
+
+## Verified additions during the full-project goal
+
+- Multiple cursors and selection transactions; Unicode replacement and grouped undo verified through a real PTY. Disjoint line move/copy and adjacent selection boundaries are tested.
+- Bounded, cancellable workspace search with regex/options, ignore handling, unsaved overlays, and result navigation.
+- Native stdio LSP transport, diagnostics, hover, completion, definition/references, formatting, and limited rename. Fixture tests cover stale edits; installed clangd passes diagnostics/hover/formatting integration.
+- Embedded native PTY terminal with VT rendering, asynchronous I/O, scrollback, resizing, session switching, and shell routing; native and nested-PTY tests pass.
+- Explicit tasks.json process/POSIX-shell execution with variable expansion, session trust, build shortcut, and terminal output; dependencies and matchers remain incomplete.
+- Git status, file diff, stage/unstage, commit, and history; temporary-repository tests and Source Control PTY workflow pass.
+- These additions do not satisfy the complete editing, language-tooling, or workspace criteria above.
+
+- Independent split views share a document and versioned undo history; core tests cover cursor mapping through disjoint edits and grouped undo/redo. Nested/resizable layouts and per-group tab stacks remain incomplete.
+
+- Explorer file/folder creation, rename with open-buffer path updates, system trash, and explicit index refresh are implemented; create/rename collision and unsaved-buffer tests pass. Trash restoration and automatic watching remain incomplete.
+
+- Native DAP launch, breakpoints, stepping, stack/scopes/variables, and evaluation pass a real debugpy integration test. A deterministic adapter covers out-of-order variables, failed stepping, and disconnect. Launch/attach configuration, advanced breakpoints, watches, and test providers remain incomplete.
+
+- Native file notifications, background index replacement, version-checked disk reads, undoable clean-buffer reloads, dirty conflict notices, and deleted-buffer retention are implemented. Non-Linux/network watcher behavior and large-tree performance remain unqualified.
+
+- Background Tree-sitter highlighting covers Rust, Python, JavaScript/JSX, TypeScript/TSX, and JSON. Tests cover multiline constructs, Unicode, grammar loading, and stale revisions. Incremental tree reuse, injections, semantic tokens, folding, and additional grammars remain incomplete.
+
+- User/workspace settings import with language overrides, configurable indentation/line numbers, unsupported-setting reporting, and background reload is implemented. The broader configuration and profile migration contract remains incomplete.

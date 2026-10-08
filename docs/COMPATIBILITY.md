@@ -1,0 +1,151 @@
+# VSCLI compatibility contract
+
+## Public promise
+
+Compatibility must describe observed behavior against a pinned reference version. An extension being downloadable, installable, or activatable does not establish that its workflows work.
+
+Publish three independent records: supported VS Code API behavior, verified extension workflows, and tested terminal/input combinations. Also record package provenance and use rights separately from technical compatibility. All statuses in this design are proposed targets; no extensions have been tested in VSCLI yet.
+
+Exact VS Code keybindings are a firm user requirement on qualified terminal configurations. Extension compatibility remains progressive. Do not advertise “all VS Code extensions” or “all shortcuts on every terminal”; qualify the reference version, platform profile, keyboard layout, terminal, and any multiplexer configuration used for an exact-keybinding claim.
+
+## Feature disposition
+
+| VS Code feature family | Planned terminal behavior | Scope |
+| --- | --- | --- |
+| Files, tabs, splits, selections, undo, search | Native workbench and document transactions | Core product |
+| Command palette and quick open | Native lists with asynchronous filtering | First usable release |
+| Platform keybindings and chords | Preserve exact defaults, contexts, chords, arguments, and user overrides | Firm requirement; qualify terminal configuration and track command implementation separately |
+| Settings, snippets, profiles, multi-root workspaces | Versioned import with supported-field report | Staged support |
+| Language intelligence | Direct LSP and compatible extension providers | Curated languages first |
+| Syntax grammars and themes | Tree-sitter baseline; separate TextMate compatibility route | Approximate appearance unless tested |
+| Git and SCM providers | Native change lists, diffs, actions | Built-in Git before generic SCM extensions |
+| Tasks, debugger, test explorer | Native output, controls, trees, and results | Later IDE milestone |
+| Quick picks, input boxes, tree views, status items | Native equivalents | Priority extension UI surface |
+| Decorations, code lenses, inlay hints | Cell-based text and styles | No pixel-positioning equivalence |
+| Integrated terminals | PTY-backed terminal panel | Separate emulation milestone |
+| Markdown previews | Native rendered text; optional image capabilities later | Browser CSS/JS behavior excluded |
+| Notebooks | Later cell model with text outputs and kernel integration | Rich renderers require separate work |
+| Webviews and graphical custom editors | Explicit unsupported status or dedicated terminal adapter | Arbitrary HTML/JS equivalence excluded |
+| Remote SSH and containers | Run editor remotely first; own agent later | No dependency on proprietary remote services |
+| Authentication and secrets | Provider contracts and OS credential storage | Provider/service-specific validation |
+| AI chat, inline completions, agent tools | Optional native provider surfaces after core maturity | No blanket compatibility claim for vendor extensions |
+| Account sync, collaboration, browser tooling | Independent integrations if justified | Deferred; not v1 gates |
+
+The presence of one native alternative does not mean the original extension works. A native Markdown preview and an arbitrary webview extension are different compatibility claims.
+
+## Keyboard compatibility
+
+Use the exact keybinding rules from a pinned VS Code reference, including command IDs, arguments, chords, platform overrides, context expressions, user overrides, and removal rules. VS Code resolves matching rules from the bottom upward; context and ordering are part of behavior, not incidental syntax. [Keyboard rules](https://code.visualstudio.com/docs/configure/keybindings).
+
+Maintain a reproducible export of resolved default bindings for Linux, macOS, and Windows, recording reference version, keyboard layout, built-in extensions, and relevant settings. Preserve source provenance and notices. Track extension-contributed bindings separately. A manually selected list of popular shortcuts does not satisfy this requirement.
+
+Parse `when` expressions into an AST and implement the documented operators in stages, including negation, comparisons, regular expressions, and membership where supported. Unknown syntax produces a diagnostic; an unknown context key follows the pinned reference behavior. Reuse the context engine for menus and command enablement. [When clause contexts](https://code.visualstudio.com/api/references/when-clause-contexts).
+
+Select the matching operating-system profile by default and allow an explicit profile override, including when running through SSH. The intended keyboard profile belongs to the user at the terminal and must not silently change just because the remote host runs a different OS. Layer imported user bindings over the selected defaults:
+
+| Profile | Behavior |
+| --- | --- |
+| Linux defaults | Exact bindings and behavior from the pinned Linux reference |
+| macOS defaults | Exact bindings, preserving Command versus Control, from the pinned macOS reference |
+| Windows defaults | Exact bindings and behavior from the pinned Windows reference |
+| User overrides | Import `keybindings.json` without changing combinations, arguments, contexts, or removal rules |
+
+Do not ship a substitute terminal keymap as the default. Additional bindings are an explicit user customization, not evidence that an unavailable original shortcut works.
+
+Enhanced keyboard reporting is negotiated at startup and reevaluated after resume. A compatibility inspector shows the received key, matching rule, active context, and command result. For example, legacy terminals may encode Ctrl+I and Tab identically; no rule engine can distinguish them after that information has been lost. [Keyboard protocol background](https://sw.kovidgoyal.net/kitty/keyboard-protocol/).
+
+Provide terminal and multiplexer configuration recipes that release conflicts or forward the original combinations with unambiguous encoding. Handle terminal line discipline so software flow control and signal processing do not consume intended editor keys. Use a guided key test to identify missing events: the editor cannot infer which swallowed physical key was pressed from an absent event. Configuration changes should be scoped, reviewable, and reversible. If an OS binding consumes a required combination, identify the needed OS change; do not silently remap it.
+
+Test Ctrl+C with and without a selection, Ctrl+K chords, Ctrl+P, Ctrl+Shift+P, F1, F5, shifted navigation, Alt/Meta, international layouts, paste, and IME text. Editor input and focused terminal-panel input require different routing, with a documented escape command to return focus to the editor.
+
+Keep actions discoverable through the command palette, but palette access is not a substitute for an exact shortcut. OS-reserved shortcuts, physical scan-code mappings, and system-wide hotkeys need explicit platform qualification. macOS Command-key parity depends on terminal configuration and event delivery; silently replacing Command with Control fails the requirement.
+
+Verify three layers independently: physical combination reaches the application distinctly; the resolver selects the same command and arguments in the same context; the command has the same observable effect. Test collisions and inactive contexts as well as successful dispatch. Preserve editor-versus-terminal focus behavior, including interruption and copy behavior. A matching command name with different selection or undo effects does not pass.
+
+Early releases may have incomplete command implementations. Keep their original bindings reserved and show unsupported commands explicitly; do not repurpose those combinations. Publish separate input, resolver, and command-behavior coverage over the complete baseline inventory. An exact-parity claim requires all applicable baseline cases to pass for the declared environment; any excluded cases must be explicit limitations rather than silently removed from the denominator.
+
+## Configuration and migration
+
+Provide a read-only migration preview before writing the project's own configuration. Parse JSON with comments, preserve the user's source files, and show imported settings, approximations, unsupported settings, extension requirements, and unavailable shortcuts.
+
+Keep familiar names for supported settings. Define precedence for defaults, user/profile settings, workspace settings, folder settings, and language overrides against a pinned VS Code reference. Preserve unknown fields when editing existing configuration. Initial support should cover fonts only as an explanatory unsupported setting, while indentation, wrapping, autosave, file excludes, search excludes, formatting, and keybindings have meaningful terminal behavior.
+
+Support a documented subset of `.code-workspace`, `.vscode/settings.json`, `tasks.json`, `launch.json`, and snippet files. Configuration providers, command-variable substitution, problem matchers, snippet transformations, and extension-defined settings each need their own tests. Importing a file format is not executing every possible configuration in it.
+
+Use dry-run migration output as a contributor-friendly issue generator. Users should be able to export a report without uploading their source code, home path, credentials, or workspace secrets.
+
+## Extension execution strategy
+
+A TypeScript shim supplies the `vscode` module inside a maintained Node.js runtime and connects to native services through a versioned broker protocol. It handles activation, disposables, events, cancellation, commands, provider registrations, settings, storage, workspace resources, and native view models in stages. Pin a stable VS Code API baseline; do not pretend to implement the latest API by changing a version string.
+
+VS Code distinguishes Node and browser extension hosts. Initial executable-extension support should cover the Node `main` entry point and declarative packages. Browser-only extensions need an independently evaluated worker/runtime environment and remain unsupported initially. [Web extensions](https://code.visualstudio.com/api/extension-guides/web-extensions).
+
+The difficult part is synchronous API behavior. Calls such as reading document text cannot wait for arbitrary asynchronous RPC without changing the extension contract. Maintain versioned document and selection mirrors in the Node host. Deliver each text delta before the corresponding change event; synchronous reads during callbacks must see the correct mirror version. Native state remains authoritative. Resynchronize after gaps or restart, and attach expected versions to requested mutations.
+
+Use protocol handles for providers, documents, and UI objects; preserve identity and disposal semantics for their declared lifetimes. Implement event ordering, rejection behavior, cancellation, and built-in command semantics with contract tests. A method with the right name and return type can still be incompatible.
+
+Extension dependencies may expose arbitrary in-memory APIs to each other. Begin with compatible dependency groups in the same host. Per-extension isolation would require additional semantics and may break these APIs. Native Node modules also require an OS, architecture, and runtime ABI match; a supported JavaScript entry point does not guarantee that bundled binaries load.
+
+## Reuse versus independent shim
+
+Make this a Phase 0 decision with a two-week initial timebox inside the broader feasibility phase:
+
+| Experiment | Evidence required |
+| --- | --- |
+| Extract a pinned Code OSS extension host | Identify its main-thread service dependencies, build footprint, protocol coupling, license obligations, and cost of rebasing one upstream update |
+| Implement a bounded independent shim | Run the same small fixture suite and two real permissively usable extensions; measure event fidelity and missing APIs |
+
+Prefer the independent shim for a deliberately bounded API surface unless host extraction materially reduces ongoing maintenance. Reuse carefully selected source where licensing permits and it improves correctness. The upstream private extension-host RPC is not the project's stable public protocol. Code OSS source is MIT licensed, which is distinct from distribution and marketplace terms. [Code OSS license](https://github.com/microsoft/vscode/blob/main/LICENSE.txt).
+
+Study Theia's compatibility reporting as an existing alternative-editor approach. Its documentation notes that VS Code API support and actual extension compatibility need to be checked; VSIX installation alone is insufficient. [Theia extension documentation](https://theia-ide.org/docs/user_install_vscode_extensions/).
+
+If neither approach passes the behavior gate, ship the native IDE with direct LSP and native plugins while keeping VS Code extension support explicitly experimental. Do not let an uncertain compatibility project prevent useful releases.
+
+## Order of API implementation
+
+1. **Foundation:** URI, positions/ranges, disposables, events, cancellation, extension context, command registration, activation and configuration.
+2. **Documents:** open/close/change/save, selections, edit builders, workspace edits, filesystem providers, watchers, and storage.
+3. **Language providers:** diagnostics, completion, hover, definitions, references, formatting, code actions, and rename.
+4. **Native UI contributions:** quick picks, inputs, notifications, progress, output channels, tree views, menus, and status items.
+5. **IDE integrations:** tasks, SCM, debug providers, terminals, tests, authentication, and secrets.
+6. **Specialized work:** notebooks, advanced decoration behavior, and selected terminal adapters for graphical extensions.
+
+Prioritize work by the workflows it unlocks. One missing API can block a useful extension; counting implemented methods alone rewards the wrong work. Proposed APIs and private product APIs require explicit opt-in experiments and are not covered by the initial stable contract. [Proposed API policy](https://code.visualstudio.com/api/advanced-topics/using-proposed-api).
+
+## Syntax and theme compatibility
+
+Tree-sitter support does not load TextMate grammars automatically, and mapping a theme's colors does not reproduce its scope semantics. Track language configuration, snippets, TextMate grammar loading, grammar injections, semantic tokens, and theme scope matching separately.
+
+Start with native syntax and an approximate theme importer. Evaluate a compatible TextMate tokenizer in the optional host or a suitable native implementation for languages supplied only by extensions. Tokenization results carry document versions and never gate input. Limit pathological regex/tokenization work. Publish the distinction between approximate visual mapping and tested grammar compatibility.
+
+## Distribution and package policy
+
+Use Open VSX and author-distributed VSIX files where their licenses permit use. Microsoft states that alternative products may not access the Visual Studio Marketplace and describes restrictions on Microsoft/affiliate extensions acquired there. The project must not depend on impersonating VS Code to acquire restricted packages. [Microsoft FAQ](https://code.visualstudio.com/docs/supporting/faq).
+
+Open VSX is an alternative extension registry; presence there does not establish complete ecosystem coverage, runtime compatibility, or permission to redistribute every package. Track each package's source, version, license, target platform, hash, and verification status. [Eclipse Open VSX FAQ](https://www.eclipse.org/legal/open-vsx-registry-faq/).
+
+Use bounded archive extraction, path-traversal protection, dependency-cycle checks, atomic install directories, and rollback. Pin the extension and dependency versions used in verification. Separate technical failure, unavailable package, license restriction, and account/service requirement in the UI and reports.
+
+Make the native build and complete first-party source available without a proprietary service. Third-party extensions and remote AI services can have different licenses; describe them as optional dependencies rather than implying they become open source through the host.
+
+## Verification and release reporting
+
+Use five extension statuses: verified, partial, experimental, unsupported, and not tested. Only verified means the named workflows pass for the recorded environment. Avoid a single percentage that hides untested or excluded packages.
+
+Each result records:
+
+| Field | Purpose |
+| --- | --- |
+| Extension identity, version, hash, source | Reproduce exactly what ran |
+| VSCLI commit, API baseline, Node runtime | Establish implementation and runtime versions |
+| OS, architecture, terminal and multiplexer | Identify platform limitations |
+| Workflow IDs and expected outputs | Distinguish activation from useful behavior |
+| Passed, failed, skipped, unsupported cases | Keep the denominator visible |
+| Missing API, command, service, or UI capability | Make the next contribution actionable |
+| License/service prerequisite and test date | Distinguish access from technical support |
+
+Build a fixed initial corpus of approximately 20 legally usable packages across commands, snippets, themes, formatting, language services, trees, Git, tasks, and debugging. Include at least one deliberately unsupported webview case. Select and pin actual packages during Phase 0; none are predeclared compatible here.
+
+Run synthetic extension fixtures against both the pinned reference editor and VSCLI, comparing document versions, selections, event traces, command effects, and errors. Use real extension workflows as a separate layer. Static inspection of manifests and API references is useful for triage but misses dynamic behavior and bundled dependencies.
+
+On each release, publish a generated API report and the named workflow results. Upgrade the reference baseline on a deliberate cadence, such as quarterly at first, and keep a working stable baseline while the new one is evaluated. Unsupported APIs should fail clearly rather than return plausible empty values that make an extension appear functional.
