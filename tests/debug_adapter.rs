@@ -43,6 +43,14 @@ fn protocol_reordered_variables_rejected_step_and_shutdown() {
         a.debugger.as_ref().is_some_and(|d| !d.variables.is_empty())
     });
     assert_eq!(app.doc().row(), 1);
+    assert_eq!(
+        app.debugger.as_ref().unwrap().frames[0]
+            .source
+            .as_ref()
+            .unwrap()
+            .path,
+        app.doc().path
+    );
     let debugger = app.debugger.as_mut().unwrap();
     debugger.expand(11).unwrap();
     debugger.expand(12).unwrap();

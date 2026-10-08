@@ -453,6 +453,12 @@ impl Client {
                     .into_iter()
                     .take(100)
                     .collect();
+                for frame in &mut self.frames {
+                    if let Some(path) = frame.source.as_mut().and_then(|s| s.path.as_mut()) {
+                        *path =
+                            crate::document::absolute_path(path).unwrap_or_else(|_| path.clone());
+                    }
+                }
                 if !self.frames.is_empty() {
                     self.select_frame(0)?;
                 }
