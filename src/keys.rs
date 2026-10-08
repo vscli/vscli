@@ -386,6 +386,19 @@ impl Keymap {
             "deleteWordRight",
             Some("editorTextFocus"),
         );
+        map.add(
+            "tab",
+            "jumpToNextSnippetPlaceholder",
+            Some("hasNextTabstop && inSnippetMode && textInputFocus"),
+        );
+        map.add(
+            "shift+tab",
+            "jumpToPrevSnippetPlaceholder",
+            Some("hasPrevTabstop && inSnippetMode && textInputFocus"),
+        );
+        for key in ["escape", "shift+escape"] {
+            map.add(key, "leaveSnippet", Some("inSnippetMode && textInputFocus"));
+        }
         map.defaults = map.bindings.clone();
         map
     }

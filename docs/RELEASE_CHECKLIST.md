@@ -64,3 +64,5 @@ Start with multiple cursors and missing editing commands, then workspace search 
 
 
 - Long-line movement and column lookup traverse rope chunks, with upstream Unicode boundary fixes and Unicode 17 conformance checks. Plain-text/ready-grammar rendering limits copying and scanning to viewport prefixes; PTY tests cover long-line Unicode edits, undo, scrolling, and CRLF saves. Executable and native measurements are recorded in the performance report. Far-right layout, fallback syntax work, larger files, and full IDE contention remain unqualified.
+
+- Literal snippet insertion is connected to native variables and conditional Tab/Shift+Tab/Escape bindings, with linked editing, Unicode/CRLF persistence, cursor-order preservation and undo/redo coverage. Reference traces distinguish API, user-command, variable and cancellation behavior; an executable PTY workflow exercises the terminal path. Catalogs, choices, nested session merging, completion/extension insertion and full regex/input qualification remain incomplete.

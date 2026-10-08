@@ -85,6 +85,35 @@ Shift plus navigation extends a selection. Ctrl+Left/Right moves by words on Lin
 
 Exact physical key delivery depends on terminal configuration. VSCLI negotiates enhanced keyboard reporting when supported. A terminal may otherwise turn Ctrl+Shift+P into Ctrl+P or consume the combination entirely. The editor does not silently replace that binding. Use F1 → Keyboard Inspector, release the conflicting terminal binding, and retest. No terminal configuration is changed automatically. OS-global, international-layout, and multiplexer behavior still require real-device qualification.
 
+## Snippets
+
+Literal templates work through `editor.action.insertSnippet` with `args.snippet`.
+For example, save this **user override** in a keybindings file and load it with
+`vscli --keybindings ./keybindings.json file.rs`:
+
+```json
+[
+  {
+    "key": "f6",
+    "command": "editor.action.insertSnippet",
+    "when": "editorTextFocus",
+    "args": {"snippet": "fn ${1:name}(${2:args}) {\n\t$0\n}"}
+  }
+]
+```
+
+F6 then inserts that template. Tab and Shift+Tab move between active placeholders;
+Escape or Shift+Escape ends the session while keeping the primary selection.
+Linked fields edit together. Native variables include document/selection/cursor
+values, file/workspace paths, dates, random values, clipboard text, and built-in
+comment tokens. Multiline insertion follows the document's indentation and EOLs.
+Clipboard reads run in the background and cancel insertion if the editor context
+changes before the reply arrives.
+
+Catalog selection, snippet files, choice menus, nested snippet merging, extension
+insertion and completion snippets are still unfinished. Unsupported regex
+constructs fail explicitly. See [snippet evidence and limits](SNIPPETS.md).
+
 ## Multiple cursors and line commands
 
 Disjoint selections retain their primary and secondary order through normalization, typing, and undo/redo. Overlapping ranges merge while retaining the earliest selection's direction.
