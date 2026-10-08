@@ -4,7 +4,7 @@
 
 Compatibility must describe observed behavior against a pinned reference version. An extension being downloadable, installable, or activatable does not establish that its workflows work.
 
-Publish three independent records: supported VS Code API behavior, verified extension workflows, and tested terminal/input combinations. Also record package provenance and use rights separately from technical compatibility. All statuses in this design are proposed targets; no extensions have been tested in VSCLI yet.
+Publish three independent records: supported VS Code API behavior, verified extension workflows, and tested terminal/input combinations. Also record package provenance and use rights separately from technical compatibility. Most statuses in this design remain targets. The first command/edit host experiment and named Sort Lines workflow are recorded in [extension evidence](EXTENSIONS.md); that workflow does not establish broader API or package compatibility.
 
 Exact VS Code keybindings are a firm user requirement on qualified terminal configurations. Extension compatibility remains progressive. Do not advertise “all VS Code extensions” or “all shortcuts on every terminal”; qualify the reference version, platform profile, keyboard layout, terminal, and any multiplexer configuration used for an exact-keybinding claim.
 

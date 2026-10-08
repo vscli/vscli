@@ -1,6 +1,7 @@
 pub mod app;
 pub mod debug;
 pub mod document;
+pub mod extensions;
 pub mod files;
 pub mod git;
 pub mod keys;

@@ -68,6 +68,12 @@ struct Args {
     /// Argument to the debugged program (repeatable)
     #[arg(long, requires = "debug_adapter", allow_hyphen_values = true)]
     debug_program_arg: Vec<String>,
+    /// Run a trusted unpacked VS Code extension (executes its code with your permissions)
+    #[arg(long)]
+    extension: Option<PathBuf>,
+    /// Node executable for the optional extension host
+    #[arg(long, requires = "extension", default_value = "node")]
+    extension_node: String,
     /// Disable periodic recovery snapshots and startup recovery
     #[arg(long)]
     no_recovery: bool,
@@ -114,7 +120,7 @@ fn main() -> Result<()> {
     let profile = args.keymap.unwrap_or_else(Profile::native);
     if args.doctor {
         println!(
-            "VSCLI {}\nProfile: {profile:?}\nTerminal: {}\nTERM_PROGRAM: {}\nInteractive stdin/stdout: {}/{}\nMultiplexer: {}\nRecovery: {}\nUser keybindings: {}\n\nImplemented: UTF-8 editing, tabs, selections, undo/redo, safe save, find/replace,\nquick open, explorer, multi-cursor editing, split views, workspace search, native stdio LSP,\nterminal sessions, project tasks, Git status/diff/stage/commit/history,\nDAP breakpoints/stepping/variables, command palette, keybinding imports, crash snapshots.\nNot implemented: extension host.\n\nRun F1 → Keyboard Inspector inside the editor to test actual key delivery.\nCtrl+Shift+P and other modified keys may require enhanced keyboard support.",
+            "VSCLI {}\nProfile: {profile:?}\nTerminal: {}\nTERM_PROGRAM: {}\nInteractive stdin/stdout: {}/{}\nMultiplexer: {}\nRecovery: {}\nUser keybindings: {}\n\nImplemented: UTF-8 editing, tabs, selections, undo/redo, safe save, find/replace,\nquick open, explorer, multi-cursor editing, split views, workspace search, native stdio LSP,\nterminal sessions, project tasks, Git status/diff/stage/commit/history,\nDAP breakpoints/stepping/variables, command palette, keybinding imports, crash snapshots.\nExtensions: optional experimental command/edit host via --extension (requires Node).\n\nRun F1 → Keyboard Inspector inside the editor to test actual key delivery.\nCtrl+Shift+P and other modified keys may require enhanced keyboard support.",
             env!("CARGO_PKG_VERSION"),
             std::env::var("TERM").unwrap_or_else(|_| "unset".into()),
             std::env::var("TERM_PROGRAM").unwrap_or_else(|_| "unset".into()),
@@ -228,6 +234,15 @@ fn main() -> Result<()> {
             program,
             program_args: args.debug_program_arg,
         });
+    }
+    if let Some(extension) = args.extension {
+        app.extension_host = Some(vscli::extensions::Client::start(
+            &args.extension_node,
+            &extension,
+            &app.workspace.root,
+            &app.documents,
+            app.active,
+        )?);
     }
     if let Some(error) = settings_error {
         app.message = format!("Settings failed to load; using defaults: {error:#}");

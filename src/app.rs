@@ -1,4 +1,5 @@
 mod debugger;
+mod extensions;
 mod files;
 mod language;
 mod panes;
@@ -27,6 +28,7 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 
 pub const COMMANDS: &[(&str, &str)] = &[
+    ("Extensions: Stop Host", "vscli.extensions.stop"),
     ("Settings: Compatibility Report", "vscli.settings.report"),
     (
         "Preferences: Open User Settings (JSON)",
@@ -306,6 +308,7 @@ pub struct App {
     pub active_terminal: usize,
     pub terminal_visible: bool,
     pub terminal_area: Rect,
+    pub extension_host: Option<crate::extensions::Client>,
     pub lsp: Option<crate::lsp::Client>,
     pub syntax: crate::syntax::Engine,
     pub settings: crate::settings::Settings,
@@ -367,6 +370,7 @@ impl App {
             active_terminal: 0,
             terminal_visible: false,
             terminal_area: Rect::default(),
+            extension_host: None,
             lsp: None,
             syntax: crate::syntax::Engine::default(),
             settings: crate::settings::Settings::default(),
@@ -419,6 +423,7 @@ impl App {
         changed |= self.poll_files();
         changed |= self.poll_watching();
         changed |= self.poll_debugger();
+        changed |= self.poll_extensions();
         let visible: Vec<_> = self
             .documents
             .iter()
@@ -490,13 +495,19 @@ impl App {
         self.chord = None;
         self.prompt = Some(Prompt::new(kind, text));
     }
-    pub fn palette_items(&self, query: &str) -> Vec<(&'static str, &'static str)> {
+    pub fn palette_items(&self, query: &str) -> Vec<(&str, &str)> {
         let mut items: Vec<_> = COMMANDS
             .iter()
             .filter_map(|(label, id)| {
                 score(label, query.trim_start_matches('>')).map(|s| (s, *label, *id))
             })
             .collect();
+        if let Some(host) = &self.extension_host {
+            items.extend(host.commands.iter().filter_map(|(label, id)| {
+                score(label, query.trim_start_matches('>'))
+                    .map(|s| (s, label.as_str(), id.as_str()))
+            }));
+        }
         items.sort_by_key(|a| std::cmp::Reverse(a.0));
         items
             .into_iter()
@@ -1052,7 +1063,8 @@ impl App {
             "editor.action.nextMatchFindAction" => self.find(false),
             "editor.action.previousMatchFindAction" => self.find(true),
             "workbench.action.gotoLine" => self.start_prompt(PromptKind::Goto, String::new()),
-            _ => self.message = format!("Command not implemented in this alpha: {command}"),
+            "vscli.extensions.stop" => { self.extension_host = None; self.message = "Extension host stopped".into(); },
+            _ => self.execute_extension(command, args),
         }
     }
     fn add_comments(&mut self) {
@@ -1503,7 +1515,8 @@ impl App {
             PromptKind::Palette => {
                 let items = self.palette_items(&p.text);
                 if let Some((_, id)) = items.get(p.selected.min(items.len().saturating_sub(1))) {
-                    self.execute(id, Value::Null);
+                    let id = id.to_string();
+                    self.execute(&id, Value::Null);
                 }
             }
             PromptKind::QuickOpen => {

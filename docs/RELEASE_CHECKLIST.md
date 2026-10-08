@@ -51,3 +51,5 @@ Start with multiple cursors and missing editing commands, then workspace search 
 - Background Tree-sitter highlighting covers Rust, Python, JavaScript/JSX, TypeScript/TSX, and JSON. Tests cover multiline constructs, Unicode, grammar loading, and stale revisions. Incremental tree reuse, injections, semantic tokens, folding, and additional grammars remain incomplete.
 
 - User/workspace settings import with language overrides, configurable indentation/line numbers, unsupported-setting reporting, and background reload is implemented. The broader configuration and profile migration contract remains incomplete.
+
+- An optional isolated Node host runs CommonJS command extensions with native palette commands, synchronous document mirrors, version-checked edits, and native undo. Unchanged Tyriar Sort Lines 1.12.0 sorting/undo passes; stale/invalid transactions and process crashes are tested. Broad API coverage, extension installation, automatic activation, contributions/keybindings, providers, and rich UI remain incomplete. See [extension evidence](EXTENSIONS.md).
