@@ -105,7 +105,10 @@ function createApi(request, notify) {
       onDidCloseTextDocument: closed.event,
       getConfiguration(section = '') {
         return supported('WorkspaceConfiguration', {
-          get(key, fallback) { return defaults[section ? `${section}.${key}` : key] ?? fallback; },
+          get(key, fallback) {
+            key = section ? `${section}.${key}` : key;
+            return Object.hasOwn(defaults, key) ? structuredClone(defaults[key]) : fallback;
+          },
           has(key) { return Object.hasOwn(defaults, section ? `${section}.${key}` : key); },
         });
       },
