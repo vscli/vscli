@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashSet},
     fs::{self, File, OpenOptions},
-    io::{Read, Seek, Write},
+    io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
 
@@ -177,9 +177,10 @@ impl Store {
         std::io::copy(&mut snapshot, &mut digest)?;
         snapshot.rewind()?;
         let digest = format!("{:x}", digest.finalize());
+        let count = preflight_archive(&mut snapshot)?;
         let mut zip = zip::ZipArchive::new(snapshot).context("Invalid VSIX ZIP archive")?;
-        if zip.len() > MAX_ENTRIES {
-            bail!("VSIX exceeds 20,000 entries");
+        if zip.len() != count {
+            bail!("Duplicate VSIX central-directory paths are forbidden");
         }
         let stage = tempfile::Builder::new()
             .prefix(".stage-")
@@ -378,4 +379,42 @@ pub fn compatibility(manifest: &Value) -> String {
     } else {
         "Declarative package; contribution support varies".into()
     }
+}
+
+// ZIP metadata allocates before by_index(). Bound the declared count first and
+// compare it with ZipArchive's deduplicated index before extracting anything.
+fn preflight_archive(file: &mut File) -> Result<usize> {
+    let size = file.metadata()?.len();
+    let tail_len = size.min(65_535 + 22);
+    file.seek(SeekFrom::End(-(tail_len as i64)))?;
+    let mut tail = vec![0; tail_len as usize];
+    file.read_exact(&mut tail)?;
+    let offset = (0..tail.len().saturating_sub(21))
+        .rev()
+        .find(|&i| {
+            tail[i..].starts_with(b"PK\x05\x06")
+                && i + 22 + u16::from_le_bytes([tail[i + 20], tail[i + 21]]) as usize == tail.len()
+        })
+        .context("Invalid VSIX end-of-directory record")?;
+    let end = &tail[offset..];
+    let short = |i| u16::from_le_bytes([end[i], end[i + 1]]);
+    let long = |i| u32::from_le_bytes([end[i], end[i + 1], end[i + 2], end[i + 3]]) as u64;
+    let count = short(10) as usize;
+    if short(4) != 0 || short(6) != 0 || short(8) as usize != count {
+        bail!("Multi-disk VSIX archives are unsupported");
+    }
+    if count > MAX_ENTRIES {
+        bail!("VSIX exceeds 20,000 entries; ZIP64 is unsupported");
+    }
+    let directory_end = long(16)
+        .checked_add(long(12))
+        .context("Invalid VSIX central-directory size")?;
+    if long(16) == u32::MAX as u64
+        || long(12) == u32::MAX as u64
+        || directory_end != size - tail_len + offset as u64
+    {
+        bail!("ZIP64, prefixed or malformed VSIX archives are unsupported");
+    }
+    file.rewind()?;
+    Ok(count)
 }
