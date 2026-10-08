@@ -48,7 +48,30 @@ pub fn trace(cases: &[Value]) -> Result<Vec<Value>> {
             Template::parse
         };
         let template = parse(fixture["body"].as_str().unwrap())?;
-        if fixture["entry"] == "command" {
+        if fixture["resolveVariables"] == true {
+            let environment = vscli::snippet::variables::Environment {
+                workspace: std::env::current_dir()?,
+                clipboard: None,
+                language: fixture["language"].as_str().unwrap_or("plaintext").into(),
+                timestamp: chrono::Local::now().fixed_offset(),
+            };
+            let count = doc.selections().len();
+            doc.insert_snippet_command_resolved(
+                &template,
+                |doc, selection, index, name, indent| {
+                    environment.resolve(
+                        vscli::snippet::variables::Cursor {
+                            document: doc,
+                            selection,
+                            index,
+                            count,
+                        },
+                        name,
+                        indent,
+                    )
+                },
+            )?;
+        } else if fixture["entry"] == "command" {
             doc.insert_snippet_command(&template, &variables)?;
         } else {
             doc.insert_snippet(&template, &variables)?;
@@ -63,6 +86,10 @@ pub fn trace(cases: &[Value]) -> Result<Vec<Value>> {
                 }
                 "jumpToPrevSnippetPlaceholder" => {
                     doc.step_snippet(true)?;
+                }
+                "leaveSnippet" => doc.leave_snippet(),
+                "cursorLeft" | "cursorRight" => {
+                    doc.navigate_cursors(action, false, 20);
                 }
                 "undo" => doc.undo(),
                 "redo" => doc.redo(),

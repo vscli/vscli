@@ -1,5 +1,5 @@
 use super::*;
-use crate::snippet::{Placeholder, Template, Whitespace};
+use crate::snippet::{Expansion, Placeholder, Template, Whitespace};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug)]
@@ -122,6 +122,20 @@ impl Document {
         }
     }
 
+    pub(super) fn cancel_invalid_snippet(&mut self) {
+        if !self.in_snippet() {
+            self.cancel_snippet();
+        }
+    }
+
+    pub fn leave_snippet(&mut self) {
+        let typing = self.typing;
+        self.cancel_snippet();
+        let primary = self.selections().remove(0);
+        self.set_selections(vec![primary]);
+        self.typing = typing.map(|(time, _)| (time, self.cursor));
+    }
+
     pub fn in_snippet(&self) -> bool {
         self.snippet.as_ref().is_some_and(|s| {
             self.selections()
@@ -153,7 +167,9 @@ impl Document {
         template: &Template,
         variables: &BTreeMap<String, String>,
     ) -> Result<()> {
-        self.insert_snippet_inner(template, variables, false)
+        self.insert_snippet_inner(false, |_, _, _, whitespace| {
+            template.expand_with_whitespace(variables, whitespace)
+        })
     }
 
     /// User-command insertion preserves the primary cursor and adjusts nested
@@ -163,14 +179,38 @@ impl Document {
         template: &Template,
         variables: &BTreeMap<String, String>,
     ) -> Result<()> {
-        self.insert_snippet_inner(template, variables, true)
+        self.insert_snippet_inner(true, |_, _, _, whitespace| {
+            template.expand_with_whitespace(variables, whitespace)
+        })
+    }
+
+    /// Resolve each variable occurrence against its original insertion cursor.
+    /// All resolutions and expansions succeed before any buffer mutation.
+    pub fn insert_snippet_command_resolved(
+        &mut self,
+        template: &Template,
+        mut resolve: impl FnMut(
+            &Document,
+            &Selection,
+            usize,
+            &str,
+            Option<&str>,
+        ) -> Result<Option<String>>,
+    ) -> Result<()> {
+        self.insert_snippet_inner(true, |doc, selection, index, whitespace| {
+            template.expand_with_resolver(
+                &mut |name: &str, indent: Option<&str>| {
+                    resolve(doc, selection, index, name, indent)
+                },
+                whitespace,
+            )
+        })
     }
 
     fn insert_snippet_inner(
         &mut self,
-        template: &Template,
-        variables: &BTreeMap<String, String>,
         user_command: bool,
+        mut expand: impl FnMut(&Document, &Selection, usize, &Whitespace<'_>) -> Result<Expansion>,
     ) -> Result<()> {
         let mut selections: Vec<_> = self.selections().into_iter().enumerate().collect();
         selections.sort_by_key(|(_, s)| s.range().start);
@@ -202,8 +242,10 @@ impl Document {
                 .take_while(|c| matches!(c, ' ' | '\t'))
                 .take(1024 * 1024 + 1)
                 .collect();
-            let expanded = template.expand_with_whitespace(
-                variables,
+            let expanded = expand(
+                self,
+                &selection,
+                ordinal,
                 &Whitespace {
                     leading: &leading,
                     eol: &self.eol,

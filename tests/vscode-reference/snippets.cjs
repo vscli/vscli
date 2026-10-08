@@ -13,7 +13,7 @@ function observe(editor) {
 async function snippetTrace(vscode, fixtures = cases) {
   const traces = [];
   for (const fixture of fixtures) {
-    const document = await vscode.workspace.openTextDocument({ content: fixture.text || '', language: 'plaintext' });
+    const document = await vscode.workspace.openTextDocument({ content: fixture.text || '', language: fixture.language || 'plaintext' });
     const editor = await vscode.window.showTextDocument(document, { preview: false });
     editor.options = { tabSize: fixture.tabSize || 4, insertSpaces: fixture.insertSpaces ?? true };
     if (fixture.selections) {

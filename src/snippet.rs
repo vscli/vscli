@@ -3,6 +3,8 @@
 use anyhow::{Result, bail, ensure};
 use std::{collections::BTreeMap, ops::Range};
 
+pub mod variables;
+
 const MAX_SOURCE: usize = 64 * 1024;
 const MAX_DEPTH: usize = 64;
 const MAX_MARKERS: usize = 10_000;
@@ -130,6 +132,21 @@ impl Expansion {
     }
 }
 
+/// Resolve each occurrence after template indentation. The optional preceding
+/// indent belongs to the last expanded text node's final line.
+pub trait VariableResolver {
+    fn resolve(&mut self, name: &str, preceding_indent: Option<&str>) -> Result<Option<String>>;
+}
+
+impl<F> VariableResolver for F
+where
+    F: FnMut(&str, Option<&str>) -> Result<Option<String>>,
+{
+    fn resolve(&mut self, name: &str, preceding_indent: Option<&str>) -> Result<Option<String>> {
+        self(name, preceding_indent)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Template {
     nodes: Vec<Node>,
@@ -228,6 +245,18 @@ impl Whitespace<'_> {
 }
 
 impl Template {
+    pub fn uses_variable(&self, name: &str) -> bool {
+        fn contains(nodes: &[Node], name: &str) -> bool {
+            nodes.iter().any(|node| match node {
+                Node::Marker { key, children, .. } => {
+                    matches!(key, Key::Variable(value) if value == name) || contains(children, name)
+                }
+                Node::Text(_) => false,
+            })
+        }
+        contains(&self.nodes, name)
+    }
+
     /// User snippets historically reinterpret unknown bare variables as editable
     /// placeholders. The extension API deliberately keeps the raw semantics.
     pub fn parse_user(source: &str) -> Result<Self> {
@@ -309,12 +338,26 @@ impl Template {
     pub fn expand(&self, variables: &BTreeMap<String, String>) -> Result<Expansion> {
         let mut defaults = BTreeMap::new();
         collect_defaults(&self.nodes, &mut defaults);
-        self.expand_nodes(variables, defaults)
+        self.expand_nodes(
+            &mut |name: &str, _: Option<&str>| Ok(variables.get(name).cloned()),
+            defaults,
+        )
     }
 
     pub fn expand_with_whitespace(
         &self,
         variables: &BTreeMap<String, String>,
+        whitespace: &Whitespace<'_>,
+    ) -> Result<Expansion> {
+        self.expand_with_resolver(
+            &mut |name: &str, _: Option<&str>| Ok(variables.get(name).cloned()),
+            whitespace,
+        )
+    }
+
+    pub fn expand_with_resolver(
+        &self,
+        variables: &mut dyn VariableResolver,
         whitespace: &Whitespace<'_>,
     ) -> Result<Expansion> {
         ensure!(
@@ -344,7 +387,7 @@ impl Template {
 
     fn expand_nodes(
         &self,
-        variables: &BTreeMap<String, String>,
+        variables: &mut dyn VariableResolver,
         defaults: BTreeMap<u32, Vec<Node>>,
     ) -> Result<Expansion> {
         let mut builder = Builder {
@@ -352,6 +395,7 @@ impl Template {
             chars: 0,
             defaults,
             variables,
+            preceding_indent: None,
             stack: Vec::new(),
             parents: Vec::new(),
         };
@@ -709,7 +753,8 @@ struct Builder<'a> {
     result: Expansion,
     chars: usize,
     defaults: BTreeMap<u32, Vec<Node>>,
-    variables: &'a BTreeMap<String, String>,
+    variables: &'a mut dyn VariableResolver,
+    preceding_indent: Option<String>,
     stack: Vec<u32>,
     parents: Vec<usize>,
 }
@@ -718,6 +763,14 @@ impl Builder<'_> {
         ensure!(
             self.result.text.len().saturating_add(text.len()) <= MAX_EXPANSION,
             "Snippet expansion exceeds 1 MiB"
+        );
+        self.preceding_indent = Some(
+            text.rsplit(['\r', '\n'])
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take_while(|c| matches!(c, ' ' | '\t'))
+                .collect(),
         );
         self.chars += text.chars().count();
         self.result.text.push_str(text);
@@ -734,11 +787,14 @@ impl Builder<'_> {
                     transform,
                     ..
                 } => {
-                    if let Some(value) = self.variables.get(name) {
+                    if let Some(value) = self
+                        .variables
+                        .resolve(name, self.preceding_indent.as_deref())?
+                    {
                         if let Some(transform) = transform {
-                            self.text(&transform.apply(value)?)?;
+                            self.text(&transform.apply(&value)?)?;
                         } else {
-                            self.text(value)?;
+                            self.text(&value)?;
                         }
                     } else if let Some(transform) = transform {
                         self.text(&transform.apply("")?)?;

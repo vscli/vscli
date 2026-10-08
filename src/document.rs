@@ -654,6 +654,7 @@ impl Document {
         }
         self.cursor = pos.min(self.len());
         self.desired_column = None;
+        self.cancel_invalid_snippet();
     }
     pub fn previous(&self, pos: usize) -> usize {
         if pos == 0 {

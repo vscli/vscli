@@ -87,6 +87,7 @@ impl Document {
         // follows caller order (including secondaries), not file position.
         merged.sort_by_key(|(_, order)| *order);
         self.assign_selections(merged.into_iter().map(|(s, _)| s).collect());
+        self.cancel_invalid_snippet();
     }
     pub fn replace_cursors(&mut self, text: impl Fn(&Self, &Selection) -> String) {
         self.normalize_selections();

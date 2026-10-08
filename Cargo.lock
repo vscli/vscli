@@ -2341,6 +2341,7 @@ name = "vscli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "crossterm",
  "directories",
@@ -2365,6 +2366,7 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width",
  "url",
+ "uuid",
  "vt100",
 ]
 
