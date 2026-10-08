@@ -231,3 +231,9 @@ python3 tests/pty_smoke.py target/release/vscli
 The automated PTY suite drives the real executable, including legacy and emulated enhanced input, Unicode paste, save, selection, undo, comment chords, Save As, resize, quick open, custom bindings, external-change protection, unsaved-close confirmation, terminal restoration, and SIGKILL recovery. It uses Python's standard library and temporary directories. Protocol emulation is not a substitute for testing a physical keyboard in every real terminal.
 
 For a manual smoke test, open a disposable file, type text, save it, select/replace and undo, use Ctrl+P to open a second file, find text, and close with unsaved changes to exercise Save/Discard/Cancel. Use F1 → Keyboard Inspector for combinations your terminal consumes.
+
+## Experimental extension commands
+
+`vscli --extension /absolute/path/to/unpacked-extension .` starts the extension's Node `main` entry in an optional process. This explicitly executes trusted extension code with your user permissions. Use `--extension-node /path/to/node` to select the runtime. Normal native editing does not require Node.
+
+Registered commands appear in F1 with an `Extension:` prefix and can be assigned in user keybindings by their original command IDs. Edits are version checked and undoable, and do not save files automatically. F1 → Extensions: Stop Host terminates the process while retaining native buffers. The initial host has substantial API and contribution limitations; read the [extension evidence and scope](EXTENSIONS.md) before using an extension.

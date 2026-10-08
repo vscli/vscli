@@ -2,9 +2,10 @@
 
 The project is an evolving native terminal IDE. Start with the usage guide and completion checklist, then choose one concrete behavior to improve.
 
-Use the toolchain pinned in `rust-toolchain.toml`. Run:
+Use the toolchain pinned in `rust-toolchain.toml`. The full test suite also needs Python 3 and Node 24 for protocol/extension fixtures; building and using the native editor requires neither runtime. Run:
 
 ```sh
+node --test extension-host/api-types.test.cjs extension-host/api.test.cjs
 cargo fmt --all --check
 cargo test --locked
 cargo clippy --all-targets --locked -- -D warnings

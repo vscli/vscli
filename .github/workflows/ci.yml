@@ -83,3 +83,19 @@ jobs:
       - run: clangd --version
       - run: cargo test --test language_server -- --ignored
       - run: cargo test --test debug_adapter -- --ignored
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Tyriar/vscode-sort-lines
+          ref: eaf02bb141f1853d571b1e97574c6857e80a727c # 1.12.0, MIT
+          path: target/sort-lines-upstream
+          persist-credentials: false
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: target/sort-lines-upstream
+      - run: npm run compile
+        working-directory: target/sort-lines-upstream
+      - run: cargo test --test extension_host -- --ignored
+        env:
+          VSCLI_TEST_SORT_LINES: ${{ github.workspace }}/target/sort-lines-upstream

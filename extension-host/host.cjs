@@ -47,12 +47,14 @@ async function dispatch(message) {
   try {
     switch (message.method) {
       case 'initialize': {
+        if (message.params.protocol !== 1) throw new Error('Unsupported native protocol version');
         if (initialized) throw new Error('Extension host already initialized');
         initialized = true;
         const folder = fs.realpathSync(message.params.extension);
         const manifestPath = path.join(folder, 'package.json');
         if (fs.statSync(manifestPath).size > 1024 * 1024) throw new Error('Extension manifest exceeds 1 MiB');
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (manifest.enabledApiProposals?.length) throw new Error('Proposed extension APIs are not implemented');
         if (manifest.extensionDependencies?.length) throw new Error('Extension dependencies are not implemented');
         if (typeof manifest.main !== 'string') throw new Error('A CommonJS extension main entry is required');
         const entry = require.resolve(path.resolve(folder, manifest.main));
@@ -67,7 +69,7 @@ async function dispatch(message) {
         });
         extension = require(entry);
         if (typeof extension.activate === 'function') await extension.activate(context);
-        result = { id: `${manifest.publisher}.${manifest.name}`, version: manifest.version,
+        result = { protocol: 1, id: `${manifest.publisher}.${manifest.name}`, version: manifest.version,
           commands: await runtime.api.commands.getCommands(), contributions: manifest.contributes?.commands || [] };
         break;
       }

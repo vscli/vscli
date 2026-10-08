@@ -520,6 +520,24 @@ def run():
         app.finish()
         print("PASS: settings scope precedence, indentation, live reload and invalid-config retention")
 
+        extension = Path(__file__).resolve().parent / "fixtures" / "command-extension"
+        extension_file = root / "extension.txt"
+        extension_file.write_text("zebra\napple\npear")
+        app = Editor(root, "--extension", extension, extension_file)
+        eventually(lambda: app.read() and "Extension ready" in app.screen.text())
+        app.send(CTRL_A)
+        app.send(b"\x1bOP")  # F1 command palette.
+        app.send("Fixture Sort Lines")
+        app.send(b"\r")
+        eventually(lambda: app.read() and "sort applied=true" in app.screen.text())
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(extension_file) == "apple\npear\nzebra")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(extension_file) == "zebra\napple\npear")
+        app.finish()
+        print("PASS: optional extension activation, palette command, native edit/save and undo")
+
         bindings = root / "keybindings.json"
         bindings.write_text(json.dumps([{"key": "ctrl+k ctrl+b", "command": "type", "args": {"text": "custom"}, "when": "editorTextFocus"}]))
         custom_file = root / "custom.txt"
