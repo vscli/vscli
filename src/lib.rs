@@ -1,5 +1,6 @@
 pub mod document;
 pub mod files;
+pub mod git;
 pub mod keys;
 pub mod languages;
 pub mod lsp;
