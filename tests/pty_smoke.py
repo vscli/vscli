@@ -395,6 +395,9 @@ def run():
             eventually(lambda: app.read() and text(terminal_file) == "terminal_roundtrip")
         except AssertionError:
             raise AssertionError(f"Shell roundtrip failed:\n{app.screen.text()}") from None
+        burst = "xz" * 300
+        app.send(f"printf '%s' '{burst}' > terminal-output.txt\r")
+        eventually(lambda: app.read() and text(terminal_file) == burst)
         app.send("exit\r")
         time.sleep(0.2)
         app.send(b"\x1b[96;5u")  # Hide terminal and restore editor focus.

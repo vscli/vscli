@@ -12,6 +12,48 @@ enum Update {
     Exit(String),
     Error(String),
 }
+
+const INPUT_LIMIT: usize = 1024 * 1024;
+
+// Coalesce bursts when the writer has not been scheduled yet. A full channel
+// must not discard a key (especially Enter) from an otherwise accepted command.
+// There is at most one queued batch, one pending batch, and one batch in write().
+struct InputQueue {
+    sender: SyncSender<Vec<u8>>,
+    pending: Vec<u8>,
+}
+impl InputQueue {
+    fn write(&mut self, bytes: Vec<u8>) -> Result<()> {
+        if bytes.len() > INPUT_LIMIT {
+            bail!("Terminal paste exceeds 1 MiB");
+        }
+        self.flush()?;
+        if bytes.len() > INPUT_LIMIT - self.pending.len() {
+            bail!("Terminal input buffer is full; wait for the process to read input");
+        }
+        if self.pending.is_empty() {
+            self.pending = bytes;
+        } else {
+            self.pending.extend(bytes);
+        }
+        self.flush()
+    }
+    fn flush(&mut self) -> Result<()> {
+        if self.pending.is_empty() {
+            return Ok(());
+        }
+        match self.sender.try_send(std::mem::take(&mut self.pending)) {
+            Ok(()) => Ok(()),
+            Err(mpsc::TrySendError::Full(bytes)) => {
+                self.pending = bytes;
+                Ok(())
+            }
+            Err(mpsc::TrySendError::Disconnected(_)) => {
+                bail!("Terminal input writer has stopped")
+            }
+        }
+    }
+}
 #[derive(Default)]
 pub struct Responses {
     bytes: Vec<u8>,
@@ -43,7 +85,7 @@ impl vt100::Callbacks for Responses {
 pub struct Session {
     master: Box<dyn MasterPty + Send>,
     stop: SyncSender<()>,
-    sender: SyncSender<Vec<u8>>,
+    input: InputQueue,
     receiver: Receiver<Update>,
     pub parser: vt100::Parser<Responses>,
     pub title: String,
@@ -78,7 +120,7 @@ impl Session {
         let mut writer = pair.master.take_writer()?;
         let mut child = pair.slave.spawn_command(command)?;
         drop(pair.slave);
-        let (sender, input) = mpsc::sync_channel::<Vec<u8>>(32);
+        let (sender, input) = mpsc::sync_channel::<Vec<u8>>(1);
         let (output, receiver) = mpsc::sync_channel(32);
         let errors = output.clone();
         std::thread::spawn(move || {
@@ -137,7 +179,10 @@ impl Session {
         Ok(Self {
             master: pair.master,
             stop,
-            sender,
+            input: InputQueue {
+                sender,
+                pending: Vec::new(),
+            },
             receiver,
             parser: vt100::Parser::new_with_callbacks(rows, cols, 5000, Responses::default()),
             title,
@@ -183,6 +228,11 @@ impl Session {
             && let Err(e) = self.write(responses)
         {
             self.status = e.to_string();
+            changed = true;
+        }
+        if let Err(e) = self.input.flush() {
+            self.status = e.to_string();
+            changed = true;
         }
         changed
     }
@@ -190,12 +240,7 @@ impl Session {
         if self.exited {
             bail!("Terminal process has exited");
         }
-        if bytes.len() > 1024 * 1024 {
-            bail!("Terminal paste exceeds 1 MiB");
-        }
-        self.sender
-            .try_send(bytes)
-            .map_err(|e| anyhow::anyhow!("Terminal input queue unavailable: {e}"))?;
+        self.input.write(bytes)?;
         self.parser.screen_mut().set_scrollback(0);
         Ok(())
     }
@@ -340,6 +385,51 @@ fn encode_key(key: KeyEvent, application_cursor: bool) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn stalled_terminal_writer_retains_bursts_and_enter_in_order() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let mut input = InputQueue {
+            sender,
+            pending: Vec::new(),
+        };
+        let expected = format!("{}\x1b[D\r", "echo 猫🙂; ".repeat(1000)).into_bytes();
+        // Hold the receiver completely still: no scheduler timing can hide a
+        // queue overflow. Raw input bytes and terminal responses share ordering.
+        for byte in &expected {
+            input.write(vec![*byte]).unwrap();
+        }
+        let mut actual = receiver.try_recv().unwrap();
+        input.flush().unwrap();
+        actual.extend(receiver.try_recv().unwrap());
+        assert_eq!(actual, expected);
+        assert!(input.pending.is_empty());
+    }
+
+    #[test]
+    fn terminal_input_backpressure_rejects_whole_batches_and_reports_closed_writer() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let mut input = InputQueue {
+            sender,
+            pending: Vec::new(),
+        };
+        input.write(b"first".to_vec()).unwrap();
+        input.write(vec![b'x'; INPUT_LIMIT]).unwrap();
+        assert!(input.write(b"must not partially enter".to_vec()).is_err());
+        assert_eq!(input.pending.len(), INPUT_LIMIT);
+        assert_eq!(receiver.try_recv().unwrap(), b"first");
+        input.flush().unwrap();
+        assert_eq!(receiver.try_recv().unwrap(), vec![b'x'; INPUT_LIMIT]);
+        input.write(b"next\r".to_vec()).unwrap();
+        assert_eq!(receiver.try_recv().unwrap(), b"next\r");
+        drop(receiver);
+        assert!(
+            input
+                .write(b"closed".to_vec())
+                .unwrap_err()
+                .to_string()
+                .contains("stopped")
+        );
+    }
     #[test]
     fn key_encoding_and_parser_queries() {
         assert_eq!(
