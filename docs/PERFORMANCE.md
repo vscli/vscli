@@ -142,4 +142,47 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/previous/vscli \
   --output target/benchmarks/disk-watch.json
 ```
 
-The opening limit, blocking saves and startup recovery, large document operations, and extension/LSP limits remain separate work. Periodic recovery now streams shared-rope snapshots on a dedicated worker with one outstanding request. Stalled-write and shutdown-order tests verify its scheduling and integrity, but the measurements above disabled recovery and establish no latency or memory claim for that change. Recovery-enabled contention and slow-storage shutdown need separate measurements. Raising the size limit alone still would not establish a qualified large-file mode.
+The opening limit, blocking saves and startup recovery, large document operations, and extension/LSP limits remain separate work. Periodic recovery now streams shared-rope snapshots on a dedicated worker with one outstanding request. Stalled-write and shutdown-order tests verify its scheduling and integrity, but the measurements above disabled recovery and establish no latency or memory claim for that change. The next experiment measures recovery-enabled typing. Raising the size limit alone still would not establish a qualified large-file mode.
+
+## Typing during periodic recovery: 2026-10-08
+
+[Raw observations](benchmarks/2026-10-08-background-recovery.json) compare release
+builds from `07c9fea` (before) and native change `4655e4b` (after), using harness
+commit `7580c9c`. The same i9-13900H Linux host ran ten fresh launches and 500 key
+samples per build at each size. Every trial enabled recovery in a fresh temporary
+directory, waited one second after readiness, then inserted 50 characters with a
+100 ms terminal-pumping interval after each preceding observed update. Builds and
+tests did not run during measurement; unrelated host activity and CPU frequency
+were not controlled. All 40 trials succeeded. Each journal contained the first
+30 measured insertions when inspected after the typing workload.
+
+| File size | Before key median ms | After key median ms | Before key p99 ms | After key p99 ms | Before maximum ms | After maximum ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10 MiB | 0.939 | 0.866 | 458.92 | 1.275 | 524.47 | 1.456 |
+| 32 MiB | 0.901 | 0.899 | 1,432.48 | 1.318 | 1,556.51 | 1.545 |
+
+| File size | Before startup median ms | After startup median ms | Before sampled RSS MiB | After sampled RSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| 10 MiB | 20.47 | 19.54 | 33.41 | 20.30 |
+| 32 MiB | 45.19 | 45.73 | 45.87 | 45.60 |
+
+The previous implementation's recovery work periodically stalled the input
+thread. The change combines shared snapshots, buffered JSON streaming, and a
+dedicated writer; this experiment does not attribute the improvement to one
+component independently. The large reduction is in the tail: median typing
+latency at 32 MiB was effectively unchanged. Sampled memory after typing is not
+peak memory during serialization and shows no material reduction at 32 MiB.
+
+These are one-machine observations with the existing PTY/oracle boundaries, not
+an overall editor ranking or physical-display latency. The interval follows each
+completed key, so stalls extend the previous build's total trial duration; this
+does not simulate fixed-rate queued input. Journal validation establishes that
+recovery happened during the workload, not the exact time of each write. Slow
+storage, shutdown waits, save latency, highlighting, LSP/extension contention,
+and larger files remain separate qualification work.
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/before/vscli \
+  --sizes 10485760 33554432 --trials 10 --keys 50 --key-interval-ms 100 \
+  --idle-seconds 1 --recovery --output target/benchmarks/background-recovery.json
+```
