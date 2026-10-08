@@ -194,3 +194,91 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/before/vscli \
   --sizes 10485760 33554432 --trials 10 --keys 50 --key-interval-ms 100 \
   --idle-seconds 1 --recovery --output target/benchmarks/background-recovery.json
 ```
+
+
+## Long-line viewport and navigation changes: 2026-10-08
+
+The renderer previously copied a whole line, scanned it for the ASCII fast path,
+and copied it again to find its end, even when the cursor and viewport were at
+the beginning. Native commit `44c15a7` streams rope navigation and column lookup,
+uses cheap line bounds, and limits plain-text/ready-grammar rendering to the
+viewport prefix with query lookahead. The preceding dependency commit `ef81391`
+backports two upstream Unicode chunk-boundary fixes, retaining Unicode 17 tables.
+Unicode corpus tests, real rope tests, and a long-line PTY edit/undo/save workflow
+cover correctness separately from the ASCII performance measurements.
+
+[Single-line raw observations](benchmarks/2026-10-08-long-lines.json) compare
+main `80e3446` with these changes using harness `389997a`. Each entire file is
+one ASCII line; typing starts at its beginning. The same i9-13900H Linux host
+ran ten fresh launches and 400 key samples per build at each size, with shuffled
+build order, a one-second idle sample, and recovery disabled. All 60 trials
+succeeded. No builds or tests ran during measurement; CPU frequency, scheduling,
+and unrelated host activity were not controlled. Executable hashes and every
+sample are retained in the report.
+
+| File size | Before key median ms | After key median ms | Before key p99 ms | After key p99 ms | Before startup median ms | After startup median ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 MiB | 2.764 | 0.580 | 4.254 | 0.965 | 13.18 | 8.33 |
+| 10 MiB | 21.924 | 0.485 | 27.588 | 0.932 | 42.42 | 19.59 |
+| 32 MiB | 65.275 | 0.451 | 99.311 | 0.883 | 111.55 | 45.62 |
+
+The 32 MiB typing median is about 145 times lower in this particular workload.
+This removes observed file-size scaling from typing at the start of these plain
+text lines; it does not establish constant-time navigation throughout a line or
+an overall editor ranking. Sampled 32 MiB process-tree RSS was 45.69 MiB before
+and 45.48 MiB after, so this experiment does not demonstrate a substantial memory
+reduction. Whole-line temporary allocations can disappear before RSS sampling;
+peak memory is not measured.
+
+Far-right navigation still scans prefixes, fallback syntax coloring still
+processes whole lines, and an unusually large grapheme cluster still needs its
+full context. Synchronous open/save and the 32 MiB opening cap remain. This
+experiment does not qualify Unicode timing, syntax workloads, physical terminal
+latency, larger files, or editing under language-server/extension contention.
+
+Reproduce with the saved pre-change release binary:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/80e3446/vscli \
+  --single-line --sizes 1048576 10485760 33554432 --trials 10 --keys 40 \
+  --idle-seconds 1 --output target/benchmarks/long-lines.json
+```
+
+
+The initial [ordinary multi-line check](benchmarks/2026-10-08-long-lines-multiline-initial.json)
+showed small latency increases. [Native phase measurements](benchmarks/2026-10-08-long-lines-native.json)
+reproduced a roughly 13 µs rendering increase in both ASCII and Unicode fixtures;
+CPU sampling identified line-slice handling as one added cost. Commit `fd12d48`
+trims short borrowed lines directly, excludes empty selections from painting,
+and hoists per-document language/highlight lookups out of the row loop. The
+refined build's native render median was 200.51 µs versus 218.43 µs for ASCII,
+and 276.97 µs versus 295.12 µs for Unicode in the paired runs. Each run has 4,000
+samples; ordinary timings were collected separately from CPU sampling.
+
+A [final ordinary multi-line check](benchmarks/2026-10-08-long-lines-multiline-final.json)
+compares `80e3446` with `fd12d48`, again with ten launches and 400 keys per size,
+shuffled order, recovery disabled, and zero failed trials:
+
+| File size | Before key median ms | After key median ms | Before key p95 ms | After key p95 ms |
+| --- | ---: | ---: | ---: | ---: |
+| 10 KiB | 0.761 | 0.690 | 1.149 | 1.049 |
+| 1 MiB | 0.754 | 0.790 | 1.014 | 1.034 |
+| 10 MiB | 0.738 | 0.756 | 0.961 | 0.978 |
+
+These small mixed PTY differences do not establish a general typing-speed
+improvement for ordinary files. Both the initial observations and the final
+check are retained; the native component timings do not replace the executable
+results or qualify interactive performance under full IDE workloads.
+
+
+[Final single-line measurements](benchmarks/2026-10-08-long-lines-final.json)
+repeat the same long-line workload with `fd12d48`. All 60 trials passed:
+
+| File size | Before key median ms | After key median ms | Before key p99 ms | After key p99 ms | Before startup median ms | After startup median ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 MiB | 2.791 | 0.570 | 4.476 | 0.912 | 12.99 | 8.65 |
+| 10 MiB | 22.373 | 0.583 | 37.483 | 0.965 | 42.56 | 20.15 |
+| 32 MiB | 69.318 | 0.473 | 100.138 | 0.846 | 128.96 | 44.92 |
+
+The large single-line improvement remains after the short-line refinement.
+All workload and measurement limitations above still apply.
