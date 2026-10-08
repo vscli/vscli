@@ -127,9 +127,10 @@ def process_tree(pid):
             "cpu_seconds": sum(p["cpu_seconds"] for p in processes), "processes": processes}
 
 
-def fixture(path, size):
-    first = (MARKER + "A" * 100 + "\n").encode()
-    row = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 " * 2 + b"\n"
+def fixture(path, size, single_line=False):
+    newline = b"" if single_line else b"\n"
+    first = (MARKER + "A" * 100).encode() + newline
+    row = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 " * 2 + newline
     with path.open("wb") as stream:
         stream.write(first)
         remaining = size - len(first)
@@ -309,6 +310,7 @@ def main():
     parser.add_argument("--nvim", help="Installed Neovim binary; omitted means no comparison")
     parser.add_argument("--vim", help="Installed Vim binary; omitted means no comparison")
     parser.add_argument("--sizes", type=int, nargs="+", default=[10240, 1048576, 10485760])
+    parser.add_argument("--single-line", action="store_true", help="Put the entire fixture on one line; type at its start")
     parser.add_argument("--trials", type=int, default=5)
     parser.add_argument("--keys", type=int, default=40)
     parser.add_argument("--idle-seconds", type=float, default=1)
@@ -343,6 +345,7 @@ def main():
         "python": platform.python_version(), "terminal_cells": [120, 40],
         "idle_sample_seconds": args.idle_seconds,
         "recovery_enabled": args.recovery, "key_interval_ms": args.key_interval_ms,
+        "fixture_layout": "single_line" if args.single_line else "multiple_lines",
         "cpu_model": next((line.split(":", 1)[1].strip() for line in
                            Path("/proc/cpuinfo").read_text().splitlines() if line.startswith("model name")), "unknown")
                      if Path("/proc/cpuinfo").exists() else platform.processor(),
@@ -361,7 +364,7 @@ def main():
         (directory / "keybindings.json").write_text("[]")
         for size in args.sizes:
             source = directory / "fixture.txt"
-            fixture(source, size)
+            fixture(source, size, single_line=args.single_line)
             with source.open("rb") as stream:
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()
             report["fixtures"].append({"bytes": size, "sha256": digest})
