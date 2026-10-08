@@ -220,7 +220,7 @@ class Session:
 
 
 def command(editor, binary, source, directory):
-    if editor == "vscli":
+    if editor in ("vscli", "vscli_comparison"):
         return [binary, "--legacy-keys", "--no-mouse", "--no-recovery", "--keymap", "linux",
                 "--settings", str(directory / "settings.json"),
                 "--keybindings", str(directory / "keybindings.json"), str(source)]
@@ -273,6 +273,7 @@ def describe(binary):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vscli", default=str(ROOT / "target/release/vscli"))
+    parser.add_argument("--compare-vscli", help="Second VSCLI binary, interleaved with identical flags")
     parser.add_argument("--nvim", help="Installed Neovim binary; omitted means no comparison")
     parser.add_argument("--vim", help="Installed Vim binary; omitted means no comparison")
     parser.add_argument("--sizes", type=int, nargs="+", default=[10240, 1048576, 10485760])
@@ -287,8 +288,8 @@ def main():
             or args.idle_seconds <= 0 or args.timeout <= 0):
         parser.error("Require trials >= 1, 1..50 keys, sizes >= 1024 and positive timeouts")
     binaries = {}
-    for name in ("vscli", "nvim", "vim"):
-        value = getattr(args, name)
+    for name, value in (("vscli", args.vscli), ("vscli_comparison", args.compare_vscli),
+                        ("nvim", args.nvim), ("vim", args.vim)):
         if value:
             resolved = shutil.which(value)
             if not resolved:

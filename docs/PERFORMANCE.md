@@ -12,6 +12,9 @@ python3 scripts/bench_editor.py --output target/benchmarks/vscli.json
 # Optional comparisons against explicitly selected installed binaries:
 python3 scripts/bench_editor.py --nvim /path/to/nvim --vim /path/to/vim \
   --output target/benchmarks/comparison.json
+# Compare a saved VSCLI release binary with the current build, interleaved:
+python3 scripts/bench_editor.py --compare-vscli /path/to/previous/vscli \
+  --output target/benchmarks/change.json
 ```
 
 The default run opens deterministic 10 KiB, 1 MiB, and 10 MiB ASCII plain-text fixtures. Each editor gets five fresh processes and 40 serial character insertions per process, at 120 by 40 cells. Executable versions/hashes, source revision, environment, fixture hashes, commands, all samples, failures, median, p95, p99, and maxima are recorded in JSON. Nearest-rank percentiles on only five startup samples are effectively extremes, not reliable tail estimates. Use more trials before assessing a sustained regression.
