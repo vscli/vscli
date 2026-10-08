@@ -136,12 +136,17 @@ class EventEmitter {
 class TextDocument {
   constructor(snapshot) { this._update(snapshot); }
   _update(snapshot) {
-    this._snapshot = snapshot;
-    this._text = snapshot.text;
-    this._lines = this._text.split(/\r\n|\r|\n/);
-    this._starts = [0];
-    for (const match of this._text.matchAll(/\r\n|\r|\n/g)) this._starts.push(match.index + match[0].length);
-    this._uri = Uri.parse(snapshot.uri);
+    const text = Object.hasOwn(snapshot, 'text') ? snapshot.text : this._text;
+    if (typeof text !== 'string') throw new Error('A new document requires its text snapshot');
+    const previousUri = this._snapshot?.uri;
+    this._snapshot = { ...this._snapshot, ...snapshot };
+    if (text !== this._text) {
+      this._text = text;
+      this._lines = text.split(/\r\n|\r|\n/);
+      this._starts = [0];
+      for (const match of text.matchAll(/\r\n|\r|\n/g)) this._starts.push(match.index + match[0].length);
+    }
+    if (snapshot.uri !== previousUri) this._uri = Uri.parse(snapshot.uri);
   }
   get uri() { return this._uri; }
   get fileName() { return this.uri.fsPath; }
