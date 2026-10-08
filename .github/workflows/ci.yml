@@ -89,8 +89,10 @@ jobs:
           name: vscode-reference-${{ matrix.os }}
           path: target/vscode-reference/result/
           retention-days: 30
-      - if: runner.os != 'Windows'
-        run: python3 tests/pty_smoke.py target/debug/vscli
+      - name: Run terminal workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 5
+        run: python3 -u tests/pty_smoke.py target/debug/vscli
       - name: Check benchmark screen oracle (no timing threshold)
         if: runner.os != 'Windows'
         run: python3 scripts/bench_editor.py --vscli target/debug/vscli --sizes 10240 --trials 1 --keys 5 --idle-seconds 0.1 --output target/benchmark-smoke.json
