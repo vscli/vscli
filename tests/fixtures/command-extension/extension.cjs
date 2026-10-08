@@ -3,12 +3,15 @@ exports.activate = context => {
   const register = (name, fn) => context.subscriptions.push(vscode.commands.registerCommand(name, fn));
   const initialConfiguration = vscode.workspace.getConfiguration('fixture');
   let configurationChanges = 0;
+  let configurationDocument;
   context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration('fixture.value')) {
       configurationChanges++;
+      configurationDocument = vscode.window.activeTextEditor?.document.getText();
       vscode.window.showInformationMessage(`configuration changed=${vscode.workspace.getConfiguration('fixture').get('value')}`);
     }
   }));
+  register('fixture.observedDocument', () => vscode.window.showInformationMessage(`configuration document=${configurationDocument}`));
   register('fixture.configuration', () => vscode.window.showInformationMessage(`config=${JSON.stringify({
     activation: initialConfiguration.get('value'),
     value: vscode.workspace.getConfiguration('fixture').get('value'), changes: configurationChanges,

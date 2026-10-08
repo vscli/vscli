@@ -196,6 +196,27 @@ fn extension_settings_are_ready_at_activation_and_reload_without_losing_valid_va
 }
 
 #[test]
+fn configuration_listeners_observe_native_edits_before_the_configuration_change() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    fixture(&mut app);
+    app.doc_mut().insert("current native edit", false);
+    let configuration = directory.path().join(".vscode");
+    std::fs::create_dir(&configuration).unwrap();
+    std::fs::write(
+        configuration.join("settings.json"),
+        r#"{"fixture.value":"changed"}"#,
+    )
+    .unwrap();
+    app.configure_settings(None).unwrap();
+    // No intermediate poll: both document and settings are unsynchronized.
+    app.execute("fixture.observedDocument", Value::Null);
+    until(&mut app, |a| {
+        a.message == "configuration document=current native edit"
+    });
+}
+
+#[test]
 #[ignore = "requires an unpacked upstream Sort Lines extension in VSCLI_TEST_SORT_LINES"]
 fn upstream_sort_lines_reads_user_workspace_settings_and_live_changes() {
     let extension = PathBuf::from(

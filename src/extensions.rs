@@ -115,7 +115,7 @@ impl Client {
     pub fn busy(&self) -> bool {
         !self.pending.is_empty()
     }
-    pub fn sync_configuration(&mut self, settings: &Settings) -> Result<()> {
+    fn sync_configuration(&mut self, settings: &Settings) -> Result<()> {
         if !Arc::ptr_eq(&self.configuration, settings.extension_layers()) {
             self.process.send(
                 json!({"method":"configuration", "params":settings.extension_layers().as_ref()}),
@@ -130,6 +130,7 @@ impl Client {
         args: Option<Value>,
         documents: &[Document],
         active: usize,
+        settings: &Settings,
     ) -> Result<()> {
         if !self.ready {
             bail!("Extension host is not ready");
@@ -138,6 +139,7 @@ impl Client {
             bail!("Extension command is not registered: {command}");
         }
         self.sync(documents, active)?;
+        self.sync_configuration(settings)?;
         let args: Vec<_> = args.into_iter().collect();
         self.request("execute", json!({"command":command, "args":args}))
     }
@@ -176,8 +178,14 @@ impl Client {
         doc.apply_changes(changes);
         Ok(true)
     }
-    pub fn poll(&mut self, documents: &mut [Document], active: usize) -> Result<Vec<String>> {
+    pub fn poll(
+        &mut self,
+        documents: &mut [Document],
+        active: usize,
+        settings: &Settings,
+    ) -> Result<Vec<String>> {
         self.sync(documents, active)?;
+        self.sync_configuration(settings)?;
         let mut messages = Vec::new();
         for _ in 0..16 {
             let Some(message) = self.process.receive()? else {
