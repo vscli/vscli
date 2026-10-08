@@ -731,6 +731,49 @@ def run():
         print("PASS: native snippet insertion, variables, Tab/Shift+Tab/Escape, linked edits, undo/redo and CRLF save")
 
 
+        catalog_dir = root / "catalog-user" / "snippets"
+        catalog_dir.mkdir(parents=True)
+        catalog_settings = catalog_dir.parent / "settings.json"
+        catalog_settings.write_text("{}")
+        (catalog_dir / "rust.json").write_text(json.dumps({
+            "Named Rust": {"body": "${1:Rust}-$1$0", "prefix": ["rs", "rust"]},
+        }))
+        (root / ".vscode").mkdir(exist_ok=True)
+        (root / ".vscode" / "local.code-snippets").write_text(
+            '{ // workspace JSONC catalog\n'
+            '"Workspace greeting":{"scope":"plaintext", "prefix":"greet",'
+            '"description":"catalog description", "body":["${1:hello}", "$1$0"],},}'
+        )
+        catalog_file = root / "catalog.txt"
+        catalog_file.write_bytes(b"seed\r\n")
+        catalog_keys = root / "catalog-keys.json"
+        catalog_keys.write_text(json.dumps([
+            {"key":"f7", "command":"editor.action.insertSnippet", "args":{"name":"Named Rust", "langId":"rust"}},
+        ]))
+        app = Editor(root, "--settings", catalog_settings, "--keybindings", catalog_keys, catalog_file, enhanced=True)
+        app.send(CTRL_A)
+        app.send(b"\x1bOP")
+        app.send("Insert Snippet\r")
+        eventually(lambda: app.read() and "Workspace greeting" in app.screen.text())
+        app.send("greet")
+        app.send(b"\r")
+        app.send("world\t")
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and catalog_file.read_bytes() == b"world\r\nworld")
+        app.send(CTRL_Z)
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and catalog_file.read_bytes() == b"seed\r\n")
+        app.send(CTRL_A)
+        app.send(b"\x1b[18~")
+        eventually(lambda: app.read() and "Rust-Rust" in app.screen.text())
+        app.send("native\t")
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and catalog_file.read_bytes() == b"native-native")
+        app.finish()
+        print("PASS: user/workspace JSONC snippet catalogs, picker, named language lookup and CRLF undo")
+
+
 
 if __name__ == "__main__":
     faulthandler.enable()

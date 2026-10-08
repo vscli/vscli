@@ -24,9 +24,7 @@ impl App {
             return;
         }
         let Some(body) = args.get("snippet").and_then(Value::as_str) else {
-            self.message =
-                "Insert Snippet requires args.snippet; catalog selection is not implemented yet"
-                    .into();
+            self.load_snippet_catalog(args);
             return;
         };
         let template = match Template::parse_user(body) {
