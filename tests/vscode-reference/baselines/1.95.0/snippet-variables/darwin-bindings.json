@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "reference": {
+    "version": "1.95.0",
+    "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+    "platform": "darwin",
+    "arch": "arm64",
+    "keyboardLayout": {
+      "id": "com.apple.keylayout.US",
+      "localizedName": "U.S.",
+      "lang": "en"
+    }
+  },
+  "native": {
+    "profile": "macos",
+    "sha256": "086f8129b5ed612483a0e4a339a555e293cb61d3f4c19f0b73a6ac3170425423"
+  },
+  "limitations": [
+    "Binding categories compare rule fields, not resolver outcomes, rule precedence, or command effects.",
+    "Repeated reference rules remain separate; one native rule may match more than one reference rule.",
+    "Keyboard delivery, physical layouts, IME, terminal conflicts and command behavior are not qualified.",
+    "Configuration traces qualify only the shared read/event cases; writes use host-specific fixture adapters."
+  ],
+  "configuration": {
+    "observations": 25,
+    "equal": true
+  },
+  "bindings": {
+    "referenceRules": 1078,
+    "nativeRules": 121,
+    "referenceCommandIds": 863,
+    "nativeCommandIds": 110,
+    "counts": {
+      "sameRuleFields": 31,
+      "sameKeyCommandArgs": 78,
+      "sameCommandId": 26,
+      "missingCommandId": 943
+    }
+  }
+}

@@ -102,8 +102,10 @@ and UUIDs, supplied clipboard text, and built-in comment tokens. Resolvers run
 against each original insertion cursor before mutation. Thirty additional pinned
 cases (59 observations) cover per-cursor context, selected-text indentation,
 plain-text word lookup, ten language identifiers, cancellation, and leaving and
-returning to a field. These local Linux captures are rerun in all three CI jobs;
-cross-platform evidence for this addition is pending. File/path/date/random and
+returning to a field. All 59 observations matched on Linux/macOS/Windows in
+[CI run 37859573471](https://github.com/vscli/vscli/actions/runs/37859573471).
+The [saved traces and provenance](../tests/vscode-reference/baselines/1.95.0/snippet-variables/provenance.json)
+record the three captures and source/fixture hashes. File/path/date/random and
 clipboard-spread behavior currently have native tests, not full differential
 qualification. Language-specific/custom word patterns, extension language
 configuration, localized names, overtyped selections, and OS clipboard adapters

@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "referenceVersion": "1.95.0",
+  "referenceCommit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "vscliHeadCommit": "737f8467460a440b0a632de49e4f5825d6f5104e",
+  "run": "https://github.com/vscli/vscli/actions/runs/37859573471",
+  "date": "2026-10-08",
+  "timezone": "UTC",
+  "platforms": {
+    "linux": {
+      "runner": "ubuntu-24.04",
+      "arch": "x64",
+      "cases": 30,
+      "observations": 59
+    },
+    "darwin": {
+      "runner": "macos-14",
+      "arch": "arm64",
+      "cases": 30,
+      "observations": 59
+    },
+    "win32": {
+      "runner": "windows-2022",
+      "arch": "x64",
+      "cases": 30,
+      "observations": 59
+    }
+  },
+  "files": {
+    "linux.json": "266e69d5dd7508db703713ebd2246bc374f24faa3a88f7dafdb5844b3015ffae",
+    "linux-bindings.json": "34eac372dc87c9945e24a3b6bc81de32aca47813edb8599c8b6e76f3802a8f56",
+    "darwin.json": "266e69d5dd7508db703713ebd2246bc374f24faa3a88f7dafdb5844b3015ffae",
+    "darwin-bindings.json": "4d1b40d904cfd2dbb57fc8a06f90c5d3f2eea338ccfb89d305b421fe34ff0c8d",
+    "win32.json": "266e69d5dd7508db703713ebd2246bc374f24faa3a88f7dafdb5844b3015ffae",
+    "win32-bindings.json": "c4e28d16ae9aede545cf2cce47ce16324e0ca13f3ca86ca6b354ceae4a132f91",
+    "../../../snippet-variable-cases.json": "312be226dce890436006d14d49db115d52dc863dded99366b4d63cf0465de955",
+    "../../../snippets.cjs": "c8b4c3a4f1fadbbfe43cfe31af7bb12a362e60e4ff3b45dfbab43e3d9f42a11d",
+    "../../../suite.cjs": "cbe5e1db4899ac3e69d0338e89d5ba6beadce49eaf7d8cb4e4f6bf367409e58d"
+  }
+}
