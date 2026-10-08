@@ -15,11 +15,26 @@ normalize inserted line endings to the document. Snippet state belongs to its ed
 not activate a copied session. Edits map the shared text and other views, and a
 transform does not merge another view's edit into its undo transaction.
 
-This is an implementation layer, not a completed editor feature. Terminal
-Tab/Shift+Tab routing, choice UI, user/workspace snippet files,
-extension contributions, and completion integration remain pending. LSP still
-advertises `snippetSupport: false`. The optional extension API does not yet
-provide native `insertSnippet`.
+Literal `editor.action.insertSnippet` commands with `args.snippet` now insert
+native templates through user keybindings. Tab/Shift+Tab traverse active fields;
+Escape/Shift+Escape leave snippet mode while retaining the primary selection.
+Leaving a field through cursor movement cancels the session permanently. The
+original conditional bindings are layered before user overrides. An actual
+PTY workflow covers linked Unicode typing, navigation, cancellation, CRLF saves,
+and undo/redo; physical terminal/platform qualification is still incomplete.
+
+Clipboard-dependent commands use one outstanding background read. A reply is
+applied only while the document revision, selections, pane and editor focus still
+match the request. A failed system clipboard read falls back to the editor's
+internal clipboard, as its current paste path does. The existing external tools
+cover Linux/macOS; Windows system clipboard integration remains incomplete.
+
+This is a partial snippet feature. Calls without `args.snippet` report that catalog
+selection is not implemented. User/workspace snippet files, name/language lookup,
+choice presentation, extension contributions, nested session merging and
+completion integration remain pending. LSP still advertises `snippetSupport:
+false`; the optional extension API does not yet provide `TextEditor.insertSnippet`.
+See [usage](USAGE.md#snippets) for a literal-template binding.
 
 ## Evidence
 
@@ -54,8 +69,8 @@ An additional 34 cases (118 observations) compare multiline insertion with the
 actual pinned editor. Cases cover spaces/tabs, indentation at each insertion
 point, nested defaults and choices, Unicode, LF/CRLF conversion, primary and
 secondary selection order, typing across fields, and undo/redo. API and user
-command entry points are captured separately; neither route is connected to
-terminal commands yet. The first Windows CI comparison exposed the platform default for a new empty
+command entry points are captured separately; the user command is now connected
+to terminal dispatch, while the extension insertion API remains unfinished. The first Windows CI comparison exposed the platform default for a new empty
 document: CRLF on Windows versus LF on Unix. Native documents now use that
 default when the initial text has no line breaks. Offline fixtures preserve
 the platform difference. All 118 observations matched on each platform in
@@ -92,7 +107,8 @@ cross-platform evidence for this addition is pending. File/path/date/random and
 clipboard-spread behavior currently have native tests, not full differential
 qualification. Language-specific/custom word patterns, extension language
 configuration, localized names, overtyped selections, and OS clipboard adapters
-remain separately qualified work. API insertion and user snippets have separate
+remain separately qualified work. Native untitled file names also differ from
+VS Code URI labels. API insertion and user snippets have separate
 parsing entry points: unknown variables in the API fixture become empty or use
 their default; user preprocessing turns unknown bare variables into numbered
 editable placeholders. Broader whitespace/EOL qualification, nested snippet insertion,

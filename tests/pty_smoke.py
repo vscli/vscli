@@ -651,6 +651,42 @@ def run():
         app.finish()
         print("PASS: user keybinding import with chord, context, and arguments")
 
+        snippet_file = root / "snippet.txt"
+        snippet_file.write_bytes(b"  seed\r\n")
+        snippet_bindings = root / "snippet-keys.json"
+        snippet_bindings.write_text(json.dumps([
+            {"key": "f6", "command": "editor.action.insertSnippet", "when": "editorTextFocus",
+             "args": {"snippet": "call(${1:name}, ${2:value});\n$1$0"}},
+            {"key": "f7", "command": "editor.action.insertSnippet", "when": "editorTextFocus",
+             "args": {"snippet": "${1:$TM_FILENAME}-$1$0"}},
+        ]))
+        app = Editor(root, "--keybindings", snippet_bindings, snippet_file, enhanced=True)
+        app.send(b"\x1b[C\x1b[C\x1b[1;2F")  # Select seed after its indentation.
+        app.send(b"\x1b[17~")  # F6 inserts the literal template.
+        app.send("猫\t\x1b[Zfox\tbar\t")  # Linked typing, next, previous, final stop.
+        edited = b"  call(fox, bar);\r\n  fox\r\n"
+        defaults = b"  call(name, value);\r\n  name\r\n"
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and snippet_file.read_bytes() == edited)
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and snippet_file.read_bytes() == defaults)
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and snippet_file.read_bytes() == b"  seed\r\n")
+        app.send(b"\x19\x19")  # Redo insertion and the typing transaction.
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and snippet_file.read_bytes() == edited)
+        app.send(CTRL_A)
+        app.send(b"\x1b[18~")  # F7 resolves the file variable.
+        app.send(b"\x1b")       # Escape keeps the primary selection and unlinks mirrors.
+        app.send("only")
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and snippet_file.read_bytes() == b"only-snippet.txt")
+        app.finish()
+        print("PASS: native snippet insertion, variables, Tab/Shift+Tab/Escape, linked edits, undo/redo and CRLF save")
+
+
 
 if __name__ == "__main__":
     run()

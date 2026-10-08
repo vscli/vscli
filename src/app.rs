@@ -3,6 +3,7 @@ mod extensions;
 mod files;
 mod language;
 mod panes;
+mod snippets;
 mod source_control;
 mod tasks;
 mod terminals;
@@ -320,6 +321,7 @@ pub struct App {
     pub explorer_area: Rect,
     pub tab_area: Rect,
     pub pending: Option<AfterSave>,
+    snippet_pending: Option<snippets::Pending>,
     clipboard: String,
     pub clipboard_line: bool,
 }
@@ -382,6 +384,7 @@ impl App {
             explorer_area: Rect::default(),
             tab_area: Rect::default(),
             pending: None,
+            snippet_pending: None,
             clipboard: String::new(),
             clipboard_line: false,
         }
@@ -424,6 +427,7 @@ impl App {
         changed |= self.poll_watching();
         changed |= self.poll_debugger();
         changed |= self.poll_extensions();
+        changed |= self.poll_snippet();
         let visible: Vec<_> = self
             .documents
             .iter()
@@ -519,6 +523,19 @@ impl App {
             (
                 "editorTextFocus".into(),
                 json!(self.focus == Focus::Editor && self.prompt.is_none() && self.modal.is_none()),
+            ),
+            (
+                "textInputFocus".into(),
+                json!(self.focus == Focus::Editor && self.prompt.is_none() && self.modal.is_none()),
+            ),
+            ("inSnippetMode".into(), json!(self.doc().in_snippet())),
+            (
+                "hasNextTabstop".into(),
+                json!(self.doc().has_snippet_step(false)),
+            ),
+            (
+                "hasPrevTabstop".into(),
+                json!(self.doc().has_snippet_step(true)),
             ),
             ("editorFocus".into(), json!(self.focus == Focus::Editor)),
             (
@@ -740,7 +757,13 @@ impl App {
         if command.is_empty() {
             return;
         }
-        if command != "type" {
+        if !matches!(
+            command,
+            "type"
+                | "jumpToNextSnippetPlaceholder"
+                | "jumpToPrevSnippetPlaceholder"
+                | "leaveSnippet"
+        ) {
             self.doc_mut().break_group();
         }
         if command == "cursorUndo" {
@@ -896,6 +919,13 @@ impl App {
                 self.doc().selected_text().unwrap_or_default(),
             ),
             "workbench.actions.view.problems" => self.show_problems(),
+            "editor.action.insertSnippet" => self.insert_snippet(&args),
+            "jumpToNextSnippetPlaceholder" | "jumpToPrevSnippetPlaceholder" => {
+                if let Err(error) = self.doc_mut().step_snippet(command == "jumpToPrevSnippetPlaceholder") {
+                    self.message = format!("Snippet navigation failed: {error}");
+                }
+            }
+            "leaveSnippet" => self.doc_mut().leave_snippet(),
             "type" => {
                 if let Some(text) = args.get("text").and_then(Value::as_str) {
                     self.doc_mut().insert(text, false);

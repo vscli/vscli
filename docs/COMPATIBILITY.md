@@ -92,19 +92,26 @@ The [pinned reference harness](../tests/vscode-reference/README.md) exports the 
 | macOS | 1,078 | 117 | 27 | 78 | 26 | 947 |
 | Windows | 993 | 108 | 26 | 76 | 18 | 873 |
 
+The table records the earlier baseline comparison. Snippet navigation now adds
+four native bindings per profile; fresh comparisons are retained in CI artifacts.
+
 The four comparison categories partition the reference rules, including duplicates. These are structural categories, not a percentage of supported features. Context equivalence, rule ordering effects, input delivery, and command behavior remain unmeasured by this inventory comparison. The reference is VS Code 1.95.0, not the latest release.
 
 ## Configuration and migration
 
 The native snippet template/document engine is compared against 34 pinned
 reference cases (96 text/selection observations), including linked editing,
-nested traversal, transforms, and undo/redo. It is not yet exposed through
-terminal commands, snippet catalogs, LSP completion, or extension insertion.
+nested traversal, transforms, and undo/redo. Literal user-command insertion and conditional Tab/Shift+Tab/Escape navigation
+are exposed through terminal keybindings. Catalogs, choice UI, LSP completion,
+and the extension insertion API remain unfinished.
 An additional 34 insertion traces (118 observations) cover multiline
 indentation/EOL conversion and API-versus-command cursor ordering, matching on
 Linux/macOS/Windows in [CI run 37857315175](https://github.com/vscli/vscli/actions/runs/37857315175). The current native regex subset is not full ECMAScript. See the
 [snippet evidence and outstanding integration](SNIPPETS.md); this does not
-establish general snippet or keybinding parity.
+establish general snippet or keybinding parity. Thirty additional local reference
+cases (59 observations) cover native variables and cancellation; their fresh
+cross-platform comparison is pending. Native/PTY tests cover command routing,
+user overrides, shared editing, persistence, and rejecting stale clipboard replies.
 
 Provide a read-only migration preview before writing the project's own configuration. Parse JSON with comments, preserve the user's source files, and show imported settings, approximations, unsupported settings, extension requirements, and unavailable shortcuts.
 
