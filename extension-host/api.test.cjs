@@ -1,0 +1,65 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { createApi } = require('./api.cjs');
+const initial = () => ({ generation: 1, documents: [{ id: 1, uri: 'untitled:test', text: 'b\na\n', version: 1, languageId: 'plaintext', isDirty: true }], active: 1, selections: [{ anchor: { line: 0, character: 0 }, active: { line: 2, character: 0 } }] });
+
+test('native edit approval updates the existing document before resolving the edit promise', async () => {
+  let call, builder;
+  const after = initial(); after.generation = 2; after.documents[0].text = 'a\nb\n'; after.documents[0].version = 2;
+  const runtime = createApi(async (method, params) => { call = { method, params }; return { applied: true, state: after }; }, () => {});
+  runtime.sync(initial());
+  const editor = runtime.api.window.activeTextEditor;
+  const document = editor.document;
+  let observed;
+  runtime.api.workspace.onDidChangeTextDocument(event => { observed = [event.document === document, document.getText()]; });
+  assert.equal(await editor.edit(edit => { builder = edit; edit.replace(new runtime.api.Range(0, 0, 2, 0), 'a\nb\n'); }), true);
+  assert.equal(call.params.version, 1);
+  assert.equal(call.params.document, 1);
+  assert.equal(call.method, 'edit');
+  assert.deepEqual(observed, [true, 'a\nb\n']);
+  assert.equal(document.version, 2);
+  assert.throws(() => builder.insert(new runtime.api.Position(0, 0), 'late'), /only valid during/);
+});
+
+test('rejected edit leaves the mirror intact and callbacks cannot partially submit', async () => {
+  let requests = 0;
+  const runtime = createApi(async () => { requests++; return { applied: false }; }, () => {});
+  runtime.sync(initial());
+  const editor = runtime.api.window.activeTextEditor;
+  await assert.rejects(editor.edit(edit => { edit.delete(new runtime.api.Range(0, 0, 1, 0)); throw new Error('failed'); }), /failed/);
+  assert.equal(requests, 0);
+  assert.equal(await editor.edit(edit => edit.delete(new runtime.api.Range(0, 0, 1, 0))), false);
+  assert.equal(editor.document.getText(), 'b\na\n');
+});
+
+test('commands preserve thisArg, disposal, arguments and explicit unsupported API failures', async () => {
+  const runtime = createApi(() => {}, () => {});
+  const command = runtime.api.commands.registerCommand('test.add', function(n) { return this.base + n; }, { base: 4 });
+  assert.equal(await runtime.api.commands.executeCommand('test.add', 3), 7);
+  command.dispose();
+  await assert.rejects(runtime.api.commands.executeCommand('test.add', 3), /unregistered/);
+  assert.throws(() => runtime.api.window.createWebviewPanel(), /not implemented: window.createWebviewPanel/);
+});
+
+test('closed documents and active editor changes are observable after synchronized state', () => {
+  const runtime = createApi(() => {}, () => {});
+  runtime.sync(initial());
+  const document = runtime.api.workspace.textDocuments[0];
+  let observed;
+  runtime.api.workspace.onDidCloseTextDocument(doc => { observed = [doc.isClosed, runtime.api.window.activeTextEditor]; });
+  runtime.sync({ generation: 2, documents: [], selections: [], active: null });
+  assert.equal(document.isClosed, true);
+  assert.deepEqual(observed, [true, undefined]);
+});
+
+test('an older edit response cannot replace a newer document notification', async () => {
+  const old = initial();
+  const runtime = createApi(async () => ({ applied: true, state: old }), () => {});
+  runtime.sync(old);
+  const editor = runtime.api.window.activeTextEditor;
+  const edit = editor.edit(() => {});
+  runtime.sync({ ...old, generation: 2, documents: [{ ...old.documents[0], version: 2, text: 'newer' }] });
+  await edit;
+  assert.equal(editor.document.getText(), 'newer');
+});
