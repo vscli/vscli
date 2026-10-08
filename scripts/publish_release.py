@@ -8,13 +8,8 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 
-def main():
-    os.chdir(ROOT)
-    version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
-    tag = os.environ["GITHUB_REF_NAME"]
-    if tag != f"v{version}":
-        raise SystemExit("Refusing release: tag and package version differ")
-    archives = sorted([*Path("dist").glob("*.tar.gz"), *Path("dist").glob("*.zip")])
+def verified_archives(directory):
+    archives = sorted([*directory.glob("*.tar.gz"), *directory.glob("*.zip")])
     if len(archives) != 3:
         raise SystemExit("Expected exactly three platform archives")
     for archive in archives:
@@ -23,6 +18,15 @@ def main():
             actual = hashlib.file_digest(stream, "sha256").hexdigest()
         if actual != expected:
             raise SystemExit(f"Checksum mismatch: {archive}")
+    return archives
+
+def main():
+    os.chdir(ROOT)
+    version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
+    tag = os.environ["GITHUB_REF_NAME"]
+    if tag != f"v{version}":
+        raise SystemExit("Refusing release: tag and package version differ")
+    archives = verified_archives(Path("dist"))
     existing = subprocess.run(["gh", "release", "view", tag], capture_output=True)
     if existing.returncode == 0:
         raise SystemExit("Release already exists; refusing to replace published artifacts")
