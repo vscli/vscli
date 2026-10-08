@@ -6,6 +6,7 @@ pub mod lsp;
 pub mod recovery;
 pub mod search;
 pub mod settings;
+pub mod tasks;
 pub mod terminal;
 pub mod transport;
 pub mod watch;
