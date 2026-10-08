@@ -5,6 +5,7 @@ const path = require('node:path');
 const vscode = require('vscode');
 const { parse } = require('jsonc-parser');
 const { configurationTrace } = require('./contracts.cjs');
+const { snippetTrace } = require('./snippets.cjs');
 
 async function run() {
   assert.equal(vscode.version, '1.95.0', 'Reference version must remain pinned');
@@ -46,6 +47,8 @@ async function run() {
     } finally { clearTimeout(timer); subscription.dispose(); }
   });
   fs.writeFileSync(path.join(output, 'configuration.json'), JSON.stringify(trace, null, 2) + '\n');
+  const snippets = await snippetTrace(vscode);
+  fs.writeFileSync(path.join(output, 'snippets.json'), JSON.stringify(snippets, null, 2) + '\n');
   console.log(`Exported ${bindings.length} default rules and ${trace.length} configuration observations`);
 }
 
