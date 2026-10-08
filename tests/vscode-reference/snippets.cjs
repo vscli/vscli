@@ -1,6 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const cases = require('./snippet-cases.json');
+const { prepareLanguages } = require('./language-readiness.cjs');
 
 // All coordinates are Unicode scalar offsets so the native rope can compare
 // them directly. VS Code's document.offsetAt uses UTF-16 code units.
@@ -11,6 +12,7 @@ function observe(editor) {
 }
 
 async function snippetTrace(vscode, fixtures = cases) {
+  await prepareLanguages(vscode, fixtures);
   const traces = [];
   for (const fixture of fixtures) {
     const document = await vscode.workspace.openTextDocument({ content: fixture.text || '', language: fixture.language || 'plaintext' });
