@@ -68,6 +68,7 @@ jobs:
       - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: tests/vscode-reference
+      - run: node --test tests/vscode-reference/language-readiness.test.cjs
       - name: Run pinned VS Code reference (Linux)
         if: runner.os == 'Linux'
         run: xvfb-run -a node tests/vscode-reference/run.cjs target/vscode-reference/result

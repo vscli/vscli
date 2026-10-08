@@ -105,7 +105,13 @@ plain-text word lookup, ten language identifiers, cancellation, and leaving and
 returning to a field. All 59 observations matched on Linux/macOS/Windows in
 [CI run 37859573471](https://github.com/vscli/vscli/actions/runs/37859573471).
 The [saved traces and provenance](../tests/vscode-reference/baselines/1.95.0/snippet-variables/provenance.json)
-record the three captures and source/fixture hashes. File/path/date/random and
+record the three captures and source/fixture hashes. A subsequent Linux run
+exposed asynchronous reference language loading: shell comments were still
+unavailable when the snippet ran. The harness now reads the pinned package's
+language declarations and waits for a separate comment command to work in a
+scratch document before collecting language-dependent traces. It fails on a
+readiness timeout; it does not retry snippet results or install replacement
+language configurations. File/path/date/random and
 clipboard-spread behavior currently have native tests, not full differential
 qualification. Language-specific/custom word patterns, extension language
 configuration, localized names, overtyped selections, and OS clipboard adapters

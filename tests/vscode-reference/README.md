@@ -151,3 +151,11 @@ reference data. Built-in extension manifests supply their separate license
 labels in each inventory. See the official
 [extension testing guide](https://code.visualstudio.com/api/working-with-extensions/testing-extension)
 for the reference runner.
+
+Language-dependent snippet fixtures first probe the reference's comment command
+in a separate scratch document. Expected comment tokens come from the pinned
+editor's installed language declarations. This bounded readiness check avoids
+observing an asynchronously unloaded language configuration. A timeout fails
+the suite, and snippet outputs are never retried until they agree with VSCLI.
+Run `node --test tests/vscode-reference/language-readiness.test.cjs` after
+installing the harness dependencies to check delayed and missing registration.
