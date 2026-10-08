@@ -100,6 +100,43 @@ class Screen:
         return "\n".join("".join(self.cells.get((row, col), " ") for col in range(250)).rstrip() for row in range(80))
 
 
+class SupervisedProcess:
+    def __init__(self, supervisor, report):
+        self.supervisor = supervisor
+        self.report = os.fdopen(report, "r")
+        if not select.select([self.report], [], [], 4)[0]:
+            supervisor.kill()
+            supervisor.wait(timeout=3)
+            raise AssertionError("PTY supervisor did not start")
+        self.pid = json.loads(self.report.readline())["pid"]
+        self.returncode = None
+        self.restored = False
+
+    def poll(self):
+        if self.returncode is None and select.select([self.report], [], [], 0)[0]:
+            line = self.report.readline()
+            if line:
+                result = json.loads(line)
+                self.returncode = result["status"]
+                self.restored = result["restored"]
+            elif self.supervisor.poll() is not None:
+                raise AssertionError("PTY supervisor exited without a status report")
+        return self.returncode
+
+    def kill(self):
+        if self.poll() is None:
+            os.kill(self.pid, signal.SIGKILL)
+
+    def wait(self, timeout=3):
+        eventually(lambda: self.poll() is not None, timeout=timeout)
+        self.supervisor.wait(timeout=timeout)
+        return self.returncode
+
+    def close(self):
+        self.supervisor.wait(timeout=3)
+        self.report.close()
+
+
 class Editor:
     def __init__(self, root, *args, recovery=False, enhanced=False, extra_env=None):
         self.master, self.slave = pty.openpty()
@@ -115,12 +152,17 @@ class Editor:
             options += ["--legacy-keys"]
         if not recovery:
             options += ["--no-recovery"]
-        self.process = subprocess.Popen(
-            [BINARY, *options, *map(str, args)], cwd=root,
+        report_read, report_write = os.pipe()
+        supervisor = Path(__file__).resolve().parent / "fixtures" / "pty_supervisor.py"
+        process = subprocess.Popen(
+            [sys.executable, str(supervisor), str(report_write), BINARY, *options, *map(str, args)], cwd=root,
             stdin=self.slave, stdout=self.slave, stderr=self.slave,
             preexec_fn=controlling_terminal,
+            pass_fds=(report_write,),
             env={**os.environ, "TERM": "xterm-256color", "NO_COLOR": "", **(extra_env or {})},
         )
+        os.close(report_write)
+        self.process = SupervisedProcess(process, report_read)
         self.output = bytearray()
         self.screen = Screen()
         self.enhanced = enhanced
@@ -164,12 +206,13 @@ class Editor:
             self.send(b"d")
         eventually(lambda: self.read() and self.process.poll() is not None)
         assert self.process.returncode == 0, self.output.decode(errors="replace")[-4000:]
-        assert termios.tcgetattr(self.slave) == self.original_termios, "Terminal mode leaked on exit"
+        assert self.process.restored, "Terminal mode leaked on exit"
         self.close_fds()
 
     def close_fds(self):
         os.close(self.master)
         os.close(self.slave)
+        self.process.close()
 
 
 def text(path):
