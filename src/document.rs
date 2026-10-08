@@ -16,6 +16,7 @@ mod snippets;
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
+const DEFAULT_EOL: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 
 pub fn read_disk(path: &Path) -> Result<Option<Rope>> {
     let file = match fs::File::open(path) {
@@ -58,15 +59,17 @@ fn read_text(reader: impl Read, limit: u64) -> Result<Rope> {
     Ok(content)
 }
 
-fn has_crlf(content: &Rope) -> bool {
+fn infer_eol<'a>(content: &Rope, fallback: &'a str) -> &'a str {
     let mut previous_cr = false;
+    let mut has_break = false;
     for chunk in content.chunks() {
         if (previous_cr && chunk.starts_with('\n')) || chunk.contains("\r\n") {
-            return true;
+            return "\r\n";
         }
+        has_break |= chunk.contains(['\r', '\n']);
         previous_cr = chunk.ends_with('\r');
     }
-    false
+    if has_break { "\n" } else { fallback }
 }
 
 fn reader_matches(mut reader: impl Read, expected: &Rope) -> Result<bool> {
@@ -282,7 +285,7 @@ impl Document {
     }
 
     pub fn from_rope(text: Rope) -> Self {
-        let eol = if has_crlf(&text) { "\r\n" } else { "\n" }.into();
+        let eol = infer_eol(&text, DEFAULT_EOL).into();
         Self {
             text,
             id: NEXT_DOCUMENT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
@@ -340,7 +343,7 @@ impl Document {
                 next.slice(prefix..next.len_chars() - suffix).to_string(),
             )]);
         }
-        self.eol = if has_crlf(&next) { "\r\n" } else { "\n" }.into();
+        self.eol = infer_eol(&next, DEFAULT_EOL).into();
         self.disk_content = Some(next);
         self.saved_revision = self.revision;
         self.break_group();
@@ -1111,6 +1114,32 @@ mod tests {
     }
 
     #[test]
+    fn platform_eol_default_applies_only_without_existing_line_breaks() {
+        for fallback in ["\n", "\r\n"] {
+            assert_eq!(infer_eol(&Rope::new(), fallback), fallback);
+            assert_eq!(infer_eol(&Rope::from_str("猫🙂"), fallback), fallback);
+            assert_eq!(infer_eol(&Rope::from_str("猫\n🙂"), fallback), "\n");
+            assert_eq!(infer_eol(&Rope::from_str("猫\r\n🙂"), fallback), "\r\n");
+        }
+        for original in ["", "猫🙂", "猫\n🙂", "猫\r\n🙂"] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("eol.txt");
+            fs::write(&path, original).unwrap();
+            let mut doc = Document::open(&path).unwrap();
+            doc.move_to(doc.len(), false);
+            let expected = format!("{original}{}", doc.eol);
+            doc.newline();
+            doc.save().unwrap();
+            assert_eq!(fs::read_to_string(&path).unwrap(), expected);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), original);
+            doc.redo();
+            assert_eq!(doc.text.to_string(), expected);
+        }
+        assert_eq!(Document::default().eol, DEFAULT_EOL);
+    }
+
+    #[test]
     fn streamed_text_preserves_split_utf8_and_rejects_invalid_or_over_budget_input() {
         let text = "ab🙂c\r\n漢字\n".repeat(5000);
         let reader = || ShortReads {
@@ -1119,7 +1148,7 @@ mod tests {
         };
         let rope = read_text(reader(), text.len() as u64).unwrap();
         assert_eq!(rope, text);
-        assert!(has_crlf(&rope));
+        assert_eq!(infer_eol(&rope, "\n"), "\r\n");
         assert!(reader_matches(reader(), &rope).unwrap());
         assert!(read_text(reader(), text.len() as u64 - 1).is_err());
         assert!(read_text(&b"binary\0text"[..], 100).is_err());

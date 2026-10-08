@@ -55,9 +55,11 @@ actual pinned editor. Cases cover spaces/tabs, indentation at each insertion
 point, nested defaults and choices, Unicode, LF/CRLF conversion, primary and
 secondary selection order, typing across fields, and undo/redo. API and user
 command entry points are captured separately; neither route is connected to
-terminal commands yet. The committed Linux trace is from a local isolated run;
-all three CI platforms rerun the comparison, with cross-platform provenance to
-be recorded after those jobs pass.
+terminal commands yet. The first Windows CI comparison exposed the platform default for a new empty
+document: CRLF on Windows versus LF on Unix. Native documents now use that
+default when the initial text has no line breaks. Offline fixtures preserve
+the platform difference; all three CI platforms rerun the comparison, with
+final cross-platform provenance to be recorded after those jobs pass.
 
 The reference API and user command differ: API insertion sorts ranges by file
 position and adjusts only fragment-level text, whereas the command preserves
