@@ -96,7 +96,10 @@ mod tests {
             assert!(start.elapsed().as_secs() < 5);
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
-        assert_eq!(app.doc().path.as_ref(), Some(&to));
+        assert_eq!(
+            app.doc().path.as_ref(),
+            Some(&std::fs::canonicalize(&to).unwrap())
+        );
         assert_eq!(app.doc().id, id);
         assert!(app.doc().dirty());
         app.doc_mut().save().unwrap();
