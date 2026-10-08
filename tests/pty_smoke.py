@@ -5,6 +5,7 @@ Run: cargo build && python3 tests/pty_smoke.py target/debug/vscli
 All file edits and recovery snapshots use temporary directories.
 """
 import codecs
+import faulthandler
 import re
 import unicodedata
 import fcntl
@@ -188,13 +189,18 @@ class Editor:
             raise AssertionError(f"Startup failed: {bytes(self.output)!r}") from None
 
     def read(self):
-        while select.select([self.master], [], [], 0)[0]:
+        # A continuously writing editor or child must not monopolize polling and
+        # prevent eventually() from enforcing its deadline. Continue next poll.
+        deadline = time.monotonic() + 0.05
+        remaining = 1024 * 1024
+        while remaining and time.monotonic() < deadline and select.select([self.master], [], [], 0)[0]:
             try:
-                chunk = os.read(self.master, 65536)
+                chunk = os.read(self.master, min(65536, remaining))
             except OSError:
                 break
             if not chunk:
                 break
+            remaining -= len(chunk)
             self.output.extend(chunk)
             self.screen.feed(chunk)
             if b"\x1b[6n" in chunk:
@@ -689,4 +695,9 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    faulthandler.enable()
+    faulthandler.dump_traceback_later(120, repeat=True)
+    try:
+        run()
+    finally:
+        faulthandler.cancel_dump_traceback_later()
