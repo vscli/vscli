@@ -76,7 +76,7 @@ jobs:
         run: node tests/vscode-reference/run.cjs target/vscode-reference/result
       - name: Compare bindings and configuration contracts
         run: node tests/vscode-reference/compare.cjs target/vscode-reference/result target/debug/vscli${{ runner.os == 'Windows' && '.exe' || '' }}
-      - name: Compare native snippet expansion with the pinned editor
+      - name: Compare native snippet sessions with the pinned editor
         run: cargo run --locked --example snippet_contract -- target/vscode-reference/result/snippets.json > target/vscode-reference/result/snippets-vscli.json
       - name: Preserve reference evidence
         if: always()

@@ -49,7 +49,7 @@ async function run() {
   fs.writeFileSync(path.join(output, 'configuration.json'), JSON.stringify(trace, null, 2) + '\n');
   const snippets = await snippetTrace(vscode);
   fs.writeFileSync(path.join(output, 'snippets.json'), JSON.stringify(snippets, null, 2) + '\n');
-  console.log(`Exported ${bindings.length} default rules and ${trace.length} configuration observations`);
+  console.log(`Exported ${bindings.length} default rules, ${trace.length} configuration observations and ${snippets.length} snippet traces`);
 }
 
 exports.run = async () => {

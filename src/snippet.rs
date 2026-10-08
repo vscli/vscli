@@ -83,6 +83,68 @@ pub struct Template {
 }
 
 impl Template {
+    /// User snippets historically reinterpret unknown bare variables as editable
+    /// placeholders. The extension API deliberately keeps the raw semantics.
+    pub fn parse_user(source: &str) -> Result<Self> {
+        let mut template = Self::parse(source)?;
+        fn maximum(nodes: &[Node]) -> u32 {
+            nodes
+                .iter()
+                .map(|n| match n {
+                    Node::Text(_) => 0,
+                    Node::Marker { key, children, .. } => maximum(children).max(match key {
+                        Key::Stop(i) => *i,
+                        _ => 0,
+                    }),
+                })
+                .max()
+                .unwrap_or(0)
+        }
+        let mut next = maximum(&template.nodes);
+        let mut names = BTreeMap::new();
+        let mut queue: std::collections::VecDeque<_> = template.nodes.iter().collect();
+        while let Some(node) = queue.pop_front() {
+            if let Node::Marker { key, children, .. } = node {
+                if let Key::Variable(name) = key {
+                    if children.is_empty() && !known_variable(name) && !names.contains_key(name) {
+                        next = next.checked_add(1).ok_or_else(|| {
+                            anyhow::anyhow!("Snippet synthetic index exceeds u32")
+                        })?;
+                        names.insert(name.clone(), next);
+                    }
+                } else {
+                    queue.extend(children);
+                }
+            }
+        }
+        fn replace(nodes: &mut [Node], names: &BTreeMap<String, u32>) {
+            for node in nodes {
+                if let Node::Marker {
+                    key,
+                    children,
+                    choices,
+                    transform,
+                } = node
+                {
+                    if let Key::Variable(name) = key {
+                        if children.is_empty()
+                            && let Some(index) = names.get(name)
+                        {
+                            children.push(Node::Text(name.clone()));
+                            *key = Key::Stop(*index);
+                            choices.clear();
+                            *transform = None;
+                        }
+                    } else {
+                        replace(children, names);
+                    }
+                }
+            }
+        }
+        replace(&mut template.nodes, &names);
+        Ok(template)
+    }
+
     pub fn parse(source: &str) -> Result<Self> {
         ensure!(
             source.len() <= MAX_SOURCE,
@@ -124,6 +186,47 @@ impl Template {
         }
         Ok(builder.result)
     }
+}
+
+fn known_variable(name: &str) -> bool {
+    matches!(
+        name,
+        "CURRENT_YEAR"
+            | "CURRENT_YEAR_SHORT"
+            | "CURRENT_MONTH"
+            | "CURRENT_DATE"
+            | "CURRENT_HOUR"
+            | "CURRENT_MINUTE"
+            | "CURRENT_SECOND"
+            | "CURRENT_DAY_NAME"
+            | "CURRENT_DAY_NAME_SHORT"
+            | "CURRENT_MONTH_NAME"
+            | "CURRENT_MONTH_NAME_SHORT"
+            | "CURRENT_SECONDS_UNIX"
+            | "CURRENT_TIMEZONE_OFFSET"
+            | "SELECTION"
+            | "CLIPBOARD"
+            | "TM_SELECTED_TEXT"
+            | "TM_CURRENT_LINE"
+            | "TM_CURRENT_WORD"
+            | "TM_LINE_INDEX"
+            | "TM_LINE_NUMBER"
+            | "TM_FILENAME"
+            | "TM_FILENAME_BASE"
+            | "TM_DIRECTORY"
+            | "TM_FILEPATH"
+            | "CURSOR_INDEX"
+            | "CURSOR_NUMBER"
+            | "RELATIVE_FILEPATH"
+            | "BLOCK_COMMENT_START"
+            | "BLOCK_COMMENT_END"
+            | "LINE_COMMENT"
+            | "WORKSPACE_NAME"
+            | "WORKSPACE_FOLDER"
+            | "RANDOM"
+            | "RANDOM_HEX"
+            | "UUID"
+    )
 }
 
 struct Parser<'a> {

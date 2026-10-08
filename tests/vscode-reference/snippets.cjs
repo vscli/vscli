@@ -16,8 +16,12 @@ async function snippetTrace(vscode) {
     const document = await vscode.workspace.openTextDocument({ content: '', language: 'plaintext' });
     const editor = await vscode.window.showTextDocument(document, { preview: false });
     editor.options = { tabSize: 4, insertSpaces: true };
-    const inserted = await editor.insertSnippet(new vscode.SnippetString(fixture.body));
-    assert.equal(inserted, true, `Snippet insertion failed: ${fixture.name}`);
+    if (fixture.entry === 'command') {
+      await vscode.commands.executeCommand('editor.action.insertSnippet', { snippet: fixture.body });
+    } else {
+      const inserted = await editor.insertSnippet(new vscode.SnippetString(fixture.body));
+      assert.equal(inserted, true, `Snippet insertion failed: ${fixture.name}`);
+    }
     const observations = [{ action: 'insert', ...observe(editor) }];
     for (const step of fixture.steps) {
       if (Object.hasOwn(step, 'type')) {

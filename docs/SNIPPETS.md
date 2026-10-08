@@ -6,19 +6,28 @@ runtime. It parses numbered tab stops, linked defaults, nested placeholders,
 choices, escapes, variables/defaults, and transform metadata. First nonempty
 defaults populate matching numbered occurrences; zero is the final stop.
 
-This is an implementation layer, not a completed editor feature. Interactive
-sessions, Tab/Shift+Tab routing, choice UI, user/workspace snippet files,
+Native document sessions now support multiple insertion ranges, linked fields,
+forward/backward traversal, transforms on leaving a field, cancellation, and
+undo/redo. Snippet state belongs to its editor view; rendering another view does
+not activate a copied session. Edits map the shared text and other views, and a
+transform does not merge another view's edit into its undo transaction.
+
+This is an implementation layer, not a completed editor feature. Terminal
+Tab/Shift+Tab routing, choice UI, user/workspace snippet files,
 extension contributions, and completion integration remain pending. LSP still
 advertises `snippetSupport: false`. The optional extension API does not yet
 provide native `insertSnippet`.
 
 ## Evidence
 
-The pinned VS Code 1.95.0 harness captures 30 named `TextEditor.insertSnippet`
-cases. They cover initial text and scalar selections, with later observations
+The pinned VS Code 1.95.0 harness captures 34 named snippet cases (33 API calls
+and one user command). They cover initial text and scalar selections, with later observations
 for linked typing, nested traversal, transforms on leaving a placeholder, and
-undo/redo. Native expansion currently compares **initial observations only**;
-recording a later interaction is not evidence that VSCLI implements it.
+undo/redo. The native document session is compared with every captured text and
+selection observation, including zero-width neighboring fields, Unicode
+transforms that change length, and undo while a nested field has been removed.
+These calls exercise the native document API, not terminal key delivery or LSP
+completion. They do not qualify every possible snippet or editing workflow.
 
 Run the local expansion comparison after the reference harness:
 
@@ -29,15 +38,20 @@ cargo run --locked --example snippet_contract -- target/vscode-reference/result/
 The same comparison runs against the real pinned editor in Linux/macOS/Windows
 CI. The committed Linux trace initially comes from a local isolated reference
 run; cross-platform qualification is pending until those jobs pass. Unit tests
-also verify nested occurrence ownership and rejection of oversized/deep or
-exponentially amplified expansions before any document mutation.
+also verify nested occurrence ownership, multiple insertion points, split-view
+identity and undo ownership, exact Unicode/CRLF saves, and rejection of
+oversized/deep or exponentially amplified expansions before any document
+mutation. A failed transform leaves text, selections and revision unchanged.
 
 ## Outstanding compatibility
 
 Variables are supplied by the caller; editor/file/selection/date/clipboard
-resolvers are not connected yet. API insertion and user snippet commands need
-separate contracts: unknown variables in the API fixture become empty or use
-their default, whereas user snippet preprocessing has additional behavior.
+resolvers are not connected yet. API insertion and user snippets have separate
+parsing entry points: unknown variables in the API fixture become empty or use
+their default; user preprocessing turns unknown bare variables into numbered
+editable placeholders. Whitespace/EOL adjustment, nested snippet insertion,
+choice presentation, partial edits crossing marker boundaries, and large
+cursor sets still need implementation or broader qualification.
 
 Transform execution currently uses Rust's bounded regex engine, not a complete
 ECMAScript implementation. Lookaround/backreferences, sticky matching, UTF-16

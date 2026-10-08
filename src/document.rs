@@ -12,6 +12,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 mod editing;
 pub(crate) mod graphemes;
+mod snippets;
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
@@ -141,6 +142,11 @@ struct Snapshot {
     revision: u64,
     view_id: u64,
     changes: Vec<PositionChange>,
+    snippet: Option<snippets::Session>,
+    snippet_generation: u64,
+    // Snippet navigation occurs after the edit. Preserve the edit's endpoint
+    // selections instead of turning that later navigation into redo state.
+    after_selections: Option<Vec<Selection>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -152,6 +158,8 @@ pub struct ViewState {
     pub left: usize,
     desired_column: Option<usize>,
     cursor_history: Vec<Vec<Selection>>,
+    snippet: Option<snippets::Session>,
+    snippet_generation: u64,
 }
 #[derive(Clone)]
 struct PositionChange {
@@ -166,6 +174,7 @@ impl PositionChange {
         }
     }
     fn map(&self, view: &mut ViewState) {
+        view.map_snippet(&self.range, self.added);
         view.cursor = map_position(view.cursor, &self.range, self.added);
         view.anchor = view
             .anchor
@@ -239,6 +248,7 @@ impl Document {
         let next = self.other_views.remove(&id).unwrap_or_else(|| {
             let mut view = self.view.clone();
             view.cursor_history.clear();
+            view.snippet = None;
             view
         });
         let previous = std::mem::replace(&mut self.view, next);
@@ -252,6 +262,7 @@ impl Document {
         }
     }
     fn record_change(&mut self, range: Range<usize>, added: usize) {
+        self.view.map_snippet(&range, added);
         let change = PositionChange { range, added };
         for view in self.other_views.values_mut() {
             change.map(view);
@@ -462,6 +473,9 @@ impl Document {
             revision: self.revision,
             view_id: self.active_view,
             changes: Vec::new(),
+            snippet: self.snippet.clone(),
+            snippet_generation: self.snippet_generation,
+            after_selections: None,
         }
     }
     fn checkpoint(&mut self) {
@@ -567,11 +581,13 @@ impl Document {
         } else {
             self.other_views.get(&target.view_id).unwrap_or(&self.view)
         };
+        let after = target.after_selections.as_ref();
+        let primary = after.and_then(|selections| selections.first());
         Snapshot {
             text: self.text.clone(),
-            cursor: view.cursor,
-            anchor: view.anchor,
-            secondary: view.secondary.clone(),
+            cursor: primary.map_or(view.cursor, |s| s.cursor),
+            anchor: primary.map_or(view.anchor, |s| s.anchor),
+            secondary: after.map_or_else(|| view.secondary.clone(), |s| s[1..].to_vec()),
             revision: self.revision,
             view_id: target.view_id,
             changes: target
@@ -580,9 +596,20 @@ impl Document {
                 .rev()
                 .map(PositionChange::inverse)
                 .collect(),
+            snippet: view.snippet.clone(),
+            snippet_generation: view.snippet_generation,
+            after_selections: after.map(|_| {
+                let mut selections = vec![Selection {
+                    cursor: target.cursor,
+                    anchor: target.anchor,
+                    desired_column: None,
+                }];
+                selections.extend(target.secondary.clone());
+                selections
+            }),
         }
     }
-    fn restore(&mut self, s: Snapshot) {
+    fn restore(&mut self, mut s: Snapshot) {
         for change in s.changes.iter().rev().map(PositionChange::inverse) {
             change.map(&mut self.view);
             for view in self.other_views.values_mut() {
@@ -596,6 +623,12 @@ impl Document {
             self.other_views.get_mut(&s.view_id)
         };
         if let Some(view) = view {
+            if view.snippet_generation == s.snippet_generation {
+                if let (Some(previous), Some(current)) = (&mut s.snippet, &view.snippet) {
+                    previous.retain_removed_from(current);
+                }
+                view.snippet = s.snippet;
+            }
             view.cursor = s.cursor;
             view.anchor = s.anchor;
             view.secondary = s.secondary;
