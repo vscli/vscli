@@ -180,3 +180,45 @@ fn operation_lock_and_corrupt_registry_preserve_installed_files() {
     );
     assert!(installed.path.join("main.cjs").exists());
 }
+
+#[test]
+fn duplicate_names_and_unbounded_central_directory_counts_are_rejected_before_extraction() {
+    let temp = tempfile::tempdir().unwrap();
+    let archive = temp.path().join("malformed.vsix");
+    let store = Store::new(temp.path().join("store"));
+    package(&archive, "1.0.0", &[]);
+    let original = store.install(&archive).unwrap();
+    package(
+        &archive,
+        "2.0.0",
+        &[("extension/dupa", "same"), ("extension/dupb", "same")],
+    );
+    let mut bytes = fs::read(&archive).unwrap();
+    for index in 0..bytes.len() - 3 {
+        if &bytes[index..index + 4] == b"dupb" {
+            bytes[index + 3] = b'a';
+        }
+    }
+    fs::write(&archive, &bytes).unwrap();
+    assert!(
+        store
+            .install(&archive)
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate")
+    );
+    package(&archive, "2.0.0", &[]);
+    let mut bytes = fs::read(&archive).unwrap();
+    let end = bytes.len() - 22;
+    bytes[end + 8..end + 10].copy_from_slice(&30_000u16.to_le_bytes());
+    bytes[end + 10..end + 12].copy_from_slice(&30_000u16.to_le_bytes());
+    fs::write(&archive, &bytes).unwrap();
+    assert!(
+        store
+            .install(&archive)
+            .unwrap_err()
+            .to_string()
+            .contains("20,000")
+    );
+    assert_eq!(store.get(&original.id).unwrap().path, original.path);
+}
