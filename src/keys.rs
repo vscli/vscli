@@ -48,6 +48,7 @@ pub struct Keymap {
     extensions: Vec<Binding>,
     user: Vec<Binding>,
 }
+#[derive(Debug, PartialEq)]
 pub enum Resolution {
     Command(String, Option<Value>),
     Chord,
@@ -462,16 +463,24 @@ impl Keymap {
     }
     pub fn resolve(&self, sequence: &str, context: &HashMap<String, Value>) -> Resolution {
         for b in self.bindings.iter().rev() {
+            let exact = b.key == sequence;
+            let chord = b
+                .key
+                .strip_prefix(sequence)
+                .is_some_and(|suffix| suffix.starts_with(' '));
+            if !exact && !chord {
+                continue;
+            }
             if b.when
                 .as_ref()
                 .is_some_and(|w| !evaluate(w, context).unwrap_or(false))
             {
                 continue;
             }
-            if b.key == sequence {
+            if exact {
                 return Resolution::Command(b.command.clone(), b.args.clone());
             }
-            if b.key.starts_with(&format!("{sequence} ")) {
+            if chord {
                 return Resolution::Chord;
             }
         }
@@ -738,6 +747,74 @@ pub fn evaluate(s: &str, context: &HashMap<String, Value>) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn key_prefilter_preserves_context_priority_and_chord_resolution() {
+        // Compare against the original resolver over every shipped rule, chord
+        // prefix, platform, and combinations of the contexts used by defaults.
+        fn reference(map: &Keymap, sequence: &str, context: &HashMap<String, Value>) -> Resolution {
+            for b in map.bindings.iter().rev() {
+                if b.when
+                    .as_ref()
+                    .is_some_and(|w| !evaluate(w, context).unwrap_or(false))
+                {
+                    continue;
+                }
+                if b.key == sequence {
+                    return Resolution::Command(b.command.clone(), b.args.clone());
+                }
+                if b.key.starts_with(&format!("{sequence} ")) {
+                    return Resolution::Chord;
+                }
+            }
+            Resolution::None
+        }
+        for profile in [Profile::Linux, Profile::Windows, Profile::Macos] {
+            let mut map = Keymap::new(profile);
+            for (key, when, args) in [
+                ("ctrl+k", "inputFocus", Some(Value::Null)),
+                (
+                    "ctrl+k ctrl+x",
+                    "editorTextFocus",
+                    Some(serde_json::json!([1, 2])),
+                ),
+                ("x", "!editorTextFocus", None),
+            ] {
+                map.bindings.push(Binding {
+                    key: key.into(),
+                    command: "fixture.command".into(),
+                    when: Some(when.into()),
+                    args,
+                });
+            }
+            let mut sequences = vec!["".into(), "x".into(), "unbound".into(), "ctrl".into()];
+            for binding in &map.bindings {
+                sequences.push(binding.key.clone());
+                if let Some((prefix, _)) = binding.key.split_once(' ') {
+                    sequences.push(prefix.into());
+                }
+            }
+            for bits in 0..32 {
+                let context = [
+                    "editorTextFocus",
+                    "inputFocus",
+                    "filesExplorerFocus",
+                    "terminalFocus",
+                    "editorHasSelection",
+                ]
+                .into_iter()
+                .enumerate()
+                .map(|(i, key)| (key.into(), Value::Bool(bits & (1 << i) != 0)))
+                .collect();
+                for sequence in &sequences {
+                    assert_eq!(
+                        map.resolve(sequence, &context),
+                        reference(&map, sequence, &context),
+                        "{profile:?} {sequence} {bits}"
+                    );
+                }
+            }
+        }
+    }
     #[test]
     fn defaults_chords_and_platforms() {
         let ctx = HashMap::from([("editorTextFocus".into(), Value::Bool(true))]);
