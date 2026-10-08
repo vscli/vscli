@@ -37,6 +37,8 @@ Useful options:
 
 ## Implemented workflows
 
+New documents and files without line breaks use CRLF on Windows and LF on Unix. Existing LF/CRLF content determines the document's line ending for subsequent insertion; opening does not rewrite file bytes. Mixed-line-ending selection and `files.eol` settings migration remain unqualified.
+
 The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary text entry, grapheme-aware horizontal movement, visual-column vertical movement, keyboard/mouse selection, undo/redo, indentation, comments, line deletion, literal find, replace all, and go to line.
 
 Quick open indexes up to 100,000 workspace files in a background worker. It respects ignore rules and skips `.git`, `target`, `node_modules`, `.venv`, and `__pycache__`. The explorer shows the current directory; Right opens a directory or file (Enter also opens in Linux/Windows profiles), Left/Backspace goes to its parent, and Escape returns focus to the editor. macOS uses Enter for rename. Quick-open indexing is a startup snapshot; newly created files can be opened by path or through the explorer.
