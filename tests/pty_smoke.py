@@ -369,11 +369,18 @@ def run():
         print("PASS: native LSP startup, Ctrl+Space completion, formatting, save")
 
         terminal_file = root / "terminal-output.txt"
-        app = Editor(root, root, enhanced=True)
+        app = Editor(root, root, enhanced=True, extra_env={
+            "SHELL": "/bin/sh", "PS1": "VSCLI_SHELL_READY> ", "ENV": "",
+        })
         app.send(b"\x1b[96;5u")  # Ctrl+` opens terminal.
-        eventually(lambda: app.read() and "TERMINAL" in app.screen.text())
+        # A panel being visible does not mean the shell has finished initializing
+        # its line discipline. Wait for its prompt before sending input.
+        eventually(lambda: app.read() and "VSCLI_SHELL_READY>" in app.screen.text())
         app.send("printf terminal_roundtrip > terminal-output.txt\r")
-        eventually(lambda: text(terminal_file) == "terminal_roundtrip")
+        try:
+            eventually(lambda: app.read() and text(terminal_file) == "terminal_roundtrip")
+        except AssertionError:
+            raise AssertionError(f"Shell roundtrip failed:\n{app.screen.text()}") from None
         app.send("exit\r")
         time.sleep(0.2)
         app.send(b"\x1b[96;5u")  # Hide terminal and restore editor focus.
