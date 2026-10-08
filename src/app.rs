@@ -673,7 +673,7 @@ impl App {
                         | "workbench.action.closeWindow"
                 )
             {
-                self.execute(&command, args);
+                self.execute_with_args(&command, args);
             } else if let Some(terminal) = self.terminals.get_mut(self.active_terminal)
                 && let Err(e) = terminal.key(key)
             {
@@ -694,7 +694,7 @@ impl App {
             .unwrap_or(token.clone());
         match self.keymap.resolve(&sequence, &self.context()) {
             Resolution::Command(command, args) => {
-                self.execute(&command, args);
+                self.execute_with_args(&command, args);
                 return;
             }
             Resolution::Chord => {
@@ -729,10 +729,14 @@ impl App {
         }
     }
     pub fn execute(&mut self, command: &str, args: Value) {
+        self.execute_with_args(command, (!args.is_null()).then_some(args));
+    }
+    fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
         self.execute_inner(command, args);
         self.sync_pane();
     }
-    fn execute_inner(&mut self, command: &str, args: Value) {
+    fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
+        let args = command_args.clone().unwrap_or(Value::Null);
         if command.is_empty() {
             return;
         }
@@ -1068,7 +1072,7 @@ impl App {
                 self.keymap.clear_extension_bindings();
                 self.message = "Extension host stopped".into();
             },
-            _ => self.execute_extension(command, args),
+            _ => self.execute_extension(command, command_args),
         }
     }
     fn add_comments(&mut self) {

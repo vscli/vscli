@@ -134,3 +134,28 @@ fn upstream_sort_lines_runs_without_source_changes() {
     app.doc_mut().undo();
     assert_eq!(app.doc().text.to_string(), "zebra\napple\npear");
 }
+
+#[test]
+fn extension_keybinding_arguments_preserve_arrays_null_and_absence() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    let bindings = directory.path().join("keybindings.json");
+    std::fs::write(
+        &bindings,
+        r#"[
+      {"key":"f8","command":"fixture.args","args":["a",2]},
+      {"key":"f7","command":"fixture.args","args":null},
+      {"key":"f6","command":"fixture.args"}
+    ]"#,
+    )
+    .unwrap();
+    app.keymap.load(&bindings).unwrap();
+    fixture(&mut app);
+    for (key, expected) in [(8, "args=[[\"a\",2]]"), (7, "args=[null]"), (6, "args=[]")] {
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::F(key),
+            KeyModifiers::NONE,
+        )));
+        until(&mut app, |a| a.message == expected);
+    }
+}
