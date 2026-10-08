@@ -14,6 +14,13 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 
+def write_zip(package, archive):
+    # Cargo crate archives can contain epoch-dated notices; ZIP starts at 1980.
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as output:
+        for path in sorted(package.rglob("*")):
+            if path.is_file():
+                output.write(path, path.relative_to(package.parent))
+
 def main():
     os.chdir(ROOT)
     version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
@@ -58,10 +65,7 @@ def main():
         (package / "BUILD.json").write_text(json.dumps({"version": version, "target": host, "rustc": rust, "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()}, indent=2) + "\n")
         if sys.platform == "win32":
             archive = dist / f"{name}.zip"
-            with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
-                for path in sorted(package.rglob("*")):
-                    if path.is_file():
-                        output.write(path, path.relative_to(package.parent))
+            write_zip(package, archive)
         else:
             archive = dist / f"{name}.tar.gz"
             with tarfile.open(archive, "w:gz") as output:
