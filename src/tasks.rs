@@ -273,10 +273,29 @@ mod tests {
             label: "example".into(),
             definition: serde_json::json!({"type":"shell", "command":"printf", "args":["%s", "${fileBasename}", "$(touch unwanted)", "it's literal"]}),
         };
-        let task = prepare(&task, &vars).unwrap();
-        assert!(task.preview.contains("'$(touch unwanted)'"));
-        assert!(task.preview.contains("'it'\\''s literal'"));
-        assert!(task.preview.contains("'my file.rs'"));
+        if cfg!(windows) {
+            assert!(
+                prepare(&task, &vars)
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("Windows shell task quoting")
+            );
+        } else {
+            let task = prepare(&task, &vars).unwrap();
+            assert!(task.preview.contains("'$(touch unwanted)'"));
+            assert!(task.preview.contains("'it'\\''s literal'"));
+            assert!(task.preview.contains("'my file.rs'"));
+        }
+        let process = Task {
+            label: "process".into(),
+            definition: serde_json::json!({"type":"process", "command":"echo", "args":["${fileBasename}", "$(touch unwanted)"]}),
+        };
+        let process = prepare(&process, &vars).unwrap();
+        assert_eq!(
+            process.command.get_argv()[1..],
+            ["my file.rs", "$(touch unwanted)"]
+        );
         assert!(expand("${command:arbitrary}", &vars).is_err());
     }
     #[test]
