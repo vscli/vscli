@@ -33,6 +33,14 @@ Boundaries and limitations:
 
 Hosted CI checks that the screen oracle works with the debug executable on Linux/macOS. **There is no hosted-CI timing threshold.** Record release-build baselines and investigate repeatable regressions on controlled hardware before setting gates.
 
+Use `--single-line` to put the entire ASCII fixture on one line without line
+breaks, retaining the same exact byte count and readiness marker. The JSON
+records `fixture_layout` as `single_line` or `multiple_lines`. This measures
+opening and typing near the start of a long plain-text line; it does not measure
+navigation or drawing far to the right, Unicode clusters, or syntax fallback.
+CI also checks this screen oracle with a 1 MiB single-line fixture, without a
+timing threshold.
+
 To measure typing while periodic recovery runs, use `--recovery --keys 50
 --key-interval-ms 100`. This creates a fresh recovery directory for each VSCLI
 trial, pumps terminal output between keys, and validates after timing that a

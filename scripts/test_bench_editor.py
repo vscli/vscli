@@ -47,6 +47,16 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(99, result["p99"])
         self.assertEqual(100, result["max"])
 
+    def test_single_line_fixture_has_exact_size_and_no_line_breaks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.txt"
+            fixture(path, 1048579, single_line=True)
+            content = path.read_bytes()
+            self.assertEqual(len(content), 1048579)
+            self.assertTrue(content.startswith(MARKER.encode()))
+            self.assertNotIn(b"\n", content)
+            self.assertNotIn(b"\r", content)
+
     def test_recovery_evidence_requires_measured_edits_in_a_committed_journal(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
