@@ -8,6 +8,7 @@ import codecs
 import faulthandler
 import re
 import unicodedata
+import zipfile
 import fcntl
 import json
 import os
@@ -718,6 +719,44 @@ def run():
         eventually(lambda: app.read() and "Extension host stopped" in app.screen.text())
         app.finish()
         print("PASS: extension activation/settings reload, palette/F9 commands, native edit/save/undo and host stop")
+
+        package = root / "fixture.vsix"
+        with zipfile.ZipFile(package, "w", zipfile.ZIP_DEFLATED) as archive:
+            for entry in extension.iterdir():
+                if entry.is_file():
+                    archive.write(entry, "extension/" + entry.name)
+        extensions_dir = root / "installed-extensions"
+        installed_file = root / "installed-extension.txt"
+        installed_file.write_text("zebra\napple\npear")
+        app = Editor(root, "--extensions-dir", extensions_dir, installed_file, enhanced=True)
+        app.send(b"\x1bOP")
+        app.send("Extensions: Install from VSIX")
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Install Extension from local VSIX" in app.screen.text())
+        app.send(str(package))
+        app.send(b"\r")
+        eventually(lambda: app.read() and "vscli-test.command-fixture@1.0.0" in app.screen.text())
+        assert text(installed_file) == "zebra\napple\npear", "Installation executed package editing code"
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Run installed extension?" in app.screen.text())
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Extension ready" in app.screen.text())
+        app.send(CTRL_A)
+        app.send(b"\x1b[20~")  # Installed package's original F9 binding.
+        eventually(lambda: app.read() and "sort applied=true" in app.screen.text())
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(installed_file) == "apple\npear\nzebra")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(installed_file) == "zebra\napple\npear")
+        app.send(b"\x1b[120;6u")  # Original Ctrl+Shift+X extensions shortcut.
+        eventually(lambda: app.read() and "Installed Extensions" in app.screen.text())
+        app.send(b"\x1b[3~")  # Delete removes registry entry while preserving host files.
+        eventually(lambda: app.read() and "No packages installed" in app.screen.text())
+        app.send(b"\x1b")
+        app.finish()
+        print("PASS: VSIX install/list/explicit activation, installed F9/save/undo, uninstall with running host")
+
 
         bindings = root / "keybindings.json"
         bindings.write_text(json.dumps([{"key": "ctrl+k ctrl+b", "command": "type", "args": {"text": "custom"}, "when": "editorTextFocus"}]))

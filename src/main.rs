@@ -68,11 +68,26 @@ struct Args {
     /// Argument to the debugged program (repeatable)
     #[arg(long, requires = "debug_adapter", allow_hyphen_values = true)]
     debug_program_arg: Vec<String>,
-    /// Run a trusted unpacked VS Code extension (executes its code with your permissions)
+    /// Run a trusted unpacked extension directory or installed publisher.name (executes code)
     #[arg(long)]
     extension: Option<PathBuf>,
+    /// Install a local VSIX without executing its code
+    #[arg(long, conflicts_with_all = ["list_extensions", "uninstall_extension", "rollback_extension"])]
+    install_extension: Option<PathBuf>,
+    /// List installed packages and experimental compatibility status
+    #[arg(long, conflicts_with_all = ["uninstall_extension", "rollback_extension"])]
+    list_extensions: bool,
+    /// Remove an installed package from the registry (running hosts retain their files)
+    #[arg(long, conflicts_with = "rollback_extension")]
+    uninstall_extension: Option<String>,
+    /// Restore the previous installed generation
+    #[arg(long)]
+    rollback_extension: Option<String>,
+    /// Override native extension storage
+    #[arg(long)]
+    extensions_dir: Option<PathBuf>,
     /// Node executable for the optional extension host
-    #[arg(long, requires = "extension", default_value = "node")]
+    #[arg(long, default_value = "node")]
     extension_node: String,
     /// Disable periodic recovery snapshots and startup recovery
     #[arg(long)]
@@ -118,6 +133,38 @@ fn restore_terminal() {
 fn main() -> Result<()> {
     let args = Args::parse();
     let profile = args.keymap.unwrap_or_else(Profile::native);
+    let extensions_directory = args
+        .extensions_dir
+        .clone()
+        .or_else(vscli::extension_store::default_directory);
+    if args.install_extension.is_some()
+        || args.list_extensions
+        || args.uninstall_extension.is_some()
+        || args.rollback_extension.is_some()
+    {
+        let store = vscli::extension_store::Store::new(
+            extensions_directory
+                .clone()
+                .context("No extension storage directory; use --extensions-dir")?,
+        );
+        if let Some(path) = &args.install_extension {
+            let installed = store.install(path)?;
+            println!(
+                "Installed {}@{}\n{}\nInstallation does not activate code. Run: vscli --extension {}",
+                installed.id, installed.version, installed.compatibility, installed.id
+            );
+        } else if let Some(id) = &args.uninstall_extension {
+            store.uninstall(id)?;
+            println!("Uninstalled {id}; retained immutable files for running hosts");
+        } else if let Some(id) = &args.rollback_extension {
+            let installed = store.rollback(id)?;
+            println!("Restored {}@{}", installed.id, installed.version);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&store.list()?)?);
+        }
+        return Ok(());
+    }
+
     if args.doctor {
         println!(
             "VSCLI {}\nProfile: {profile:?}\nTerminal: {}\nTERM_PROGRAM: {}\nInteractive stdin/stdout: {}/{}\nMultiplexer: {}\nRecovery: {}\nUser keybindings: {}\n\nImplemented: UTF-8 editing, tabs, selections, undo/redo, safe save, find/replace,\nquick open, explorer, multi-cursor editing, split views, workspace search, native stdio LSP,\nterminal sessions, project tasks, Git status/diff/stage/commit/history,\nDAP breakpoints/stepping/variables, command palette, keybinding imports, crash snapshots.\nExtensions: optional experimental command/edit host via --extension (requires Node).\n\nRun F1 → Keyboard Inspector inside the editor to test actual key delivery.\nCtrl+Shift+P and other modified keys may require enhanced keyboard support.",
@@ -162,6 +209,8 @@ fn main() -> Result<()> {
         bail!("Workspace must be a directory");
     }
     let mut app = App::new(root, profile);
+    app.extensions_directory = extensions_directory.clone();
+    app.extension_node = args.extension_node.clone();
     let settings_path = args
         .settings
         .clone()
@@ -231,6 +280,15 @@ fn main() -> Result<()> {
         });
     }
     if let Some(extension) = args.extension {
+        let extension = if extension.is_dir() {
+            extension
+        } else {
+            vscli::extension_store::Store::new(
+                extensions_directory.context("No extension storage directory")?,
+            )
+            .get(&extension.to_string_lossy())?
+            .path
+        };
         app.extension_host = Some(vscli::extensions::Client::start(
             &args.extension_node,
             &extension,

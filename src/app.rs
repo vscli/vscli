@@ -1,4 +1,5 @@
 mod debugger;
+mod extension_management;
 mod extensions;
 mod files;
 mod language;
@@ -31,6 +32,14 @@ use unicode_segmentation::UnicodeSegmentation;
 
 pub const COMMANDS: &[(&str, &str)] = &[
     ("Insert Snippet", "editor.action.insertSnippet"),
+    (
+        "Extensions: Install from VSIX",
+        "workbench.extensions.action.installVSIX",
+    ),
+    (
+        "Extensions: Show Installed Extensions",
+        "workbench.extensions.action.showInstalledExtensions",
+    ),
     ("Extensions: Stop Host", "vscli.extensions.stop"),
     ("Settings: Compatibility Report", "vscli.settings.report"),
     (
@@ -186,6 +195,7 @@ pub enum Focus {
 }
 #[derive(Clone)]
 pub enum PromptKind {
+    InstallExtension,
     Palette,
     QuickOpen,
     Snippet,
@@ -239,6 +249,11 @@ pub enum AfterSave {
     CloseAll,
 }
 pub enum Modal {
+    Extensions {
+        items: Vec<crate::extension_store::Installed>,
+        selected: usize,
+    },
+    RunExtension(crate::extension_store::Installed),
     Help,
     Keys,
     Inspector,
@@ -312,6 +327,9 @@ pub struct App {
     pub active_terminal: usize,
     pub terminal_visible: bool,
     pub terminal_area: Rect,
+    pub extensions_directory: Option<PathBuf>,
+    pub extension_node: String,
+    extension_job: Option<extension_management::Job>,
     pub extension_host: Option<crate::extensions::Client>,
     pub lsp: Option<crate::lsp::Client>,
     pub syntax: crate::syntax::Engine,
@@ -371,6 +389,9 @@ impl App {
             terminal_visible: false,
             terminal_area: Rect::default(),
             extension_host: None,
+            extensions_directory: crate::extension_store::default_directory(),
+            extension_node: "node".into(),
+            extension_job: None,
             lsp: None,
             syntax: crate::syntax::Engine::default(),
             settings: crate::settings::Settings::default(),
@@ -425,6 +446,7 @@ impl App {
         changed |= self.poll_files();
         changed |= self.poll_watching();
         changed |= self.poll_debugger();
+        changed |= self.poll_extension_management();
         changed |= self.poll_extensions();
         changed |= self.poll_snippet();
         changed |= self.poll_snippet_catalog();
@@ -564,6 +586,10 @@ impl App {
             (
                 "editorFocus".into(),
                 json!(self.active_document().is_some() && self.focus == Focus::Editor),
+            ),
+            (
+                "viewContainer.workbench.view.extensions.enabled".into(),
+                json!(self.extensions_directory.is_some()),
             ),
             (
                 "editorHasSelection".into(),
@@ -1135,7 +1161,10 @@ impl App {
             "editor.action.nextMatchFindAction" => self.find(false),
             "editor.action.previousMatchFindAction" => self.find(true),
             "workbench.action.gotoLine" => self.start_prompt(PromptKind::Goto, String::new()),
+            "workbench.extensions.action.installVSIX" => self.start_prompt(PromptKind::InstallExtension, String::new()),
+            "workbench.view.extensions" | "workbench.extensions.action.showInstalledExtensions" => self.manage_extension(extension_management::Action::List),
             "vscli.extensions.stop" => {
+                self.cancel_extension_start();
                 self.extension_host = None;
                 self.keymap.clear_extension_bindings();
                 self.message = "Extension host stopped".into();
@@ -1346,6 +1375,50 @@ impl App {
                     self.run_task(task);
                 } else if !matches!(key.code, KeyCode::Char('n' | 'N')) {
                     self.modal = Some(Modal::ConfirmTask(task));
+                }
+            }
+            Modal::Extensions {
+                items,
+                mut selected,
+            } => {
+                match key.code {
+                    KeyCode::Up => selected = selected.saturating_sub(1),
+                    KeyCode::Down => selected = (selected + 1).min(items.len().saturating_sub(1)),
+                    KeyCode::Enter => {
+                        if let Some(item) = items.get(selected) {
+                            if item.manifest["main"].is_string() {
+                                self.modal = Some(Modal::RunExtension(item.clone()));
+                            } else {
+                                self.message = format!("{}: {}", item.id, item.compatibility);
+                            }
+                        }
+                        return;
+                    }
+                    KeyCode::Delete => {
+                        if let Some(item) = items.get(selected) {
+                            self.manage_extension(extension_management::Action::Uninstall(
+                                item.id.clone(),
+                            ));
+                        }
+                        return;
+                    }
+                    KeyCode::Char('r' | 'R') => {
+                        if let Some(item) = items.get(selected) {
+                            self.manage_extension(extension_management::Action::Rollback(
+                                item.id.clone(),
+                            ));
+                        }
+                        return;
+                    }
+                    _ => {}
+                }
+                self.modal = Some(Modal::Extensions { items, selected });
+            }
+            Modal::RunExtension(item) => {
+                if key.code == KeyCode::Enter {
+                    self.run_installed_extension(item);
+                } else {
+                    self.modal = Some(Modal::RunExtension(item));
                 }
             }
             Modal::Language {
@@ -1560,6 +1633,9 @@ impl App {
         let p = self.prompt.take().unwrap();
         match p.kind {
             PromptKind::Snippet => self.accept_snippet(&p.text, p.selected),
+            PromptKind::InstallExtension => self.manage_extension(
+                extension_management::Action::Install(self.resolve_path(&p.text)),
+            ),
             PromptKind::DebugEvaluate => {
                 if let Some(client) = self.debugger.as_mut() {
                     if let Err(e) = client.evaluate(&p.text) {
