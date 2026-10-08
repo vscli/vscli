@@ -3,6 +3,7 @@
 use anyhow::{Result, bail, ensure};
 use std::{collections::BTreeMap, ops::Range};
 
+pub mod catalog;
 pub mod variables;
 
 const MAX_SOURCE: usize = 64 * 1024;
