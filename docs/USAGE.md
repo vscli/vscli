@@ -218,6 +218,12 @@ The real Python/debugpy integration test covers breakpoint, variables, step, eva
 
 Native filesystem notifications refresh the workspace index and explorer after a short debounce. Clean open files reload as one undoable edit while retaining shared document/view identity. Dirty files retain unsaved text and report a conflict; the save guard continues to reject overwriting changed disk content. Deleted open files become dirty retained buffers, so quit confirmation and crash recovery preserve their contents. Explicit Revert also retains view identity and can be undone.
 
+Reload preserves cursor and selection positions within the common unchanged
+prefix and suffix in every split view, shifting trailing positions by the edit's
+character-count difference. Undo and redo retain these independent selections.
+Reload currently maps one replacement between that prefix and suffix; unchanged
+regions between multiple disjoint external edits are not independently mapped.
+
 Disk reads run off the UI thread, are capped at 32 MiB per file, and are discarded if the buffer was edited, saved, closed, or renamed while reading. Open files are checked every two seconds as a fallback, including files outside the workspace. The worker compares disk bytes against the shared saved baseline with bounded buffers; unchanged files do not allocate replacement ropes or require a full comparison on the input thread. Changed files still load into a bounded rope before their version-checked reply is applied. Index notifications ignore common generated directories. If native watcher setup fails, use Refresh Explorer for index changes; the periodic open-file check continues. Network filesystem event behavior, very large directory trees, and non-Linux watcher backends still need qualification.
 
 ## Verification

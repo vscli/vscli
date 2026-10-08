@@ -543,6 +543,21 @@ def run():
         app.finish()
         print("PASS: external reload, undo, dirty conflict and save protection")
 
+        tail_file = root / "reload-tail.txt"
+        tail_original = "old header\r\nkeep 猫🙂 tail\r\nlast"
+        tail_external = "new longer header\r\nkeep 猫🙂 tail\r\nlast"
+        tail_file.write_bytes(tail_original.encode())
+        app = Editor(root, tail_file, enhanced=True)
+        app.send(b"\x1b[B" + b"\x1b[C" * 4)  # After 'keep' on the unchanged line.
+        tail_file.write_bytes(tail_external.encode())
+        eventually(lambda: app.read() and "new longer header" in app.screen.text())
+        app.send(b"!" + CTRL_S)
+        eventually(lambda: app.read() and tail_file.read_bytes() == tail_external.replace("keep", "keep!").encode())
+        app.send(CTRL_Z + CTRL_Z)
+        eventually(lambda: app.read() and "old header" in app.screen.text())
+        app.finish(discard=True)
+        print("PASS: external reload retains the cursor in unchanged Unicode/CRLF text")
+
         debug_file = root / "debug-fixture.py"
         debug_file.write_text("one\ntwo\nthree\n")
         debug_adapter = Path(__file__).resolve().parent / "fixtures" / "debug_adapter.py"
