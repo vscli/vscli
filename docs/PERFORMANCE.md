@@ -129,4 +129,4 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/previous/vscli \
   --output target/benchmarks/disk-watch.json
 ```
 
-The opening limit, blocking save/recovery paths, large document operations, and extension/LSP limits remain separate work. Raising the size limit alone still would not establish a qualified large-file mode.
+The opening limit, blocking saves and startup recovery, large document operations, and extension/LSP limits remain separate work. Periodic recovery now streams shared-rope snapshots on a dedicated worker with one outstanding request. Stalled-write and shutdown-order tests verify its scheduling and integrity, but the measurements above disabled recovery and establish no latency or memory claim for that change. Recovery-enabled contention and slow-storage shutdown need separate measurements. Raising the size limit alone still would not establish a qualified large-file mode.

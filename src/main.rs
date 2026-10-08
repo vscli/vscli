@@ -276,17 +276,23 @@ fn main() -> Result<()> {
         ENHANCED.store(true, Ordering::SeqCst);
         app.enhanced = true;
     }
+    let mut recovery = recovery.map(recovery::Worker::start).transpose()?;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
     let mut redraw = true;
     let mut last_recovery = Instant::now();
-    let mut signature = Vec::new();
     while app.running {
         if interrupted.load(Ordering::Relaxed) {
-            if let Some(store) = &recovery {
-                store.persist(&app.documents)?;
+            if let Some(worker) = recovery.take() {
+                worker.preserve(&app.documents)?;
             }
             bail!("Interrupted; unsaved buffers retained in recovery storage when enabled");
+        }
+        if let Some(worker) = &mut recovery
+            && let Err(e) = worker.poll()
+        {
+            app.message = format!("Recovery write failed: {e:#}");
+            redraw = true;
         }
         redraw |= app.poll();
         if redraw {
@@ -308,29 +314,19 @@ fn main() -> Result<()> {
             }
         }
         if last_recovery.elapsed() >= Duration::from_secs(2) {
-            if let Some(store) = &recovery {
-                let current: Vec<_> = app
-                    .documents
-                    .iter()
-                    .map(|d| (d.id, d.path.clone(), d.revision, d.saved_revision))
-                    .collect();
-                if current != signature {
-                    match store.persist(&app.documents) {
-                        Ok(()) => signature = current,
-                        Err(e) => {
-                            app.message = format!("Recovery write failed: {e:#}");
-                            redraw = true;
-                        }
-                    }
-                }
+            if let Some(worker) = &mut recovery
+                && let Err(e) = worker.submit(&app.documents)
+            {
+                app.message = format!("Recovery write failed: {e:#}");
+                redraw = true;
             }
             last_recovery = Instant::now();
         }
     }
     drop(terminal);
     drop(guard);
-    if let Some(store) = recovery {
-        store.finish()?;
+    if let Some(worker) = recovery {
+        worker.finish()?;
     }
     Ok(())
 }
