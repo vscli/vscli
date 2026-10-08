@@ -4,6 +4,7 @@ use crate::{
 };
 use ratatui::{
     Frame,
+    buffer::Buffer,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -425,7 +426,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 .map(|(b, _)| b..b + app.find_query.len())
                 .collect()
         };
-        for (byte, g) in line.grapheme_indices(true) {
+        for (byte, g) in line_graphemes(&line) {
             let width = doc.grapheme_width(g, visual);
             let next = visual + width;
             if visual >= doc.left + text_area.width as usize {
@@ -446,17 +447,11 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 {
                     style = style.bg(SELECT);
                 }
-                let symbol = if g == "\t" {
-                    " ".repeat(width)
-                } else if g.chars().any(char::is_control) {
-                    "�".into()
-                } else {
-                    g.into()
-                };
-                frame.buffer_mut().set_stringn(
+                paint_grapheme(
+                    frame.buffer_mut(),
                     text_area.x + (visual - doc.left) as u16,
                     text_area.y + y,
-                    symbol,
+                    g,
                     width,
                     style,
                 );
@@ -503,6 +498,48 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
     }
 }
 
+fn line_graphemes(line: &str) -> impl Iterator<Item = (usize, &str)> {
+    // Printable ASCII and tabs are single-byte graphemes. Control sequences
+    // such as CRLF must continue through the Unicode segmentation path.
+    let ascii = line.bytes().all(|b| matches!(b, b'\t' | b' '..=b'~'));
+    let mut bytes = 0..line.len();
+    let mut unicode = line.grapheme_indices(true);
+    std::iter::from_fn(move || {
+        if ascii {
+            bytes
+                .next()
+                .map(|offset| (offset, &line[offset..offset + 1]))
+        } else {
+            unicode.next()
+        }
+    })
+}
+
+fn paint_grapheme(buffer: &mut Buffer, x: u16, y: u16, g: &str, width: usize, style: Style) {
+    match g.as_bytes() {
+        // Layout already proved these one-cell symbols fit. Avoid allocating
+        // an owned string and re-segmenting it inside Buffer::set_stringn.
+        [b' '..=b'~'] => {
+            buffer[(x, y)].set_symbol(g).set_style(style);
+        }
+        b"\t" => {
+            for column in x..x + width as u16 {
+                buffer[(column, y)].set_symbol(" ").set_style(style);
+            }
+        }
+        _ => {
+            // Retain Ratatui's width, zero-width and wide-cell reset behavior
+            // for Unicode. Borrow the existing grapheme instead of copying it.
+            let symbol = if g.chars().any(char::is_control) {
+                "�"
+            } else {
+                g
+            };
+            buffer.set_stringn(x, y, symbol, width, style);
+        }
+    }
+}
+
 // Lightweight lexical colors for the first build. This is not a grammar engine.
 fn syntax_color(style: usize) -> Color {
     match crate::syntax::NAMES.get(style).copied().unwrap_or("") {
@@ -517,10 +554,10 @@ fn syntax_color(style: usize) -> Color {
     }
 }
 fn syntax_styles(line: &str, language: &str) -> Vec<Color> {
-    let mut styles = vec![FG; line.len()];
     if language == "plaintext" {
-        return styles;
+        return Vec::new();
     }
+    let mut styles = vec![FG; line.len()];
     let mut in_string = None;
     let mut escape = false;
     let mut comment = false;
@@ -1075,6 +1112,67 @@ fn draw_modal(frame: &mut Frame, app: &App) {
 mod tests {
     use super::*;
     use ratatui::{Terminal, backend::TestBackend};
+    #[test]
+    fn fast_grapheme_iteration_matches_unicode_segmentation() {
+        let ascii: String = (0..=127).map(char::from).collect();
+        for line in [
+            "ASCII words\tand tabs 0123456789",
+            "",
+            "\r\n",
+            "\u{301}a e\u{301}",
+            "猫🙂 👩\u{200d}💻 🇬🇧",
+            "a\u{1b}b\u{7f}c",
+            &ascii,
+        ] {
+            assert_eq!(
+                line_graphemes(line).collect::<Vec<_>>(),
+                line.grapheme_indices(true).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn fast_cell_painting_matches_previous_renderer() {
+        let doc = crate::document::Document::default();
+        for g in [
+            "a",
+            " ",
+            "\t",
+            "\u{301}",
+            "e\u{301}",
+            "猫",
+            "🙂",
+            "👩\u{200d}💻",
+            "🇬🇧",
+            "\u{1b}",
+            "\r\n",
+        ] {
+            for column in 0..8 {
+                for style in [
+                    Style::default(),
+                    Style::default()
+                        .fg(BLUE)
+                        .bg(SELECT)
+                        .add_modifier(Modifier::REVERSED),
+                ] {
+                    let mut expected =
+                        Buffer::filled(Rect::new(0, 0, 20, 2), ratatui::buffer::Cell::new("?"));
+                    let mut actual = expected.clone();
+                    let width = doc.grapheme_width(g, column);
+                    let symbol = if g == "\t" {
+                        " ".repeat(width)
+                    } else if g.chars().any(char::is_control) {
+                        "�".into()
+                    } else {
+                        g.into()
+                    };
+                    expected.set_stringn(column as u16, 1, symbol, width, style);
+                    paint_grapheme(&mut actual, column as u16, 1, g, width, style);
+                    assert_eq!(actual, expected, "{g:?} at {column}");
+                }
+            }
+        }
+    }
     #[test]
     fn drawing_split_views_preserves_typing_groups_and_the_active_view() {
         let dir = tempfile::tempdir().unwrap();
