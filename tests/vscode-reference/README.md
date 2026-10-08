@@ -104,8 +104,9 @@ The additional `snippet-insertion.json` trace covers 34 insertion-context cases
 selections, indentation options, line endings, cursor order, and undo/redo.
 Compare it with `cargo run --locked --example snippet_contract -- --insertion
 <output>/snippet-insertion.json`. The same native runner is used by offline Rust
-tests and live CI comparisons. The initial Linux fixture is a local reference
-capture; cross-platform provenance is pending.
+tests and live CI comparisons. The [insertion baseline](baselines/1.95.0/snippet-insertion/provenance.json)
+preserves all three platforms from successful CI run 37857315175. Windows
+retains its different default EOL for new empty documents.
 
 The [1.95.0 baseline](baselines/1.95.0/provenance.json) preserves the parsed rule
 inventories, observed keyboard maps, reference configuration traces, and comparison

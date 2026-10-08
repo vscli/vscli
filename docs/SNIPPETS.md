@@ -58,8 +58,10 @@ command entry points are captured separately; neither route is connected to
 terminal commands yet. The first Windows CI comparison exposed the platform default for a new empty
 document: CRLF on Windows versus LF on Unix. Native documents now use that
 default when the initial text has no line breaks. Offline fixtures preserve
-the platform difference; all three CI platforms rerun the comparison, with
-final cross-platform provenance to be recorded after those jobs pass.
+the platform difference. All 118 observations matched on each platform in
+[CI run 37857315175](https://github.com/vscli/vscli/actions/runs/37857315175).
+The [insertion traces and provenance](../tests/vscode-reference/baselines/1.95.0/snippet-insertion/provenance.json)
+record all three captures, source revision, and fixture hashes from that run.
 
 The reference API and user command differ: API insertion sorts ranges by file
 position and adjusts only fragment-level text, whereas the command preserves
