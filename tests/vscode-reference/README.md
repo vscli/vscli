@@ -88,12 +88,12 @@ from different runs.
 
 ## Recorded baseline
 
-The additional snippet harness writes `snippets.json`: 30 API insertion traces
+The additional snippet harness writes `snippets.json`: 34 insertion traces
 with initial text/selections and selected later edit/navigation/undo observations.
 `cargo run --locked --example snippet_contract -- <output>/snippets.json` compares
-only the initial text and selections with the native template engine. The
-remaining observations are retained for future session qualification; see
-[snippet implementation boundaries](../../docs/SNIPPETS.md). CI runs the initial
+all captured text and selections with the native document/session engine. These
+are document API calls, not terminal-key or completion qualification; see
+[snippet implementation boundaries](../../docs/SNIPPETS.md). CI runs the same
 comparison against each platform's fresh reference output.
 
 The [1.95.0 baseline](baselines/1.95.0/provenance.json) preserves the parsed rule

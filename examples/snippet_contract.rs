@@ -1,9 +1,17 @@
-//! Emit initial snippet expansion observations for the pinned editor reference.
-//! This does not yet qualify interactive placeholder sessions.
+//! Emit native document/session observations for the pinned editor reference.
 use anyhow::{Result, ensure};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-use vscli::snippet::Template;
+use vscli::{document::Document, snippet::Template};
+
+fn observe(document: &Document, action: &str) -> Value {
+    let selections: Vec<_> = document
+        .selections()
+        .iter()
+        .map(|s| json!({"anchor":s.anchor.unwrap_or(s.cursor), "cursor":s.cursor}))
+        .collect();
+    json!({"action": action, "text":document.text.to_string(), "selections":selections})
+}
 
 fn main() -> Result<()> {
     let cases: Vec<Value> =
@@ -16,14 +24,32 @@ fn main() -> Result<()> {
     ]);
     let mut observations = Vec::new();
     for fixture in cases {
-        let expanded = Template::parse(fixture["body"].as_str().unwrap())?.expand(&variables)?;
-        let selections: Vec<_> = expanded
-            .first_selections()
-            .into_iter()
-            .map(|range| json!({ "anchor": range.start, "cursor": range.end }))
-            .collect();
+        let mut doc = Document::default();
+        let parse = if fixture["entry"] == "command" {
+            Template::parse_user
+        } else {
+            Template::parse
+        };
+        doc.insert_snippet(&parse(fixture["body"].as_str().unwrap())?, &variables)?;
+        let mut trace = vec![observe(&doc, "insert")];
+        for step in fixture["steps"].as_array().unwrap() {
+            let action = step["command"].as_str().unwrap_or("type");
+            match action {
+                "type" => doc.insert(step["type"].as_str().unwrap(), true),
+                "jumpToNextSnippetPlaceholder" => {
+                    doc.step_snippet(false)?;
+                }
+                "jumpToPrevSnippetPlaceholder" => {
+                    doc.step_snippet(true)?;
+                }
+                "undo" => doc.undo(),
+                "redo" => doc.redo(),
+                _ => anyhow::bail!("Unknown fixture action {action}"),
+            }
+            trace.push(observe(&doc, action));
+        }
         observations.push(json!({"name": fixture["name"], "body": fixture["body"],
-            "observation": {"action": "insert", "text": expanded.text, "selections": selections}}));
+            "observations": trace}));
     }
     if let Some(reference) = std::env::args_os().nth(1) {
         let reference: Vec<Value> = serde_json::from_slice(&std::fs::read(reference)?)?;
@@ -37,11 +63,11 @@ fn main() -> Result<()> {
                 "Snippet fixtures differ"
             );
             ensure!(
-                actual["observation"] == expected["observations"][0],
-                "Initial snippet expansion differs for {}: native={}, reference={}",
+                actual["observations"] == expected["observations"],
+                "Snippet trace differs for {}: native={}, reference={}",
                 actual["name"],
-                actual["observation"],
-                expected["observations"][0]
+                actual["observations"],
+                expected["observations"]
             );
         }
     }

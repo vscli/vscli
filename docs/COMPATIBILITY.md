@@ -96,6 +96,14 @@ The four comparison categories partition the reference rules, including duplicat
 
 ## Configuration and migration
 
+The native snippet template/document engine is compared against 34 pinned
+reference cases (96 text/selection observations), including linked editing,
+nested traversal, transforms, and undo/redo. It is not yet exposed through
+terminal commands, snippet catalogs, LSP completion, or extension insertion.
+The current native regex subset is not full ECMAScript. See the
+[snippet evidence and outstanding integration](SNIPPETS.md); this does not
+establish general snippet or keybinding parity.
+
 Provide a read-only migration preview before writing the project's own configuration. Parse JSON with comments, preserve the user's source files, and show imported settings, approximations, unsupported settings, extension requirements, and unavailable shortcuts.
 
 Keep familiar names for supported settings. Define precedence for defaults, user/profile settings, workspace settings, folder settings, and language overrides against a pinned VS Code reference. Preserve unknown fields when editing existing configuration. Initial support should cover fonts only as an explanatory unsupported setting, while indentation, wrapping, autosave, file excludes, search excludes, formatting, and keybindings have meaningful terminal behavior.

@@ -1098,5 +1098,225 @@
         ]
       }
     ]
+  },
+  {
+    "name": "command_unknown",
+    "body": "$VSCLI_UNKNOWN/${VSCLI_UNKNOWN:default}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "VSCLI_UNKNOWN/default",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "unicode_transform",
+    "body": "${1:x} ${1/(.*)/${1:/upcase}/}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "x x",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "ß ß",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "ß SS",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "x x",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "ß SS",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "undo_inside_session",
+    "body": "${1:a${2:b}c} ${3:d}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "abc d",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "fox d",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "abc d",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "abc d",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "abc 猫",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "zero_width_neighbors",
+    "body": "$2$1$3$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "猫",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫🙂",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "猫🙂",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫🙂x",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "猫🙂x",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      }
+    ]
   }
 ]
