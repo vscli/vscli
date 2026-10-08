@@ -63,3 +63,13 @@ test('an older edit response cannot replace a newer document notification', asyn
   await edit;
   assert.equal(editor.document.getText(), 'newer');
 });
+
+test('configuration reads preserve explicit null and isolate object defaults from mutation', () => {
+  const runtime = createApi(() => {}, () => {});
+  runtime.configure(process.cwd(), { properties: { 'test.null': { default: null }, 'test.object': { default: { a: 1 } } } });
+  const configuration = runtime.api.workspace.getConfiguration('test');
+  assert.equal(configuration.get('null', 'fallback'), null);
+  configuration.get('object').a = 2;
+  assert.deepEqual(configuration.get('object'), { a: 1 });
+  assert.equal(configuration.get('missing', 'fallback'), 'fallback');
+});
