@@ -1,5 +1,5 @@
 use super::*;
-use crate::watch::{CONTENT, DiskJob, INDEX};
+use crate::watch::{CONTENT, DiskChange, DiskJob, INDEX, ReadRequest};
 use std::time::{Duration, Instant};
 
 impl App {
@@ -53,9 +53,13 @@ impl App {
                 .documents
                 .iter()
                 .filter_map(|d| {
-                    d.path
-                        .clone()
-                        .map(|p| (d.id, d.revision, d.saved_revision, p))
+                    d.path.clone().map(|path| ReadRequest {
+                        id: d.id,
+                        revision: d.revision,
+                        saved_revision: d.saved_revision,
+                        path,
+                        baseline: d.disk_content.clone(),
+                    })
                 })
                 .collect();
             self.watch.disk = Some(DiskJob::start(documents));
@@ -86,11 +90,11 @@ impl App {
                 continue;
             }
             let notice = match result.content {
-                Ok(content) if content == doc.disk_content => {
+                Ok(DiskChange::Unchanged) => {
                     self.watch.notices.remove(&doc.id);
                     continue;
                 }
-                Ok(Some(content)) if !doc.dirty() => {
+                Ok(DiskChange::Changed(Some(content))) if !doc.dirty() => {
                     doc.reload_content(content);
                     self.watch.notices.remove(&doc.id);
                     self.message = format!(
@@ -100,11 +104,11 @@ impl App {
                     changed = true;
                     continue;
                 }
-                Ok(Some(_)) => format!(
+                Ok(DiskChange::Changed(Some(_))) => format!(
                     "{} changed on disk; unsaved edits retained. Save As or compare before reloading",
                     doc.name()
                 ),
-                Ok(None) => {
+                Ok(DiskChange::Changed(None)) => {
                     doc.saved_revision = u64::MAX;
                     format!(
                         "{} was removed from disk; buffer retained. Save As to preserve it",

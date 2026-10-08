@@ -90,7 +90,7 @@ fn reader_matches(mut reader: impl Read, expected: &Rope) -> Result<bool> {
     }
 }
 
-fn disk_matches(path: &Path, expected: Option<&Rope>) -> Result<bool> {
+pub(crate) fn disk_matches(path: &Path, expected: Option<&Rope>) -> Result<bool> {
     let file = match fs::File::open(path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(expected.is_none()),

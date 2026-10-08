@@ -129,22 +129,41 @@ impl Monitor {
     }
 }
 
+#[derive(Debug)]
+pub enum DiskChange {
+    Unchanged,
+    Changed(Option<ropey::Rope>),
+}
+pub struct ReadRequest {
+    pub id: u64,
+    pub revision: u64,
+    pub saved_revision: u64,
+    pub path: PathBuf,
+    pub baseline: Option<ropey::Rope>,
+}
 pub struct Snapshot {
     pub id: u64,
     pub revision: u64,
     pub saved_revision: u64,
     pub path: PathBuf,
-    pub content: Result<Option<ropey::Rope>, String>,
+    pub content: Result<DiskChange, String>,
 }
 pub struct DiskJob {
     receiver: Receiver<Snapshot>,
 }
 impl DiskJob {
-    pub fn start(documents: Vec<(u64, u64, u64, PathBuf)>) -> Self {
+    pub fn start(documents: Vec<ReadRequest>) -> Self {
         let (sender, receiver) = mpsc::sync_channel(1);
         std::thread::spawn(move || {
-            for (id, revision, saved_revision, path) in documents {
-                let content = crate::document::read_disk(&path).map_err(|e| e.to_string());
+            for ReadRequest {
+                id,
+                revision,
+                saved_revision,
+                path,
+                baseline,
+            } in documents
+            {
+                let content = read_change(&path, baseline.as_ref()).map_err(|e| e.to_string());
                 if sender
                     .send(Snapshot {
                         id,
@@ -170,6 +189,16 @@ impl DiskJob {
     }
 }
 
+fn read_change(
+    path: &std::path::Path,
+    baseline: Option<&ropey::Rope>,
+) -> anyhow::Result<DiskChange> {
+    if crate::document::disk_matches(path, baseline)? {
+        return Ok(DiskChange::Unchanged);
+    }
+    crate::document::read_disk(path).map(DiskChange::Changed)
+}
+
 pub struct State {
     pub monitor: Monitor,
     pub paths: Vec<PathBuf>,
@@ -192,5 +221,45 @@ impl State {
             disk: None,
             notices: std::collections::HashMap::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn disk_checks_distinguish_unchanged_modified_created_deleted_and_invalid_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("watched.txt");
+        let text = "first🙂\r\nlast\n".repeat(10000);
+        let baseline = ropey::Rope::from_str(&text);
+        std::fs::write(&path, &text).unwrap();
+        assert!(matches!(
+            read_change(&path, Some(&baseline)).unwrap(),
+            DiskChange::Unchanged
+        ));
+        // A same-length mutation must be read, not dismissed by metadata alone.
+        let changed = format!("X{}", &text[1..]);
+        std::fs::write(&path, &changed).unwrap();
+        match read_change(&path, Some(&baseline)).unwrap() {
+            DiskChange::Changed(Some(content)) => assert_eq!(content, changed),
+            other => panic!("Expected changed text, got {other:?}"),
+        }
+        std::fs::write(&path, b"invalid\xff").unwrap();
+        assert!(read_change(&path, Some(&baseline)).is_err());
+        std::fs::remove_file(&path).unwrap();
+        assert!(matches!(
+            read_change(&path, Some(&baseline)).unwrap(),
+            DiskChange::Changed(None)
+        ));
+        assert!(matches!(
+            read_change(&path, None).unwrap(),
+            DiskChange::Unchanged
+        ));
+        std::fs::write(&path, "").unwrap();
+        assert!(
+            matches!(read_change(&path, None).unwrap(), DiskChange::Changed(Some(content)) if content.len_bytes() == 0)
+        );
     }
 }
