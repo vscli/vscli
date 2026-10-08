@@ -201,9 +201,10 @@ class Editor:
         self.send(b"\x1b[200~" + text.encode() + b"\x1b[201~")
 
     def finish(self, discard=False):
-        self.send(CTRL_SHIFT_W)
-        if discard:
-            self.send(b"d")
+        if self.process.poll() is None:
+            self.send(CTRL_SHIFT_W)
+            if discard:
+                self.send(b"d")
         eventually(lambda: self.read() and self.process.poll() is not None)
         assert self.process.returncode == 0, self.output.decode(errors="replace")[-4000:]
         assert self.process.restored, "Terminal mode leaked on exit"
