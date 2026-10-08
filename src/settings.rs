@@ -5,7 +5,10 @@ use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
-    sync::mpsc::{self, Receiver},
+    sync::{
+        Arc,
+        mpsc::{self, Receiver},
+    },
     time::{Duration, Instant},
 };
 
@@ -17,10 +20,18 @@ pub enum LineNumbers {
     Relative,
     Interval,
 }
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, Default)]
 pub struct Settings {
-    layers: Vec<Map<String, Value>>,
+    layers: Arc<Vec<Map<String, Value>>>,
+    // Map equality ignores insertion order, but language-block ordering affects
+    // precedence. This key also lets reload comparison avoid walking JSON trees.
+    serialized: Arc<str>,
     pub warnings: Vec<String>,
+}
+impl PartialEq for Settings {
+    fn eq(&self, other: &Self) -> bool {
+        self.serialized == other.serialized && self.warnings == other.warnings
+    }
 }
 const SUPPORTED: &[&str] = &[
     "editor.tabSize",
@@ -51,9 +62,13 @@ impl Settings {
         for path in paths {
             let layer = read(path)?;
             result.validate(&layer, &path.display().to_string());
-            result.layers.push(layer);
+            Arc::make_mut(&mut result.layers).push(layer);
         }
+        result.serialized = serde_json::to_string(result.layers.as_ref())?.into();
         Ok(result)
+    }
+    pub fn extension_layers(&self) -> &Arc<Vec<Map<String, Value>>> {
+        &self.layers
     }
     fn validate(&mut self, values: &Map<String, Value>, source: &str) {
         for (key, value) in values {
@@ -67,8 +82,9 @@ impl Settings {
                 continue;
             }
             if !SUPPORTED.contains(&key.as_str()) {
-                self.warnings
-                    .push(format!("{source}: unsupported setting {key}"));
+                self.warnings.push(format!(
+                    "{source}: {key} is not a native setting; extensions may read it"
+                ));
             } else if !valid(key, value) {
                 self.warnings
                     .push(format!("{source}: invalid value for {key}"));
@@ -77,27 +93,51 @@ impl Settings {
     }
     fn value(&self, key: &str, language: &str) -> Option<&Value> {
         let mut result = None;
-        for layer in &self.layers {
+        for layer in self.layers.iter() {
             if let Some(value) = layer.get(key).filter(|v| valid(key, v)) {
                 result = Some(value);
             }
         }
-        // Multi-language blocks are less specific than a single-language block,
-        // even if the multi-language block belongs to a later settings scope.
-        for single in [false, true] {
-            for layer in &self.layers {
-                for (selector, value) in layer {
-                    if let Some(inner) =
-                        selector.strip_prefix('[').and_then(|s| s.strip_suffix(']'))
-                    {
-                        let languages: Vec<_> = inner.split("][").collect();
-                        if (languages.len() == 1) == single
-                            && languages.contains(&language)
-                            && let Some(value) = value.get(key).filter(|v| valid(key, v))
-                        {
-                            result = Some(value);
-                        }
+        // Merge equal identifier groups in their first-seen position, then apply
+        // single-language groups last, as in the pinned configuration model.
+        let mut groups: Vec<(Vec<&str>, Option<&Value>)> = Vec::new();
+        for layer in self.layers.iter() {
+            for (selector, value) in layer {
+                let Some(inner) = selector.strip_prefix('[').and_then(|s| s.strip_suffix(']'))
+                else {
+                    continue;
+                };
+                let mut ids = Vec::new();
+                let mut valid_selector = true;
+                for id in inner.split("][") {
+                    if id.is_empty() || id.contains(['[', ']']) {
+                        valid_selector = false;
+                        break;
                     }
+                    let id = id.trim();
+                    if !id.is_empty() && !ids.contains(&id) {
+                        ids.push(id);
+                    }
+                }
+                if !valid_selector || !ids.contains(&language) {
+                    continue;
+                }
+                let found = value.get(key).filter(|v| valid(key, v));
+                if let Some((_, previous)) =
+                    groups.iter_mut().find(|(existing, _)| *existing == ids)
+                {
+                    if found.is_some() {
+                        *previous = found;
+                    }
+                } else {
+                    groups.push((ids, found));
+                }
+            }
+        }
+        for single in [false, true] {
+            for (ids, value) in &groups {
+                if (ids.len() == 1) == single && value.is_some() {
+                    result = *value;
                 }
             }
         }
@@ -180,6 +220,53 @@ impl Loader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn combined_language_order_survives_parsing_scope_merging_and_reload_comparison() {
+        let directory = tempfile::tempdir().unwrap();
+        let user = directory.path().join("user.json");
+        let workspace = directory.path().join("workspace.json");
+        std::fs::write(
+            &user,
+            r#"{
+            "[javascript][typescript]": {"editor.tabSize": 2},
+            "[javascript][python]": {"editor.tabSize": 3}
+        }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &workspace,
+            r#"{"[javascript][typescript]": {"editor.tabSize": 4}}"#,
+        )
+        .unwrap();
+        let settings = Settings::load(&[user.clone(), workspace.clone()]).unwrap();
+        let mut doc = crate::document::Document::default();
+        doc.path = Some("file.js".into());
+        settings.apply(&mut doc);
+        assert_eq!(doc.tab_size, 3);
+        assert!(Arc::ptr_eq(
+            settings.extension_layers(),
+            settings.clone().extension_layers()
+        ));
+        std::fs::write(
+            &user,
+            r#"{
+            "[javascript][python]": {"editor.tabSize": 3},
+            "[javascript][typescript]": {"editor.tabSize": 2}
+        }"#,
+        )
+        .unwrap();
+        let reordered = Settings::load(&[user.clone(), workspace.clone()]).unwrap();
+        assert!(settings != reordered);
+        reordered.apply(&mut doc);
+        assert_eq!(doc.tab_size, 4);
+        std::fs::write(
+            &user,
+            r#"{"[ javascript ][javascript]": {"editor.tabSize": 8}}"#,
+        )
+        .unwrap();
+        Settings::load(&[user, workspace]).unwrap().apply(&mut doc);
+        assert_eq!(doc.tab_size, 8);
+    }
     #[test]
     fn language_scope_precedence_validation_and_comments() {
         let dir = tempfile::tempdir().unwrap();
