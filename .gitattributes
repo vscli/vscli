@@ -1,0 +1,4 @@
+# Preserve the published dependency's CRLF files when checking local patches.
+vendor/crossterm/** whitespace=cr-at-eol
+# Keep upstream Markdown byte-for-byte, including its trailing spaces.
+vendor/crossterm/**/*.md whitespace=cr-at-eol,-blank-at-eol

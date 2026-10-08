@@ -293,6 +293,16 @@ def run():
         app.finish()
         print("PASS: asynchronous file indexing and Ctrl+P quick open")
 
+        burst_file = root / "burst.txt"
+        app = Editor(root, burst_file, enhanced=True)
+        burst_text = "xz" * 600
+        # Cross the event reader's 1 KiB batch boundary. The save key is part of
+        # the same write: no later input may be needed to wake buffered bytes.
+        app.send(burst_text.encode() + CTRL_S)
+        eventually(lambda: app.read() and text(burst_file) == burst_text)
+        app.finish()
+        print("PASS: raw input beyond 1 KiB reaches Save without another key")
+
         journal = root / "recovery"
         recover_file = root / "recover.txt"
         recover_file.write_text("disk baseline")
@@ -395,7 +405,7 @@ def run():
             eventually(lambda: app.read() and text(terminal_file) == "terminal_roundtrip")
         except AssertionError:
             raise AssertionError(f"Shell roundtrip failed:\n{app.screen.text()}") from None
-        burst = "xz" * 300
+        burst = "xz" * 600
         app.send(f"printf '%s' '{burst}' > terminal-output.txt\r")
         eventually(lambda: app.read() and text(terminal_file) == burst)
         app.send("exit\r")
