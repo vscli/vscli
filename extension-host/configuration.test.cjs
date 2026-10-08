@@ -104,6 +104,21 @@ test('combined-language groups keep their first insertion position across scopes
   assert.equal(event.affectsConfiguration('example.language', { languageId: 'typescript' }), false);
 });
 
+test('held configurations inspect current values using their original language scope', () => {
+  const configuration = configured([{}, {
+    '[python]': { 'example.language': 2 }, '[javascript]': { 'example.language': 3 },
+  }]);
+  const scope = { languageId: 'python' };
+  const held = configuration.get('example', scope);
+  scope.languageId = 'javascript';
+  configuration.update([{}, {
+    '[python]': { 'example.language': 4 }, '[javascript]': { 'example.language': 5 },
+  }]);
+  assert.equal(held.get('language'), 2);
+  assert.equal(held.inspect('language').workspaceLanguageValue, 4);
+  assert.equal(configuration.get('example', scope).get('language'), 5);
+});
+
 test('language-only changes are observable and events retain both original snapshots', () => {
   const configuration = configured([{}, { '[python]': { 'example.language': 8 } }]);
   let event;
