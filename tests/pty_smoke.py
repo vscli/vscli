@@ -326,6 +326,28 @@ def run():
         assert not list(journal.glob("*.json")), "Clean exit left recovery documents"
         print("PASS: SIGKILL recovery and explicit save without modifying disk during recovery")
 
+        app = Editor(root, "--recovery-dir", journal, recover_file, recovery=True)
+        app.send(CTRL_A)
+        app.paste("FINAL unsaved before signal 🙂\n")
+        # Interrupt after the screen reflects the edit, without waiting for the
+        # periodic snapshot. Shutdown must preserve the latest buffer itself.
+        eventually(lambda: app.read() and b"FINAL unsaved before signal" in app.output)
+        os.kill(app.process.pid, signal.SIGTERM)
+        eventually(lambda: app.read() and app.process.poll() is not None)
+        assert app.process.returncode != 0
+        assert app.process.restored, "Terminal mode leaked on interruption"
+        app.close_fds()
+        saved = [json.loads(p.read_text()) for p in journal.glob("*.json")]
+        assert len(saved) == 1
+        assert saved[0]["documents"][0]["text"] == "FINAL unsaved before signal 🙂\n"
+        assert text(recover_file) == "RECOVERED unsaved 猫\n"
+        app = Editor(root, "--recovery-dir", journal, recover_file, recovery=True)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(recover_file) == "FINAL unsaved before signal 🙂\n")
+        app.finish()
+        assert not list(journal.glob("*.json"))
+        print("PASS: SIGTERM preserves the latest buffer and restores terminal modes")
+
         multi = root / "multi.txt"
         multi.write_text("cat cat cat")
         app = Editor(root, multi, enhanced=True)
