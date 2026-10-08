@@ -230,25 +230,25 @@ def run():
         expected = "// Unicode: 猫🙂 e\u0301\nfn main() {\n    println!(\"hello\");\n}\n"
         app.paste(expected)
         app.send(CTRL_S)
-        eventually(lambda: text(source) == expected)
+        eventually(lambda: app.read() and text(source) == expected)
         app.send(CTRL_A)
         app.send("temporary")
         app.send(CTRL_Z)
         app.send(CTRL_S)
-        eventually(lambda: text(source) == expected)
+        eventually(lambda: app.read() and text(source) == expected)
         # Exact chord: Ctrl+K Ctrl+C adds a line comment. Undo restores it.
         app.send(b"\x1b")
         app.send(b"\x0b\x03")
         app.send(CTRL_Z)
         app.send(CTRL_S)
-        eventually(lambda: text(source) == expected)
+        eventually(lambda: app.read() and text(source) == expected)
         # CSI-u delivers Ctrl+Shift+S distinctly even through a PTY.
         app.send(CTRL_SHIFT_S)
         destination = root / "copy.rs"
         app.send(CTRL_A)
         app.paste(str(destination))
         app.send(b"\r")
-        eventually(lambda: text(destination) == expected)
+        eventually(lambda: app.read() and text(destination) == expected)
         # Resize down and back; the real renderer must survive both.
         for rows, cols in [(3, 10), (40, 120)]:
             fcntl.ioctl(app.slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
@@ -275,7 +275,7 @@ def run():
         app.send(CTRL_A)
         app.paste("opened via quick open\n")
         app.send(CTRL_S)
-        eventually(lambda: text(source) == "opened via quick open\n")
+        eventually(lambda: app.read() and text(source) == "opened via quick open\n")
         app.finish()
         print("PASS: asynchronous file indexing and Ctrl+P quick open")
 
@@ -297,7 +297,7 @@ def run():
         assert text(recover_file) == "disk baseline"
         app = Editor(root, "--recovery-dir", journal, recover_file, recovery=True)
         app.send(CTRL_S)
-        eventually(lambda: text(recover_file) == "RECOVERED unsaved 猫\n")
+        eventually(lambda: app.read() and text(recover_file) == "RECOVERED unsaved 猫\n")
         app.finish()
         assert not list(journal.glob("*.json")), "Clean exit left recovery documents"
         print("PASS: SIGKILL recovery and explicit save without modifying disk during recovery")
@@ -308,14 +308,14 @@ def run():
         app.send(b"\x04\x04")  # Ctrl+D selects word, then next occurrence.
         app.send("dog")
         app.send(CTRL_S)
-        eventually(lambda: text(multi) == "dog dog cat")
+        eventually(lambda: app.read() and text(multi) == "dog dog cat")
         app.send(CTRL_Z)
         app.send(CTRL_S)
-        eventually(lambda: text(multi) == "cat cat cat")
+        eventually(lambda: app.read() and text(multi) == "cat cat cat")
         app.send(b"\x1b[108;6u")  # Ctrl+Shift+L selects all occurrences.
         app.paste("猫")
         app.send(CTRL_S)
-        eventually(lambda: text(multi) == "猫 猫 猫")
+        eventually(lambda: app.read() and text(multi) == "猫 猫 猫")
         app.send(b"\x1b")
         app.finish()
         print("PASS: multi-cursor shortcuts, Unicode replacement, grouped undo, collapse cursors")
@@ -331,7 +331,7 @@ def run():
         app.send(b"\x1b[50;5u")  # Ctrl+2
         app.send("?")
         app.send(CTRL_S)
-        eventually(lambda: text(split_file) == "a!bc\nx?yz")
+        eventually(lambda: app.read() and text(split_file) == "a!bc\nx?yz")
         app.send(b"\x17")  # Ctrl+W closes this view, retaining shared buffer.
         app.finish()
         print("PASS: split editors share text, preserve independent cursors, save and close views")
@@ -346,7 +346,7 @@ def run():
         app.send(b"\r")
         app.send("replaced")
         app.send(CTRL_S)
-        eventually(lambda: text(searched) == "replaced\n")
+        eventually(lambda: app.read() and text(searched) == "replaced\n")
         app.finish()
         print("PASS: workspace text search, result navigation, selection and save")
 
@@ -360,11 +360,11 @@ def run():
         eventually(lambda: app.read() and "Completion" in app.screen.text())
         app.send(b"\r")
         app.send(CTRL_S)
-        eventually(lambda: text(language_file) == "answer\n")
+        eventually(lambda: app.read() and text(language_file) == "answer\n")
         app.send(b"\x1b[105;6u")  # Linux Ctrl+Shift+I formats.
         eventually(lambda: app.read() and "formatted" in app.screen.text())
         app.send(CTRL_S)
-        eventually(lambda: text(language_file) == "formatted\n")
+        eventually(lambda: app.read() and text(language_file) == "formatted\n")
         app.finish()
         print("PASS: native LSP startup, Ctrl+Space completion, formatting, save")
 
@@ -396,7 +396,7 @@ def run():
         eventually(lambda: app.read() and "Run Workspace Task?" in app.screen.text())
         assert not task_file.exists(), "Workspace command ran before trust confirmation"
         app.send(b"\r")
-        eventually(lambda: text(task_file) == "task complete")
+        eventually(lambda: app.read() and text(task_file) == "task complete")
         app.send(b"\x1b[96;5u")
         app.finish()
         print("PASS: tasks.json process task, build shortcut, workspace trust, PTY output")
@@ -436,7 +436,7 @@ def run():
         eventually(lambda: app.read() and created.exists() and "Opened source.txt" in app.screen.text())
         app.send("contents")
         app.send(CTRL_S)
-        eventually(lambda: text(created) == "contents")
+        eventually(lambda: app.read() and text(created) == "contents")
         app.send(b"\x1b[101;6u")  # Ctrl+Shift+E
         app.send(b"\x1bOQ")  # F2 rename.
         app.send(str(renamed))
@@ -445,7 +445,7 @@ def run():
         app.send(b"\x1b[49;5u")
         app.send("!")
         app.send(CTRL_S)
-        eventually(lambda: text(renamed) == "contents!")
+        eventually(lambda: app.read() and text(renamed) == "contents!")
         if sys.platform.startswith("linux"):
             app.send(b"\x1b[101;6u")
             app.send(b"\x1b[3~")
@@ -456,7 +456,7 @@ def run():
             app.send(CTRL_SHIFT_S)
             app.send(str(restored))
             app.send(b"\r")
-            eventually(lambda: text(restored) == "contents!")
+            eventually(lambda: app.read() and text(restored) == "contents!")
         app.finish()
         print("PASS: explorer create/rename, retained buffer edits, isolated Linux trash and Save As")
 
@@ -506,17 +506,17 @@ def run():
         app = Editor(settings_root, configured, "--settings", user_settings, enhanced=True)
         app.send(b"\ta")
         app.send(CTRL_S)
-        eventually(lambda: text(configured) == "   a")
+        eventually(lambda: app.read() and text(configured) == "   a")
         settings_file.write_text('{"editor.insertSpaces": false, "editor.tabSize": 8}')
         eventually(lambda: app.read() and "Settings reloaded" in app.screen.text())
         app.send(b"\r\tb")
         app.send(CTRL_S)
-        eventually(lambda: text(configured) == "   a\n   \tb")
+        eventually(lambda: app.read() and text(configured) == "   a\n   \tb")
         settings_file.write_text("invalid JSON")
         eventually(lambda: app.read() and "previous settings retained" in app.screen.text())
         app.send(b"\tc")
         app.send(CTRL_S)
-        eventually(lambda: text(configured) == "   a\n   \tb\tc")
+        eventually(lambda: app.read() and text(configured) == "   a\n   \tb\tc")
         app.finish()
         print("PASS: settings scope precedence, indentation, live reload and invalid-config retention")
 
@@ -525,8 +525,9 @@ def run():
         custom_file = root / "custom.txt"
         app = Editor(root, "--keybindings", bindings, custom_file)
         app.send(b"\x0b\x02")
+        eventually(lambda: app.read() and "custom" in app.screen.text())
         app.send(CTRL_S)
-        eventually(lambda: text(custom_file) == "custom")
+        eventually(lambda: app.read() and text(custom_file) == "custom")
         app.finish()
         print("PASS: user keybinding import with chord, context, and arguments")
 
