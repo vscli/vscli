@@ -135,7 +135,7 @@ function createConfiguration() {
     }));
   }
   function inspect(key, id) {
-    const global = model(layers.slice(0, -1), false), workspace = model(layers.slice(-1), false);
+    const global = model(layers.slice(0, -1), false), workspace = model(layers.slice(-1));
     const ids = [...new Set(current.overrides.flatMap(group => group.ids))]
       .filter(id => lookup(current.override(id), key) !== undefined);
     return { key, defaultValue: structuredClone(lookup(defaults, key)),
