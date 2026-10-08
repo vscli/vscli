@@ -78,6 +78,8 @@ jobs:
         run: node tests/vscode-reference/compare.cjs target/vscode-reference/result target/debug/vscli${{ runner.os == 'Windows' && '.exe' || '' }}
       - name: Compare native snippet sessions with the pinned editor
         run: cargo run --locked --example snippet_contract -- target/vscode-reference/result/snippets.json > target/vscode-reference/result/snippets-vscli.json
+      - name: Compare snippet insertion context with the pinned editor
+        run: cargo run --locked --example snippet_contract -- --insertion target/vscode-reference/result/snippet-insertion.json > target/vscode-reference/result/snippet-insertion-vscli.json
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

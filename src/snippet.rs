@@ -47,9 +47,62 @@ pub struct Placeholder {
 pub struct Expansion {
     pub text: String,
     pub placeholders: Vec<Placeholder>,
+    pub(crate) model_offsets: Option<ModelOffsets>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ModelOffsets {
+    pub ranges: Vec<Range<usize>>,
+    pub text_len: usize,
 }
 
 impl Expansion {
+    fn normalize_model_eol(&mut self, eol: &str) -> Result<()> {
+        let normalized = self
+            .text
+            .replace("\r\n", "\n")
+            .replace('\r', "\n")
+            .replace('\n', eol);
+        ensure!(
+            normalized.len() <= MAX_EXPANSION,
+            "Snippet expansion exceeds 1 MiB"
+        );
+        if normalized == self.text {
+            return Ok(());
+        }
+        // The pinned controller creates decorations from template UTF-16
+        // offsets after the model normalizes EOLs. Preserve that observable
+        // behavior even for nested API defaults/choices skipped by adjustment.
+        let mut raw_offsets = vec![0];
+        for ch in self.text.chars() {
+            raw_offsets.push(raw_offsets.last().unwrap() + ch.len_utf16());
+        }
+        let mut positions = vec![0];
+        let mut previous = None;
+        for (index, ch) in normalized.chars().enumerate() {
+            if previous == Some('\r') && ch == '\n' {
+                *positions.last_mut().unwrap() = index - 1;
+            }
+            positions.extend(std::iter::repeat_n(index + 1, ch.len_utf16()));
+            previous = Some(ch);
+        }
+        let ranges: Vec<_> = self
+            .placeholders
+            .iter()
+            .map(|marker| raw_offsets[marker.range.start]..raw_offsets[marker.range.end])
+            .collect();
+        for (marker, range) in self.placeholders.iter_mut().zip(&ranges) {
+            marker.range = positions[range.start.min(positions.len() - 1)]
+                ..positions[range.end.min(positions.len() - 1)];
+        }
+        self.model_offsets = Some(ModelOffsets {
+            ranges,
+            text_len: *raw_offsets.last().unwrap(),
+        });
+        self.text = normalized;
+        Ok(())
+    }
+
     pub fn first_selections(&self) -> Vec<Range<usize>> {
         let first = self
             .placeholders
@@ -80,6 +133,98 @@ impl Expansion {
 #[derive(Clone, Debug)]
 pub struct Template {
     nodes: Vec<Node>,
+}
+
+/// Document-specific indentation, applied to template text before resolving
+/// variables. Keeping this separate avoids modifying regexes or variable values.
+pub struct Whitespace<'a> {
+    pub leading: &'a str,
+    pub eol: &'a str,
+    pub tab_size: usize,
+    pub insert_spaces: bool,
+    /// The pinned extension API adjusts only fragment-level text. The user
+    /// command adjusts text inside placeholders too.
+    pub fragment_only: bool,
+}
+
+impl Whitespace<'_> {
+    fn normalize(&self, text: &str) -> Result<String> {
+        let tab = self.tab_size.clamp(1, 16);
+        let mut columns = 0;
+        let mut bytes = 0;
+        for ch in text.chars().take_while(|ch| matches!(ch, ' ' | '\t')) {
+            columns += if ch == '\t' { tab - columns % tab } else { 1 };
+            bytes += ch.len_utf8();
+        }
+        ensure!(
+            columns.saturating_add(text.len() - bytes) <= MAX_EXPANSION,
+            "Snippet indentation exceeds 1 MiB"
+        );
+        let mut result = if self.insert_spaces {
+            " ".repeat(columns)
+        } else {
+            format!(
+                "{}{}",
+                "\t".repeat(columns / tab),
+                " ".repeat(columns % tab)
+            )
+        };
+        result.push_str(&text[bytes..]);
+        Ok(result)
+    }
+
+    fn adjust(
+        &self,
+        nodes: &mut [Node],
+        previous: &mut Option<char>,
+        choice: bool,
+        bytes: &mut usize,
+    ) -> Result<()> {
+        for node in nodes {
+            match node {
+                Node::Text(text) => {
+                    if !choice {
+                        let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+                        let mut result = String::new();
+                        for (i, line) in normalized.split('\n').enumerate() {
+                            let line = if i > 0 || matches!(previous, Some('\r' | '\n')) {
+                                self.normalize(&format!("{}{line}", self.leading))?
+                            } else if previous.is_none() {
+                                self.normalize(line)?
+                            } else {
+                                line.to_owned()
+                            };
+                            if i > 0 {
+                                result.push_str(self.eol);
+                            }
+                            ensure!(
+                                result.len().saturating_add(line.len()) <= MAX_EXPANSION,
+                                "Snippet indentation exceeds 1 MiB"
+                            );
+                            result.push_str(&line);
+                        }
+                        *text = result;
+                    }
+                    *bytes = bytes.saturating_add(text.len());
+                    ensure!(*bytes <= MAX_EXPANSION, "Snippet indentation exceeds 1 MiB");
+                    if let Some(last) = text.chars().next_back() {
+                        *previous = Some(last);
+                    }
+                }
+                Node::Marker {
+                    children, choices, ..
+                } => {
+                    self.adjust(
+                        children,
+                        previous,
+                        choice || self.fragment_only || !choices.is_empty(),
+                        bytes,
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Template {
@@ -164,6 +309,44 @@ impl Template {
     pub fn expand(&self, variables: &BTreeMap<String, String>) -> Result<Expansion> {
         let mut defaults = BTreeMap::new();
         collect_defaults(&self.nodes, &mut defaults);
+        self.expand_nodes(variables, defaults)
+    }
+
+    pub fn expand_with_whitespace(
+        &self,
+        variables: &BTreeMap<String, String>,
+        whitespace: &Whitespace<'_>,
+    ) -> Result<Expansion> {
+        ensure!(
+            whitespace.leading.len() <= MAX_EXPANSION,
+            "Snippet indentation exceeds 1 MiB"
+        );
+        let mut defaults = BTreeMap::new();
+        collect_defaults(&self.nodes, &mut defaults);
+        // Materialize each occurrence before indentation. A mirrored multiline
+        // default can appear at a different column from its defining occurrence.
+        let mut budget = (0usize, 0usize);
+        let mut choices = BTreeMap::new();
+        collect_default_choices(&self.nodes, &mut choices);
+        let mut nodes = materialize(
+            &self.nodes,
+            &defaults,
+            &choices,
+            &mut Vec::new(),
+            0,
+            &mut budget,
+        )?;
+        whitespace.adjust(&mut nodes, &mut None, false, &mut 0)?;
+        let mut result = Self { nodes }.expand_nodes(variables, BTreeMap::new())?;
+        result.normalize_model_eol(whitespace.eol)?;
+        Ok(result)
+    }
+
+    fn expand_nodes(
+        &self,
+        variables: &BTreeMap<String, String>,
+        defaults: BTreeMap<u32, Vec<Node>>,
+    ) -> Result<Expansion> {
         let mut builder = Builder {
             result: Expansion::default(),
             chars: 0,
@@ -186,6 +369,96 @@ impl Template {
         }
         Ok(builder.result)
     }
+}
+
+fn collect_default_choices(nodes: &[Node], result: &mut BTreeMap<u32, Vec<String>>) {
+    for node in nodes {
+        if let Node::Marker {
+            key,
+            children,
+            choices,
+            ..
+        } = node
+        {
+            if let Key::Stop(index) = key
+                && *index != 0
+                && (!children.is_empty() || !choices.is_empty())
+            {
+                result.entry(*index).or_insert_with(|| choices.clone());
+            }
+            collect_default_choices(children, result);
+        }
+    }
+}
+
+fn materialize(
+    nodes: &[Node],
+    defaults: &BTreeMap<u32, Vec<Node>>,
+    default_choices: &BTreeMap<u32, Vec<String>>,
+    stack: &mut Vec<u32>,
+    depth: usize,
+    budget: &mut (usize, usize),
+) -> Result<Vec<Node>> {
+    ensure!(depth <= MAX_DEPTH, "Snippet expansion exceeds 64 levels");
+    let mut result = Vec::new();
+    for node in nodes {
+        let node = match node {
+            Node::Text(text) => {
+                budget.1 = budget.1.saturating_add(text.len());
+                ensure!(budget.1 <= MAX_EXPANSION, "Snippet expansion exceeds 1 MiB");
+                Node::Text(text.clone())
+            }
+            Node::Marker {
+                key,
+                children,
+                choices,
+                transform,
+            } => {
+                budget.0 += 1;
+                ensure!(
+                    budget.0 <= MAX_MARKERS,
+                    "Snippet expansion has too many markers"
+                );
+                let children = if let Key::Stop(index) = key {
+                    if stack.contains(index) {
+                        Vec::new()
+                    } else {
+                        stack.push(*index);
+                        let children = materialize(
+                            defaults.get(index).unwrap_or(children),
+                            defaults,
+                            default_choices,
+                            stack,
+                            depth + 1,
+                            budget,
+                        )?;
+                        stack.pop();
+                        children
+                    }
+                } else {
+                    materialize(
+                        children,
+                        defaults,
+                        default_choices,
+                        stack,
+                        depth + 1,
+                        budget,
+                    )?
+                };
+                Node::Marker {
+                    key: key.clone(),
+                    children,
+                    choices: match key {
+                        Key::Stop(index) => default_choices.get(index).unwrap_or(choices).clone(),
+                        _ => choices.clone(),
+                    },
+                    transform: transform.clone(),
+                }
+            }
+        };
+        result.push(node);
+    }
+    Ok(result)
 }
 
 fn known_variable(name: &str) -> bool {

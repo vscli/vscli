@@ -10,12 +10,16 @@ function observe(editor) {
   return { text, selections: editor.selections.map(s => ({ anchor: offset(s.anchor), cursor: offset(s.active) })) };
 }
 
-async function snippetTrace(vscode) {
+async function snippetTrace(vscode, fixtures = cases) {
   const traces = [];
-  for (const fixture of cases) {
-    const document = await vscode.workspace.openTextDocument({ content: '', language: 'plaintext' });
+  for (const fixture of fixtures) {
+    const document = await vscode.workspace.openTextDocument({ content: fixture.text || '', language: 'plaintext' });
     const editor = await vscode.window.showTextDocument(document, { preview: false });
-    editor.options = { tabSize: 4, insertSpaces: true };
+    editor.options = { tabSize: fixture.tabSize || 4, insertSpaces: fixture.insertSpaces ?? true };
+    if (fixture.selections) {
+      const position = scalar => document.positionAt([...document.getText()].slice(0, scalar).join('').length);
+      editor.selections = fixture.selections.map(s => new vscode.Selection(position(s.anchor), position(s.cursor)));
+    }
     if (fixture.entry === 'command') {
       await vscode.commands.executeCommand('editor.action.insertSnippet', { snippet: fixture.body });
     } else {

@@ -1,5 +1,5 @@
 use super::*;
-use crate::snippet::{Placeholder, Template};
+use crate::snippet::{Placeholder, Template, Whitespace};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug)]
@@ -153,43 +153,138 @@ impl Document {
         template: &Template,
         variables: &BTreeMap<String, String>,
     ) -> Result<()> {
-        let mut selections = self.selections();
-        selections.sort_by_key(|s| s.range().start);
+        self.insert_snippet_inner(template, variables, false)
+    }
+
+    /// User-command insertion preserves the primary cursor and adjusts nested
+    /// template indentation; the pinned extension API has different semantics.
+    pub fn insert_snippet_command(
+        &mut self,
+        template: &Template,
+        variables: &BTreeMap<String, String>,
+    ) -> Result<()> {
+        self.insert_snippet_inner(template, variables, true)
+    }
+
+    fn insert_snippet_inner(
+        &mut self,
+        template: &Template,
+        variables: &BTreeMap<String, String>,
+        user_command: bool,
+    ) -> Result<()> {
+        let mut selections: Vec<_> = self.selections().into_iter().enumerate().collect();
+        selections.sort_by_key(|(_, s)| s.range().start);
+        if !user_command {
+            for (index, (ordinal, _)) in selections.iter_mut().enumerate() {
+                *ordinal = index;
+            }
+        }
         let mut end = 0;
         let mut shift = 0isize;
         let mut changes = Vec::new();
-        let mut markers = Vec::new();
-        let mut final_cursors = Vec::new();
+        let mut marker_groups = vec![Vec::new(); selections.len()];
+        let mut final_cursors = vec![Selection::caret(0); selections.len()];
         let mut total_bytes = 0usize;
-        for selection in selections {
+        let mut total_markers = 0usize;
+        let mut model_offsets = Vec::new();
+        let mut api_offset_delta = 0isize;
+        for (ordinal, selection) in selections {
             let range = selection.range();
             if range.start < end || range.end > self.len() {
                 bail!("Overlapping or invalid snippet selections");
             }
             end = range.end;
-            let expanded = template.expand(variables)?;
+            let row = self.text.char_to_line(range.start);
+            let leading: String = self
+                .text
+                .slice(self.line_start(row)..range.start)
+                .chars()
+                .take_while(|c| matches!(c, ' ' | '\t'))
+                .take(1024 * 1024 + 1)
+                .collect();
+            let expanded = template.expand_with_whitespace(
+                variables,
+                &Whitespace {
+                    leading: &leading,
+                    eol: &self.eol,
+                    tab_size: self.tab_size,
+                    insert_spaces: self.insert_spaces,
+                    fragment_only: !user_command,
+                },
+            )?;
             total_bytes = total_bytes.saturating_add(expanded.text.len());
             if total_bytes > MAX_FILE_BYTES as usize {
                 bail!("Combined snippet expansion exceeds 32 MiB");
             }
             let start = range.start.saturating_add_signed(shift);
             let inserted = expanded.text.chars().count();
-            let base_id = markers.len();
+            let actual_utf16 = expanded.text.encode_utf16().count();
+            let raw_utf16 = expanded
+                .model_offsets
+                .as_ref()
+                .map_or(actual_utf16, |offsets| offsets.text_len);
+            if expanded.model_offsets.is_some() || api_offset_delta != 0 {
+                let offsets = expanded.model_offsets.map_or_else(
+                    || {
+                        let text = Rope::from_str(&expanded.text);
+                        expanded
+                            .placeholders
+                            .iter()
+                            .map(|p| {
+                                text.char_to_utf16_cu(p.range.start)
+                                    ..text.char_to_utf16_cu(p.range.end)
+                            })
+                            .collect()
+                    },
+                    |offsets| offsets.ranges,
+                );
+                model_offsets.push((ordinal, start, api_offset_delta, offsets));
+            }
+            if !user_command {
+                api_offset_delta += raw_utf16 as isize - actual_utf16 as isize;
+            }
             for mut marker in expanded.placeholders {
                 marker.range.start += start;
                 marker.range.end += start;
+                marker_groups[ordinal].push(marker);
+                total_markers += 1;
+            }
+            if total_markers > 10_000 {
+                bail!("Combined snippet expansion exceeds 10,000 markers");
+            }
+            final_cursors[ordinal] = Selection::caret(start + inserted);
+            shift += inserted as isize - range.len() as isize;
+            if !range.is_empty() || !expanded.text.is_empty() {
+                changes.push((range, expanded.text));
+            }
+        }
+        if !model_offsets.is_empty() {
+            // Resolve the reference's post-normalization offsets against the
+            // complete staged model, including unchanged text after a snippet.
+            // The shared rope keeps this atomic without copying the whole file.
+            let mut staged = self.text.clone();
+            for (range, text) in changes.iter().rev() {
+                staged.remove(range.clone());
+                staged.insert(range.start, text);
+            }
+            for (ordinal, start, delta, offsets) in model_offsets {
+                let base = staged.char_to_utf16_cu(start).saturating_add_signed(delta);
+                for (marker, range) in marker_groups[ordinal].iter_mut().zip(offsets) {
+                    marker.range = model_scalar_position(&staged, base + range.start)
+                        ..model_scalar_position(&staged, base + range.end);
+                }
+            }
+        }
+        // Offset calculation follows file order, but sessions follow the
+        // original selection order so the user's primary cursor stays primary.
+        let mut markers = Vec::with_capacity(total_markers);
+        for group in marker_groups {
+            let base_id = markers.len();
+            for mut marker in group {
                 for parent in &mut marker.parents {
                     *parent += base_id;
                 }
                 markers.push(Some(marker));
-            }
-            if markers.len() > 10_000 {
-                bail!("Combined snippet expansion exceeds 10,000 markers");
-            }
-            final_cursors.push(Selection::caret(start + inserted));
-            shift += inserted as isize - range.len() as isize;
-            if !range.is_empty() || !expanded.text.is_empty() {
-                changes.push((range, expanded.text));
             }
         }
         let original = self.snapshot();
@@ -285,7 +380,11 @@ impl Document {
         session.active = next;
         session.edited = false;
         let selections = session.selections();
+        let typing = self.typing;
         self.set_selections(selections);
+        // Tab navigation doesn't end the typing undo transaction in VS Code.
+        // Retain its age, but move the endpoint to the newly selected field.
+        self.typing = typing.map(|(time, _)| (time, self.cursor));
         if next == 0 {
             self.cancel_snippet();
         }
@@ -293,9 +392,93 @@ impl Document {
     }
 }
 
+fn model_scalar_position(text: &Rope, offset: usize) -> usize {
+    let offset = offset.min(text.len_utf16_cu());
+    let mut scalar = text.utf16_cu_to_char(offset);
+    if scalar > 0
+        && scalar < text.len_chars()
+        && text.char(scalar - 1) == '\r'
+        && text.char(scalar) == '\n'
+    {
+        scalar -= 1;
+    } else if text.char_to_utf16_cu(scalar) < offset {
+        // The differential observer counts an isolated leading surrogate as
+        // one scalar when an upstream position lands inside a surrogate pair.
+        scalar += 1;
+    }
+    scalar
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn multiline_insertion_saves_crlf_and_restores_both_views_on_undo() {
+        let original = "  a\r\n\tb\r\nTAIL";
+        for command in [false, true] {
+            let mut doc = Document::from_text(original);
+            doc.activate_view(2);
+            doc.move_to(doc.len(), false);
+            doc.activate_view(1);
+            doc.set_selections(vec![
+                Selection {
+                    cursor: 7,
+                    anchor: Some(6),
+                    desired_column: None,
+                },
+                Selection {
+                    cursor: 3,
+                    anchor: Some(2),
+                    desired_column: None,
+                },
+            ]);
+            let selections = doc.selections();
+            let template = Template::parse("${1:猫\n\t🙂}-$1\n$0").unwrap();
+            if command {
+                doc.insert_snippet_command(&template, &BTreeMap::new())
+                    .unwrap();
+            } else {
+                doc.insert_snippet(&template, &BTreeMap::new()).unwrap();
+            }
+            let inserted = doc.text.to_string();
+            assert!(!inserted.replace("\r\n", "").contains(['\r', '\n']));
+            let after = doc.selections();
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("multiline.txt");
+            doc.save_to(&path, false).unwrap();
+            assert_eq!(fs::read_to_string(&path).unwrap(), inserted);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), original);
+            assert_eq!(doc.selections(), selections);
+            doc.activate_view(2);
+            assert_eq!(doc.cursor, original.chars().count());
+            doc.activate_view(1);
+            doc.redo();
+            assert_eq!(doc.text.to_string(), inserted);
+            assert_eq!(doc.selections(), after);
+        }
+    }
+
+    #[test]
+    fn indentation_amplification_fails_before_mutating_document_or_history() {
+        let mut doc = Document::from_text(&" ".repeat(64 * 1024));
+        doc.move_to(doc.len(), false);
+        doc.insert("x", false);
+        let before = doc.text.clone();
+        let selections = doc.selections();
+        let revision = doc.revision;
+        let template = Template::parse(&format!("{}$1", "\n".repeat(32))).unwrap();
+        assert!(
+            doc.insert_snippet_command(&template, &BTreeMap::new())
+                .is_err()
+        );
+        assert_eq!(doc.text, before);
+        assert_eq!(doc.selections(), selections);
+        assert_eq!(doc.revision, revision);
+        doc.undo();
+        assert_eq!(doc.text.to_string(), " ".repeat(64 * 1024));
+    }
 
     #[test]
     fn multiple_insertions_share_document_identity_and_preserve_crlf_through_save_and_undo() {
