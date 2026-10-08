@@ -146,12 +146,7 @@ fn main() -> Result<()> {
     }
     if args.list_keybindings {
         let map = vscli::keys::Keymap::new(profile);
-        let rules: Vec<_> = map
-            .bindings
-            .iter()
-            .map(|b| serde_json::json!({"key":b.key,"command":b.command,"when":b.when}))
-            .collect();
-        println!("{}", serde_json::to_string_pretty(&rules)?);
+        println!("{}", serde_json::to_string_pretty(&map.bindings)?);
         return Ok(());
     }
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {

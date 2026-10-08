@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, path::Path};
 
@@ -25,13 +25,17 @@ impl Profile {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Binding {
     pub key: String,
     pub command: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<String>,
-    #[serde(default, deserialize_with = "binding_args")]
+    #[serde(
+        default,
+        deserialize_with = "binding_args",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub args: Option<Value>,
 }
 
@@ -902,6 +906,18 @@ mod tests {
         assert!(
             matches!(mac.resolve("cmd+alt+s", &context), Resolution::Command(id,_) if id == "extension.sort")
         );
+    }
+    #[test]
+    fn binding_export_preserves_argument_presence() {
+        for source in [
+            serde_json::json!({"key":"f9", "command":"example"}),
+            serde_json::json!({"key":"f9", "command":"example", "args":null}),
+            serde_json::json!({"key":"f9", "command":"example", "when":"editorTextFocus",
+                "args":{"nested":[1, true, "text"]}}),
+        ] {
+            let binding: Binding = serde_json::from_value(source.clone()).unwrap();
+            assert_eq!(serde_json::to_value(binding).unwrap(), source);
+        }
     }
     #[test]
     fn terminal_key_normalization() {
