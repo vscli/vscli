@@ -40,11 +40,14 @@ impl App {
         }
     }
     pub(super) fn prepare_task(&mut self, task: &Task) {
-        let selected = self.doc().selected_text().unwrap_or_default();
+        let selected = self
+            .active_document()
+            .and_then(Document::selected_text)
+            .unwrap_or_default();
         let vars = Variables {
             root: &self.workspace.root,
-            file: self.doc().path.as_deref(),
-            line: self.doc().row() + 1,
+            file: self.active_document().and_then(|d| d.path.as_deref()),
+            line: self.active_document().map(|d| d.row() + 1),
             selected: &selected,
         };
         match tasks::prepare(task, &vars) {

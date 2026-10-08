@@ -243,6 +243,44 @@ def text(path):
 def run():
     with tempfile.TemporaryDirectory(prefix="vscli-pty-") as directory:
         root = Path(directory)
+        welcome_state = root / "welcome-recovery"
+        app = Editor(root, "--recovery-dir", welcome_state, recovery=True, enhanced=True)
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        assert "Untitled" not in app.screen.text()
+        assert "Command Palette" in app.screen.text()
+        app.send("ignored")
+        app.paste("also ignored")
+        app.send(CTRL_S)
+        app.send(b"\x1b[6~\x1b[A")
+        assert "No open editors" in app.screen.text()
+        app.send(b"\x10")  # Quick Open works with no active document.
+        eventually(lambda: app.read() and "Quick Open" in app.screen.text())
+        app.send(b"\x1b")
+        app.send(b"\x0e")  # Ctrl+N explicitly creates the first editor.
+        eventually(lambda: app.read() and "Untitled" in app.screen.text())
+        app.send("welcome edit")
+        app.send(b"\x17")  # Ctrl+W still protects an unsaved first document.
+        eventually(lambda: app.read() and "Save changes" in app.screen.text())
+        app.send(b"\x1b")
+        app.send(CTRL_SHIFT_S)
+        welcome_file = root / "welcome.txt"
+        app.send(CTRL_A)
+        app.send(str(welcome_file))
+        app.send(b"\r")
+        eventually(lambda: app.read() and text(welcome_file) == "welcome edit")
+        app.send(b"\x17")
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        assert "Untitled" not in app.screen.text()
+        fcntl.ioctl(app.slave, termios.TIOCSWINSZ, struct.pack("HHHH", 10, 40, 0, 0))
+        os.kill(app.process.pid, signal.SIGWINCH)
+        app.read()
+        app.finish()
+        app = Editor(root, "--recovery-dir", welcome_state, recovery=True)
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        assert "Recovered" not in app.screen.text()
+        app.finish()
+        print("PASS: empty welcome, explicit new file, dirty close protection, save, last-tab close and empty recovery")
+
         source = root / "main.rs"
         source.write_text("fn main() {}\n")
         app = Editor(root, source)

@@ -72,6 +72,19 @@ fn native_lsp_lifecycle_completion_formatting_and_stale_response() {
     app.execute("undo", Value::Null);
     assert_eq!(app.doc().text.to_string(), "answer!\n");
     assert_eq!(std::fs::read_to_string(path).unwrap(), "ans\n");
+    app.execute("editor.action.showHover", Value::Null);
+    app.execute("workbench.action.closeActiveEditor", Value::Null);
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('d'),
+        KeyModifiers::NONE,
+    )));
+    assert!(app.documents.is_empty());
+    until(&mut app, |a| {
+        a.message.contains("Document changed since this request")
+    });
+    assert!(app.documents.is_empty());
+    assert!(app.current_diagnostics().is_empty());
+    assert!(app.modal.is_none());
 }
 
 #[test]

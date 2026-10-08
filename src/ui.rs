@@ -100,27 +100,41 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         Paragraph::new(format!(" {}", clean(&app.message))).style(Style::default().fg(MUTED)),
         rows[2],
     );
-    let doc = app.doc();
-    let status = format!(
-        " {}{}  |  {}  |  Ln {}, Col {}  |  {} cursor(s)  |  UTF-8 {}  |  {}{}",
-        clean(&doc.name()),
-        if doc.dirty() { " *" } else { "" },
-        app.language(),
-        doc.row() + 1,
-        doc.column() + 1,
-        doc.secondary.len() + 1,
-        if doc.eol == "\r\n" { "CRLF" } else { "LF" },
-        if app.enhanced {
-            "enhanced keys"
-        } else {
-            "legacy keys"
-        },
-        if app.workspace.indexing {
-            "  · indexing…"
-        } else {
-            ""
-        }
-    );
+    let status = if let Some(doc) = app.active_document() {
+        format!(
+            " {}{}  |  {}  |  Ln {}, Col {}  |  {} cursor(s)  |  UTF-8 {}  |  {}{}",
+            clean(&doc.name()),
+            if doc.dirty() { " *" } else { "" },
+            app.language(),
+            doc.row() + 1,
+            doc.column() + 1,
+            doc.secondary.len() + 1,
+            if doc.eol == "\r\n" { "CRLF" } else { "LF" },
+            if app.enhanced {
+                "enhanced keys"
+            } else {
+                "legacy keys"
+            },
+            if app.workspace.indexing {
+                "  · indexing…"
+            } else {
+                ""
+            }
+        )
+    } else {
+        format!(
+            " VSCLI  |  {}  |  No open editors{}",
+            clean(&app.workspace.root.file_name().map_or_else(
+                || app.workspace.root.to_string_lossy(),
+                |name| name.to_string_lossy()
+            )),
+            if app.workspace.indexing {
+                "  · indexing…"
+            } else {
+                ""
+            }
+        )
+    };
     frame.render_widget(
         Paragraph::new(status).style(Style::default().bg(SELECT).fg(FG)),
         rows[3],
@@ -265,8 +279,68 @@ fn draw_explorer(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(Paragraph::new(lines), inner);
 }
 
+fn draw_welcome(frame: &mut Frame, app: &App, area: Rect) {
+    let primary = if app.keymap.profile == crate::keys::Profile::Macos {
+        "Cmd"
+    } else {
+        "Ctrl"
+    };
+    let logo = [
+        "██╗   ██╗███████╗ ██████╗██╗     ██╗",
+        "██║   ██║██╔════╝██╔════╝██║     ██║",
+        "██║   ██║███████╗██║     ██║     ██║",
+        "╚██╗ ██╔╝╚════██║██║     ██║     ██║",
+        " ╚████╔╝ ███████║╚██████╗███████╗██║",
+        "  ╚═══╝  ╚══════╝ ╚═════╝╚══════╝╚═╝",
+    ];
+    let mut lines = Vec::new();
+    if area.width >= 42 && area.height >= 16 {
+        lines.extend(
+            logo.into_iter()
+                .map(|line| Line::styled(line, Style::default().fg(BLUE))),
+        );
+    } else {
+        lines.push(Line::styled(
+            "VSCLI",
+            Style::default().fg(BLUE).add_modifier(Modifier::BOLD),
+        ));
+    }
+    lines.push(Line::default());
+    lines.push(Line::styled(
+        "Your terminal. Your workspace.",
+        Style::default().fg(MUTED),
+    ));
+    lines.push(Line::default());
+    for (label, key) in [
+        ("New File", format!("{primary}+N")),
+        ("Open File", format!("{primary}+O")),
+        ("Quick Open", format!("{primary}+P")),
+        ("Command Palette", "F1".into()),
+    ] {
+        lines.push(Line::from(vec![
+            Span::styled(format!("{label}   "), Style::default().fg(FG)),
+            Span::styled(key, Style::default().fg(MUTED)),
+        ]));
+    }
+    let height = (lines.len() as u16).min(area.height);
+    let content = Rect::new(
+        area.x,
+        area.y + area.height.saturating_sub(height) / 2,
+        area.width,
+        height,
+    );
+    frame.render_widget(
+        Paragraph::new(lines).alignment(ratatui::layout::Alignment::Center),
+        content,
+    );
+}
+
 fn draw_editors(frame: &mut Frame, app: &mut App, area: Rect) {
     app.sync_pane();
+    if app.documents.is_empty() {
+        draw_welcome(frame, app, area);
+        return;
+    }
     let active_document = app.active;
     let active_view = app.panes[app.active_pane].id;
     let count = app.panes.len();
@@ -1265,9 +1339,48 @@ mod tests {
         }
     }
     #[test]
+    fn welcome_renders_without_creating_a_document_at_all_sizes() {
+        let dir = tempfile::tempdir().unwrap();
+        for profile in [
+            crate::keys::Profile::Linux,
+            crate::keys::Profile::Macos,
+            crate::keys::Profile::Windows,
+        ] {
+            let mut app = App::new(dir.path().into(), profile);
+            for (w, h) in [(110, 32), (40, 10), (20, 6), (1, 1)] {
+                let mut terminal = Terminal::new(TestBackend::new(w, h)).unwrap();
+                terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+                assert!(app.documents.is_empty());
+                assert!(app.panes.is_empty());
+                let text: String = terminal
+                    .backend()
+                    .buffer()
+                    .content
+                    .iter()
+                    .map(|cell| cell.symbol())
+                    .collect();
+                assert!(!text.contains("Untitled"));
+                if w == 110 {
+                    assert!(text.contains("No open editors"));
+                    assert!(text.contains("Command Palette"));
+                    assert!(text.contains(if profile == crate::keys::Profile::Macos {
+                        "Cmd+N"
+                    } else {
+                        "Ctrl+N"
+                    }));
+                }
+            }
+        }
+    }
+
+    #[test]
     fn drawing_split_views_preserves_typing_groups_and_the_active_view() {
         let dir = tempfile::tempdir().unwrap();
         let mut app = App::new(dir.path().into(), crate::keys::Profile::Linux);
+        app.execute(
+            "workbench.action.files.newUntitledFile",
+            serde_json::Value::Null,
+        );
         app.execute("workbench.action.splitEditor", serde_json::Value::Null);
         let mut terminal = Terminal::new(TestBackend::new(110, 32)).unwrap();
         for ch in ["a", "b", "c"] {
@@ -1286,6 +1399,10 @@ mod tests {
     fn render_unicode_selection_and_tiny_sizes() {
         let dir = tempfile::tempdir().unwrap();
         let mut app = App::new(dir.path().into(), crate::keys::Profile::Linux);
+        app.execute(
+            "workbench.action.files.newUntitledFile",
+            serde_json::Value::Null,
+        );
         app.doc_mut().insert("hello\n\t猫🙂 e\u{301}\n", false);
         app.doc_mut().select_all();
         for (w, h) in [(100, 30), (40, 10), (10, 3), (1, 1)] {
