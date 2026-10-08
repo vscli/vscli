@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "reference": {
+    "version": "1.95.0",
+    "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+    "platform": "win32",
+    "arch": "x64",
+    "keyboardLayout": {
+      "name": "00000409",
+      "id": "",
+      "text": "US"
+    }
+  },
+  "native": {
+    "profile": "windows",
+    "sha256": "53ce33f31028012224e071fbf3cbee26a053b56d7d12b5f5ba5b501ecd511faa"
+  },
+  "limitations": [
+    "Binding categories compare rule fields, not resolver outcomes, rule precedence, or command effects.",
+    "Repeated reference rules remain separate; one native rule may match more than one reference rule.",
+    "Keyboard delivery, physical layouts, IME, terminal conflicts and command behavior are not qualified.",
+    "Configuration traces qualify only the shared read/event cases; writes use host-specific fixture adapters."
+  ],
+  "configuration": {
+    "observations": 25,
+    "equal": true
+  },
+  "bindings": {
+    "referenceRules": 993,
+    "nativeRules": 108,
+    "referenceCommandIds": 835,
+    "nativeCommandIds": 106,
+    "counts": {
+      "sameRuleFields": 26,
+      "sameKeyCommandArgs": 76,
+      "sameCommandId": 18,
+      "missingCommandId": 873
+    }
+  }
+}

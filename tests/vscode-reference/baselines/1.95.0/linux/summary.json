@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "reference": {
+    "version": "1.95.0",
+    "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+    "platform": "linux",
+    "arch": "x64",
+    "keyboardLayout": {
+      "model": "pc105",
+      "group": 0,
+      "layout": "us",
+      "variant": "",
+      "options": "",
+      "rules": "evdev"
+    }
+  },
+  "native": {
+    "profile": "linux",
+    "sha256": "1373b5cd1f0547bbbb8f20c00a44b77149c084886fa9c0c8f1c080a5f7e044cc"
+  },
+  "limitations": [
+    "Binding categories compare rule fields, not resolver outcomes, rule precedence, or command effects.",
+    "Repeated reference rules remain separate; one native rule may match more than one reference rule.",
+    "Keyboard delivery, physical layouts, IME, terminal conflicts and command behavior are not qualified.",
+    "Configuration traces qualify only the shared read/event cases; writes use host-specific fixture adapters."
+  ],
+  "configuration": {
+    "observations": 25,
+    "equal": true
+  },
+  "bindings": {
+    "referenceRules": 984,
+    "nativeRules": 110,
+    "referenceCommandIds": 834,
+    "nativeCommandIds": 107,
+    "counts": {
+      "sameRuleFields": 27,
+      "sameKeyCommandArgs": 77,
+      "sameCommandId": 14,
+      "missingCommandId": 866
+    }
+  }
+}
