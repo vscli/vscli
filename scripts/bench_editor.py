@@ -201,13 +201,16 @@ class Session:
     def idle(self, seconds):
         before = process_tree(self.process.pid)
         started = time.monotonic()
-        deadline = started + seconds
-        while (remaining := deadline - time.monotonic()) > 0:
-            self.read(remaining)
+        self.pump_for(seconds)
         elapsed = time.monotonic() - started
         after = process_tree(self.process.pid)
         return ((after["cpu_seconds"] - before["cpu_seconds"]) / elapsed * 100
                 if before and after else None)
+
+    def pump_for(self, seconds):
+        deadline = time.monotonic() + seconds
+        while (remaining := deadline - time.monotonic()) > 0:
+            self.read(remaining)
 
     def close(self):
         # All edits are disposable fixtures. No save/exit time is measured.
@@ -219,9 +222,11 @@ class Session:
         os.close(self.master)
 
 
-def command(editor, binary, source, directory):
+def command(editor, binary, source, directory, recovery_directory=None):
     if editor in ("vscli", "vscli_comparison"):
-        return [binary, "--legacy-keys", "--no-mouse", "--no-recovery", "--keymap", "linux",
+        recovery = (["--recovery-dir", str(recovery_directory)] if recovery_directory
+                    else ["--no-recovery"])
+        return [binary, "--legacy-keys", "--no-mouse", *recovery, "--keymap", "linux",
                 "--settings", str(directory / "settings.json"),
                 "--keybindings", str(directory / "keybindings.json"), str(source)]
     return [binary, "-u", "NONE", "-i", "NONE", "-n", "--noplugin",
@@ -233,7 +238,8 @@ def run_trial(editor, binary, source, directory, args):
            "XDG_CONFIG_HOME": str(directory / "config"),
            "XDG_STATE_HOME": str(directory / "state"),
            "XDG_DATA_HOME": str(directory / "data"), "VIMINIT": "", "EXINIT": ""}
-    argv = command(editor, binary, source, directory)
+    recovery_directory = Path(tempfile.mkdtemp(prefix="recovery-", dir=directory)) if args.recovery else None
+    argv = command(editor, binary, source, directory, recovery_directory)
     session = Session(argv, directory, env, args.timeout)
     try:
         ready = session.until(session.marker_position)
@@ -242,6 +248,8 @@ def run_trial(editor, binary, source, directory, args):
         memory_ready = process_tree(session.process.pid)
         samples, output = [], []
         for i in range(args.keys):
+            if i and args.key_interval_ms:
+                session.pump_for(args.key_interval_ms / 1000)
             row, col = origin[0], origin[1] + i
             character = "x" if i % 2 == 0 else "z"
             if session.screen.cells.get((row, col)) == character:
@@ -252,14 +260,38 @@ def run_trial(editor, binary, source, directory, args):
             finished = session.until(lambda: session.screen.cells.get((row, col)) == character)
             samples.append((finished - started) / 1_000_000)
             output.append(session.bytes_read - before_bytes)
+        memory_after = process_tree(session.process.pid)
+        # Validate actual dirty-buffer recovery after timing and RSS sampling.
+        # Never include journal parsing/validation in a key latency sample.
+        recovery = recovery_evidence(recovery_directory, args.keys) if args.recovery else None
         return {
             "command": argv, "startup_ms": (ready - session.started) / 1_000_000,
             "key_ms": samples, "key_output_bytes": output,
             "idle_cpu_percent_one_core": idle_cpu, "ready_tree": memory_ready,
-            "after_typing_tree": process_tree(session.process.pid),
+            "after_typing_tree": memory_after, "recovery": recovery,
         }
     finally:
         session.close()
+        if recovery_directory:
+            shutil.rmtree(recovery_directory)
+
+
+def recovery_evidence(directory, keys):
+    journals = list(directory.glob("*.json"))
+    if len(journals) != 1:
+        raise RuntimeError("Expected one completed recovery journal during the typing workload")
+    # The live editor replaces the journal atomically, so reading an older
+    # committed snapshot is valid. The final keys need not yet be persisted.
+    data = journals[0].read_bytes()
+    session = json.loads(data)
+    documents = session["documents"]
+    if session["version"] != 1 or len(documents) != 1:
+        raise RuntimeError("Expected recovery of one dirty fixture during the typing workload")
+    text = documents[0]["text"]
+    inserted = text.find(MARKER)
+    if not 0 < inserted <= keys or text[:inserted] != ("xz" * keys)[:inserted]:
+        raise RuntimeError("Recovery journal did not contain the expected measured edits")
+    return {"journal_bytes": len(data), "persisted_key_prefix": inserted}
 
 
 def describe(binary):
@@ -280,13 +312,18 @@ def main():
     parser.add_argument("--trials", type=int, default=5)
     parser.add_argument("--keys", type=int, default=40)
     parser.add_argument("--idle-seconds", type=float, default=1)
+    parser.add_argument("--recovery", action="store_true", help="Enable isolated VSCLI recovery in every trial")
+    parser.add_argument("--key-interval-ms", type=float, default=0, help="Pump terminal output between key samples")
     parser.add_argument("--timeout", type=float, default=30)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if (args.trials < 1 or not 1 <= args.keys <= 50 or min(args.sizes) < 1024
             or not math.isfinite(args.idle_seconds) or not math.isfinite(args.timeout)
-            or args.idle_seconds <= 0 or args.timeout <= 0):
+            or args.idle_seconds <= 0 or args.timeout <= 0
+            or not math.isfinite(args.key_interval_ms) or args.key_interval_ms < 0):
         parser.error("Require trials >= 1, 1..50 keys, sizes >= 1024 and positive timeouts")
+    if args.recovery and (args.nvim or args.vim or (args.keys - 1) * args.key_interval_ms < 2500):
+        parser.error("Recovery requires VSCLI-only comparisons and at least 2500 ms between first and last key")
     binaries = {}
     for name, value in (("vscli", args.vscli), ("vscli_comparison", args.compare_vscli),
                         ("nvim", args.nvim), ("vim", args.vim)):
@@ -305,12 +342,14 @@ def main():
         "cpu": platform.processor(), "logical_cpus": os.cpu_count(),
         "python": platform.python_version(), "terminal_cells": [120, 40],
         "idle_sample_seconds": args.idle_seconds,
+        "recovery_enabled": args.recovery, "key_interval_ms": args.key_interval_ms,
         "cpu_model": next((line.split(":", 1)[1].strip() for line in
                            Path("/proc/cpuinfo").read_text().splitlines() if line.startswith("model name")), "unknown")
                      if Path("/proc/cpuinfo").exists() else platform.processor(),
         "fixtures": [],
         "binaries": {name: describe(binary) for name, binary in binaries.items()},
-        "method": "warm file cache; ASCII plain text; no user config, recovery/swap, LSP or extensions; "
+        "method": "warm file cache; ASCII plain text; no user config, swap, LSP or extensions; "
+                  "VSCLI recovery as recorded in recovery_enabled; "
                   "spawn-to-visible-marker and serial key-to-observed-PTY-cell; includes Python oracle; "
                   "excludes graphical terminal painting and physical input; Linux RSS sums the process tree "
                   "and counts shared pages per process; sampled RSS is not peak memory",
