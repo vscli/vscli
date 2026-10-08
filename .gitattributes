@@ -2,3 +2,6 @@
 vendor/crossterm/** whitespace=cr-at-eol
 # Keep upstream Markdown byte-for-byte, including its trailing spaces.
 vendor/crossterm/**/*.md whitespace=cr-at-eol,-blank-at-eol
+# Preserve published Unicode manifest and generated conformance data verbatim.
+vendor/unicode-segmentation/Cargo.toml.orig whitespace=-blank-at-eol,-blank-at-eof
+vendor/unicode-segmentation/tests/testdata/mod.rs whitespace=-blank-at-eof
