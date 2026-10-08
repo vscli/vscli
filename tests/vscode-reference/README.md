@@ -88,6 +88,14 @@ from different runs.
 
 ## Recorded baseline
 
+The additional snippet harness writes `snippets.json`: 30 API insertion traces
+with initial text/selections and selected later edit/navigation/undo observations.
+`cargo run --locked --example snippet_contract -- <output>/snippets.json` compares
+only the initial text and selections with the native template engine. The
+remaining observations are retained for future session qualification; see
+[snippet implementation boundaries](../../docs/SNIPPETS.md). CI runs the initial
+comparison against each platform's fresh reference output.
+
 The [1.95.0 baseline](baselines/1.95.0/provenance.json) preserves the parsed rule
 inventories, observed keyboard maps, reference configuration traces, and comparison
 summaries from [CI run 37831323012](https://github.com/vscli/vscli/actions/runs/37831323012).

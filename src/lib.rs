@@ -10,6 +10,7 @@ pub mod lsp;
 pub mod recovery;
 pub mod search;
 pub mod settings;
+pub mod snippet;
 pub mod syntax;
 pub mod tasks;
 pub mod terminal;

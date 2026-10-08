@@ -1,0 +1,308 @@
+[
+  {
+    "name": "plain",
+    "body": "literal 猫🙂",
+    "steps": []
+  },
+  {
+    "name": "empty",
+    "body": "",
+    "steps": []
+  },
+  {
+    "name": "stops",
+    "body": "$2/$1/$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToPrevSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "defaults",
+    "body": "${2:two} ${1:one}$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToPrevSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "forward_mirror",
+    "body": "$1 ${1:cat} ${1:dog}$0",
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "nested",
+    "body": "${1:a${2:b}c} $1 $2$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToPrevSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "order",
+    "body": "${10:ten}/${2:two}/${1:one}$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToPrevSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "escapes",
+    "body": "\\$1 \\} \\\\ ${1:a\\}b}$0",
+    "steps": []
+  },
+  {
+    "name": "choices",
+    "body": "${1|red,green,blue|} $1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToPrevSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "choice_escapes",
+    "body": "${1|a\\,b,c\\|d,e\\\\f|}$0",
+    "steps": []
+  },
+  {
+    "name": "choice_literal",
+    "body": "${1|$2,${x},猫|}$0",
+    "steps": []
+  },
+  {
+    "name": "unknown",
+    "body": "$VSCLI_UNKNOWN/${VSCLI_UNKNOWN:default}$0",
+    "steps": []
+  },
+  {
+    "name": "empty_known",
+    "body": "${TM_SELECTED_TEXT:default}/$TM_SELECTED_TEXT",
+    "steps": []
+  },
+  {
+    "name": "line_variables",
+    "body": "$TM_LINE_NUMBER/$TM_LINE_INDEX/$CURSOR_INDEX/$CURSOR_NUMBER",
+    "steps": []
+  },
+  {
+    "name": "nested_variable",
+    "body": "${VSCLI_UNKNOWN:a${1:b}c}$0",
+    "steps": []
+  },
+  {
+    "name": "final_default",
+    "body": "before ${0:end} after",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToPrevSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "double_final",
+    "body": "$0 a $0",
+    "steps": []
+  },
+  {
+    "name": "missing_close",
+    "body": "${1:broken $2",
+    "steps": []
+  },
+  {
+    "name": "bad_choice",
+    "body": "${1|,b|}",
+    "steps": []
+  },
+  {
+    "name": "bad_brace",
+    "body": "${foo",
+    "steps": []
+  },
+  {
+    "name": "dollar",
+    "body": "$! $$ $-",
+    "steps": []
+  },
+  {
+    "name": "variable_transform",
+    "body": "${TM_LINE_NUMBER/(.*)/L$1/}",
+    "steps": []
+  },
+  {
+    "name": "placeholder_transform",
+    "body": "${1:cat} ${1/(.*)/${1:/upcase}/}$0",
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "transform_conditional",
+    "body": "${1:cat} ${1/(cat)|(dog)/${1:+yes}${2:-no}/}$0",
+    "steps": []
+  },
+  {
+    "name": "transform_global",
+    "body": "${1:aa} ${1/a/b/g}$0",
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "unicode_defaults",
+    "body": "${1:猫é🙂}-$1-$0",
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "empty_placeholder",
+    "body": "a${1:}b$0",
+    "steps": []
+  },
+  {
+    "name": "zero_choice",
+    "body": "${0|a,b|}",
+    "steps": []
+  },
+  {
+    "name": "nested_parent_replace",
+    "body": "${1:a${2:b}c} ${3:d}$0",
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "nested_mirror",
+    "body": "${1:${2:猫}}-$1-$2$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToPrevSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  }
+]
