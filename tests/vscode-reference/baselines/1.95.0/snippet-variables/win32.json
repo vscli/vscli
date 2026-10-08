@@ -1,0 +1,796 @@
+[
+  {
+    "name": "cursor_context",
+    "body": "$CURSOR_INDEX/$CURSOR_NUMBER/$TM_LINE_INDEX/$TM_LINE_NUMBER/${TM_CURRENT_LINE}/$TM_SELECTED_TEXT/$SELECTION$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "a1/2/0/1/alpha/lp/lpha\n2/3/1/2/beta/beta/beta\ng0/1/2/3/gamma/am/amma\n",
+        "selections": [
+          {
+            "anchor": 66,
+            "cursor": 66
+          },
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "reversed_multiline_selection",
+    "body": "$TM_LINE_NUMBER/${TM_CURRENT_LINE}/$TM_SELECTED_TEXT$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "fi1/first/rst\nsecond\nthird\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "empty_selection_default",
+    "body": "${TM_SELECTED_TEXT:default}/$SELECTION/${TM_CURRENT_LINE:wrong}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "adefault//alphalpha\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "word_word",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "ffoooo-bar\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "word_dash",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "foo-barbar\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "word_decimal",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "-12-12.34ms.34ms\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "word_unicode",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "猫é🙂n猫é🙂nextext\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "word_space",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "missing a b \n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "word_word_end",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "abcabc \n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "word_punctuation",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "a:missing:b\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "word_empty",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "missing\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "selected_multiline",
+    "body": "wrap {\n\t${TM_SELECTED_TEXT}\n}\n${1:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  wrap {\n    one\n    two\n  }\n  end\n",
+        "selections": [
+          {
+            "anchor": 31,
+            "cursor": 34
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "  wrap {\n    one\n    two\n  }\n  done\n",
+        "selections": [
+          {
+            "anchor": 35,
+            "cursor": 35
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  wrap {\n    one\n    two\n  }\n  done\n",
+        "selections": [
+          {
+            "anchor": 35,
+            "cursor": 35
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  wrap {\n    one\n    two\n  }\n  end\n",
+        "selections": [
+          {
+            "anchor": 31,
+            "cursor": 34
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  wrap {\n    one\n    two\n  }\n  done\n",
+        "selections": [
+          {
+            "anchor": 35,
+            "cursor": 35
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "selected_crlf",
+    "body": "wrap {\n\t${TM_SELECTED_TEXT}\n}\n${1:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  wrap {\r\n    one\r\n    two\r\n  }\r\n  end\r\n",
+        "selections": [
+          {
+            "anchor": 35,
+            "cursor": 38
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "  wrap {\r\n    one\r\n    two\r\n  }\r\n  done\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  wrap {\r\n    one\r\n    two\r\n  }\r\n  done\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  wrap {\r\n    one\r\n    two\r\n  }\r\n  end\r\n",
+        "selections": [
+          {
+            "anchor": 35,
+            "cursor": 38
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  wrap {\r\n    one\r\n    two\r\n  }\r\n  done\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "selected_tabs",
+    "body": "wrap {\n\t${TM_SELECTED_TEXT}\n}\n${1:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "\twrap {\n        one\n        \ttwo\n    }\n    end\n",
+        "selections": [
+          {
+            "anchor": 43,
+            "cursor": 46
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\twrap {\n        one\n        \ttwo\n    }\n    done\n",
+        "selections": [
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "\twrap {\n        one\n        \ttwo\n    }\n    done\n",
+        "selections": [
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\twrap {\n        one\n        \ttwo\n    }\n    end\n",
+        "selections": [
+          {
+            "anchor": 43,
+            "cursor": 46
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\twrap {\n        one\n        \ttwo\n    }\n    done\n",
+        "selections": [
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "selected_trailing_newline",
+    "body": "wrap {\n\t${TM_SELECTED_TEXT}\n}\n${1:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  wrap {\n    one\n    two\n  \n  }\n  end",
+        "selections": [
+          {
+            "anchor": 34,
+            "cursor": 37
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "  wrap {\n    one\n    two\n  \n  }\n  done",
+        "selections": [
+          {
+            "anchor": 38,
+            "cursor": 38
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  wrap {\n    one\n    two\n  \n  }\n  done",
+        "selections": [
+          {
+            "anchor": 38,
+            "cursor": 38
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  wrap {\n    one\n    two\n  \n  }\n  end",
+        "selections": [
+          {
+            "anchor": 34,
+            "cursor": 37
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  wrap {\n    one\n    two\n  \n  }\n  done",
+        "selections": [
+          {
+            "anchor": 38,
+            "cursor": 38
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "selection_at_template_start",
+    "body": "$TM_SELECTED_TEXT$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  one\n  two\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "selection_after_variable",
+    "body": "${TM_LINE_NUMBER}\n\t$SELECTION$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  2\n    one\n    two\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_plaintext",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "line|start|end",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_rust",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "//|/*|*/",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_python",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "#|\"\"\"|\"\"\"",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_javascript",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "//|/*|*/",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_json",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "//|/*|*/",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_css",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "line|/*|*/",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_html",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "line|<!--|-->",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_markdown",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "line|<!--|-->",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_shellscript",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "#|start|end",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "comments_toml",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "line|start|end",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "leave_selection",
+    "body": "${1:cat}-$1-${2:dog}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "cat-cat-dog",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          },
+          {
+            "anchor": 4,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "leaveSnippet",
+        "text": "cat-cat-dog",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "x-cat-dog",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "cat-cat-dog",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "x-cat-dog",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "leave_after_typing",
+    "body": "${1:cat}-$1-${2:dog}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "cat-cat-dog",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          },
+          {
+            "anchor": 4,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "fox-fox-dog",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "leaveSnippet",
+        "text": "fox-fox-dog",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "fox!-fox-dog",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "cat-cat-dog",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          },
+          {
+            "anchor": 4,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "fox!-fox-dog",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "leave_field_and_return",
+    "body": "${1:a} b ${2:c}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "a b c",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "cursorRight",
+        "text": "a b c",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "cursorRight",
+        "text": "a b c",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "cursorLeft",
+        "text": "a b c",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "a b c",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -88,12 +88,14 @@ The [pinned reference harness](../tests/vscode-reference/README.md) exports the 
 
 | Platform | Reference rules | Native rules | All fields match | Key/command/args match, context differs | Only command ID matches | No native-default command ID |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Linux | 984 | 110 | 27 | 77 | 14 | 866 |
-| macOS | 1,078 | 117 | 27 | 78 | 26 | 947 |
-| Windows | 993 | 108 | 26 | 76 | 18 | 873 |
+| Linux | 984 | 114 | 31 | 77 | 14 | 862 |
+| macOS | 1,078 | 121 | 31 | 78 | 26 | 943 |
+| Windows | 993 | 112 | 30 | 76 | 18 | 869 |
 
-The table records the earlier baseline comparison. Snippet navigation now adds
-four native bindings per profile; fresh comparisons are retained in CI artifacts.
+The table uses the [updated comparison summaries](../tests/vscode-reference/baselines/1.95.0/snippet-variables/provenance.json)
+from [CI run 37859573471](https://github.com/vscli/vscli/actions/runs/37859573471),
+including the four new snippet bindings per profile. These supplement the earlier
+full inventory capture; they remain structural comparisons.
 
 The four comparison categories partition the reference rules, including duplicates. These are structural categories, not a percentage of supported features. Context equivalence, rule ordering effects, input delivery, and command behavior remain unmeasured by this inventory comparison. The reference is VS Code 1.95.0, not the latest release.
 
@@ -108,9 +110,8 @@ An additional 34 insertion traces (118 observations) cover multiline
 indentation/EOL conversion and API-versus-command cursor ordering, matching on
 Linux/macOS/Windows in [CI run 37857315175](https://github.com/vscli/vscli/actions/runs/37857315175). The current native regex subset is not full ECMAScript. See the
 [snippet evidence and outstanding integration](SNIPPETS.md); this does not
-establish general snippet or keybinding parity. Thirty additional local reference
-cases (59 observations) cover native variables and cancellation; their fresh
-cross-platform comparison is pending. Native/PTY tests cover command routing,
+establish general snippet or keybinding parity. Thirty additional reference cases (59 observations) cover native variables and
+cancellation, matching on all three platforms in CI run 37859573471. Native/PTY tests cover command routing,
 user overrides, shared editing, persistence, and rejecting stale clipboard replies.
 
 Provide a read-only migration preview before writing the project's own configuration. Parse JSON with comments, preserve the user's source files, and show imported settings, approximations, unsupported settings, extension requirements, and unavailable shortcuts.

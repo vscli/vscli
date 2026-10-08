@@ -134,8 +134,9 @@ running the current shared fixture against the actual reference.
 per-cursor values, selected-text indentation, word lookup, built-in comment
 configuration, Escape cancellation, and leaving/reentering a field. Compare with
 `cargo run --locked --example snippet_contract -- --variables <output>/snippet-variables.json`.
-Native offline tests use the same runner. The initial Linux capture is local;
-fresh three-platform comparisons run in CI. Nondeterministic date/random values,
+Native offline tests use the same runner. The [variable baseline](baselines/1.95.0/snippet-variables/provenance.json)
+records all three matching platforms from CI run 37859573471; fresh comparisons
+continue in CI. Nondeterministic date/random values,
 file/URI labels, real clipboard services, and localized language configuration
 are not qualified by these traces.
 
