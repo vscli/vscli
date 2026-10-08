@@ -100,9 +100,9 @@ The native snippet template/document engine is compared against 34 pinned
 reference cases (96 text/selection observations), including linked editing,
 nested traversal, transforms, and undo/redo. It is not yet exposed through
 terminal commands, snippet catalogs, LSP completion, or extension insertion.
-An additional 34 local insertion traces (118 observations) cover multiline
-indentation/EOL conversion and API-versus-command cursor ordering; their new
-CI qualification is pending. The current native regex subset is not full ECMAScript. See the
+An additional 34 insertion traces (118 observations) cover multiline
+indentation/EOL conversion and API-versus-command cursor ordering, matching on
+Linux/macOS/Windows in [CI run 37857315175](https://github.com/vscli/vscli/actions/runs/37857315175). The current native regex subset is not full ECMAScript. See the
 [snippet evidence and outstanding integration](SNIPPETS.md); this does not
 establish general snippet or keybinding parity.
 

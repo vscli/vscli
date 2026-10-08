@@ -1,0 +1,1770 @@
+[
+  {
+    "name": "indent_spaces",
+    "body": "if (${1:ok}) {\n\t${2:body}\n}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "    if (ok) {\n        body\n    }\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 10
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    if (yes) {\n        body\n    }\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "    if (yes) {\n        body\n    }\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    if (yes) {\n        猫\n    }\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "    if (yes) {\n        猫\n    }\n",
+        "selections": [
+          {
+            "anchor": 30,
+            "cursor": 30
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    if (ok) {\n        body\n    }\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 10
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    if (yes) {\n        猫\n    }\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "indent_tabs",
+    "body": "if (${1:ok}) {\n\t${2:body}\n}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "\tif (ok) {\n\t\tbody\n\t}\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "\tif (ok) {\n\t\tbody\n\t}\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "\tif (ok) {\n\t\tbody\n\t}\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "indent_inside_prefix",
+    "body": "a\n\t${1:猫}\n$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n    猫\n    here\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n    猫\n    here\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "crlf",
+    "body": "a\n\t${1:猫}\r\nb\rc$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "    a\r\n        猫\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    a\r\n        fox\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "    a\r\n        fox\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 32,
+            "cursor": 32
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    a\r\n        猫\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    a\r\n        fox\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "nested_multiline",
+    "body": "${1:a\n\t${2:b}\nc} -- $1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n\tb\nc -- a\n\tb\nc\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 8
+          },
+          {
+            "anchor": 12,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n\tb\nc -- a\n\tb\nc\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 6
+          },
+          {
+            "anchor": 15,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n\tb\nc -- a\n\tb\nc\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "newline_before_placeholder",
+    "body": "a\n${1:b\n\tc}\n$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n  b\n\tc\n  \n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 10
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n  b\n\tc\n  \n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "empty_stop_after_newline",
+    "body": "a\n$1\n$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n  \n  \n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "  a\n  猫\n  \n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n  猫\n  \n",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "choice_whitespace",
+    "body": "${1|\ta\nb,c|}\n$1\n$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  \ta\nb\n  \ta\nb\n  \n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 6
+          },
+          {
+            "anchor": 9,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  \ta\nb\n  \ta\nb\n  \n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "first_line_normalization",
+    "body": " \t${1:x}\n  y$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "\tx\n  y",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "\tx\n  y",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "multi_primary_last",
+    "body": "${1:x}-$1-${2:y}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "x-x-y\nx-x-y\nx-x-y\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          },
+          {
+            "anchor": 6,
+            "cursor": 7
+          },
+          {
+            "anchor": 8,
+            "cursor": 9
+          },
+          {
+            "anchor": 12,
+            "cursor": 13
+          },
+          {
+            "anchor": 14,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫-猫-y\n猫-猫-y\n猫-猫-y\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 9,
+            "cursor": 9
+          },
+          {
+            "anchor": 13,
+            "cursor": 13
+          },
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "猫-猫-y\n猫-猫-y\n猫-猫-y\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 5
+          },
+          {
+            "anchor": 10,
+            "cursor": 11
+          },
+          {
+            "anchor": 16,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫-猫-🙂\n猫-猫-🙂\n猫-猫-🙂\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "猫-猫-🙂\n猫-猫-🙂\n猫-猫-🙂\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "x-x-y\nx-x-y\nx-x-y\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          },
+          {
+            "anchor": 6,
+            "cursor": 7
+          },
+          {
+            "anchor": 8,
+            "cursor": 9
+          },
+          {
+            "anchor": 12,
+            "cursor": 13
+          },
+          {
+            "anchor": 14,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "猫-猫-🙂\n猫-猫-🙂\n猫-猫-🙂\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "multi_literal_primary_last",
+    "body": "猫",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "猫\n猫\n猫\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "a\nb\nc\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 5
+          },
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "猫\n猫\n猫\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "multi_indents",
+    "body": "${1:x}\n\t${2:y}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  x\n    y\n\tx\n        y\n    x\n        y\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 3
+          },
+          {
+            "anchor": 11,
+            "cursor": 12
+          },
+          {
+            "anchor": 27,
+            "cursor": 28
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  x\n    y\n\tx\n        y\n    x\n        y\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 9
+          },
+          {
+            "anchor": 21,
+            "cursor": 22
+          },
+          {
+            "anchor": 37,
+            "cursor": 38
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  x\n    y\n\tx\n        y\n    x\n        y\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          },
+          {
+            "anchor": 22,
+            "cursor": 22
+          },
+          {
+            "anchor": 38,
+            "cursor": 38
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_indent_spaces",
+    "body": "if (${1:ok}) {\n\t${2:body}\n}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "    if (ok) {\n        body\n    }\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 10
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    if (yes) {\n        body\n    }\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "    if (yes) {\n        body\n    }\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    if (yes) {\n        猫\n    }\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "    if (yes) {\n        猫\n    }\n",
+        "selections": [
+          {
+            "anchor": 30,
+            "cursor": 30
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    if (ok) {\n        body\n    }\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 10
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    if (yes) {\n        猫\n    }\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_indent_tabs",
+    "body": "if (${1:ok}) {\n\t${2:body}\n}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "\tif (ok) {\n\t\tbody\n\t}\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "\tif (ok) {\n\t\tbody\n\t}\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "\tif (ok) {\n\t\tbody\n\t}\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_indent_inside_prefix",
+    "body": "a\n\t${1:猫}\n$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n    猫\n    here\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n    猫\n    here\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_crlf",
+    "body": "a\n\t${1:猫}\r\nb\rc$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "    a\r\n        猫\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    a\r\n        fox\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "    a\r\n        fox\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 32,
+            "cursor": 32
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    a\r\n        猫\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    a\r\n        fox\r\n    b\r\n    c\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_nested_multiline",
+    "body": "${1:a\n\t${2:b}\nc} -- $1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n    b\n  c -- a\n    b\n  c\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 13
+          },
+          {
+            "anchor": 17,
+            "cursor": 28
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n    b\n  c -- a\n    b\n  c\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 9
+          },
+          {
+            "anchor": 23,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n    b\n  c -- a\n    b\n  c\n",
+        "selections": [
+          {
+            "anchor": 28,
+            "cursor": 28
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_newline_before_placeholder",
+    "body": "a\n${1:b\n\tc}\n$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n  b\n    c\n  \n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n  b\n    c\n  \n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_empty_stop_after_newline",
+    "body": "a\n$1\n$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n  \n  \n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "  a\n  猫\n  \n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n  猫\n  \n",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_choice_whitespace",
+    "body": "${1|\ta\nb,c|}\n$1\n$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  \ta\nb\n  \ta\nb\n  \n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 6
+          },
+          {
+            "anchor": 9,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  \ta\nb\n  \ta\nb\n  \n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_first_line_normalization",
+    "body": " \t${1:x}\n  y$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "\tx\n  y",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "\tx\n  y",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_multi_primary_last",
+    "body": "${1:x}-$1-${2:y}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "x-x-y\nx-x-y\nx-x-y\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 13
+          },
+          {
+            "anchor": 14,
+            "cursor": 15
+          },
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          },
+          {
+            "anchor": 6,
+            "cursor": 7
+          },
+          {
+            "anchor": 8,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫-猫-y\n猫-猫-y\n猫-猫-y\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          },
+          {
+            "anchor": 15,
+            "cursor": 15
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "猫-猫-y\n猫-猫-y\n猫-猫-y\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 17
+          },
+          {
+            "anchor": 4,
+            "cursor": 5
+          },
+          {
+            "anchor": 10,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫-猫-🙂\n猫-猫-🙂\n猫-猫-🙂\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          },
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "猫-猫-🙂\n猫-猫-🙂\n猫-猫-🙂\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          },
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "x-x-y\nx-x-y\nx-x-y\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 13
+          },
+          {
+            "anchor": 14,
+            "cursor": 15
+          },
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          },
+          {
+            "anchor": 6,
+            "cursor": 7
+          },
+          {
+            "anchor": 8,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "猫-猫-🙂\n猫-猫-🙂\n猫-猫-🙂\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          },
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_multi_literal_primary_last",
+    "body": "猫",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "猫\n猫\n猫\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "a\nb\nc\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 5
+          },
+          {
+            "anchor": 0,
+            "cursor": 1
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "猫\n猫\n猫\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "command_multi_indents",
+    "body": "${1:x}\n\t${2:y}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  x\n    y\n\tx\n        y\n    x\n        y\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 28
+          },
+          {
+            "anchor": 2,
+            "cursor": 3
+          },
+          {
+            "anchor": 11,
+            "cursor": 12
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  x\n    y\n\tx\n        y\n    x\n        y\n",
+        "selections": [
+          {
+            "anchor": 37,
+            "cursor": 38
+          },
+          {
+            "anchor": 8,
+            "cursor": 9
+          },
+          {
+            "anchor": 21,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  x\n    y\n\tx\n        y\n    x\n        y\n",
+        "selections": [
+          {
+            "anchor": 38,
+            "cursor": 38
+          },
+          {
+            "anchor": 9,
+            "cursor": 9
+          },
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "crlf_nested_24",
+    "body": "${1:a\n\t${2:b}\nc}-$1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\r\n\tb\r\nc-a\r\n\tb\r\nc\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 7
+          },
+          {
+            "anchor": 9,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\r\n\tb\r\nc-a\r\n\tb\r\nc\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 6
+          },
+          {
+            "anchor": 12,
+            "cursor": 12
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\r\n\tb\r\nc-a\r\n\tb\r\nc\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "crlf_nested_25",
+    "body": "${1:a\n\t${2:b}\nc}-$1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\r\n    b\r\n  c-a\r\n    b\r\n  c\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 15
+          },
+          {
+            "anchor": 16,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\r\n    b\r\n  c-a\r\n    b\r\n  c\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 10
+          },
+          {
+            "anchor": 23,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\r\n    b\r\n  c-a\r\n    b\r\n  c\r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "crlf_nested_26",
+    "body": "${1|a\nb,c|}\n$1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\r\nb\r\n  a\r\nb\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 5
+          },
+          {
+            "anchor": 9,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\r\nb\r\n  a\r\nb\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\r\nb\r\n  a\r\nb\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "crlf_nested_27",
+    "body": "${1|a\nb,c|}\n$1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\r\nb\r\n  a\r\nb\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 5
+          },
+          {
+            "anchor": 9,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\r\nb\r\n  a\r\nb\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\r\nb\r\n  a\r\nb\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "lf_normalization_tail_api",
+    "body": "${1:a\r\n🙂b}\r\n$1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n🙂b\n  a\n🙂bTAIL\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 7
+          },
+          {
+            "anchor": 10,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n🙂b\n  a\n🙂bTAIL\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "multi_crlf_defaults_api",
+    "body": "${1:x\ny}-$1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  x\r\ny-x\r\ny\r\n  x\r\ny-x\r\ny\r\nTAIL",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 5
+          },
+          {
+            "anchor": 6,
+            "cursor": 8
+          },
+          {
+            "anchor": 13,
+            "cursor": 16
+          },
+          {
+            "anchor": 16,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  x\r\ny-x\r\ny\r\n  x\r\ny-x\r\ny\r\nTAIL",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          },
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "lf_normalization_tail_command",
+    "body": "${1:a\r\n🙂b}\r\n$1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  a\n  🙂b\n  a\n  🙂bTAIL\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 8
+          },
+          {
+            "anchor": 11,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  a\n  🙂b\n  a\n  🙂bTAIL\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "multi_crlf_defaults_command",
+    "body": "${1:x\ny}-$1$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "  x\r\n  y-x\r\n  y\r\n  x\r\n  y-x\r\n  y\r\nTAIL",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 25
+          },
+          {
+            "anchor": 26,
+            "cursor": 32
+          },
+          {
+            "anchor": 2,
+            "cursor": 8
+          },
+          {
+            "anchor": 9,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "  x\r\n  y-x\r\n  y\r\n  x\r\n  y-x\r\n  y\r\nTAIL",
+        "selections": [
+          {
+            "anchor": 32,
+            "cursor": 32
+          },
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "transform_then_second_field_api",
+    "body": "${1:cat} ${1/(.*)/${1:/upcase}/} ${2:x}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "cat cat x",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          },
+          {
+            "anchor": 4,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "fox fox x",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "fox FOX x",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "fox FOX dog",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "fox FOX dog",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "fox FOX x",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "fox FOX dog",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "transform_then_second_field_command",
+    "body": "${1:cat} ${1/(.*)/${1:/upcase}/} ${2:x}$0",
+    "observations": [
+      {
+        "action": "insert",
+        "text": "cat cat x",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          },
+          {
+            "anchor": 4,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "fox fox x",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "fox FOX x",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "fox FOX dog",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "jumpToNextSnippetPlaceholder",
+        "text": "fox FOX dog",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "fox FOX x",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "fox FOX dog",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "referenceVersion": "1.95.0",
+  "referenceCommit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "vscliHeadCommit": "491dd933d669cfcca54d55531a9096bacee1aec8",
+  "run": "https://github.com/vscli/vscli/actions/runs/37857315175",
+  "date": "2026-10-08",
+  "platforms": {
+    "linux": {
+      "runner": "ubuntu-24.04",
+      "arch": "x64",
+      "cases": 34,
+      "observations": 118
+    },
+    "darwin": {
+      "runner": "macos-14",
+      "arch": "arm64",
+      "cases": 34,
+      "observations": 118
+    },
+    "win32": {
+      "runner": "windows-2022",
+      "arch": "x64",
+      "cases": 34,
+      "observations": 118
+    }
+  },
+  "files": {
+    "linux.json": "854e27ad842601ab687a2304200bcf9c04fc9809ab0cf22264f25886441f83b5",
+    "darwin.json": "854e27ad842601ab687a2304200bcf9c04fc9809ab0cf22264f25886441f83b5",
+    "win32.json": "0768e2debf4d4c73754ce067e9a53046c43440ad7615ba70f2b913124d36be55",
+    "../../../snippet-insertion-cases.json": "187c1657adbe20443ac7f9f86f6f43dc98c771a9548a32c1ae9862089c6a2c9b",
+    "../../../snippets.cjs": "1443f952746e0104aa4a079c7a2fcccd7ed1790570b85ebf5f3742f6ba1c9522",
+    "../../../suite.cjs": "76c0b5b4a6720b874caf47708c792dfa5e1820dd7b29841ea257478fdfe356cd"
+  }
+}
