@@ -8,7 +8,10 @@ defaults populate matching numbered occurrences; zero is the final stop.
 
 Native document sessions now support multiple insertion ranges, linked fields,
 forward/backward traversal, transforms on leaving a field, cancellation, and
-undo/redo. Snippet state belongs to its editor view; rendering another view does
+undo/redo. A separate user-command insertion entry point preserves cursor order
+and adjusts nested template indentation; the API entry point follows the pinned
+editor's fragment-level indentation and file-order insertion behavior. Both
+normalize inserted line endings to the document. Snippet state belongs to its editor view; rendering another view does
 not activate a copied session. Edits map the shared text and other views, and a
 transform does not merge another view's edit into its undo transaction.
 
@@ -45,13 +48,40 @@ identity and undo ownership, exact Unicode/CRLF saves, and rejection of
 oversized/deep or exponentially amplified expansions before any document
 mutation. A failed transform leaves text, selections and revision unchanged.
 
+## Insertion context
+
+An additional 34 cases (118 observations) compare multiline insertion with the
+actual pinned editor. Cases cover spaces/tabs, indentation at each insertion
+point, nested defaults and choices, Unicode, LF/CRLF conversion, primary and
+secondary selection order, typing across fields, and undo/redo. API and user
+command entry points are captured separately; neither route is connected to
+terminal commands yet. The committed Linux trace is from a local isolated run;
+all three CI platforms rerun the comparison, with cross-platform provenance to
+be recorded after those jobs pass.
+
+The reference API and user command differ: API insertion sorts ranges by file
+position and adjusts only fragment-level text, whereas the command preserves
+selection order and adjusts nested text. Model EOL normalization can leave the
+reference's placeholder offsets based on the unnormalized template, particularly
+inside API defaults or choices. The native implementation preserves the observed
+UTF-16 offset mapping, including the reference's CRLF boundary clamping. This is
+an explicit pinned behavior, not a promise of ideal placeholder placement for
+those templates. Offsets that split a surrogate pair cannot have complete
+selection/edit equivalence in the native scalar-position model; further Unicode
+qualification remains required.
+
+Native integrity tests cover multiline CRLF saves, shared views, selection/undo
+restoration, and rejecting indentation amplification before mutation. The
+existing typing timeout still applies across Tab navigation; timing and all
+possible undo grouping sequences are not qualified by these immediate traces.
+
 ## Outstanding compatibility
 
 Variables are supplied by the caller; editor/file/selection/date/clipboard
 resolvers are not connected yet. API insertion and user snippets have separate
 parsing entry points: unknown variables in the API fixture become empty or use
 their default; user preprocessing turns unknown bare variables into numbered
-editable placeholders. Whitespace/EOL adjustment, nested snippet insertion,
+editable placeholders. Broader whitespace/EOL qualification, nested snippet insertion,
 choice presentation, partial edits crossing marker boundaries, and large
 cursor sets still need implementation or broader qualification.
 

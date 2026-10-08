@@ -1,0 +1,768 @@
+[
+  {
+    "name": "indent_spaces",
+    "text": "    here\n",
+    "body": "if (${1:ok}) {\n\t${2:body}\n}$0",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "yes"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "type": "猫"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "indent_tabs",
+    "text": "\there\n",
+    "body": "if (${1:ok}) {\n\t${2:body}\n}$0",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 5
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "insertSpaces": false
+  },
+  {
+    "name": "indent_inside_prefix",
+    "text": "    here\n",
+    "body": "a\n\t${1:猫}\n$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 2
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "tabSize": 2
+  },
+  {
+    "name": "crlf",
+    "text": "    here\r\n",
+    "body": "a\n\t${1:猫}\r\nb\rc$0",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "nested_multiline",
+    "text": "  here\n",
+    "body": "${1:a\n\t${2:b}\nc} -- $1$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "newline_before_placeholder",
+    "text": "  here\n",
+    "body": "a\n${1:b\n\tc}\n$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "empty_stop_after_newline",
+    "text": "  here\n",
+    "body": "a\n$1\n$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "type": "猫"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "choice_whitespace",
+    "text": "  here\n",
+    "body": "${1|\ta\nb,c|}\n$1\n$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "first_line_normalization",
+    "text": "",
+    "body": " \t${1:x}\n  y$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "tabSize": 3,
+    "insertSpaces": false
+  },
+  {
+    "name": "multi_primary_last",
+    "text": "a\nb\nc\n",
+    "body": "${1:x}-$1-${2:y}$0",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 5
+      },
+      {
+        "anchor": 0,
+        "cursor": 1
+      },
+      {
+        "anchor": 2,
+        "cursor": 3
+      }
+    ],
+    "steps": [
+      {
+        "type": "猫"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "type": "🙂"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "multi_literal_primary_last",
+    "text": "a\nb\nc\n",
+    "body": "猫",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 5
+      },
+      {
+        "anchor": 0,
+        "cursor": 1
+      },
+      {
+        "anchor": 2,
+        "cursor": 3
+      }
+    ],
+    "steps": [
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "multi_indents",
+    "text": "  a\n\tb\n    c\n",
+    "body": "${1:x}\n\t${2:y}$0",
+    "selections": [
+      {
+        "anchor": 11,
+        "cursor": 12
+      },
+      {
+        "anchor": 2,
+        "cursor": 3
+      },
+      {
+        "anchor": 5,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "command_indent_spaces",
+    "text": "    here\n",
+    "body": "if (${1:ok}) {\n\t${2:body}\n}$0",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "yes"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "type": "猫"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "command_indent_tabs",
+    "text": "\there\n",
+    "body": "if (${1:ok}) {\n\t${2:body}\n}$0",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 5
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "insertSpaces": false,
+    "entry": "command"
+  },
+  {
+    "name": "command_indent_inside_prefix",
+    "text": "    here\n",
+    "body": "a\n\t${1:猫}\n$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 2
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "tabSize": 2,
+    "entry": "command"
+  },
+  {
+    "name": "command_crlf",
+    "text": "    here\r\n",
+    "body": "a\n\t${1:猫}\r\nb\rc$0",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "command_nested_multiline",
+    "text": "  here\n",
+    "body": "${1:a\n\t${2:b}\nc} -- $1$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "command_newline_before_placeholder",
+    "text": "  here\n",
+    "body": "a\n${1:b\n\tc}\n$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "command_empty_stop_after_newline",
+    "text": "  here\n",
+    "body": "a\n$1\n$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "type": "猫"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "command_choice_whitespace",
+    "text": "  here\n",
+    "body": "${1|\ta\nb,c|}\n$1\n$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "command_first_line_normalization",
+    "text": "",
+    "body": " \t${1:x}\n  y$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "tabSize": 3,
+    "insertSpaces": false,
+    "entry": "command"
+  },
+  {
+    "name": "command_multi_primary_last",
+    "text": "a\nb\nc\n",
+    "body": "${1:x}-$1-${2:y}$0",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 5
+      },
+      {
+        "anchor": 0,
+        "cursor": 1
+      },
+      {
+        "anchor": 2,
+        "cursor": 3
+      }
+    ],
+    "steps": [
+      {
+        "type": "猫"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "type": "🙂"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "command_multi_literal_primary_last",
+    "text": "a\nb\nc\n",
+    "body": "猫",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 5
+      },
+      {
+        "anchor": 0,
+        "cursor": 1
+      },
+      {
+        "anchor": 2,
+        "cursor": 3
+      }
+    ],
+    "steps": [
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "command_multi_indents",
+    "text": "  a\n\tb\n    c\n",
+    "body": "${1:x}\n\t${2:y}$0",
+    "selections": [
+      {
+        "anchor": 11,
+        "cursor": 12
+      },
+      {
+        "anchor": 2,
+        "cursor": 3
+      },
+      {
+        "anchor": 5,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ],
+    "entry": "command"
+  },
+  {
+    "name": "crlf_nested_24",
+    "entry": "api",
+    "text": "  here\r\n",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "body": "${1:a\n\t${2:b}\nc}-$1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "crlf_nested_25",
+    "entry": "command",
+    "text": "  here\r\n",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "body": "${1:a\n\t${2:b}\nc}-$1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "crlf_nested_26",
+    "entry": "api",
+    "text": "  here\r\n",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "body": "${1|a\nb,c|}\n$1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "crlf_nested_27",
+    "entry": "command",
+    "text": "  here\r\n",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "body": "${1|a\nb,c|}\n$1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "lf_normalization_tail_api",
+    "entry": "api",
+    "text": "  hereTAIL\n",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "body": "${1:a\r\n🙂b}\r\n$1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "multi_crlf_defaults_api",
+    "entry": "api",
+    "text": "  a\r\n  b\r\nTAIL",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 8
+      },
+      {
+        "anchor": 2,
+        "cursor": 3
+      }
+    ],
+    "body": "${1:x\ny}-$1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "lf_normalization_tail_command",
+    "entry": "command",
+    "text": "  hereTAIL\n",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 6
+      }
+    ],
+    "body": "${1:a\r\n🙂b}\r\n$1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "multi_crlf_defaults_command",
+    "entry": "command",
+    "text": "  a\r\n  b\r\nTAIL",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 8
+      },
+      {
+        "anchor": 2,
+        "cursor": 3
+      }
+    ],
+    "body": "${1:x\ny}-$1$0",
+    "steps": [
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  },
+  {
+    "name": "transform_then_second_field_api",
+    "entry": "api",
+    "body": "${1:cat} ${1/(.*)/${1:/upcase}/} ${2:x}$0",
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "type": "dog"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "transform_then_second_field_command",
+    "entry": "command",
+    "body": "${1:cat} ${1/(.*)/${1:/upcase}/} ${2:x}$0",
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "type": "dog"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  }
+]

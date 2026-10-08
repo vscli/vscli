@@ -498,7 +498,7 @@ impl Document {
         if !self.secondary.is_empty() {
             let group = typing
                 && !text.contains(['\n', '\r'])
-                && self.selections().iter().all(|s| s.range().is_empty())
+                && (self.in_snippet() || self.selections().iter().all(|s| s.range().is_empty()))
                 && self.typing.is_some_and(|(time, end)| {
                     time.elapsed() < Duration::from_millis(700) && end == self.cursor
                 });
@@ -506,6 +506,7 @@ impl Document {
             if group && let Some(last) = self.undo.pop() {
                 if let Some(previous) = self.undo.last_mut() {
                     previous.changes.extend(last.changes);
+                    previous.after_selections = None;
                 } else {
                     self.undo.push(last);
                 }
@@ -518,13 +519,15 @@ impl Document {
         }
         let range = self.selection().unwrap_or(self.cursor..self.cursor);
         let can_group = typing
-            && self.selection().is_none()
+            && (self.selection().is_none() || self.in_snippet())
             && !text.contains(['\n', '\r'])
             && self.typing.is_some_and(|(time, end)| {
                 time.elapsed() < Duration::from_millis(700) && end == self.cursor
             });
         if !can_group {
             self.checkpoint();
+        } else if let Some(snapshot) = self.undo.last_mut() {
+            snapshot.after_selections = None;
         }
         self.record_change(range.clone(), text.chars().count());
         self.text.remove(range.clone());

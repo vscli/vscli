@@ -99,6 +99,14 @@ comparison against each platform's fresh reference output. The
 observations per platform from successful CI run 37854940336, with source and
 fixture hashes. It is separate from the earlier keybinding/configuration baseline.
 
+The additional `snippet-insertion.json` trace covers 34 insertion-context cases
+(118 observations): both API and user-command entry points, initial documents,
+selections, indentation options, line endings, cursor order, and undo/redo.
+Compare it with `cargo run --locked --example snippet_contract -- --insertion
+<output>/snippet-insertion.json`. The same native runner is used by offline Rust
+tests and live CI comparisons. The initial Linux fixture is a local reference
+capture; cross-platform provenance is pending.
+
 The [1.95.0 baseline](baselines/1.95.0/provenance.json) preserves the parsed rule
 inventories, observed keyboard maps, reference configuration traces, and comparison
 summaries from [CI run 37831323012](https://github.com/vscli/vscli/actions/runs/37831323012).
