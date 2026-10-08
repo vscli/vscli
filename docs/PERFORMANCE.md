@@ -33,6 +33,19 @@ Boundaries and limitations:
 
 Hosted CI checks that the screen oracle works with the debug executable on Linux/macOS. **There is no hosted-CI timing threshold.** Record release-build baselines and investigate repeatable regressions on controlled hardware before setting gates.
 
+To measure typing while periodic recovery runs, use `--recovery --keys 50
+--key-interval-ms 100`. This creates a fresh recovery directory for each VSCLI
+trial, pumps terminal output between keys, and validates after timing that a
+committed journal contains a prefix of the measured edits. The requested delay
+is outside each latency sample and follows the previous key's observed update;
+it is not a fixed-rate input schedule. Recovery mode requires at least 2.5 seconds
+between the first and last key and supports only VSCLI before/after comparisons.
+Missing or incorrect recovery evidence fails the trial. The report records the
+interval, recovery mode, journal size, and number of inserted characters in the
+observed snapshot. It does not require the final key to have reached the periodic
+journal, measure shutdown, or establish peak memory. Hosted CI exercises this
+workload too, without timing thresholds.
+
 ## Recorded run: 2026-10-08
 
 [Raw observations and executable/fixture hashes](benchmarks/2026-10-08-linux.json), captured with benchmark commit `3f870ce` and native code from `8a90288`. Host: Intel Core i9-13900H, Linux x86_64; release VSCLI 0.1.0, Neovim 0.12.5, Vim 9.2 (patches 1–1046). Each row has five process launches and, when successful, 200 serial key samples. No builds or test suites ran concurrently with this recorded run; other host activity, scheduling, and thermal state were not controlled.

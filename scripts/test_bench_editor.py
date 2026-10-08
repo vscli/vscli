@@ -1,5 +1,6 @@
 """Check benchmark oracles; timing values themselves are not CI assertions."""
 import sys
+import json
 import os
 import subprocess
 import tempfile
@@ -7,7 +8,7 @@ import unittest
 from pathlib import Path
 
 if sys.platform != "win32":
-    from bench_editor import MARKER, Screen, TerminalReplies, distribution, fixture, process_tree
+    from bench_editor import MARKER, Screen, TerminalReplies, distribution, fixture, process_tree, recovery_evidence
 
 
 @unittest.skipIf(sys.platform == "win32", "The PTY benchmark is Unix-only")
@@ -45,6 +46,20 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(95, result["p95"])
         self.assertEqual(99, result["p99"])
         self.assertEqual(100, result["max"])
+
+    def test_recovery_evidence_requires_measured_edits_in_a_committed_journal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaises(RuntimeError):
+                recovery_evidence(root, 10)
+            journal = root / "session.json"
+            for value in ("", "wrong" + MARKER, "xz" * 6 + MARKER):
+                journal.write_text(json.dumps({"version": 1, "documents": [{"text": value}]}))
+                with self.assertRaises(RuntimeError):
+                    recovery_evidence(root, 10)
+            journal.write_text(json.dumps({"version": 1, "documents": [{"text": "xzx" + MARKER}]}))
+            self.assertEqual(3, recovery_evidence(root, 10)["persisted_key_prefix"])
+            self.assertEqual(journal.stat().st_size, recovery_evidence(root, 10)["journal_bytes"])
 
     @unittest.skipUnless(sys.platform == "linux", "Process-tree accounting uses /proc")
     def test_memory_counts_a_live_child_process(self):

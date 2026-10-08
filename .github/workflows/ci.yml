@@ -88,6 +88,9 @@ jobs:
       - name: Check benchmark screen oracle (no timing threshold)
         if: runner.os != 'Windows'
         run: python3 scripts/bench_editor.py --vscli target/debug/vscli --sizes 10240 --trials 1 --keys 5 --idle-seconds 0.1 --output target/benchmark-smoke.json
+      - name: Check recovery benchmark workload (no timing threshold)
+        if: runner.os != 'Windows'
+        run: python3 scripts/bench_editor.py --vscli target/debug/vscli --sizes 10240 --trials 1 --keys 30 --key-interval-ms 100 --idle-seconds 0.1 --recovery --output target/benchmark-recovery-smoke.json
   protocols:
     name: Real protocol servers
     runs-on: ubuntu-24.04
