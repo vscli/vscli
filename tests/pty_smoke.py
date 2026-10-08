@@ -425,7 +425,7 @@ def run():
         app.send(b"\r")
         app.send(str(created))
         app.send(b"\r")
-        eventually(lambda: app.read() and created.exists())
+        eventually(lambda: app.read() and created.exists() and "Opened source.txt" in app.screen.text())
         app.send("contents")
         app.send(CTRL_S)
         eventually(lambda: text(created) == "contents")
@@ -433,7 +433,7 @@ def run():
         app.send(b"\x1bOQ")  # F2 rename.
         app.send(str(renamed))
         app.send(b"\r")
-        eventually(lambda: app.read() and renamed.exists() and not created.exists())
+        eventually(lambda: app.read() and renamed.exists() and not created.exists() and "Renamed to" in app.screen.text())
         app.send(b"\x1b[49;5u")
         app.send("!")
         app.send(CTRL_S)
