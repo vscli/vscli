@@ -58,3 +58,9 @@ These are one-machine baseline observations with Python-oracle overhead, not iso
 The next workloads must measure source highlighting and incremental parsing, 100 MiB files and very long lines, Unicode movement/multiple cursors, undo/paste/save, 100,000-file indexing and search, and editing under LSP/extension/task contention. Add matched VS Code and Helix measurements with versioned configurations, cold-cache procedures, real-terminal input-to-display latency, process-tree peak memory, and sustained CPU sampling. A single favorable component or empty-editor benchmark cannot answer which editor is fastest overall.
 
 The separate [extension mirror measurement](EXTENSIONS.md#mirror-performance-measurement) remains a Node-component microbenchmark. Its speedup does not describe native typing latency or total editor speed.
+
+## Native phase profiling
+
+`cargo run --release --example profile_editor -- --iterations 4000` reports native input handling, background polling, and Ratatui rendering to an in-memory `TestBackend`. Add `--unicode` for combining marks, wide characters, emoji sequences, and tabs. Each sample inserts one character; undo restores the same document and viewport before the next sample. The first 100 iterations warm up and are excluded. The example verifies that all edits are undone at exit.
+
+These phase timings exclude the PTY, OS event decoding, terminal output, and physical display. They help locate costs inside VSCLI and must not replace the executable benchmark. For Linux CPU sampling with symbols, build using `cargo rustc --release --locked --example profile_editor -- -C debuginfo=1 -C strip=none`, then run `perf record -g --call-graph dwarf -- target/release/examples/profile_editor --iterations 4000`. Collect ordinary timings separately from `perf` to avoid treating sampling overhead as the baseline.
