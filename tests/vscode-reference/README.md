@@ -94,7 +94,10 @@ with initial text/selections and selected later edit/navigation/undo observation
 all captured text and selections with the native document/session engine. These
 are document API calls, not terminal-key or completion qualification; see
 [snippet implementation boundaries](../../docs/SNIPPETS.md). CI runs the same
-comparison against each platform's fresh reference output.
+comparison against each platform's fresh reference output. The
+[snippet baseline](baselines/1.95.0/snippets/provenance.json) records 96 matching
+observations per platform from successful CI run 37854940336, with source and
+fixture hashes. It is separate from the earlier keybinding/configuration baseline.
 
 The [1.95.0 baseline](baselines/1.95.0/provenance.json) preserves the parsed rule
 inventories, observed keyboard maps, reference configuration traces, and comparison

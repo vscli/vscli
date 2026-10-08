@@ -36,8 +36,10 @@ cargo run --locked --example snippet_contract -- target/vscode-reference/result/
 ```
 
 The same comparison runs against the real pinned editor in Linux/macOS/Windows
-CI. The committed Linux trace initially comes from a local isolated reference
-run; cross-platform qualification is pending until those jobs pass. Unit tests
+CI. All 96 observations matched on all three platforms in
+[CI run 37854940336](https://github.com/vscli/vscli/actions/runs/37854940336).
+The [saved traces and provenance](../tests/vscode-reference/baselines/1.95.0/snippets/provenance.json)
+record the source revision, fixture hashes, and platform results from that run. Unit tests
 also verify nested occurrence ownership, multiple insertion points, split-view
 identity and undo ownership, exact Unicode/CRLF saves, and rejection of
 oversized/deep or exponentially amplified expansions before any document
