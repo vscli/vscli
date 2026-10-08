@@ -359,6 +359,11 @@ impl Document {
     }
     pub fn line_slice(&self, row: usize) -> ropey::RopeSlice<'_> {
         let line = self.text.line(row.min(self.line_count() - 1));
+        if let Some(text) = line.as_str() {
+            // Short lines fit in one rope leaf. Trim the borrowed string
+            // without constructing a tree iterator and slicing its metadata.
+            return ropey::RopeSlice::from(text.trim_end_matches(['\r', '\n']));
+        }
         let trailing = line
             .chars_at(line.len_chars())
             .reversed()

@@ -338,7 +338,14 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
         doc.left = col + 1 - text_area.width as usize;
     }
     let doc = app.doc();
-    let selections: Vec<_> = doc.selections().iter().map(|s| s.range()).collect();
+    let selections: Vec<_> = doc
+        .selections()
+        .iter()
+        .map(|s| s.range())
+        .filter(|range| !range.is_empty())
+        .collect();
+    let grammar = app.syntax.get(doc);
+    let language = app.language();
     for y in 0..text_area.height {
         let row = doc.top + y as usize;
         if row >= doc.line_count() {
@@ -408,11 +415,10 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 MUTED
             }),
         );
-        let grammar = app.syntax.get(doc);
         // The fallback lexer still needs the full line for word/string context.
         // Plain text and completed grammar results can use only the viewport
         // prefix, with enough lookahead for find matches crossing its edge.
-        let line = if grammar.is_some() || app.language() == "plaintext" {
+        let line = if grammar.is_some() || language == "plaintext" {
             viewport_line(
                 doc,
                 row,
@@ -423,7 +429,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
             graphemes::as_text(doc.line_slice(row))
         };
         let styles = if grammar.is_none() {
-            syntax_styles(&line, app.language())
+            syntax_styles(&line, language)
         } else {
             Vec::new()
         };
