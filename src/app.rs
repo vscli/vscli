@@ -404,7 +404,7 @@ impl App {
                             self.settings.apply(doc);
                         }
                         self.message = format!(
-                            "Settings reloaded · {} unsupported or invalid entries (Settings: Compatibility Report)",
+                            "Settings reloaded · {} settings notices (Settings: Compatibility Report)",
                             self.settings.warnings.len()
                         );
                         changed = true;
@@ -460,7 +460,7 @@ impl App {
         }
         if !self.settings.warnings.is_empty() {
             self.message = format!(
-                "{} unsupported or invalid settings · F1 → Settings: Compatibility Report",
+                "{} settings notices · F1 → Settings: Compatibility Report",
                 self.settings.warnings.len()
             );
         }

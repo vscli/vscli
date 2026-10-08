@@ -12,16 +12,26 @@ function frame(message) {
   return Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`), body]);
 }
 
-test('coalesced text notification, acknowledgement and metadata preserve the edit result', { timeout: 10000 }, async t => {
+test('ordered document and configuration notifications are visible before command replies', { timeout: 10000 }, async t => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'vscli-host-'));
   fs.writeFileSync(path.join(folder, 'package.json'), JSON.stringify({ name: 'wire', publisher: 'test', version: '1', main: 'extension.cjs' }));
   fs.writeFileSync(path.join(folder, 'extension.cjs'), `
     const vscode = require('vscode');
-    exports.activate = context => context.subscriptions.push(vscode.commands.registerCommand('edit', async () => {
+    exports.activate = context => {
+      const initial = vscode.workspace.getConfiguration('wire').get('count');
+      let changes = 0;
+      context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration('wire.count')) changes++;
+      }));
+      context.subscriptions.push(vscode.commands.registerCommand('configuration', () => ({
+        initial, current: vscode.workspace.getConfiguration('wire').get('count'), changes,
+      })));
+      context.subscriptions.push(vscode.commands.registerCommand('edit', async () => {
       const editor = vscode.window.activeTextEditor;
       const applied = await editor.edit(edit => edit.insert(new vscode.Position(0, 0), 'X'));
       return { applied, text: editor.document.getText(), version: editor.document.version, cursor: editor.selection.active.character };
-    }));
+      }));
+    };
   `);
   const child = spawn(process.execPath, [path.join(__dirname, 'host.cjs')], { stdio: ['pipe', 'pipe', 'pipe'] });
   let stderr = '', buffer = Buffer.alloc(0), failure;
@@ -64,7 +74,8 @@ test('coalesced text notification, acknowledgement and metadata preserve the edi
   }
   const state = { generation: 1, documents: [{ id: 1, uri: 'untitled:wire', text: 'old', version: 1, languageId: 'plaintext', isDirty: true }],
     active: 1, selections: [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }] };
-  child.stdin.write(frame({ id: 1, method: 'initialize', params: { protocol: 2, extension: folder, root: folder, state } }));
+  child.stdin.write(frame({ id: 1, method: 'initialize', params: { protocol: 3, extension: folder, root: folder, state,
+    configuration: [{}, { 'wire.count': 2 }] } }));
   const initialized = await receive(message => message.id === 1);
   assert.equal(initialized.error, undefined);
   child.stdin.write(frame({ id: 2, method: 'execute', params: { command: 'edit', args: [] } }));
@@ -85,4 +96,11 @@ test('coalesced text notification, acknowledgement and metadata preserve the edi
   assert.equal(result.result.version, 2);
   // Pipes may split the write; either selection is valid when the promise resumes.
   assert.ok([0, 2].includes(result.result.cursor));
+  child.stdin.write(Buffer.concat([
+    frame({ method: 'configuration', params: [{}, { 'wire.count': 3 }] }),
+    frame({ id: 3, method: 'execute', params: { command: 'configuration', args: [] } }),
+  ]));
+  const configured = await receive(message => message.id === 3);
+  assert.equal(configured.error, undefined);
+  assert.deepEqual(configured.result, { initial: 2, current: 3, changes: 1 });
 });
