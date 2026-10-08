@@ -1,3 +1,4 @@
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde_json::Value;
 use std::{
     path::PathBuf,
@@ -59,6 +60,14 @@ fn unchanged_command_extension_edits_native_unicode_buffers_and_preserves_undo()
     until(&mut app, |a| a.message == "version=3");
     app.doc_mut().redo();
     assert_eq!(app.doc().text.to_string(), "a\n猫\n🙂");
+    app.execute("vscli.extensions.stop", Value::Null);
+    assert!(app.extension_host.is_none());
+    assert_eq!(app.keymap.shortcut("fixture.sort"), "");
+    assert_eq!(
+        app.keymap.shortcut("editor.debug.action.toggleBreakpoint"),
+        "f9"
+    );
+    assert_eq!(app.doc().text.to_string(), "a\n猫\n🙂");
 }
 #[test]
 fn invalid_stale_and_crashed_extensions_cannot_destroy_native_edits() {
@@ -89,6 +98,11 @@ fn invalid_stale_and_crashed_extensions_cannot_destroy_native_edits() {
     app.execute("fixture.crash", Value::Null);
     until(&mut app, |a| a.extension_host.is_none());
     assert!(app.message.contains("Extension host stopped"));
+    assert_eq!(app.keymap.shortcut("fixture.sort"), "");
+    assert_eq!(
+        app.keymap.shortcut("editor.debug.action.toggleBreakpoint"),
+        "f9"
+    );
     app.doc_mut().insert(" still editable", false);
     assert_eq!(app.doc().text.to_string(), "original! still editable");
 }
@@ -115,7 +129,7 @@ fn upstream_sort_lines_runs_without_source_changes() {
     until(&mut app, |a| {
         a.extension_host.as_ref().is_some_and(|h| h.ready)
     });
-    app.execute("sortLines.sortLines", Value::Null);
+    app.event(Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::NONE)));
     until(&mut app, |a| a.doc().text == "apple\npear\nzebra");
     app.doc_mut().undo();
     assert_eq!(app.doc().text.to_string(), "zebra\napple\npear");

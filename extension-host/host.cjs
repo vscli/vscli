@@ -70,6 +70,7 @@ async function dispatch(message) {
         extension = require(entry);
         if (typeof extension.activate === 'function') await extension.activate(context);
         result = { protocol: 1, id: `${manifest.publisher}.${manifest.name}`, version: manifest.version,
+          keybindings: manifest.contributes?.keybindings || [],
           commands: await runtime.api.commands.getCommands(), contributions: manifest.contributes?.commands || [] };
         break;
       }

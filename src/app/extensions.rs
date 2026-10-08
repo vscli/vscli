@@ -28,10 +28,17 @@ impl App {
                 for message in messages {
                     self.message = message;
                 }
+                if let Some(bindings) = host.keybindings.take()
+                    && let Err(error) = self.keymap.set_extension_bindings(bindings)
+                {
+                    self.message =
+                        format!("Extension commands ready; keybindings rejected: {error:#}");
+                }
                 self.extension_host = Some(host);
                 changed
             }
             Err(error) => {
+                self.keymap.clear_extension_bindings();
                 self.message = format!("Extension host stopped: {error:#}");
                 true
             }
