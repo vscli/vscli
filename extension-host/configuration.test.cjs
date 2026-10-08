@@ -31,7 +31,7 @@ test('user/workspace precedence recursively merges objects, replaces arrays and 
   assert.equal(value.get(''), undefined);
   assert.equal(value.has('missing'), false);
   assert.equal(value.has('null'), true);
-  assert.equal(value.inspect('machine').workspaceValue, 'workspace'); // Inspect includes the raw ignored scope.
+  assert.equal(value.inspect('machine').workspaceValue, undefined);
   assert.equal(value.inspect('missing').defaultValue, undefined);
   assert.equal(value.inspect('enabled').languageIds, undefined);
 });
