@@ -47,7 +47,7 @@ async function dispatch(message) {
   try {
     switch (message.method) {
       case 'initialize': {
-        if (message.params.protocol !== 1) throw new Error('Unsupported native protocol version');
+        if (message.params.protocol !== 2) throw new Error('Unsupported native protocol version');
         if (initialized) throw new Error('Extension host already initialized');
         initialized = true;
         const folder = fs.realpathSync(message.params.extension);
@@ -69,7 +69,7 @@ async function dispatch(message) {
         });
         extension = require(entry);
         if (typeof extension.activate === 'function') await extension.activate(context);
-        result = { protocol: 1, id: `${manifest.publisher}.${manifest.name}`, version: manifest.version,
+        result = { protocol: 2, id: `${manifest.publisher}.${manifest.name}`, version: manifest.version,
           keybindings: manifest.contributes?.keybindings || [],
           commands: await runtime.api.commands.getCommands(), contributions: manifest.contributes?.commands || [] };
         break;

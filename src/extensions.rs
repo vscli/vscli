@@ -4,12 +4,13 @@ use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::Path,
     time::{Duration, Instant},
 };
 
 const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
+#[derive(Clone)]
 struct Mirror {
     revision: u64,
     uri: String,
@@ -29,11 +30,9 @@ pub struct Client {
     // Drop the process before deleting its embedded runtime files on Windows.
     process: Process,
     _runtime: tempfile::TempDir,
-    mirrors: HashMap<u64, Mirror>,
+    mirror: MirrorState,
     pending: HashMap<u64, Pending>,
     next_id: u64,
-    generation: u64,
-    last_stamp: Value,
     pub keybindings: Option<Value>,
     pub ready: bool,
     pub commands: Vec<(String, String)>,
@@ -72,21 +71,20 @@ impl Client {
         let mut client = Self {
             process,
             _runtime: runtime,
-            mirrors: HashMap::new(),
+            mirror: MirrorState::default(),
             pending: HashMap::new(),
             next_id: 0,
-            generation: 0,
-            last_stamp: Value::Null,
             keybindings: None,
             ready: false,
             commands: Vec::new(),
             identity: String::new(),
         };
-        let state = client.state(documents, active)?;
+        let (next, state) = client.mirror.next(documents, active)?;
         client.request(
             "initialize",
-            json!({"protocol":1, "extension": extension, "root": root, "state": state}),
+            json!({"protocol":2, "extension": extension, "root": root, "state": state}),
         )?;
+        client.mirror = next;
         Ok(client)
     }
     fn request(&mut self, method: &str, params: Value) -> Result<()> {
@@ -125,51 +123,17 @@ impl Client {
         let args: Vec<_> = args.into_iter().collect();
         self.request("execute", json!({"command":command, "args":args}))
     }
-    fn stamp(documents: &[Document], active: usize) -> Value {
-        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.path, d.dirty()])).collect::<Vec<_>>(),
-            "active": documents.get(active).map(|d| d.id), "selections": documents.get(active).map(selections)})
-    }
-    fn state(&mut self, documents: &[Document], active: usize) -> Result<Value> {
-        if documents.iter().map(|d| d.text.len_bytes()).sum::<usize>() > MAX_DOCUMENT_BYTES {
-            bail!(
-                "Extension document mirrors currently support at most 4 MiB total; native editing remains available"
-            );
-        }
-        let mut snapshots = Vec::new();
-        for doc in documents {
-            let uri = document_uri(doc)?;
-            let mirror = self.mirrors.entry(doc.id).or_insert_with(|| Mirror {
-                revision: doc.revision,
-                uri: uri.clone(),
-                version: 1,
-            });
-            if mirror.revision != doc.revision || mirror.uri != uri {
-                mirror.version += 1;
-                mirror.revision = doc.revision;
-                mirror.uri = uri.clone();
-            }
-            snapshots.push(json!({"id":doc.id, "uri":uri, "text":doc.text.to_string(), "version":mirror.version,
-                "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.dirty()}));
-        }
-        self.mirrors
-            .retain(|id, _| documents.iter().any(|d| d.id == *id));
-        self.generation += 1;
-        self.last_stamp = Self::stamp(documents, active);
-        Ok(
-            json!({"generation":self.generation, "documents":snapshots, "active":documents.get(active).map(|d|d.id),
-            "selections":documents.get(active).map(selections).unwrap_or_default()}),
-        )
-    }
     fn sync(&mut self, documents: &[Document], active: usize) -> Result<()> {
-        if Self::stamp(documents, active) != self.last_stamp {
-            let state = self.state(documents, active)?;
+        if MirrorState::stamp(documents, active) != self.mirror.last_stamp {
+            let (next, state) = self.mirror.next(documents, active)?;
             self.process
                 .send(json!({"method":"state", "params":state}))?;
+            self.mirror = next;
         }
         Ok(())
     }
     fn apply_edit(&self, edit: Edit, documents: &mut [Document]) -> Result<bool> {
-        let Some(mirror) = self.mirrors.get(&edit.document) else {
+        let Some(mirror) = self.mirror.mirrors.get(&edit.document) else {
             return Ok(false);
         };
         let total: usize = documents.iter().map(|d| d.text.len_bytes()).sum();
@@ -209,8 +173,11 @@ impl Client {
                             .and_then(|edit| self.apply_edit(edit, documents));
                         match result {
                             Ok(applied) => {
-                                let state = self.state(documents, active)?;
-                                self.process.send(json!({"id":message["id"], "result":{"applied":applied, "state":state}}))?;
+                                // Ordered notifications precede the acknowledgement.
+                                self.sync(documents, active)?;
+                                self.process.send(
+                                    json!({"id":message["id"], "result":{"applied":applied}}),
+                                )?;
                             }
                             Err(error) => self.process.send(
                                 json!({"id":message["id"], "error":{"message":error.to_string()}}),
@@ -257,7 +224,7 @@ impl Client {
                     continue;
                 }
                 if pending.method == "initialize" {
-                    if message["result"]["protocol"] != 1 {
+                    if message["result"]["protocol"] != 2 {
                         bail!("Unsupported extension host protocol version");
                     }
                     self.keybindings = Some(message["result"]["keybindings"].clone());
@@ -295,6 +262,63 @@ impl Client {
         Ok(messages)
     }
 }
+#[derive(Clone, Default)]
+struct MirrorState {
+    mirrors: HashMap<u64, Mirror>,
+    generation: u64,
+    last_stamp: Value,
+}
+impl MirrorState {
+    fn stamp(documents: &[Document], active: usize) -> Value {
+        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.path, d.dirty()])).collect::<Vec<_>>(),
+            "active": documents.get(active).map(|d| d.id), "selections": documents.get(active).map(selections)})
+    }
+    fn next(&self, documents: &[Document], active: usize) -> Result<(Self, Value)> {
+        // Only publish the new baseline after the transport accepts the update.
+        let mut next = self.clone();
+        let state = next.state(documents, active)?;
+        Ok((next, state))
+    }
+    fn state(&mut self, documents: &[Document], active: usize) -> Result<Value> {
+        if documents.iter().map(|d| d.text.len_bytes()).sum::<usize>() > MAX_DOCUMENT_BYTES {
+            bail!(
+                "Extension document mirrors currently support at most 4 MiB total; native editing remains available"
+            );
+        }
+        let mut snapshots = Vec::new();
+        for doc in documents {
+            let uri = document_uri(doc)?;
+            let needs_text = self
+                .mirrors
+                .get(&doc.id)
+                .is_none_or(|old| old.revision != doc.revision);
+            let mirror = self.mirrors.entry(doc.id).or_insert_with(|| Mirror {
+                revision: doc.revision,
+                uri: uri.clone(),
+                version: 1,
+            });
+            if mirror.revision != doc.revision || mirror.uri != uri {
+                mirror.version += 1;
+                mirror.revision = doc.revision;
+                mirror.uri = uri.clone();
+            }
+            let mut snapshot = json!({"id":doc.id, "uri":uri, "version":mirror.version,
+                "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.dirty()});
+            if needs_text {
+                snapshot["text"] = doc.text.to_string().into();
+            }
+            snapshots.push(snapshot);
+        }
+        let ids: HashSet<_> = documents.iter().map(|d| d.id).collect();
+        self.mirrors.retain(|id, _| ids.contains(id));
+        self.generation += 1;
+        self.last_stamp = Self::stamp(documents, active);
+        Ok(
+            json!({"generation":self.generation, "documents":snapshots, "active":documents.get(active).map(|d|d.id),
+            "selections":documents.get(active).map(selections).unwrap_or_default()}),
+        )
+    }
+}
 fn document_uri(doc: &Document) -> Result<String> {
     doc.path
         .as_deref()
@@ -304,4 +328,62 @@ fn selections(doc: &Document) -> Vec<Value> {
     std::iter::once((doc.anchor.unwrap_or(doc.cursor), doc.cursor))
         .chain(doc.secondary.iter().map(|s|(s.anchor.unwrap_or(s.cursor),s.cursor)))
         .map(|(anchor,active)|json!({"anchor":lsp::position(doc,anchor),"active":lsp::position(doc,active)})).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn cursor_updates_are_bounded_metadata_and_edits_only_send_changed_documents() {
+        let mut docs = vec![
+            Document::from_text(&"0123456789abcdef\n".repeat(100_000)),
+            Document::from_text("other"),
+        ];
+        let baseline = MirrorState::default();
+        let (first, initial) = baseline.next(&docs, 0).unwrap();
+        assert!(serde_json::to_vec(&initial).unwrap().len() > 1_700_000);
+        // Encoding an update that never gets queued cannot advance the baseline.
+        assert_eq!(baseline.next(&docs, 0).unwrap().1, initial);
+        docs[0].move_to(20, false);
+        let (second, cursor) = first.next(&docs, 0).unwrap();
+        assert!(serde_json::to_vec(&cursor).unwrap().len() < 1024);
+        assert!(
+            cursor["documents"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|d| d.get("text").is_none())
+        );
+        assert_eq!(cursor["documents"][0]["version"], 1);
+        docs[1].insert("!", false);
+        let (third, edited) = second.next(&docs, 1).unwrap();
+        assert!(edited["documents"][0].get("text").is_none());
+        assert_eq!(edited["documents"][1]["text"], "!other");
+        assert_eq!(edited["documents"][1]["version"], 2);
+        docs[1].undo();
+        let (_, undone) = third.next(&docs, 1).unwrap();
+        assert_eq!(undone["documents"][1]["version"], 3);
+        assert_eq!(undone["documents"][1]["text"], "other");
+    }
+    #[test]
+    fn path_dirty_and_lifecycle_updates_preserve_content_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut docs = vec![Document::from_text("original")];
+        let (first, _) = MirrorState::default().next(&docs, 0).unwrap();
+        docs[0].path = Some(directory.path().join("renamed.rs"));
+        let (second, renamed) = first.next(&docs, 0).unwrap();
+        assert_eq!(renamed["documents"][0]["version"], 2);
+        assert_eq!(renamed["documents"][0]["languageId"], "rust");
+        assert!(renamed["documents"][0].get("text").is_none());
+        docs[0].saved_revision = u64::MAX;
+        let (third, dirty) = second.next(&docs, 0).unwrap();
+        assert_eq!(dirty["documents"][0]["version"], 2);
+        assert_eq!(dirty["documents"][0]["isDirty"], true);
+        assert!(dirty["documents"][0].get("text").is_none());
+        let (closed, update) = third.next(&[], 0).unwrap();
+        assert_eq!(update["documents"], json!([]));
+        assert!(update["active"].is_null());
+        let (_, reopened) = closed.next(&docs, 0).unwrap();
+        assert_eq!(reopened["documents"][0]["text"], "original");
+    }
 }

@@ -19,27 +19,29 @@ function createApi(request, notify) {
     if (state.generation <= generation) return;
     generation = state.generation;
     const changes = [];
+    const present = new Set(state.documents.map(snapshot => snapshot.id));
     for (const snapshot of state.documents) {
       let document = documents.get(snapshot.id);
       const previous = document?.getText();
       const previousVersion = document?.version;
+      const previousEnd = typeof snapshot.text === 'string' && document?.positionAt(previous.length);
       if (!document) {
         document = new TextDocument(snapshot);
         documents.set(snapshot.id, document);
         changes.push(() => opened.fire(document));
       } else {
         document._update(snapshot);
-        if (snapshot.version !== previousVersion && previous !== snapshot.text) {
+        if (snapshot.version !== previousVersion && previous !== document.getText()) {
           changes.push(() => changed.fire({ document, contentChanges: [{
-            range: new Range(new Position(0, 0), new TextDocument({ ...snapshot, text: previous }).positionAt(previous.length)),
-            rangeOffset: 0, rangeLength: previous.length, text: snapshot.text,
+            range: new Range(new Position(0, 0), previousEnd),
+            rangeOffset: 0, rangeLength: previous.length, text: document.getText(),
           }] }));
         }
       }
       if (!editors.has(snapshot.id)) editors.set(snapshot.id, editorFor(snapshot.id, document));
     }
     for (const [id, document] of documents) {
-      if (!state.documents.some(snapshot => snapshot.id === id)) {
+      if (!present.has(id)) {
         document._snapshot = { ...document._snapshot, isClosed: true };
         documents.delete(id); editors.delete(id);
         changes.push(() => closed.fire(document));
@@ -76,10 +78,8 @@ function createApi(request, notify) {
         });
         try { callback(builder); } catch (error) { return Promise.reject(error); }
         finally { valid = false; }
-        return request('edit', { document: id, version, edits }).then(result => {
-          if (result.state) sync(result.state);
-          return result.applied;
-        });
+        // State notifications are processed before the native acknowledgement.
+        return request('edit', { document: id, version, edits }).then(result => result.applied);
       },
     });
   }

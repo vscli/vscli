@@ -5,7 +5,7 @@ The project is an evolving native terminal IDE. Start with the usage guide and c
 Use the toolchain pinned in `rust-toolchain.toml`. The full test suite also needs Python 3 and Node 24 for protocol/extension fixtures; building and using the native editor requires neither runtime. Run:
 
 ```sh
-node --test extension-host/api-types.test.cjs extension-host/api.test.cjs
+node --test extension-host/api-types.test.cjs extension-host/api.test.cjs extension-host/host.test.cjs
 cargo fmt --all --check
 cargo test --locked
 cargo clippy --all-targets --locked -- -D warnings
