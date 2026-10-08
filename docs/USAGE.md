@@ -85,6 +85,8 @@ Exact physical key delivery depends on terminal configuration. VSCLI negotiates 
 
 ## Multiple cursors and line commands
 
+Disjoint selections retain their primary and secondary order through normalization, typing, and undo/redo. Overlapping ranges merge while retaining the earliest selection's direction.
+
 Ctrl+D (Cmd+D on macOS) selects the word, then adds the next occurrence. Ctrl+Shift+L / Cmd+Shift+L selects every occurrence. Escape collapses to the primary cursor; Ctrl+U / Cmd+U undoes cursor changes. Alt-click adds a cursor. Shift+Alt+I places cursors at selected line ends.
 
 Vertical cursor shortcuts differ by platform: Linux uses Shift+Alt+Up/Down, Windows uses Ctrl+Alt+Up/Down, and macOS uses Cmd+Alt+Up/Down. Line duplication uses Ctrl+Shift+Alt+Up/Down on Linux and Shift+Alt+Up/Down on Windows/macOS. Alt+Up/Down moves the selected line block. Ctrl+Enter / Ctrl+Shift+Enter inserts a line below/above (Cmd on macOS). Bracket navigation uses Ctrl+Shift+\ / Cmd+Shift+\.
