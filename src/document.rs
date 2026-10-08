@@ -3,7 +3,7 @@ use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    io::{Read, Write},
+    io::{BufWriter, Read, Write},
     ops::Range,
     path::{Path, PathBuf},
     time::{Duration, Instant},
@@ -15,7 +15,7 @@ mod editing;
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
 
-pub fn read_disk(path: &Path) -> Result<Option<String>> {
+pub fn read_disk(path: &Path) -> Result<Option<Rope>> {
     let file = match fs::File::open(path) {
         Ok(file) => file,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -28,17 +28,86 @@ pub fn read_disk(path: &Path) -> Result<Option<String>> {
     if metadata.len() > MAX_FILE_BYTES {
         bail!("This alpha supports files up to 32 MiB");
     }
-    let mut bytes = Vec::new();
-    file.take(MAX_FILE_BYTES + 1).read_to_end(&mut bytes)?;
-    if bytes.len() as u64 > MAX_FILE_BYTES {
-        bail!("File grew beyond 32 MiB while reading");
+    read_text(file, MAX_FILE_BYTES).map(Some)
+}
+
+struct RetryInterrupted<R>(R);
+impl<R: Read> Read for RetryInterrupted<R> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        loop {
+            match self.0.read(buffer) {
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                result => return result,
+            }
+        }
     }
-    let content = String::from_utf8(bytes)
+}
+
+fn read_text(reader: impl Read, limit: u64) -> Result<Rope> {
+    let reader = std::io::BufReader::with_capacity(64 * 1024, reader.take(limit + 1));
+    let content = Rope::from_reader(RetryInterrupted(reader))
         .context("Could not read UTF-8 text (binary and other encodings are not supported yet)")?;
-    if content.contains('\0') {
+    if content.len_bytes() as u64 > limit {
+        bail!("File grew beyond the supported size while reading");
+    }
+    if content.chunks().any(|chunk| chunk.contains('\0')) {
         bail!("Binary file: refusing to edit NUL-containing content");
     }
-    Ok(Some(content))
+    Ok(content)
+}
+
+fn has_crlf(content: &Rope) -> bool {
+    let mut previous_cr = false;
+    for chunk in content.chunks() {
+        if (previous_cr && chunk.starts_with('\n')) || chunk.contains("\r\n") {
+            return true;
+        }
+        previous_cr = chunk.ends_with('\r');
+    }
+    false
+}
+
+fn reader_matches(mut reader: impl Read, expected: &Rope) -> Result<bool> {
+    let mut buffer = [0; 16 * 1024];
+    for chunk in expected.chunks() {
+        for bytes in chunk.as_bytes().chunks(buffer.len()) {
+            let actual = &mut buffer[..bytes.len()];
+            match reader.read_exact(actual) {
+                Ok(()) if actual == bytes => {}
+                Ok(()) => return Ok(false),
+                Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    return Ok(false);
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+    }
+    // Detect appended content without allocating a second file-sized buffer.
+    match reader.read_exact(&mut buffer[..1]) {
+        Ok(()) => Ok(false),
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => Ok(true),
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn disk_matches(path: &Path, expected: Option<&Rope>) -> Result<bool> {
+    let file = match fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(expected.is_none()),
+        Err(error) => return Err(error).context("Cannot check current file before saving"),
+    };
+    let metadata = file.metadata()?;
+    if !metadata.is_file() {
+        bail!("Not a regular file: {}", path.display());
+    }
+    let Some(expected) = expected else {
+        return Ok(false);
+    };
+    if metadata.len() != expected.len_bytes() as u64 {
+        return Ok(false);
+    }
+    reader_matches(std::io::BufReader::new(file), expected)
+        .context("Cannot check current file before saving")
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,7 +190,7 @@ pub struct Document {
     pub path: Option<PathBuf>,
     pub revision: u64,
     pub saved_revision: u64,
-    pub disk_content: Option<String>,
+    pub disk_content: Option<Rope>,
     pub eol: String,
     pub tab_size: usize,
     pub insert_spaces: bool,
@@ -197,8 +266,13 @@ impl Document {
         }
     }
     pub fn from_text(text: &str) -> Self {
+        Self::from_rope(Rope::from_str(text))
+    }
+
+    pub fn from_rope(text: Rope) -> Self {
+        let eol = if has_crlf(&text) { "\r\n" } else { "\n" }.into();
         Self {
-            text: Rope::from_str(text),
+            text,
             id: NEXT_DOCUMENT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             view: ViewState::default(),
             active_view: 0,
@@ -207,7 +281,7 @@ impl Document {
             revision: 0,
             saved_revision: 0,
             disk_content: None,
-            eol: if text.contains("\r\n") { "\r\n" } else { "\n" }.into(),
+            eol,
             tab_size: 4,
             insert_spaces: true,
             line_numbers: crate::settings::LineNumbers::On,
@@ -226,15 +300,14 @@ impl Document {
                 ..Self::default()
             });
         };
-        let mut doc = Self::from_text(&content);
+        let mut doc = Self::from_rope(content.clone());
         doc.path = Some(path);
         doc.disk_content = Some(content);
         Ok(doc)
     }
 
     /// Apply a disk reload as one undoable edit, retaining document and view identity.
-    pub fn reload_content(&mut self, content: String) {
-        let next = Rope::from_str(&content);
+    pub fn reload_content(&mut self, next: Rope) {
         let prefix = self
             .text
             .chars()
@@ -255,13 +328,8 @@ impl Document {
                 next.slice(prefix..next.len_chars() - suffix).to_string(),
             )]);
         }
-        self.eol = if content.contains("\r\n") {
-            "\r\n"
-        } else {
-            "\n"
-        }
-        .into();
-        self.disk_content = Some(content);
+        self.eol = if has_crlf(&next) { "\r\n" } else { "\n" }.into();
+        self.disk_content = Some(next);
         self.saved_revision = self.revision;
         self.break_group();
     }
@@ -897,19 +965,14 @@ impl Document {
     pub fn save_to(&mut self, path: &Path, overwrite: bool) -> Result<()> {
         let path = absolute_path(path)?;
         let same_path = self.path.as_ref() == Some(&path);
-        let current = match fs::read(&path) {
-            Ok(bytes) => Some(bytes),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-            Err(e) => return Err(e).context("Cannot check current file before saving"),
-        };
         if !overwrite {
             if same_path {
-                if current.as_deref() != self.disk_content.as_deref().map(str::as_bytes) {
+                if !disk_matches(&path, self.disk_content.as_ref())? {
                     bail!(
                         "File changed on disk. Save As a different file, or reload after preserving your edits."
                     );
                 }
-            } else if current.is_some() {
+            } else if path.try_exists()? {
                 bail!("File already exists. Choose a different path.");
             }
         }
@@ -919,14 +982,17 @@ impl Document {
         if let Ok(metadata) = fs::metadata(&path) {
             temp.as_file().set_permissions(metadata.permissions())?;
         }
-        let content = self.text.to_string();
-        temp.write_all(content.as_bytes())?;
+        {
+            let mut writer = BufWriter::new(temp.as_file_mut());
+            self.text.write_to(&mut writer)?;
+            writer.flush()?;
+        }
         temp.as_file().sync_all()?;
         temp.persist(&path)
             .map_err(|e| e.error)
             .context("Could not replace the destination file")?;
         self.path = Some(path);
-        self.disk_content = Some(content);
+        self.disk_content = Some(self.text.clone());
         self.saved_revision = self.revision;
         self.break_group();
         Ok(())
@@ -979,6 +1045,97 @@ fn map_position(p: usize, range: &Range<usize>, added: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct ShortReads<'a> {
+        bytes: &'a [u8],
+        interrupted: bool,
+    }
+    impl Read for ShortReads<'_> {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            self.interrupted = !self.interrupted;
+            if self.interrupted {
+                return Err(std::io::ErrorKind::Interrupted.into());
+            }
+            let size = buffer.len().min(7).min(self.bytes.len());
+            buffer[..size].copy_from_slice(&self.bytes[..size]);
+            self.bytes = &self.bytes[size..];
+            Ok(size)
+        }
+    }
+
+    #[test]
+    fn streamed_text_preserves_split_utf8_and_rejects_invalid_or_over_budget_input() {
+        let text = "ab🙂c\r\n漢字\n".repeat(5000);
+        let reader = || ShortReads {
+            bytes: text.as_bytes(),
+            interrupted: false,
+        };
+        let rope = read_text(reader(), text.len() as u64).unwrap();
+        assert_eq!(rope, text);
+        assert!(has_crlf(&rope));
+        assert!(reader_matches(reader(), &rope).unwrap());
+        assert!(read_text(reader(), text.len() as u64 - 1).is_err());
+        assert!(read_text(&b"binary\0text"[..], 100).is_err());
+        assert!(read_text(&b"invalid\xff"[..], 100).is_err());
+        assert!(read_text(&b"truncated\xf0\x9f"[..], 100).is_err());
+        assert_eq!(read_text(&b""[..], 0).unwrap().len_bytes(), 0);
+        let error = std::io::Error::other("read failed");
+        struct FailedRead(Option<std::io::Error>);
+        impl Read for FailedRead {
+            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                Err(self.0.take().unwrap())
+            }
+        }
+        assert!(
+            read_text(FailedRead(Some(error)), 100)
+                .unwrap_err()
+                .to_string()
+                .contains("UTF-8")
+        );
+    }
+
+    #[test]
+    fn streamed_comparison_detects_truncation_append_and_late_changes() {
+        let text = "line🙂\r\n".repeat(20000);
+        let rope = Rope::from_str(&text);
+        assert!(reader_matches(text.as_bytes(), &rope).unwrap());
+        assert!(!reader_matches(&text.as_bytes()[..text.len() - 1], &rope).unwrap());
+        let mut changed = text.clone();
+        changed.push('x');
+        assert!(!reader_matches(changed.as_bytes(), &rope).unwrap());
+        changed = text.clone();
+        changed.replace_range(text.len() - 2.., "xx");
+        assert!(!reader_matches(changed.as_bytes(), &rope).unwrap());
+        assert!(!reader_matches(&b"x"[..], &Rope::new()).unwrap());
+        assert!(!reader_matches(&b""[..], &rope).unwrap());
+    }
+
+    #[test]
+    fn saved_rope_baselines_survive_edits_undo_streamed_save_and_external_conflicts() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("large.txt");
+        let original = "first🙂\r\nsecond漢字\r\n".repeat(50000);
+        fs::write(&path, &original).unwrap();
+        let mut doc = Document::open(&path).unwrap();
+        let baseline = doc.disk_content.clone().unwrap();
+        doc.insert("edited\r\n", false);
+        assert_eq!(doc.disk_content.as_ref().unwrap(), &baseline);
+        doc.save().unwrap();
+        let saved = format!("edited\r\n{original}");
+        assert_eq!(fs::read_to_string(&path).unwrap(), saved);
+        assert_eq!(doc.disk_content.as_ref().unwrap(), &doc.text);
+        assert_eq!(baseline, original);
+        doc.undo();
+        assert_eq!(doc.text, original);
+        assert!(doc.dirty());
+        let external = format!("X{}", &saved[1..]);
+        fs::write(&path, &external).unwrap();
+        assert!(doc.save().is_err());
+        assert!(doc.dirty());
+        assert_eq!(doc.text, original);
+        assert_eq!(doc.disk_content.as_ref().unwrap(), &Rope::from_str(&saved));
+        assert_eq!(fs::read_to_string(&path).unwrap(), external);
+    }
+
     #[test]
     fn graphemes_crlf_and_undo() {
         let mut d = Document::from_text("a\u{301}🙂\r\nnext");
