@@ -143,6 +143,15 @@ pub fn edits(
 pub use crate::languages::language;
 
 impl Client {
+    pub fn debug_summary(&self) -> String {
+        format!(
+            "ready={}, synced={}, pending={}\n{}",
+            self.ready,
+            self.synced.len(),
+            self.pending.len(),
+            self.transport.stderr_tail()
+        )
+    }
     pub fn start(program: &str, args: &[String], root: &Path, language: String) -> Result<Self> {
         let root_uri = file_uri(root)?;
         let transport = crate::transport::Process::start(program, args, root)?;

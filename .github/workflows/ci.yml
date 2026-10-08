@@ -76,5 +76,6 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: sudo apt-get update && sudo apt-get install -y clangd
       - run: python -m pip install debugpy==1.8.22
+      - run: clangd --version
       - run: cargo test --test language_server -- --ignored
       - run: cargo test --test debug_adapter -- --ignored

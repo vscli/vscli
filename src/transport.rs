@@ -155,11 +155,7 @@ impl Process {
         match self.receiver.try_recv() {
             Ok(Ok(message)) => Ok(Some(message)),
             Ok(Err(error)) => {
-                let stderr = self
-                    .stderr
-                    .lock()
-                    .map(|b| String::from_utf8_lossy(&b).into_owned())
-                    .unwrap_or_default();
+                let stderr = self.stderr_tail();
                 bail!("{error}\n{stderr}");
             }
             Err(mpsc::TryRecvError::Empty) => Ok(None),
@@ -168,6 +164,12 @@ impl Process {
     }
     pub fn exited(&mut self) -> bool {
         matches!(self.child.try_wait(), Ok(Some(_)))
+    }
+    pub fn stderr_tail(&self) -> String {
+        self.stderr
+            .lock()
+            .map(|b| String::from_utf8_lossy(&b).into_owned())
+            .unwrap_or_default()
     }
 }
 impl Drop for Process {
