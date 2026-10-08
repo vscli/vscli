@@ -81,8 +81,18 @@ possible undo grouping sequences are not qualified by these immediate traces.
 
 ## Outstanding compatibility
 
-Variables are supplied by the caller; editor/file/selection/date/clipboard
-resolvers are not connected yet. API insertion and user snippets have separate
+The native environment resolver supplies document/selection/cursor values,
+file/workspace paths, a snapshot of local date/time, per-occurrence random values
+and UUIDs, supplied clipboard text, and built-in comment tokens. Resolvers run
+against each original insertion cursor before mutation. Thirty additional pinned
+cases (59 observations) cover per-cursor context, selected-text indentation,
+plain-text word lookup, ten language identifiers, cancellation, and leaving and
+returning to a field. These local Linux captures are rerun in all three CI jobs;
+cross-platform evidence for this addition is pending. File/path/date/random and
+clipboard-spread behavior currently have native tests, not full differential
+qualification. Language-specific/custom word patterns, extension language
+configuration, localized names, overtyped selections, and OS clipboard adapters
+remain separately qualified work. API insertion and user snippets have separate
 parsing entry points: unknown variables in the API fixture become empty or use
 their default; user preprocessing turns unknown bare variables into numbered
 editable placeholders. Broader whitespace/EOL qualification, nested snippet insertion,

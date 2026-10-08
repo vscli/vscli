@@ -75,3 +75,15 @@ fn insertion_context_matches_reference_traces() {
     assert_eq!(cases.len(), 34);
     assert_eq!(snippets::trace(&cases).unwrap(), expected);
 }
+
+#[test]
+fn native_variables_and_cancellation_match_reference() {
+    let cases: Vec<Value> =
+        serde_json::from_str(include_str!("vscode-reference/snippet-variable-cases.json")).unwrap();
+    let expected: Vec<Value> = serde_json::from_str(include_str!(
+        "vscode-reference/baselines/1.95.0/snippet-variables/linux.json"
+    ))
+    .unwrap();
+    assert_eq!(cases.len(), 30);
+    assert_eq!(snippets::trace(&cases).unwrap(), expected);
+}

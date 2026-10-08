@@ -51,7 +51,9 @@ async function run() {
   fs.writeFileSync(path.join(output, 'snippets.json'), JSON.stringify(snippets, null, 2) + '\n');
   const insertion = await snippetTrace(vscode, require('./snippet-insertion-cases.json'));
   fs.writeFileSync(path.join(output, 'snippet-insertion.json'), JSON.stringify(insertion, null, 2) + '\n');
-  console.log(`Exported ${bindings.length} default rules, ${trace.length} configuration observations and ${snippets.length} snippet session traces and ${insertion.length} insertion traces`);
+  const variables = await snippetTrace(vscode, require('./snippet-variable-cases.json'));
+  fs.writeFileSync(path.join(output, 'snippet-variables.json'), JSON.stringify(variables, null, 2) + '\n');
+  console.log(`Exported ${bindings.length} default rules, ${trace.length} configuration observations and ${snippets.length} snippet session traces and ${insertion.length} insertion traces and ${variables.length} variable/cancellation traces`);
 }
 
 exports.run = async () => {

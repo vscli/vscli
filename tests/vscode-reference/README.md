@@ -128,6 +128,17 @@ directory. Prefer copying a baseline directory under `target/` before comparing
 to keep the checkout clean. This reuses saved observations; it does not replace
 running the current shared fixture against the actual reference.
 
+## Variable and cancellation traces
+
+`snippet-variables.json` captures 30 user-command cases (59 observations), including
+per-cursor values, selected-text indentation, word lookup, built-in comment
+configuration, Escape cancellation, and leaving/reentering a field. Compare with
+`cargo run --locked --example snippet_contract -- --variables <output>/snippet-variables.json`.
+Native offline tests use the same runner. The initial Linux capture is local;
+fresh three-platform comparisons run in CI. Nondeterministic date/random values,
+file/URI labels, real clipboard services, and localized language configuration
+are not qualified by these traces.
+
 ## Provenance
 
 The default document and keyboard diagnostic come from the pinned upstream

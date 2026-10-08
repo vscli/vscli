@@ -1,0 +1,513 @@
+[
+  {
+    "name": "cursor_context",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "alpha\nbeta\ngamma\n",
+    "body": "$CURSOR_INDEX/$CURSOR_NUMBER/$TM_LINE_INDEX/$TM_LINE_NUMBER/${TM_CURRENT_LINE}/$TM_SELECTED_TEXT/$SELECTION$0",
+    "selections": [
+      {
+        "anchor": 12,
+        "cursor": 14
+      },
+      {
+        "anchor": 1,
+        "cursor": 3
+      },
+      {
+        "anchor": 6,
+        "cursor": 10
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "reversed_multiline_selection",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "first\nsecond\nthird\n",
+    "body": "$TM_LINE_NUMBER/${TM_CURRENT_LINE}/$TM_SELECTED_TEXT$0",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 2
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "empty_selection_default",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "alpha\n",
+    "body": "${TM_SELECTED_TEXT:default}/$SELECTION/${TM_CURRENT_LINE:wrong}$0",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 1
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "word_word",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "foo-bar\n",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 1
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "word_dash",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "foo-bar\n",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 4
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "word_decimal",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "-12.34ms\n",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "word_unicode",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "猫é🙂next\n",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "selections": [
+      {
+        "anchor": 5,
+        "cursor": 5
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "word_space",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": " a b \n",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "word_word_end",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "abc \n",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "word_punctuation",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "a::b\n",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 2
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "word_empty",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "\n",
+    "body": "${TM_CURRENT_WORD:missing}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "selected_multiline",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "  one\n  two\n",
+    "body": "wrap {\n\t${TM_SELECTED_TEXT}\n}\n${1:end}$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 11
+      }
+    ],
+    "steps": [
+      {
+        "type": "done"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "selected_crlf",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "  one\r\n  two\r\n",
+    "body": "wrap {\n\t${TM_SELECTED_TEXT}\n}\n${1:end}$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 12
+      }
+    ],
+    "steps": [
+      {
+        "type": "done"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "selected_tabs",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "\tone\n\ttwo\n",
+    "body": "wrap {\n\t${TM_SELECTED_TEXT}\n}\n${1:end}$0",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 9
+      }
+    ],
+    "steps": [
+      {
+        "type": "done"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "selected_trailing_newline",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "  one\n  two\n",
+    "body": "wrap {\n\t${TM_SELECTED_TEXT}\n}\n${1:end}$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 12
+      }
+    ],
+    "steps": [
+      {
+        "type": "done"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "selection_at_template_start",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "  one\n  two\n",
+    "body": "$TM_SELECTED_TEXT$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 11
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "selection_after_variable",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "  one\n  two\n",
+    "body": "${TM_LINE_NUMBER}\n\t$SELECTION$0",
+    "selections": [
+      {
+        "anchor": 2,
+        "cursor": 11
+      }
+    ],
+    "steps": []
+  },
+  {
+    "name": "comments_plaintext",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "plaintext"
+  },
+  {
+    "name": "comments_rust",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "rust"
+  },
+  {
+    "name": "comments_python",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "python"
+  },
+  {
+    "name": "comments_javascript",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "javascript"
+  },
+  {
+    "name": "comments_json",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "json"
+  },
+  {
+    "name": "comments_css",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "css"
+  },
+  {
+    "name": "comments_html",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "html"
+  },
+  {
+    "name": "comments_markdown",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "markdown"
+  },
+  {
+    "name": "comments_shellscript",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "shellscript"
+  },
+  {
+    "name": "comments_toml",
+    "entry": "command",
+    "resolveVariables": true,
+    "text": "",
+    "body": "${LINE_COMMENT:line}|${BLOCK_COMMENT_START:start}|${BLOCK_COMMENT_END:end}$0",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 0
+      }
+    ],
+    "steps": [],
+    "language": "toml"
+  },
+  {
+    "name": "leave_selection",
+    "entry": "command",
+    "resolveVariables": true,
+    "body": "${1:cat}-$1-${2:dog}$0",
+    "steps": [
+      {
+        "command": "leaveSnippet"
+      },
+      {
+        "type": "x"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "leave_after_typing",
+    "entry": "command",
+    "resolveVariables": true,
+    "body": "${1:cat}-$1-${2:dog}$0",
+    "steps": [
+      {
+        "type": "fox"
+      },
+      {
+        "command": "leaveSnippet"
+      },
+      {
+        "type": "!"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "leave_field_and_return",
+    "entry": "command",
+    "resolveVariables": true,
+    "body": "${1:a} b ${2:c}$0",
+    "steps": [
+      {
+        "command": "cursorRight"
+      },
+      {
+        "command": "cursorRight"
+      },
+      {
+        "command": "cursorLeft"
+      },
+      {
+        "command": "jumpToNextSnippetPlaceholder"
+      }
+    ]
+  }
+]
