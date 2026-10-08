@@ -31,3 +31,31 @@ input event. Keep these regressions when upgrading. Remove the local patch once
 an upstream release fixes this behavior and passes the same tests; do not edit
 unrelated vendored sources. The packaging script includes the crate's license
 through Cargo metadata, just as for registry dependencies.
+
+`unicode-segmentation/` contains the published unicode-segmentation 1.13.3 crate,
+including its Apache-2.0/MIT licenses, copyright notice, and Unicode 17 test data.
+The root patch also applies to transitive users of this version.
+
+- Upstream: https://github.com/unicode-rs/unicode-segmentation
+- Published source commit: `66a032fd8d667bc47ac5b640b151dff3f5356d07`
+- Archive: https://static.crates.io/crates/unicode-segmentation/unicode-segmentation-1.13.3.crate
+- Archive SHA-256: `c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8`
+
+Only `src/grapheme.rs` is modified, with two minimal upstream backports:
+
+- [5dfedef](https://github.com/unicode-rs/unicode-segmentation/commit/5dfedefcdd8a2d888843ae3fe88a8f2615408f7f)
+  preserves an already-known regional-indicator count across chunk changes.
+  Without it, moving through rope chunks can split a flag emoji in half.
+- [048d51f](https://github.com/unicode-rs/unicode-segmentation/commit/048d51fe1d9bac5ca7c56226d3a4b42f21d70be2)
+  applies control/CR/LF breaks before the Prepend rule in supplied context.
+
+Unicode tables and unrelated upstream changes are intentionally retained at the
+published version. `tests/grapheme_conformance.rs` runs the bundled Unicode 17
+expected boundaries through forward, backward, and boundary-query cursors with
+each scalar in a separate chunk, for both extended and legacy graphemes. It also
+covers a cached regional-indicator regression. Native document tests exercise
+real rope leaves, including clusters spanning several leaves.
+
+Remove this patch once a released dependency includes both fixes and passes
+these tests. Dependency notices are collected through Cargo metadata during
+packaging, including the licenses and copyright notice from this directory.

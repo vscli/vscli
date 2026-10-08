@@ -46,3 +46,5 @@ strip = true
 [patch.crates-io]
 # Read buffered input across the 1 KiB parser boundary; see vendor/README.md.
 crossterm = { path = "vendor/crossterm" }
+# Backport chunk-boundary correctness fixes while retaining Unicode 17 tables.
+unicode-segmentation = { path = "vendor/unicode-segmentation" }
