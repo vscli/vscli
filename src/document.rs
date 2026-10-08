@@ -1,0 +1,1134 @@
+use anyhow::{Context, Result, bail};
+use ropey::Rope;
+use serde::{Deserialize, Serialize};
+use std::{
+    fs,
+    io::{Read, Write},
+    ops::Range,
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
+mod editing;
+
+pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
+const HISTORY_LIMIT: usize = 1000;
+
+pub fn read_disk(path: &Path) -> Result<Option<String>> {
+    let file = match fs::File::open(path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e).context("Cannot read file"),
+    };
+    let metadata = file.metadata()?;
+    if !metadata.is_file() {
+        bail!("Not a regular file: {}", path.display());
+    }
+    if metadata.len() > MAX_FILE_BYTES {
+        bail!("This alpha supports files up to 32 MiB");
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_FILE_BYTES + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_FILE_BYTES {
+        bail!("File grew beyond 32 MiB while reading");
+    }
+    let content = String::from_utf8(bytes)
+        .context("Could not read UTF-8 text (binary and other encodings are not supported yet)")?;
+    if content.contains('\0') {
+        bail!("Binary file: refusing to edit NUL-containing content");
+    }
+    Ok(Some(content))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Selection {
+    pub cursor: usize,
+    pub anchor: Option<usize>,
+    #[serde(default)]
+    pub desired_column: Option<usize>,
+}
+impl Selection {
+    pub fn caret(cursor: usize) -> Self {
+        Self {
+            cursor,
+            anchor: None,
+            desired_column: None,
+        }
+    }
+    pub fn range(&self) -> Range<usize> {
+        let anchor = self.anchor.unwrap_or(self.cursor);
+        anchor.min(self.cursor)..anchor.max(self.cursor)
+    }
+}
+
+#[derive(Clone)]
+struct Snapshot {
+    text: Rope,
+    cursor: usize,
+    anchor: Option<usize>,
+    secondary: Vec<Selection>,
+    revision: u64,
+    view_id: u64,
+    changes: Vec<PositionChange>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ViewState {
+    pub cursor: usize,
+    pub anchor: Option<usize>,
+    pub secondary: Vec<Selection>,
+    pub top: usize,
+    pub left: usize,
+    desired_column: Option<usize>,
+    cursor_history: Vec<Vec<Selection>>,
+}
+#[derive(Clone)]
+struct PositionChange {
+    range: Range<usize>,
+    added: usize,
+}
+impl PositionChange {
+    fn inverse(&self) -> Self {
+        Self {
+            range: self.range.start..self.range.start + self.added,
+            added: self.range.len(),
+        }
+    }
+    fn map(&self, view: &mut ViewState) {
+        view.cursor = map_position(view.cursor, &self.range, self.added);
+        view.anchor = view
+            .anchor
+            .map(|p| map_position(p, &self.range, self.added));
+        for selection in &mut view.secondary {
+            selection.cursor = map_position(selection.cursor, &self.range, self.added);
+            selection.anchor = selection
+                .anchor
+                .map(|p| map_position(p, &self.range, self.added));
+            selection.desired_column = None;
+        }
+        view.desired_column = None;
+        view.cursor_history.clear();
+    }
+}
+
+pub struct Document {
+    pub id: u64,
+    pub text: Rope,
+    view: ViewState,
+    active_view: u64,
+    other_views: std::collections::HashMap<u64, ViewState>,
+    pub path: Option<PathBuf>,
+    pub revision: u64,
+    pub saved_revision: u64,
+    pub disk_content: Option<String>,
+    pub eol: String,
+    pub tab_size: usize,
+    pub insert_spaces: bool,
+    pub line_numbers: crate::settings::LineNumbers,
+    undo: Vec<Snapshot>,
+    redo: Vec<Snapshot>,
+    next_revision: u64,
+    typing: Option<(Instant, usize)>,
+}
+
+impl std::ops::Deref for Document {
+    type Target = ViewState;
+    fn deref(&self) -> &ViewState {
+        &self.view
+    }
+}
+impl std::ops::DerefMut for Document {
+    fn deref_mut(&mut self) -> &mut ViewState {
+        &mut self.view
+    }
+}
+
+static NEXT_DOCUMENT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+impl Default for Document {
+    fn default() -> Self {
+        Self::from_text("")
+    }
+}
+
+impl Document {
+    pub fn activate_view(&mut self, id: u64) {
+        self.switch_view(id, true);
+    }
+    pub fn display_view(&mut self, id: u64) {
+        self.switch_view(id, false);
+    }
+    fn switch_view(&mut self, id: u64, user_action: bool) {
+        if id == self.active_view {
+            return;
+        }
+        if user_action {
+            self.break_group();
+        }
+        let next = self.other_views.remove(&id).unwrap_or_else(|| {
+            let mut view = self.view.clone();
+            view.cursor_history.clear();
+            view
+        });
+        let previous = std::mem::replace(&mut self.view, next);
+        self.other_views.insert(self.active_view, previous);
+        self.active_view = id;
+    }
+    pub fn remove_view(&mut self, id: u64) {
+        self.other_views.remove(&id);
+        if self.active_view == id {
+            self.active_view = 0;
+        }
+    }
+    fn record_change(&mut self, range: Range<usize>, added: usize) {
+        let change = PositionChange { range, added };
+        for view in self.other_views.values_mut() {
+            change.map(view);
+        }
+        if let Some(snapshot) = self.undo.last_mut() {
+            snapshot.changes.push(change);
+        }
+    }
+    fn replace_undo_snapshot(&mut self, mut original: Snapshot) {
+        if let Some(snapshot) = self.undo.last_mut() {
+            original.changes = std::mem::take(&mut snapshot.changes);
+            *snapshot = original;
+        }
+    }
+    pub fn from_text(text: &str) -> Self {
+        Self {
+            text: Rope::from_str(text),
+            id: NEXT_DOCUMENT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            view: ViewState::default(),
+            active_view: 0,
+            other_views: std::collections::HashMap::new(),
+            path: None,
+            revision: 0,
+            saved_revision: 0,
+            disk_content: None,
+            eol: if text.contains("\r\n") { "\r\n" } else { "\n" }.into(),
+            tab_size: 4,
+            insert_spaces: true,
+            line_numbers: crate::settings::LineNumbers::On,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            next_revision: 1,
+            typing: None,
+        }
+    }
+
+    pub fn open(path: &Path) -> Result<Self> {
+        let path = absolute_path(path)?;
+        let Some(content) = read_disk(&path)? else {
+            return Ok(Self {
+                path: Some(path),
+                ..Self::default()
+            });
+        };
+        let mut doc = Self::from_text(&content);
+        doc.path = Some(path);
+        doc.disk_content = Some(content);
+        Ok(doc)
+    }
+
+    /// Apply a disk reload as one undoable edit, retaining document and view identity.
+    pub fn reload_content(&mut self, content: String) {
+        let next = Rope::from_str(&content);
+        let prefix = self
+            .text
+            .chars()
+            .zip(next.chars())
+            .take_while(|(a, b)| a == b)
+            .count();
+        let suffix = self
+            .text
+            .chars()
+            .reversed()
+            .zip(next.chars().reversed())
+            .take(self.len().min(next.len_chars()).saturating_sub(prefix))
+            .take_while(|(a, b)| a == b)
+            .count();
+        if self.text != next {
+            self.apply_changes(vec![(
+                prefix..self.len() - suffix,
+                next.slice(prefix..next.len_chars() - suffix).to_string(),
+            )]);
+        }
+        self.eol = if content.contains("\r\n") {
+            "\r\n"
+        } else {
+            "\n"
+        }
+        .into();
+        self.disk_content = Some(content);
+        self.saved_revision = self.revision;
+        self.break_group();
+    }
+
+    pub fn name(&self) -> String {
+        self.path
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "Untitled".into())
+    }
+    pub fn dirty(&self) -> bool {
+        self.revision != self.saved_revision
+    }
+    pub fn len(&self) -> usize {
+        self.text.len_chars()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.text.len_chars() == 0
+    }
+    pub fn line_count(&self) -> usize {
+        self.text.len_lines()
+    }
+    pub fn line(&self, row: usize) -> String {
+        self.text
+            .line(row.min(self.line_count() - 1))
+            .to_string()
+            .trim_end_matches(['\r', '\n'])
+            .to_string()
+    }
+    pub fn row(&self) -> usize {
+        self.text.char_to_line(self.cursor.min(self.len()))
+    }
+    pub fn line_start(&self, row: usize) -> usize {
+        self.text.line_to_char(row.min(self.line_count() - 1))
+    }
+    pub fn line_end(&self, row: usize) -> usize {
+        self.line_start(row) + self.line(row).chars().count()
+    }
+    pub fn column(&self) -> usize {
+        self.cursor - self.line_start(self.row())
+    }
+    pub fn visual_column(&self) -> usize {
+        let prefix = self
+            .text
+            .slice(self.line_start(self.row())..self.cursor)
+            .to_string();
+        self.display_width(&prefix)
+    }
+    pub fn display_width(&self, text: &str) -> usize {
+        text.graphemes(true)
+            .fold(0, |col, g| col + self.grapheme_width(g, col))
+    }
+    pub fn grapheme_width(&self, g: &str, column: usize) -> usize {
+        if g == "\t" {
+            let tab = self.tab_size.clamp(1, 16);
+            tab - column % tab
+        } else {
+            grapheme_width(g, column)
+        }
+    }
+    pub fn indentation(&self) -> String {
+        if self.insert_spaces {
+            " ".repeat(self.tab_size.clamp(1, 16))
+        } else {
+            "\t".into()
+        }
+    }
+    pub fn set_indentation(&mut self, tab_size: usize, insert_spaces: bool) {
+        let tab_size = tab_size.clamp(1, 16);
+        if self.tab_size != tab_size {
+            self.view.desired_column = None;
+            for selection in &mut self.view.secondary {
+                selection.desired_column = None;
+            }
+            for view in self.other_views.values_mut() {
+                view.desired_column = None;
+                for selection in &mut view.secondary {
+                    selection.desired_column = None;
+                }
+            }
+        }
+        self.tab_size = tab_size;
+        self.insert_spaces = insert_spaces;
+    }
+    pub fn position_at(&self, row: usize, column: usize) -> usize {
+        let row = row.min(self.line_count() - 1);
+        let line = self.line(row);
+        let mut width = 0;
+        let mut chars = 0;
+        for g in line.graphemes(true) {
+            let w = self.grapheme_width(g, width);
+            if width + w > column {
+                break;
+            }
+            width += w;
+            chars += g.chars().count();
+        }
+        self.line_start(row) + chars
+    }
+    pub fn selection(&self) -> Option<Range<usize>> {
+        self.anchor
+            .filter(|a| *a != self.cursor)
+            .map(|a| a.min(self.cursor)..a.max(self.cursor))
+    }
+    pub fn selected_text(&self) -> Option<String> {
+        self.selection().map(|r| self.text.slice(r).to_string())
+    }
+    fn snapshot(&self) -> Snapshot {
+        Snapshot {
+            text: self.text.clone(),
+            cursor: self.cursor,
+            anchor: self.anchor,
+            secondary: self.secondary.clone(),
+            revision: self.revision,
+            view_id: self.active_view,
+            changes: Vec::new(),
+        }
+    }
+    fn checkpoint(&mut self) {
+        self.undo.push(self.snapshot());
+        if self.undo.len() > HISTORY_LIMIT {
+            self.undo.remove(0);
+        }
+        self.redo.clear();
+    }
+    fn changed(&mut self) {
+        self.revision = self.next_revision;
+        self.next_revision += 1;
+        self.desired_column = None;
+        self.cursor_history.clear();
+    }
+    pub fn break_group(&mut self) {
+        self.typing = None;
+    }
+    pub fn insert(&mut self, text: &str, typing: bool) {
+        if !self.secondary.is_empty() {
+            let group = typing
+                && !text.contains(['\n', '\r'])
+                && self.selections().iter().all(|s| s.range().is_empty())
+                && self.typing.is_some_and(|(time, end)| {
+                    time.elapsed() < Duration::from_millis(700) && end == self.cursor
+                });
+            self.replace_cursors(|_, _| text.to_string());
+            if group && let Some(last) = self.undo.pop() {
+                if let Some(previous) = self.undo.last_mut() {
+                    previous.changes.extend(last.changes);
+                } else {
+                    self.undo.push(last);
+                }
+            }
+            self.typing = typing.then(|| (Instant::now(), self.cursor));
+            return;
+        }
+        if text.is_empty() && self.selection().is_none() {
+            return;
+        }
+        let range = self.selection().unwrap_or(self.cursor..self.cursor);
+        let can_group = typing
+            && self.selection().is_none()
+            && !text.contains(['\n', '\r'])
+            && self.typing.is_some_and(|(time, end)| {
+                time.elapsed() < Duration::from_millis(700) && end == self.cursor
+            });
+        if !can_group {
+            self.checkpoint();
+        }
+        self.record_change(range.clone(), text.chars().count());
+        self.text.remove(range.clone());
+        self.text.insert(range.start, text);
+        self.cursor = range.start + text.chars().count();
+        self.anchor = None;
+        self.changed();
+        self.typing = if typing {
+            Some((Instant::now(), self.cursor))
+        } else {
+            None
+        };
+    }
+    pub fn newline(&mut self) {
+        if !self.secondary.is_empty() {
+            self.replace_cursors(|doc, selection| {
+                let row = doc.text.char_to_line(selection.range().start);
+                let column = selection.range().start - doc.line_start(row);
+                let indent: String = doc
+                    .line(row)
+                    .chars()
+                    .take(column)
+                    .take_while(|c| matches!(c, ' ' | '\t'))
+                    .collect();
+                format!("{}{}", doc.eol, indent)
+            });
+            return;
+        }
+        let line = self.line(self.row());
+        let indent: String = line
+            .chars()
+            .take(self.column())
+            .take_while(|c| matches!(c, ' ' | '\t'))
+            .collect();
+        self.insert(&format!("{}{}", self.eol, indent), false);
+    }
+    pub fn undo(&mut self) {
+        self.break_group();
+        if let Some(s) = self.undo.pop() {
+            self.redo.push(self.reverse_snapshot(&s));
+            self.restore(s);
+        }
+    }
+    pub fn redo(&mut self) {
+        self.break_group();
+        if let Some(s) = self.redo.pop() {
+            self.undo.push(self.reverse_snapshot(&s));
+            self.restore(s);
+        }
+    }
+    fn reverse_snapshot(&self, target: &Snapshot) -> Snapshot {
+        let view = if target.view_id == self.active_view {
+            &self.view
+        } else {
+            self.other_views.get(&target.view_id).unwrap_or(&self.view)
+        };
+        Snapshot {
+            text: self.text.clone(),
+            cursor: view.cursor,
+            anchor: view.anchor,
+            secondary: view.secondary.clone(),
+            revision: self.revision,
+            view_id: target.view_id,
+            changes: target
+                .changes
+                .iter()
+                .rev()
+                .map(PositionChange::inverse)
+                .collect(),
+        }
+    }
+    fn restore(&mut self, s: Snapshot) {
+        for change in s.changes.iter().rev().map(PositionChange::inverse) {
+            change.map(&mut self.view);
+            for view in self.other_views.values_mut() {
+                change.map(view);
+            }
+        }
+        self.text = s.text;
+        let view = if s.view_id == self.active_view {
+            Some(&mut self.view)
+        } else {
+            self.other_views.get_mut(&s.view_id)
+        };
+        if let Some(view) = view {
+            view.cursor = s.cursor;
+            view.anchor = s.anchor;
+            view.secondary = s.secondary;
+            view.desired_column = None;
+            view.cursor_history.clear();
+        }
+        self.revision = s.revision;
+    }
+    pub fn move_to(&mut self, pos: usize, select: bool) {
+        self.break_group();
+        if select {
+            if self.anchor.is_none() {
+                self.anchor = Some(self.cursor);
+            }
+        } else {
+            self.anchor = None;
+        }
+        self.cursor = pos.min(self.len());
+        self.desired_column = None;
+    }
+    pub fn previous(&self, pos: usize) -> usize {
+        if pos == 0 {
+            return 0;
+        }
+        let row = self.text.char_to_line(pos);
+        let start = self.line_start(row);
+        if pos == start {
+            return self.line_end(row - 1);
+        }
+        let text = self.text.slice(start..pos).to_string();
+        pos - text
+            .graphemes(true)
+            .next_back()
+            .map_or(1, |g| g.chars().count())
+    }
+    pub fn next(&self, pos: usize) -> usize {
+        if pos >= self.len() {
+            return self.len();
+        }
+        let row = self.text.char_to_line(pos);
+        let end = self.line_end(row);
+        if pos >= end {
+            return if row + 1 < self.line_count() {
+                self.line_start(row + 1)
+            } else {
+                self.len()
+            };
+        }
+        let text = self.text.slice(pos..end).to_string();
+        pos + text.graphemes(true).next().map_or(1, |g| g.chars().count())
+    }
+    pub fn word_left(&self) -> usize {
+        let mut p = self.cursor;
+        while p > 0 && self.text.char(p - 1).is_whitespace() {
+            p = self.previous(p);
+        }
+        if p == 0 {
+            return p;
+        }
+        let word = is_word(self.text.char(p - 1));
+        while p > 0
+            && !self.text.char(p - 1).is_whitespace()
+            && is_word(self.text.char(p - 1)) == word
+        {
+            p = self.previous(p);
+        }
+        p
+    }
+    pub fn word_right(&self) -> usize {
+        let mut p = self.cursor;
+        if p < self.len() && !self.text.char(p).is_whitespace() {
+            let word = is_word(self.text.char(p));
+            while p < self.len()
+                && !self.text.char(p).is_whitespace()
+                && is_word(self.text.char(p)) == word
+            {
+                p = self.next(p);
+            }
+        }
+        while p < self.len() && self.text.char(p).is_whitespace() {
+            p = self.next(p);
+        }
+        p
+    }
+    pub fn horizontal(&mut self, right: bool, select: bool, word: bool) {
+        let pos = if !select && !word && self.selection().is_some() {
+            let r = self.selection().unwrap();
+            if right { r.end } else { r.start }
+        } else if word {
+            if right {
+                self.word_right()
+            } else {
+                self.word_left()
+            }
+        } else if right {
+            self.next(self.cursor)
+        } else {
+            self.previous(self.cursor)
+        };
+        self.move_to(pos, select);
+    }
+    pub fn vertical(&mut self, amount: isize, select: bool) {
+        let col = self.desired_column.unwrap_or_else(|| self.visual_column());
+        let row = self
+            .row()
+            .saturating_add_signed(amount)
+            .min(self.line_count() - 1);
+        self.move_to(self.position_at(row, col), select);
+        self.desired_column = Some(col);
+    }
+    pub fn home(&mut self, select: bool) {
+        let start = self.line_start(self.row());
+        let first = start
+            + self
+                .line(self.row())
+                .chars()
+                .take_while(|c| c.is_whitespace())
+                .count();
+        self.move_to(if self.cursor == first { start } else { first }, select);
+    }
+    pub fn backspace(&mut self, word: bool) {
+        if !self.secondary.is_empty() {
+            self.delete_cursors(false, word);
+            return;
+        }
+        let range = self.selection().unwrap_or_else(|| {
+            let start = if word {
+                self.word_left()
+            } else {
+                self.previous(self.cursor)
+            };
+            start..self.cursor
+        });
+        self.delete_range(range);
+    }
+    pub fn delete(&mut self, word: bool) {
+        if !self.secondary.is_empty() {
+            self.delete_cursors(true, word);
+            return;
+        }
+        let range = self.selection().unwrap_or_else(|| {
+            let end = if word {
+                self.word_right()
+            } else {
+                self.next(self.cursor)
+            };
+            self.cursor..end
+        });
+        self.delete_range(range);
+    }
+    pub fn delete_range(&mut self, range: Range<usize>) {
+        if range.is_empty() {
+            return;
+        }
+        let start = range.start;
+        self.apply_changes(vec![(range, String::new())]);
+        self.move_to(start, false);
+    }
+    pub fn select_all(&mut self) {
+        self.secondary.clear();
+        self.move_to(self.len(), false);
+        self.anchor = Some(0);
+    }
+    pub fn select_line(&mut self) {
+        let start = self
+            .selection()
+            .map_or(self.line_start(self.row()), |r| r.start);
+        let row = self.row();
+        let end = if row + 1 < self.line_count() {
+            self.line_start(row + 1)
+        } else {
+            self.len()
+        };
+        self.move_to(end, false);
+        self.anchor = Some(start);
+    }
+    pub fn line_range(&self) -> Range<usize> {
+        let row = self.row();
+        self.line_start(row)..if row + 1 < self.line_count() {
+            self.line_start(row + 1)
+        } else {
+            self.len()
+        }
+    }
+    pub fn delete_line(&mut self) {
+        let rows = self.all_selected_rows();
+        let columns: Vec<_> = self
+            .selections()
+            .iter()
+            .map(|s| {
+                let row = self.text.char_to_line(s.cursor);
+                self.display_width(&self.text.slice(self.line_start(row)..s.cursor).to_string())
+            })
+            .collect();
+        let mut ranges: Vec<Range<usize>> = Vec::new();
+        for row in rows {
+            let start = self.line_start(row);
+            let end = if row + 1 < self.line_count() {
+                self.line_start(row + 1)
+            } else {
+                self.len()
+            };
+            if let Some(last) = ranges.last_mut()
+                && last.end == start
+            {
+                last.end = end;
+            } else {
+                ranges.push(start..end);
+            }
+        }
+        if let Some(last) = ranges.last_mut()
+            && last.end == self.len()
+            && last.start > 0
+        {
+            last.start = self.previous(last.start);
+        }
+        self.apply_changes(
+            ranges
+                .into_iter()
+                .filter(|r| !r.is_empty())
+                .map(|r| (r, String::new()))
+                .collect(),
+        );
+        let selections = self
+            .selections()
+            .iter()
+            .zip(columns)
+            .map(|(s, col)| {
+                Selection::caret(self.position_at(self.text.char_to_line(s.cursor), col))
+            })
+            .collect();
+        self.set_selections(selections);
+    }
+    pub fn selected_rows(&self) -> (usize, usize) {
+        match self.selection() {
+            Some(r) => (
+                self.text.char_to_line(r.start),
+                self.text.char_to_line(r.end.saturating_sub(1)),
+            ),
+            None => (self.row(), self.row()),
+        }
+    }
+    pub fn all_selected_rows(&self) -> Vec<usize> {
+        let mut rows = std::collections::BTreeSet::new();
+        for selection in self.selections() {
+            let range = selection.range();
+            let first = self.text.char_to_line(range.start);
+            let last = self.text.char_to_line(if range.is_empty() {
+                range.end
+            } else {
+                range.end - 1
+            });
+            rows.extend(first..=last);
+        }
+        rows.into_iter().collect()
+    }
+    pub fn transform_lines(&mut self, outdent: bool, comment: Option<bool>) {
+        let rows = self.all_selected_rows();
+        let prefix = match self
+            .path
+            .as_ref()
+            .and_then(|p| p.extension())
+            .and_then(|x| x.to_str())
+        {
+            Some("py" | "sh" | "bash" | "toml" | "yaml" | "yml" | "rb") => "#",
+            Some("sql" | "lua") => "--",
+            _ => "//",
+        };
+        let all_commented = rows
+            .iter()
+            .all(|r| self.line(*r).trim_start().starts_with(prefix));
+        let remove_comment = comment.is_some_and(|force_remove| force_remove || all_commented);
+        let mut changes = Vec::new();
+        for row in rows {
+            let line = self.line(row);
+            let start = self.line_start(row);
+            if comment.is_some() {
+                let indent = line.chars().take_while(|c| matches!(c, ' ' | '\t')).count();
+                if remove_comment {
+                    let trimmed = line.trim_start_matches([' ', '\t']);
+                    if let Some(rest) = trimmed.strip_prefix(prefix) {
+                        let n = prefix.len() + usize::from(rest.starts_with(' '));
+                        changes.push((start + indent..start + indent + n, String::new()));
+                    }
+                } else {
+                    changes.push((start + indent..start + indent, format!("{prefix} ")));
+                }
+            } else if outdent {
+                let n = if line.starts_with('\t') {
+                    1
+                } else {
+                    line.chars()
+                        .take(self.tab_size)
+                        .take_while(|c| *c == ' ')
+                        .count()
+                };
+                if n > 0 {
+                    changes.push((start..start + n, String::new()));
+                }
+            } else {
+                changes.push((start..start, self.indentation()));
+            }
+        }
+        self.apply_changes(changes);
+    }
+    pub fn apply_changes(&mut self, mut changes: Vec<(Range<usize>, String)>) {
+        if changes.is_empty() {
+            return;
+        }
+        changes.sort_by_key(|(r, _)| r.start);
+        self.checkpoint();
+        self.break_group();
+        for (r, text) in changes.into_iter().rev() {
+            let added = text.chars().count();
+            self.record_change(r.clone(), added);
+            self.cursor = map_position(self.cursor, &r, added);
+            self.anchor = self.anchor.map(|p| map_position(p, &r, added));
+            for selection in &mut self.secondary {
+                selection.cursor = map_position(selection.cursor, &r, added);
+                selection.anchor = selection.anchor.map(|p| map_position(p, &r, added));
+                selection.desired_column = None;
+            }
+            self.text.remove(r.clone());
+            self.text.insert(r.start, &text);
+        }
+        self.changed();
+    }
+    pub fn find(&mut self, query: &str, backwards: bool) -> bool {
+        if query.is_empty() {
+            return false;
+        }
+        let text = self.text.to_string();
+        let range = self.selection().unwrap_or(self.cursor..self.cursor);
+        let start = self
+            .text
+            .char_to_byte(if backwards { range.start } else { range.end });
+        let found = if backwards {
+            text[..start]
+                .rfind(query)
+                .or_else(|| text[start..].rfind(query).map(|p| p + start))
+        } else {
+            text[start..]
+                .find(query)
+                .map(|p| p + start)
+                .or_else(|| text[..start].find(query))
+        };
+        if let Some(byte) = found {
+            self.secondary.clear();
+            let pos = self.text.byte_to_char(byte);
+            self.move_to(pos + query.chars().count(), false);
+            self.anchor = Some(pos);
+            true
+        } else {
+            false
+        }
+    }
+    pub fn replace_all(&mut self, query: &str, replacement: &str) -> usize {
+        if query.is_empty() {
+            return 0;
+        }
+        let text = self.text.to_string();
+        let changes: Vec<_> = text
+            .match_indices(query)
+            .map(|(b, _)| {
+                (
+                    self.text.byte_to_char(b)..self.text.byte_to_char(b + query.len()),
+                    replacement.to_string(),
+                )
+            })
+            .collect();
+        let count = changes.len();
+        self.apply_changes(changes);
+        count
+    }
+    pub fn save(&mut self) -> Result<()> {
+        let path = self
+            .path
+            .clone()
+            .context("Choose a path with Save As first")?;
+        self.save_to(&path, false)
+    }
+    pub fn save_to(&mut self, path: &Path, overwrite: bool) -> Result<()> {
+        let path = absolute_path(path)?;
+        let same_path = self.path.as_ref() == Some(&path);
+        let current = match fs::read(&path) {
+            Ok(bytes) => Some(bytes),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => return Err(e).context("Cannot check current file before saving"),
+        };
+        if !overwrite {
+            if same_path {
+                if current.as_deref() != self.disk_content.as_deref().map(str::as_bytes) {
+                    bail!(
+                        "File changed on disk. Save As a different file, or reload after preserving your edits."
+                    );
+                }
+            } else if current.is_some() {
+                bail!("File already exists. Choose a different path.");
+            }
+        }
+        let parent = path.parent().context("File has no parent directory")?;
+        let mut temp = tempfile::NamedTempFile::new_in(parent)
+            .context("Cannot create a temporary save file beside the destination")?;
+        if let Ok(metadata) = fs::metadata(&path) {
+            temp.as_file().set_permissions(metadata.permissions())?;
+        }
+        let content = self.text.to_string();
+        temp.write_all(content.as_bytes())?;
+        temp.as_file().sync_all()?;
+        temp.persist(&path)
+            .map_err(|e| e.error)
+            .context("Could not replace the destination file")?;
+        self.path = Some(path);
+        self.disk_content = Some(content);
+        self.saved_revision = self.revision;
+        self.break_group();
+        Ok(())
+    }
+}
+
+pub fn absolute_path(path: &Path) -> Result<PathBuf> {
+    if path.exists() {
+        return fs::canonicalize(path)
+            .with_context(|| format!("Cannot resolve {}", path.display()));
+    }
+    let full = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    let parent = full.parent().context("Missing parent directory")?;
+    let name = full.file_name().context("Missing file name")?;
+    Ok(fs::canonicalize(parent)
+        .context("Parent directory does not exist")?
+        .join(name))
+}
+pub fn grapheme_width(g: &str, column: usize) -> usize {
+    if g == "\t" {
+        4 - column % 4
+    } else if g.chars().any(char::is_control) {
+        1
+    } else {
+        UnicodeWidthStr::width(g).max(1)
+    }
+}
+pub fn display_width(s: &str) -> usize {
+    s.graphemes(true)
+        .fold(0, |col, g| col + grapheme_width(g, col))
+}
+fn is_word(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+fn map_position(p: usize, range: &Range<usize>, added: usize) -> usize {
+    if p < range.start {
+        p
+    } else if p >= range.end {
+        p - (range.end - range.start) + added
+    } else {
+        range.start + added
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn graphemes_crlf_and_undo() {
+        let mut d = Document::from_text("a\u{301}🙂\r\nnext");
+        d.horizontal(true, false, false);
+        assert_eq!(d.cursor, 2);
+        d.horizontal(true, false, false);
+        assert_eq!(d.cursor, 3);
+        d.horizontal(true, false, false);
+        assert_eq!(d.cursor, 5);
+        d.backspace(false);
+        assert_eq!(d.text.to_string(), "a\u{301}🙂next");
+        d.undo();
+        assert_eq!(d.text.to_string(), "a\u{301}🙂\r\nnext");
+        assert_eq!(d.cursor, 5);
+    }
+    #[test]
+    fn typing_group_selection_and_redo() {
+        let mut d = Document::default();
+        for c in ["h", "i", "🙂"] {
+            d.insert(c, true);
+        }
+        d.undo();
+        assert!(d.is_empty());
+        d.redo();
+        assert_eq!(d.text.to_string(), "hi🙂");
+        d.select_all();
+        d.insert("new", false);
+        d.undo();
+        assert_eq!(d.selected_text().unwrap(), "hi🙂");
+    }
+    #[test]
+    fn save_detects_external_change_and_preserves_crlf() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("a.txt");
+        fs::write(&p, "a\r\n").unwrap();
+        let mut d = Document::open(&p).unwrap();
+        d.insert("b", false);
+        d.save().unwrap();
+        assert_eq!(fs::read_to_string(&p).unwrap(), "ba\r\n");
+        d.undo();
+        assert!(d.dirty());
+        d.redo();
+        assert!(!d.dirty());
+        fs::write(&p, "external").unwrap();
+        d.insert("x", false);
+        assert!(d.save().is_err());
+        assert_eq!(fs::read_to_string(&p).unwrap(), "external");
+    }
+    #[test]
+    fn indentation_and_replacement_are_single_transactions() {
+        let mut d = Document::from_text("one\ntwo\n");
+        d.select_all();
+        d.transform_lines(false, None);
+        assert_eq!(d.text.to_string(), "    one\n    two\n");
+        d.undo();
+        assert_eq!(d.text.to_string(), "one\ntwo\n");
+        assert_eq!(d.replace_all("o", "🙂"), 2);
+        d.undo();
+        assert_eq!(d.text.to_string(), "one\ntwo\n");
+    }
+    #[test]
+    fn vertical_movement_preserves_display_column() {
+        let mut d = Document::from_text("\t猫a\nx\n\t猫b");
+        d.move_to(3, false);
+        assert_eq!(d.visual_column(), 7);
+        d.vertical(1, false);
+        assert_eq!(d.column(), 1);
+        d.vertical(1, false);
+        assert_eq!(d.column(), 3);
+    }
+    #[test]
+    fn randomized_edit_undo_roundtrip() {
+        let mut d = Document::from_text("seed\n🙂");
+        let original = d.text.to_string();
+        let mut seed = 42u64;
+        for _ in 0..300 {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            d.move_to((seed as usize) % (d.len() + 1), false);
+            d.insert(if seed & 1 == 0 { "é" } else { "x\n" }, false);
+        }
+        for _ in 0..300 {
+            d.undo();
+        }
+        assert_eq!(d.text.to_string(), original);
+        for _ in 0..300 {
+            d.redo();
+        }
+        assert!(d.len() > 300);
+    }
+
+    #[test]
+    fn undo_deletion_restores_the_original_cursor_and_selection() {
+        let mut d = Document::from_text("hello\nworld");
+        d.move_to(3, false);
+        d.backspace(false);
+        d.undo();
+        assert_eq!(d.cursor, 3);
+        assert_eq!(d.anchor, None);
+        d.delete_line();
+        d.undo();
+        assert_eq!(d.cursor, 3);
+        assert_eq!(d.anchor, None);
+        assert_eq!(d.text.to_string(), "hello\nworld");
+    }
+
+    #[test]
+    fn randomized_changes_match_a_reference_string() {
+        let mut d = Document::default();
+        let mut reference = String::new();
+        let mut seed = 913u64;
+        for _ in 0..500 {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let count = reference.chars().count();
+            let pos = (seed as usize) % (count + 1);
+            let byte = reference
+                .char_indices()
+                .nth(pos)
+                .map_or(reference.len(), |(b, _)| b);
+            d.move_to(pos, false);
+            if seed.is_multiple_of(3) && pos < count {
+                let end = byte + reference[byte..].chars().next().unwrap().len_utf8();
+                reference.replace_range(byte..end, "");
+                d.delete(false);
+            } else {
+                let text = if seed & 1 == 0 { "猫" } else { "x\n" };
+                reference.insert_str(byte, text);
+                d.insert(text, false);
+            }
+            assert_eq!(d.text.to_string(), reference);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn saving_through_symlinks_preserves_the_link_and_file_permissions() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("real.txt");
+        let link = dir.path().join("link.txt");
+        fs::write(&target, "hello").unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o640)).unwrap();
+        symlink(&target, &link).unwrap();
+        let mut d = Document::open(&link).unwrap();
+        d.insert("new ", false);
+        d.save().unwrap();
+        assert!(fs::symlink_metadata(link).unwrap().file_type().is_symlink());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "new hello");
+        assert_eq!(
+            fs::metadata(target).unwrap().permissions().mode() & 0o777,
+            0o640
+        );
+    }
+}
