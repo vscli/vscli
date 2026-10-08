@@ -1,6 +1,28 @@
-# Extension host experiment
+# Extension installation and experimental host
 
 VSCLI now has an optional CommonJS extension process. It is an independent, original compatibility shim; the Rust executable remains the owner of native buffers, rendering, input, and persistence. This is an experiment toward the full extension requirement, not completion of that requirement.
+
+## Installing and managing packages
+
+Use **F1 → Extensions: Install from VSIX** and enter a local `.vsix` path. Installation extracts the package without running scripts or extension code. **Ctrl+Shift+X** (**Cmd+Shift+X** on macOS), or **F1 → Extensions: Show Installed Extensions**, lists installed IDs, versions and compatibility descriptions. Enter offers explicit activation of a code extension; **R** restores the previous installation and **Delete** removes the selected package from the installed registry. Starting a code extension replaces the single running host. Declarative theme packages do not need Node.
+
+The same operations work without a terminal UI or JavaScript runtime:
+
+```sh
+vscli --install-extension ./publisher.extension.vsix
+vscli --list-extensions
+vscli --extension publisher.extension .
+vscli --rollback-extension publisher.extension
+vscli --uninstall-extension publisher.extension
+```
+
+`--extensions-dir /path/to/storage` overrides the platform-local VSCLI extension directory for every operation. `--list-extensions` emits JSON with the manifest, immutable package path, source archive path, SHA-256 digest and a compatibility description. The digest records the exact locally snapshotted archive; it is not a signature or publisher authentication. Obtain packages from authors or registries whose distribution terms permit your use. Network registry search/download and Marketplace access are not implemented.
+
+Packages are extracted into private staging directories with limits of **128 MiB per archive**, **256 MiB total extraction**, **32 MiB per file**, **20,000 entries** and **1 MiB for package.json**. Traversal, absolute/nonportable paths, duplicate/case-aliased paths, symlinks and special files are rejected. Declared entry counts are checked before ZIP metadata allocation; ZIP64 and multi-disk archives are unsupported. A failed extraction or invalid manifest leaves the prior installation selected. Mutations take a nonblocking exclusive storage lock, publish immutable generations and atomically replace the registry. Rollback switches the registry to the previous generation; running hosts keep using their original files until restarted. Uninstall removes the registry entry, while immutable files are retained to protect running hosts; automatic garbage collection remains outstanding. Power-loss durability across filesystems has not been qualified.
+
+**Installed does not mean compatible.** The manifest classification describes runtime shape only. Engine ranges, proposed APIs, native module ABI and broad extension API coverage remain unqualified. Browser-only packages and dependency-bearing packages can be stored, but the host cannot run them. Only one CommonJS code extension can run at once; declarative contribution support depends on native adapters. The editor performs installation and host startup in bounded background jobs; native buffers retain their identity, dirty state and version checks during activation.
+
+Automated evidence includes malicious-path/link and oversized-archive rejection, preservation of an existing install after failures, concurrent-operation rejection, upgrade/rollback/remove, noninteractive CLI operation, and an actual Unix PTY workflow installing a VSIX, explicitly activating it, running its F9 command, saving/undoing and uninstalling while its host is live. The real-protocol CI additionally packages the unchanged compiled **Sort Lines 1.12.0** entry files into a VSIX, installs it and checks F9 sorting plus native undo. This locally assembled archive tests installation and the named runtime workflow; it is not registry-download or publisher-signature qualification.
 
 ## Running an extension
 
@@ -10,9 +32,9 @@ Build VSCLI normally, install Node 24, and pass an already unpacked, built exten
 vscli --extension /path/to/extension .
 ```
 
-The flag explicitly runs that extension's code with your user permissions. Process isolation protects editor responsiveness and contains host failures; it is not a filesystem or network sandbox. VSCLI does not download packages or execute package installation scripts. Node is unnecessary without `--extension`. Runtime bridge files are embedded in the native executable and materialized in a temporary directory only for an enabled host.
+The flag explicitly runs that extension's code with your user permissions. Process isolation protects editor responsiveness and contains host failures; it is not a filesystem or network sandbox. VSCLI does not download packages or execute package installation scripts; native VSIX installation is described above. Node is unnecessary unless a code extension host is explicitly started. Runtime bridge files are embedded in the native executable and materialized in a temporary directory only for an enabled host.
 
-F1 lists registered commands. Manifest keybindings retain their original combinations, platform overrides, arguments, and supported `when` expressions. They are layered above native defaults and below user bindings; user removal rules are reapplied when the extension activates. Invalid or unsupported expressions reject the contribution with a visible message. Stopping the host removes its defaults. User keybindings can also target original command IDs. Arguments remain one value, including arrays and explicit `null`; an omitted argument stays absent. Native editing and saving continue after a host crash. F1 → Extensions: Stop Host terminates it; restart currently requires relaunching VSCLI. Ordinary shutdown kills the process; guaranteed `deactivate` completion and persistent extension state are not implemented.
+F1 lists registered commands. Manifest keybindings retain their original combinations, platform overrides, arguments, and supported `when` expressions. They are layered above native defaults and below user bindings; user removal rules are reapplied when the extension activates. Invalid or unsupported expressions reject the contribution with a visible message. Stopping the host removes its defaults. User keybindings can also target original command IDs. Arguments remain one value, including arrays and explicit `null`; an omitted argument stays absent. Native editing and saving continue after a host crash. F1 → Extensions: Stop Host terminates it; an installed package can be restarted through the installed-extensions picker. Ordinary shutdown kills the process; guaranteed `deactivate` completion and persistent extension state are not implemented.
 
 ## Implemented behavior
 
@@ -26,7 +48,7 @@ The API reference target for this initial experiment is VS Code 1.95.0; the expo
 
 Document versions increase across edits and undo/redo observations. State generations reject outdated document notifications. All mirrors are updated before document event callbacks run. Protocol v3 sends document text only for new or changed document revisions; selection, dirty-state, and path updates reuse cached text. Ordered state notifications precede edit acknowledgements, and the native baseline advances only after a message is queued successfully. Changed text still uses full snapshots rather than edit deltas; the total mirrored text budget is 4 MiB, transport frames are limited to 16 MiB, and pending command requests are capped at 64 with a 30-second timeout. Crossing a host limit stops or rejects extension work while preserving native buffers.
 
-Unsupported service APIs throw explicit errors. Browser-only packages, extension dependencies/proposed APIs, providers, webviews, notebooks, custom editors, workspace edits, settings writes, storage/secrets, automatic activation rules, multiple extension packages, extension menus, and built-in command delegation remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. There is no VSIX/registry installer yet.
+Unsupported service APIs throw explicit errors. Browser-only packages, extension dependencies/proposed APIs, providers, webviews, notebooks, custom editors, workspace edits, settings writes, storage/secrets, automatic activation rules, multiple extension packages, extension menus, and built-in command delegation remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. Local VSIX installation and rollback are implemented; registry search/download remains outstanding.
 
 ## Extension settings
 
@@ -63,7 +85,7 @@ VSCLI_TEST_SORT_LINES=/absolute/path/to/vscode-sort-lines \
 
 Separate synthetic fixtures test Unicode edits, version changes through undo, stale rejection, atomic rejection of overlaps, explicit unsupported API failures, host crashes, and continued editing. The Unix PTY suite also exercises activation-time settings, live configuration events, palette/F9 dispatch, save, undo, and host stop through the actual executable. Node API tests cover callback lifetime and out-of-order mirror updates.
 
-The upstream-host extraction comparison, broader reference-editor differential tests, broader extension corpus, API capability reports, installation/rollback, and native adapters for richer contributions remain required work. A single successful command extension does not establish compatibility with language services, Git providers, debuggers, or graphical extensions.
+The upstream-host extraction comparison, broader reference-editor differential tests, broader extension corpus, API capability reports, registry distribution, garbage collection, and native adapters for richer contributions remain required work. A single successful command extension does not establish compatibility with language services, Git providers, debuggers, or graphical extensions.
 
 ## Mirror performance measurement
 

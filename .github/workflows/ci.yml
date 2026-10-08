@@ -136,3 +136,6 @@ jobs:
       - run: cargo test --test extension_host -- --ignored
         env:
           VSCLI_TEST_SORT_LINES: ${{ github.workspace }}/target/sort-lines-upstream
+      - run: cargo test --locked --test extension_installation -- --ignored
+        env:
+          VSCLI_TEST_SORT_LINES: ${{ github.workspace }}/target/sort-lines-upstream

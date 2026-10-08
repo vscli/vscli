@@ -27,6 +27,11 @@ struct Edit {
     version: u64,
     edits: Vec<lsp::TextEdit>,
 }
+pub struct Prepared {
+    mirror: MirrorState,
+    state: Value,
+    configuration: Arc<Vec<serde_json::Map<String, Value>>>,
+}
 pub struct Client {
     // Drop the process before deleting its embedded runtime files on Windows.
     process: Process,
@@ -48,6 +53,27 @@ impl Client {
         documents: &[Document],
         active: usize,
         settings: &Settings,
+    ) -> Result<Self> {
+        Self::start_prepared(
+            node,
+            extension,
+            root,
+            Self::prepare(documents, active, settings)?,
+        )
+    }
+    pub fn prepare(documents: &[Document], active: usize, settings: &Settings) -> Result<Prepared> {
+        let (mirror, state) = MirrorState::default().next(documents, active)?;
+        Ok(Prepared {
+            mirror,
+            state,
+            configuration: settings.extension_layers().clone(),
+        })
+    }
+    pub fn start_prepared(
+        node: &str,
+        extension: &Path,
+        root: &Path,
+        prepared: Prepared,
     ) -> Result<Self> {
         let extension =
             std::fs::canonicalize(extension).context("Cannot open extension directory")?;
@@ -78,8 +104,8 @@ impl Client {
         let mut client = Self {
             process,
             _runtime: runtime,
-            mirror: MirrorState::default(),
-            configuration: settings.extension_layers().clone(),
+            mirror: prepared.mirror,
+            configuration: prepared.configuration,
             pending: HashMap::new(),
             next_id: 0,
             keybindings: None,
@@ -87,13 +113,11 @@ impl Client {
             commands: Vec::new(),
             identity: String::new(),
         };
-        let (next, state) = client.mirror.next(documents, active)?;
         client.request(
             "initialize",
-            json!({"protocol":3, "extension": extension, "root": root, "state": state,
-                "configuration": settings.extension_layers().as_ref()}),
+            json!({"protocol":3, "extension": extension, "root": root, "state": prepared.state,
+                "configuration": client.configuration.as_ref()}),
         )?;
-        client.mirror = next;
         Ok(client)
     }
     fn request(&mut self, method: &str, params: Value) -> Result<()> {

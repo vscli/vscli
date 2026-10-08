@@ -184,6 +184,11 @@ impl Keymap {
             "workbench.action.tasks.build",
             None,
         );
+        map.add(
+            &format!("{p}+shift+x"),
+            "workbench.view.extensions",
+            Some("viewContainer.workbench.view.extensions.enabled"),
+        );
         map.add("ctrl+shift+g", "workbench.view.scm", None);
         map.add(&format!("{p}+\\"), "workbench.action.splitEditor", None);
         for (key, command) in [

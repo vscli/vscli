@@ -771,6 +771,9 @@ fn popup(frame: &mut Frame, title: &str, width: u16, height: u16) -> Rect {
 fn draw_prompt(frame: &mut Frame, app: &App) {
     let p = app.prompt.as_ref().unwrap();
     let title = match p.kind {
+        PromptKind::InstallExtension => {
+            " Install Extension from local VSIX · path · Enter installs without running code "
+        }
         PromptKind::Palette => " Command Palette ",
         PromptKind::QuickOpen => " Go to File ",
         PromptKind::Snippet => " Insert Snippet · name, prefix or description ",
@@ -896,7 +899,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
         Modal::Help => (
             " Getting Started · Esc to close ",
             format!(
-                "VSCLI 0.1 · Native terminal editor\n\n{}  Command palette\n{}  Quick open (respects ignore files)\n{}  Open a path or create a file\n{}  Save    {}  Save As\n{}  Find    {}  Go to line\n{}  Toggle explorer\nCtrl+PageUp / Ctrl+PageDown  Switch tabs\nShift+arrows  Select · Mouse drag selects\n\nExplorer: arrows, Enter to open, Left for parent, Esc for editor.\n\nRecovery snapshots are written every two seconds.\nUTF-8 files up to 32 MiB. LSP: launch with --lsp PROGRAM.\nCtrl+D adds occurrences · Ctrl+Shift+F searches files.\nVS Code extension execution is not implemented yet.\nF1 → Keyboard Inspector shows what your terminal sends.\nEnhanced shortcuts require a compatible terminal configuration.\n\n{}  Exit (unsaved changes are protected)",
+                "VSCLI 0.1 · Native terminal editor\n\n{}  Command palette\n{}  Quick open (respects ignore files)\n{}  Open a path or create a file\n{}  Save    {}  Save As\n{}  Find    {}  Go to line\n{}  Toggle explorer\nCtrl+PageUp / Ctrl+PageDown  Switch tabs\nShift+arrows  Select · Mouse drag selects\n\nExplorer: arrows, Enter to open, Left for parent, Esc for editor.\n\nRecovery snapshots are written every two seconds.\nUTF-8 files up to 32 MiB. LSP: launch with --lsp PROGRAM.\nCtrl+D adds occurrences · Ctrl+Shift+F searches files.\nF1 → Extensions: Install from VSIX / Show Installed Extensions.\nCode extensions use an optional experimental Node host.\nF1 → Keyboard Inspector shows what your terminal sends.\nEnhanced shortcuts require a compatible terminal configuration.\n\n{}  Exit (unsaved changes are protected)",
                 app.keymap.shortcut("workbench.action.showCommands"),
                 app.keymap.shortcut("workbench.action.quickOpen"),
                 app.keymap.shortcut("workbench.action.files.openFile"),
@@ -1100,6 +1103,55 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                     Rect::new(inner.x, inner.y + 2, inner.width, height as u16),
                 );
             }
+            return;
+        }
+        Modal::RunExtension(item) => {
+            let inner = popup(
+                frame,
+                " Run installed extension? · Enter runs · Esc cancels ",
+                96,
+                12,
+            );
+            frame.render_widget(Paragraph::new(format!("{}@{}\n{}\n\nRuns package code with your user permissions in the optional Node host.\nReplaces the current host. Only one code extension can run at a time.\nInstallation and package identity do not establish API compatibility.", clean(&item.id), clean(&item.version), clean(&item.compatibility))).wrap(Wrap {trim:false}), inner);
+            return;
+        }
+        Modal::Extensions { items, selected } => {
+            let inner = popup(
+                frame,
+                " Installed Extensions · Enter run · R rollback · Delete remove · Esc closes ",
+                120,
+                frame.area().height.saturating_sub(2),
+            );
+            let height = inner.height as usize;
+            let offset = selected.saturating_sub(height.saturating_sub(1));
+            let lines: Vec<_> = if items.is_empty() {
+                vec![Line::raw(
+                    "No packages installed. F1 → Extensions: Install from VSIX",
+                )]
+            } else {
+                items
+                    .iter()
+                    .enumerate()
+                    .skip(offset)
+                    .take(height)
+                    .map(|(index, item)| {
+                        Line::styled(
+                            format!(
+                                "{}@{}  {}",
+                                clean(&item.id),
+                                clean(&item.version),
+                                clean(&item.compatibility)
+                            ),
+                            Style::default().fg(FG).bg(if index == *selected {
+                                SELECT
+                            } else {
+                                PANEL
+                            }),
+                        )
+                    })
+                    .collect()
+            };
+            frame.render_widget(Paragraph::new(lines), inner);
             return;
         }
         Modal::Language {
