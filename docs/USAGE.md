@@ -461,7 +461,11 @@ command from an empty welcome screen does not create a document.
 This first slice is explicitly invoked. Automatic triggers/retriggering while
 arguments are typed, overload navigation, Markdown formatting and every server's
 parameter-selection behavior remain unqualified. UTF-16 offset-pair and substring
-parameter labels are supported; out-of-range active indices fall back to zero.
+parameter labels are supported; string labels use the pinned editor's ASCII word
+boundaries so `int` matches the type in `print(value: int)`, with an empty highlight
+when no match exists. This is source-informed by
+[VS Code 1.95 parameter rendering](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/editor/contrib/parameterHints/browser/parameterHintsWidget.ts).
+Out-of-range active indices fall back to zero.
 The response accepts at most 32 signatures, 128 parameters per signature, 8 KiB per
 signature label or selected documentation field, and 64 KiB total signature labels. The panel clips
 long content to its available editor area. Malformed ranges or oversized data

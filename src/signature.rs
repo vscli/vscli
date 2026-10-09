@@ -48,6 +48,28 @@ fn byte_offset(text: &str, units: usize) -> Result<usize> {
         bail!("Parameter label is outside the signature")
     }
 }
+// VS Code 1.95 getParameterLabelOffsets matches an escaped literal between
+// ECMAScript ASCII non-word boundaries, returning an empty span on no match.
+fn string_parameter_range(label: &str, parameter: &str) -> Range<usize> {
+    let word = |byte: u8| byte.is_ascii_alphanumeric() || byte == b'_';
+    for start in label
+        .char_indices()
+        .map(|(start, _)| start)
+        .chain(std::iter::once(label.len()))
+    {
+        if start > 0 && word(label.as_bytes()[start - 1]) {
+            continue;
+        }
+        if !label[start..].starts_with(parameter) {
+            continue;
+        }
+        let end = start + parameter.len();
+        if end == label.len() || !word(label.as_bytes()[end]) {
+            return start..end;
+        }
+    }
+    0..0
+}
 impl Hint {
     pub fn parse(value: &Value) -> Result<Option<Self>> {
         if value.is_null() {
@@ -103,10 +125,7 @@ impl Hint {
                 0
             }];
             let range = if let Some(text) = selected["label"].as_str() {
-                let start = label
-                    .find(text)
-                    .context("Parameter label is absent from signature")?;
-                start..start + text.len()
+                string_parameter_range(label, text)
             } else {
                 let pair = selected["label"]
                     .as_array()
@@ -148,13 +167,28 @@ mod tests {
         assert_eq!(hint.documentation, "function docs\ncount docs");
     }
     #[test]
-    fn malformed_ranges_and_budgets_reject_without_renderable_data() {
-        for parameter in [
-            json!([3, 4]),
-            json!([4, 2]),
-            json!([0, 999]),
-            json!("absent"),
+    fn string_labels_follow_pinned_ascii_boundaries_and_literal_matching() {
+        for (label, parameter, expected) in [
+            ("print(value: int)", "int", 13..16),
+            ("f(intValue, int)", "int", 12..15),
+            ("f(_int, int_)", "int", 0..0),
+            ("f(λintλ)", "int", 4..7),
+            ("f(value: T[])", "T[]", 9..12),
+            ("xa-a-a", "a-a", 3..6),
+            ("f(int)", "missing", 0..0),
+            ("f()", "", 2..2),
         ] {
+            let hint = Hint::parse(
+                &json!({"signatures":[{"label":label,"parameters":[{"label":parameter}]}]}),
+            )
+            .unwrap()
+            .unwrap();
+            assert_eq!(hint.parameter, Some(expected), "{label}: {parameter}");
+        }
+    }
+    #[test]
+    fn malformed_ranges_and_budgets_reject_without_renderable_data() {
+        for parameter in [json!([3, 4]), json!([4, 2]), json!([0, 999])] {
             assert!(
                 Hint::parse(
                     &json!({"signatures":[{"label":"f(😀)","parameters":[{"label":parameter}]}]})
