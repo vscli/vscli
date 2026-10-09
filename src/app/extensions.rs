@@ -53,7 +53,9 @@ impl App {
                     host.keybindings = None;
                     if self.retain_extension_bindings(sets.clone()) {
                         self.extension_host = Some(host);
-                        return self.poll_extension_prompt() || changed;
+                        return self.poll_extension_services()
+                            | self.poll_extension_prompt()
+                            | changed;
                     }
                     match self.keymap.set_extension_binding_sets(sets) {
                         Ok(errors) if !errors.is_empty() => {

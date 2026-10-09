@@ -17,7 +17,7 @@ exports.activate = () => {
     provideReferences: () => [new v.Location(v.Uri.file(path.join(v.workspace.rootPath, 'target.sql')), new v.Range(0, 1, 0, 3))]
   });
   v.languages.registerDocumentFormattingEditProvider(selector, {
-    provideDocumentFormattingEdits: doc => [v.TextEdit.replace(new v.Range(0, 0, doc.lineCount - 1, doc.lineAt(doc.lineCount - 1).text.length), 'SELECT 🙂\nFROM table;\n')]
+    provideDocumentFormattingEdits: doc => [v.TextEdit.replace(new v.Range(0, 0, doc.lineCount - 1, doc.lineAt(doc.lineCount - 1).text.length), v.workspace.getConfiguration('fixture').get('formatted', 'SELECT 🙂\nFROM table;\n'))]
   });
   v.languages.registerDocumentSymbolProvider(selector, {
     provideDocumentSymbols: () => [new v.DocumentSymbol('query', '', v.SymbolKind.Function, new v.Range(0, 0, 0, 3), new v.Range(0, 0, 0, 3))]
