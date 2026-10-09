@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 from extension_sessions_pty import Editor, LIVE, command, wait, save
-from pty_smoke import CTRL_Z, eventually
+from pty_smoke import CTRL_Z, eventually, wait_screen
 from extension_activation_pty import install
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'extension-surfaces'
@@ -24,7 +24,8 @@ def run(root):
     wait(app, 'Output: Native Fixture Output')
     wait(app, 'LOG 猫🙂')
     command(app, 'Keyboard Inspector')
-    wait(app, 'Keyboard Inspector · Esc closes')
+    wait_screen(app, 'Keyboard Inspector · Esc closes',
+                absent=('Output: Native Fixture Output', 'Native Ready'), timeout=8)
     assert 'Output: Native Fixture Output' not in app.screen.text()
     assert 'Native Ready' not in app.screen.text()
     app.send(b'\x13')

@@ -149,6 +149,26 @@ class ScreenReadinessTests(unittest.TestCase):
         self.assertIn("navigation.txt", snapshot)
         self.assertIn("No open editors", snapshot)
 
+    def test_inspector_header_does_not_prove_old_status_has_been_erased(self):
+        editor = Mock()
+        editor.screen = pty_workflows.Screen()
+        editor.screen.feed(b"\x1b[32;1HNative Ready")
+        chunks = iter([
+            b"\x1b[2;2HKeyboard Inspector",
+            b"\x1b[32;1H\x1b[2K",
+        ])
+        def read():
+            editor.screen.feed(next(chunks))
+            return True
+        editor.read.side_effect = read
+        with patch.object(pty_workflows.time, "sleep"):
+            snapshot = pty_workflows.wait_screen(
+                editor, "Keyboard Inspector", absent=("Native Ready",)
+            )
+        self.assertEqual(editor.read.call_count, 2)
+        self.assertIn("Keyboard Inspector", snapshot)
+        self.assertNotIn("Native Ready", snapshot)
+
     def test_different_frames_cannot_jointly_satisfy_required_markers(self):
         editor = Mock()
         editor.read.return_value = True
