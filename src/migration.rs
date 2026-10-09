@@ -1,4 +1,4 @@
-//! Read-only migration preview and atomic activation of immutable imported profiles.
+//! Read-only migration preview and atomic activation of versioned imported profile copies.
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -32,7 +32,7 @@ struct Active {
 pub fn config_directory() -> Option<PathBuf> {
     crate::recovery::config_path().and_then(|path| path.parent().map(Path::to_path_buf))
 }
-/// A pointer may select only an immediate immutable profile under imports/.
+/// A pointer may select only an immediate copied profile under imports/.
 pub fn active_directory(root: &Path) -> Result<PathBuf> {
     let pointer = root.join("active-profile.json");
     match fs::symlink_metadata(&pointer) {
@@ -83,6 +83,7 @@ pub fn preview_with_extensions(
         }
     }
     let snippets = source.join("snippets");
+    let mut snippet_count = 0;
     if snippets.is_dir() {
         for (index, entry) in fs::read_dir(&snippets)?.enumerate() {
             if index >= 4096 {
@@ -96,6 +97,10 @@ pub fn preview_with_extensions(
                     Some("json" | "code-snippets")
                 )
             {
+                snippet_count += 1;
+                if snippet_count > 128 {
+                    bail!("Import exceeds 128 snippet files");
+                }
                 paths.push(PathBuf::from("snippets").join(entry.file_name()));
             }
         }
@@ -105,9 +110,6 @@ pub fn preview_with_extensions(
             "No settings.json, keybindings.json or snippet files in {}",
             source.display()
         );
-    }
-    if paths.len() > 130 {
-        bail!("Import exceeds 128 snippet files");
     }
     paths.sort();
     let mut result = Preview {
@@ -130,7 +132,7 @@ pub fn preview_with_extensions(
         )?;
         result.report.bytes += bytes.len();
         let text = std::str::from_utf8(&bytes).context("Imported config is not UTF-8")?;
-        let value: Value = json5::from_str(text)
+        let value: Value = crate::jsonc::parse(text)
             .with_context(|| format!("Invalid JSONC in {}", path.display()))?;
         if path == Path::new("settings.json") {
             if !value.is_object() {
@@ -362,7 +364,7 @@ fn snapshot_theme(directory: &Path, selected: &str) -> Result<Option<ThemeSnapsh
                 if total > 4 * MAX_FILE {
                     bail!("Theme snapshot exceeds 4 MiB");
                 }
-                let value: Value = json5::from_str(std::str::from_utf8(&bytes)?)?;
+                let value: Value = crate::jsonc::parse(std::str::from_utf8(&bytes)?)?;
                 if let Some(include) = value.get("include").and_then(Value::as_str) {
                     if Path::new(include).is_absolute() {
                         bail!("Absolute theme includes cannot be imported portably");
@@ -396,6 +398,31 @@ fn read(path: &Path, limit: usize) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snippet_file_limit_does_not_depend_on_optional_settings_and_keybindings() {
+        let root = tempfile::tempdir().unwrap();
+        let snippets = root.path().join("snippets");
+        fs::create_dir(&snippets).unwrap();
+        for index in 0..128 {
+            fs::write(snippets.join(format!("{index}.json")), "{}").unwrap();
+        }
+        assert_eq!(
+            preview(root.path(), crate::keys::Profile::Linux)
+                .unwrap()
+                .report
+                .files
+                .len(),
+            128
+        );
+        fs::write(snippets.join("overflow.json"), "{}").unwrap();
+        assert!(
+            preview(root.path(), crate::keys::Profile::Linux)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("128 snippet")
+        );
+    }
     #[test]
     fn preview_is_read_only_and_activation_preserves_original_and_previous_profiles() {
         let temp = tempfile::tempdir().unwrap();

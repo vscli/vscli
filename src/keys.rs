@@ -434,6 +434,9 @@ impl Keymap {
     /// Preserve imported files while applying only rules this resolver can parse.
     pub fn load_imported(&mut self, path: &Path) -> Result<(usize, Vec<String>)> {
         use std::io::Read;
+        if !std::fs::metadata(path)?.is_file() {
+            bail!("Imported keybindings must be a regular file");
+        }
         let mut raw = String::new();
         std::fs::File::open(path)?
             .take(1024 * 1024 + 1)
@@ -441,7 +444,8 @@ impl Keymap {
         if raw.len() > 1024 * 1024 {
             bail!("Imported keybindings exceed 1 MiB");
         }
-        let entries: Vec<Binding> = json5::from_str(&raw).context("Invalid keybindings.json")?;
+        let entries: Vec<Binding> =
+            crate::jsonc::parse(&raw).context("Invalid keybindings.json")?;
         let mut notices = Vec::new();
         let mut count = 0;
         for entry in entries {
@@ -988,6 +992,25 @@ mod tests {
         ] {
             let binding: Binding = serde_json::from_value(source.clone()).unwrap();
             assert_eq!(serde_json::to_value(binding).unwrap(), source);
+        }
+    }
+    #[test]
+    fn failed_imported_bindings_preserve_defaults_and_source_bytes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("keys.json");
+        let context = HashMap::from([("editorTextFocus".into(), Value::Bool(true))]);
+        for bytes in [
+            b"[{ broken".to_vec(),
+            vec![b' '; 1024 * 1024 + 1],
+            format!("{}{}", "[".repeat(65), "]".repeat(65)).into_bytes(),
+        ] {
+            std::fs::write(&path, &bytes).unwrap();
+            let mut map = Keymap::new(Profile::Linux);
+            assert!(map.load_imported(&path).is_err());
+            assert!(
+                matches!(map.resolve("ctrl+s", &context), Resolution::Command(id, _) if id == "workbench.action.files.save")
+            );
+            assert_eq!(std::fs::read(&path).unwrap(), bytes);
         }
     }
     #[test]
