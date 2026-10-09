@@ -1217,6 +1217,40 @@ def run():
         app.finish()
         print("PASS: native LSP Quick Fix/Refactor shortcuts, action picker, lazy resolve, CRLF save and undo")
 
+        symbol_root = root / "symbols"
+        symbol_root.mkdir()
+        symbol_file = symbol_root / "main.cpp"
+        symbol_other = symbol_root / "other.cpp"
+        symbol_text = "x 😀foo\r\n".encode()
+        symbol_file.write_bytes(symbol_text)
+        symbol_other.write_bytes(symbol_text)
+        symbol_server = Path(__file__).resolve().parent / "fixtures" / "symbol_server.py"
+        app = Editor(symbol_root, symbol_file, "--lsp", sys.executable, "--lsp-arg", symbol_server, "--lsp-language", "cpp", enhanced=True)
+        eventually(lambda: app.read() and "Language server ready" in app.screen.text())
+        app.send(b"\x1b[111;6u")  # Ctrl+Shift+O: Go to Symbol in Editor.
+        eventually(lambda: app.read() and "child" in app.screen.text())
+        app.send("child\r")
+        eventually(lambda: app.read() and "Symbol in main.cpp" in app.screen.text())
+        app.send("Z")
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and symbol_file.read_bytes() == "x Z😀foo\r\n".encode())
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and symbol_file.read_bytes() == symbol_text)
+        app.send(b"\x14")  # Ctrl+T: Go to Symbol in Workspace.
+        app.send("other")
+        eventually(lambda: app.read() and "1 symbols for 'other'" in app.screen.text())
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Go to Symbol in Workspace" not in app.screen.text() and "other.cpp" in app.screen.text())
+        app.send("W")
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and symbol_other.read_bytes() == "x W😀foo\r\n".encode())
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and symbol_other.read_bytes() == symbol_text)
+        app.finish()
+        print("PASS: native document/workspace symbol shortcuts, hierarchical search, UTF-16 navigation, async open and CRLF save/undo")
+
 
 
 if __name__ == "__main__":

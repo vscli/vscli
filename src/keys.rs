@@ -177,6 +177,12 @@ impl Keymap {
         ] {
             map.add(&key, command, Some("editorTextFocus"));
         }
+        map.add(
+            &format!("{p}+shift+o"),
+            "workbench.action.gotoSymbol",
+            Some("!accessibilityHelpIsShown && !accessibleViewIsShown"),
+        );
+        map.add(&format!("{p}+t"), "workbench.action.showAllSymbols", None);
         let action_context =
             Some("editorHasCodeActionsProvider && textInputFocus && !editorReadonly");
         map.add(&format!("{p}+."), "editor.action.quickFix", action_context);
@@ -1267,6 +1273,44 @@ mod tests {
                         .iter()
                         .filter(|binding| binding.command == id)
                         .all(|binding| binding.when.is_none())
+                );
+            }
+        }
+    }
+    #[test]
+    fn symbol_shortcuts_match_pinned_platform_bindings_and_contexts() {
+        for (profile, platform) in [
+            (Profile::Linux, "linux"),
+            (Profile::Windows, "win32"),
+            (Profile::Macos, "darwin"),
+        ] {
+            let map = Keymap::new(profile);
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tests/vscode-reference/baselines/1.95.0/{platform}/inventory.json"
+            ));
+            let inventory: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+            for command in [
+                "workbench.action.gotoSymbol",
+                "workbench.action.showAllSymbols",
+            ] {
+                let reference = inventory["bindings"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|binding| binding["command"] == command)
+                    .unwrap();
+                let binding = map
+                    .bindings
+                    .iter()
+                    .find(|binding| binding.command == command)
+                    .unwrap();
+                assert_eq!(
+                    binding.key,
+                    normalize_sequence(reference["key"].as_str().unwrap())
+                );
+                assert_eq!(binding.when.as_deref(), reference["when"].as_str());
+                assert!(
+                    matches!(map.resolve(&binding.key, &HashMap::new()), Resolution::Command(id, _) if id == command)
                 );
             }
         }

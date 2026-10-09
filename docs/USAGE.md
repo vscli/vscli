@@ -483,3 +483,56 @@ cargo test --locked --test signature_help real_clangd -- --ignored
 ```
 
 This is native workflow evidence, not full signature-help parity with VS Code.
+
+## Native document and workspace symbols
+
+**Ctrl+Shift+O** (macOS **Cmd+Shift+O**) opens **Go to Symbol in Editor**.
+**Ctrl+T** (macOS **Cmd+T**) opens **Go to Symbol in Workspace**. These defaults
+and their contexts match the pinned VS Code 1.95.0 inventory. Both commands require
+an explicitly configured, ready LSP server advertising the relevant provider;
+document symbols additionally require a saved file handled by that server.
+Workspace symbol search also works from an empty welcome screen.
+
+The native searchable picker displays names, kinds, containing symbols and file
+locations. Document search filters one response locally; workspace queries wait
+200 ms after input changes, cancel superseded requests and clear obsolete results.
+Hierarchical `DocumentSymbol` uses `selectionRange`; flat `SymbolInformation` and
+range-bearing `WorkspaceSymbol` use their location range. Range-less workspace
+symbols requiring `workspaceSymbol/resolve`, non-file URIs, malformed ranges and
+oversized responses produce explicit errors. Resolve, an outline panel, symbol
+previews, grouping modes and complete VS Code navigation behavior are not implemented.
+
+Before navigation, the picker checks the workspace, active buffer, all captured
+open-buffer identities/revisions, selections, pane and focus. New input contexts,
+changed buffers, canceled requests and stale file-load replies cannot move the
+cursor or replace a newer picker. An already-open target retains its document,
+shared views, unsaved text and undo history even when its backing file was deleted.
+Successful navigation collapses the destination view to one cursor at the symbol;
+other shared views retain their selections. Every accepted range is checked against the actual
+buffer using UTF-16 positions, including rejection of split surrogate pairs.
+
+Closed targets use one bounded background loader and must be existing regular
+files within the existing 32 MiB open limit; missing files never create buffers.
+Cancellation retains the worker slot until it finishes. A server response cannot
+guarantee the revision of an unopened file, so this path validates the supplied
+range against freshly read text rather than claiming a server-version snapshot.
+No symbol operation writes source files.
+
+Limits are 128 open buffers, 512 returned symbols, 16 child levels, 4 KiB per
+name/detail/container/path, 64 KiB cumulative display metadata and a 1 KiB query.
+Excess results are rejected explicitly rather than silently truncated. Input and
+rendering perform no symbol-file reads; no Node runtime is required.
+
+Synthetic tests cover hierarchy, flat locations, malformed/unresolved responses,
+Unicode offsets, dirty/shared/deleted targets, canceled and out-of-order replies,
+native prompt preservation and bounded loader cancellation. A Unix PTY journey
+covers both original shortcuts, search, async open and CRLF save/undo. An explicit
+real-server test passed with **clangd 23.1.1 on Linux**, navigating C++ document and
+workspace symbols without changing file bytes:
+
+```sh
+cargo test --locked --test symbol_navigation real_clangd -- --ignored
+```
+
+This evidence qualifies that fixture and server, not all workspace indexing,
+server implementations or full symbol-navigation parity.

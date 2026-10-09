@@ -11,6 +11,7 @@ mod signature_help;
 mod snippet_catalogs;
 mod snippets;
 mod source_control;
+mod symbols;
 mod tasks;
 mod terminals;
 mod themes;
@@ -260,6 +261,11 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Language: Format Document", "editor.action.formatDocument"),
     ("Language: Rename Symbol", "editor.action.rename"),
     ("Language: Quick Fix", "editor.action.quickFix"),
+    ("Go to Symbol in Editor", "workbench.action.gotoSymbol"),
+    (
+        "Go to Symbol in Workspace",
+        "workbench.action.showAllSymbols",
+    ),
     ("Language: Refactor", "editor.action.refactor"),
     ("View: Problems", "workbench.actions.view.problems"),
     (
@@ -280,6 +286,7 @@ pub enum Focus {
 #[derive(Clone)]
 pub enum PromptKind {
     Extension(Box<crate::extensions::NativePrompt>),
+    Symbols,
     InstallExtension,
     StopExtension,
     Palette,
@@ -321,10 +328,12 @@ impl Prompt {
         }
     }
     pub fn insert(&mut self, text: &str) -> bool {
-        if matches!(self.kind, PromptKind::Extension(_))
-            && (if self.select_all { 0 } else { self.text.len() }) + text.len()
-                > crate::extensions::MAX_PROMPT_TEXT
-        {
+        let limit = match self.kind {
+            PromptKind::Extension(_) => crate::extensions::MAX_PROMPT_TEXT,
+            PromptKind::Symbols => 1024,
+            _ => usize::MAX,
+        };
+        if (if self.select_all { 0 } else { self.text.len() }) + text.len() > limit {
             return false;
         }
         if self.select_all {
@@ -437,6 +446,7 @@ pub struct App {
     pub theme: crate::theme::Theme,
     pub recent_files: crate::recent::State,
     navigation: navigation::State,
+    symbols: symbols::State,
     theme_state: themes::State,
     pub settings: crate::settings::Settings,
     pub imported_keybinding_notices: Vec<String>,
@@ -512,6 +522,7 @@ impl App {
             theme: crate::theme::Theme::default(),
             recent_files: crate::recent::State::default(),
             navigation: navigation::State::default(),
+            symbols: symbols::State::default(),
             theme_state: themes::State::default(),
             settings: crate::settings::Settings::default(),
             imported_keybinding_notices: Vec::new(),
@@ -531,7 +542,8 @@ impl App {
     }
     pub fn poll(&mut self) -> bool {
         let invalidated = self.refresh_signature();
-        let changed = self.workspace.poll() || invalidated;
+        let changed = self.poll_symbols() || invalidated;
+        let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
         let mut changed = self.poll_language() || changed;
         if let Some(result) = self
@@ -666,6 +678,9 @@ impl App {
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
         self.clear_signature();
         self.cancel_extension_prompt();
+        if !matches!(kind, PromptKind::Symbols) {
+            self.cancel_symbols();
+        }
         self.cancel_navigation();
         if let Some(doc) = self.documents.get_mut(self.active) {
             doc.break_group();
@@ -790,6 +805,7 @@ impl App {
         self.event_inner(event);
         self.sync_pane();
         self.refresh_signature();
+        self.invalidate_symbol_context();
     }
     fn event_inner(&mut self, event: Event) {
         match event {
@@ -797,7 +813,12 @@ impl App {
             Event::Paste(text) => {
                 if let Some(prompt) = &mut self.prompt {
                     if !prompt.insert(&text.replace(['\r', '\n'], "")) {
-                        self.message = "Extension prompt text exceeds 4 KiB".into();
+                        self.message = if matches!(prompt.kind, PromptKind::Symbols) {
+                            "Symbol query exceeds 1 KiB"
+                        } else {
+                            "Extension prompt text exceeds 4 KiB"
+                        }
+                        .into();
                     }
                 } else if self.modal.is_none() && self.focus == Focus::Terminal {
                     if let Some(terminal) = self.terminals.get_mut(self.active_terminal)
@@ -984,6 +1005,7 @@ impl App {
         if command != "editor.action.triggerParameterHints" {
             self.clear_signature();
         }
+        self.cancel_symbols();
         // A duplicate reopen keeps the existing bounded request alive.
         if command != "workbench.action.reopenClosedEditor" {
             self.cancel_navigation();
@@ -1163,6 +1185,8 @@ impl App {
                 "textDocument/formatting",
                 json!({"options":{"tabSize":self.doc().tab_size,"insertSpaces":self.doc().insert_spaces}}),
             ),
+            "workbench.action.gotoSymbol" => self.start_symbols(false),
+            "workbench.action.showAllSymbols" => self.start_symbols(true),
             "editor.action.quickFix" => self.request_code_actions(None),
             "editor.action.refactor" => self.request_code_actions(Some("refactor")),
             "editor.action.rename" => self.start_prompt(
@@ -1777,6 +1801,8 @@ impl App {
             KeyCode::Down => {
                 p.selected = (p.selected + 1).min(if matches!(p.kind, PromptKind::Extension(_)) {
                     127
+                } else if matches!(p.kind, PromptKind::Symbols) {
+                    511
                 } else {
                     99
                 })
@@ -1844,7 +1870,12 @@ impl App {
             {
                 let accepted = p.insert(&c.to_string());
                 if !accepted {
-                    self.message = "Extension prompt text exceeds 4 KiB".into();
+                    self.message = if matches!(p.kind, PromptKind::Symbols) {
+                        "Symbol query exceeds 1 KiB"
+                    } else {
+                        "Extension prompt text exceeds 4 KiB"
+                    }
+                    .into();
                 }
             }
             _ => {}
@@ -1856,6 +1887,7 @@ impl App {
             PromptKind::Extension(request) => {
                 self.accept_extension_prompt(request, p.text, p.selected)
             }
+            PromptKind::Symbols => self.accept_symbol(&p.text, p.selected),
             PromptKind::RecentFiles => self.accept_recent(&p.text, p.selected),
             PromptKind::Snippet => self.accept_snippet(&p.text, p.selected),
             PromptKind::InstallExtension => self.manage_extension(
