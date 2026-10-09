@@ -3,6 +3,7 @@
 import json
 import os
 import signal
+import sys
 import time
 from pathlib import Path
 import subprocess
@@ -41,9 +42,13 @@ def archive(root, name, version="1.0.0", fail=False, hang=False, descendants=Fal
             ],
         },
     }
-    spawn = """
-  const descendant = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'inherit' });
-  require('node:fs').writeFileSync(require('node:path').join(vscode.workspace.rootPath, 'descendant.pid'), String(descendant.pid));
+    report = "require('node:fs').writeFileSync(require('node:path').join(vscode.workspace.rootPath, 'descendant.pid'), String(descendant.pid));"
+    if hang:
+        # Exercise the leader-report/child-report gap deterministically.
+        report = f"setTimeout(() => {{ {report} }}, 150);"
+    spawn = f"""
+  const descendant = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {{}}, 1000)'], {{ stdio: 'inherit' }});
+  {report}
 """ if descendants else ""
     source = f"""
 const vscode = require('vscode');
@@ -122,10 +127,36 @@ def executing(pid):
     return bool(status) and not status.startswith("Z")
 
 
-def descendant(root):
-    pid = int((root / "descendant.pid").read_text())
+def stopped_descendant(pid):
+    if executing(pid):
+        return False
+    DESCENDANTS.discard(pid)
+    return True
+
+
+def descendant(root, leader=None):
+    pid = None
+
+    def ready():
+        nonlocal pid
+        try:
+            candidate = int((root / "descendant.pid").read_text())
+        except (FileNotFoundError, ValueError):
+            return False
+        # Activation writes its leader PID before spawning/reporting the child.
+        # A previous session's report may still be present during this window.
+        if candidate in DESCENDANTS or not executing(candidate):
+            return False
+        try:
+            if leader is not None and os.getpgid(candidate) != leader:
+                return False
+        except ProcessLookupError:
+            return False
+        pid = candidate
+        return True
+
+    eventually(ready)
     DESCENDANTS.add(pid)
-    assert executing(pid)
     return pid
 
 
@@ -215,17 +246,17 @@ def run(root):
     wait(app, "(4 commands)")
     second = descendant(root)
     assert second != first
-    eventually(lambda: not executing(first))
+    eventually(lambda: stopped_descendant(first))
     command(app, "Extensions: Stop Host")
     wait(app, "Extension host stopped")
-    eventually(lambda: not executing(second))
+    eventually(lambda: stopped_descendant(second))
     command(app, "Extensions: Restart Selected Session")
     wait(app, "(4 commands)")
     third = descendant(root)
     leader = int((root / "descendants.pid").read_text())
     app.send(F10 + b"!")
     wait(app, "Extension host stopped")
-    eventually(lambda: not executing(third) and not alive(leader))
+    eventually(lambda: stopped_descendant(third) and not alive(leader))
     save(app, file, "!original")
     app.send(CTRL_Z)
     save(app, file, "original")
@@ -250,8 +281,9 @@ def run(root):
     wait(app, "deliberate session failure")
     child = int((root / "failure.pid").read_text())
     failed_descendant = int((root / "descendant.pid").read_text())
-    DESCENDANTS.add(failed_descendant)
-    eventually(lambda: not alive(child) and not executing(failed_descendant))
+    if executing(failed_descendant):
+        DESCENDANTS.add(failed_descendant)
+    eventually(lambda: not alive(child) and stopped_descendant(failed_descendant))
     app.send(b"?")
     save(app, file, "?original")
     app.send(CTRL_Z)
@@ -268,10 +300,11 @@ def run(root):
 
     manage(store, "--install-extension", archive(root, "hang", hang=True, descendants=True))
     journal = root / "signal-recovery"
+    (root / "descendant.pid").unlink(missing_ok=True)
     app = Editor(root, "--extensions-dir", store, "--extension", "session.hang", "--recovery-dir", journal, file, recovery=True, enhanced=True)
     eventually(lambda: app.read() and (root / "hang.pid").exists())
     child = int((root / "hang.pid").read_text())
-    pending_descendant = descendant(root)
+    pending_descendant = descendant(root, leader=child)
     app.send(CTRL_A)
     app.paste("latest unsaved during activation")
     wait(app, "latest unsaved during activation")
@@ -282,7 +315,7 @@ def run(root):
     assert app.process.returncode != 0 and app.process.restored
     app.close_fds()
     LIVE.remove(app)
-    eventually(lambda: not alive(child) and not executing(pending_descendant))
+    eventually(lambda: not alive(child) and stopped_descendant(pending_descendant))
     snapshots = [json.loads(path.read_text()) for path in journal.glob("*.json")]
     assert len(snapshots) == 1
     assert snapshots[0]["documents"][0]["text"] == "latest unsaved during activation"
@@ -295,27 +328,53 @@ if __name__ == "__main__":
         try:
             run(root)
         finally:
+            original_failure = sys.exc_info()[0] is not None
+            cleanup_errors = []
             for app in LIVE:
-                if app.process.poll() is None:
-                    app.process.send_signal(signal.SIGTERM)
-                    try:
-                        app.process.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
-                        app.process.kill()
-                        app.process.wait(timeout=3)
-                app.close_fds()
-            # Collect even children spawned before a readiness assertion failed.
+                try:
+                    if app.process.poll() is None:
+                        try:
+                            os.kill(app.process.pid, signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                        try:
+                            app.process.wait(timeout=3)
+                        except (AssertionError, subprocess.TimeoutExpired):
+                            app.process.kill()
+                            app.process.wait(timeout=3)
+                    app.close_fds()
+                except Exception as error:
+                    cleanup_errors.append(error)
+            # Collect children only while their fixture leader still owns the group.
+            leaders = set()
             for path in root.glob("*.pid"):
+                if path.name == "descendant.pid":
+                    continue
                 try:
                     pid = int(path.read_text())
-                    if path.name == "descendant.pid":
-                        DESCENDANTS.add(pid)
-                    elif os.getpgid(pid) == pid:
-                        os.killpg(pid, signal.SIGKILL)
-                except ProcessLookupError:
+                    if executing(pid) and os.getpgid(pid) == pid:
+                        leaders.add(pid)
+                except (ProcessLookupError, FileNotFoundError, ValueError):
                     pass
-            for pid in DESCENDANTS:
+            try:
+                pid = int((root / "descendant.pid").read_text())
+                if executing(pid) and os.getpgid(pid) in leaders:
+                    DESCENDANTS.add(pid)
+            except (ProcessLookupError, FileNotFoundError, ValueError):
+                pass
+            for pid in leaders:
                 try:
-                    os.kill(pid, signal.SIGKILL)
+                    os.killpg(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+            for pid in list(DESCENDANTS):
+                try:
+                    if not stopped_descendant(pid):
+                        os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    DESCENDANTS.discard(pid)
+            if cleanup_errors:
+                if original_failure:
+                    print(f"Additional PTY cleanup errors: {cleanup_errors}", file=sys.stderr)
+                else:
+                    raise cleanup_errors[0]
