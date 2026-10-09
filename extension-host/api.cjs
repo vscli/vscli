@@ -1,5 +1,6 @@
 'use strict';
 const types = require('./api-types.cjs');
+const { createPrompts } = require('./prompts.cjs');
 const { createConfiguration } = require('./configuration.cjs');
 const { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument } = types;
 
@@ -19,6 +20,7 @@ function createApi(request, notify, sessionOptions = {}) {
   const facades = new Map(), owned = new Map();
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
+  const promptBudget = { pending: 0, bytes: 0 };
   function track(owner, disposable) {
     if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }
     if (!owned.has(owner)) owned.set(owner, new Set());
@@ -135,6 +137,7 @@ function createApi(request, notify, sessionOptions = {}) {
     EndOfLine: Object.freeze({ LF: 1, CRLF: 2 }),
     ExtensionMode: Object.freeze({ Production: 1, Development: 2, Test: 3 }),
     window: supported('window', {
+      ...createPrompts(request, sessionOptions.session, '', promptBudget),
       get activeTextEditor() { return active; },
       get visibleTextEditors() { return active ? [active] : []; },
       onDidChangeActiveTextEditor: activeChanged.event,
@@ -178,6 +181,7 @@ function createApi(request, notify, sessionOptions = {}) {
       const facade = supported('vscode', {
         ...api,
         window: supported('window', {
+          ...createPrompts(request, sessionOptions.session, owner, promptBudget),
           get activeTextEditor() { return scopedEditor(active); },
           get visibleTextEditors() { return active ? [scopedEditor(active)] : []; },
           onDidChangeActiveTextEditor: event(owner, activeChanged.event, scopedEditor),
