@@ -97,7 +97,7 @@ test('owner disposal cancels only that owner and shared registration limits stay
 test('hover, locations, formatting, hierarchical symbols and signatures convert to native LSP shapes', () => {
   const { document } = fixture(); const range = new Range(0, 0, 0, 1);
   assert.deepEqual(normalize('hover', new types.Hover(new types.MarkdownString('**猫**'), range), document).contents, [{ kind: 'markdown', value: '**猫**' }]);
-  assert.equal(normalize('definition', new types.Location(Uri.file('/test.cpp'), range), document)[0].uri, 'file:///test.cpp');
+  assert.equal(normalize('definition', new types.Location(Uri.parse('file:///test.cpp'), range), document)[0].uri, 'file:///test.cpp');
   assert.equal(normalize('formatting', [types.TextEdit.replace(range, '犬')], document)[0].newText, '犬');
   const symbol = new types.DocumentSymbol('cat', '', types.SymbolKind.Variable, range, range);
   symbol.children.push(new types.DocumentSymbol('child', '', types.SymbolKind.String, range, range));
