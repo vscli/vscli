@@ -1716,6 +1716,29 @@ impl App {
                 match key.code {
                     KeyCode::Up => selected = selected.saturating_sub(1),
                     KeyCode::Down => selected = (selected + 1).min(items.len().saturating_sub(1)),
+                    KeyCode::Char(character @ ('e' | 'E' | 'd' | 'D'))
+                        if !key.modifiers.intersects(
+                            KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
+                        ) =>
+                    {
+                        if let Some(item) = items.get(selected) {
+                            let scope = if character.is_ascii_uppercase()
+                                || key.modifiers.contains(KeyModifiers::SHIFT)
+                            {
+                                crate::extension_activation::Scope::Workspace
+                            } else {
+                                crate::extension_activation::Scope::Global
+                            };
+                            if let Err(error) = self.set_extension_enabled(
+                                &item.id,
+                                matches!(character, 'e' | 'E'),
+                                scope,
+                            ) {
+                                self.message =
+                                    format!("Cannot change extension enablement: {error:#}");
+                            }
+                        }
+                    }
                     KeyCode::Enter => {
                         if let Some(item) = items.get(selected) {
                             if item.manifest["main"].is_string() {

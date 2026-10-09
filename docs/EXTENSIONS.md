@@ -178,6 +178,8 @@ For a previous runtime checkout, set `VSCLI_BENCH_HOST=/path/to/extension-host` 
 
 ## Remembered execution enablement and supported events
 
+In **Ctrl+Shift+X → Installed Extensions**, **e/d** enable or disable the selected package globally; **E/D** (Shift+e/d) write a workspace override. The list remains open and shows the effective activation state after the atomic write succeeds. Workspace overrides take precedence, so disabling globally can leave a package enabled in this workspace. **Enter** retains the explicit run-once action. Browsing, installing and changing a dormant command package's grant do not themselves start Node; a supported activation event does. The picker PTY checks all four grant keys, scope precedence, original F9 lazy activation, Unicode/CRLF save and undo, process cleanup after disable, and remembered state after restart.
+
 Installation alone never authorizes code execution. Explicit installed Enter / `--extension` remains an eager run-once action and does not write remembered grants. `--enable-extension <installed-id>` and `--disable-extension <installed-id>` write grants without a terminal or Node; `--extension-scope global|workspace` selects the scope (default global). Native commands `vscli.extensions.enableGlobal`, `enableWorkspace`, `disableGlobal`, and `disableWorkspace` accept an installed ID string or `{ "id": "publisher.name" }`. For example, a user keybinding can explicitly enable one package for the workspace:
 
 ```json
