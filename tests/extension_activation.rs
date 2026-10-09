@@ -422,3 +422,67 @@ fn language_and_workspace_events_activate_granted_code_while_declarative_events_
         "yes"
     );
 }
+
+#[test]
+fn held_activation_cannot_dispatch_a_command_into_a_later_native_document() {
+    use vscli::extension_activation::Scope;
+    let root = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let store = vscli::extension_store::Store::new(root.path().join("store"));
+    install(
+        root.path(),
+        &store,
+        "a",
+        Some(
+            r#"const vscode=require('vscode'), fs=require('node:fs');
+exports.activate=async context=>{
+ fs.writeFileSync('activation-started','yes');
+ await new Promise(resolve=>{const timer=setInterval(()=>{if(fs.existsSync('activation-release')){clearInterval(timer);resolve();}},5);});
+ context.subscriptions.push(vscode.commands.registerCommand('a.run',async()=>{
+  const applied=await vscode.window.activeTextEditor.edit(edit=>edit.insert(new vscode.Position(0,0),'extension:'));
+  await vscode.window.showInformationMessage('context edit='+applied);
+ }));
+};"#,
+        ),
+        json!({"activationEvents":["onCommand:a.run"]}),
+    );
+    let mut app = configured(root.path(), config.path(), &store);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
+    app.doc_mut().insert("first 猫", false);
+    let first = app.doc().id;
+    enable(&mut app, "test.a", Scope::Global);
+    app.execute("a.run", Value::Null);
+    until(&mut app, |_| {
+        root.path().join("activation-started").exists()
+    });
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
+    app.doc_mut().insert("second 🙂", false);
+    let second = app.doc().id;
+    assert_ne!(first, second);
+    std::fs::write(root.path().join("activation-release"), "yes").unwrap();
+    until(&mut app, |app| {
+        app.extension_host
+            .as_ref()
+            .is_some_and(|host| host.owner_active("test.a"))
+    });
+    for _ in 0..10 {
+        app.poll();
+    }
+    assert_eq!(
+        app.documents
+            .iter()
+            .find(|doc| doc.id == first)
+            .unwrap()
+            .text
+            .to_string(),
+        "first 猫"
+    );
+    assert_eq!(app.doc().id, second);
+    assert_eq!(app.doc().text.to_string(), "second 🙂");
+    app.execute("a.run", Value::Null);
+    until(&mut app, |app| app.message == "context edit=true");
+    assert_eq!(app.doc().id, second);
+    assert_eq!(app.doc().text.to_string(), "extension:second 🙂");
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), "second 🙂");
+}
