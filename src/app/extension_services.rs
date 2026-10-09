@@ -869,6 +869,9 @@ exports.activate = async context => {
         let mut app = App::new(root.path().into(), Profile::Linux);
         app.hidden_documents.push(doc);
         app.open(&alias.join("input.txt")).unwrap();
+        // A second request rejected by the occupied slot must leave the first
+        // accepted loader valid rather than canceling both native opens.
+        app.open(&alias.join("input.txt")).unwrap();
         assert!(app.documents.is_empty());
         until(&mut app, |app| app.active_document().is_some());
         assert_eq!(app.doc().id, id);
