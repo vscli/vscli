@@ -58,7 +58,6 @@ pub(super) fn command(command: &str) -> bool {
     matches!(
         command,
         "acceptSelectedSuggestion"
-            | "acceptSelectedSuggestionOnEnter"
             | "hideSuggestWidget"
             | "selectNextSuggestion"
             | "selectPrevSuggestion"
@@ -383,7 +382,7 @@ impl App {
             "selectPrevSuggestion" => model.step(-1),
             "selectNextPageSuggestion" => model.step(8),
             "selectPrevPageSuggestion" => model.step(-8),
-            "acceptSelectedSuggestion" | "acceptSelectedSuggestionOnEnter" => {
+            "acceptSelectedSuggestion" => {
                 if !self.suggestion_acceptable() {
                     self.cancel_suggestions();
                     return;
@@ -619,5 +618,25 @@ impl App {
             self.cancel_suggestions();
         }
         stale
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn suggestion_dispatch_uses_reserved_default_ids_and_does_not_swallow_an_extension_alias() {
+        let reserved = native_command_ids();
+        for profile in [Profile::Linux, Profile::Macos, Profile::Windows] {
+            for binding in Keymap::new(profile)
+                .bindings
+                .into_iter()
+                .filter(|binding| command(&binding.command))
+            {
+                assert!(reserved.contains(&binding.command), "{}", binding.command);
+            }
+        }
+        // This is not a pinned native command and remains available to packages.
+        assert!(!command("acceptSelectedSuggestionOnEnter"));
     }
 }

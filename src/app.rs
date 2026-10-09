@@ -1151,11 +1151,7 @@ impl App {
             .unwrap_or(token.clone());
         match self.keymap.resolve(&sequence, &self.context()) {
             Resolution::Command(command, args) => {
-                if matches!(
-                    command.as_str(),
-                    "acceptSelectedSuggestion" | "acceptSelectedSuggestionOnEnter"
-                ) && !self.suggestion_acceptable()
-                {
+                if command == "acceptSelectedSuggestion" && !self.suggestion_acceptable() {
                     match key.code {
                         KeyCode::Tab => {
                             self.execute_with_args("tab", None);
