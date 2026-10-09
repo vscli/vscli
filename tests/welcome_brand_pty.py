@@ -49,9 +49,32 @@ def visible_graphic(app):
     return any('\U0010eeee' in value for value in app.screen.cells.values())
 
 
+def displayed_settings_path(screen):
+    """Read the two path rows in their panel, excluding the explorer and padding."""
+    label = 'User settings · JSON'
+    for (row, column), value in sorted(screen.cells.items()):
+        if value != 'U':
+            continue
+        if ''.join(screen.cells.get((row, column + i), ' ') for i in range(len(label))) != label:
+            continue
+        end = max((col for (line, col) in screen.cells if line in (row + 1, row + 2)), default=column)
+        return ''.join(''.join(screen.cells.get((line, col), ' ')
+                               for col in range(column, end + 1)).rstrip()
+                       for line in (row + 1, row + 2))
+    return None
+
+
+def wait_settings_path(app, path):
+    try:
+        eventually(lambda: app.read() and displayed_settings_path(app.screen) == str(path), timeout=8)
+    except AssertionError as error:
+        raise AssertionError(f'Expected full settings path {str(path)!r}:\n{app.screen.text()}') from error
+
+
 def run(root, kitty):
     root.mkdir()
-    config = root / 'config'
+    # Exercise the documented two-row wrapping on every platform, including Linux.
+    config = root / 'deliberately-long-config-directory-for-wrapped-paths'
     source = root / 'hello.txt'
     source.write_bytes('original 猫\r\n'.encode())
     app = Editor(root, '--config-dir', config, '--no-session', enhanced=True,
@@ -59,7 +82,8 @@ def run(root, kitty):
                             'KITTY_WINDOW_ID': '42', 'NO_COLOR': ''})
     resize(app, 140, 40)
     wait(app, 'User settings')
-    wait(app, str(config / 'settings.json'))
+    wait_settings_path(app, config / 'settings.json')
+    assert str(config / 'settings.json') not in app.screen.text(), 'Fixture must exercise path wrapping'
     if kitty:
         eventually(lambda: app.read() and visible_graphic(app))
         assert any(b'a=T' in item and b's=180,v=180' in item for item in app.screen.graphics)
@@ -104,6 +128,7 @@ def run(root, kitty):
         assert any(b'a=d,d=I' in item for item in app.screen.graphics)
     app.send(b'\x1b[44;5u')  # Ctrl+, opens the advertised real path.
     wait(app, 'settings.json')
+    wait(app, '1 cursor(s)')  # A real editor must exist; welcome also names settings.json.
     app.send(CTRL_S)
     eventually(lambda: app.read() and (config / 'settings.json').exists())
     assert (config / 'settings.json').read_text() == '{\n}\n'
