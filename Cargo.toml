@@ -24,6 +24,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 json5 = "0.4"
 tempfile = "3"
 ignore = "0.4"
+globset = "0.4"
 regex = "1"
 url = "2"
 portable-pty = "0.9"

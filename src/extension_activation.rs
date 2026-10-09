@@ -1,5 +1,6 @@
 //! Native activation planning. Reading manifests and starting code are separate operations.
 pub mod state;
+pub mod workspace;
 use crate::{extension_store::Installed, extensions::Package};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -147,6 +148,21 @@ fn strings(value: &Value, limit: usize, name: &str) -> Result<Vec<String>> {
         .collect()
 }
 impl Metadata {
+    /// Read a selected generation in a background planning worker.
+    pub fn selected(package: &Package) -> Result<Self> {
+        let item = Installed {
+            id: package.id.clone(),
+            version: package.version.clone(),
+            path: package.path.clone(),
+            source: "selected snapshot".into(),
+            sha256: package.sha256.clone().unwrap_or_default(),
+            compatibility: String::new(),
+            manifest: package.manifest()?,
+        };
+        let mut metadata = Self::installed(&item)?;
+        metadata.package = package.clone();
+        Ok(metadata)
+    }
     pub fn installed(item: &Installed) -> Result<Self> {
         validate_id(&item.id)?;
         let manifest = &item.manifest;
