@@ -324,10 +324,10 @@ impl App {
                 self.message = "Extension parameter hints · Shift+Escape closes".into();
             }
             Kind::Symbols => {
-                let fallback = Path::new("__vscli_untitled_symbols__");
+                let fallback = PathBuf::from(self.doc().name());
                 self.extension_providers.symbols = crate::symbols::parse(
                     &value,
-                    Some(self.doc().path.as_deref().unwrap_or(fallback)),
+                    Some(self.doc().path.as_deref().unwrap_or(&fallback)),
                 )?;
                 self.message = format!(
                     "{} extension symbols",
@@ -738,6 +738,34 @@ mod tests {
             assert_eq!(app.doc().text.to_string(), before);
             assert_eq!(app.doc().selections(), selections);
         }
+    }
+    #[test]
+    fn untitled_provider_symbols_filter_and_navigate_without_creating_a_file() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("sel 🙂\r\n", false);
+        let id = app.doc().id;
+        let before = app.doc().text.to_string();
+        app.start_symbols(false);
+        until(&mut app, |a| !a.extension_providers.symbols.is_empty());
+        assert!(app.symbol_items("query")[0].label.contains("Untitled"));
+        for character in "query".chars() {
+            app.event(Event::Key(KeyEvent::new(
+                KeyCode::Char(character),
+                KeyModifiers::NONE,
+            )));
+        }
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::NONE,
+        )));
+        assert_eq!(app.doc().id, id);
+        assert!(app.doc().path.is_none());
+        assert_eq!(app.doc().cursor, 0);
+        assert_eq!(app.doc().text.to_string(), before);
+        assert!(app.prompt.is_none());
+        assert!(!root.path().join("Untitled").exists());
     }
     #[test]
     fn provider_leases_reject_hidden_edits_and_inactive_view_changes() {
