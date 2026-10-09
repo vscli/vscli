@@ -95,21 +95,13 @@ impl App {
                 if previous != client.state {
                     self.message = format!("Debugger: {}", client.reason);
                 }
-                if let Some((path, line, column)) = client.location.take() {
-                    if let Err(e) = self.open(&path) {
-                        self.message = format!("Debugger source unavailable: {e:#}");
-                    } else {
-                        self.doc_mut().clear_secondary();
-                        let row = line.saturating_sub(1).min(self.doc().line_count() - 1);
-                        let pos = (self.doc().line_start(row) + column.saturating_sub(1))
-                            .min(self.doc().line_end(row));
-                        self.doc_mut().move_to(pos, false);
-                        self.message = if self.doc().dirty() {
-                            "Debugger stopped; source is modified, displayed lines may differ from disk".into()
-                        } else {
-                            "Debugger stopped · F5 continue · F10 step · Ctrl+Shift+D stack/variables".into()
-                        };
-                    }
+                if let Some((path, line, column)) = client.location.take()
+                    && let Err(e) = self.open_with_intent(
+                        &path,
+                        super::navigation::OpenIntent::Debug { line, column },
+                    )
+                {
+                    self.message = format!("Debugger source unavailable: {e:#}");
                 }
                 changed
             }
