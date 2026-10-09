@@ -14,6 +14,7 @@ pub mod recovery;
 pub mod search;
 pub mod settings;
 pub mod snippet;
+pub mod symbols;
 pub mod syntax;
 pub mod tasks;
 pub mod terminal;
