@@ -197,7 +197,7 @@ The server must already be installed. This implementation uses native stdio JSON
 | Rename symbol | F2 | F2 | F2 |
 | Problems | Ctrl+Shift+M | Ctrl+Shift+M | Cmd+Shift+M |
 
-Completion uses arrows and Enter/Tab. Formatting is undoable. Rename currently accepts unversioned text edits, stages validation before changing any buffer, and leaves files unsaved for review; undo is per file. It refuses edits to other unsaved buffers. Versioned workspace edits, file operations, completion snippets/resolve/follow-up commands, code actions, server provisioning, automatic restart, multiple simultaneous servers, and advanced capability negotiation remain incomplete. The server is terminated when the editor exits; graceful shutdown is still pending. Diagnostics lacking server versions have weaker stale-result guarantees.
+Completion uses arrows and Enter/Tab. Formatting is undoable. Rename currently accepts unversioned text edits, stages validation before changing any buffer, and leaves files unsaved for review; undo is per file. It refuses edits to other unsaved buffers. Versioned rename edits, file operations, completion snippets/resolve/follow-up commands, server provisioning, automatic restart, multiple simultaneous servers, and advanced capability negotiation remain incomplete. Native code-action support has its own stricter transaction rules below. The server is terminated when the editor exits; graceful shutdown is still pending. Diagnostics lacking server versions have weaker stale-result guarantees.
 
 A deterministic subprocess fixture tests synchronization, completion, formatting, and rejection of a stale response. The local real-server integration test covers clangd diagnostics, hover, and formatting. This does not establish compatibility with every server.
 
@@ -384,3 +384,54 @@ buffers, save/discard/cancel, Save As, bounds and stale replies. PTY tests exerc
 close-to-welcome, reopen/edit/undo/save, missing-file retry and persisted recents
 after restarting. These are native behavior checks, not full VS Code history or
 session parity.
+
+
+## Native code actions and quick fixes
+
+With a configured language server, **Ctrl+.** (**Cmd+.** on macOS) opens
+**Language: Quick Fix**. **Ctrl+Shift+R** on all three platform profiles opens
+**Language: Refactor**. The shortcuts and provider/editability context match the
+pinned VS Code 1.95 inventories. The picker lists server actions, preferred first;
+Enter applies the chosen action and Escape closes it. Disabled actions explain
+why they cannot run. Servers can lazily resolve edits when an action is selected.
+Diagnostic codes, related fields and opaque `data` are preserved in action requests.
+
+Supported text edits use either `changes` or versioned `documentChanges` across
+already open, synchronized buffers. Every target identity, revision, server version,
+UTF-16 range, overlap and size bound is validated before any buffer changes.
+Other dirty buffers can participate when they still match the request snapshot.
+The editor preserves shared buffer identity and leaves changes unsaved; Undo is per
+file. Changed selections, views, documents or input context reject stale replies.
+Files outside the synchronized open buffers must be opened before retrying.
+
+Explicitly selected server commands can issue `workspace/applyEdit` while that
+command is pending. Unsolicited, expired or stale edits are rejected and acknowledged
+to the server. Each accepted `applyEdit` is a separate transaction across its own
+targets; there is no whole-command rollback of earlier edits if a later callback
+fails. Undo remains per file. Only one action/resolve/command chain runs at once. Combined actions
+containing both an edit and a command are rejected before mutation. Resource
+creation/rename/deletion, annotated edits, unknown text-edit forms and repeated
+workspace targets are also rejected. Sequential edits from a command after its
+original snapshot changes are not qualified; this is not a general server-command
+or workspace refactoring implementation.
+
+Limits are 128 intersecting diagnostics, 128 synchronized/edited buffers, 300
+picker actions, 4096 text edits and 4 MiB total replacement text. Exceeding these
+limits reports an error. Existing LSP edit validation also rejects resulting buffers
+over the 32 MiB document limit before mutation. The native transport bounds messages and queues;
+no Node runtime is required. This implementation does not provision or automatically
+start a language server.
+
+Deterministic protocol tests cover lazy resolve, selected commands, multi-file
+atomic rejection, dirty/shared buffers, late replies, source-byte preservation and
+undo. Unix PTY tests exercise real shortcuts, the picker, resolve and CRLF save/undo.
+A separate real-server test passed locally with **clangd 23.1.1 on Linux** for a C++
+missing-semicolon quick fix, including undo/redo and explicit save:
+
+```sh
+cargo test --locked --test code_actions real_clangd_cpp -- --ignored
+```
+
+This qualifies that C++ fix on that server, not all clangd refactors, all servers or
+full VS Code language-feature parity. The pre-existing rename path retains its
+separate limitations described above.

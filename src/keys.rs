@@ -177,6 +177,10 @@ impl Keymap {
         ] {
             map.add(&key, command, Some("editorTextFocus"));
         }
+        let action_context =
+            Some("editorHasCodeActionsProvider && textInputFocus && !editorReadonly");
+        map.add(&format!("{p}+."), "editor.action.quickFix", action_context);
+        map.add("ctrl+shift+r", "editor.action.refactor", action_context);
         map.add("ctrl+`", "workbench.action.terminal.toggleTerminal", None);
         map.add("ctrl+shift+`", "workbench.action.terminal.new", None);
         map.add(&format!("{p}+j"), "workbench.action.togglePanel", None);
@@ -1158,6 +1162,51 @@ mod tests {
                         .iter()
                         .filter(|binding| binding.command == id)
                         .all(|binding| binding.when.is_none())
+                );
+            }
+        }
+    }
+    #[test]
+    fn code_action_shortcuts_match_pinned_platform_keys_and_provider_contexts() {
+        for (profile, platform) in [
+            (Profile::Linux, "linux"),
+            (Profile::Windows, "win32"),
+            (Profile::Macos, "darwin"),
+        ] {
+            let map = Keymap::new(profile);
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tests/vscode-reference/baselines/1.95.0/{platform}/inventory.json"
+            ));
+            let inventory: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+            let enabled = HashMap::from([
+                ("editorHasCodeActionsProvider".into(), Value::Bool(true)),
+                ("textInputFocus".into(), Value::Bool(true)),
+                ("editorReadonly".into(), Value::Bool(false)),
+            ]);
+            for command in ["editor.action.quickFix", "editor.action.refactor"] {
+                let reference = inventory["bindings"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|binding| binding["command"] == command)
+                    .unwrap();
+                let binding = map
+                    .bindings
+                    .iter()
+                    .find(|binding| binding.command == command)
+                    .unwrap();
+                assert_eq!(
+                    binding.key,
+                    normalize_sequence(reference["key"].as_str().unwrap())
+                );
+                assert_eq!(binding.when.as_deref(), reference["when"].as_str());
+                assert!(
+                    matches!(map.resolve(&binding.key,&enabled),Resolution::Command(id,_) if id==command)
+                );
+                let mut disabled = enabled.clone();
+                disabled.insert("editorHasCodeActionsProvider".into(), Value::Bool(false));
+                assert!(
+                    !matches!(map.resolve(&binding.key,&disabled),Resolution::Command(id,_) if id==command)
                 );
             }
         }

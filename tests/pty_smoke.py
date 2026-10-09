@@ -1157,6 +1157,38 @@ def run():
         print("PASS: recent-file picker, dirty close cancel/save, reopen/undo, missing-file retry, welcome recents and persisted restart")
 
 
+        action_root = root / "code-actions"
+        action_root.mkdir()
+        action_file = action_root / "main.rs"
+        action_file.write_bytes(b"bad\r\n")
+        action_server = Path(__file__).resolve().parent / "fixtures" / "code_action_server.py"
+        app = Editor(action_root, action_file, "--lsp", sys.executable, "--lsp-arg", action_server, "--lsp-language", "rust", enhanced=True)
+        eventually(lambda: app.read() and "Language server ready" in app.screen.text())
+        app.send(b"\x1b[1;2C" * 3)  # Select bad with Shift+Right.
+        app.send(b"\x1b[46;5u")  # Ctrl+. Quick Fix with enhanced keyboard protocol.
+        eventually(lambda: app.read() and "Fix selected text" in app.screen.text())
+        assert action_file.read_bytes() == b"bad\r\n"
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Applied code action" in app.screen.text())
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and action_file.read_bytes() == b"fixed\r\n")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and action_file.read_bytes() == b"bad\r\n")
+        app.send(CTRL_A)
+        app.send(b"\x1b[114;6u")  # Ctrl+Shift+R, same refactor key across profiles.
+        eventually(lambda: app.read() and "Resolve refactor" in app.screen.text())
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Applied code action" in app.screen.text())
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and action_file.read_bytes() == b"resolved")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and action_file.read_bytes() == b"bad\r\n")
+        app.finish()
+        print("PASS: native LSP Quick Fix/Refactor shortcuts, action picker, lazy resolve, CRLF save and undo")
+
+
 
 if __name__ == "__main__":
     faulthandler.enable()

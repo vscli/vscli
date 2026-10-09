@@ -7,8 +7,18 @@ pub struct LanguageItem {
     pub action: LanguageAction,
 }
 pub enum LanguageAction {
-    Location { path: PathBuf, range: lsp::Range },
-    Completion { request: Request, item: Value },
+    Location {
+        path: PathBuf,
+        range: lsp::Range,
+    },
+    Completion {
+        request: Request,
+        item: Value,
+    },
+    CodeAction {
+        request: std::sync::Arc<Request>,
+        item: Value,
+    },
 }
 impl App {
     pub(super) fn poll_language(&mut self) -> bool {
@@ -27,6 +37,22 @@ impl App {
                 let changed = !events.is_empty();
                 for event in events {
                     match event {
+                        Event::ApplyEdit(id, request, edit) => {
+                            let result = request
+                                .context("Unsolicited workspace edit; invoke a code action first")
+                                .and_then(|request| {
+                                    self.code_action_current(&request)?;
+                                    self.apply_action_edit(&request, edit)
+                                });
+                            if let Err(error) = &result {
+                                self.message = format!("Workspace edit rejected: {error:#}");
+                            }
+                            if let Some(client) = &self.lsp
+                                && let Err(error) = client.acknowledge_edit(id, result)
+                            {
+                                self.message = format!("Workspace edit reply failed: {error:#}");
+                            }
+                        }
                         Event::Ready => self.message = "Language server ready".into(),
                         Event::Message(message) => self.message = message,
                         Event::Diagnostics(path, diagnostics) => {
@@ -57,10 +83,14 @@ impl App {
                     .into();
             return;
         };
-        match client
-            .sync(&self.documents)
-            .and_then(|_| client.request(method, &self.documents[self.active], extra))
-        {
+        match client.sync(&self.documents).and_then(|_| {
+            client.request_in_view(
+                method,
+                &self.documents[self.active],
+                extra,
+                self.panes.get(self.active_pane).map(|pane| pane.id),
+            )
+        }) {
             Ok(()) => self.message = format!("Language request: {method}"),
             Err(error) => self.message = format!("Language request failed: {error:#}"),
         }
@@ -74,7 +104,7 @@ impl App {
             self.message = format!("File saved; language server notification failed: {error:#}");
         }
     }
-    fn request_current(&self, request: &Request) -> Result<()> {
+    pub(super) fn request_current(&self, request: &Request) -> Result<()> {
         if self.active_document().is_none()
             || self.doc().id != request.document_id
             || self.doc().revision != request.revision
@@ -85,12 +115,65 @@ impl App {
         Ok(())
     }
     fn language_response(&mut self, request: Request, response: Value) -> Result<()> {
+        if request.method == "workspace/executeCommand" {
+            // Command results are not WorkspaceEdits; mutations arrive through applyEdit.
+            return Ok(());
+        }
         self.request_current(&request)?;
         if response.is_null() {
             self.message = "Language server returned no results".into();
             return Ok(());
         }
         match request.method.as_str() {
+            "textDocument/codeAction" => {
+                self.code_action_current(&request)?;
+                if self.prompt.is_some() || self.modal.is_some() {
+                    bail!("Input context changed; request code actions again");
+                }
+                let Value::Array(mut actions) = response else {
+                    bail!("Invalid code action response");
+                };
+                if actions.len() > 300 {
+                    bail!("Code action picker exceeds 300 items; narrow the selection");
+                }
+                let request = std::sync::Arc::new(request);
+                actions.sort_by_key(|item| !item["isPreferred"].as_bool().unwrap_or(false));
+                let items = actions
+                    .into_iter()
+                    .take(300)
+                    .map(|item| {
+                        let label = format!(
+                            "{}{}",
+                            item["title"]
+                                .as_str()
+                                .unwrap_or("Untitled action")
+                                .chars()
+                                .take(1024)
+                                .collect::<String>(),
+                            item["disabled"]["reason"]
+                                .as_str()
+                                .map_or(String::new(), |r| format!(" (disabled: {r})"))
+                        );
+                        LanguageItem {
+                            label,
+                            action: LanguageAction::CodeAction {
+                                request: request.clone(),
+                                item,
+                            },
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                if items.is_empty() {
+                    self.message = "No code actions available".into();
+                } else {
+                    self.modal = Some(Modal::Language {
+                        title: " Code Actions · Enter applies · Esc closes ".into(),
+                        items,
+                        selected: 0,
+                    });
+                }
+            }
+            "codeAction/resolve" => self.apply_code_action(&request, &response, true)?,
             "textDocument/hover" => {
                 if self.doc().cursor != request.cursor {
                     return Ok(());
@@ -191,6 +274,9 @@ impl App {
     }
     pub(super) fn language_action(&mut self, action: &LanguageAction) -> Result<()> {
         match action {
+            LanguageAction::CodeAction { request, item } => {
+                self.apply_code_action(request, item, false)?
+            }
             LanguageAction::Location { path, range } => {
                 self.open(path)?;
                 let start = lsp::offset(self.doc(), range.start)?;
