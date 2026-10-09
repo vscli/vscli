@@ -318,6 +318,7 @@ fn main() -> Result<()> {
     app.configure_recents(config_root.as_deref());
     app.extensions_directory = extensions_directory.clone();
     app.extension_registry = registry;
+    app.configure_extension_activation(config_root.as_deref());
     app.extension_node = args.extension_node.clone();
     let settings_path = args
         .settings

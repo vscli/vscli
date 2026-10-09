@@ -396,7 +396,10 @@ impl Client {
         }
         let owned = pending.owner.as_deref() == command_owner;
         if !(pending.method == "initialize"
-            || pending.method == "execute" && owned
+            || matches!(
+                pending.method.as_str(),
+                "execute" | "provideLanguage" | "treeChildren" | "surfaceAction"
+            ) && owned
             || pending.method == "activate" && (pending.owner.is_none() || owned))
         {
             bail!("Invalid extension native request command origin");
@@ -464,6 +467,16 @@ impl Client {
             .collect::<Vec<_>>()
             .join(", ");
         Ok(())
+    }
+    pub fn owner_active(&self, owner: &str) -> bool {
+        self.ready
+            && self
+                .activation_states
+                .get(owner)
+                .is_some_and(|state| state == "active")
+    }
+    pub(crate) fn command_owner(&self, command: &str) -> Option<&str> {
+        self.command_owners.get(command).map(String::as_str)
     }
     pub fn activating(&self) -> bool {
         self.pending

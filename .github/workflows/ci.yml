@@ -118,6 +118,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/extension_registry_pty.py target/debug/vscli
+      - name: Run remembered extension activation workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/extension_activation_pty.py target/debug/vscli
       - name: Check benchmark screen oracle (no timing threshold)
         if: runner.os != 'Windows'
         run: python3 scripts/bench_editor.py --vscli target/debug/vscli --sizes 10240 --trials 1 --keys 5 --idle-seconds 0.1 --output target/benchmark-smoke.json
