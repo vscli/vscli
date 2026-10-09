@@ -416,6 +416,12 @@ impl Keymap {
         });
     }
     pub fn load(&mut self, path: &Path) -> Result<usize> {
+        if !std::fs::metadata(path)
+            .with_context(|| format!("Cannot read {}", path.display()))?
+            .is_file()
+        {
+            bail!("Keybindings must be a regular file");
+        }
         let file =
             std::fs::File::open(path).with_context(|| format!("Cannot read {}", path.display()))?;
         let mut raw = String::new();
