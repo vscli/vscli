@@ -867,6 +867,7 @@ impl App {
         self.sync_pane();
         self.refresh_signature();
         self.invalidate_symbol_context();
+        self.invalidate_pending_extension_commands();
     }
     fn event_inner(&mut self, event: Event) {
         match event {
@@ -1061,6 +1062,7 @@ impl App {
     fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
         self.execute_inner(command, args);
         self.sync_pane();
+        self.invalidate_pending_extension_commands();
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
         if command != "editor.action.triggerParameterHints" {

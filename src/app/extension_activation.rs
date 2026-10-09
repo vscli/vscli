@@ -35,7 +35,8 @@ pub(super) struct State {
     attempted: BTreeSet<String>,
     languages: BTreeSet<String>,
     pending: VecDeque<Command>,
-    waiting: Option<String>,
+    next_command: u64,
+    waiting: Option<(String, u64)>,
     last_session: Option<u64>,
     starting: bool,
     job: Option<Job>,
@@ -51,12 +52,43 @@ struct Change {
     control: u64,
     generation: u64,
 }
+#[derive(PartialEq)]
+struct CommandContext {
+    workspace: PathBuf,
+    document: Option<(u64, u64, Option<PathBuf>)>,
+    selections: Vec<crate::document::Selection>,
+    pane: Option<u64>,
+    focus: Focus,
+}
+impl CommandContext {
+    fn capture(app: &App) -> Result<Self> {
+        if app
+            .active_document()
+            .is_some_and(|doc| doc.secondary.len() >= 4096)
+        {
+            anyhow::bail!("Pending extension commands support at most 4096 selections");
+        }
+        Ok(Self {
+            workspace: app.workspace.root.clone(),
+            document: app
+                .active_document()
+                .map(|doc| (doc.id, doc.revision, doc.path.clone())),
+            selections: app
+                .active_document()
+                .map_or_else(Vec::new, Document::selections),
+            pane: app.panes.get(app.active_pane).map(|pane| pane.id),
+            focus: app.focus.clone(),
+        })
+    }
+}
 struct Command {
+    token: u64,
+    context: CommandContext,
     id: String,
     args: Option<Value>,
 }
 struct Job {
-    command: Option<String>,
+    command: Option<u64>,
     generation: u64,
     control: u64,
     extension_epoch: Option<u64>,
@@ -302,12 +334,52 @@ impl App {
                 "Extension activation command arguments exceed 64 KiB each / 256 KiB queued".into();
             return true;
         }
+        let context = match CommandContext::capture(self) {
+            Ok(context) => context,
+            Err(error) => {
+                self.message = error.to_string();
+                return true;
+            }
+        };
+        let Some(token) = self.activation.next_command.checked_add(1) else {
+            self.message = "Extension command ticket limit reached".into();
+            return true;
+        };
+        self.activation.next_command = token;
         self.activation.pending.push_back(Command {
+            token,
+            context,
             id: command.into(),
             args: args.clone(),
         });
         self.message = format!("Waiting to activate extension command: {command}");
         true
+    }
+    pub(super) fn invalidate_pending_extension_commands(&mut self) {
+        if self.activation.pending.is_empty() {
+            return;
+        }
+        let current = CommandContext::capture(self);
+        let before = self.activation.pending.len();
+        self.activation.pending.retain(|command| {
+            current
+                .as_ref()
+                .is_ok_and(|context| context == &command.context)
+        });
+        if self.activation.waiting.as_ref().is_some_and(|(_, token)| {
+            !self
+                .activation
+                .pending
+                .iter()
+                .any(|command| command.token == *token)
+        }) {
+            self.activation.waiting = None;
+        }
+        if before != self.activation.pending.len() {
+            self.message =
+                "Pending extension command canceled because its native editor context changed"
+                    .into();
+        }
     }
     pub(super) fn extension_dormant_commands(&self) -> &[(String, String)] {
         if self.activation.paused || !self.activation.loaded {
@@ -458,6 +530,7 @@ impl App {
         });
     }
     pub(super) fn poll_extension_activation(&mut self) -> bool {
+        self.invalidate_pending_extension_commands();
         if !self.activation.configured {
             return false;
         }
@@ -480,7 +553,7 @@ impl App {
                                     self.activation
                                         .pending
                                         .front()
-                                        .is_some_and(|command| &command.id == id)
+                                        .is_some_and(|command| &command.token == id)
                                 }) {
                                     self.activation.pending.pop_front();
                                 }
@@ -518,7 +591,7 @@ impl App {
                                         self.activation
                                             .pending
                                             .front()
-                                            .is_some_and(|command| &command.id == id)
+                                            .is_some_and(|command| &command.token == id)
                                     });
                                     if let Err(error) =
                                         self.apply_activation_plan(plan, &owner, command)
@@ -574,7 +647,15 @@ impl App {
         {
             return changed;
         }
-        if let Some(owner) = self.activation.waiting.take() {
+        if let Some((owner, token)) = self.activation.waiting.take() {
+            if !self
+                .activation
+                .pending
+                .front()
+                .is_some_and(|command| command.token == token)
+            {
+                return true;
+            }
             if let Some(command) = self.activation.pending.pop_front() {
                 if self
                     .extension_host
@@ -679,11 +760,7 @@ impl App {
             let _ = sender.send(result);
         });
         self.activation.job = Some(Job {
-            command: self
-                .activation
-                .pending
-                .front()
-                .map(|command| command.id.clone()),
+            command: self.activation.pending.front().map(|command| command.token),
             generation: self.activation.generation,
             control: self.activation.control,
             extension_epoch: Some(self.extension_epoch),
@@ -730,7 +807,14 @@ impl App {
             self.start_extension_packages_lazy(packages, Some(targets))?;
             self.activation.starting = true;
         }
-        self.activation.waiting = command.then(|| owner.to_owned());
+        self.activation.waiting = if command {
+            self.activation
+                .pending
+                .front()
+                .map(|command| (owner.to_owned(), command.token))
+        } else {
+            None
+        };
         Ok(())
     }
 }
@@ -840,7 +924,10 @@ mod tests {
         app.activation
             .owners
             .insert("b.run".into(), "test.b".into());
+        let context = CommandContext::capture(&app).unwrap();
         app.activation.pending.push_back(Command {
+            token: 1,
+            context,
             id: "b.run".into(),
             args: Some(json!([1, 2])),
         });
@@ -887,5 +974,71 @@ mod tests {
             app.queue_extension_command("a.run", &Some(json!("x".repeat(63 * 1024))));
         }
         assert_eq!(app.activation.pending.len(), 4);
+    }
+    #[test]
+    fn deferred_command_context_cancels_on_selection_revision_and_focus_away_then_back() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        app.activation
+            .owners
+            .insert("a.run".into(), "test.a".into());
+        assert!(app.queue_extension_command("a.run", &None));
+        app.execute("cursorLeft", Value::Null);
+        assert!(app.activation.pending.is_empty());
+        assert!(app.queue_extension_command("a.run", &None));
+        app.doc_mut().insert("native", false);
+        app.invalidate_pending_extension_commands();
+        assert!(app.activation.pending.is_empty());
+        assert!(app.queue_extension_command("a.run", &None));
+        app.focus = Focus::Explorer;
+        app.invalidate_pending_extension_commands();
+        app.focus = Focus::Editor;
+        app.invalidate_pending_extension_commands();
+        assert!(app.activation.pending.is_empty());
+        let selection = app.doc().selections()[0].clone();
+        app.doc_mut().secondary = vec![selection; 4096];
+        assert!(app.queue_extension_command("a.run", &None));
+        assert!(app.activation.pending.is_empty());
+        assert!(app.message.contains("at most 4096 selections"));
+    }
+    #[test]
+    fn a_completed_old_plan_cannot_consume_a_new_ticket_with_the_same_command_id() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        let mut a = metadata("test.a");
+        a.code = false;
+        app.activation.catalog = Arc::new(BTreeMap::from([("test.a".into(), a.clone())]));
+        app.activation.global.set("test.a", true).unwrap();
+        app.activation
+            .owners
+            .insert("a.run".into(), "test.a".into());
+        app.queue_extension_command("a.run", &Some(json!(["old"])));
+        let old = app.activation.pending.front().unwrap().token;
+        let (sender, receiver) = sync_channel(1);
+        app.activation.job = Some(Job {
+            command: Some(old),
+            generation: 0,
+            control: 0,
+            extension_epoch: Some(app.extension_epoch),
+            receiver,
+        });
+        app.execute("cursorLeft", Value::Null);
+        app.queue_extension_command("a.run", &Some(json!(["new"])));
+        let new = app.activation.pending.front().unwrap().token;
+        assert_ne!(old, new);
+        sender
+            .send(Ok(Output::Planned(
+                lifecycle::Plan { ordered: vec![a] },
+                "test.a".into(),
+            )))
+            .unwrap();
+        app.poll_extension_activation();
+        assert_eq!(app.activation.pending.front().unwrap().token, new);
+        assert_eq!(
+            app.activation.pending.front().unwrap().args,
+            Some(json!(["new"]))
+        );
+        assert!(app.activation.waiting.is_none());
+        assert!(app.extension_host.is_none());
     }
 }

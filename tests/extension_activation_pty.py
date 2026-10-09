@@ -98,6 +98,31 @@ const vscode=require('vscode'); exports.activate=context=>{
     app.send(CTRL_Z); save(app, prompt_file, 'original'); app.finish()
     print('PASS: non-contributed onCommand activates selected dependency, native activation Input Box cancel/accept, explicit restart and exact edit/undo')
 
+    held = root / 'held'; held.mkdir()
+    held_store, held_config = held / 'store', held / 'config'
+    install(held, held_store, 'a', r"""
+const vscode=require('vscode'),fs=require('node:fs');
+exports.activate=async context=>{
+ fs.writeFileSync('held-host.pid',String(process.pid));
+ await new Promise(resolve=>{const timer=setInterval(()=>{if(fs.existsSync('release')){clearInterval(timer);resolve();}},5);});
+ context.subscriptions.push(vscode.commands.registerCommand('activation.edit',async()=>{
+  const applied=await vscode.window.activeTextEditor.edit(edit=>edit.insert(new vscode.Position(0,0),'extension:'));
+  await vscode.window.showInformationMessage('held context edit='+applied);
+ }));
+};
+""", {'activationEvents': ['onCommand:activation.edit']})
+    held_keys = bindings(held); held_file = held / 'native.txt'; held_file.write_text('original🙂')
+    app = Editor(held, '--config-dir', held_config, '--extensions-dir', held_store, '--keybindings', held_keys, held_file, enhanced=True)
+    app.send(F5); wait(app, 'Enabled activation.a;'); app.send(F8)
+    eventually(lambda: app.read() and (held / 'held-host.pid').exists())
+    app.send('N'); wait(app, 'Pending extension command canceled')
+    save(app, held_file, 'Noriginal🙂')
+    (held / 'release').write_text('yes'); wait(app, '(1 commands)')
+    save(app, held_file, 'Noriginal🙂')
+    app.send(F8); wait(app, 'held context edit=true'); save(app, held_file, 'extension:Noriginal🙂')
+    app.send(CTRL_Z); save(app, held_file, 'Noriginal🙂'); app.finish()
+    print('PASS: native input/save remains responsive during held activation, deferred command is canceled, later explicit edit/undo preserves exact bytes')
+
 
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='vscli-activation-pty-') as directory:
