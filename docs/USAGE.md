@@ -185,7 +185,7 @@ vscli --lsp clangd --lsp-language cpp src/main.cpp
 vscli --lsp clangd --lsp-language c --lsp-arg=--background-index=false example.c
 ```
 
-The server must already be installed. This implementation uses native stdio JSON-RPC with bounded transport queues, UTF-16 positions, document versions, and stale-response checks. Diagnostics appear as gutter markers and in Problems. Server failure leaves editing available.
+The server must already be installed. This implementation uses native stdio JSON-RPC with bounded transport queues, UTF-16 positions, document versions, and stale-response checks. Diagnostics appear as gutter markers and in Problems. Server failure leaves editing available. Incoming and outgoing serialized JSON frames are each capped at 16 MiB. Oversized document synchronization or tooling requests reject language-server work while retaining native buffers; the editor’s 32 MiB file-opening limit does not qualify every such file for LSP.
 
 | Action | Linux | Windows | macOS |
 | --- | --- | --- | --- |
@@ -296,6 +296,8 @@ vscli program.py --debug-adapter /path/to/python --debug-arg=-m --debug-arg=debu
 F9 toggles a line breakpoint in a saved file. F5 launches the active file (or `--debug-program PATH`) and continues paused execution. F10 steps over, F11 steps into, Shift+F11 steps out, and Shift+F5 stops. Repeat `--debug-program-arg` for program arguments. Save modified program and breakpoint files before launch.
 
 Ctrl+Shift+D (Cmd+Shift+D on macOS) opens the debugger view. Tab switches stack, scopes, variables, and console. Enter selects a frame or expands a scope/object. `e` prompts for an expression evaluated in the selected frame; results appear in the console. The palette also exposes pause, evaluation, and console commands. On exit the client requests debuggee termination and gives the adapter a bounded cleanup interval before reaping it; adapters that ignore disconnect can leave their own descendants running.
+
+Incoming and outgoing serialized DAP JSON frames are each capped at 16 MiB. Oversized adapter responses or debugger requests reject debugger work while retaining native buffers.
 
 The real Python/debugpy integration test covers breakpoint, variables, step, evaluation, and continued exit. Deterministic tests cover reversed variable replies, rejected stepping, and disconnect. This is an initial DAP launch workflow: launch.json, attach, adapter-specific launch fields, watch persistence, thread selection, conditional/log breakpoints, source-reference downloads, and test-provider UI remain incomplete. Breakpoint positions are not yet tracked through source edits or persisted. Columns currently use scalar character positions. Adapters requiring reverse terminal requests are rejected explicitly.
 
