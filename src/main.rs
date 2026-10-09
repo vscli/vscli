@@ -59,6 +59,9 @@ struct Args {
     /// Native configuration root for import and startup (default: OS config directory)
     #[arg(long)]
     config_dir: Option<PathBuf>,
+    /// Load a VS Code JSON/JSONC color theme without a JavaScript runtime
+    #[arg(long)]
+    theme: Option<PathBuf>,
     /// Start this language server over stdio (explicit executable, no shell)
     #[arg(long)]
     lsp: Option<String>,
@@ -259,7 +262,14 @@ fn main() -> Result<()> {
         .clone()
         .or_else(|| active_config.as_ref().map(|p| p.join("settings.json")));
     let settings_error = app.configure_settings(settings_path).err();
-
+    app.configure_themes(
+        args.extensions_dir.clone(),
+        active_config
+            .as_ref()
+            .map(|path| path.join("theme-selection.json")),
+        app.settings.color_theme().map(str::to_owned),
+        args.theme.clone(),
+    );
     for path in args.paths.iter().filter(|p| !p.is_dir()) {
         app.open(path)?;
     }

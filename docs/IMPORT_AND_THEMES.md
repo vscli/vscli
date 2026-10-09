@@ -49,4 +49,44 @@ snapshots contain at most eight files and 4 MiB. Limits fail or report incomplet
 coverage explicitly. User snippet catalog consumption requires the native snippet
 catalog implementation; copying bytes alone does not provide completion snippets.
 
-The snapshot layer preserves selected theme data. Native theme selection and rendering are documented with their UI integration.
+## Native color themes
+
+Use **F1 → Preferences: Color Theme** for built-in dark/light palettes and installed
+extension color themes. The picker refreshes installed contributions without
+activating their extensions. **Preferences: Load Color Theme File** accepts a
+VS Code JSON/JSONC theme path; `--theme /path/to/theme.json` overrides the saved
+selection at startup. **Preferences: Color Theme Report** displays known limits
+for the loaded file. Selections persist atomically in `theme-selection.json`
+beside the active settings profile. A failed load leaves the current theme and
+unsaved documents unchanged. The priority is explicit `--theme`, saved native
+selection, then `workbench.colorTheme`. Theme settings are resolved at startup;
+use the picker to change themes during a session.
+
+Workbench colors currently map as follows:
+
+| VS Code color | Native surface |
+| --- | --- |
+| `editor.background`, `editor.foreground` | Editor background/default text |
+| `editor.selectionBackground` | Selection and shared selected-item background |
+| `editor.lineHighlightBackground` | Current editor line |
+| `sideBar.background`, `editorWidget.background` | Shared panels/popups |
+| `editorLineNumber.foreground` | Line numbers and muted UI text |
+| `focusBorder`, `textLink.foreground` | Shared accent/focus color |
+
+Hex RGB/RGBA colors are accepted; alpha blends against the editor background.
+Relative `include` files are supported with cycle/read limits. Syntax foreground
+rules map common TextMate selectors onto 14 native Tree-sitter/fallback categories.
+This is approximate: TextMate grammar scope stacks, selector specificity, semantic
+token colors, token font styles, `.tmTheme` files, icons, per-surface workbench
+colors and live file watching are not fully implemented. Unmapped color keys,
+font styles and semantic-token declarations produce notices instead of a claim of
+full fidelity. Built-in fallback palettes fill unspecified colors.
+
+The format follows the [official VS Code color-theme guide](https://code.visualstudio.com/api/extension-guides/color-theme)
+and [color reference](https://code.visualstudio.com/api/references/theme-color).
+Native unit/integration tests verify includes, alpha colors, mapped syntax cells,
+compatibility notices, failed-load retention, profile activation, original bytes,
+and selected-theme snapshots after source removal. PTY workflows exercise actual
+imported settings/bindings, custom RGB output, theme selection, restart persistence
+and failed-load behavior. These are native behavior tests, not differential proof
+of VS Code theme parity.

@@ -9,6 +9,7 @@ mod snippets;
 mod source_control;
 mod tasks;
 mod terminals;
+mod themes;
 mod watching;
 use crate::{
     document::Document,
@@ -40,6 +41,9 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "Extensions: Show Installed Extensions",
         "workbench.extensions.action.showInstalledExtensions",
     ),
+    ("Preferences: Color Theme", "workbench.action.selectTheme"),
+    ("Preferences: Color Theme Report", "vscli.theme.report"),
+    ("Preferences: Load Color Theme File", "vscli.theme.load"),
     ("Extensions: Stop Host", "vscli.extensions.stop"),
     ("Settings: Compatibility Report", "vscli.settings.report"),
     (
@@ -199,6 +203,8 @@ pub enum PromptKind {
     Palette,
     QuickOpen,
     Snippet,
+    Theme,
+    ThemeFile,
     Open,
     SaveAs,
     Find,
@@ -334,6 +340,8 @@ pub struct App {
     pub extension_host: Option<crate::extensions::Client>,
     pub lsp: Option<crate::lsp::Client>,
     pub syntax: crate::syntax::Engine,
+    pub theme: crate::theme::Theme,
+    theme_state: themes::State,
     pub settings: crate::settings::Settings,
     settings_loader: Option<crate::settings::Loader>,
     settings_error: Option<String>,
@@ -395,6 +403,8 @@ impl App {
             extension_job: None,
             lsp: None,
             syntax: crate::syntax::Engine::default(),
+            theme: crate::theme::Theme::default(),
+            theme_state: themes::State::default(),
             settings: crate::settings::Settings::default(),
             settings_loader: None,
             settings_error: None,
@@ -451,6 +461,7 @@ impl App {
         changed |= self.poll_extensions();
         changed |= self.poll_snippet();
         changed |= self.poll_snippet_catalog();
+        changed |= self.poll_theme();
         let visible: Vec<_> = self
             .documents
             .iter()
@@ -868,6 +879,13 @@ impl App {
                     selected: 0,
                 })
             }
+            "workbench.action.selectTheme" => self.open_theme_picker(),
+            "vscli.theme.report" => self.modal = Some(Modal::Text {
+                title: "Color Theme Compatibility".into(),
+                text: format!("{}\n\nNative palette: editor background/foreground/selection/current line, shared panels, line numbers and accent.\nSyntax colors map to 14 native categories; this is not TextMate scope parity.\n\n{}", self.theme.name, self.theme.warnings.join("\n")),
+                scroll: 0,
+            }),
+            "vscli.theme.load" => self.start_prompt(PromptKind::ThemeFile, String::new()),
             "vscli.debug.evaluate" => self.start_prompt(PromptKind::DebugEvaluate, String::new()),
             "explorer.newFile" => self.start_prompt(
                 PromptKind::CreateFile,
@@ -1640,6 +1658,8 @@ impl App {
             PromptKind::InstallExtension => self.manage_extension(
                 extension_management::Action::Install(self.resolve_path(&p.text)),
             ),
+            PromptKind::Theme => self.accept_theme(&p.text, p.selected),
+            PromptKind::ThemeFile => self.load_theme(self.resolve_path(&p.text)),
             PromptKind::DebugEvaluate => {
                 if let Some(client) = self.debugger.as_mut() {
                     if let Err(e) = client.evaluate(&p.text) {
