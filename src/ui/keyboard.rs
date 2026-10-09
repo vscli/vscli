@@ -559,6 +559,39 @@ mod tests {
     }
 
     #[test]
+    fn inspector_hides_surface_presentations_without_discarding_selected_models() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let key = crate::extensions::SurfaceKey {
+            owner: "test.extension".into(),
+            id: "output".into(),
+        };
+        app.extension_surfaces.output = Some(key.clone());
+        app.extension_surfaces.tree = Some(key.clone());
+        app.execute("vscli.keyboardInspector", Value::Null);
+        for (width, height) in [(140, 40), (50, 16), (1, 1)] {
+            app.extension_surfaces.output_area = Rect::new(5, 5, 20, 10);
+            app.extension_surfaces
+                .status_hits
+                .push((Rect::new(0, 39, 20, 1), key.clone(), 7, 9));
+            app.extension_surfaces.presented_tree =
+                Some(crate::app::extension_surfaces::TreePresentation {
+                    session: 9,
+                    key: key.clone(),
+                    generation: 7,
+                    rows: vec![("previous".into(), 0)],
+                });
+            render(&mut app, width, height);
+            assert_eq!(app.extension_surfaces.output_area, Rect::default());
+            assert!(app.extension_surfaces.status_hits.is_empty());
+            assert!(app.extension_surfaces.presented_tree.is_none());
+            assert_eq!(app.extension_surfaces.output.as_ref(), Some(&key));
+            assert_eq!(app.extension_surfaces.tree.as_ref(), Some(&key));
+        }
+        assert!(app.documents.is_empty());
+    }
+
+    #[test]
     fn keyboard_welcome_profiles_and_unmapped_unicode_are_honest() {
         let root = tempfile::tempdir().unwrap();
         for (profile, name, modifier) in [
