@@ -390,6 +390,28 @@ The automated PTY suite drives the real executable, including legacy and emulate
 
 For a manual smoke test, open a disposable file, type text, save it, select/replace and undo, use Ctrl+P to open a second file, find text, and close with unsaved changes to exercise Save/Discard/Cancel. Use F1 → Keyboard Inspector for combinations your terminal consumes.
 
+## Native extension output, status and trees
+
+An enabled extension can create read-only output channels, status items and
+single-selection tree views. **F1 → Extensions: Output Channels** opens a
+channel; arrow/Page keys scroll, End follows new output, and Escape closes the
+panel. An extension's `show(true)` preserves focus; existing native prompts and
+modals retain focus even for `show(false)`. Output is separate from documents,
+saves and undo history, and can remain visible beside the integrated terminal.
+
+**F1 → Extensions: Status Items** runs an item's command; visible command items
+also respond to a mouse click in the status row. **F1 → Extensions: Tree Views**
+opens a declared view. Right expands, Left collapses, Enter runs an item's
+command (or expands), and Escape closes. Children load asynchronously on demand.
+**R** retries failed child requests; provider change events refresh the whole
+view. Native dialogs can open after a tree action. These discoverable commands
+have no invented default shortcuts.
+
+These surfaces also work without open editors and disappear when the host is
+retired. Output history is bounded and oldest text is discarded; it is not
+saved as a log file. Trees currently use a keyboard browser rather than VS Code's
+full sidebar layout. See [surface scope, bounds and evidence](EXTENSIONS.md#native-output-status-and-tree-surfaces).
+
 ## Experimental extension commands
 
 Install local extension packages with **F1 → Extensions: Install from VSIX**, or `vscli --install-extension ./package.vsix`. Use **Ctrl+Shift+X** (**Cmd+Shift+X** on macOS), or **F1 → Extensions: Show Installed Extensions**, to view compatibility descriptions, explicitly run a selected code package, restore its previous installation with **R**, or uninstall it with **Delete**. Installation alone never activates code. The picker also works from the empty welcome screen, Explorer and integrated terminal. Esc closes a pending loading view while its operation finishes; the result does not replace a newer prompt. CLI equivalents are `--list-extensions`, `--rollback-extension publisher.name` and `--uninstall-extension publisher.name`; `--extensions-dir` selects storage. Installed code packages can be launched with `vscli --extension publisher.name .`. Storage supports one previous generation, retains immutable files for running hosts, and does not yet collect old files. Installed packages are not automatically API compatible.

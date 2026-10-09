@@ -62,7 +62,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
-      - run: node --test extension-host/api-types.test.cjs extension-host/api.test.cjs extension-host/configuration.test.cjs extension-host/host.test.cjs extension-host/prompts.test.cjs extension-host/activation.test.cjs extension-host/activation-host.test.cjs extension-host/document-services.test.cjs extension-host/memento.test.cjs
+      - run: node --test extension-host/api-types.test.cjs extension-host/api.test.cjs extension-host/configuration.test.cjs extension-host/host.test.cjs extension-host/prompts.test.cjs extension-host/activation.test.cjs extension-host/activation-host.test.cjs extension-host/document-services.test.cjs extension-host/memento.test.cjs extension-host/surfaces.test.cjs
       - run: node --test extension-host/providers.test.cjs extension-host/provider-wire.test.cjs
       - run: cargo test --locked
       - run: cargo build --locked
@@ -115,6 +115,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/extension_providers_pty.py target/debug/vscli
+      - name: Run native extension surface workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/extension_surfaces_pty.py target/debug/vscli
       - name: Check syntax colors during terminal edits
         if: runner.os != 'Windows'
         timeout-minutes: 2

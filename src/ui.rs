@@ -90,19 +90,33 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     } else {
         app.explorer_area = Rect::default();
     }
+    let output_visible = app.extension_surfaces.output.is_some();
+    let panel_height = (columns[1].height
+        / if output_visible && app.terminal_visible {
+            3
+        } else {
+            2
+        })
+    .max(3)
+    .min(columns[1].height);
     let panes = Layout::vertical([
         Constraint::Min(1),
         Constraint::Length(if app.terminal_visible {
-            (columns[1].height / 2).max(3).min(columns[1].height)
+            panel_height
         } else {
             0
         }),
+        Constraint::Length(if output_visible { panel_height } else { 0 }),
     ])
     .split(columns[1]);
     draw_editors(frame, app, panes[0]);
     app.terminal_area = Rect::default();
     if app.terminal_visible {
         draw_terminal(frame, app, panes[1]);
+    }
+    app.extension_surfaces.output_area = Rect::default();
+    if output_visible {
+        draw_extension_output(frame, app, panes[2]);
     }
     frame.render_widget(
         Paragraph::new(format!(" {}", clean(&app.message)))
@@ -148,6 +162,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         Paragraph::new(status).style(Style::default().bg(colors.selection).fg(colors.foreground)),
         rows[3],
     );
+    draw_extension_status(frame, app, rows[3]);
     draw_signature(frame, app);
     if app.prompt.is_some() {
         draw_prompt(frame, app);
@@ -1020,9 +1035,13 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         );
     }
 }
-fn draw_modal(frame: &mut Frame, app: &App) {
+fn draw_modal(frame: &mut Frame, app: &mut App) {
     let colors = app.theme.colors;
     let (title, text) = match app.modal.as_ref().unwrap() {
+        Modal::ExtensionSurfaces(_) | Modal::ExtensionTree => {
+            draw_extension_modal(frame, app);
+            return;
+        }
         Modal::ExtensionsLoading(_) => (
             " Extensions · Loading · Esc closes ",
             "Reading installed packages…".into(),
@@ -1569,6 +1588,244 @@ fn draw_signature(frame: &mut Frame, app: &App) {
             ))),
         popup,
     );
+}
+
+fn draw_extension_output(frame: &mut Frame, app: &mut App, area: Rect) {
+    let Some(channel) = app
+        .extension_surfaces
+        .output
+        .as_ref()
+        .and_then(|k| app.extension_host.as_ref()?.surfaces.channels.get(k))
+    else {
+        return;
+    };
+    let colors = app.theme.colors;
+    let block = Block::default()
+        .borders(Borders::TOP)
+        .title(format!(
+            " Output: {} · read-only · Esc closes ",
+            clean(&channel.name)
+        ))
+        .border_style(Style::default().fg(if app.focus == Focus::Output {
+            colors.accent
+        } else {
+            colors.muted
+        }));
+    let inner = block.inner(area);
+    frame.render_widget(block.style(Style::default().bg(colors.panel)), area);
+    app.extension_surfaces.output_area = area;
+    let count = channel.text.len_lines();
+    let height = inner.height as usize;
+    app.extension_surfaces.output_scroll = app
+        .extension_surfaces
+        .output_scroll
+        .min(count.saturating_sub(height));
+    let start = count
+        .saturating_sub(height)
+        .saturating_sub(app.extension_surfaces.output_scroll);
+    let lines: Vec<_> = channel
+        .text
+        .lines_at(start)
+        .take(height)
+        .map(|line| {
+            Line::from(clean(
+                line.chars()
+                    .take((inner.width as usize).saturating_mul(4).max(1))
+                    .collect::<String>()
+                    .trim_end_matches(['\r', '\n']),
+            ))
+        })
+        .collect();
+    frame.render_widget(
+        Paragraph::new(lines).style(Style::default().fg(colors.foreground).bg(colors.panel)),
+        inner,
+    );
+}
+fn draw_extension_status(frame: &mut Frame, app: &mut App, area: Rect) {
+    app.extension_surfaces.status_hits.clear();
+    let Some(host) = &app.extension_host else {
+        return;
+    };
+    let colors = app.theme.colors;
+    let mut items: Vec<_> = host
+        .surfaces
+        .statuses
+        .values()
+        .filter(|v| v.visible && !v.text.is_empty())
+        .collect();
+    items.sort_by(|a, b| {
+        a.alignment
+            .cmp(&b.alignment)
+            .then_with(|| {
+                if a.alignment == 2 {
+                    a.priority.total_cmp(&b.priority)
+                } else {
+                    b.priority.total_cmp(&a.priority)
+                }
+            })
+            .then_with(|| a.key.cmp(&b.key))
+    });
+    // Reserve half the row for native document/language/cursor status.
+    let start = area.x + area.width / 2;
+    let mut left = start;
+    let mut right = area.x + area.width;
+    for item in items {
+        let text = format!(" {} ", clean(&item.text));
+        let width = (unicode_width::UnicodeWidthStr::width(text.as_str()) as u16)
+            .min(right.saturating_sub(left));
+        if width == 0 {
+            break;
+        }
+        let x = if item.alignment == 2 {
+            right -= width;
+            right
+        } else {
+            let x = left;
+            left += width;
+            x
+        };
+        let rect = Rect::new(x, area.y, width, 1);
+        let foreground = if item.color.starts_with('#') {
+            u32::from_str_radix(item.color.trim_start_matches('#'), 16)
+                .ok()
+                .map(|rgb| Color::Rgb((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8))
+                .unwrap_or(colors.foreground)
+        } else {
+            colors.foreground
+        };
+        let background = match item.background.as_str() {
+            "statusBarItem.errorBackground" => Color::Red,
+            "statusBarItem.warningBackground" => Color::Yellow,
+            _ => colors.selection,
+        };
+        frame.render_widget(
+            Paragraph::new(text).style(Style::default().fg(foreground).bg(background)),
+            rect,
+        );
+        if item.has_command {
+            app.extension_surfaces.status_hits.push((
+                rect,
+                item.key.clone(),
+                item.generation,
+                host.session,
+            ));
+        }
+    }
+}
+fn draw_extension_modal(frame: &mut Frame, app: &mut App) {
+    let colors = app.theme.colors;
+    app.extension_surfaces.presented_tree = if matches!(app.modal, Some(Modal::ExtensionTree)) {
+        app.extension_surfaces.tree.as_ref().and_then(|key| {
+            app.extension_host.as_ref().and_then(|host| {
+                host.surfaces.trees.get(key).map(|tree| {
+                    crate::app::extension_surfaces::TreePresentation {
+                        session: host.session,
+                        key: key.clone(),
+                        generation: tree.generation,
+                        rows: app.surface_tree_rows(),
+                    }
+                })
+            })
+        })
+    } else {
+        None
+    };
+
+    let (title, selected, rows) = match app.modal.as_ref().unwrap() {
+        Modal::ExtensionSurfaces(picker) => {
+            let title = match picker.kind {
+                crate::app::extension_surfaces::PickerKind::Output => {
+                    " Output Channels · Enter opens · Esc closes "
+                }
+                crate::app::extension_surfaces::PickerKind::Status => {
+                    " Extension Status Items · Enter runs · Esc closes "
+                }
+                crate::app::extension_surfaces::PickerKind::Trees => {
+                    " Extension Tree Views · Enter opens · Esc closes "
+                }
+            };
+            (
+                title.to_owned(),
+                picker.selected,
+                picker
+                    .items
+                    .iter()
+                    .map(|i| clean(&i.label))
+                    .collect::<Vec<_>>(),
+            )
+        }
+        Modal::ExtensionTree => {
+            let Some(tree) = app
+                .extension_surfaces
+                .tree
+                .as_ref()
+                .and_then(|k| app.extension_host.as_ref()?.surfaces.trees.get(k))
+            else {
+                return;
+            };
+            let rows = app
+                .surface_tree_rows()
+                .into_iter()
+                .filter_map(|(id, depth)| {
+                    tree.nodes.get(&id).map(|node| {
+                        format!(
+                            "{}{} {} {}",
+                            "  ".repeat(depth),
+                            if node.collapsible == 0 {
+                                " "
+                            } else if app.extension_surfaces.expanded.contains(&id)
+                                || (node.collapsible == 2
+                                    && !app.extension_surfaces.collapsed.contains(&id))
+                            {
+                                "▾"
+                            } else {
+                                "▸"
+                            },
+                            clean(&node.label),
+                            clean(&node.description)
+                        )
+                    })
+                })
+                .collect();
+            (
+                format!(
+                    " {} · ←/→ expand · Enter runs · R retries · Esc closes ",
+                    clean(&tree.title)
+                ),
+                app.extension_surfaces.selected,
+                rows,
+            )
+        }
+        _ => return,
+    };
+    let inner = popup(frame, colors, &title, 110, 24);
+    if rows.is_empty() {
+        frame.render_widget(
+            Paragraph::new("No items yet · loading or empty · R retries tree requests")
+                .style(Style::default().fg(colors.muted)),
+            inner,
+        );
+        return;
+    }
+    let selected = selected.min(rows.len().saturating_sub(1));
+    let offset = selected.saturating_sub((inner.height as usize).saturating_sub(1));
+    let lines: Vec<_> = rows
+        .into_iter()
+        .enumerate()
+        .skip(offset)
+        .take(inner.height as usize)
+        .map(|(i, line)| {
+            Line::styled(
+                line,
+                Style::default().fg(colors.foreground).bg(if i == selected {
+                    colors.selection
+                } else {
+                    colors.panel
+                }),
+            )
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines), inner);
 }
 
 #[cfg(test)]

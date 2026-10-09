@@ -2,6 +2,7 @@
 mod prompts;
 pub(crate) mod providers;
 pub(crate) mod services;
+mod surfaces;
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
 pub use prompts::{MAX_PROMPT_TEXT, NativePrompt, PromptType};
@@ -13,6 +14,10 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
+};
+pub use surfaces::{
+    OutputChannel, StatusItem, SurfaceDeclarations, SurfaceKey, SurfaceReveal, SurfaceState,
+    TreeNode, TreeView,
 };
 
 const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
@@ -206,6 +211,7 @@ pub struct Client {
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
     pending: HashMap<u64, Pending>,
     prompts: std::collections::VecDeque<NativePrompt>,
+    pub surfaces: SurfaceState,
     next_id: u64,
     heartbeat: Instant,
     pub keybindings: Option<Value>,
@@ -292,6 +298,7 @@ impl Client {
             .map(|root_path| crate::extension_state::Store::new(root_path, root))
             .transpose()?;
         let extension_state = services::initial_state(state_store.as_ref(), &packages)?;
+        let surfaces = SurfaceState::for_packages(&packages)?;
         static NEXT_SESSION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let session = NEXT_SESSION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let runtime = tempfile::tempdir()?;
@@ -315,6 +322,10 @@ impl Client {
                 include_str!("../extension-host/document-services.cjs"),
             ),
             ("memento.cjs", include_str!("../extension-host/memento.cjs")),
+            (
+                "surfaces.cjs",
+                include_str!("../extension-host/surfaces.cjs"),
+            ),
             (
                 "configuration.cjs",
                 include_str!("../extension-host/configuration.cjs"),
@@ -349,6 +360,7 @@ impl Client {
             configuration: prepared.configuration,
             pending: HashMap::new(),
             prompts: std::collections::VecDeque::new(),
+            surfaces,
             next_id: 0,
             heartbeat: Instant::now(),
             keybindings: None,
@@ -740,6 +752,11 @@ impl Client {
                                 .send(json!({"id":id,"error":{"message":format!("{error:#}")}}))?;
                         }
                     }
+                    "nativeSurface" => {
+                        if let Err(error) = self.surface_update(message["params"].take()) {
+                            messages.push(format!("Extension surface rejected: {error:#}"));
+                        }
+                    }
                     "prompt" => {
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_prompt(id.clone(), message["params"].take())
@@ -817,6 +834,12 @@ impl Client {
             {
                 if pending.method == "provideLanguage" {
                     self.provider_response(id, message)?;
+                    continue;
+                }
+                if pending.method == "treeChildren" {
+                    if let Err(error) = self.surface_tree_reply(id, &mut message) {
+                        messages.push(format!("Extension tree: {error:#}"));
+                    }
                     continue;
                 }
                 if !message["error"].is_null() {

@@ -107,6 +107,61 @@ State supports 1,024 keys and 256 KiB per scope, 1 KiB keys, 64 KiB new values, 
 
 Native and Node fixtures cover activation-time hidden open, event-before-promise ordering, exact document reuse, Unicode/CRLF selection validation, shared pane selection isolation, stale worker replies, bounded queues and malformed arguments, deleted-file alias reuse, dirty hidden recovery, Memento ownership/merging and scope isolation. Two Unix PTY journeys exercise empty welcome → hidden open → same-identity show → native undo/redo → host crash → interruption/recovery/save/undo, followed by persisted global/workspace state after restart. These are synthetic workflows; full document/Memento differential parity and a published extension corpus using these services remain unqualified.
 
+## Native output, status and tree surfaces
+
+The optional host implements `window.createOutputChannel` (append, appendLine,
+replace, clear, show, hide, dispose), `createStatusBarItem`,
+`registerTreeDataProvider` and `createTreeView` through native Rust presentation.
+The core editor still runs without Node. Output channels use separate read-only
+Ropes, never Document buffers or persistence snapshots. Status items support
+plain text/name/tooltip, visibility, alignment/priority, `#RRGGBB` foreground,
+and error/warning background ThemeColor IDs. Other ThemeColor IDs fall back to
+the native theme. Half the status row remains reserved for native editor state;
+items that do not fit remain accessible through the native picker.
+
+Trees must be declared in the owning package's `contributes.views`. Children
+and TreeItems are loaded lazily. Labels, descriptions and collapsible state are
+rendered; optional string IDs, resource-URI labels, single selection, visibility,
+expand/collapse and selection events are supported. A provider change event
+invalidates the whole view, including outstanding replies and old action
+handles. Closing a tree does not reopen it when pending children arrive.
+An item command closes the browser so native prompts can proceed.
+
+Status and tree commands retain their original argument objects inside the
+host, including object identity and cycles. Rust sends only an opaque handle
+with session, owner and generation; it does not dispatch an extension-provided
+string as a native command. Old handles never change meaning when a newer tree
+batch is rejected. Native version-checked document transactions still own
+command edits and undo. Owner disposal, restart and host failure remove their
+surfaces; no surface creates a document in an empty workbench.
+
+Bounds: 32 output channels, 64 KiB per update, 256 KiB / 4,096 lines per channel,
+and 1 MiB / 16,384 lines of aggregate output. Oldest retained output is discarded
+at those limits; up to 64 pending show/hide operations preserve ordering. There are at most 64 status items and eight active tree views,
+256 children per reply, 1,024 retained opaque handles/nodes per view, depth 32,
+128 KiB of labels/descriptions/tooltips per host reply, and 512 KiB of aggregate
+native tree text. Only one native tree request is retained at a time; canceling
+its UI retains its slot until reply or host timeout. A failed provider can be
+retried with R; a reply rejected after host handle allocation can require a
+provider refresh to release handles. These bounds do not constrain arbitrary
+extension-owned JavaScript objects beyond the existing host resource limits.
+
+LogOutputChannel, output highlighting/language processing, ANSI interpretation,
+codicons, full themed status colors, Markdown tooltips, status accessibility
+metadata, multi-select trees, icons, checkboxes, context menus, drag/drop,
+`resolveTreeItem`, `getParent`/`reveal`, tree badges and full sidebar placement
+remain unsupported or unrendered. No published tree/status/output extension has
+been differentially qualified against VS Code; this is a bounded native subset.
+
+Deterministic Node tests cover scoped lifecycle, budgets, malformed batches,
+opaque argument identity, refresh during asynchronous children, stale actions,
+ancestor cycles and immutable rendered handles. Rust tests cover rolling UTF-8
+output budgets, staged tree validation, native focus/read-only behavior, shared
+identity, save/undo, stale picker actions, late child replies and host retirement.
+Two Unix PTY journeys exercise output/status/tree interaction, Unicode CRLF
+save/undo, refresh/crash, native input and empty-workbench disposal. These are
+synthetic fixture workflows, not broad extension compatibility evidence.
+
 ## Native Quick Pick and Input Box
 
 Activated packages can await `vscode.window.showQuickPick` and `showInputBox` through the native prompt layer. Quick Pick accepts an array or promised array of strings, or objects with `label`, `description` and `detail`; a selection returns the original string/object. Filtering uses case-insensitive substring matching on labels, with optional `matchOnDescription` and `matchOnDetail`. Input Box supports `title`, `prompt`, `placeHolder` and `value`. Enter accepts a single selection or input text, including an empty input; Escape returns `undefined`. Native focus is retained when the prompt closes.
