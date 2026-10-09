@@ -40,6 +40,11 @@ Native explicitly invoked LSP parameter hints now show the server-selected signa
 and active parameter in a themed nonmodal panel; automatic triggers and overload
 navigation remain pending. See [behavior and evidence](USAGE.md#parameter-hints).
 
+Native LSP document/workspace symbol search supports bounded hierarchical and flat
+responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-file
+loads. Range-less WorkspaceSymbol resolve and an outline panel remain unsupported.
+See [symbol-navigation behavior and evidence](USAGE.md#native-document-and-workspace-symbols).
+
 ## Feature disposition
 
 | VS Code feature family | Planned terminal behavior | Scope |

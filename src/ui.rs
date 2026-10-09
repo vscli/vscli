@@ -844,6 +844,13 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         }
         PromptKind::Palette => " Command Palette ",
         PromptKind::QuickOpen => " Go to File ",
+        PromptKind::Symbols => {
+            if app.symbols_workspace() {
+                " Go to Symbol in Workspace · server query "
+            } else {
+                " Go to Symbol in Editor "
+            }
+        }
         PromptKind::RecentFiles => " Open Recent File · file history only ",
         PromptKind::Snippet => " Insert Snippet · name, prefix or description ",
         PromptKind::Theme => " Color Theme · select or Load Color Theme File from commands ",
@@ -872,6 +879,7 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
             p.kind,
             PromptKind::Palette
                 | PromptKind::QuickOpen
+                | PromptKind::Symbols
                 | PromptKind::RecentFiles
                 | PromptKind::Snippet
                 | PromptKind::Theme
@@ -959,6 +967,11 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
                             .to_string_lossy()
                     )
                 })
+                .collect()
+        } else if matches!(p.kind, PromptKind::Symbols) {
+            app.symbol_items(&p.text)
+                .iter()
+                .map(|s| s.label.clone())
                 .collect()
         } else if matches!(p.kind, PromptKind::RecentFiles) {
             app.recent_items(&p.text)

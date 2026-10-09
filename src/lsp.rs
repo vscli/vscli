@@ -189,12 +189,13 @@ impl Client {
             "rootUri":client.root_uri, "workspaceFolders":[{"uri":client.root_uri,"name":root.file_name().unwrap_or_default().to_string_lossy()}],
             "capabilities":{
                 "general":{"positionEncodings":["utf-16"]},
-                "workspace":{"configuration":true,"workspaceFolders":true,"applyEdit":true,"workspaceEdit":{"documentChanges":true,"resourceOperations":[],"failureHandling":"transactional"}},
+                "workspace":{"symbol":{"symbolKind":{"valueSet":(1..=26).collect::<Vec<_>>()}},"configuration":true,"workspaceFolders":true,"applyEdit":true,"workspaceEdit":{"documentChanges":true,"resourceOperations":[],"failureHandling":"transactional"}},
                 "textDocument":{
                     "synchronization":{"didSave":true}, "publishDiagnostics":{"versionSupport":true},
                     "hover":{"contentFormat":["plaintext","markdown"]},
                     "signatureHelp":{"signatureInformation":{"documentationFormat":["plaintext"],"parameterInformation":{"labelOffsetSupport":true},"activeParameterSupport":true},"contextSupport":true},
                     "completion":{"completionItem":{"snippetSupport":false,"documentationFormat":["plaintext","markdown"]}},
+                    "documentSymbol":{"hierarchicalDocumentSymbolSupport":true},
                     "definition":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{},
                     "codeAction":{"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports","source.fixAll"]}},"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]}}
                 }
@@ -340,7 +341,7 @@ impl Client {
         let id = self.next_id;
         self.next_id += 1;
         let mut params = json!({"textDocument":{"uri":uri}});
-        if !is_action {
+        if !is_action && method != "textDocument/documentSymbol" {
             params["position"] = json!(position(doc, doc.cursor));
         }
         if let Some(extra) = extra.as_object() {
@@ -362,6 +363,57 @@ impl Client {
                 },
                 view,
                 workspace: Arc::new(workspace),
+                started: Instant::now(),
+            },
+        );
+        Ok(())
+    }
+    pub(crate) fn has_symbol_request(&self) -> bool {
+        self.pending.values().any(|r| {
+            matches!(
+                r.method.as_str(),
+                "textDocument/documentSymbol" | "workspace/symbol"
+            )
+        })
+    }
+    pub(crate) fn cancel_symbol_requests(&mut self) -> Result<()> {
+        let ids: Vec<_> = self
+            .pending
+            .iter()
+            .filter(|(_, r)| {
+                matches!(
+                    r.method.as_str(),
+                    "textDocument/documentSymbol" | "workspace/symbol"
+                )
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in ids {
+            self.pending.remove(&id);
+            self.notify("$/cancelRequest", json!({"id":id}))?;
+        }
+        Ok(())
+    }
+    pub(crate) fn workspace_symbols(&mut self, query: &str) -> Result<()> {
+        if !self.ready || self.pending.len() >= 32 {
+            bail!("Language server unavailable or request queue full");
+        }
+        let id = self.next_id;
+        self.next_id += 1;
+        self.send(
+            json!({"jsonrpc":"2.0","id":id,"method":"workspace/symbol","params":{"query":query}}),
+        )?;
+        self.pending.insert(
+            id,
+            Request {
+                method: "workspace/symbol".into(),
+                document_id: 0,
+                revision: 0,
+                cursor: 0,
+                path: PathBuf::new(),
+                selections: Vec::new(),
+                view: None,
+                workspace: Arc::new(HashMap::new()),
                 started: Instant::now(),
             },
         );

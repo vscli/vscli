@@ -115,6 +115,12 @@ impl App {
         Ok(())
     }
     fn language_response(&mut self, request: Request, response: Value) -> Result<()> {
+        if matches!(
+            request.method.as_str(),
+            "textDocument/documentSymbol" | "workspace/symbol"
+        ) {
+            return self.symbol_response(&request, &response);
+        }
         if request.method == "workspace/executeCommand" {
             // Command results are not WorkspaceEdits; mutations arrive through applyEdit.
             return Ok(());
