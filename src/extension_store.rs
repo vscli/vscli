@@ -172,6 +172,24 @@ impl Store {
         )
     }
     pub fn install(&self, archive_path: &Path) -> Result<Installed> {
+        self.install_checked(archive_path, None)
+    }
+    /// Check network package identity before changing the installed registry.
+    pub fn install_registry(
+        &self,
+        archive_path: &Path,
+        id: &str,
+        version: &str,
+        source: &str,
+    ) -> Result<Installed> {
+        validate_id(id)?;
+        self.install_checked(archive_path, Some((id, version, source)))
+    }
+    fn install_checked(
+        &self,
+        archive_path: &Path,
+        expected: Option<(&str, &str, &str)>,
+    ) -> Result<Installed> {
         let _lock = self.lock()?;
         let mut registry = self.registry()?;
         if !fs::metadata(archive_path)
@@ -262,13 +280,21 @@ impl Store {
         }
         let manifest = read_manifest(&stage.path().join("extension"))?;
         let (id, version) = identity(&manifest)?;
+        if let Some((expected_id, expected_version, _)) = expected
+            && (id != expected_id || version != expected_version)
+        {
+            bail!("Registry download identity/version does not match the requested package");
+        }
         let directory = format!("package-{}", uuid::Uuid::new_v4());
         let destination = self.root.join(&directory);
         let package = Package {
             id: id.clone(),
             version,
             directory,
-            source: fs::canonicalize(archive_path)?.display().to_string(),
+            source: match expected {
+                Some((_, _, source)) => source.to_owned(),
+                None => fs::canonicalize(archive_path)?.display().to_string(),
+            },
             sha256: digest,
         };
         let old = registry.packages.get(&id).cloned();
