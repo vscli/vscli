@@ -66,6 +66,16 @@ def run(root, kitty):
     else:
         eventually(lambda: app.read() and any(c in ('▀', '▄') for c in app.screen.cells.values()))
         assert not app.screen.graphics
+    command(app, 'Keyboard Inspector')
+    wait(app, 'Keyboard Inspector · Esc closes')
+    assert not visible_graphic(app), 'Inspector must hide welcome image placeholders'
+    app.send(CTRL_S)
+    wait(app, 'Mapped command: workbench.action.files.save')
+    assert not (config / 'settings.json').exists()
+    app.send(b'\x1b')
+    wait(app, 'User settings')
+    if kitty:
+        eventually(lambda: app.read() and visible_graphic(app))
     command(app, 'Help: Getting Started')
     wait(app, 'start automatically')
     assert not visible_graphic(app)
@@ -105,7 +115,7 @@ def run(root, kitty):
     else:
         assert not app.screen.graphics
     assert source.read_bytes() == 'original 猫\r\n'.encode()
-    print('PASS: ' + ('Kitty' if kitty else 'cell fallback') + ' welcome → help → open/edit/cancel/save/undo → close/recents → resize → actual settings → cleanup')
+    print('PASS: ' + ('Kitty' if kitty else 'cell fallback') + ' welcome → inspector → help → open/edit/cancel/save/undo → close/recents → resize → actual settings → cleanup')
 
 
 if __name__ == '__main__':
