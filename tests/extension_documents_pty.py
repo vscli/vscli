@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 from extension_sessions_pty import Editor, LIVE, command, wait, save
-from pty_smoke import CTRL_Z
+from pty_smoke import CTRL_Z, eventually
 
 
 def fixture(root):
@@ -74,7 +74,10 @@ def run(root):
     # SIGTERM must flush the authoritative latest native buffer even after the
     # optional host crashes; file bytes remain unchanged until explicit save.
     os.kill(app.process.pid, signal.SIGTERM)
-    app.process.wait(timeout=4)
+    # Keep consuming terminal output while interruption flushes recovery and
+    # restores the terminal; a full PTY must not stall the editor's exit.
+    eventually(lambda: app.read() and app.process.poll() is not None, timeout=4)
+    app.process.wait(timeout=1)
     assert app.process.restored, 'Terminal mode leaked after interruption'
     assert file.read_bytes().decode() == original
     app.close_fds()
@@ -111,7 +114,8 @@ if __name__ == '__main__':
                         except ProcessLookupError:
                             pass
                         try:
-                            app.process.wait(timeout=4)
+                            eventually(lambda: app.read() and app.process.poll() is not None, timeout=4)
+                            app.process.wait(timeout=1)
                         except (AssertionError, subprocess.TimeoutExpired):
                             app.process.kill()
                             app.process.wait(timeout=3)
