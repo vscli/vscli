@@ -134,11 +134,15 @@ def stopped_descendant(pid):
     return True
 
 
-def descendant(root, leader=None):
+def descendant(root, app, leader=None):
     pid = None
 
     def ready():
         nonlocal pid
+        # The ready status can still describe the preceding host when a restart
+        # is queued. Drain the PTY while waiting for the new child so a full
+        # output buffer cannot block the editor before it handles that restart.
+        app.read()
         try:
             candidate = int((root / "descendant.pid").read_text())
         except (FileNotFoundError, ValueError):
@@ -155,7 +159,10 @@ def descendant(root, leader=None):
         pid = candidate
         return True
 
-    eventually(ready)
+    try:
+        eventually(ready, timeout=8)
+    except AssertionError as error:
+        raise AssertionError(f"Waiting for a live new descendant:\n{app.screen.text()}") from error
     DESCENDANTS.add(pid)
     return pid
 
@@ -241,10 +248,10 @@ def run(root):
     manage(store, "--install-extension", archive(root, "descendants", descendants=True))
     app = Editor(root, "--extensions-dir", store, "--extension", "session.descendants", file, enhanced=True)
     wait(app, "(4 commands)")
-    first = descendant(root)
+    first = descendant(root, app)
     command(app, "Extensions: Restart Selected Session")
     wait(app, "(4 commands)")
-    second = descendant(root)
+    second = descendant(root, app)
     assert second != first
     eventually(lambda: stopped_descendant(first))
     command(app, "Extensions: Stop Host")
@@ -252,7 +259,7 @@ def run(root):
     eventually(lambda: stopped_descendant(second))
     command(app, "Extensions: Restart Selected Session")
     wait(app, "(4 commands)")
-    third = descendant(root)
+    third = descendant(root, app)
     leader = int((root / "descendants.pid").read_text())
     app.send(F10 + b"!")
     wait(app, "Extension host stopped")
@@ -304,7 +311,7 @@ def run(root):
     app = Editor(root, "--extensions-dir", store, "--extension", "session.hang", "--recovery-dir", journal, file, recovery=True, enhanced=True)
     eventually(lambda: app.read() and (root / "hang.pid").exists())
     child = int((root / "hang.pid").read_text())
-    pending_descendant = descendant(root, leader=child)
+    pending_descendant = descendant(root, app, leader=child)
     app.send(CTRL_A)
     app.paste("latest unsaved during activation")
     wait(app, "latest unsaved during activation")
