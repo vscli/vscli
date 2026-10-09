@@ -169,7 +169,9 @@ function createProviders(options) {
     const document = options.document(params.document);
     if (!document || document.isClosed || document.version !== params.version || !score(entry.selector, document)) throw new Error('Provider document changed or does not match its selector');
     if (calls.size >= MAX_PENDING) throw new Error('Language provider invocation limit reached');
-    const source = new CancellationTokenSource(), callId = Symbol(), call = { source, entry, document, version: document.version };
+    const callId = params.request === undefined ? Symbol() : params.request;
+    if (typeof callId !== 'symbol' && (!Number.isSafeInteger(callId) || callId < 1 || calls.has(callId))) throw new Error('Invalid or duplicate provider request ID');
+    const source = new CancellationTokenSource(), call = { source, entry, document, version: document.version };
     calls.set(callId, call);
     let args;
     try {
@@ -197,8 +199,13 @@ function createProviders(options) {
     const canceled = new Promise((_, reject) => { cancellationListener = source.token.onCancellationRequested(() => reject(new Error('Language provider invocation canceled'))); });
     return Promise.race([work, timeout, canceled]).finally(() => { clearTimeout(timer); cancellationListener.dispose(); });
   }
+  function cancel(params) {
+    const call = calls.get(params.request);
+    if (params.session !== options.session || !call || call.entry.owner !== params.owner) return false;
+    call.source.cancel(); return true;
+  }
   function documentChanged() { for (const { source, document, version } of calls.values()) if (document.isClosed || document.version !== version) source.cancel(); }
   function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
-  return { forOwner, provide, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size };
+  return { forOwner, provide, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size };
 }
 module.exports = { createProviders, score, selector, normalize };

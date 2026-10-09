@@ -1,5 +1,7 @@
 'use strict';
 const types = require('./api-types.cjs');
+const providerTypes = require('./provider-types.cjs');
+const { createProviders } = require('./providers.cjs');
 const { createPrompts } = require('./prompts.cjs');
 const { createConfiguration } = require('./configuration.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
@@ -35,6 +37,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     try { assertOwner(params.owner); return sendRequest(method, params); }
     catch (error) { return Promise.reject(error); }
   }
+  const providers = createProviders({ session: sessionOptions.session, notify, track, document: id => documents.get(id) });
   function track(owner, disposable) {
     try { assertOwner(owner); } catch (error) { disposable.dispose(); throw error; }
     if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }
@@ -115,6 +118,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     const previousActive = active;
     active = editors.get(state.active);
     if (active) active._selections = state.selections.map(s => new Selection(s.anchor, s.active));
+    providers.documentChanged();
     // All mirrors must reflect the new state before any extension callback runs.
     for (const fire of changes) fire();
     if (active !== previousActive) activeChanged.fire(active);
@@ -153,7 +157,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     });
   }
   const api = supported('vscode', {
-    ...types,
+    ...types, ...providerTypes,
     version: '1.95.0',
     EndOfLine: Object.freeze({ LF: 1, CRLF: 2 }),
     ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
@@ -188,11 +192,12 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
+    api, sync, providerSnapshot: providers.snapshot, provideLanguage: providers.provide, cancelLanguageProvider: providers.cancel, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     contextForExtension(owner) { return { ...mementos.forOwner(owner), extension: activation?.extension(owner) }; },
     mergeExtensionState: mementos.merge,
     disposeOwner(owner) {
+      if (sessionOptions.languageProviders) providers.disposeOwner(owner);
       for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
       owned.delete(owner); facades.delete(owner);
     },
@@ -208,6 +213,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       // The native document objects are shared; only request-producing editor handles are scoped.
       const facade = supported('vscode', {
         ...api,
+        ...(sessionOptions.languageProviders ? { languages: supported('languages', providers.forOwner(owner)) } : {}),
         window: supported('window', {
           ...createPrompts(request, sessionOptions.session, owner, promptBudget),
           showTextDocument: services.showTextDocument,
