@@ -385,6 +385,9 @@ fn snapshot_theme(directory: &Path, selected: &str) -> Result<Option<ThemeSnapsh
 }
 
 fn read(path: &Path, limit: usize) -> Result<Vec<u8>> {
+    if !fs::metadata(path)?.is_file() {
+        bail!("Import source must be a regular file: {}", path.display());
+    }
     let mut bytes = Vec::new();
     fs::File::open(path)?
         .take(limit as u64 + 1)
@@ -398,6 +401,55 @@ fn read(path: &Path, limit: usize) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn named_pipe_theme_include_is_reported_without_opening_or_activating_it() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("User");
+        let extensions = root.path().join("extensions");
+        let package = extensions.join("theme");
+        fs::create_dir(&source).unwrap();
+        fs::create_dir_all(&package).unwrap();
+        let settings = br#"{"workbench.colorTheme":"Named Pipe"}"#;
+        fs::write(source.join("settings.json"), settings).unwrap();
+        fs::write(
+            package.join("package.json"),
+            r#"{"contributes":{"themes":[{"label":"Named Pipe","path":"theme.json"}]}}"#,
+        )
+        .unwrap();
+        fs::write(package.join("theme.json"), r#"{"include":"pipe.json"}"#).unwrap();
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(package.join("pipe.json"))
+                .status()
+                .unwrap()
+                .success()
+        );
+        let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+        let worker_source = source.clone();
+        std::thread::spawn(move || {
+            let _ = sender.send(preview_with_extensions(
+                &worker_source,
+                crate::keys::Profile::Linux,
+                Some(&extensions),
+            ));
+        });
+        let preview = receiver
+            .recv_timeout(std::time::Duration::from_secs(3))
+            .expect("Import must reject named pipes without blocking")
+            .unwrap();
+        assert!(
+            preview
+                .report
+                .notices
+                .iter()
+                .any(|notice| notice.contains("regular file"))
+        );
+        assert_eq!(preview.report.files, vec![PathBuf::from("settings.json")]);
+        assert!(preview.theme.is_none());
+        assert_eq!(fs::read(source.join("settings.json")).unwrap(), settings);
+        assert!(!root.path().join("active-profile.json").exists());
+    }
     #[test]
     fn snippet_file_limit_does_not_depend_on_optional_settings_and_keybindings() {
         let root = tempfile::tempdir().unwrap();

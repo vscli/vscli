@@ -994,6 +994,35 @@ mod tests {
             assert_eq!(serde_json::to_value(binding).unwrap(), source);
         }
     }
+    #[cfg(unix)]
+    #[test]
+    fn imported_nonregular_binding_files_reject_without_blocking_or_mutation() {
+        let root = tempfile::tempdir().unwrap();
+        let pipe = root.path().join("keys.json");
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&pipe)
+                .status()
+                .unwrap()
+                .success()
+        );
+        for path in [root.path().to_owned(), pipe] {
+            let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+            std::thread::spawn(move || {
+                let mut map = Keymap::new(Profile::Linux);
+                let result = map.load_imported(&path);
+                let _ = sender.send((result, map));
+            });
+            let (result, map) = receiver
+                .recv_timeout(std::time::Duration::from_secs(3))
+                .expect("Imported bindings must reject nonregular files without blocking");
+            assert!(result.unwrap_err().to_string().contains("regular file"));
+            let context = HashMap::from([("editorTextFocus".into(), Value::Bool(true))]);
+            assert!(
+                matches!(map.resolve("ctrl+s", &context), Resolution::Command(id, _) if id == "workbench.action.files.save")
+            );
+        }
+    }
     #[test]
     fn failed_imported_bindings_preserve_defaults_and_source_bytes() {
         let root = tempfile::tempdir().unwrap();

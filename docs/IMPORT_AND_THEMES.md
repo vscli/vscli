@@ -32,7 +32,8 @@ under `~/.vscode/extensions` or `--vscode-extensions`. If found, its JSONC file 
 relative include chain are copied into the copied profile. They remain usable even if
 the source extension is later removed. Includes must stay inside the extension
 package. Absolute includes and symlink aliases are reported instead of being copied
-with broken references; relative include files retain their original bytes. Missing, invalid or unsupported themes are reported; configuration import
+with broken references; relative include files retain their original bytes. Theme imports and automatic
+imported-keybinding loads reject nonregular files before opening them. Missing, invalid or unsupported themes are reported; configuration import
 can still succeed. Built-in themes shipped inside the VS Code application are not
 automatically discovered by this directory scan. Extension executable code,
 accounts, sync data and the entire VS Code profile system are not migrated.
