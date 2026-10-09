@@ -414,6 +414,18 @@ impl Keymap {
         for key in ["escape", "shift+escape"] {
             map.add(key, "leaveSnippet", Some("inSnippetMode && textInputFocus"));
         }
+        map.add(
+            &format!("{p}+shift+space"),
+            "editor.action.triggerParameterHints",
+            Some("editorHasSignatureHelpProvider && editorTextFocus"),
+        );
+        for key in ["escape", "shift+escape"] {
+            map.add(
+                key,
+                "closeParameterHints",
+                Some("editorFocus && parameterHintsVisible"),
+            );
+        }
         map.defaults = map.bindings.clone();
         map
     }
@@ -1302,6 +1314,48 @@ mod tests {
                     !matches!(map.resolve(&binding.key,&disabled),Resolution::Command(id,_) if id==command)
                 );
             }
+        }
+    }
+    #[test]
+    fn signature_shortcuts_match_pinned_platform_bindings_and_contexts() {
+        for (profile, platform) in [
+            (Profile::Linux, "linux"),
+            (Profile::Windows, "win32"),
+            (Profile::Macos, "darwin"),
+        ] {
+            let map = Keymap::new(profile);
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tests/vscode-reference/baselines/1.95.0/{platform}/inventory.json"
+            ));
+            let reference: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+            for binding in reference["bindings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|b| {
+                    matches!(
+                        b["command"].as_str(),
+                        Some("editor.action.triggerParameterHints" | "closeParameterHints")
+                    )
+                })
+            {
+                assert!(map.bindings.iter().any(|native| native.command
+                    == binding["command"].as_str().unwrap()
+                    && native.key == normalize_sequence(binding["key"].as_str().unwrap())
+                    && native.when.as_deref() == binding["when"].as_str()));
+            }
+            let key = format!("{}+shift+space", profile.primary());
+            let context = HashMap::from([
+                ("editorTextFocus".into(), Value::Bool(true)),
+                ("editorHasSignatureHelpProvider".into(), Value::Bool(true)),
+            ]);
+            assert!(
+                matches!(map.resolve(&key,&context),Resolution::Command(id,_) if id=="editor.action.triggerParameterHints")
+            );
+            assert!(!matches!(
+                map.resolve(&key, &HashMap::new()),
+                Resolution::Command(_, _)
+            ));
         }
     }
     #[test]

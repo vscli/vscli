@@ -193,6 +193,7 @@ impl Client {
                 "textDocument":{
                     "synchronization":{"didSave":true}, "publishDiagnostics":{"versionSupport":true},
                     "hover":{"contentFormat":["plaintext","markdown"]},
+                    "signatureHelp":{"signatureInformation":{"documentationFormat":["plaintext"],"parameterInformation":{"labelOffsetSupport":true},"activeParameterSupport":true},"contextSupport":true},
                     "completion":{"completionItem":{"snippetSupport":false,"documentationFormat":["plaintext","markdown"]}},
                     "definition":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{},
                     "codeAction":{"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports","source.fixAll"]}},"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]}}
@@ -414,6 +415,20 @@ impl Client {
             Err(error) => json!({"applied":false,"failureReason":format!("{error:#}")}),
         };
         self.send(json!({"jsonrpc":"2.0","id":id,"result":result}))
+    }
+
+    pub(crate) fn cancel_signature_help(&mut self) -> Result<()> {
+        let ids: Vec<_> = self
+            .pending
+            .iter()
+            .filter(|(_, r)| r.method == "textDocument/signatureHelp")
+            .map(|(id, _)| *id)
+            .collect();
+        for id in ids {
+            self.pending.remove(&id);
+            self.notify("$/cancelRequest", json!({"id":id}))?;
+        }
+        Ok(())
     }
     pub fn poll(&mut self) -> Result<Vec<Event>> {
         let mut events = Vec::new();
