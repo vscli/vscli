@@ -21,8 +21,12 @@ use std::{
 
 const PNG: &[u8] = include_bytes!("../assets/brand/vscli-mark.png");
 const MAX_ENCODED: usize = 64 * 1024;
-const IMAGE_ID: u32 = 0x5653434c;
-const DELETE: &str = "\x1b_Ga=d,d=I,i=1448297292,q=2\x1b\\";
+fn image_id() -> u32 {
+    0x56000000 | (std::process::id() & 0x00ffffff)
+}
+fn delete_sequence() -> String {
+    format!("\x1b_Ga=d,d=I,i={},q=2\x1b\\", image_id())
+}
 static UPLOADED: AtomicBool = AtomicBool::new(false);
 const DEADLINE: Duration = Duration::from_secs(2);
 
@@ -120,10 +124,10 @@ impl State {
         frame.render_widget(Image::new(protocol), area);
         if matches!(protocol, Protocol::Kitty(_)) {
             if self.uploaded.is_some_and(|old| old != key) {
-                // The fixed image ID is reused. Delete the prior payload immediately
+                // The process-scoped image ID is reused. Delete the prior payload immediately
                 // before transmitting its replacement, preserving bounded terminal storage.
                 if let Some(cell) = frame.buffer_mut().cell_mut((area.x, area.y)) {
-                    cell.set_symbol(&format!("{DELETE}{}", cell.symbol()));
+                    cell.set_symbol(&format!("{}{}", delete_sequence(), cell.symbol()));
                 }
             }
             self.uploaded = Some(key);
@@ -235,7 +239,7 @@ fn encode(source: &DynamicImage, key: Key, cell: Option<(u16, u16)>) -> Result<P
             return Ok(Protocol::Kitty(Kitty::new(
                 DynamicImage::ImageRgba8(canvas),
                 size,
-                IMAGE_ID,
+                image_id(),
                 false,
                 true,
             )?));
@@ -270,8 +274,10 @@ fn rgb(color: Color) -> [u8; 3] {
     }
 }
 /// Called by terminal restoration, including error/signal unwinding.
-pub fn terminal_cleanup() -> Option<&'static str> {
-    UPLOADED.swap(false, Ordering::Relaxed).then_some(DELETE)
+pub fn terminal_cleanup() -> Option<String> {
+    UPLOADED
+        .swap(false, Ordering::Relaxed)
+        .then(delete_sequence)
 }
 
 #[cfg(test)]
@@ -402,7 +408,7 @@ mod tests {
             initial.contains("s=160,v=160"),
             "physical canvas must fit the selected cells"
         );
-        assert!(initial.contains(&format!("i={IMAGE_ID}")));
+        assert!(initial.contains(&format!("i={}", image_id())));
         let repeat = render(&mut terminal, &mut state, first);
         assert!(!repeat.contains("\x1b_G"));
         terminal.draw(|_| state.begin_frame()).unwrap();
@@ -421,8 +427,9 @@ mod tests {
         next.height = 12;
         state.ready = Some((next, encode(&source, next, Some((8, 16))).unwrap()));
         let resized = render(&mut terminal, &mut state, next);
-        assert!(resized.contains(DELETE));
-        assert!(resized.find(DELETE).unwrap() < resized.rfind("\x1b_G").unwrap());
+        let delete = delete_sequence();
+        assert!(resized.contains(&delete));
+        assert!(resized.find(&delete).unwrap() < resized.rfind("\x1b_G").unwrap());
         assert_eq!(state.uploaded, Some(next));
     }
 }
