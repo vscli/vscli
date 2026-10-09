@@ -46,7 +46,8 @@ def native(root):
         "vscli.languageServer.args": [str(fixture), str(marker)]},
         "[rust]": {"vscli.languageServer.program": sys.executable,
         "vscli.languageServer.args": [str(fixture), str(rust_marker)]}}))
-    app = Editor(root, "--settings", settings, root, enhanced=True, auto_lsp=True)
+    config = root / "native-config"
+    app = Editor(root, "--settings", settings, "--config-dir", config, root, enhanced=True, auto_lsp=True)
     wait(app, "No open editors")
     assert not marker.exists()
     open_file(app, source)
@@ -77,12 +78,24 @@ def native(root):
     app.send(b"\x1b[27;2u")
     app.finish()
     assert len(marker.read_text().splitlines()) == 4
-    print("PASS: empty startup, Ctrl+O automatic user server, C++/Rust tab transition, crash/restart, hints, disable/enable and CRLF save/undo")
+    # Restoration installs the active clean file asynchronously. Its new identity
+    # must start the right server without canceling restoration or losing caret/text.
+    app = Editor(root, "--settings", settings, "--config-dir", config,
+                 "--restore-session", enhanced=True, auto_lsp=True)
+    eventually(lambda: app.read() and len(marker.read_text().splitlines()) == 5
+               and "Language server ready" in app.screen.text())
+    assert "No open editors" not in app.screen.text()
+    assert "sum(1, 2)" in app.screen.text()
+    app.send(HINTS)
+    wait(app, "Parameter Hints 1/1")
+    edit_save_undo(app, source, original)
+    app.finish()
+    print("PASS: empty startup, automatic C++/Rust tab transition, crash/restart, restored-session hints, disable/enable and CRLF save/undo")
 
     app = Editor(root, "--settings", settings, "--no-lsp", source, enhanced=True, auto_lsp=True)
     edit_save_undo(app, source, original)
     app.finish()
-    assert len(marker.read_text().splitlines()) == 4
+    assert len(marker.read_text().splitlines()) == 5
     print("PASS: --no-lsp leaves editing/save/undo usable without starting configured server")
 
     app = Editor(root, source, enhanced=True, auto_lsp=True, extra_env={"PATH": ""})
