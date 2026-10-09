@@ -213,30 +213,40 @@ fn unsynced_edit_undo_and_focus_round_trip_reject_held_replies() {
 
 #[test]
 fn scoped_settings_disable_quick_suggestions_but_allow_trigger_characters_and_enter_off() {
-    let root = tempfile::tempdir().unwrap();
-    let mut app = app(root.path(), "");
-    let settings = root.path().join("settings.json");
-    std::fs::write(&settings, r#"{"editor.quickSuggestions":false,"editor.quickSuggestionsDelay":0,"editor.acceptSuggestionOnEnter":"off"}"#).unwrap();
-    app.settings = vscli::settings::Settings::load(&[settings]).unwrap();
-    key(&mut app, KeyCode::Char('a'));
-    settle(&mut app);
-    assert!(requests(root.path()).is_empty());
-    key(&mut app, KeyCode::Char('.'));
-    until(&mut app, App::suggestion_acceptable);
-    assert_eq!(
-        requests(root.path())[0]["context"],
-        json!({"triggerKind":2,"triggerCharacter":"."})
-    );
-    key(&mut app, KeyCode::Enter);
-    assert_eq!(app.doc().text.to_string(), "a.\n");
-    assert!(app.suggestion_model().is_none());
-    key(&mut app, KeyCode::Backspace);
-    settle(&mut app);
-    assert_eq!(
-        requests(root.path()).len(),
-        1,
-        "Deleting back to a trigger character must not retrigger it"
-    );
+    // An empty file intentionally uses the platform's default EOL. Explicit
+    // source newlines qualify both styles without assuming the host default.
+    for eol in ["\n", "\r\n"] {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path(), eol);
+        let settings = root.path().join("settings.json");
+        std::fs::write(&settings, r#"{"editor.quickSuggestions":false,"editor.quickSuggestionsDelay":0,"editor.acceptSuggestionOnEnter":"off"}"#).unwrap();
+        app.settings = vscli::settings::Settings::load(&[settings]).unwrap();
+        key(&mut app, KeyCode::Char('a'));
+        settle(&mut app);
+        assert!(requests(root.path()).is_empty());
+        key(&mut app, KeyCode::Char('.'));
+        until(&mut app, App::suggestion_acceptable);
+        assert_eq!(
+            requests(root.path())[0]["context"],
+            json!({"triggerKind":2,"triggerCharacter":"."})
+        );
+        key(&mut app, KeyCode::Enter);
+        assert_eq!(app.doc().text.to_string(), format!("a.{eol}{eol}"));
+        assert!(app.suggestion_model().is_none());
+        key(&mut app, KeyCode::Backspace);
+        settle(&mut app);
+        assert_eq!(app.doc().text.to_string(), format!("a.{eol}"));
+        assert_eq!(
+            requests(root.path()).len(),
+            1,
+            "Deleting back to a trigger character must not retrigger it"
+        );
+        app.doc_mut().save().unwrap();
+        assert_eq!(
+            std::fs::read(root.path().join("input.rs")).unwrap(),
+            format!("a.{eol}").as_bytes()
+        );
+    }
 }
 
 #[test]
