@@ -182,7 +182,7 @@ class SupervisedProcess:
 
 
 class Editor:
-    def __init__(self, root, *args, recovery=False, enhanced=False, extra_env=None):
+    def __init__(self, root, *args, recovery=False, enhanced=False, extra_env=None, auto_lsp=False):
         self.master, self.slave = pty.openpty()
         os.set_blocking(self.master, False)
         self.pending_input = bytearray()
@@ -194,6 +194,8 @@ class Editor:
             fcntl.ioctl(0, termios.TIOCSCTTY, 0)
 
         options = ["--no-mouse", "--keymap", "linux"]
+        if not auto_lsp and "--lsp" not in args and "--no-lsp" not in args:
+            options += ["--no-lsp"]
         self.config_directory = None
         if "--config-dir" not in args:
             self.config_directory = tempfile.TemporaryDirectory(prefix="vscli-pty-config-")

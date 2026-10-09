@@ -26,11 +26,14 @@ pub struct Settings {
     // Map equality ignores insertion order, but language-block ordering affects
     // precedence. This key also lets reload comparison avoid walking JSON trees.
     serialized: Arc<str>,
+    workspace_layer: Option<usize>,
     pub warnings: Vec<String>,
 }
 impl PartialEq for Settings {
     fn eq(&self, other: &Self) -> bool {
-        self.serialized == other.serialized && self.warnings == other.warnings
+        self.serialized == other.serialized
+            && self.warnings == other.warnings
+            && self.workspace_layer == other.workspace_layer
     }
 }
 const SUPPORTED: &[&str] = &[
@@ -38,6 +41,10 @@ const SUPPORTED: &[&str] = &[
     "editor.insertSpaces",
     "editor.lineNumbers",
     "workbench.colorTheme",
+    "vscli.languageServer.enabled",
+    "vscli.languageServer.program",
+    "vscli.languageServer.args",
+    "vscli.languageServer.allowWorkspaceConfiguration",
 ];
 fn read(path: &Path) -> Result<Map<String, Value>> {
     match std::fs::metadata(path) {
@@ -65,7 +72,18 @@ fn read(path: &Path) -> Result<Map<String, Value>> {
 }
 impl Settings {
     pub fn load(paths: &[PathBuf]) -> Result<Self> {
-        let mut result = Self::default();
+        Self::load_scoped(paths, None)
+    }
+    /// App supplies the workspace file last, independently of file names used
+    /// for an explicitly selected user settings file.
+    pub(crate) fn load_editor(paths: &[PathBuf]) -> Result<Self> {
+        Self::load_scoped(paths, paths.len().checked_sub(1))
+    }
+    fn load_scoped(paths: &[PathBuf], workspace_layer: Option<usize>) -> Result<Self> {
+        let mut result = Self {
+            workspace_layer,
+            ..Self::default()
+        };
         for path in paths {
             let layer = read(path)?;
             result.validate(&layer, &path.display().to_string());
@@ -112,8 +130,11 @@ impl Settings {
         }
     }
     fn value(&self, key: &str, language: &str) -> Option<&Value> {
+        self.value_scoped(key, language, self.layers.len())
+    }
+    fn value_scoped(&self, key: &str, language: &str, limit: usize) -> Option<&Value> {
         let mut result = None;
-        for layer in self.layers.iter() {
+        for layer in self.layers.iter().take(limit) {
             if let Some(value) = layer.get(key).filter(|v| valid(key, v)) {
                 result = Some(value);
             }
@@ -121,7 +142,7 @@ impl Settings {
         // Merge equal identifier groups in their first-seen position, then apply
         // single-language groups last, as in the pinned configuration model.
         let mut groups: Vec<(Vec<&str>, Option<&Value>)> = Vec::new();
-        for layer in self.layers.iter() {
+        for layer in self.layers.iter().take(limit) {
             for (selector, value) in layer {
                 let Some(inner) = selector.strip_prefix('[').and_then(|s| s.strip_suffix(']'))
                 else {
@@ -163,6 +184,52 @@ impl Settings {
         }
         result
     }
+    pub fn language_server(&self, language: &str) -> LanguageServer {
+        let user_layers = self.workspace_layer.unwrap_or(self.layers.len());
+        let allow = self
+            .value_scoped(
+                "vscli.languageServer.allowWorkspaceConfiguration",
+                language,
+                user_layers,
+            )
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let limit = if allow {
+            self.layers.len()
+        } else {
+            user_layers
+        };
+        let program = self
+            .value_scoped("vscli.languageServer.program", language, limit)
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let args = self
+            .value_scoped("vscli.languageServer.args", language, limit)
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .map(|v| v.as_str().unwrap().to_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let blocked_workspace = !allow
+            && ["vscli.languageServer.program", "vscli.languageServer.args"]
+                .iter()
+                .any(|key| {
+                    self.value(key, language) != self.value_scoped(key, language, user_layers)
+                });
+        LanguageServer {
+            enabled: self
+                .value("vscli.languageServer.enabled", language)
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
+            program,
+            args,
+            blocked_workspace,
+        }
+    }
+
     pub fn apply(&self, doc: &mut crate::document::Document) {
         let language = doc
             .path
@@ -188,9 +255,34 @@ impl Settings {
         };
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LanguageServer {
+    pub enabled: bool,
+    pub program: Option<String>,
+    pub args: Vec<String>,
+    pub blocked_workspace: bool,
+}
 fn valid(key: &str, value: &Value) -> bool {
     match key {
         "workbench.colorTheme" => value.is_string(),
+        "vscli.languageServer.enabled" | "vscli.languageServer.allowWorkspaceConfiguration" => {
+            value.is_boolean()
+        }
+        "vscli.languageServer.program" => value
+            .as_str()
+            .is_some_and(|s| !s.is_empty() && s.len() <= 4096),
+        "vscli.languageServer.args" => value.as_array().is_some_and(|args| {
+            args.len() <= 32
+                && args
+                    .iter()
+                    .all(|a| a.as_str().is_some_and(|s| s.len() <= 4096))
+                && args
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::len)
+                    .sum::<usize>()
+                    <= 16384
+        }),
         "editor.tabSize" => value.as_u64().is_some_and(|n| (1..=16).contains(&n)),
         "editor.insertSpaces" => value.is_boolean(),
         "editor.lineNumbers" => {
@@ -229,7 +321,7 @@ impl Loader {
             let paths = self.paths.clone();
             let (sender, receiver) = mpsc::sync_channel(1);
             std::thread::spawn(move || {
-                let _ = sender.send(Settings::load(&paths).map_err(|e| format!("{e:#}")));
+                let _ = sender.send(Settings::load_editor(&paths).map_err(|e| format!("{e:#}")));
             });
             self.pending = Some(receiver);
             self.last = Instant::now();
@@ -241,6 +333,52 @@ impl Loader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn language_programs_use_user_provenance_and_explicit_workspace_opt_in() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("settings.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(&user, r#"{"[cpp]":{"vscli.languageServer.program":"user-clangd","vscli.languageServer.args":["--user"]}}"#).unwrap();
+        std::fs::write(&workspace, r#"{"vscli.languageServer.allowWorkspaceConfiguration":true,"[cpp]":{"vscli.languageServer.program":"repo-clangd","vscli.languageServer.args":["--repo"],"vscli.languageServer.enabled":false}}"#).unwrap();
+        let paths = [user.clone(), workspace.clone()];
+        let settings = Settings::load_editor(&paths).unwrap();
+        let cpp = settings.language_server("cpp");
+        assert_eq!(cpp.program.as_deref(), Some("user-clangd"));
+        assert_eq!(cpp.args, ["--user"]);
+        assert!(!cpp.enabled);
+        assert!(cpp.blocked_workspace);
+        assert!(settings.language_server("rust").program.is_none());
+        std::fs::write(
+            &user,
+            r#"{"vscli.languageServer.allowWorkspaceConfiguration":true}"#,
+        )
+        .unwrap();
+        let cpp = Settings::load_editor(&paths)
+            .unwrap()
+            .language_server("cpp");
+        assert_eq!(cpp.program.as_deref(), Some("repo-clangd"));
+        assert_eq!(cpp.args, ["--repo"]);
+        assert!(!cpp.blocked_workspace);
+        // The explicitly supplied first file is user scope regardless of name.
+        let cpp = Settings::load_editor(&[workspace, root.path().join("missing")])
+            .unwrap()
+            .language_server("cpp");
+        assert_eq!(cpp.program.as_deref(), Some("repo-clangd"));
+    }
+    #[test]
+    fn malformed_or_oversized_language_settings_retain_valid_lower_layers() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(&user, r#"{"vscli.languageServer.allowWorkspaceConfiguration":true,"vscli.languageServer.program":"clangd","vscli.languageServer.args":["--valid"]}"#).unwrap();
+        std::fs::write(&workspace, serde_json::to_vec(&serde_json::json!({"vscli.languageServer.program":"x".repeat(4097),"vscli.languageServer.args":[false],"vscli.languageServer.enabled":"bad"})).unwrap()).unwrap();
+        let settings = Settings::load_editor(&[user, workspace]).unwrap();
+        let cpp = settings.language_server("cpp");
+        assert_eq!(cpp.program.as_deref(), Some("clangd"));
+        assert_eq!(cpp.args, ["--valid"]);
+        assert!(cpp.enabled);
+        assert_eq!(settings.warnings.len(), 3);
+    }
     #[test]
     fn combined_language_order_survives_parsing_scope_merging_and_reload_comparison() {
         let directory = tempfile::tempdir().unwrap();
