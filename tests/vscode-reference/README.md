@@ -17,8 +17,9 @@ xvfb-run -a node tests/vscode-reference/run.cjs target/vscode-reference/result
 # macOS or Windows (or Linux with an available display):
 node tests/vscode-reference/run.cjs target/vscode-reference/result
 node tests/vscode-reference/compare.cjs target/vscode-reference/result target/debug/vscli
+node tests/vscode-reference/diagnostics-compare.cjs target/vscode-reference/result
 # Use target/debug/vscli.exe on Windows.
-node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs
+node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs tests/vscode-reference/diagnostics-compare.test.cjs
 ```
 
 The test extension contributes only fixture settings, with no keybindings. User
@@ -46,6 +47,18 @@ remaining in the owned group/tree; detached descendants and arbitrary Windows
 worker crashes with surviving children are not qualified by these tests.
 
 ## Evidence and boundaries
+
+Diagnostic collection capture writes `diagnostics.json` and
+`diagnostics-provenance.json`: 26 raw snapshots and 17 events from the executable,
+including document edit/close retention. The shared optional-host comparison
+checks 21 collection snapshots and 15 events. It excludes native document bridge
+events and empty global URI resources retained by VS Code's main-thread marker
+mirror; collection empty membership, reads and iteration remain compared.
+The committed diagnostics baseline records an actual Linux run only. CI captures
+and compares each platform independently; absent platform artifacts are not
+inferred. `diagnostics-record.cjs` verifies the product commit, observer/trace
+hashes and scoped counts before recording a new capture. These API observations
+are separate from native Problems and unchanged-linter terminal qualification.
 
 - `keybindings.jsonc`: the reference's default keybindings document, in its
   original resolver order, including its comment list of unbound commands.

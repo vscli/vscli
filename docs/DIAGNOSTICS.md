@@ -78,13 +78,44 @@ The mirror records successful save generations independently of text versions.
 
 ## Evidence
 
-Synthetic Node tests exercise the collection API, save-event ordering, metadata,
-bounds and adversarial getter behavior. Three Rust collection tests cover staged
-wire acceptance, currentness and the actual framed optional host with hidden and
-untitled models. Native protocol tests in `tests/native_diagnostics.rs` exercise
-synchronization identity, version handling and publication budgets; native action
-integrity tests preserve text, selections, Undo/Redo and disk bytes after rejection.
+The reference observer in `tests/vscode-reference/diagnostics.cjs` runs against
+the existing isolated, supervised VS Code **1.95.0** harness. It observes shallow
+read identity, input-array isolation, bulk groups, duplicate collection names,
+event coalescing, disposal and document edit/close retention. Source inspection
+and a passing JavaScript syntax check alone do not qualify these behaviors.
 
-Pinned executable collection observation and unchanged real-extension native/PTY
-qualification are separate acceptance work. Source inspection or synthetic API
-success alone does not establish complete extension compatibility.
+Local Linux qualification for this slice passed **418 ordinary Rust tests**
+(15 opt-in tests remain separately selected), **113 Node tests**, formatting and
+strict all-target clippy. The Rust total includes ten actual native diagnostics
+protocol tests, eleven native action tests, three optional-host collection tests,
+successful-save generation and Problems navigation/cache integrity tests.
+
+The actual pinned executable produced **26 raw snapshots and 17 events**.
+The optional-host comparison matches **21 collection snapshots and 15 events**;
+document bridge events and empty global URI bookkeeping from the reference's
+main-thread marker mirror are explicitly excluded. Their raw observations remain
+in the Linux-only committed baseline and hashed provenance. Other platforms are
+captured independently in CI rather than inferred from Linux.
+
+The unchanged Write Good Linter **0.1.7**, MIT-licensed at
+`c1bf30a5983fd390d63e3d2392f84ca162a72e7b`, passes two opt-in native integrity tests
+and two terminal scenarios. They cover open after activation, live and save-only
+linting, UTF-16 offsets, Unicode/CRLF persistence, Undo, failed saves, close/reopen
+and owner retirement. `tests/prepare_write_good.py` verifies pinned tracked source,
+locked dependencies, compiled output and runtime dependency hashes before and
+after qualification. Native clangd diagnostics/formatting and quick-fix integrity
+tests also pass. The 34 baseline terminal scenarios remain passing.
+
+Run the unchanged corpus with:
+
+```sh
+python3 tests/prepare_write_good.py
+VSCLI_WRITE_GOOD="$PWD/target/write-good-upstream" cargo test --locked --test write_good -- --ignored
+VSCLI_WRITE_GOOD="$PWD/target/write-good-upstream" python3 tests/write_good_pty.py target/debug/vscli
+python3 tests/prepare_write_good.py --verify-only
+```
+
+Required CI qualifies its exact candidate on Linux, macOS and Windows; the
+production linter/native/PTY job runs on Linux. Local results do not assert future
+CI results. Neither the synthetic API observer nor one extension workflow
+establishes full VS Code extension compatibility.
