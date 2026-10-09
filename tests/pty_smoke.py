@@ -1241,7 +1241,9 @@ def run():
         app.send("other")
         eventually(lambda: app.read() and "1 symbols for 'other'" in app.screen.text())
         app.send(b"\r")
-        eventually(lambda: app.read() and "Go to Symbol in Workspace" not in app.screen.text() and "other.cpp" in app.screen.text())
+        # Explorer already lists other.cpp, and accepting the picker hides it
+        # before the background loader completes. Wait for installation/focus.
+        eventually(lambda: app.read() and "Opened other.cpp" in app.screen.text())
         app.send("W")
         app.send(CTRL_S)
         eventually(lambda: app.read() and symbol_other.read_bytes() == "x W😀foo\r\n".encode())
