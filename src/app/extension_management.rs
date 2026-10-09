@@ -82,11 +82,15 @@ impl App {
         let (sender, receiver) = sync_channel(1);
         let node = self.extension_node.clone();
         let root = self.workspace.root.clone();
+        let previous = self.extension_host.take();
+        self.keymap.clear_extension_bindings();
         std::thread::spawn(move || {
             let result =
                 crate::extensions::Client::start_prepared(&node, &item.path, &root, prepared)
                     .map(|host| Output::Started(Box::new(host)))
                     .map_err(|e| format!("{e:#}"));
+            // Process::drop waits for its child; keep replacement teardown off input polling.
+            drop(previous);
             let _ = sender.send(result);
         });
         self.extension_job = Some(Job {
