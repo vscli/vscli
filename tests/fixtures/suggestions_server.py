@@ -22,10 +22,16 @@ def complete(ident, params):
     position = params['position']
     while (root / 'hold').exists():
         time.sleep(.005)
-    send({'id': ident, 'result': [{'label': label, 'textEdit': {
+    items = [{'label': label, 'textEdit': {
         'range': {'start': {'line': position['line'], 'character': 0}, 'end': position},
         'newText': label,
-    }} for label in ['answer', 'another']]})
+    }} for label in ['answer', 'another']]
+    if (root / 'overlap').exists():
+        for item in items:
+            item['additionalTextEdits'] = [{'range': {
+                'start': {'line': 0, 'character': 0}, 'end': {'line': 0, 'character': 1},
+            }, 'newText': 'invalid'}]
+    send({'id': ident, 'result': items})
 
 
 while True:

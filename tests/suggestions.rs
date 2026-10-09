@@ -144,6 +144,15 @@ fn unsynced_edit_undo_and_focus_round_trip_reject_held_replies() {
     settle(&mut app);
     assert!(app.suggestion_model().is_none());
     assert_eq!(app.doc().cursor, 3);
+    std::fs::write(root.path().join("hold"), "").unwrap();
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    until(&mut app, |_| requests(root.path()).len() == 3);
+    app.execute("workbench.view.explorer", Value::Null);
+    app.execute("workbench.action.focusActiveEditorGroup", Value::Null);
+    std::fs::remove_file(root.path().join("hold")).unwrap();
+    settle(&mut app);
+    assert!(app.suggestion_model().is_none());
+    assert_eq!(app.doc().text.to_string(), "ans 🙂\r\n");
 }
 
 #[test]
@@ -200,4 +209,50 @@ fn user_conditional_bindings_override_popup_defaults_and_snippet_tab_keeps_prece
     assert!(app.doc().in_snippet());
     assert_eq!(app.doc().cursor, 4);
     assert!(app.suggestion_model().is_none());
+}
+
+#[test]
+fn excessive_context_selections_reject_before_sending_a_native_completion() {
+    let root = tempfile::tempdir().unwrap();
+    let mut app = app(root.path(), "ans 🙂\r\n");
+    app.doc_mut().move_to(3, false);
+    app.doc_mut().secondary = vec![vscli::document::Selection::caret(3); 8192];
+    app.sync_pane();
+    let before = app.doc().text.to_string();
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    assert!(app.message.contains("16,384"), "{}", app.message);
+    settle(&mut app);
+    assert!(requests(root.path()).is_empty());
+    assert!(app.suggestion_model().is_none());
+    assert_eq!(app.doc().text.to_string(), before);
+    assert_eq!(app.doc().secondary.len(), 8192);
+}
+
+#[test]
+fn malformed_additional_edit_rejects_the_whole_suggestion_before_mutating_native_state() {
+    let root = tempfile::tempdir().unwrap();
+    let mut app = app(root.path(), "ans 🙂\r\n");
+    app.doc_mut().move_to(3, false);
+    app.doc_mut().insert("x", false);
+    app.doc_mut().undo();
+    let id = app.doc().id;
+    let selections = app.doc().selections();
+    std::fs::write(root.path().join("overlap"), "").unwrap();
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    until(&mut app, App::suggestion_acceptable);
+    key(&mut app, KeyCode::Tab);
+    assert!(
+        app.message.starts_with("Suggestion rejected:"),
+        "{}",
+        app.message
+    );
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().selections(), selections);
+    assert_eq!(app.doc().text.to_string(), "ans 🙂\r\n");
+    assert_eq!(
+        std::fs::read(root.path().join("input.rs")).unwrap(),
+        "ans 🙂\r\n".as_bytes()
+    );
+    app.doc_mut().redo();
+    assert_eq!(app.doc().text.to_string(), "ansx 🙂\r\n");
 }

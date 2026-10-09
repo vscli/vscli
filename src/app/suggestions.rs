@@ -92,15 +92,7 @@ impl App {
         {
             bail!("Focus the editor before requesting suggestions");
         }
-        if self.documents.len() + self.hidden_documents.len() > 128
-            || self
-                .documents
-                .iter()
-                .chain(&self.hidden_documents)
-                .any(|doc| doc.secondary.len() >= 4096)
-        {
-            bail!("Suggestions support at most 128 buffers and 4096 selections per buffer");
-        }
+        Context::check_budget(self)?;
         Ok(Context::capture(self))
     }
     fn suggestion_source_current(&self, source: &Source) -> bool {
@@ -584,7 +576,19 @@ impl App {
     }
     pub(super) fn poll_suggestions(&mut self) -> bool {
         let stale = self.suggestions.pending.as_ref().is_some_and(|pending| {
-            !pending.context.same_editor(self) || pending.started.elapsed() > Duration::from_secs(6)
+            let source_current = match &pending.origin {
+                Awaiting::Native { instance, .. } => self
+                    .lsp
+                    .as_ref()
+                    .is_some_and(|client| Arc::ptr_eq(instance, &client.identity())),
+                Awaiting::Provider(ticket) => self
+                    .extension_host
+                    .as_ref()
+                    .is_some_and(|host| host.provider_registration_current(ticket)),
+            };
+            !source_current
+                || !pending.context.same_editor(self)
+                || pending.started.elapsed() > Duration::from_secs(6)
         }) || self.suggestions.cached.as_ref().is_some_and(|cached| {
             !cached.context.same_editor(self)
                 || !self.cached_source_current(&cached.source)
