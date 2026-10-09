@@ -12,22 +12,27 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-The merged baseline for this update is `ea2e425`. Behavioral comparisons target
+The merged baseline for this update is `cddfc2d`. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
 
 | Work | State at this audit | What remains after integration |
 | --- | --- | --- |
-| Native empty welcome screen | Merged [PR #25](https://github.com/vscli/vscli/pull/25); no initial or last-close phantom document | Recent files/workspaces, onboarding and session restore |
+| Native empty welcome screen | Merged [PR #25](https://github.com/vscli/vscli/pull/25); no initial or last-close phantom document; recent paths and keymap-aware hints now present | Recent workspaces, onboarding and session restore |
 | Snippet catalogs | Merged user/workspace catalogs in [PR #27](https://github.com/vscli/vscli/pull/27) and native installed-VSIX contributions in [PR #32](https://github.com/vscli/vscli/pull/32); code activation and Node are unnecessary for declarative snippets | Choice UI, nested sessions, completion and extension insertion API |
-| Extension installation | Merged [PR #28](https://github.com/vscli/vscli/pull/28): native local VSIX install/list/uninstall/rollback and explicit optional code activation | Registry discovery, dependencies, multi-extension lifecycle and much broader API support |
+| Extension installation | Merged [PR #28](https://github.com/vscli/vscli/pull/28): native local VSIX install/list/uninstall/rollback and explicit optional code activation | Registry discovery, dependencies, durable enable/disable state and broader API support |
 | VS Code import and themes | Merged [PR #30](https://github.com/vscli/vscli/pull/30): read-only preview, copied active profiles, original-byte preservation, native theme picker and persistent selection | Full settings/profile behavior, extension inventory migration, theme fidelity and sync |
-| Recent-file navigation | Implementation and tests underway in `feat/recent-file-navigation`; not merged at this update | Independent integrity review, combined qualification and required CI; workspace transitions and layout restoration remain separate |
-| Shared code-extension sessions | Implementation and tests underway in `feat/shared-extension-sessions`; not merged at this update | Explicit cohort lifecycle, collision/precedence and crash qualification; dependencies and automatic activation remain separate |
-| Code actions and folding | Preserved unfinished work in `feat/lsp-code-actions` and `feat/native-folding` | Resume after the current onboarding features integrate; neither is shipped |
+| Recent-file navigation | Merged [PR #34](https://github.com/vscli/vscli/pull/34): persistent native file MRU and session-local reopening, retaining dirty/shared identity and retryable history | Workspace transitions, back/forward navigation and layout restoration |
+| Native C/C++ highlighting | Merged [PR #35](https://github.com/vscli/vscli/pull/35): bundled grammars, templates/preprocessors, multiline raw strings and Unicode comments through the bounded worker | CUDA, semantic tokens and TextMate scope fidelity |
+| Shared code-extension sessions | Merged [PR #36](https://github.com/vscli/vscli/pull/36): up to eight explicitly selected packages in one shared host, generation-preserving restart/stop and Unix group cleanup | Dependencies, automatic activation, Windows descendant cleanup and broader APIs |
+| Native code actions | Merged [PR #37](https://github.com/vscli/vscli/pull/37): native Quick Fix/Refactor picker, lazy resolution and staged edits to synchronized open buffers; real clangd C++ quick fix tested | Closed-file/resource operations, combined edit-and-command actions and general command compatibility remain separate |
+| Signature help | Implemented and locally tested in `feat/native-signature-help`, including real clangd C++; awaiting integration | Automatic triggers/retrigger and overload navigation remain separate |
+| Native extension prompts | Implementation underway in `feat/extension-native-prompts`; not merged | Quick-pick/input cancellation, prompt ownership and lifecycle qualification |
+| Native folding | Preserved unfinished work in `feat/native-folding`; not shipped | Resume after the current language/extension slices integrate |
 
-The merged onboarding changes passed all six required PR checks. The combined
-Linux executable passed 29 PTY workflows, including import/theme/snippet/VSIX
+The merged onboarding and code-action changes passed all six required PR checks.
+The combined code-action build passed 201 enabled Rust tests, 32 baseline PTY
+workflows and five shared-extension session workflows, including import/theme/snippet/VSIX
 activation/save/undo/restart and installed C++ snippets with Node unavailable.
 Original VS Code configuration hashes remain unchanged in the import journey.
 Linux/macOS CI exercises PTYs; Windows native/reference checks do not qualify
@@ -44,17 +49,17 @@ The [usage guide](USAGE.md), [extension report](EXTENSIONS.md) and
 
 | Area | Existing foundation | Remaining work |
 | --- | --- | --- |
-| Welcome and navigation | Explorer, quick open, palette and native empty welcome | Recent files/workspaces, back/forward history, reopen closed editor, symbol search, outline, breadcrumbs, discoverable settings and consistent focus |
+| Welcome and navigation | Explorer, quick open, palette, native welcome with recent paths, persistent recent-file picker and reopen closed editor | Recent workspaces, back/forward history, symbol search, outline, breadcrumbs, discoverable settings and consistent focus |
 | Tabs and layout | Shared-document split views, four equal groups | Per-group tabs, resizing/nested splits, preview/pinned tabs, move editors between groups, persisted layout |
 | Session continuity | Dirty-buffer crash recovery | Reopen clean files, cursors, selections and groups after restart; recent workspaces; explicit restore controls; independent terminal restoration |
 | Editing | Multi-cursor, selections, undo, line commands, literal find/replace | Wrapping, folding, smart indentation/brackets, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |
 | Snippets | Literal insertion, linked fields, variables, user/workspace and installed-package catalogs | Choices, nested insertion, completion snippets, extension API, full transform semantics |
 | Settings and migration | Small settings subset, language overrides, copied-profile import and binding diagnostics | Autosave, format-on-save, indentation detection, excludes, EOL settings, editable settings UI, full profiles/workspace migration, extension inventory reconciliation |
-| Themes and highlighting | Several language families through Tree-sitter; native JSONC themes, includes, installed contributions and persistent picker | TextMate grammar/scope semantics, token font styles, semantic themes, additional workbench colors, icon themes, embedded languages, more grammars |
+| Themes and highlighting | C/C++ and other language families through Tree-sitter; native JSONC themes, includes, installed contributions and persistent picker | TextMate grammar/scope semantics, token font styles, semantic themes, additional workbench colors, icon themes, embedded languages, more grammars |
 | Extension packages | Native local VSIX install/list/uninstall/rollback | Search/download from permitted registries, dependency/version/platform resolution, updates, durable enable/disable state, profiles, package cleanup |
-| Extension host | One optional CommonJS command/edit host; named Sort Lines evidence | Concurrent packages, lazy activation, dependency APIs, storage/secrets, full document/editor handles, workspace edits/filesystem, lifecycle/restart and engine/ABI qualification |
+| Extension host | One optional shared CommonJS host for up to eight explicit packages; versioned mirrors, owner-tagged commands, cohort restart/stop and named Sort Lines evidence | Lazy activation, dependency APIs, storage/secrets, full document/editor handles, workspace edits/filesystem, Windows descendant cleanup and engine/ABI qualification |
 | Extension UI/providers | Commands and simple messages | Quick picks, input boxes, output/status/tree contributions, menus, progress, language/task/debug/test/SCM providers, built-in command delegation |
-| Language intelligence | Explicit single LSP server: diagnostics, basic completion/hover/navigation/formatting/rename | Automatic project setup, multiple servers, signature help, symbols, code actions, resolve/additional edits/snippets, safe multi-file refactors, semantic tokens/inlay hints/code lenses |
+| Language intelligence | Explicit single LSP server: diagnostics, basic completion/hover/navigation/formatting/rename and code actions with staged open-buffer edits | Automatic project setup, multiple servers, signature help, symbols, completion resolve/additional edits/snippets, closed-file refactors, semantic tokens/inlay hints/code lenses |
 | Search and projects | Workspace regex search over unsaved buffers; file operations/watchers | Replace across files with preview, include/exclude controls, live results, multiline regex, multi-root `.code-workspace`, workspace trust and settings layers |
 | Git | Status, file diffs, stage/unstage, commits/history | Inline changes, hunk staging, branch/remotes/stash/worktrees, blame/history navigation, merge conflict UI, richer provider support |
 | Tasks | Basic process/POSIX-shell tasks and variables | Dependencies, background readiness, problem matchers, auto-detection/providers, inputs, cancellation UX and Windows shell tasks |
@@ -75,9 +80,9 @@ works would hide missing behavior.
 ### 1. A polished first session
 
 The welcome screen, theme picker, migration preview, compatibility notices,
-installed-extension management and native snippet contributions are integrated.
-Complete recent files/reopen navigation next, then workspace transitions and
-session continuity. Continue reviewing combined behavior rather than counting a
+installed-extension management, native snippet contributions and recent-file/reopen
+navigation are integrated. Next add workspace transitions and session continuity.
+Continue reviewing combined behavior rather than counting a
 single successful demonstration as full feature parity.
 
 Acceptance: from a clean configuration, start with no phantom document; import a
@@ -91,9 +96,10 @@ at reproducing their behavior.
 
 ### 2. Useful extensions, together
 
-Prioritize extension capabilities that unlock complete workflows: multiple
-packages, activation/dependencies, built-in command execution, document opening,
-quick picks/input, output/status/tree views, persistent state and provider
+Explicit concurrent packages, owned commands, shared mirrors and cohort lifecycle
+are integrated. Prioritize extension capabilities that unlock complete workflows:
+native quick picks/input next, then activation/dependencies, built-in command
+execution, document opening, output/status/tree views, persistent state and provider
 registration. Extend the broker shared with native services so extension and
 native language providers do not spawn duplicate servers accidentally.
 
@@ -122,9 +128,9 @@ restart/logs and useful failures. Reuse the same service architecture for other
 languages rather than special-casing all behavior to C++.
 
 Alongside this, implement back/forward history, outline, workspace symbols,
-format-on-save and autosave with explicit settings. Resume the preserved
-code-action implementation after reviewing its dirty-buffer and closed-file
-limits. Add safe workspace edits before calling a multi-file refactor complete.
+format-on-save and autosave with explicit settings. Code actions are integrated;
+qualify signature help next. Add safe closed-file edits and a complete
+undo/recovery policy before calling a multi-file refactor complete.
 
 Acceptance: in a representative C++ repository, open a translation unit, navigate
 to a symbol, complete a call, apply a diagnostic fix, rename across files, format,
