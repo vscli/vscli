@@ -48,7 +48,7 @@ Follow the [parity and user experience plan](PARITY_PLAN.md): integrate welcome,
 
 - Native file notifications, background index replacement, version-checked disk reads, undoable clean-buffer reloads, dirty conflict notices, and deleted-buffer retention are implemented. Non-Linux/network watcher behavior and large-tree performance remain unqualified.
 
-- Background Tree-sitter highlighting covers Rust, Python, JavaScript/JSX, TypeScript/TSX, and JSON. Tests cover multiline constructs, Unicode, grammar loading, and stale revisions. Incremental tree reuse, injections, semantic tokens, folding, and additional grammars remain incomplete.
+- Background Tree-sitter highlighting covers C/C++, Rust, Python, JavaScript/JSX, TypeScript/TSX, and JSON. Tests cover multiline constructs, Unicode, grammar loading, and stale revisions. Native C/C++ tests cover inherited query categories, templates/preprocessors, multiline raw strings, headers/modules and the existing 2 MiB worker budget; a PTY verifies theme colors and CRLF edit/undo/save. Incremental tree reuse, injections, semantic tokens, folding, and additional grammars remain incomplete.
 
 - User/workspace settings import with language overrides, configurable indentation/line numbers, unsupported-setting reporting, and background reload is implemented. The broader configuration and profile migration contract remains incomplete.
 

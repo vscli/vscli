@@ -51,7 +51,14 @@ impl Key {
     }
 }
 pub fn language(path: &Path) -> Option<&'static str> {
+    let name = path.file_name()?.to_str()?;
+    if name.ends_with(".hpp.in") || name.ends_with(".h.in") {
+        return Some("cpp");
+    }
     match path.extension()?.to_str()? {
+        "c" | "i" => Some("c"),
+        "cpp" | "cppm" | "cc" | "ccm" | "cxx" | "cxxm" | "c++" | "c++m" | "hpp" | "hh" | "hxx"
+        | "h++" | "h" | "ii" | "ino" | "inl" | "ipp" | "ixx" | "tpp" | "txx" => Some("cpp"),
         "rs" => Some("rust"),
         "py" => Some("python"),
         "js" | "jsx" | "mjs" | "cjs" => Some("javascript"),
@@ -63,6 +70,18 @@ pub fn language(path: &Path) -> Option<&'static str> {
 }
 fn configuration(language: &str) -> Result<HighlightConfiguration> {
     let (grammar, query) = match language {
+        "c" => (
+            tree_sitter_c::LANGUAGE.into(),
+            tree_sitter_c::HIGHLIGHT_QUERY.to_string(),
+        ),
+        "cpp" => (
+            tree_sitter_cpp::LANGUAGE.into(),
+            format!(
+                "{}\n{}",
+                tree_sitter_c::HIGHLIGHT_QUERY,
+                tree_sitter_cpp::HIGHLIGHT_QUERY
+            ),
+        ),
         "rust" => (
             tree_sitter_rust::LANGUAGE.into(),
             tree_sitter_rust::HIGHLIGHTS_QUERY.to_string(),
@@ -335,6 +354,105 @@ mod tests {
                 .unwrap();
             assert_eq!(NAMES[style.style], expected, "{language}");
         }
+    }
+    #[test]
+    fn c_and_cpp_queries_cover_preprocessors_templates_raw_strings_and_unicode() {
+        for (language, text, tokens) in [
+            (
+                "c",
+                "#include <stdio.h>\n/* first\n🌍 comment */\nint main(void) { return 42; }",
+                vec![
+                    ("#include", "keyword"),
+                    ("stdio.h", "string"),
+                    ("🌍", "comment"),
+                    ("int", "type"),
+                    ("main", "function"),
+                    ("return", "keyword"),
+                    ("42", "number"),
+                ],
+            ),
+            (
+                "cpp",
+                "template<typename T> class Box {};\nconstexpr auto text = R\"tag(first\n🌍 raw)tag\";\nint main() { /* 🌍 comment */ return 42; }",
+                vec![
+                    ("template", "keyword"),
+                    ("typename", "keyword"),
+                    ("Box", "type"),
+                    ("constexpr", "keyword"),
+                    ("auto", "type"),
+                    ("🌍 raw", "string"),
+                    ("🌍 comment", "comment"),
+                    ("main", "function"),
+                    ("return", "keyword"),
+                    ("42", "number"),
+                ],
+            ),
+        ] {
+            let spans = highlight(
+                &configuration(language).unwrap(),
+                text,
+                &AtomicUsize::new(0),
+            )
+            .unwrap();
+            for (token, expected) in tokens {
+                let byte = text.find(token).unwrap();
+                let span = spans
+                    .iter()
+                    .find(|s| s.start <= byte && s.end > byte)
+                    .unwrap();
+                assert_eq!(NAMES[span.style], expected, "{language}: {token}");
+            }
+            assert!(
+                spans
+                    .iter()
+                    .all(|s| text.is_char_boundary(s.start) && text.is_char_boundary(s.end))
+            );
+        }
+    }
+    #[test]
+    fn cpp_headers_and_modules_select_the_native_grammar() {
+        for name in [
+            "main.cpp",
+            "module.cppm",
+            "module.ixx",
+            "file.cc",
+            "file.cxx",
+            "file.c++",
+            "file.hpp",
+            "file.h",
+            "file.hpp.in",
+            "file.h.in",
+        ] {
+            assert_eq!(language(Path::new(name)), Some("cpp"), "{name}");
+        }
+        for name in ["main.c", "preprocessed.i"] {
+            assert_eq!(language(Path::new(name)), Some("c"));
+        }
+        for name in ["notes.txt", "config.in", "kernel.cu"] {
+            assert_eq!(language(Path::new(name)), None);
+        }
+    }
+    #[test]
+    fn cpp_worker_rejects_old_revisions_and_respects_the_document_budget() {
+        let mut engine = Engine::default();
+        let mut doc = Document::from_text("constexpr int value = 42;\n");
+        doc.path = Some("main.cpp".into());
+        engine.poll(&[&doc]);
+        doc.insert("/* 🌍 */\n", false);
+        assert!(engine.get(&doc).is_none());
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while engine.get(&doc).is_none() {
+            let (_, error) = engine.poll(&[&doc]);
+            assert!(error.is_none(), "{error:?}");
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(engine.get(&doc).unwrap().style_at(3), Some(0));
+        let mut oversized = Document::from_text(&"x".repeat(MAX_BYTES + 1));
+        oversized.path = Some("large.cpp".into());
+        engine.poll(&[&oversized]);
+        assert!(engine.get(&oversized).is_none());
+        assert!(engine.pending.is_none());
     }
     #[test]
     fn worker_discards_stale_revisions_and_retains_current_colors() {

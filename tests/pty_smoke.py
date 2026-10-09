@@ -923,6 +923,31 @@ def run():
         assert text(migration_file) == "imported  "
         print("PASS: native theme RGB rendering, picker, persistent selection, explicit file override and failed-load retention")
 
+        cpp_source = root / "native-grammar.cpp"
+        cpp_bytes = ('template<typename T> class Box {};\r\n'
+                     'constexpr auto text = R"tag(first\r\n🌍 raw)tag";\r\n'
+                     '/* first\r\n🌍 comment */\r\n'
+                     'int main() { return 42; }\r\n').encode('utf-8')
+        cpp_source.write_bytes(cpp_bytes)
+        cpp_theme = root / "cpp-theme.json"
+        cpp_theme.write_text(json.dumps({"name": "C++ grammar PTY", "tokenColors": [
+            {"scope": "keyword", "settings": {"foreground": "#030509"}},
+            {"scope": "string", "settings": {"foreground": "#071329"}},
+            {"scope": "comment", "settings": {"foreground": "#0b172f"}},
+            {"scope": "entity.name.type", "settings": {"foreground": "#0d1f35"}}
+        ]}))
+        app = Editor(root, "--theme", cpp_theme, cpp_source, enhanced=True)
+        colors = [b"38;2;3;5;9", b"38;2;7;19;41", b"38;2;11;23;47", b"38;2;13;31;53"]
+        eventually(lambda: app.read() and all(color in app.output for color in colors))
+        assert "🌍 raw" in app.screen.text() and "🌍 comment" in app.screen.text()
+        app.send("X")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and cpp_source.read_bytes() == cpp_bytes)
+        app.finish()
+        assert cpp_source.read_bytes() == cpp_bytes
+        print("PASS: native C++ grammar colors, templates/multiline raw strings/Unicode comments and CRLF edit/undo/save")
+
 
         journey_root = root / "integrated-journey"
         journey_root.mkdir()
