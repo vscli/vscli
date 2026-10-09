@@ -37,6 +37,7 @@ const SUPPORTED: &[&str] = &[
     "editor.tabSize",
     "editor.insertSpaces",
     "editor.lineNumbers",
+    "workbench.colorTheme",
 ];
 fn read(path: &Path) -> Result<Map<String, Value>> {
     let file = match File::open(path) {
@@ -66,6 +67,19 @@ impl Settings {
         }
         result.serialized = serde_json::to_string(result.layers.as_ref())?.into();
         Ok(result)
+    }
+    pub(crate) fn from_values(values: Map<String, Value>, source: &str) -> Result<Self> {
+        let mut result = Self::default();
+        result.validate(&values, source);
+        result.layers = Arc::new(vec![values]);
+        result.serialized = serde_json::to_string(result.layers.as_ref())?.into();
+        Ok(result)
+    }
+    pub fn color_theme(&self) -> Option<&str> {
+        self.layers
+            .iter()
+            .rev()
+            .find_map(|layer| layer.get("workbench.colorTheme").and_then(Value::as_str))
     }
     pub fn extension_layers(&self) -> &Arc<Vec<Map<String, Value>>> {
         &self.layers
@@ -170,6 +184,7 @@ impl Settings {
 }
 fn valid(key: &str, value: &Value) -> bool {
     match key {
+        "workbench.colorTheme" => value.is_string(),
         "editor.tabSize" => value.as_u64().is_some_and(|n| (1..=16).contains(&n)),
         "editor.insertSpaces" => value.is_boolean(),
         "editor.lineNumbers" => {

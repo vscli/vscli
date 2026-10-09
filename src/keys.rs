@@ -431,6 +431,30 @@ impl Keymap {
         self.rebuild();
         Ok(count)
     }
+    /// Preserve imported files while applying only rules this resolver can parse.
+    pub fn load_imported(&mut self, path: &Path) -> Result<(usize, Vec<String>)> {
+        use std::io::Read;
+        let mut raw = String::new();
+        std::fs::File::open(path)?
+            .take(1024 * 1024 + 1)
+            .read_to_string(&mut raw)?;
+        if raw.len() > 1024 * 1024 {
+            bail!("Imported keybindings exceed 1 MiB");
+        }
+        let entries: Vec<Binding> = json5::from_str(&raw).context("Invalid keybindings.json")?;
+        let mut notices = Vec::new();
+        let mut count = 0;
+        for entry in entries {
+            if let Err(error) = validate_bindings(std::slice::from_ref(&entry)) {
+                notices.push(format!("Skipped imported {}: {error:#}", entry.key));
+            } else {
+                self.user.push(entry);
+                count += 1;
+            }
+        }
+        self.rebuild();
+        Ok((count, notices))
+    }
     pub fn set_extension_bindings(&mut self, value: Value) -> Result<usize> {
         let entries = match value {
             Value::Null => Vec::new(),
@@ -524,7 +548,7 @@ impl Keymap {
     }
 }
 
-fn validate_bindings(entries: &[Binding]) -> Result<()> {
+pub(crate) fn validate_bindings(entries: &[Binding]) -> Result<()> {
     for b in entries {
         if b.key.trim().is_empty() {
             bail!("Empty keybinding");

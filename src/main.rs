@@ -47,6 +47,18 @@ struct Args {
     /// Import user settings.json; workspace .vscode/settings.json is layered above it
     #[arg(long)]
     settings: Option<PathBuf>,
+    /// Preview importing a VS Code User directory (settings, keybindings, snippets)
+    #[arg(long)]
+    import_vscode: Option<PathBuf>,
+    /// VS Code extensions directory from which to copy the selected color theme
+    #[arg(long, requires = "import_vscode")]
+    vscode_extensions: Option<PathBuf>,
+    /// Activate the imported snapshot after a successful preview
+    #[arg(long, requires = "import_vscode")]
+    apply_import: bool,
+    /// Native configuration root for import and startup (default: OS config directory)
+    #[arg(long)]
+    config_dir: Option<PathBuf>,
     /// Start this language server over stdio (explicit executable, no shell)
     #[arg(long)]
     lsp: Option<String>,
@@ -165,6 +177,37 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    let config_root = args
+        .config_dir
+        .clone()
+        .or_else(vscli::migration::config_directory);
+    if let Some(source) = &args.import_vscode {
+        let preview = vscli::migration::preview_with_extensions(
+            source,
+            profile,
+            args.vscode_extensions.as_deref(),
+        )?;
+        let report = if args.apply_import {
+            preview.apply(
+                config_root
+                    .as_deref()
+                    .context("Native configuration directory unavailable; set --config-dir")?,
+            )?
+        } else {
+            preview.report
+        };
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
+    }
+    let mut profile_warning = None;
+    let active_config = config_root.as_deref().map(|root| {
+        vscli::migration::active_directory(root).unwrap_or_else(|error| {
+            profile_warning = Some(format!(
+                "Imported profile unavailable; using native configuration: {error:#}"
+            ));
+            root.into()
+        })
+    });
     if args.doctor {
         println!(
             "VSCLI {}\nProfile: {profile:?}\nTerminal: {}\nTERM_PROGRAM: {}\nInteractive stdin/stdout: {}/{}\nMultiplexer: {}\nRecovery: {}\nUser keybindings: {}\n\nImplemented: UTF-8 editing, tabs, selections, undo/redo, safe save, find/replace,\nquick open, explorer, multi-cursor editing, split views, workspace search, native stdio LSP,\nterminal sessions, project tasks, Git status/diff/stage/commit/history,\nDAP breakpoints/stepping/variables, command palette, keybinding imports, crash snapshots.\nExtensions: optional experimental command/edit host via --extension (requires Node).\n\nRun F1 → Keyboard Inspector inside the editor to test actual key delivery.\nCtrl+Shift+P and other modified keys may require enhanced keyboard support.",
@@ -214,18 +257,29 @@ fn main() -> Result<()> {
     let settings_path = args
         .settings
         .clone()
-        .or_else(|| recovery::config_path().map(|p| p.with_file_name("settings.json")));
+        .or_else(|| active_config.as_ref().map(|p| p.join("settings.json")));
     let settings_error = app.configure_settings(settings_path).err();
+
     for path in args.paths.iter().filter(|p| !p.is_dir()) {
         app.open(path)?;
     }
-    let custom = args
-        .keybindings
-        .clone()
-        .or_else(|| recovery::config_path().filter(|p| p.exists()));
+    let custom = args.keybindings.clone().or_else(|| {
+        active_config
+            .as_ref()
+            .map(|p| p.join("keybindings.json"))
+            .filter(|p| p.exists())
+    });
     if let Some(path) = custom {
-        let count = app.keymap.load(&path)?;
-        app.message = format!("Loaded {count} custom keybinding rules");
+        if args.keybindings.is_none() && active_config != config_root {
+            let (count, notices) = app.keymap.load_imported(&path)?;
+            app.message = format!(
+                "Loaded {count} imported keybinding rules · {} skipped rules",
+                notices.len()
+            );
+        } else {
+            let count = app.keymap.load(&path)?;
+            app.message = format!("Loaded {count} custom keybinding rules");
+        }
     }
     let recovery = if args.no_recovery {
         None
@@ -305,6 +359,9 @@ fn main() -> Result<()> {
             "{} settings notices · F1 → Settings: Compatibility Report",
             app.settings.warnings.len()
         );
+    }
+    if let Some(warning) = profile_warning {
+        app.message = warning;
     }
     let interrupted = Arc::new(AtomicBool::new(false));
     #[cfg(unix)]
