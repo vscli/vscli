@@ -250,14 +250,14 @@ On Linux, system clipboard integration uses `wl-copy`/`wl-paste` or `xclip` if a
 
 Files must be UTF-8, without NUL bytes, and at most 32 MiB when opened. Existing LF/CRLF bytes are preserved; newly inserted lines use the detected newline style. Very long lines, large replacements, startup recovery, and file saves can still pause this alpha. Periodic recovery I/O runs off the input thread; the performance report includes a recovery-enabled typing workload, while language-service/extension contention and the design document's latency budgets remain unqualified. Full bidirectional layout and terminal-independent emoji-width agreement are not implemented.
 
-Not yet implemented: extension installation, broad extension API compatibility, rich webviews, notebooks, full settings migration, or a remote agent. An optional experimental command extension host is available as described below. Running the executable inside an SSH session is supported in principle; the actual terminal/multiplexer combination must be tested.
+Not yet implemented: registry downloads, broad extension API compatibility, rich webviews, notebooks, full settings migration, or a remote agent. An optional experimental command extension host is available as described below. Running the executable inside an SSH session is supported in principle; the actual terminal/multiplexer combination must be tested.
 
 Grammar highlighting uses a single background worker, document/revision checks, cancellation, and a 2 MiB source cap. Other languages and larger files retain lightweight lexical colors. Embedded-language injection, semantic tokens, incremental parse-tree reuse, grammar folding and complete theme semantics remain incomplete. Native color-theme loading and its boundaries are documented in [Import and themes](IMPORT_AND_THEMES.md). Highlight work exceeding the initial time/span budget is canceled and reported; editing remains available.
 
 ## Importing VS Code and choosing themes
 
 `vscli --import-vscode /path/to/Code/User` previews a migration. Add
-`--apply-import` to activate an immutable snapshot while retaining original files
+`--apply-import` to activate a versioned profile copy while retaining original files
 and earlier native profiles. `--vscode-extensions` selects the source extension
 directory for the active color theme; `--config-dir` selects the native destination.
 Copied fields are not automatically supported: the JSON report names unsupported

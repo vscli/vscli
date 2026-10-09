@@ -48,12 +48,12 @@ struct Args {
     #[arg(long)]
     settings: Option<PathBuf>,
     /// Preview importing a VS Code User directory (settings, keybindings, snippets)
-    #[arg(long)]
+    #[arg(long, conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension"])]
     import_vscode: Option<PathBuf>,
     /// VS Code extensions directory from which to copy the selected color theme
     #[arg(long, requires = "import_vscode")]
     vscode_extensions: Option<PathBuf>,
-    /// Activate the imported snapshot after a successful preview
+    /// Activate the imported profile copy after a successful preview
     #[arg(long, requires = "import_vscode")]
     apply_import: bool,
     /// Native configuration root for import and startup (default: OS config directory)
@@ -281,11 +281,22 @@ fn main() -> Result<()> {
     });
     if let Some(path) = custom {
         if args.keybindings.is_none() && active_config != config_root {
-            let (count, notices) = app.keymap.load_imported(&path)?;
-            app.message = format!(
-                "Loaded {count} imported keybinding rules · {} skipped rules",
-                notices.len()
-            );
+            match app.keymap.load_imported(&path) {
+                Ok((count, notices)) => {
+                    app.message = format!(
+                        "Loaded {count} imported keybinding rules · {} skipped rules · Settings: Compatibility Report",
+                        notices.len()
+                    );
+                    app.imported_keybinding_notices = notices;
+                }
+                Err(error) => {
+                    let notice = format!(
+                        "Imported keybindings unavailable; using native defaults: {error:#}"
+                    );
+                    app.message = notice.clone();
+                    app.imported_keybinding_notices.push(notice);
+                }
+            }
         } else {
             let count = app.keymap.load(&path)?;
             app.message = format!("Loaded {count} custom keybinding rules");

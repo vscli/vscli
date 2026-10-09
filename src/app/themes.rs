@@ -391,6 +391,18 @@ mod tests {
         );
     }
     #[test]
+    fn imported_binding_notices_are_readable_without_creating_an_editor() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.imported_keybinding_notices
+            .push("Skipped rule 3: unsupported expression".into());
+        app.execute("vscli.settings.report", serde_json::Value::Null);
+        assert!(app.active_document().is_none());
+        assert!(
+            matches!(&app.modal, Some(Modal::Text { text, .. }) if text.contains("Skipped rule 3"))
+        );
+    }
+    #[test]
     fn installed_contributions_resolve_by_id_without_executing_package() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("colors.json");

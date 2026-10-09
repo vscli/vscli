@@ -1,13 +1,13 @@
 # Importing VS Code configuration and color themes
 
-VSCLI can preview and snapshot a VS Code **User directory** without modifying it.
+VSCLI can preview and copy a VS Code **User directory** without modifying it.
 The report separates copied data from implemented behavior. The native editor and
 theme loader do not need Node or execute extension code.
 
 ```sh
 # Read-only preview; use the User directory containing settings.json and snippets/.
 vscli --import-vscode /path/to/Code/User
-# Explicitly activate an immutable native snapshot.
+# Explicitly activate a versioned native profile copy.
 vscli --import-vscode /path/to/Code/User --apply-import
 # Point at another VS Code extensions directory for the selected theme.
 vscli --import-vscode /path/to/Code/User --vscode-extensions /path/to/extensions --apply-import
@@ -22,11 +22,14 @@ invalid top-level types fail before activation. Unsupported keybinding expressio
 remain in the copied file and are skipped by the native imported-profile loader;
 the report names them. Unknown command bindings are preserved but do not acquire
 an implementation. Explicit `--keybindings` keeps the existing strict import
-validation and takes precedence over the active profile.
+validation and takes precedence over the active profile. Skipped imported binding
+notices remain available in **Settings: Compatibility Report**. If an automatically
+loaded copied keybinding file becomes malformed or oversized, startup retains the
+native defaults and reports the failure without rewriting the file.
 
 The selected `workbench.colorTheme` is sought in VS Code extension manifests
 under `~/.vscode/extensions` or `--vscode-extensions`. If found, its JSONC file and
-relative include chain are copied into the snapshot. They remain usable even if
+relative include chain are copied into the copied profile. They remain usable even if
 the source extension is later removed. Includes must stay inside the extension
 package. Absolute includes and symlink aliases are reported instead of being copied
 with broken references; relative include files retain their original bytes. Missing, invalid or unsupported themes are reported; configuration import
@@ -36,8 +39,10 @@ accounts, sync data and the entire VS Code profile system are not migrated.
 
 All copied files are prepared and synced in a temporary directory, then renamed
 into `imports/<uuid>`. A single atomic `active-profile.json` replacement activates
-them. Existing native files and previous imported profiles remain intact. A failed
-activation can leave an unreferenced completed snapshot; it does not intentionally
+them. Existing native files and previous imported profiles remain intact. Imported
+profiles are versioned copies, not immutable archives: native settings and theme
+preferences may edit the active copy while the original VS Code files stay unchanged. A failed
+activation can leave an unreferenced completed profile copy; it does not intentionally
 replace existing configuration files. Power-loss durability of directory metadata
 has not been qualified. An invalid/missing active-profile target produces a notice
 and startup falls back to the native configuration directory. Pointer files and
@@ -50,8 +55,8 @@ Limits: 128 snippet files, 4096 inspected directory entries, 1 MiB per configura
 file and 16 MiB of copied configuration/theme bytes. Theme discovery examines at
 most 128 extension packages and 128 theme declarations per package. Selected theme
 snapshots contain at most eight files and 4 MiB. Limits fail or report incomplete
-coverage explicitly. User snippet catalog consumption requires the native snippet
-catalog implementation; copying bytes alone does not provide completion snippets.
+coverage explicitly. Imported user snippets are available through **Insert Snippet**;
+copying bytes alone does not provide completion snippets.
 
 ## Native color themes
 
@@ -61,7 +66,9 @@ activating their extensions. **Preferences: Load Color Theme File** accepts a
 VS Code JSON/JSONC theme path; `--theme /path/to/theme.json` overrides the saved
 selection at startup. **Preferences: Color Theme Report** displays known limits
 for the loaded file. Selections persist atomically in `theme-selection.json`
-beside the active settings profile. A failed load leaves the current theme and
+beside the active settings profile. Installed theme rows include their package and
+relative path; that identity persists even when labels collide or a package changes
+installation directories. Custom file paths are saved as absolute paths. A failed load leaves the current theme and
 unsaved documents unchanged. Installed-package includes are confined to their
 package; a broken extension registry reports a discovery failure while explicit
 file and built-in theme selections remain usable. The priority is explicit `--theme`, saved native

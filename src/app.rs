@@ -343,6 +343,7 @@ pub struct App {
     pub theme: crate::theme::Theme,
     theme_state: themes::State,
     pub settings: crate::settings::Settings,
+    pub imported_keybinding_notices: Vec<String>,
     settings_loader: Option<crate::settings::Loader>,
     settings_error: Option<String>,
     settings_user: Option<PathBuf>,
@@ -406,6 +407,7 @@ impl App {
             theme: crate::theme::Theme::default(),
             theme_state: themes::State::default(),
             settings: crate::settings::Settings::default(),
+            imported_keybinding_notices: Vec::new(),
             settings_loader: None,
             settings_error: None,
             settings_user: None,
@@ -1079,9 +1081,15 @@ impl App {
             "vscli.settings.report" => {
                 self.modal = Some(Modal::Text {
                     title: "Settings Compatibility".into(),
-                    text: if self.settings.warnings.is_empty() {
-                        "All configured entries are supported.\nSupported: editor.tabSize (1–16), editor.insertSpaces, editor.lineNumbers.\nUser/workspace and language scopes are applied; changes reload every two seconds.".into()
-                    } else { self.settings.warnings.join("\n") },
+                    text: {
+                        let mut report = if self.settings.warnings.is_empty() {
+                            "No unsupported setting entries detected.\nNative editing settings: editor.tabSize (1–16), editor.insertSpaces, editor.lineNumbers.\nColor-theme selection is resolved at startup; use Preferences: Color Theme Report for appearance limits.".into()
+                        } else { self.settings.warnings.join("\n") };
+                        if !self.imported_keybinding_notices.is_empty() {
+                            report = format!("{report}\n\nImported keybindings:\n{}", self.imported_keybinding_notices.join("\n"));
+                        }
+                        report
+                    },
                     scroll: 0,
                 });
             }
