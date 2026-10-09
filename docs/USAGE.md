@@ -411,6 +411,8 @@ Registered commands appear in F1 with an `Extension:` prefix. Manifest keybindin
 Enabled command extensions can show a native single-selection Quick Pick or Input Box. Type to filter a pick or edit input, press Enter to accept, and Escape to cancel. Native prompts retain priority; stopping or replacing a host clears its prompts. Password, validation, multi-select and live Quick Input variants explicitly reject. See the [supported options, bounds and named workflow evidence](EXTENSIONS.md#native-quick-pick-and-input-box).
 
 
+Extensions can read an existing file through `workspace.openTextDocument` without opening a tab, then display the same native document with `showTextDocument`. Hidden models retain identity, undo, file watching and dirty recovery. Global/workspace Memento state persists under the native configuration root, separately from imported profiles. A small explicit set of movement, selection and undo/redo commands can be delegated to the native editor. See [supported options, service bounds and qualification](EXTENSIONS.md#native-documents-commands-and-persistent-state); unsupported file schemes, preview tabs, save/task delegation and cloud state sync reject explicitly.
+
 ## Recent files and reopening closed editors
 
 **Ctrl+R** on Linux, Windows and macOS opens **Open Recent File**. The native picker

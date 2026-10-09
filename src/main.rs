@@ -365,6 +365,7 @@ fn main() -> Result<()> {
     }
     let mut app = App::new(root, profile);
     app.configure_recents(config_root.as_deref());
+    app.configure_extension_storage(config_root.as_deref());
     app.extensions_directory = extensions_directory.clone();
     app.extension_registry = registry;
     app.configure_extension_activation(config_root.as_deref());

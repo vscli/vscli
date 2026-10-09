@@ -207,7 +207,7 @@ impl Store {
     ) -> Result<Map<String, Value>> {
         self.update_with(owner, scope, key, value, || Ok(()))
     }
-    fn update_with(
+    pub(crate) fn update_with(
         &self,
         owner: &str,
         scope: Scope,

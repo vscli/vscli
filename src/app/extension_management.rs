@@ -187,7 +187,8 @@ impl App {
             &self.hidden_documents,
             self.active,
             &self.settings,
-        )?;
+        )?
+        .with_storage_root(self.extension_services.config_root.clone());
         if let Some(activation) = activation {
             prepared = prepared.with_activation(activation)?;
         }
@@ -199,6 +200,7 @@ impl App {
         let node = self.extension_node.clone();
         let root = self.workspace.root.clone();
         self.cancel_extension_prompt();
+        self.cancel_extension_services();
         let previous = self.extension_host.take().map(|mut host| {
             host.cancel_prompts();
             host
@@ -258,6 +260,7 @@ impl App {
     pub(super) fn retire_extension_host(&mut self, mut host: crate::extensions::Client) {
         self.clear_active_extension_bindings();
         self.cancel_extension_prompt();
+        self.cancel_extension_services();
         host.cancel_prompts();
         // A session has at most one live process. Starts are blocked until its
         // retirement acknowledges, including when a storage operation is active.

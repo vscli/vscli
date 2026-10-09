@@ -2,6 +2,8 @@
 const types = require('./api-types.cjs');
 const { createPrompts } = require('./prompts.cjs');
 const { createConfiguration } = require('./configuration.cjs');
+const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
+const { createMementos } = require('./memento.cjs');
 const { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument } = types;
 
 function supported(name, values) {
@@ -18,6 +20,11 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const configuration = createConfiguration();
   let active, workspaceFolder, activation, generation = -1;
   const facades = new Map(), owned = new Map();
+  const mementos = createMementos(request, sessionOptions.session, sessionOptions.extensionState);
+  const documentServices = createDocumentServices(request, sessionOptions, {
+    generation: () => generation, root: () => workspaceFolder?.uri.fsPath,
+    document: id => documents.get(id), editor: id => active?.document._snapshot.id === id ? active : undefined,
+  });
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
   const promptBudget = { pending: 0, bytes: 0 };
@@ -63,12 +70,13 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       async executeCommand(id, ...args) {
         assertOwner(owner);
         const command = commands.get(id);
+        if (!command && NATIVE_COMMANDS.includes(id)) return documentServices.execute(owner, id, args);
         if (!command) throw new Error(`VSCLI cannot execute unregistered extension command: ${id}`);
         if (commandCalls >= 64) throw new Error('Extension command execution limit reached');
         commandCalls++;
         try { return await command.callback(...args); } finally { commandCalls--; }
       },
-      async getCommands() { return [...commands.keys()]; },
+      async getCommands() { return [...NATIVE_COMMANDS, ...commands.keys()]; },
     });
   }
   function sync(state) {
@@ -148,6 +156,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     ...types,
     version: '1.95.0',
     EndOfLine: Object.freeze({ LF: 1, CRLF: 2 }),
+    ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
     ExtensionMode: Object.freeze({ Production: 1, Development: 2, Test: 3 }),
     window: supported('window', {
       ...createPrompts(request, sessionOptions.session, '', promptBudget),
@@ -181,7 +190,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   return {
     api, sync, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
-    contextForExtension(owner) { return { extension: activation?.extension(owner) }; },
+    contextForExtension(owner) { return { ...mementos.forOwner(owner), extension: activation?.extension(owner) }; },
+    mergeExtensionState: mementos.merge,
     disposeOwner(owner) {
       for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
       owned.delete(owner); facades.delete(owner);
@@ -194,11 +204,13 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         if (!scopedEditors.has(base.document)) scopedEditors.set(base.document, editorFor(base.document._snapshot.id, base.document, owner));
         return scopedEditors.get(base.document);
       }
+      const services = documentServices.forOwner(owner, scopedEditor);
       // The native document objects are shared; only request-producing editor handles are scoped.
       const facade = supported('vscode', {
         ...api,
         window: supported('window', {
           ...createPrompts(request, sessionOptions.session, owner, promptBudget),
+          showTextDocument: services.showTextDocument,
           get activeTextEditor() { return scopedEditor(active); },
           get visibleTextEditors() { return active ? [scopedEditor(active)] : []; },
           onDidChangeActiveTextEditor: event(owner, activeChanged.event, scopedEditor),
@@ -207,6 +219,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           showErrorMessage: (text, ...items) => messageFor(owner, text, ...items),
         }),
         workspace: supported('workspace', {
+          openTextDocument: services.openTextDocument,
           get textDocuments() { return [...documents.values()]; },
           get workspaceFolders() { return workspaceFolder ? [workspaceFolder] : undefined; },
           get rootPath() { return workspaceFolder?.uri.fsPath; },

@@ -7,7 +7,7 @@ impl App {
             return false;
         }
         let Some(mut host) = self.extension_host.take() else {
-            return false;
+            return self.poll_extension_services();
         };
         if self.extension_packages.is_empty() {
             self.extension_packages = host.packages.clone();
@@ -70,7 +70,7 @@ impl App {
                     }
                 }
                 self.extension_host = Some(host);
-                self.poll_extension_prompt() || changed
+                self.poll_extension_services() | self.poll_extension_prompt() | changed
             }
             Err(error) => {
                 self.keymap.clear_extension_bindings();

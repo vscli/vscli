@@ -138,7 +138,7 @@ test('extension facades share documents, route commands and retain edit owners',
   runtime.sync({ ...initial(), generation: 2, documents: [{ ...initial().documents[0], version: 2, text: 'shared' }] });
   assert.deepEqual(observed, [true, 2]);
   runtime.disposeOwner('test.a');
-  assert.deepEqual(await b.commands.getCommands(), ['b.run']);
+  assert.deepEqual(await b.commands.getCommands(), [...require('./document-services.cjs').NATIVE_COMMANDS, 'b.run']);
   assert.deepEqual(registries.at(-1), { session: 17, commands: [{ id: 'b.run', owner: 'test.b' }] });
 });
 
