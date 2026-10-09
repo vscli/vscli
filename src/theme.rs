@@ -147,6 +147,7 @@ fn load(path: &Path, visited: &mut HashSet<PathBuf>, bytes: &mut usize) -> Resul
                 .into_owned()
         });
     if let Some(colors) = value.get("colors").and_then(Value::as_object) {
+        let previous_foreground = theme.colors.foreground;
         // Resolve background first so transparent overlays blend against the right base.
         if let Some(color) = colors.get("editor.background").and_then(Value::as_str) {
             theme.colors.background =
@@ -186,8 +187,11 @@ fn load(path: &Path, visited: &mut HashSet<PathBuf>, bytes: &mut usize) -> Resul
                 if unsupported.len() > 6 { ", …" } else { "" }
             ));
         }
-        theme.tokens[7] = theme.colors.foreground;
-        theme.tokens[10] = theme.colors.foreground;
+        for index in [7, 10] {
+            if theme.tokens[index] == previous_foreground {
+                theme.tokens[index] = theme.colors.foreground;
+            }
+        }
     }
     if let Some(rules) = value.get("tokenColors").and_then(Value::as_array) {
         theme.warnings.push("Token scopes use an approximate mapping to 14 native syntax categories; full TextMate scope matching is not implemented".into());
@@ -304,6 +308,14 @@ mod tests {
         assert_eq!(theme.token(4), Color::Rgb(18, 52, 86));
         assert_eq!(theme.token(1), Color::Rgb(171, 205, 239));
         assert_eq!(theme.token(7), Color::Rgb(1, 2, 3));
+        fs::write(
+            root.path().join("base.json"),
+            r##"{"tokenColors":[{"scope":"variable","settings":{"foreground":"#123456"}}]}"##,
+        )
+        .unwrap();
+        let theme = Theme::load(&root.path().join("theme.json")).unwrap();
+        assert_eq!(theme.token(7), Color::Rgb(18, 52, 86));
+        assert_eq!(theme.token(10), Color::Rgb(1, 2, 3));
     }
     #[test]
     fn compatibility_notices_identify_unmapped_colors_font_styles_and_semantics() {
