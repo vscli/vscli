@@ -3,6 +3,7 @@ mod extension_management;
 mod extensions;
 mod files;
 mod language;
+mod navigation;
 mod panes;
 mod snippet_catalogs;
 mod snippets;
@@ -32,6 +33,11 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 
 pub const COMMANDS: &[(&str, &str)] = &[
+    ("Open Recent File", "workbench.action.openRecent"),
+    (
+        "Reopen Closed Editor",
+        "workbench.action.reopenClosedEditor",
+    ),
     ("Insert Snippet", "editor.action.insertSnippet"),
     (
         "Extensions: Install from VSIX",
@@ -202,6 +208,7 @@ pub enum PromptKind {
     InstallExtension,
     Palette,
     QuickOpen,
+    RecentFiles,
     Snippet,
     Theme,
     ThemeFile,
@@ -341,6 +348,8 @@ pub struct App {
     pub lsp: Option<crate::lsp::Client>,
     pub syntax: crate::syntax::Engine,
     pub theme: crate::theme::Theme,
+    pub recent_files: crate::recent::State,
+    navigation: navigation::State,
     theme_state: themes::State,
     pub settings: crate::settings::Settings,
     pub imported_keybinding_notices: Vec<String>,
@@ -405,6 +414,8 @@ impl App {
             lsp: None,
             syntax: crate::syntax::Engine::default(),
             theme: crate::theme::Theme::default(),
+            recent_files: crate::recent::State::default(),
+            navigation: navigation::State::default(),
             theme_state: themes::State::default(),
             settings: crate::settings::Settings::default(),
             imported_keybinding_notices: Vec::new(),
@@ -464,6 +475,7 @@ impl App {
         changed |= self.poll_snippet();
         changed |= self.poll_snippet_catalog();
         changed |= self.poll_theme();
+        changed |= self.poll_navigation();
         let visible: Vec<_> = self
             .documents
             .iter()
@@ -513,8 +525,29 @@ impl App {
         &mut self.documents[self.active]
     }
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        let mut d = Document::open(path)?;
+        self.cancel_navigation();
+        let path = if path.is_absolute() {
+            path.to_owned()
+        } else {
+            std::env::current_dir()?.join(path)
+        };
+        if let Some(index) = self
+            .documents
+            .iter()
+            .position(|doc| doc.path.as_ref() == Some(&path))
+        {
+            self.active = index;
+            self.focus = Focus::Editor;
+            self.sync_pane();
+            self.remember_active_file();
+            return Ok(());
+        }
+        let mut d = Document::open(&path)?;
         self.settings.apply(&mut d);
+        self.install_open_document(d);
+        Ok(())
+    }
+    fn install_open_document(&mut self, d: Document) {
         if let Some(index) = self.documents.iter().position(|old| old.path == d.path) {
             self.active = index;
         } else if self.documents.len() == 1
@@ -531,9 +564,10 @@ impl App {
         self.focus = Focus::Editor;
         self.message = format!("Opened {}", self.doc().name());
         self.sync_pane();
-        Ok(())
+        self.remember_active_file();
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
+        self.cancel_navigation();
         if let Some(doc) = self.documents.get_mut(self.active) {
             doc.break_group();
         }
@@ -828,6 +862,10 @@ impl App {
         self.sync_pane();
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
+        // A duplicate reopen keeps the existing bounded request alive.
+        if command != "workbench.action.reopenClosedEditor" {
+            self.cancel_navigation();
+        }
         let args = command_args.clone().unwrap_or(Value::Null);
         if command.is_empty() {
             return;
@@ -1019,6 +1057,7 @@ impl App {
                 }
             }
             "workbench.action.files.newUntitledFile" => {
+                self.cancel_navigation();
                 let mut doc = Document::default();
                 self.settings.apply(&mut doc);
                 self.documents.push(doc);
@@ -1051,6 +1090,8 @@ impl App {
             }
             "workbench.action.closeAllEditors" => self.request_close(AfterSave::CloseAll),
             "workbench.action.files.revert" => self.modal = Some(Modal::Revert),
+            "workbench.action.openRecent" => self.start_prompt(PromptKind::RecentFiles, String::new()),
+            "workbench.action.reopenClosedEditor" => self.reopen_closed(),
             "workbench.action.quickOpen" => self.start_prompt(PromptKind::QuickOpen, String::new()),
             "workbench.action.showCommands" => {
                 self.start_prompt(PromptKind::Palette, String::new())
@@ -1271,6 +1312,7 @@ impl App {
             Ok(()) => {
                 self.message = format!("Saved {}", self.doc().name());
                 self.language_saved();
+                self.remember_active_file();
                 if let Some(action) = after {
                     self.complete_close(action);
                 }
@@ -1294,6 +1336,7 @@ impl App {
         }
     }
     fn remove_active(&mut self) {
+        self.record_closed();
         self.documents.remove(self.active);
         self.active = self.active.min(self.documents.len().saturating_sub(1));
         self.sync_pane();
@@ -1312,7 +1355,9 @@ impl App {
                 if self.documents.iter().any(Document::dirty) {
                     self.request_close(AfterSave::CloseAll);
                 } else {
-                    self.documents.clear();
+                    while !self.documents.is_empty() {
+                        self.remove_active();
+                    }
                     self.sync_pane();
                     self.active = 0;
                 }
@@ -1662,6 +1707,7 @@ impl App {
     fn accept_prompt(&mut self) {
         let p = self.prompt.take().unwrap();
         match p.kind {
+            PromptKind::RecentFiles => self.accept_recent(&p.text, p.selected),
             PromptKind::Snippet => self.accept_snippet(&p.text, p.selected),
             PromptKind::InstallExtension => self.manage_extension(
                 extension_management::Action::Install(self.resolve_path(&p.text)),
@@ -1774,6 +1820,7 @@ impl App {
                     Ok(()) => {
                         self.message = format!("Saved {}", self.doc().name());
                         self.settings.apply(&mut self.documents[self.active]);
+                        self.remember_active_file();
                         if let Some(after) = self.pending.take() {
                             self.complete_close(after);
                         }

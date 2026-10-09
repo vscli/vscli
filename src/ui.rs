@@ -296,11 +296,6 @@ fn draw_explorer(frame: &mut Frame, app: &mut App, area: Rect) {
 
 fn draw_welcome(frame: &mut Frame, app: &App, area: Rect) {
     let colors = app.theme.colors;
-    let primary = if app.keymap.profile == crate::keys::Profile::Macos {
-        "Cmd"
-    } else {
-        "Ctrl"
-    };
     let logo = [
         "██╗   ██╗███████╗ ██████╗██╗     ██╗",
         "██║   ██║██╔════╝██╔════╝██║     ██║",
@@ -329,19 +324,48 @@ fn draw_welcome(frame: &mut Frame, app: &App, area: Rect) {
         Style::default().fg(colors.muted),
     ));
     lines.push(Line::default());
-    for (label, key) in [
-        ("New File", format!("{primary}+N")),
-        ("Open File", format!("{primary}+O")),
-        ("Quick Open", format!("{primary}+P")),
-        ("Command Palette", "F1".into()),
+    let context = app.context();
+    for (label, command) in [
+        ("New File", "workbench.action.files.newUntitledFile"),
+        ("Open File", "workbench.action.files.openFile"),
+        ("Quick Open", "workbench.action.quickOpen"),
+        ("Open Recent File", "workbench.action.openRecent"),
+        (
+            "Reopen Closed Editor",
+            "workbench.action.reopenClosedEditor",
+        ),
+        ("Command Palette", "workbench.action.showCommands"),
     ] {
         lines.push(Line::from(vec![
             Span::styled(
                 format!("{label}   "),
                 Style::default().fg(colors.foreground),
             ),
-            Span::styled(key, Style::default().fg(colors.muted)),
+            Span::styled(
+                {
+                    let key = app.keymap.shortcut_in_context(command, &context);
+                    if key.is_empty() {
+                        "Unbound".into()
+                    } else {
+                        key
+                    }
+                },
+                Style::default().fg(colors.muted),
+            ),
         ]));
+    }
+    if !app.recent_files.files.is_empty() {
+        lines.push(Line::default());
+        lines.push(Line::styled(
+            "Recent files",
+            Style::default().fg(colors.accent),
+        ));
+        for entry in app.recent_files.files.iter().take(5) {
+            lines.push(Line::styled(
+                clean(&entry.path.to_string_lossy()),
+                Style::default().fg(colors.muted),
+            ));
+        }
     }
     let height = (lines.len() as u16).min(area.height);
     let content = Rect::new(
@@ -804,6 +828,7 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         }
         PromptKind::Palette => " Command Palette ",
         PromptKind::QuickOpen => " Go to File ",
+        PromptKind::RecentFiles => " Open Recent File · file history only ",
         PromptKind::Snippet => " Insert Snippet · name, prefix or description ",
         PromptKind::Theme => " Color Theme · select or Load Color Theme File from commands ",
         PromptKind::ThemeFile => " Load VS Code Color Theme (JSON/JSONC path) ",
@@ -827,7 +852,11 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
     };
     let list = matches!(
         p.kind,
-        PromptKind::Palette | PromptKind::QuickOpen | PromptKind::Snippet | PromptKind::Theme
+        PromptKind::Palette
+            | PromptKind::QuickOpen
+            | PromptKind::RecentFiles
+            | PromptKind::Snippet
+            | PromptKind::Theme
     );
     let inner = popup(frame, colors, title, 84, if list { 19 } else { 5 });
     if inner.width == 0 || inner.height == 0 {
@@ -895,6 +924,11 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
                             .to_string_lossy()
                     )
                 })
+                .collect()
+        } else if matches!(p.kind, PromptKind::RecentFiles) {
+            app.recent_items(&p.text)
+                .into_iter()
+                .map(|path| path.to_string_lossy().into_owned())
                 .collect()
         } else if matches!(p.kind, PromptKind::Theme) {
             app.theme_items(&p.text)
@@ -1522,6 +1556,33 @@ mod tests {
         }
     }
     #[test]
+    fn welcome_uses_overridden_shortcuts_and_themed_disambiguated_recent_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let keys = root.path().join("keys.json");
+        std::fs::write(
+            &keys,
+            r#"[{"key":"f8","command":"workbench.action.openRecent"}]"#,
+        )
+        .unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        app.keymap.load(&keys).unwrap();
+        app.theme.colors.accent = Color::Rgb(1, 2, 3);
+        app.recent_files.touch(root.path().join("left/same.txt"));
+        app.recent_files.touch(root.path().join("right/same.txt"));
+        let mut terminal = Terminal::new(TestBackend::new(160, 40)).unwrap();
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        let cells = &terminal.backend().buffer().content;
+        let text: String = cells.iter().map(|cell| cell.symbol()).collect();
+        assert!(text.contains("Open Recent File   f8"));
+        assert!(text.contains("left/same.txt") && text.contains("right/same.txt"));
+        assert!(
+            cells
+                .iter()
+                .any(|cell| cell.symbol() == "R" && cell.fg == Color::Rgb(1, 2, 3))
+        );
+        assert!(app.documents.is_empty());
+    }
+    #[test]
     fn welcome_renders_without_creating_a_document_at_all_sizes() {
         let dir = tempfile::tempdir().unwrap();
         for profile in [
@@ -1546,11 +1607,12 @@ mod tests {
                 if w == 110 {
                     assert!(text.contains("No open editors"));
                     assert!(text.contains("Command Palette"));
-                    assert!(text.contains(if profile == crate::keys::Profile::Macos {
-                        "Cmd+N"
-                    } else {
-                        "Ctrl+N"
-                    }));
+                    assert!(
+                        text.contains(
+                            &app.keymap
+                                .shortcut("workbench.action.files.newUntitledFile")
+                        )
+                    );
                 }
             }
         }

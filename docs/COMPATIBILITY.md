@@ -25,6 +25,11 @@ and approximates syntax foreground categories. Copying a field does not implemen
 it; broader TextMate/semantic/font-style/workbench fidelity remains incomplete.
 See [implementation, test evidence and limits](IMPORT_AND_THEMES.md).
 
+Recent-file navigation now provides a persistent native MRU picker and session-local
+reopening of closed file-backed editors. Workspace switching, restored session
+layouts and full VS Code history ordering remain unimplemented; see
+[recent-file behavior and integrity evidence](USAGE.md#recent-files-and-reopening-closed-editors).
+
 ## Feature disposition
 
 | VS Code feature family | Planned terminal behavior | Scope |

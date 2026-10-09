@@ -341,3 +341,44 @@ Install local extension packages with **F1 → Extensions: Install from VSIX**, 
 `vscli --extension /absolute/path/to/unpacked-extension .` starts the extension's Node `main` entry in an optional process. This explicitly executes trusted extension code with your user permissions. Use `--extension-node /path/to/node` to select the runtime. Normal native editing does not require Node. Extensions receive imported user/workspace settings before activation and valid live updates through `workspace.onDidChangeConfiguration`; held configuration objects remain snapshots.
 
 Registered commands appear in F1 with an `Extension:` prefix. Manifest keybindings retain their original combinations and platform overrides beneath user overrides/removals; unsupported context expressions are reported. Commands can also be assigned in user keybindings by their original IDs. Edits are version checked and undoable, and do not save files automatically. F1 → Extensions: Stop Host terminates the process while retaining native buffers. The initial host has substantial API and contribution limitations; read the [extension evidence and scope](EXTENSIONS.md) before using an extension.
+
+
+## Recent files and reopening closed editors
+
+**Ctrl+R** on Linux, Windows and macOS opens **Open Recent File**. The native picker
+fuzzy-matches full paths, so files with the same name remain distinguishable. The
+empty welcome screen shows up to five recent paths and shortcut hints from the
+active keymap, including context, removal and shadowing of user overrides. While
+the integrated terminal has focus these shortcuts are forwarded to the shell,
+matching the [pinned default shell-routing list](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/contrib/terminal/common/terminal.ts); use F1 to invoke navigation there.
+Recent entries cover files only; this
+command does not switch workspaces or restore a window/session layout.
+
+**Ctrl+Shift+T** (Linux/Windows) or **Cmd+Shift+T** (macOS) reopens the most recently
+closed file-backed editor in this session. Accepted closes record its path and
+primary display position; canceled closes record nothing. Discarded buffer text
+and untitled editors are never resurrected. Save As records the saved destination.
+A newly loaded file uses its current disk contents and a clamped cursor position;
+missing or unreadable files remain retryable in history without creating a new
+empty buffer. If the document is already open, its existing buffer, undo history
+and shared identity are focused, even if the backing file has disappeared.
+
+Recent-file metadata is stored under the native **configuration root** at
+`state/recent-files.json`, including when an imported profile is active. It keeps
+at most 100 absolute paths (4096 bytes per path; 512 KiB state-file limit), not file
+contents. One background state worker coalesces updates and merges under a file
+lock before an atomic replacement; older updates cannot overwrite newer timestamps.
+Normal shutdown waits for queued state writes. Malformed or unwritable state is
+reported and retained; new updates remain in memory and retry after another file
+open/save or shutdown. Abrupt termination can lose pending history, and directory
+metadata power-loss durability is not qualified. Other running instances' recent
+lists refresh during their own state loads/writes, not through a live subscription.
+The bounded closed-editor stack is session-local and is not persisted.
+
+Recent/reopen disk loads use a separate single-outstanding background request;
+changed editor/workspace context discards a late reply and retains retryable closed
+history. Native tests cover persistence failures and concurrency, shared dirty
+buffers, save/discard/cancel, Save As, bounds and stale replies. PTY tests exercise
+close-to-welcome, reopen/edit/undo/save, missing-file retry and persisted recents
+after restarting. These are native behavior checks, not full VS Code history or
+session parity.

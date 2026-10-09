@@ -321,6 +321,19 @@ impl Document {
         Ok(doc)
     }
 
+    /// Read an existing regular file for navigation, never creating a missing buffer.
+    pub fn open_existing(path: &Path) -> Result<Self> {
+        let path = absolute_path(path)?;
+        if !fs::metadata(&path)?.is_file() {
+            bail!("Not a regular file: {}", path.display());
+        }
+        let content = read_disk(&path)?.context("Recent file no longer exists")?;
+        let mut doc = Self::from_rope(content.clone());
+        doc.path = Some(path);
+        doc.disk_content = Some(content);
+        Ok(doc)
+    }
+
     /// Apply a disk reload as one undoable edit, retaining document and view identity.
     pub fn reload_content(&mut self, next: Rope) {
         let prefix = self

@@ -167,8 +167,10 @@ class Editor:
             fcntl.ioctl(0, termios.TIOCSCTTY, 0)
 
         options = ["--no-mouse", "--keymap", "linux"]
+        self.config_directory = None
         if "--config-dir" not in args:
-            options += ["--config-dir", str(root / ".native-test-config")]
+            self.config_directory = tempfile.TemporaryDirectory(prefix="vscli-pty-config-")
+            options += ["--config-dir", self.config_directory.name]
         if not enhanced:
             options += ["--legacy-keys"]
         if not recovery:
@@ -268,6 +270,8 @@ class Editor:
         os.close(self.master)
         os.close(self.slave)
         self.process.close()
+        if self.config_directory is not None:
+            self.config_directory.cleanup()
 
 
 def text(path):
@@ -288,7 +292,7 @@ def run():
         app.send(b"\x1b[6~\x1b[A")
         assert "No open editors" in app.screen.text()
         app.send(b"\x10")  # Quick Open works with no active document.
-        eventually(lambda: app.read() and "Quick Open" in app.screen.text())
+        eventually(lambda: app.read() and "Go to File" in app.screen.text())
         app.send(b"\x1b")
         app.send(b"\x1bOP")
         app.send("Insert Snippet\r")
@@ -1065,6 +1069,67 @@ def run():
         app.finish()
         assert not activation_marker.exists()
         print("PASS: installed C++ snippets without Node/code activation, CRLF linked edits/save/undo and uninstall refresh")
+
+
+        navigation_root = root / "navigation"
+        navigation_root.mkdir()
+        navigation_config = root / "navigation-config"
+        navigation_file = navigation_root / "navigation.txt"
+        navigation_file.write_text("base\n")
+        app = Editor(navigation_root, navigation_file, "--config-dir", navigation_config, enhanced=True)
+        app.send("changed ")
+        app.send(b"\x17")
+        eventually(lambda: app.read() and "Save changes" in app.screen.text())
+        app.send(b"\x1b")
+        assert text(navigation_file) == "base\n"
+        app.send(b"\x17")
+        app.send("s")
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        assert text(navigation_file) == "changed base\n"
+        eventually(lambda: app.read() and "Recent files" in app.screen.text())
+        app.send(b"\x1b[116;6u")  # Ctrl+Shift+T reopens the last closed file.
+        eventually(lambda: app.read() and "changed base" in app.screen.text())
+        app.send("prefix ")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(navigation_file) == "changed base\n")
+        app.send(b"\x17")
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        app.send(b"\x12")  # Ctrl+R opens recent files even with no editor.
+        eventually(lambda: app.read() and "Open Recent File" in app.screen.text())
+        assert "navigation.txt" in app.screen.text()
+        app.send(b"\x1b")
+        navigation_file.unlink()
+        app.send(b"\x1b[116;6u")
+        eventually(lambda: app.read() and "history retained" in app.screen.text())
+        assert "No open editors" in app.screen.text()
+        assert not navigation_file.exists()
+        navigation_file.write_text("external\n")
+        app.send(b"\x1b[116;6u")
+        eventually(lambda: app.read() and "external" in app.screen.text() and "No open editors" not in app.screen.text())
+        app.send("new edit")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(navigation_file) == "external\n")
+        app.send(b"\x17")
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        app.finish()
+        recent_state = json.loads((navigation_config / "state/recent-files.json").read_text())
+        assert recent_state["schema"] == 1
+        assert recent_state["files"][0]["path"] == str(navigation_file.resolve())
+        app = Editor(navigation_root, "--config-dir", navigation_config, enhanced=True)
+        eventually(lambda: app.read() and "Recent files" in app.screen.text() and "navigation.txt" in app.screen.text())
+        assert "No open editors" in app.screen.text()
+        app.send(b"\x1b[116;6u")
+        eventually(lambda: app.read() and "No closed file-backed editors" in app.screen.text())
+        assert "No open editors" in app.screen.text()
+        app.send(b"\x12")
+        app.send("navigation.txt\r")
+        eventually(lambda: app.read() and "external" in app.screen.text() and "No open editors" not in app.screen.text())
+        app.send(b"\x17")
+        app.finish()
+        assert text(navigation_file) == "external\n"
+        print("PASS: recent-file picker, dirty close cancel/save, reopen/undo, missing-file retry, welcome recents and persisted restart")
 
 
 
