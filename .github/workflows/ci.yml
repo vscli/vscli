@@ -131,6 +131,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/automatic_language_services_pty.py target/debug/vscli
+      - name: Run automatic native suggestion workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/suggestions_pty.py target/debug/vscli
       - name: Run native extension registry workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
@@ -171,6 +175,7 @@ jobs:
       - run: cargo test --locked --test automatic_language_services -- --ignored
       - run: cargo build --locked
       - run: python3 -u tests/automatic_language_services_pty.py target/debug/vscli --real-clangd
+      - run: python3 -u tests/suggestions_pty.py target/debug/vscli --real-clangd
       - run: cargo test --test debug_adapter -- --ignored
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

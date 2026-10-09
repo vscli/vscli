@@ -51,13 +51,19 @@ impl Client {
         let owners: Vec<_> = self.packages.iter().map(|p| p.id.as_str()).collect();
         self.providers.registry.replace(value, &owners)
     }
-    pub(crate) fn provider_ticket_current(&self, ticket: &Ticket, doc: &Document) -> bool {
+    pub(crate) fn language_provider_capacity(&self) -> bool {
+        self.providers.calls.len() + self.providers.replies.len() < LIMIT
+    }
+    pub(crate) fn provider_registration_current(&self, ticket: &Ticket) -> bool {
         ticket.session == self.session
             && self.provider_owner_ready(&ticket.provider.owner)
             && self
                 .providers
                 .registry
                 .current(&ticket.provider, ticket.epoch)
+    }
+    pub(crate) fn provider_ticket_current(&self, ticket: &Ticket, doc: &Document) -> bool {
+        self.provider_registration_current(ticket)
             && ticket.document == doc.id
             && ticket.revision == doc.revision
             && ticket.text_epoch == doc.text_epoch()
@@ -97,7 +103,7 @@ impl Client {
         self.request("provideLanguage", json!({"session":self.session,"owner":ticket.provider.owner,
             "provider":ticket.provider.id,"document":doc.id,"version":ticket.version,
             "position":lsp::position(doc, doc.cursor), "includeDeclaration":true,
-            "options":options.get("options").cloned().unwrap_or_else(|| json!({"tabSize":4,"insertSpaces":true}))}))?;
+            "completionContext":options.get("context"), "options":options.get("options").cloned().unwrap_or_else(|| json!({"tabSize":4,"insertSpaces":true}))}))?;
         self.providers.calls.insert(
             ticket.id,
             Call {

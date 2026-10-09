@@ -644,6 +644,27 @@ mod tests {
         assert_eq!(app.doc().text.to_string(), before);
     }
     #[test]
+    fn automatic_completion_uses_active_provider_and_tab_preserves_native_undo() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        let id = app.doc().id;
+        app.doc_mut().move_to(3, true);
+        app.doc_mut().insert("", false);
+        for character in "sel".chars() {
+            app.event(Event::Key(KeyEvent::new(
+                KeyCode::Char(character),
+                KeyModifiers::NONE,
+            )));
+        }
+        until(&mut app, App::suggestion_acceptable);
+        assert!(app.modal.is_none());
+        app.event(Event::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)));
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), "SELECT 🙂\r\nfrom table;\r\n");
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "sel 🙂\r\nfrom table;\r\n");
+    }
+    #[test]
     fn all_seven_native_provider_workflows_keep_crlf_identity_and_undo() {
         let root = tempfile::tempdir().unwrap();
         let mut app = app(root.path());

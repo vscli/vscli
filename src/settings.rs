@@ -40,6 +40,10 @@ const SUPPORTED: &[&str] = &[
     "editor.tabSize",
     "editor.insertSpaces",
     "editor.lineNumbers",
+    "editor.quickSuggestions",
+    "editor.quickSuggestionsDelay",
+    "editor.suggestOnTriggerCharacters",
+    "editor.acceptSuggestionOnEnter",
     "workbench.colorTheme",
     "vscli.languageServer.enabled",
     "vscli.languageServer.program",
@@ -230,6 +234,27 @@ impl Settings {
         }
     }
 
+    pub fn suggestions(&self, language: &str) -> Suggestions {
+        Suggestions {
+            quick: self
+                .value("editor.quickSuggestions", language)
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
+            delay_ms: self
+                .value("editor.quickSuggestionsDelay", language)
+                .and_then(Value::as_u64)
+                .unwrap_or(120),
+            triggers: self
+                .value("editor.suggestOnTriggerCharacters", language)
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
+            enter: self
+                .value("editor.acceptSuggestionOnEnter", language)
+                .and_then(Value::as_str)
+                != Some("off"),
+        }
+    }
+
     pub fn apply(&self, doc: &mut crate::document::Document) {
         let language = doc
             .path
@@ -254,6 +279,13 @@ impl Settings {
             _ => LineNumbers::On,
         };
     }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Suggestions {
+    pub quick: bool,
+    pub delay_ms: u64,
+    pub triggers: bool,
+    pub enter: bool,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LanguageServer {
@@ -284,7 +316,11 @@ fn valid(key: &str, value: &Value) -> bool {
                     <= 16384
         }),
         "editor.tabSize" => value.as_u64().is_some_and(|n| (1..=16).contains(&n)),
-        "editor.insertSpaces" => value.is_boolean(),
+        "editor.insertSpaces" | "editor.quickSuggestions" | "editor.suggestOnTriggerCharacters" => {
+            value.is_boolean()
+        }
+        "editor.quickSuggestionsDelay" => value.as_u64().is_some_and(|n| n <= 2000),
+        "editor.acceptSuggestionOnEnter" => matches!(value.as_str(), Some("on" | "off")),
         "editor.lineNumbers" => {
             matches!(value.as_str(), Some("on" | "off" | "relative" | "interval"))
         }
@@ -333,6 +369,34 @@ impl Loader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn suggestions_use_language_precedence_and_reject_unimplemented_or_unbounded_options() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(&user, r#"{"editor.quickSuggestionsDelay":50,"[rust]":{"editor.quickSuggestions":false,"editor.acceptSuggestionOnEnter":"off"}}"#).unwrap();
+        std::fs::write(&workspace, r#"{"editor.quickSuggestionsDelay":2001,"editor.quickSuggestions":{"comments":"on"},"editor.acceptSuggestionOnEnter":"smart","[rust]":{"editor.suggestOnTriggerCharacters":false}}"#).unwrap();
+        let settings = Settings::load(&[user, workspace]).unwrap();
+        assert_eq!(settings.warnings.len(), 3);
+        assert_eq!(
+            settings.suggestions("rust"),
+            Suggestions {
+                quick: false,
+                delay_ms: 50,
+                triggers: false,
+                enter: false
+            }
+        );
+        assert_eq!(
+            settings.suggestions("python"),
+            Suggestions {
+                quick: true,
+                delay_ms: 50,
+                triggers: true,
+                enter: true
+            }
+        );
+    }
     #[test]
     fn language_programs_use_user_provenance_and_explicit_workspace_opt_in() {
         let root = tempfile::tempdir().unwrap();

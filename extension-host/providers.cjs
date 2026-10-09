@@ -176,7 +176,13 @@ function createProviders(options) {
     let args;
     try {
       switch (entry.type) {
-        case 'completion': args = [document, position(params.position, document), source.token, { triggerKind: 0 }]; break;
+        case 'completion': {
+          const context = params.completionContext;
+          if (context !== undefined && context !== null && (!Number.isInteger(context.triggerKind) || context.triggerKind < 1 || context.triggerKind > 3 || Object.keys(context).some(key => !['triggerKind', 'triggerCharacter'].includes(key)))) throw new TypeError('Unsupported completion context');
+          const kind = context?.triggerKind ?? 1;
+          if (kind === 2 && (typeof context.triggerCharacter !== 'string' || [...context.triggerCharacter].length !== 1 || Buffer.byteLength(context.triggerCharacter) > 4)) throw new TypeError('Invalid completion trigger character');
+          args = [document, position(params.position, document), source.token, { triggerKind: kind - 1, ...(kind === 2 ? { triggerCharacter: context.triggerCharacter } : {}) }]; break;
+        }
         case 'signature': args = [document, position(params.position, document), source.token, { triggerKind: 1, isRetrigger: false }]; break;
         case 'hover': case 'definition': args = [document, position(params.position, document), source.token]; break;
         case 'references': args = [document, position(params.position, document), { includeDeclaration: !!params.includeDeclaration }, source.token]; break;

@@ -59,7 +59,7 @@ installation evidence, not validation of additional published extension workflow
 
 ## Native language-provider adapters
 
-Selected ready extensions can provide explicit completion, hover, definitions, references, document formatting, document symbols and signature help through the editor's native commands and UI. Highest selector score/newest registration selects one provider; a nonmatching extension leaves native LSP dispatch available. Native context and document-version guards remain active through response, picker selection and asynchronous target loading. Completion/formatting normalize inserted text to the current EOL convention before validating ranges, overlaps and byte limits. [Supported forms, bounds and synthetic workflow evidence](EXTENSION_PROVIDERS.md) distinguish this subset from full extension language compatibility.
+Selected ready extensions can provide explicit and automatic typing completion, hover, definitions, references, document formatting, document symbols and signature help through the editor's native commands and UI. Highest selector score/newest registration selects one provider; a nonmatching extension leaves native LSP dispatch available. Native context and document-version guards remain active through response, picker selection and asynchronous target loading. Completion/formatting normalize inserted text to the current EOL convention before validating ranges, overlaps and byte limits. [Supported forms, bounds and synthetic workflow evidence](EXTENSION_PROVIDERS.md) distinguish this subset from full extension language compatibility.
 
 ## Native snippet packages
 

@@ -554,7 +554,7 @@ def run():
         eventually(lambda: app.read() and "Language server ready" in app.screen.text())
         app.send(b"\x1b[F")  # End
         app.send(b"\x1b[32;5u")  # Ctrl+Space
-        eventually(lambda: app.read() and "Completion" in app.screen.text())
+        eventually(lambda: app.read() and "Suggestions · Tab accepts" in app.screen.text())
         app.send(b"\r")
         app.send(CTRL_S)
         eventually(lambda: app.read() and text(language_file) == "answer\n")
