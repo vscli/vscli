@@ -12,6 +12,7 @@ pub struct Ticket {
     pub epoch: u64,
     pub document: u64,
     pub revision: u64,
+    pub text_epoch: u64,
     pub version: u64,
 }
 struct Call {
@@ -59,6 +60,7 @@ impl Client {
                 .current(&ticket.provider, ticket.epoch)
             && ticket.document == doc.id
             && ticket.revision == doc.revision
+            && ticket.text_epoch == doc.text_epoch()
             && self.service_document_current(doc, ticket.version)
     }
     pub(crate) fn request_language_provider(
@@ -89,6 +91,7 @@ impl Client {
             epoch: self.providers.registry.epoch(),
             document: doc.id,
             revision: doc.revision,
+            text_epoch: doc.text_epoch(),
             version: mirror.version,
         };
         self.request("provideLanguage", json!({"session":self.session,"owner":ticket.provider.owner,
@@ -217,6 +220,54 @@ mod tests {
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    #[test]
+    fn provider_and_hidden_service_versions_reject_edit_undo_before_sync() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![Document::from_text("α🙂\r\n")];
+        let mut hidden = vec![Document::from_text("hidden 猫\r\n")];
+        let package = Package::read(&path).unwrap();
+        let prepared =
+            Client::prepare_with_hidden(&docs, &hidden, 0, &Settings::default()).unwrap();
+        let mut client =
+            Client::start_many_prepared("node", &[package], root.path(), prepared).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !client.ready {
+            client
+                .poll_with_hidden(&mut docs, &mut hidden, 0, &Settings::default())
+                .unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &hidden, 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let revision = docs[0].revision;
+        for doc in docs.iter_mut().chain(&mut hidden) {
+            assert!(client.service_document_current(doc, 1));
+            doc.insert("transient", false);
+            doc.undo();
+            assert!(!client.service_document_current(doc, 1));
+        }
+        assert_eq!(docs[0].revision, revision);
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        client.sync_with_hidden(&docs, &hidden, 0).unwrap();
+        for doc in docs.iter().chain(&hidden) {
+            assert!(client.service_document_current(doc, 2));
+            assert!(!client.service_document_current(doc, 1));
+        }
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        // Even a forged current exposed version cannot revive an old ticket epoch.
+        let mut forged = ticket.clone();
+        forged.version = 2;
+        assert!(!client.provider_ticket_current(&forged, &docs[0]));
+        hidden[0].redo();
+        assert_eq!(hidden[0].text.to_string(), "transienthidden 猫\r\n");
     }
     #[test]
     fn canceled_callbacks_retain_slots_until_reply_and_never_cross_owner_session_or_registry() {
