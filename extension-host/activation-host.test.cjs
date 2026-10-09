@@ -93,7 +93,7 @@ test('lazy host activation preserves cached exports and native origin across dep
     const b = vscode.extensions.getExtension('test.b');
     context.subscriptions.push(vscode.commands.registerCommand('c.read', () => b.exports.count));
   };`, { extensionDependencies: ['test.b'] });
-  assert.equal((await h.call(4, 'activate', { session: 7, extensions: [c], activate: ['test.c'] })).error, undefined);
+  assert.equal((await h.call(4, 'activate', { session: 7, owner: 'test.c', extensions: [c], activate: ['test.c'] })).error, undefined);
   assert.equal((await h.call(5, 'execute', { session: 7, owner: 'test.c', command: 'c.read', args: [] })).result, 1);
 });
 test('activation failure removes partial registrations while keeping older active package', { timeout: 10000 }, async t => {

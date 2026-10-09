@@ -158,6 +158,25 @@ pub struct Prepared {
     mirror: MirrorState,
     state: Value,
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
+    activation: Option<Vec<String>>,
+}
+impl Prepared {
+    /// Select lazy roots; omitted roots preserve explicit eager startup.
+    pub fn with_activation(mut self, ids: Vec<String>) -> Result<Self> {
+        if ids.len() > MAX_PACKAGES {
+            bail!("Extension activation target limit exceeded");
+        }
+        for id in &ids {
+            crate::extension_activation::validate_id(id)?;
+        }
+        self.activation = Some(ids);
+        Ok(self)
+    }
+}
+pub struct ActivationRequest {
+    pub additions: Vec<Package>,
+    pub targets: Vec<String>,
+    pub owner: Option<String>,
 }
 pub struct Client {
     // Drop the process before deleting its embedded runtime files on Windows.
@@ -176,6 +195,7 @@ pub struct Client {
     pub session: u64,
     pub packages: Vec<Package>,
     pub binding_sets: Option<Vec<(String, Value)>>,
+    pub activation_states: std::collections::BTreeMap<String, String>,
     command_owners: HashMap<String, String>,
     titles: HashMap<(String, String), String>,
 }
@@ -218,6 +238,7 @@ impl Client {
             mirror,
             state,
             configuration: settings.extension_layers().clone(),
+            activation: None,
         })
     }
     pub fn start_prepared(
@@ -289,6 +310,7 @@ impl Client {
             session,
             packages,
             binding_sets: None,
+            activation_states: std::collections::BTreeMap::new(),
             command_owners: HashMap::new(),
             titles: HashMap::new(),
         };
@@ -296,7 +318,7 @@ impl Client {
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
                 "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
-                "configuration": client.configuration.as_ref()}),
+                "configuration": client.configuration.as_ref(), "activate": prepared.activation}),
         )?;
         Ok(client)
     }
@@ -363,6 +385,92 @@ impl Client {
             )?;
             self.configuration = settings.extension_layers().clone();
         }
+        Ok(())
+    }
+    /// Admit worker-validated immutable descriptors and activate selected roots.
+    /// Disk validation belongs to the planning worker and the optional host.
+    pub fn activate(
+        &mut self,
+        request: &ActivationRequest,
+        documents: &[Document],
+        active: usize,
+        settings: &Settings,
+    ) -> Result<()> {
+        let ActivationRequest {
+            additions,
+            targets,
+            owner,
+        } = request;
+        let owner = owner.as_deref();
+        if !self.ready || self.activating() {
+            bail!("Extension host is not ready for another activation batch");
+        }
+        let mut packages = self.packages.clone();
+        packages.extend_from_slice(additions);
+        packages.sort_by(|a, b| a.id.cmp(&b.id));
+        if packages.len() > MAX_PACKAGES
+            || targets.len() > MAX_PACKAGES
+            || packages.windows(2).any(|pair| pair[0].id == pair[1].id)
+        {
+            bail!("Invalid extension cohort or activation target count");
+        }
+        for package in &packages {
+            crate::extension_activation::validate_id(&package.id)?;
+        }
+        if targets
+            .iter()
+            .any(|id| !packages.iter().any(|package| &package.id == id))
+            || owner.is_some_and(|id| !packages.iter().any(|package| package.id == id))
+        {
+            bail!("Activation targets and owner must be selected");
+        }
+        self.sync(documents, active)?;
+        self.sync_configuration(settings)?;
+        self.request(
+            "activate",
+            json!({"session":self.session, "owner":owner,
+            "extensions":additions, "activate":targets}),
+        )?;
+        self.packages = packages;
+        self.identity = self
+            .packages
+            .iter()
+            .map(|p| p.id.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        Ok(())
+    }
+    pub fn activating(&self) -> bool {
+        self.pending
+            .values()
+            .any(|pending| matches!(pending.method.as_str(), "initialize" | "activate"))
+    }
+    fn register_activation(&mut self, value: &Value) -> Result<()> {
+        let items = value
+            .as_array()
+            .context("Extension activation status missing")?;
+        if items.len() != self.packages.len() {
+            bail!("Extension activation status count changed");
+        }
+        let mut states = std::collections::BTreeMap::new();
+        for item in items {
+            let id = item["id"]
+                .as_str()
+                .context("Extension activation owner missing")?;
+            let state = item["state"]
+                .as_str()
+                .context("Extension activation state missing")?;
+            if !self.packages.iter().any(|p| p.id == id)
+                || !matches!(
+                    state,
+                    "dormant" | "activating" | "active" | "failed" | "disposed"
+                )
+                || states.insert(id.to_owned(), state.to_owned()).is_some()
+            {
+                bail!("Invalid extension activation registry");
+            }
+        }
+        self.activation_states = states;
         Ok(())
     }
     pub fn execute(
@@ -476,6 +584,12 @@ impl Client {
             };
             if let Some(method) = message["method"].as_str() {
                 match method {
+                    "activation" => {
+                        if message["params"]["session"].as_u64() != Some(self.session) {
+                            bail!("Outdated activation registry");
+                        }
+                        self.register_activation(&message["params"]["activation"])?;
+                    }
                     "prompt" => {
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_prompt(id.clone(), message["params"].take())
@@ -557,7 +671,7 @@ impl Client {
                     messages.push(format!("Extension command failed: {error}"));
                     continue;
                 }
-                if pending.method == "initialize" {
+                if pending.method == "initialize" || pending.method == "activate" {
                     let result = &message["result"];
                     if result["protocol"] != 4 || result["session"].as_u64() != Some(self.session) {
                         bail!("Unsupported or outdated extension session protocol");
@@ -608,6 +722,7 @@ impl Client {
                     self.keybindings = (bindings.len() == 1).then(|| bindings[0].1.clone());
                     self.binding_sets = Some(bindings);
                     self.register_commands(result["commands"].clone())?;
+                    self.register_activation(&result["activation"])?;
                     self.ready = true;
                     messages.push(format!(
                         "Extension ready: {} ({} commands)",
