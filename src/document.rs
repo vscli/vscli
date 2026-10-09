@@ -165,15 +165,30 @@ pub struct ViewState {
     snippet_generation: u64,
 }
 #[derive(Clone)]
+pub(crate) struct ByteChange {
+    pub range: Range<usize>,
+    pub added: usize,
+}
+impl ByteChange {
+    fn inverse(&self) -> Self {
+        Self {
+            range: self.range.start..self.range.start + self.added,
+            added: self.range.len(),
+        }
+    }
+}
+#[derive(Clone)]
 struct PositionChange {
     range: Range<usize>,
     added: usize,
+    bytes: ByteChange,
 }
 impl PositionChange {
     fn inverse(&self) -> Self {
         Self {
             range: self.range.start..self.range.start + self.added,
             added: self.range.len(),
+            bytes: self.bytes.inverse(),
         }
     }
     fn map(&self, view: &mut ViewState) {
@@ -211,6 +226,8 @@ pub struct Document {
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
     next_revision: u64,
+    text_epoch: u64,
+    byte_changes: std::collections::VecDeque<(u64, ByteChange)>,
     typing: Option<(Instant, usize)>,
 }
 
@@ -297,9 +314,47 @@ impl Document {
             self.active_view = 0;
         }
     }
-    fn record_change(&mut self, range: Range<usize>, added: usize) {
+    pub(crate) fn text_epoch(&self) -> u64 {
+        self.text_epoch
+    }
+    pub(crate) fn byte_changes_since(
+        &self,
+        epoch: u64,
+    ) -> Option<impl Iterator<Item = &ByteChange>> {
+        if epoch > self.text_epoch
+            || self
+                .byte_changes
+                .front()
+                .is_some_and(|(first, _)| epoch < first - 1)
+        {
+            return None;
+        }
+        Some(
+            self.byte_changes
+                .iter()
+                .filter(move |(e, _)| *e > epoch)
+                .map(|(_, c)| c),
+        )
+    }
+    fn record_byte_change(&mut self, change: ByteChange) {
+        self.text_epoch += 1;
+        self.byte_changes.push_back((self.text_epoch, change));
+        if self.byte_changes.len() > 256 {
+            self.byte_changes.pop_front();
+        }
+    }
+    fn record_change(&mut self, range: Range<usize>, added: usize, added_bytes: usize) {
         self.view.map_snippet(&range, added);
-        let change = PositionChange { range, added };
+        let bytes = ByteChange {
+            range: self.text.char_to_byte(range.start)..self.text.char_to_byte(range.end),
+            added: added_bytes,
+        };
+        self.record_byte_change(bytes.clone());
+        let change = PositionChange {
+            range,
+            added,
+            bytes,
+        };
         for view in self.other_views.values_mut() {
             change.map(view);
         }
@@ -336,6 +391,8 @@ impl Document {
             undo: Vec::new(),
             redo: Vec::new(),
             next_revision: 1,
+            text_epoch: 0,
+            byte_changes: std::collections::VecDeque::new(),
             typing: None,
         }
     }
@@ -578,7 +635,7 @@ impl Document {
         } else if let Some(snapshot) = self.undo.last_mut() {
             snapshot.after_selections = None;
         }
-        self.record_change(range.clone(), text.chars().count());
+        self.record_change(range.clone(), text.chars().count(), text.len());
         self.text.remove(range.clone());
         self.text.insert(range.start, text);
         self.cursor = range.start + text.chars().count();
@@ -663,6 +720,7 @@ impl Document {
     }
     fn restore(&mut self, mut s: Snapshot) {
         for change in s.changes.iter().rev().map(PositionChange::inverse) {
+            self.record_byte_change(change.bytes.clone());
             change.map(&mut self.view);
             for view in self.other_views.values_mut() {
                 change.map(view);
@@ -993,7 +1051,7 @@ impl Document {
         self.break_group();
         for (r, text) in changes.into_iter().rev() {
             let added = text.chars().count();
-            self.record_change(r.clone(), added);
+            self.record_change(r.clone(), added, text.len());
             self.cursor = map_position(self.cursor, &r, added);
             self.anchor = self.anchor.map(|p| map_position(p, &r, added));
             for selection in &mut self.secondary {

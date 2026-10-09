@@ -199,6 +199,8 @@ Tree-sitter support does not load TextMate grammars automatically, and mapping a
 
 Start with native syntax and an approximate theme importer. Evaluate a compatible TextMate tokenizer in the optional host or a suitable native implementation for languages supplied only by extensions. Tokenization results carry document versions and never gate input. Limit pathological regex/tokenization work. Publish the distinction between approximate visual mapping and tested grammar compatibility.
 
+Native typing now retains provisional colors for unchanged text through bounded byte-edit mapping while awaiting a current grammar result. Inserted/replaced bytes never reuse stale absolute token offsets; syntax changes can temporarily leave unchanged text with its previous classification. Deterministic tests hold the worker across multicursor Unicode/CRLF edits, undo/redo, failures and cancellation; a PTY oracle observes individual painted multiline C++ token cells, including transient repaint colors. This establishes continuity for those workflows, not semantic-token fidelity or uninterrupted colors after the documented history/mapping budgets are exceeded.
+
 ## Distribution and package policy
 
 Use Open VSX and author-distributed VSIX files where their licenses permit use. Microsoft states that alternative products may not access the Visual Studio Marketplace and describes restrictions on Microsoft/affiliate extensions acquired there. The project must not depend on impersonating VS Code to acquire restricted packages. [Microsoft FAQ](https://code.visualstudio.com/docs/supporting/faq).

@@ -1,5 +1,5 @@
 //! Bounded background grammar highlighting. Results belong to one document revision.
-use crate::document::Document;
+use crate::document::{ByteChange, Document};
 use anyhow::{Result, bail};
 use ropey::Rope;
 use std::{
@@ -36,6 +36,7 @@ const MAX_BYTES: usize = 2 * 1024 * 1024;
 struct Key {
     id: u64,
     revision: u64,
+    epoch: u64,
     language: &'static str,
 }
 impl Key {
@@ -46,6 +47,7 @@ impl Key {
         Some(Self {
             id: doc.id,
             revision: doc.revision,
+            epoch: doc.text_epoch(),
             language: language(doc.path.as_deref()?)?,
         })
     }
@@ -134,14 +136,132 @@ pub struct Span {
 pub struct Highlights {
     key: Key,
     spans: Vec<Span>,
+    mapping: Mapping,
+    complete: bool,
 }
 impl Highlights {
     pub fn style_at(&self, byte: usize) -> Option<usize> {
+        let byte = self.mapping.source_byte(byte)?;
         let index = self.spans.partition_point(|s| s.end <= byte);
         self.spans
             .get(index)
             .filter(|s| s.start <= byte)
             .map(|s| s.style)
+    }
+    fn rebase(&mut self, doc: &Document, key: &Key) -> bool {
+        if self.key.language != key.language {
+            return false;
+        }
+        let Some(changes) = doc.byte_changes_since(self.key.epoch) else {
+            return false;
+        };
+        for change in changes {
+            if !self.mapping.apply(change) {
+                return false;
+            }
+        }
+        if self.mapping.length != doc.text.len_bytes() {
+            return false;
+        }
+        self.complete &= self.key == *key;
+        self.key = key.clone();
+        true
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Piece {
+    start: usize,
+    end: usize,
+    source: usize,
+}
+/// Only unchanged bytes retain provisional colors. Inserted/replaced bytes have
+/// no source mapping; never paint them using an old token's absolute offsets.
+struct Mapping {
+    pieces: Vec<Piece>,
+    length: usize,
+}
+impl Mapping {
+    fn new(length: usize) -> Self {
+        Self {
+            pieces: if length == 0 {
+                Vec::new()
+            } else {
+                vec![Piece {
+                    start: 0,
+                    end: length,
+                    source: 0,
+                }]
+            },
+            length,
+        }
+    }
+    fn source_byte(&self, byte: usize) -> Option<usize> {
+        let index = self.pieces.partition_point(|p| p.end <= byte);
+        self.pieces
+            .get(index)
+            .filter(|p| p.start <= byte)
+            .map(|p| p.source + byte - p.start)
+    }
+    fn apply(&mut self, change: &ByteChange) -> bool {
+        let range = &change.range;
+        if range.start > range.end || range.end > self.length {
+            return false;
+        }
+        let Some(length) = self
+            .length
+            .checked_sub(range.len())
+            .and_then(|n| n.checked_add(change.added))
+        else {
+            return false;
+        };
+        if length > MAX_BYTES {
+            return false;
+        }
+        let shift = |byte: usize| byte - range.len() + change.added;
+        let mut next = Vec::<Piece>::with_capacity(self.pieces.len() + 1);
+        let mut push = |piece: Piece| {
+            if let Some(last) = next.last_mut()
+                && last.end == piece.start
+                && last.source + last.end - last.start == piece.source
+            {
+                last.end = piece.end;
+            } else {
+                next.push(piece);
+            }
+        };
+        for piece in &self.pieces {
+            if piece.end <= range.start {
+                push(piece.clone());
+            } else if piece.start >= range.end {
+                push(Piece {
+                    start: shift(piece.start),
+                    end: shift(piece.end),
+                    source: piece.source,
+                });
+            } else {
+                if piece.start < range.start {
+                    push(Piece {
+                        start: piece.start,
+                        end: range.start,
+                        source: piece.source,
+                    });
+                }
+                if piece.end > range.end {
+                    push(Piece {
+                        start: range.start + change.added,
+                        end: shift(piece.end),
+                        source: piece.source + range.end - piece.start,
+                    });
+                }
+            }
+        }
+        if next.len() > 512 {
+            return false;
+        }
+        self.pieces = next;
+        self.length = length;
+        true
     }
 }
 fn highlight(
@@ -182,42 +302,69 @@ struct Request {
     text: Rope,
     cancel: Arc<AtomicUsize>,
 }
-struct Response {
-    key: Key,
-    result: Result<Vec<Span>, String>,
+#[derive(Debug)]
+enum Response {
+    Parsing {
+        key: Key,
+        started: Instant,
+    },
+    Finished {
+        key: Key,
+        result: Result<Vec<Span>, String>,
+    },
 }
 struct InFlight {
     key: Key,
     cancel: Arc<AtomicUsize>,
     started: Instant,
+    parsing: Option<Instant>,
+}
+struct Failure {
+    key: Key,
+    attempts: usize,
+    retry: Instant,
 }
 pub struct Engine {
     sender: SyncSender<Request>,
     receiver: Receiver<Response>,
     pending: Option<InFlight>,
     cache: HashMap<u64, Highlights>,
+    failures: HashMap<u64, Failure>,
 }
 impl Default for Engine {
     fn default() -> Self {
         let (sender, requests) = mpsc::sync_channel::<Request>(1);
-        let (responses, receiver) = mpsc::sync_channel(1);
+        let (responses, receiver) = mpsc::sync_channel(2);
         std::thread::spawn(move || {
             let mut configurations = HashMap::new();
             for request in requests {
                 let result = (|| -> Result<Vec<Span>> {
+                    if request.cancel.load(Ordering::Relaxed) != 0 {
+                        bail!("Syntax request cancelled before setup");
+                    }
                     if !configurations.contains_key(request.key.language) {
                         configurations
                             .insert(request.key.language, configuration(request.key.language)?);
                     }
+                    if request.cancel.load(Ordering::Relaxed) != 0 {
+                        bail!("Syntax request cancelled during setup");
+                    }
+                    let text = request.text.to_string();
+                    // Cold grammar/query construction is bounded background setup,
+                    // not part of the unchanged 500 ms parsing deadline.
+                    responses.send(Response::Parsing {
+                        key: request.key.clone(),
+                        started: Instant::now(),
+                    })?;
                     highlight(
                         &configurations[request.key.language],
-                        &request.text.to_string(),
+                        &text,
                         &request.cancel,
                     )
                 })()
                 .map_err(|e| e.to_string());
                 if responses
-                    .send(Response {
+                    .send(Response::Finished {
                         key: request.key,
                         result,
                     })
@@ -232,6 +379,7 @@ impl Default for Engine {
             receiver,
             pending: None,
             cache: HashMap::new(),
+            failures: HashMap::new(),
         }
     }
 }
@@ -242,41 +390,94 @@ impl Engine {
     }
     pub fn poll(&mut self, documents: &[&Document]) -> (bool, Option<String>) {
         let keys: Vec<_> = documents.iter().filter_map(|d| Key::for_doc(d)).collect();
-        self.cache.retain(|id, _| keys.iter().any(|k| k.id == *id));
         let mut changed = false;
         let mut error = None;
+        self.cache.retain(|id, cached| {
+            let Some(key) = keys.iter().find(|key| key.id == *id) else {
+                return false;
+            };
+            let doc = documents.iter().find(|doc| doc.id == *id).unwrap();
+            changed |= cached.key != *key;
+            cached.rebase(doc, key)
+        });
+        self.failures
+            .retain(|_, failure| keys.contains(&failure.key));
+        // At most one request and its two phase/completion messages are live.
+        // Cancellation never releases the occupied slot before completion.
+        for _ in 0..2 {
+            let Ok(response) = self.receiver.try_recv() else {
+                break;
+            };
+            match response {
+                Response::Parsing { key, started } => {
+                    if let Some(pending) = &mut self.pending
+                        && pending.key == key
+                    {
+                        pending.parsing = Some(started);
+                    }
+                }
+                Response::Finished { key, result } => {
+                    if self
+                        .pending
+                        .as_ref()
+                        .is_none_or(|pending| pending.key != key)
+                    {
+                        continue;
+                    }
+                    self.pending = None;
+                    if !keys.contains(&key) {
+                        continue;
+                    }
+                    match result {
+                        Ok(spans) => {
+                            let doc = documents.iter().find(|doc| doc.id == key.id).unwrap();
+                            self.failures.remove(&key.id);
+                            self.cache.insert(
+                                key.id,
+                                Highlights {
+                                    key,
+                                    spans,
+                                    mapping: Mapping::new(doc.text.len_bytes()),
+                                    complete: true,
+                                },
+                            );
+                        }
+                        Err(reason) => {
+                            let attempts = self.failures.get(&key.id).map_or(1, |f| f.attempts + 1);
+                            self.failures.insert(
+                                key.id,
+                                Failure {
+                                    key,
+                                    attempts,
+                                    retry: Instant::now() + Duration::from_secs(1),
+                                },
+                            );
+                            error = Some(format!(
+                                "Syntax refresh unavailable; retaining mapped colors where possible: {reason}"
+                            ));
+                        }
+                    }
+                    changed = true;
+                }
+            }
+        }
         if let Some(pending) = &self.pending
             && (!keys.contains(&pending.key)
-                || pending.started.elapsed() > Duration::from_millis(500))
+                || pending.parsing.map_or_else(
+                    || pending.started.elapsed() > Duration::from_secs(5),
+                    |started| started.elapsed() > Duration::from_millis(500),
+                ))
         {
             pending.cancel.store(1, Ordering::Relaxed);
         }
-        if let Ok(response) = self.receiver.try_recv() {
-            self.pending = None;
-            if keys.contains(&response.key) {
-                let spans = match response.result {
-                    Ok(spans) => spans,
-                    Err(reason) => {
-                        error = Some(format!(
-                            "Syntax highlighting unavailable for this revision: {reason}"
-                        ));
-                        Vec::new()
-                    }
-                };
-                self.cache.insert(
-                    response.key.id,
-                    Highlights {
-                        key: response.key,
-                        spans,
-                    },
-                );
-                changed = true;
-            }
-        }
         if self.pending.is_none()
-            && let Some(key) = keys
-                .into_iter()
-                .find(|k| self.cache.get(&k.id).is_none_or(|c| c.key != *k))
+            && let Some(key) = keys.into_iter().find(|k| {
+                self.cache.get(&k.id).is_none_or(|c| !c.complete)
+                    && self
+                        .failures
+                        .get(&k.id)
+                        .is_none_or(|f| f.attempts < 3 && Instant::now() >= f.retry)
+            })
             && let Some(doc) = documents.iter().find(|d| d.id == key.id)
         {
             let cancel = Arc::new(AtomicUsize::new(0));
@@ -293,6 +494,7 @@ impl Engine {
                     key,
                     cancel,
                     started: Instant::now(),
+                    parsing: None,
                 });
             }
         }
@@ -310,6 +512,270 @@ impl Drop for Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn controlled(doc: &Document) -> (Engine, Receiver<Request>, SyncSender<Response>) {
+        let (sender, requests) = mpsc::sync_channel(1);
+        let (responses, receiver) = mpsc::sync_channel(2);
+        let key = Key::for_doc(doc).unwrap();
+        let spans = highlight(
+            &configuration(key.language).unwrap(),
+            &doc.text.to_string(),
+            &AtomicUsize::new(0),
+        )
+        .unwrap();
+        let mut cache = HashMap::new();
+        cache.insert(
+            doc.id,
+            Highlights {
+                key,
+                spans,
+                mapping: Mapping::new(doc.text.len_bytes()),
+                complete: true,
+            },
+        );
+        (
+            Engine {
+                sender,
+                receiver,
+                pending: None,
+                cache,
+                failures: HashMap::new(),
+            },
+            requests,
+            responses,
+        )
+    }
+    fn assert_token(engine: &Engine, doc: &Document, token: &str, name: &str) {
+        let byte = doc.text.to_string().find(token).unwrap();
+        let style = engine.get(doc).unwrap().style_at(byte).unwrap();
+        assert_eq!(NAMES[style], name, "{token}");
+    }
+    #[test]
+    fn mapped_colors_survive_rapid_multicursor_unicode_crlf_undo_and_redo() {
+        use crate::document::Selection;
+        let original = "// 🌍 heading\r\nconstexpr auto raw = R\"tag(first\r\n🌍 raw text)tag\";\r\n/* first\r\n猫 comment */\r\nint main() { return 42; }\r\n";
+        let mut doc = Document::from_text(original);
+        doc.path = Some("preview.cpp".into());
+        doc.activate_view(1);
+        let (mut engine, requests, responses) = controlled(&doc);
+        let other = doc.text.byte_to_char(original.find("int main").unwrap());
+        doc.set_selections(vec![Selection::caret(0), Selection::caret(other)]);
+        let selections = doc.selections();
+        let id = doc.id;
+        for _ in 0..32 {
+            doc.insert("e\u{301}🙂", false);
+            engine.poll(&[&doc]);
+            assert_token(&engine, &doc, "🌍 raw text", "string");
+            assert_token(&engine, &doc, "猫 comment", "comment");
+            assert_token(&engine, &doc, "return", "keyword");
+            assert!(engine.get(&doc).unwrap().style_at(0).is_none());
+        }
+        let pending = requests.try_recv().unwrap();
+        assert_eq!(pending.cancel.load(Ordering::Relaxed), 1);
+        assert!(requests.try_recv().is_err()); // canceled request still owns its slot
+        for _ in 0..32 {
+            doc.undo();
+            engine.poll(&[&doc]);
+            assert_token(&engine, &doc, "🌍 raw text", "string");
+            assert_token(&engine, &doc, "猫 comment", "comment");
+        }
+        assert_eq!(doc.id, id);
+        assert_eq!(doc.text.to_string(), original);
+        assert_eq!(doc.selections(), selections);
+        for _ in 0..32 {
+            doc.redo();
+            engine.poll(&[&doc]);
+            assert_token(&engine, &doc, "return", "keyword");
+        }
+        // Late pre-edit success cannot overwrite the mapped current geometry.
+        responses
+            .send(Response::Finished {
+                key: pending.key,
+                result: Ok(Vec::new()),
+            })
+            .unwrap();
+        engine.poll(&[&doc]);
+        assert_token(&engine, &doc, "🌍 raw text", "string");
+        assert!(!engine.get(&doc).unwrap().complete);
+        for _ in 0..32 {
+            doc.undo();
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("saved.cpp");
+        doc.save_to(&path, false).unwrap();
+        assert_eq!(std::fs::read(path).unwrap(), original.as_bytes());
+    }
+    #[test]
+    fn mapping_drops_replaced_bytes_and_rejects_history_or_piece_budget_gaps() {
+        let mut doc = Document::from_text("fn main() { let 猫 = \"🙂\"; return; }\r\n");
+        doc.path = Some("mapping.rs".into());
+        let (mut engine, _requests, _responses) = controlled(&doc);
+        let start = doc.text.to_string().find("猫").unwrap();
+        let position = doc.text.byte_to_char(start);
+        doc.apply_changes(vec![(position..position + 1, "🌍long".into())]);
+        engine.poll(&[&doc]);
+        for byte in start..start + "🌍long".len() {
+            assert!(engine.get(&doc).unwrap().style_at(byte).is_none());
+        }
+        assert_token(&engine, &doc, "return", "keyword");
+        let before = doc.text_epoch();
+        for _ in 0..257 {
+            doc.insert("x", false);
+        }
+        assert!(doc.byte_changes_since(before).is_none());
+        engine.poll(&[&doc]);
+        assert!(engine.get(&doc).is_none()); // bounded history loss refuses stale coordinates
+        let mut mapping = Mapping::new(2_000);
+        for at in (1..=511).rev() {
+            assert!(mapping.apply(&ByteChange {
+                range: at * 2..at * 2,
+                added: 1
+            }));
+        }
+        assert!(!mapping.apply(&ByteChange {
+            range: 1..1,
+            added: 1
+        }));
+        assert!(!mapping.apply(&ByteChange {
+            range: 0..usize::MAX,
+            added: 1
+        }));
+    }
+    #[test]
+    fn journal_mapping_keeps_exact_source_bytes_through_transactions_and_reload() {
+        let original = "// 猫🙂 e\u{301}\r\nfn alpha() { let 世界 = \"🌍\"; }\r\nfn beta() {}\r\n";
+        let mut doc = Document::from_text(original);
+        let mut mapping = Mapping::new(original.len());
+        let mut epoch = doc.text_epoch();
+        for step in 0..7 {
+            match step {
+                0 => doc.apply_changes(vec![(3..5, "changed🙂".into()), (20..24, "x\r\ny".into())]),
+                1 => doc.insert("prefix猫\r\n", false),
+                2 | 3 => doc.undo(),
+                4 | 5 => doc.redo(),
+                _ => doc.reload_content(Rope::from_str(&format!("new\r\n{}tail🙂", doc.text))),
+            }
+            for change in doc.byte_changes_since(epoch).unwrap() {
+                assert!(mapping.apply(change));
+            }
+            epoch = doc.text_epoch();
+            let current = doc.text.to_string();
+            assert_eq!(mapping.length, current.len());
+            for piece in &mapping.pieces {
+                assert_eq!(
+                    &current[piece.start..piece.end],
+                    &original[piece.source..piece.source + piece.end - piece.start]
+                );
+                assert_eq!(mapping.source_byte(piece.start), Some(piece.source));
+                assert_eq!(
+                    mapping.source_byte(piece.end - 1),
+                    Some(piece.source + piece.end - piece.start - 1)
+                );
+            }
+        }
+    }
+    #[test]
+    fn parse_failures_retain_preview_retry_boundedly_and_never_cache_blank_success() {
+        let mut doc = Document::from_text("/* first\n🌍 comment */\nint main() { return 42; }");
+        doc.path = Some("failure.cpp".into());
+        let (mut engine, requests, responses) = controlled(&doc);
+        doc.insert(" ", false);
+        engine.poll(&[&doc]);
+        for attempt in 1..=3 {
+            let request = requests.try_recv().unwrap();
+            responses
+                .send(Response::Finished {
+                    key: request.key,
+                    result: Err("cancelled".into()),
+                })
+                .unwrap();
+            let (_, error) = engine.poll(&[&doc]);
+            assert!(error.unwrap().contains("retaining mapped colors"));
+            assert_token(&engine, &doc, "🌍 comment", "comment");
+            assert_eq!(engine.failures[&doc.id].attempts, attempt);
+            assert!(requests.try_recv().is_err());
+            engine.failures.get_mut(&doc.id).unwrap().retry = Instant::now();
+            engine.poll(&[&doc]);
+        }
+        assert!(engine.pending.is_none());
+        assert!(requests.try_recv().is_err());
+        doc.insert(" ", false);
+        engine.poll(&[&doc]);
+        assert!(requests.try_recv().is_ok()); // new revision gets a fresh bounded attempt
+    }
+    #[test]
+    fn cold_setup_has_a_separate_deadline_but_parsing_keeps_500ms_budget() {
+        let mut doc = Document::from_text("int main() { return 42; }");
+        doc.path = Some("cold.cpp".into());
+        let (mut engine, requests, responses) = controlled(&doc);
+        doc.insert(" ", false);
+        engine.poll(&[&doc]);
+        let request = requests.try_recv().unwrap();
+        engine.pending.as_mut().unwrap().started = Instant::now() - Duration::from_secs(1);
+        engine.poll(&[&doc]);
+        assert_eq!(request.cancel.load(Ordering::Relaxed), 0);
+        responses
+            .send(Response::Parsing {
+                key: request.key.clone(),
+                started: Instant::now() - Duration::from_millis(501),
+            })
+            .unwrap();
+        engine.poll(&[&doc]);
+        assert_eq!(request.cancel.load(Ordering::Relaxed), 1);
+        assert_token(&engine, &doc, "return", "keyword");
+        assert!(engine.pending.is_some());
+        let pending = engine.pending.as_mut().unwrap();
+        pending.cancel.store(0, Ordering::Relaxed);
+        pending.parsing = None;
+        pending.started = Instant::now() - Duration::from_secs(6);
+        engine.poll(&[&doc]);
+        assert_eq!(request.cancel.load(Ordering::Relaxed), 1);
+    }
+    #[test]
+    fn rendered_multiline_colors_stay_stable_while_the_worker_is_held() {
+        use crate::{app::App, keys::Profile};
+        use ratatui::{Terminal, backend::TestBackend};
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("render.cpp");
+        std::fs::write(&path, "// heading\r\nconstexpr auto value = R\"tag(first\r\nrawStableMarker)tag\";\r\n/* first\r\ncommentStableMarker */\r\n").unwrap();
+        let mut app = App::new(directory.path().into(), Profile::Linux);
+        app.open(&path).unwrap();
+        let (engine, _requests, _responses) = controlled(app.doc());
+        app.syntax = engine;
+        let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
+        let tokens = ["rawStableMarker", "commentStableMarker"];
+        let colors = [app.theme.token(1), app.theme.token(0)];
+        for cycle in 0..8 {
+            if cycle > 0 {
+                app.doc_mut().insert("e\u{301}🙂", false);
+            }
+            app.poll();
+            terminal
+                .draw(|frame| crate::ui::draw(frame, &mut app))
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            for (token, color) in tokens.iter().zip(colors) {
+                let found = (0..30)
+                    .find_map(|y| {
+                        (0..120 - token.len() as u16).find_map(|x| {
+                            token
+                                .chars()
+                                .enumerate()
+                                .all(|(i, ch)| buffer[(x + i as u16, y)].symbol() == ch.to_string())
+                                .then_some((x, y))
+                        })
+                    })
+                    .unwrap();
+                for i in 0..token.len() as u16 {
+                    assert_eq!(
+                        buffer[(found.0 + i, found.1)].fg,
+                        color,
+                        "{token}, frame {cycle}"
+                    );
+                }
+            }
+        }
+        assert!(!app.syntax.get(app.doc()).unwrap().complete);
+    }
     #[test]
     fn grammars_cover_multiline_strings_comments_unicode_and_tsx() {
         let fixtures = [
