@@ -432,6 +432,26 @@ impl Keymap {
                 Some("editorFocus && parameterHintsVisible"),
             );
         }
+        for (key, command) in [
+            ("down", "selectNextSuggestion"),
+            ("up", "selectPrevSuggestion"),
+            ("pagedown", "selectNextPageSuggestion"),
+            ("pageup", "selectPrevPageSuggestion"),
+            ("escape", "hideSuggestWidget"),
+            ("shift+escape", "hideSuggestWidget"),
+        ] {
+            map.add(key, command, Some("textInputFocus && suggestWidgetVisible"));
+        }
+        map.add(
+            "tab",
+            "acceptSelectedSuggestion",
+            Some("textInputFocus && suggestWidgetVisible && !inSnippetMode"),
+        );
+        map.add(
+            "enter",
+            "acceptSelectedSuggestion",
+            Some("textInputFocus && suggestWidgetVisible && acceptSuggestionOnEnter"),
+        );
         map.defaults = map.bindings.clone();
         map
     }
@@ -885,6 +905,44 @@ pub fn evaluate(s: &str, context: &HashMap<String, Value>) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    #[test]
+    fn suggestion_bindings_are_conditional_and_preserve_snippet_tab_on_every_profile() {
+        for profile in [Profile::Linux, Profile::Macos, Profile::Windows] {
+            let map = Keymap::new(profile);
+            let mut context = HashMap::from([
+                ("editorTextFocus".into(), json!(true)),
+                ("textInputFocus".into(), json!(true)),
+                ("suggestWidgetVisible".into(), json!(false)),
+                ("inSnippetMode".into(), json!(false)),
+                ("acceptSuggestionOnEnter".into(), json!(true)),
+            ]);
+            assert!(
+                matches!(map.resolve("tab", &context), Resolution::Command(id, _) if id == "tab")
+            );
+            context.insert("suggestWidgetVisible".into(), json!(true));
+            for (key, command) in [
+                ("tab", "acceptSelectedSuggestion"),
+                ("enter", "acceptSelectedSuggestion"),
+                ("up", "selectPrevSuggestion"),
+                ("down", "selectNextSuggestion"),
+                ("escape", "hideSuggestWidget"),
+            ] {
+                assert!(
+                    matches!(map.resolve(key, &context), Resolution::Command(id, _) if id == command)
+                );
+            }
+            context.insert("inSnippetMode".into(), json!(true));
+            context.insert("hasNextTabstop".into(), json!(true));
+            assert!(
+                matches!(map.resolve("tab", &context), Resolution::Command(id, _) if id == "jumpToNextSnippetPlaceholder")
+            );
+            context.insert("acceptSuggestionOnEnter".into(), json!(false));
+            assert!(
+                matches!(map.resolve("enter", &context), Resolution::Command(id, _) if id == "lineBreakInsert")
+            );
+        }
+    }
     #[test]
     fn key_prefilter_preserves_context_priority_and_chord_resolution() {
         // Compare against the original resolver over every shipped rule, chord
