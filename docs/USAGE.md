@@ -405,7 +405,15 @@ file. Changed selections, views, documents or input context reject stale replies
 Files outside the synchronized open buffers must be opened before retrying.
 
 Explicitly selected server commands can issue `workspace/applyEdit` while that
-command is pending. Unsolicited, expired or stale edits are rejected and acknowledged
+command is pending, and only through `documentChanges` with explicit numeric
+versions for every target. Unversioned `changes` and null-version command callbacks
+are rejected; direct selected code-action edits can still use those forms against
+their own captured snapshot. LSP has no causal command identifier on `applyEdit`:
+this boundary relies on the server attaching truthful document versions, and cannot
+prove which completed command produced a late callback. Document versions increase
+throughout a client session, including closing and reopening the same path. After an execute-command
+timeout, further commands and their callbacks are disabled until the language server
+restarts. Unsolicited, expired or stale edits are rejected and acknowledged
 to the server. Each accepted `applyEdit` is a separate transaction across its own
 targets; there is no whole-command rollback of earlier edits if a later callback
 fails. Undo remains per file. Only one action/resolve/command chain runs at once. Combined actions

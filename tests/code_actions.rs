@@ -349,3 +349,54 @@ fn real_clangd_cpp_quick_fix_is_native_undoable_and_saved_only_on_request() {
             .contains("value = 1;")
     );
 }
+
+#[test]
+fn late_callbacks_from_completed_commands_cannot_mutate_a_newer_command_snapshot() {
+    for variant in ["changes", "null", "old"] {
+        let (root, mut app) = fixture(false);
+        let title = format!("Late completed command {variant}");
+        actions(&mut app);
+        choose(&mut app, &title);
+        until(&mut app, |app| {
+            app.message == "Fixture first command completed"
+        });
+        app.doc_mut().insert("new", false);
+        let revision = app.doc().revision;
+        select_word(&mut app);
+        actions(&mut app);
+        choose(&mut app, &title);
+        until(&mut app, |app| app.message == "Fixture command rejected");
+        assert_eq!(app.doc().text.to_string(), "new\r\n", "{variant}");
+        assert_eq!(app.doc().revision, revision, "{variant}");
+        assert_eq!(
+            std::fs::read(root.path().join("main.rs")).unwrap(),
+            b"bad\r\n"
+        );
+        app.execute("undo", Value::Null);
+        assert_eq!(app.doc().text.to_string(), "bad\r\n");
+    }
+}
+
+#[test]
+fn late_versioned_command_callback_cannot_alias_a_reopened_file() {
+    let (root, mut app) = fixture(false);
+    actions(&mut app);
+    choose(&mut app, "Late completed command old");
+    until(&mut app, |app| {
+        app.message == "Fixture first command completed"
+    });
+    let old_id = app.doc().id;
+    app.execute("workbench.action.closeAllEditors", Value::Null);
+    app.poll(); // Deliver didClose before the same URI opens again.
+    let path = root.path().join("main.rs");
+    std::fs::write(&path, "new\r\n").unwrap();
+    app.open(&path).unwrap();
+    assert_ne!(app.doc().id, old_id);
+    select_word(&mut app);
+    actions(&mut app);
+    choose(&mut app, "Late completed command old");
+    until(&mut app, |app| app.message == "Fixture command rejected");
+    assert_eq!(app.doc().text.to_string(), "new\r\n");
+    assert!(!app.doc().dirty());
+    assert_eq!(std::fs::read(path).unwrap(), b"new\r\n");
+}

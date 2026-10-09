@@ -72,6 +72,8 @@ pub struct Client {
     pending: HashMap<u64, Request>,
     synced: HashMap<String, Synced>,
     next_id: u64,
+    command_channel_valid: bool,
+    next_document_version: i64,
     root_uri: String,
     pub language: String,
     pub ready: bool,
@@ -174,6 +176,8 @@ impl Client {
             pending: HashMap::new(),
             synced: HashMap::new(),
             next_id: 1,
+            command_channel_valid: true,
+            next_document_version: 1,
             root_uri,
             language,
             ready: false,
@@ -220,19 +224,20 @@ impl Client {
             open.push(uri.clone());
             match self.synced.get(&uri) {
                 None => {
-                    self.notify("textDocument/didOpen", json!({"textDocument":{"uri":uri,"languageId":lang,"version":1,"text":doc.text.to_string()}}))?;
+                    let version = self.allocate_document_version()?;
+                    self.notify("textDocument/didOpen", json!({"textDocument":{"uri":uri,"languageId":lang,"version":version,"text":doc.text.to_string()}}))?;
                     self.synced.insert(
                         uri,
                         Synced {
                             id: doc.id,
                             revision: doc.revision,
-                            version: 1,
+                            version,
                             path: path.clone(),
                         },
                     );
                 }
                 Some(old) if old.revision != doc.revision || old.id != doc.id => {
-                    let version = old.version + 1;
+                    let version = self.allocate_document_version()?;
                     self.notify("textDocument/didChange", json!({"textDocument":{"uri":uri,"version":version},"contentChanges":[{"text":doc.text.to_string()}]}))?;
                     self.synced.insert(
                         uri,
@@ -258,6 +263,16 @@ impl Client {
             self.synced.remove(&uri);
         }
         Ok(())
+    }
+    fn allocate_document_version(&mut self) -> Result<i64> {
+        // Never reuse a version after closing/reopening a URI: a delayed command
+        // callback must not match a different lifetime of the same file.
+        if self.next_document_version > i64::from(i32::MAX) {
+            bail!("Language document version limit reached; restart the language server");
+        }
+        let version = self.next_document_version;
+        self.next_document_version += 1;
+        Ok(version)
     }
     pub fn saved(&self, doc: &Document) -> Result<()> {
         if self.ready
@@ -359,20 +374,30 @@ impl Client {
             )
         })
     }
-    pub fn command_available(&self) -> bool {
-        self.pending.len() < 32
-            && !self
-                .pending
-                .values()
-                .any(|r| r.method == "workspace/executeCommand")
+    pub fn ensure_command_available(&self) -> Result<()> {
+        if !self.command_channel_valid {
+            bail!(
+                "A language server command timed out; restart the language server before running commands again"
+            );
+        }
+        if self.pending.len() >= 32 {
+            bail!("Too many pending language requests");
+        }
+        if self
+            .pending
+            .values()
+            .any(|r| r.method == "workspace/executeCommand")
+        {
+            bail!("A language server command is already running");
+        }
+        Ok(())
     }
     pub fn follow_up(&mut self, original: &Request, method: &str, params: Value) -> Result<()> {
         if self.pending.len() >= 32 {
             bail!("Too many pending language requests");
         }
-        if method == "workspace/executeCommand" && self.pending.values().any(|r| r.method == method)
-        {
-            bail!("A language server command is already running");
+        if method == "workspace/executeCommand" {
+            self.ensure_command_available()?;
         }
         let id = self.next_id;
         self.next_id += 1;
@@ -403,6 +428,10 @@ impl Client {
             .collect::<Vec<_>>()
         {
             let request = self.pending.remove(&id).unwrap();
+            if request.method == "workspace/executeCommand" {
+                // Cancellation cannot establish that all server callbacks have stopped.
+                self.command_channel_valid = false;
+            }
             self.notify("$/cancelRequest", json!({"id":id}))?;
             events.push(Event::Message(format!(
                 "Language request timed out: {}",
@@ -420,7 +449,9 @@ impl Client {
                         let request = self
                             .pending
                             .values()
-                            .find(|r| r.method == "workspace/executeCommand")
+                            .find(|r| {
+                                self.command_channel_valid && r.method == "workspace/executeCommand"
+                            })
                             .cloned();
                         events.push(Event::ApplyEdit(
                             id.clone(),
@@ -496,6 +527,87 @@ mod tests {
     use super::*;
     use crate::transport::read_message;
     use std::io::BufReader;
+    #[test]
+    fn timed_out_command_disables_new_commands_and_late_callbacks_until_restart() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("main.rs");
+        std::fs::write(&path, "bad").unwrap();
+        let mut doc = Document::open(&path).unwrap();
+        let mut client = Client::start(
+            "python3",
+            &[format!(
+                "{}/tests/fixtures/code_action_server.py",
+                env!("CARGO_MANIFEST_DIR")
+            )],
+            root.path(),
+            "rust".into(),
+        )
+        .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !client.ready {
+            client.poll().unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        client.request("textDocument/codeAction", &doc, json!({"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"context":{"diagnostics":[]}})).unwrap();
+        let original = loop {
+            let response = client
+                .poll()
+                .unwrap()
+                .into_iter()
+                .find_map(|event| match event {
+                    Event::Response(request, _) => Some(request),
+                    _ => None,
+                });
+            if let Some(request) = response {
+                break request;
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        };
+        let command = json!({"command":"fixture.action","arguments":[{"uri":file_uri(doc.path.as_ref().unwrap()).unwrap(),"version":1,"span":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}}}]});
+        client
+            .follow_up(&original, "workspace/executeCommand", command.clone())
+            .unwrap();
+        client.pending.values_mut().next().unwrap().started =
+            Instant::now() - Duration::from_secs(16);
+        assert!(client.poll().unwrap().iter().any(
+            |event| matches!(event, Event::Message(message) if message.contains("timed out"))
+        ));
+        doc.insert("new", false);
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        let mut newer = original.clone();
+        newer.revision = doc.revision;
+        let error = client
+            .follow_up(&newer, "workspace/executeCommand", command)
+            .unwrap_err();
+        assert!(error.to_string().contains("restart the language server"));
+        loop {
+            let callback = client
+                .poll()
+                .unwrap()
+                .into_iter()
+                .find_map(|event| match event {
+                    Event::ApplyEdit(id, request, _) => Some((id, request)),
+                    _ => None,
+                });
+            if let Some((id, request)) = callback {
+                assert!(
+                    request.is_none(),
+                    "Late callback must not acquire a newer snapshot"
+                );
+                client
+                    .acknowledge_edit(id, Err(anyhow::anyhow!("Timed-out command")))
+                    .unwrap();
+                break;
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(client.ensure_command_available().is_err());
+        assert_eq!(std::fs::read(path).unwrap(), b"bad");
+    }
     #[test]
     fn protocol_paths_preserve_document_identity_across_uri_roundtrips() {
         let dir = tempfile::tempdir().unwrap();

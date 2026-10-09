@@ -92,9 +92,10 @@ impl App {
             bail!("Combined edit-and-command actions are not supported; no edits were applied");
         }
         if let Some(command) = command {
-            if !self.lsp.as_ref().is_some_and(|c| c.command_available()) {
-                bail!("A language server command is already running or the request queue is full");
-            }
+            self.lsp
+                .as_ref()
+                .context("Language server disconnected")?
+                .ensure_command_available()?;
             command["command"]
                 .as_str()
                 .context("Invalid code action command")?;
@@ -140,6 +141,16 @@ impl App {
         self.code_action_current(request)?;
         if self.prompt.is_some() || self.modal.is_some() {
             bail!("Input context changed; workspace edit was rejected");
+        }
+        if request.method == "workspace/executeCommand"
+            && (edit.get("changes").is_some()
+                || edit["documentChanges"].as_array().is_none_or(|changes| {
+                    changes
+                        .iter()
+                        .any(|change| change["textDocument"]["version"].as_i64().is_none())
+                }))
+        {
+            bail!("Command workspace edits require documentChanges with explicit numeric versions");
         }
         let object = edit
             .as_object()
