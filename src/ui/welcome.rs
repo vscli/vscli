@@ -182,7 +182,10 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    use crossterm::event::{
+        Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
+        MouseEventKind,
+    };
     use ratatui::{Terminal, backend::TestBackend};
     fn click(app: &mut App, rect: Rect) {
         app.event(Event::Mouse(MouseEvent {
@@ -224,7 +227,25 @@ mod tests {
         assert!(matches!(app.modal, Some(Modal::Inspector)));
         assert_eq!(app.hidden_documents[0].id, id);
         assert_eq!(app.hidden_documents[0].text.to_string(), "dirty saved");
-        app.modal = None;
+        terminal.draw(|f| super::super::draw(f, &mut app)).unwrap();
+        assert!(
+            app.welcome_actions.is_empty(),
+            "Inspector must clear prior hitboxes"
+        );
+        let release = KeyEvent::new_with_kind(
+            KeyCode::Char('s'),
+            KeyModifiers::CONTROL,
+            KeyEventKind::Release,
+        );
+        app.event(Event::Key(release));
+        assert_eq!(app.last_key, Some(release));
+        assert_eq!(app.keyboard.sequence, "ctrl+s");
+        click(&mut app, inspector);
+        assert!(app.documents.is_empty());
+        assert_eq!(app.hidden_documents[0].id, id);
+        assert_eq!(app.hidden_documents[0].text.to_string(), "dirty saved");
+        app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
+        assert!(app.modal.is_none());
         terminal.draw(|f| super::super::draw(f, &mut app)).unwrap();
         let new = app
             .welcome_actions
