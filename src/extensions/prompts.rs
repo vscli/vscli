@@ -87,24 +87,12 @@ impl Client {
             bail!("Duplicate extension prompt ID");
         }
         let spec: PromptSpec = serde_json::from_value(params)?;
-        if spec.session != self.session || !self.packages.iter().any(|p| p.id == spec.owner) {
-            bail!("Outdated extension prompt owner/session");
-        }
-        if let Some(command) = spec.command {
-            let pending = self
-                .pending
-                .get(&command)
-                .context("Outdated extension prompt command")?;
-            if !self
-                .packages
-                .iter()
-                .any(|package| spec.command_owner.as_deref() == Some(&package.id))
-                || (pending.method != "initialize"
-                    && (pending.method != "execute" || pending.owner != spec.command_owner))
-            {
-                bail!("Invalid extension prompt command owner");
-            }
-        }
+        self.validate_native_origin(
+            spec.session,
+            &spec.owner,
+            spec.command,
+            spec.command_owner.as_deref(),
+        )?;
         if spec.items.len() > 128 || spec.kind == PromptType::InputBox && !spec.items.is_empty() {
             bail!("Invalid extension prompt item count");
         }
@@ -203,6 +191,72 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn activation_service_origins_keep_api_owner_separate_and_reject_stale_or_orphan_commands() {
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let mut second = client.packages[0].clone();
+        second.id = "test.second".into();
+        client.packages.push(second);
+        client.pending.insert(
+            2,
+            Pending {
+                owner: Some(owner.clone()),
+                method: "activate".into(),
+                started: Instant::now(),
+            },
+        );
+        assert!(
+            client
+                .validate_native_origin(client.session, "test.second", Some(2), Some(&owner))
+                .is_ok()
+        );
+        assert!(
+            client
+                .validate_native_origin(client.session, "test.second", Some(2), Some("test.second"))
+                .is_err()
+        );
+        client.pending.remove(&2);
+        assert!(
+            client
+                .validate_native_origin(client.session, "test.second", Some(2), Some(&owner))
+                .is_err()
+        );
+        assert!(
+            client
+                .validate_native_origin(client.session, &owner, None, Some(&owner))
+                .is_err()
+        );
+        client.pending.insert(
+            3,
+            Pending {
+                owner: None,
+                method: "activate".into(),
+                started: Instant::now(),
+            },
+        );
+        assert!(
+            client
+                .validate_native_origin(client.session, "test.second", Some(3), Some("test.second"))
+                .is_ok()
+        );
+        assert!(
+            client
+                .validate_native_origin(client.session + 1, &owner, Some(3), Some(&owner))
+                .is_err()
+        );
+    }
     #[test]
     fn prompt_queue_checks_ownership_bounds_deadlines_and_stale_answers() {
         let directory = tempfile::tempdir().unwrap();
