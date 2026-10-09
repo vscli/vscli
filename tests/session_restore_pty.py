@@ -75,7 +75,9 @@ exports.activate = context => context.subscriptions.push(vscode.commands.registe
     # One input batch starts Restore and immediately replaces it with the symbol picker.
     app.send(b"\x1b[18~\x14")
     wait(app, "Go to Symbol in Workspace")
-    wait(app, "Session restore cancelled")
+    # Symbol replies legitimately replace the transient cancellation status.
+    # Require a rendered result row and the still-empty editor instead.
+    wait(app, "other  [Function]  fixture")
     assert "No open editors" in app.screen.text()
     app.send(b"\x1b")
     app.send(b"\x1b[18~")
