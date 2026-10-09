@@ -7,11 +7,31 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 function frame(message) { const body = Buffer.from(JSON.stringify(message)); return Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`), body]); }
-async function harness(t) {
+async function harness(t, bundled = false) {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'vscli-provider-wire-'));
   fs.writeFileSync(path.join(folder, 'package.json'), JSON.stringify({ name: 'provider', publisher: 'test', version: '1', main: 'extension.cjs' }));
   fs.writeFileSync(path.join(folder, 'extension.cjs'), `
-    const v = require('vscode');
+    const original = require('vscode');
+    const v = ${bundled ? `((mod) => {
+      // esbuild's CommonJS-to-ESM wrapper reads __esModule, then exposes
+      // the original CommonJS value as default and copies named exports.
+      const target = Object.create(Object.getPrototypeOf(mod));
+      if (!mod.__esModule) Object.defineProperty(target, 'default', { value: mod, enumerable: true });
+      for (const key of Object.getOwnPropertyNames(mod)) {
+        if (!Object.prototype.hasOwnProperty.call(target, key)) {
+          const descriptor = Object.getOwnPropertyDescriptor(mod, key);
+          Object.defineProperty(target, key, { get: () => mod[key], enumerable: !descriptor || descriptor.enumerable });
+        }
+      }
+      const assert = require('node:assert/strict');
+      assert.equal(mod.__esModule, undefined);
+      assert.equal(Object.hasOwn(mod, '__esModule'), false);
+      assert.equal(target.default, mod);
+      assert.equal(target.languages, mod.languages);
+      assert.throws(() => target.default.notImplementedRealApi, /not implemented/);
+      assert.throws(() => target.workspace.findFiles, /not implemented/);
+      return target;
+    })(original)` : 'original'};
     exports.activate = context => {
       const registration = v.languages.registerCompletionItemProvider('cpp', {
         provideCompletionItems(document, position, token) {
@@ -88,4 +108,12 @@ test('ordered document updates cancel an awaited language callback while the hos
   send({ method: 'state', params: { ...state, generation: 2, documents: [{ ...state.documents[0], version: 4, text: 'new' }] } });
   assert.match((await receive(message => message.id === 2)).error.message, /canceled|stale/);
   send({ id: 3, method: 'ping', params: { session: 7 } }); assert.equal((await receive(message => message.id === 3)).error, undefined);
+});
+
+test('bundled CommonJS providers retain default and named API identities without enabling unsupported services', { timeout: 10000 }, async t => {
+  const { send, receive, params } = await harness(t, true);
+  send({ id: 2, method: 'provideLanguage', params });
+  const result = await receive(message => message.id === 2);
+  assert.equal(result.error, undefined);
+  assert.equal(result.result.items[0].textEdit.newText, 'replacement');
 });
