@@ -227,6 +227,8 @@ Git status currently refreshes on request and after mutations. Hunk staging, con
 
 The default configuration path is printed by `--doctor`. The file is optional. A supplied `--keybindings` path takes precedence. JSON comments and trailing commas are accepted. Settings, keybindings and task paths must resolve to regular files; directories, devices and FIFOs are rejected before opening. Symlinks to regular files remain supported. Each file has a 1 MiB read limit; oversized files are rejected without reading the remainder. A failed keybinding import preserves previously loaded rules. Configuration nesting is limited to 64 levels before parsing; deeper settings, bindings, tasks and snippet files produce a diagnostic.
 
+Each `when` expression is limited to 8 KiB, 1,024 tokens and 64 nested groups or negations. These limits apply to user and extension rules before they become active. Rejected user imports retain the working keymap; copied-profile imports report skipped invalid rules individually. This bounds parsing work and recursion; it does not add unsupported context operators.
+
 ```jsonc
 [
   // This explicit customization inserts text when the editor has focus.
