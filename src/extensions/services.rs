@@ -189,6 +189,7 @@ impl Client {
         self.mirror.mirrors.get(&document.id).is_some_and(|mirror| {
             mirror.version == version
                 && mirror.revision == document.revision
+                && mirror.text_epoch == document.text_epoch()
                 && document_uri(document).ok().as_ref() == Some(&mirror.uri)
         })
     }
