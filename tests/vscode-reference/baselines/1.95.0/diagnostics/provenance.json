@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "reference": {
+    "version": "1.95.0",
+    "commit": "912bb683695358a54ae0c670461738984cbb5b95"
+  },
+  "platforms": {
+    "linux": {
+      "schema": 1,
+      "observedAt": "2026-10-09T23:23:28.793Z",
+      "reference": {
+        "version": "1.95.0",
+        "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+        "platform": "linux",
+        "arch": "x64",
+        "node": "20.18.0"
+      },
+      "observerSha256": "ffa115cd47fe9656e2a8dcea1908aaf948341920e185e54d486beb10e2f436bb",
+      "traceSha256": "997b657c82c4161b2a06420be8033879b9cb8977b3626260a70db471bcd95b94",
+      "observations": 26,
+      "events": 17,
+      "limitations": [
+        "Collection operations and document edit/close retention are observed in the actual pinned executable.",
+        "The optional-host comparison separately excludes document event adapters and main-thread marker mirror events."
+      ],
+      "collectionSnapshots": 21,
+      "collectionEvents": 15,
+      "projectionSha256": "19b9edc2ca5f3ef487edc7e943b7253015f4e35a32a82a2724f0bc8b65277648",
+      "capture": "Actual pinned executable under the existing supervised isolated reference harness; local Linux uses an isolated Xvfb display."
+    }
+  },
+  "limitations": [
+    "Only recorded executable platforms are included; missing platforms are not inferred.",
+    "Raw traces retain main-thread mirror bookkeeping and actual document edit/close observations.",
+    "The shared optional-host gate compares collection-local state, coalesced event URI sets and nonempty global aggregate diagnostics; global empty-resource bookkeeping and native document adapters are excluded."
+  ]
+}

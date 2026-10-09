@@ -67,7 +67,7 @@ jobs:
       - run: node --test extension-host/diagnostics.test.cjs
       - run: cargo test --locked
       - run: cargo build --locked
-      - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs
+      - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs tests/vscode-reference/diagnostics-compare.test.cjs
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: tests/vscode-reference
       - run: node --test tests/vscode-reference/language-readiness.test.cjs
@@ -79,6 +79,8 @@ jobs:
         run: node tests/vscode-reference/run.cjs target/vscode-reference/result
       - name: Compare bindings and configuration contracts
         run: node tests/vscode-reference/compare.cjs target/vscode-reference/result target/debug/vscli${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Compare diagnostic collection contracts
+        run: node tests/vscode-reference/diagnostics-compare.cjs target/vscode-reference/result
       - name: Compare native snippet sessions with the pinned editor
         run: cargo run --locked --example snippet_contract -- target/vscode-reference/result/snippets.json > target/vscode-reference/result/snippets-vscli.json
       - name: Compare snippet insertion context with the pinned editor
@@ -244,3 +246,16 @@ jobs:
         env:
           VSCLI_NPM_INTELLISENSE: ${{ github.workspace }}/target/npm-intellisense-upstream
           VSCLI_SQL_FORMATTER: ${{ github.workspace }}/target/sql-formatter-upstream
+      - name: Prepare pinned unchanged Write Good Linter
+        run: python3 tests/prepare_write_good.py
+      - name: Qualify unchanged linter diagnostics against native buffers
+        run: cargo test --locked --test write_good -- --ignored
+        env:
+          VSCLI_WRITE_GOOD: ${{ github.workspace }}/target/write-good-upstream
+      - name: Qualify unchanged linter diagnostics in the terminal
+        timeout-minutes: 2
+        run: python3 -u tests/write_good_pty.py target/debug/vscli
+        env:
+          VSCLI_WRITE_GOOD: ${{ github.workspace }}/target/write-good-upstream
+      - name: Verify unchanged linter source and dependencies after qualification
+        run: python3 tests/prepare_write_good.py --verify-only

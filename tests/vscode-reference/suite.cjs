@@ -2,10 +2,12 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const vscode = require('vscode');
 const { parse } = require('jsonc-parser');
 const { configurationTrace } = require('./contracts.cjs');
 const { snippetTrace } = require('./snippets.cjs');
+const { diagnosticTrace } = require('./diagnostics.cjs');
 
 async function run() {
   assert.equal(vscode.version, '1.95.0', 'Reference version must remain pinned');
@@ -53,6 +55,17 @@ async function run() {
   fs.writeFileSync(path.join(output, 'snippet-insertion.json'), JSON.stringify(insertion, null, 2) + '\n');
   const variables = await snippetTrace(vscode, require('./snippet-variable-cases.json'));
   fs.writeFileSync(path.join(output, 'snippet-variables.json'), JSON.stringify(variables, null, 2) + '\n');
+  const diagnostics = await diagnosticTrace(vscode);
+  fs.writeFileSync(path.join(output, 'diagnostics.json'), JSON.stringify(diagnostics, null, 2) + '\n');
+  fs.writeFileSync(path.join(output, 'diagnostics-provenance.json'), JSON.stringify({
+    schema: 1, observedAt: new Date().toISOString(), reference: { version: vscode.version,
+      commit: product.commit, platform: process.platform, arch: process.arch, node: process.versions.node },
+    observerSha256: createHash('sha256').update(fs.readFileSync(require.resolve('./diagnostics.cjs'))).digest('hex'),
+    traceSha256: createHash('sha256').update(fs.readFileSync(path.join(output, 'diagnostics.json'))).digest('hex'),
+    observations: diagnostics.snapshots.length, events: diagnostics.events.length,
+    limitations: ['Collection operations and document edit/close retention are observed in the actual pinned executable.',
+      'The optional-host comparison separately excludes document event adapters and main-thread marker mirror events.'],
+  }, null, 2) + '\n');
   console.log(`Exported ${bindings.length} default rules, ${trace.length} configuration observations and ${snippets.length} snippet session traces and ${insertion.length} insertion traces and ${variables.length} variable/cancellation traces`);
 }
 

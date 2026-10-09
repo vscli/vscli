@@ -1,0 +1,6881 @@
+{
+  "schema": 1,
+  "snapshots": [
+    {
+      "name": "empty",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": false,
+        "entries": []
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": []
+      },
+      "aggregate": []
+    },
+    {
+      "name": "missing-read-array",
+      "arrayFrozen": false,
+      "arrayPush": {
+        "result": 1
+      },
+      "nextRead": [],
+      "has": false
+    },
+    {
+      "name": "single-set-rich-metadata",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "猫🙂 rich",
+            "severity": 0,
+            "source": "native-reference",
+            "code": {
+              "value": "E001",
+              "target": "https://example.invalid/E001"
+            },
+            "tags": [
+              1,
+              2
+            ],
+            "relatedInformation": [
+              {
+                "location": {
+                  "uri": "b.cpp",
+                  "range": {
+                    "start": {
+                      "line": 1,
+                      "character": 0
+                    },
+                    "end": {
+                      "line": 1,
+                      "character": 2
+                    }
+                  }
+                },
+                "message": "related 猫"
+              }
+            ]
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "warning",
+            "severity": 1,
+            "source": {
+              "undefined": true
+            },
+            "code": 7,
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [],
+        "hasA": true,
+        "hasB": false,
+        "entries": [
+          [
+            "a.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "猫🙂 rich",
+                "severity": 0,
+                "source": "native-reference",
+                "code": {
+                  "value": "E001",
+                  "target": "https://example.invalid/E001"
+                },
+                "tags": [
+                  1,
+                  2
+                ],
+                "relatedInformation": [
+                  {
+                    "location": {
+                      "uri": "b.cpp",
+                      "range": {
+                        "start": {
+                          "line": 1,
+                          "character": 0
+                        },
+                        "end": {
+                          "line": 1,
+                          "character": 2
+                        }
+                      }
+                    },
+                    "message": "related 猫"
+                  }
+                ]
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "warning",
+                "severity": 1,
+                "source": {
+                  "undefined": true
+                },
+                "code": 7,
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "猫🙂 rich",
+              "severity": 0,
+              "source": "native-reference",
+              "code": {
+                "value": "E001",
+                "target": "https://example.invalid/E001"
+              },
+              "tags": [
+                1,
+                2
+              ],
+              "relatedInformation": [
+                {
+                  "location": {
+                    "uri": "b.cpp",
+                    "range": {
+                      "start": {
+                        "line": 1,
+                        "character": 0
+                      },
+                      "end": {
+                        "line": 1,
+                        "character": 2
+                      }
+                    }
+                  },
+                  "message": "related 猫"
+                }
+              ]
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "warning",
+              "severity": 1,
+              "source": {
+                "undefined": true
+              },
+              "code": 7,
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "immutable-read-attempts",
+      "arrayFrozen": true,
+      "diagnosticFrozen": false,
+      "diagnosticIdentity": true,
+      "arrayPush": {
+        "error": {
+          "name": "TypeError",
+          "message": "Cannot add property 2, object is not extensible"
+        }
+      },
+      "arrayElementAssignment": {
+        "error": {
+          "name": "TypeError",
+          "message": "Cannot assign to read only property '0' of object '[object Array]'"
+        }
+      },
+      "read": [
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "猫🙂 rich",
+          "severity": 0,
+          "source": "native-reference",
+          "code": {
+            "value": "E001",
+            "target": "https://example.invalid/E001"
+          },
+          "tags": [
+            1,
+            2
+          ],
+          "relatedInformation": [
+            {
+              "location": {
+                "uri": "b.cpp",
+                "range": {
+                  "start": {
+                    "line": 1,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 1,
+                    "character": 2
+                  }
+                }
+              },
+              "message": "related 猫"
+            }
+          ]
+        },
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "warning",
+          "severity": 1,
+          "source": {
+            "undefined": true
+          },
+          "code": 7,
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "held-input-and-read",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "replacement",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input array",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input second",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "hasA": true,
+        "hasB": true,
+        "entries": [
+          [
+            "a.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "replacement",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ],
+          [
+            "b.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input array",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input second",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "replacement",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "held-read-after-replacement",
+      "held": [
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "mutated original diagnostic",
+          "severity": 0,
+          "source": "native-reference",
+          "code": {
+            "value": "E001",
+            "target": "https://example.invalid/E001"
+          },
+          "tags": [
+            1,
+            2
+          ],
+          "relatedInformation": [
+            {
+              "location": {
+                "uri": "b.cpp",
+                "range": {
+                  "start": {
+                    "line": 1,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 1,
+                    "character": 2
+                  }
+                }
+              },
+              "message": "related 猫"
+            }
+          ]
+        },
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "warning",
+          "severity": 1,
+          "source": {
+            "undefined": true
+          },
+          "code": 7,
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        }
+      ],
+      "read": [
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "replacement",
+          "severity": 0,
+          "source": {
+            "undefined": true
+          },
+          "code": {
+            "undefined": true
+          },
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        }
+      ],
+      "input": [
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "input array",
+          "severity": 0,
+          "source": {
+            "undefined": true
+          },
+          "code": {
+            "undefined": true
+          },
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        },
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "input second",
+          "severity": 0,
+          "source": {
+            "undefined": true
+          },
+          "code": {
+            "undefined": true
+          },
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        },
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "input post-set",
+          "severity": 0,
+          "source": {
+            "undefined": true
+          },
+          "code": {
+            "undefined": true
+          },
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        }
+      ],
+      "collectionInput": [
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "input array",
+          "severity": 0,
+          "source": {
+            "undefined": true
+          },
+          "code": {
+            "undefined": true
+          },
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        },
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "input second",
+          "severity": 0,
+          "source": {
+            "undefined": true
+          },
+          "code": {
+            "undefined": true
+          },
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "two-collection-aggregation",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "replacement",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input array",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input second",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "hasA": true,
+        "hasB": true,
+        "entries": [
+          [
+            "a.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "replacement",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ],
+          [
+            "b.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input array",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input second",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "replacement",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "bulk-duplicates-merge",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "bulk first",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "bulk second",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input array",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input second",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "hasA": true,
+        "hasB": true,
+        "entries": [
+          [
+            "a.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "bulk first",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "bulk second",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ],
+          [
+            "b.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input array",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input second",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "bulk first",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "bulk second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "bulk-undefined-resets-only-preceding",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "survive",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "also survive",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input array",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input second",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "hasA": true,
+        "hasB": true,
+        "entries": [
+          [
+            "a.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "survive",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "also survive",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ],
+          [
+            "b.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input array",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input second",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "survive",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "also survive",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "bulk-final-undefined",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input array",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "input second",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "hasA": true,
+        "hasB": true,
+        "entries": [
+          [
+            "a.cpp",
+            []
+          ],
+          [
+            "b.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input array",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              },
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "input second",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "bulk-empty-nonfinal-group",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "b final",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "hasA": false,
+        "hasB": true,
+        "entries": [
+          [
+            "b.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "b final",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "b final",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "bulk-empty-final-group",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "a before final",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [],
+        "hasA": true,
+        "hasB": true,
+        "entries": [
+          [
+            "b.cpp",
+            []
+          ],
+          [
+            "a.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "a before final",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "a before final",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          []
+        ]
+      ]
+    },
+    {
+      "name": "empty-array-membership",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": true,
+        "hasB": true,
+        "entries": [
+          [
+            "b.cpp",
+            []
+          ],
+          [
+            "a.cpp",
+            []
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          []
+        ]
+      ]
+    },
+    {
+      "name": "delete-and-absent-delete",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": true,
+        "entries": [
+          [
+            "b.cpp",
+            []
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          []
+        ]
+      ]
+    },
+    {
+      "name": "set-undefined-single",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": true,
+        "entries": [
+          [
+            "b.cpp",
+            []
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": []
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          []
+        ]
+      ]
+    },
+    {
+      "name": "forEach-iterator",
+      "forEach": [
+        {
+          "uri": "b.cpp",
+          "values": [],
+          "receiver": true,
+          "collectionIdentity": true,
+          "arrayFrozen": true
+        }
+      ],
+      "iterator": [
+        {
+          "uri": "b.cpp",
+          "values": [],
+          "arrayFrozen": true
+        }
+      ]
+    },
+    {
+      "name": "same-turn-coalesced-burst",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "burst two",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "burst b",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "hasA": true,
+        "hasB": true,
+        "entries": [
+          [
+            "b.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "burst b",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ],
+          [
+            "a.cpp",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "burst two",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "burst owner b",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ]
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst two",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "set-undefined-all",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": false,
+        "entries": []
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "burst owner b",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ]
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "clear",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": false,
+        "entries": []
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "burst owner b",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ]
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "document-set-before-edit",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": false,
+        "entries": [
+          [
+            "open-document",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "document diagnostic",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "burst owner b",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ]
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "open-document",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "document diagnostic",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "document-edit-retention",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": false,
+        "entries": [
+          [
+            "open-document",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "document diagnostic",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "burst owner b",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ]
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "open-document",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "document diagnostic",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "document-edited-local-read",
+      "version": 2,
+      "text": "PREFIXα🙂\r\n猫\r\n",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "document diagnostic",
+          "severity": 0,
+          "source": {
+            "undefined": true
+          },
+          "code": {
+            "undefined": true
+          },
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "document-close-retention",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": false,
+        "entries": [
+          [
+            "open-document",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "document diagnostic",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "name": "vscli-reference-one",
+        "a": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "other owner",
+            "severity": 2,
+            "source": {
+              "undefined": true
+            },
+            "code": "STR",
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          },
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "hint",
+            "severity": 3,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ],
+        "b": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 1
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "message": "burst owner b",
+            "severity": 0,
+            "source": {
+              "undefined": true
+            },
+            "code": {
+              "undefined": true
+            },
+            "tags": {
+              "undefined": true
+            },
+            "relatedInformation": {
+              "undefined": true
+            }
+          }
+        ]
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "open-document",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "document diagnostic",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "closed-document-local-read",
+      "closed": true,
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 1
+            },
+            "end": {
+              "line": 0,
+              "character": 3
+            }
+          },
+          "message": "document diagnostic",
+          "severity": 0,
+          "source": {
+            "undefined": true
+          },
+          "code": {
+            "undefined": true
+          },
+          "tags": {
+            "undefined": true
+          },
+          "relatedInformation": {
+            "undefined": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "dispose-second-collection",
+      "one": {
+        "name": "vscli-reference-one",
+        "a": [],
+        "b": [],
+        "hasA": false,
+        "hasB": false,
+        "entries": [
+          [
+            "open-document",
+            [
+              {
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 1
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 3
+                  }
+                },
+                "message": "document diagnostic",
+                "severity": 0,
+                "source": {
+                  "undefined": true
+                },
+                "code": {
+                  "undefined": true
+                },
+                "tags": {
+                  "undefined": true
+                },
+                "relatedInformation": {
+                  "undefined": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "two": {
+        "disposed": true
+      },
+      "aggregate": [
+        [
+          "a.cpp",
+          []
+        ],
+        [
+          "b.cpp",
+          []
+        ],
+        [
+          "open-document",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "document diagnostic",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "post-disposal-observations",
+      "methods": {
+        "get": {
+          "error": {
+            "name": "Error",
+            "message": "illegal state - object is disposed"
+          }
+        },
+        "has": {
+          "error": {
+            "name": "Error",
+            "message": "illegal state - object is disposed"
+          }
+        },
+        "set": {
+          "error": {
+            "name": "Error",
+            "message": "illegal state - object is disposed"
+          }
+        },
+        "clear": {
+          "error": {
+            "name": "Error",
+            "message": "illegal state - object is disposed"
+          }
+        },
+        "delete": {
+          "error": {
+            "name": "Error",
+            "message": "illegal state - object is disposed"
+          }
+        },
+        "iterate": {
+          "error": {
+            "name": "Error",
+            "message": "illegal state - object is disposed"
+          }
+        },
+        "forEach": {
+          "error": {
+            "name": "Error",
+            "message": "illegal state - object is disposed"
+          }
+        },
+        "disposeAgain": {
+          "result": {
+            "undefined": true
+          }
+        },
+        "name": {
+          "error": {
+            "name": "Error",
+            "message": "illegal state - object is disposed"
+          }
+        }
+      }
+    }
+  ],
+  "events": [
+    {
+      "phase": "single-set-rich-metadata",
+      "uris": [
+        "a.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "猫🙂 rich",
+              "severity": 0,
+              "source": "native-reference",
+              "code": {
+                "value": "E001",
+                "target": "https://example.invalid/E001"
+              },
+              "tags": [
+                1,
+                2
+              ],
+              "relatedInformation": [
+                {
+                  "location": {
+                    "uri": "b.cpp",
+                    "range": {
+                      "start": {
+                        "line": 1,
+                        "character": 0
+                      },
+                      "end": {
+                        "line": 1,
+                        "character": 2
+                      }
+                    }
+                  },
+                  "message": "related 猫"
+                }
+              ]
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "warning",
+              "severity": 1,
+              "source": {
+                "undefined": true
+              },
+              "code": 7,
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "held-input-and-read",
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "replacement",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "two-collection-aggregation",
+      "uris": [
+        "a.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "replacement",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "bulk-duplicates-merge",
+      "uris": [
+        "a.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "bulk first",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "bulk second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "bulk-undefined-resets-only-preceding",
+      "uris": [
+        "a.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "survive",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "also survive",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "bulk-final-undefined",
+      "uris": [
+        "a.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input array",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "input second",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "bulk-empty-nonfinal-group",
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "b final",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "bulk-empty-final-group",
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "a before final",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          []
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "empty-array-membership",
+      "uris": [
+        "a.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          []
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "delete-and-absent-delete",
+      "uris": [
+        "a.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          []
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "set-undefined-single",
+      "uris": [
+        "a.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          []
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "same-turn-coalesced-burst",
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst two",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "set-undefined-all",
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "clear",
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "document-set-before-edit",
+      "uris": [
+        "open-document"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "open-document",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "document diagnostic",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "document-close-retention",
+      "uris": [
+        "open-document"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "other owner",
+              "severity": 2,
+              "source": {
+                "undefined": true
+              },
+              "code": "STR",
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            },
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "hint",
+              "severity": 3,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "b.cpp",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "burst owner b",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ],
+        [
+          "open-document",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "document diagnostic",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "phase": "dispose-second-collection",
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "aggregate": [
+        [
+          "a.cpp",
+          []
+        ],
+        [
+          "b.cpp",
+          []
+        ],
+        [
+          "open-document",
+          [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 1
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "message": "document diagnostic",
+              "severity": 0,
+              "source": {
+                "undefined": true
+              },
+              "code": {
+                "undefined": true
+              },
+              "tags": {
+                "undefined": true
+              },
+              "relatedInformation": {
+                "undefined": true
+              }
+            }
+          ]
+        ]
+      ],
+      "arrayFrozen": true
+    }
+  ],
+  "retainedEventUris": [
+    {
+      "uris": [
+        "a.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "open-document"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "open-document"
+      ],
+      "arrayFrozen": true
+    },
+    {
+      "uris": [
+        "a.cpp",
+        "b.cpp"
+      ],
+      "arrayFrozen": true
+    }
+  ]
+}
