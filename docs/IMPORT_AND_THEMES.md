@@ -28,7 +28,8 @@ The selected `workbench.colorTheme` is sought in VS Code extension manifests
 under `~/.vscode/extensions` or `--vscode-extensions`. If found, its JSONC file and
 relative include chain are copied into the snapshot. They remain usable even if
 the source extension is later removed. Includes must stay inside the extension
-package. Missing, invalid or unsupported themes are reported; configuration import
+package. Absolute includes and symlink aliases are reported instead of being copied
+with broken references; relative include files retain their original bytes. Missing, invalid or unsupported themes are reported; configuration import
 can still succeed. Built-in themes shipped inside the VS Code application are not
 automatically discovered by this directory scan. Extension executable code,
 accounts, sync data and the entire VS Code profile system are not migrated.
@@ -39,7 +40,10 @@ them. Existing native files and previous imported profiles remain intact. A fail
 activation can leave an unreferenced completed snapshot; it does not intentionally
 replace existing configuration files. Power-loss durability of directory metadata
 has not been qualified. An invalid/missing active-profile target produces a notice
-and startup falls back to the native configuration directory. `--settings` and
+and startup falls back to the native configuration directory. Pointer files and
+managed imports/profile directories may not be symlinks. Activation resolves its
+destination to an absolute path and refuses destinations inside the original User
+directory; imported theme paths remain valid when the working directory changes. `--settings` and
 `--keybindings` override their respective imported files.
 
 Limits: 128 snippet files, 4096 inspected directory entries, 1 MiB per configuration
