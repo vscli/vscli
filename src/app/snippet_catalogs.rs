@@ -73,6 +73,9 @@ impl App {
             self.message = "Open a file or create a new file first".into();
             return;
         };
+        // An explicit Insert Snippet command targets the active editor, including
+        // when invoked from the palette while Explorer previously held focus.
+        self.focus = Focus::Editor;
         let user = self
             .settings_user
             .as_ref()
@@ -344,7 +347,9 @@ mod tests {
                 std::thread::sleep(std::time::Duration::from_millis(1));
             }
         };
+        app.focus = Focus::Explorer;
         app.insert_snippet(&json!({"name":"Named", "langId":"rust"}));
+        assert!(app.focus == Focus::Editor);
         poll(&mut app);
         assert_eq!(app.doc().text.to_string(), "rust-rust");
         app.execute("undo", Value::Null);
@@ -361,6 +366,18 @@ mod tests {
         app.insert_snippet(&json!({"name":"Named"}));
         poll(&mut app);
         assert!(app.message.contains("not found"));
+        assert_eq!(app.doc().text.to_string(), "original");
+        app.focus = Focus::Explorer;
+        app.insert_snippet(&json!({"langId":"rust"}));
+        poll(&mut app);
+        assert!(app.focus == Focus::Editor);
+        assert!(matches!(
+            app.prompt.as_ref().map(|p| &p.kind),
+            Some(PromptKind::Snippet)
+        ));
+        app.accept_prompt();
+        assert_eq!(app.doc().text.to_string(), "changed");
+        app.execute("undo", Value::Null);
         assert_eq!(app.doc().text.to_string(), "original");
     }
 }
