@@ -55,7 +55,7 @@ struct Change {
 #[derive(PartialEq)]
 struct CommandContext {
     workspace: PathBuf,
-    document: Option<(u64, u64, Option<PathBuf>)>,
+    document: Option<(u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
     focus: Focus,
@@ -72,7 +72,7 @@ impl CommandContext {
             workspace: app.workspace.root.clone(),
             document: app
                 .active_document()
-                .map(|doc| (doc.id, doc.revision, doc.path.clone())),
+                .map(|doc| (doc.id, doc.revision, doc.text_epoch(), doc.path.clone())),
             selections: app
                 .active_document()
                 .map_or_else(Vec::new, Document::selections),
@@ -1057,6 +1057,29 @@ mod tests {
         let message = app.message.clone();
         app.poll_extension_activation();
         assert_eq!(app.message, message);
+        assert_eq!(app.doc().text.to_string(), "unsaved 猫");
+    }
+    #[test]
+    fn deferred_dispatch_rejects_edit_undo_revision_reuse_between_native_polls() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        app.activation
+            .owners
+            .insert("a.run".into(), "test.a".into());
+        app.queue_extension_command("a.run", &None);
+        let revision = app.doc().revision;
+        let epoch = app.doc().text_epoch();
+        let selections = app.doc().selections();
+        app.doc_mut().insert("transient mutation", false);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().revision, revision);
+        assert_eq!(app.doc().selections(), selections);
+        assert!(app.doc().text_epoch() > epoch);
+        app.poll_extension_activation();
+        assert!(app.activation.pending.is_empty());
+        assert!(app.activation.waiting.is_none());
+        assert!(app.extension_host.is_none());
+        assert!(app.message.contains("Pending extension command canceled"));
         assert_eq!(app.doc().text.to_string(), "unsaved 猫");
     }
 }
