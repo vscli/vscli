@@ -293,3 +293,102 @@ fn native_extension_prompt_dismisses_parameter_hints_and_retains_shared_text() {
     assert!(!app.doc().dirty());
     assert_eq!(std::fs::read_to_string(path).unwrap(), "sum(1, 2)\r\n");
 }
+
+#[test]
+fn symbol_picker_preserves_extension_fifo_and_cancels_replaced_prompt_without_edits() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut app = fixture(directory.path());
+    let path = directory.path().join("main.cpp");
+    std::fs::write(&path, "x 😀foo\r\n").unwrap();
+    app.open(&path).unwrap();
+    app.doc_mut().insert("unsaved", false);
+    let id = app.doc().id;
+    let revision = app.doc().revision;
+    let text = app.doc().text.to_string();
+    let args = vec![
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/symbol_server.py")
+            .to_string_lossy()
+            .into_owned(),
+    ];
+    app.lsp =
+        Some(vscli::lsp::Client::start("python3", &args, directory.path(), "cpp".into()).unwrap());
+    until(&mut app, |app| {
+        app.lsp.as_ref().is_some_and(|client| client.ready)
+    });
+    app.execute("workbench.action.gotoSymbol", Value::Null);
+    until(&mut app, |app| !app.symbol_items("").is_empty());
+    // A host request queues behind a native symbol picker without executing
+    // an App command that would intentionally cancel the picker.
+    app.extension_host
+        .as_mut()
+        .unwrap()
+        .execute(
+            "prompts.queue",
+            None,
+            &app.documents,
+            app.active,
+            &app.settings,
+        )
+        .unwrap();
+    until(&mut app, |app| {
+        app.extension_host
+            .as_ref()
+            .is_some_and(|host| host.prompt().is_some())
+    });
+    assert!(matches!(
+        app.prompt.as_ref().unwrap().kind,
+        PromptKind::Symbols
+    ));
+    app.event(Event::Paste("x".repeat(1024)));
+    app.event(Event::Paste("overflow".into()));
+    assert_eq!(app.prompt.as_ref().unwrap().text.len(), 1024);
+    assert_eq!(app.message, "Symbol query exceeds 1 KiB");
+    key(&mut app, KeyCode::Esc);
+    until(&mut app, extension_prompt);
+    let old = app
+        .extension_host
+        .as_ref()
+        .unwrap()
+        .prompt()
+        .unwrap()
+        .clone();
+    assert_eq!(old.spec.title, "First");
+    // Replacing the visible extension input cancels it once; its second
+    // queued input remains behind the new native symbol picker.
+    app.execute("workbench.action.gotoSymbol", Value::Null);
+    until(&mut app, |app| !app.symbol_items("").is_empty());
+    assert!(matches!(
+        app.prompt.as_ref().unwrap().kind,
+        PromptKind::Symbols
+    ));
+    assert!(
+        !app.extension_host
+            .as_mut()
+            .unwrap()
+            .answer_prompt(old.spec.session, &old.spec.owner, &old.id, json!("late"))
+            .unwrap()
+    );
+    key(&mut app, KeyCode::Esc);
+    until(&mut app, extension_prompt);
+    assert_eq!(
+        app.extension_host
+            .as_ref()
+            .unwrap()
+            .prompt()
+            .unwrap()
+            .spec
+            .title,
+        "Second"
+    );
+    app.event(Event::Paste("done".into()));
+    key(&mut app, KeyCode::Enter);
+    until(&mut app, |app| app.message == "queue=[null,\"done\"]");
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().revision, revision);
+    assert_eq!(app.doc().text.to_string(), text);
+    assert!(app.prompt.is_none());
+    app.execute("undo", Value::Null);
+    assert_eq!(app.doc().text.to_string(), "x 😀foo\r\n");
+    assert_eq!(std::fs::read_to_string(path).unwrap(), "x 😀foo\r\n");
+}
