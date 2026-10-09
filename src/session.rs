@@ -616,7 +616,9 @@ mod tests {
     fn malformed_oversized_and_failed_publication_retain_previous_bytes() {
         let root = tempfile::tempdir().unwrap();
         let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
-        let saved = layout(&root.path().join("file.txt"));
+        let workspace = fs::canonicalize(root.path()).unwrap();
+        assert_eq!(store.workspace, workspace);
+        let saved = layout(&workspace.join("file.txt"));
         store.publish(&saved).unwrap();
         let before = fs::read(&store.path).unwrap();
         let mut bad = saved.clone();
@@ -631,10 +633,11 @@ mod tests {
                 .is_err()
         );
         assert_eq!(fs::read(&store.path).unwrap(), before);
-        assert_eq!(read(&store.path, root.path()).unwrap().layout, saved);
+        assert_eq!(read(&store.path, &workspace).unwrap().layout, saved);
+        assert!(read(&store.path, &workspace.join("different-workspace")).is_err());
         for bytes in [b"malformed".to_vec(), vec![b' '; MAX_BYTES as usize + 1]] {
             fs::write(&store.path, &bytes).unwrap();
-            assert!(read(&store.path, root.path()).is_err());
+            assert!(read(&store.path, &workspace).is_err());
             assert_eq!(fs::read(&store.path).unwrap(), bytes);
         }
     }

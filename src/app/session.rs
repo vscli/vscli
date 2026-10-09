@@ -457,6 +457,7 @@ mod tests {
         let config = root.path().join("config");
         let path = root.path().join("file.txt");
         fs::write(&path, "abcd").unwrap();
+        let path = fs::canonicalize(path).unwrap();
         seed(root.path(), &config, &path);
         fs::remove_file(&path).unwrap();
         let mut failed = configured(root.path(), &config, true);
@@ -503,8 +504,9 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let config = root.path().join("config");
         let path = root.path().join("file.txt");
-        let moved = root.path().join("moved.txt");
+        let moved = fs::canonicalize(root.path()).unwrap().join("moved.txt");
         fs::write(&path, "disk").unwrap();
+        let path = fs::canonicalize(path).unwrap();
         seed(root.path(), &config, &path);
         let mut app = configured(root.path(), &config, true);
         app.doc_mut().insert("DISCARDED SECRET", false);
@@ -747,6 +749,7 @@ exports.activate = context => context.subscriptions.push(vscode.commands.registe
         let config = root.path().join("config");
         let file = root.path().join("saved.txt");
         fs::write(&file, "preserved\r\n").unwrap();
+        let file = fs::canonicalize(file).unwrap();
         fs::write(root.path().join("other.cpp"), "x 😀foo\r\n").unwrap();
         let mut seed = App::new(root.path().into(), Profile::Linux);
         seed.configure_session(Some(&config), false).unwrap();
