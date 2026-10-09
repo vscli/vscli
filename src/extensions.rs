@@ -59,6 +59,19 @@ impl Package {
             sha256: None,
         })
     }
+    pub(crate) fn manifest(&self) -> Result<Value> {
+        let (_, manifest) = read_manifest(&self.path)?;
+        let id = format!(
+            "{}.{}",
+            manifest["publisher"].as_str().unwrap_or_default(),
+            manifest["name"].as_str().unwrap_or_default()
+        )
+        .to_ascii_lowercase();
+        if id != self.id || manifest["version"].as_str() != Some(self.version.as_str()) {
+            bail!("Selected extension snapshot identity changed");
+        }
+        Ok(manifest)
+    }
     pub fn installed(item: &crate::extension_store::Installed) -> Self {
         Self {
             id: item.id.clone(),

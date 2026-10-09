@@ -2529,6 +2529,7 @@ dependencies = [
  "clap",
  "crossterm",
  "directories",
+ "globset",
  "ignore",
  "json5",
  "libc",
