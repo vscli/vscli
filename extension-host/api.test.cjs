@@ -170,3 +170,17 @@ test('oversized edit builders reject without submitting a partial transaction', 
   assert.equal(requests, 0);
   assert.equal(runtime.api.window.activeTextEditor.document.getText(), 'b\na\n');
 });
+
+// Empty selections are commonly deleted before an insertion; they change no text.
+test('empty-range deletes do not introduce overlapping insertion edits', async () => {
+  let submitted;
+  const runtime = createApi(async (method, params) => { submitted = params.edits; return { applied: true }; }, () => {});
+  runtime.sync(initial());
+  const editor = runtime.api.window.activeTextEditor;
+  await editor.edit(builder => {
+    builder.delete(new runtime.api.Range(0, 0, 0, 0));
+    builder.insert(new runtime.api.Position(0, 0), 'prefix');
+  });
+  assert.equal(submitted.length, 1);
+  assert.equal(submitted[0].newText, 'prefix');
+});
