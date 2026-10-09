@@ -198,13 +198,14 @@ impl App {
         self.extension_services
             .contexts
             .retain(|key, _| pending.contains(key));
-        let within_budget = Context::check_budget(self).is_ok();
         for service in host
             .queued_services()
             .filter(|service| !matches!(service.operation, Operation::State(_)))
         {
             let key = (service.request.session, service.id.clone());
-            if within_budget && !self.extension_services.contexts.contains_key(&key) {
+            if !self.extension_services.contexts.contains_key(&key) {
+                // An over-budget receipt is permanently invalid too. Never
+                // rebind a queued operation after the user reduces selections.
                 let context = Context::capture(self);
                 self.extension_services.contexts.insert(key, context);
             }
@@ -847,6 +848,105 @@ exports.activate = async context => {
                 .read(&owner, crate::extension_state::Scope::Global)
                 .unwrap()["first"],
             true
+        );
+    }
+    #[test]
+    fn over_budget_queued_services_cannot_rebind_after_held_worker_and_selection_reduction() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("dirty.txt");
+        let unopened = root.path().join("unopened.txt");
+        std::fs::write(&path, "original猫\r\n").unwrap();
+        std::fs::write(&unopened, "must stay unopened").unwrap();
+        let mut dirty = Document::open_existing(&path).unwrap();
+        dirty.insert("dirty ", false);
+        dirty.secondary = vec![crate::document::Selection::caret(0); 8192];
+        let id = dirty.id;
+        let revision = dirty.revision;
+        let text = dirty.text.to_string();
+        let mut other = Document::default();
+        other.secondary = vec![crate::document::Selection::caret(0); 8191];
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.hidden_documents = vec![dirty, other];
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let prepared = crate::extensions::Client::prepare_with_hidden(
+            &[],
+            &app.hidden_documents,
+            0,
+            &app.settings,
+        )
+        .unwrap();
+        let mut host =
+            crate::extensions::Client::start_prepared("node", &extension, root.path(), prepared)
+                .unwrap();
+        let owner = host.packages[0].id.clone();
+        let session = host.session;
+        host.queue_service("nativeStateWrite",json!("held-state"),json!({"session":session,"owner":owner,"args":{"scope":"global","key":"first","remove":false,"value":true}})).unwrap();
+        host.queue_service(
+            "nativeDocumentOpen",
+            json!("queued-open"),
+            json!({"session":session,"owner":owner,"generation":1,"args":{"path":unopened}}),
+        )
+        .unwrap();
+        host.queue_service("nativeDocumentShow",json!("queued-show"),json!({"session":session,"owner":owner,"generation":1,"args":{"document":id,"version":1,"selection":null}})).unwrap();
+        // Hold the existing worker's completion deterministically: the queue
+        // must record both document contexts even before its reply can arrive.
+        let (sender, receiver) = mpsc::sync_channel(1);
+        app.extension_services.job = Some(Job {
+            service: host.service().unwrap().clone(),
+            context: None,
+            cancel: Arc::new(AtomicBool::new(false)),
+            receiver,
+        });
+        app.extension_host = Some(host);
+        assert!(Context::check_budget(&app).is_err());
+        app.poll_extension_services();
+        assert_eq!(app.extension_services.contexts.len(), 2);
+        assert!(
+            app.extension_services
+                .contexts
+                .values()
+                .all(|context| context.snapshot.is_none())
+        );
+        for doc in &mut app.hidden_documents {
+            doc.secondary.clear();
+        }
+        Context::check_budget(&app).unwrap();
+        app.poll_extension_services();
+        assert!(
+            app.extension_services
+                .contexts
+                .values()
+                .all(|context| context.snapshot.is_none())
+        );
+        assert!(app.extension_services.job.is_some());
+        sender
+            .send(Ok(Output::State(json!({"first":true}))))
+            .unwrap();
+        app.poll_extension_services();
+        // Hidden selection changes do not alter mirror generations: receipt
+        // context rejection must do the work, rather than a stale wire version.
+        for _ in 0..2 {
+            let host = app.extension_host.as_ref().unwrap();
+            host.service_valid(host.service().unwrap()).unwrap();
+            app.poll_extension_services();
+            assert!(app.extension_services.job.is_none());
+            assert!(app.documents.is_empty());
+            assert_eq!(app.hidden_documents.len(), 2);
+        }
+        assert!(app.extension_host.as_ref().unwrap().service().is_none());
+        assert!(app.extension_services.contexts.is_empty());
+        assert_eq!(app.hidden_documents[0].id, id);
+        assert_eq!(app.hidden_documents[0].revision, revision);
+        assert_eq!(app.hidden_documents[0].text.to_string(), text);
+        assert!(app.hidden_documents[0].dirty());
+        app.hidden_documents[0].undo();
+        assert_eq!(app.hidden_documents[0].id, id);
+        assert_eq!(app.hidden_documents[0].text.to_string(), "original猫\r\n");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "original猫\r\n");
+        assert_eq!(
+            std::fs::read_to_string(&unopened).unwrap(),
+            "must stay unopened"
         );
     }
     #[test]
