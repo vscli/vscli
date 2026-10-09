@@ -19,6 +19,10 @@ pub(super) struct Pending {
 
 impl App {
     pub(super) fn insert_snippet(&mut self, args: &Value) {
+        if self.active_document().is_none() {
+            self.message = "Open a file or create a new file first".into();
+            return;
+        }
         if self.snippet_pending.is_some() {
             self.message = "A snippet is waiting for the clipboard".into();
             return;

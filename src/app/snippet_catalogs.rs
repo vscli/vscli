@@ -14,20 +14,28 @@ struct Context {
     language: String,
 }
 impl Context {
-    fn capture(app: &App) -> Self {
-        Self {
-            document: app.doc().id,
-            revision: app.doc().revision,
-            pane: app.panes[app.active_pane].id,
-            selections: app.doc().selections(),
+    fn capture(app: &App) -> Option<Self> {
+        let doc = app.active_document()?;
+        let pane = app.panes.get(app.active_pane)?;
+        Some(Self {
+            document: doc.id,
+            revision: doc.revision,
+            pane: pane.id,
+            selections: doc.selections(),
             language: app.language().into(),
-        }
+        })
     }
     fn valid(&self, app: &App) -> bool {
-        self.document == app.doc().id
-            && self.revision == app.doc().revision
-            && self.pane == app.panes[app.active_pane].id
-            && self.selections == app.doc().selections()
+        let Some(doc) = app.active_document() else {
+            return false;
+        };
+        self.document == doc.id
+            && self.revision == doc.revision
+            && app
+                .panes
+                .get(app.active_pane)
+                .is_some_and(|pane| self.pane == pane.id)
+            && self.selections == doc.selections()
             && self.language == app.language()
             && app.focus == Focus::Editor
             && app.modal.is_none()
@@ -61,7 +69,10 @@ impl App {
             .and_then(Value::as_str)
             .filter(|s| !s.is_empty())
             .map(str::to_owned);
-        let context = Context::capture(self);
+        let Some(context) = Context::capture(self) else {
+            self.message = "Open a file or create a new file first".into();
+            return;
+        };
         let user = self
             .settings_user
             .as_ref()
@@ -108,6 +119,12 @@ impl App {
             self.prompt.is_none()
         };
         if !pending.context.valid(self) || !expected_prompt {
+            if matches!(
+                self.prompt.as_ref().map(|prompt| &prompt.kind),
+                Some(PromptKind::Snippet)
+            ) {
+                self.prompt = None;
+            }
             self.message =
                 "Snippet canceled because its editor context changed while loading".into();
             return true;
@@ -208,7 +225,7 @@ mod tests {
     }
     fn pending(app: &mut App, name: Option<&str>) -> mpsc::SyncSender<Catalog> {
         let (sender, receiver) = mpsc::sync_channel(1);
-        let context = Context::capture(app);
+        let context = Context::capture(app).expect("test editor");
         if name.is_none() {
             app.start_prompt(PromptKind::Snippet, String::new());
         }
@@ -220,11 +237,44 @@ mod tests {
         sender
     }
     #[test]
+    fn empty_workbench_and_closed_editor_cancel_catalog_work_without_new_documents() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        assert!(Context::capture(&app).is_none());
+        app.load_snippet_catalog(&Value::Null);
+        assert!(app.snippet_catalog.pending.is_none());
+        assert!(app.prompt.is_none());
+        app.insert_snippet(&json!({"snippet":"must not create a buffer"}));
+        assert!(app.documents.is_empty());
+        for named in [false, true] {
+            app.execute("workbench.action.files.newUntitledFile", Value::Null);
+            let sender = pending(&mut app, named.then_some("Named"));
+            app.execute("workbench.action.closeActiveEditor", Value::Null);
+            sender.send(fixture()).unwrap();
+            assert!(app.poll_snippet_catalog());
+            assert!(app.documents.is_empty());
+            assert!(app.panes.is_empty());
+            assert!(app.prompt.is_none());
+            assert!(app.snippet_catalog.context.is_none());
+            assert!(app.message.contains("context changed"));
+        }
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        pending(&mut app, None).send(fixture()).unwrap();
+        assert!(app.poll_snippet_catalog());
+        assert_eq!(app.snippet_items("").len(), 1);
+        app.execute("workbench.action.closeActiveEditor", Value::Null);
+        app.accept_prompt();
+        assert!(app.documents.is_empty());
+        assert!(app.message.contains("context changed"));
+    }
+
+    #[test]
     fn catalog_replies_and_picker_accept_require_unchanged_editor_context() {
         for named in [false, true] {
             for change in 0..7 {
                 let root = tempfile::tempdir().unwrap();
                 let mut app = App::new(root.path().into(), Profile::Linux);
+                app.execute("workbench.action.files.newUntitledFile", Value::Null);
                 app.doc_mut().insert("seed", false);
                 app.doc_mut().select_all();
                 let sender = pending(&mut app, named.then_some("Named"));
@@ -261,6 +311,7 @@ mod tests {
         }
         let root = tempfile::tempdir().unwrap();
         let mut app = App::new(root.path().into(), Profile::Linux);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
         pending(&mut app, None).send(fixture()).unwrap();
         assert!(app.poll_snippet_catalog());
         app.doc_mut().insert("new work", false);
@@ -280,7 +331,10 @@ mod tests {
         )
         .unwrap();
         let mut app = App::new(root.path().into(), Profile::Linux);
-        app.settings_user = Some(root.path().join("user/settings.json"));
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        let imported_settings = root.path().join("user/settings.json");
+        std::fs::write(&imported_settings, "{}").unwrap();
+        app.configure_settings(Some(imported_settings)).unwrap();
         app.doc_mut().insert("original", false);
         app.doc_mut().select_all();
         let poll = |app: &mut App| {
