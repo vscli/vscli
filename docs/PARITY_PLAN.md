@@ -86,7 +86,33 @@ This inventory covers feature families. A complete command/API inventory remains
 necessary to prove exact parity; ticking one family off because one demonstration
 works would hide missing behavior.
 
-## Execution order and acceptance criteria
+## User-approved implementation order
+
+The following queue follows the order approved in the project conversation.
+Finish and qualify each usable slice before advancing; independent review and
+integrity/performance work run alongside it. C++/clangd is the first real-project
+qualification, while features remain useful across languages.
+
+| Priority | Addition | Next scope |
+| --- | --- | --- |
+| 1 | Complete IntelliSense | Lazy completion resolution, linked snippet completions/import edits, documentation and better ranking |
+| 2 | Extension diagnostics and quick fixes | Owner-scoped diagnostic collections and extension code-action providers |
+| 3 | Smart typing and automatic parameter hints | Context-aware indentation, bracket/quote pairing, triggered signatures and overload navigation |
+| 4 | Navigation history and outline | Back/forward locations, outline and breadcrumbs |
+| 5 | Settings and save automation | Discoverable settings, format-on-save, autosave, indentation detection and excludes |
+| 6 | Tabs and workspace continuity | Per-group tabs, resizable groups, preview/pinned tabs and fuller restoration |
+| 7 | Word wrap and folding | Consistent display-row mapping and safe per-view folds |
+| 8 | Multi-language tooling and setup | Concurrent servers, setup guidance, restart feedback and project qualification |
+| 9 | Workspace replace with preview | Reviewed dirty/closed-file replacement, include/exclude and recovery |
+| 10 | Git hunk staging and conflicts | Inline changes, partial staging and conflict editing |
+| 11 | Build tasks and problem matchers | Dependencies and compiler-error navigation |
+| 12 | Project debugging and tests | launch.json, attach, watches, persistent breakpoints and test discovery/results |
+
+Exact shortcuts, named unchanged extension workflows, visual quality, performance,
+platform qualification and the full remaining parity objective apply throughout.
+This is an impact-based engineering judgment, not a measured popularity ranking.
+
+## Acceptance criteria by feature family
 
 ### 1. Finish everyday completion and extension diagnostics
 
