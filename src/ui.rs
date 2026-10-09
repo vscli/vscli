@@ -1309,7 +1309,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             let inner = popup(
                 frame,
                 colors,
-                " Installed Extensions · Enter run · S stop selected · H restart session · R rollback · Delete remove · / search · U updates ",
+                " Installed Extensions · e/d global · E/D workspace · Enter run once · / search · U updates ",
                 120,
                 frame.area().height.saturating_sub(2),
             );
@@ -1326,6 +1326,10 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                 })
                 .collect();
             session_lines.insert(0, Line::raw(clean(&app.message)));
+            session_lines.insert(
+                1,
+                Line::raw("S stop selected · H restart session · R rollback · Delete remove"),
+            );
             let height = (inner.height as usize).saturating_sub(session_lines.len());
             let offset = selected.saturating_sub(height.saturating_sub(1));
             let lines: Vec<_> = if items.is_empty() {
@@ -1341,10 +1345,11 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                     .map(|(index, item)| {
                         Line::styled(
                             format!(
-                                "{}@{}  {} · {}",
+                                "{}@{}  {} · {} · {}",
                                 clean(&item.id),
                                 clean(&item.version),
                                 clean(&app.extension_status(&item.id)),
+                                clean(&app.extension_activation_status(&item.id)),
                                 clean(&item.compatibility)
                             ),
                             Style::default()

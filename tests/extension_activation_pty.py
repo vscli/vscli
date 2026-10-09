@@ -123,6 +123,55 @@ exports.activate=async context=>{
     app.send(CTRL_Z); save(app, held_file, 'Noriginal🙂'); app.finish()
     print('PASS: native input/save remains responsive during held activation, deferred command is canceled, later explicit edit/undo preserves exact bytes')
 
+    picker = root / 'picker'; picker.mkdir()
+    picker_store, picker_config = picker / 'store', picker / 'config'
+    install(picker, picker_store, 'a', r"""
+const vscode=require('vscode'); exports.activate=context=>{
+ require('node:fs').writeFileSync('picker-host.pid',String(process.pid));
+ context.subscriptions.push(vscode.commands.registerCommand('activation.edit',async()=>{
+  const applied=await vscode.window.activeTextEditor.edit(edit=>edit.insert(new vscode.Position(0,0),'extension:'));
+  await vscode.window.showInformationMessage('picker edit='+applied);
+ }));
+};
+""", {'contributes': {
+        'commands': [{'command': 'activation.edit', 'title': 'Picker edit'}],
+        'keybindings': [{'key': 'f9', 'command': 'activation.edit'}],
+    }})
+    picker_file = picker / 'native.txt'; picker_file.write_bytes('original🙂\r\n'.encode())
+    original = picker_file.read_bytes()
+    app = Editor(picker, '--config-dir', picker_config, '--extensions-dir', picker_store, picker_file, enhanced=True)
+    command(app, 'Extensions: Show Installed Extensions'); wait(app, 'e/d global')
+    app.send('e'); wait(app, 'Enabled activation.a;')
+    assert 'enabled; waiting for a supported event' in app.screen.text()
+    assert not (picker / 'picker-host.pid').exists()
+    app.send('D'); wait(app, 'Disabled activation.a;')
+    workspace_files = list((picker_config / 'extension-workspaces').glob('*.json'))
+    assert len(workspace_files) == 1
+    workspace_grants = workspace_files[0]
+    assert json.loads(workspace_grants.read_text())['extensions'] == {'activation.a': False}
+    assert json.loads((picker_config / 'extensions-enabled.json').read_text())['extensions'] == {'activation.a': True}
+    app.send('E'); wait(app, 'Enabled activation.a;')
+    app.send('d'); wait(app, 'Disabled activation.a;')
+    assert json.loads((picker_config / 'extensions-enabled.json').read_text())['extensions'] == {'activation.a': False}
+    assert json.loads(workspace_grants.read_text())['extensions'] == {'activation.a': True}
+    assert 'enabled; waiting for a supported event' in app.screen.text()
+    assert not (picker / 'picker-host.pid').exists()
+    assert picker_file.read_bytes() == original
+    app.send(b'\x1b'); app.send(b'\x1b[20~'); wait(app, 'picker edit=true')
+    leader = int((picker / 'picker-host.pid').read_text())
+    save(app, picker_file, 'extension:original🙂\r\n')
+    app.send(CTRL_Z); save(app, picker_file, 'original🙂\r\n')
+    command(app, 'Extensions: Show Installed Extensions'); wait(app, 'e/d global')
+    app.send('D'); wait(app, 'Disabled activation.a;')
+    eventually(lambda: app.read() and not alive(leader))
+    app.send(b'\x1b'); app.send('N'); save(app, picker_file, 'Noriginal🙂\r\n')
+    app.finish()
+    app = Editor(picker, '--config-dir', picker_config, '--extensions-dir', picker_store, picker_file, enhanced=True)
+    command(app, 'Extensions: Show Installed Extensions'); wait(app, 'e/d global')
+    assert 'disabled' in app.screen.text()
+    app.send(b'\x1b'); save(app, picker_file, 'Noriginal🙂\r\n'); app.finish()
+    print('PASS: installed picker global/workspace enable-disable keys, effective overrides, lazy original F9, native CRLF Unicode save/undo, disable cleanup and remembered restart')
+
 
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='vscli-activation-pty-') as directory:
