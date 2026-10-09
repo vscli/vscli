@@ -395,6 +395,8 @@ pub fn compatibility(manifest: &Value) -> String {
         "Experimental command host; APIs and engine compatibility unverified".into()
     } else if manifest["contributes"]["themes"].is_array() {
         "Declarative theme; no Node activation required".into()
+    } else if manifest["contributes"]["snippets"].is_array() {
+        "Declarative snippets; no Node activation required".into()
     } else if manifest.get("browser").is_some() {
         "Browser extension runtime unavailable; installed only".into()
     } else {
