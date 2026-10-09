@@ -503,6 +503,27 @@ impl Keymap {
         self.rebuild();
         Ok(count)
     }
+    pub fn set_extension_binding_sets(
+        &mut self,
+        mut sets: Vec<(String, Value)>,
+    ) -> Result<Vec<String>> {
+        sets.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut combined = Vec::new();
+        let mut errors = Vec::new();
+        for (owner, value) in sets {
+            let mut parsed = Self::new(self.profile);
+            match parsed.set_extension_bindings(value) {
+                Ok(_) => combined.extend(parsed.extensions),
+                Err(error) => errors.push(format!("{owner}: {error:#}")),
+            }
+            if combined.len() > 1024 {
+                bail!("Extension session keybinding limit exceeded");
+            }
+        }
+        self.extensions = combined;
+        self.rebuild();
+        Ok(errors)
+    }
     pub fn clear_extension_bindings(&mut self) {
         self.extensions.clear();
         self.rebuild();
@@ -1148,5 +1169,56 @@ mod tests {
             "ctrl+shift+p"
         );
         assert_eq!(normalize_sequence("shift+ctrl+p"), "ctrl+shift+p");
+    }
+    #[test]
+    fn multiple_extension_bindings_have_stable_precedence_and_independent_validation() {
+        let mut map = Keymap::new(Profile::Linux);
+        let context = HashMap::from([("editorTextFocus".into(), Value::Bool(true))]);
+        let binding = |command| serde_json::json!([{ "key": "f9", "mac":"cmd+alt+s", "command": command, "when": "editorTextFocus" }]);
+        let errors = map
+            .set_extension_binding_sets(vec![
+                ("test.z".into(), binding("z.run")),
+                (
+                    "test.invalid".into(),
+                    serde_json::json!([{ "key":"", "command":"broken" }]),
+                ),
+                ("test.a".into(), binding("a.run")),
+            ])
+            .unwrap();
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("test.invalid"));
+        assert_eq!(
+            map.resolve("f9", &context),
+            Resolution::Command("z.run".into(), None)
+        );
+        map.set_extension_binding_sets(vec![("test.a".into(), binding("a.run"))])
+            .unwrap();
+        assert_eq!(
+            map.resolve("f9", &context),
+            Resolution::Command("a.run".into(), None)
+        );
+        let directory = tempfile::tempdir().unwrap();
+        let user = directory.path().join("keybindings.json");
+        std::fs::write(&user, r#"[{"key":"f9","command":"-z.run"}]"#).unwrap();
+        map.load(&user).unwrap();
+        map.set_extension_binding_sets(vec![
+            ("test.z".into(), binding("z.run")),
+            ("test.a".into(), binding("a.run")),
+        ])
+        .unwrap();
+        assert_eq!(
+            map.resolve("f9", &context),
+            Resolution::Command("a.run".into(), None)
+        );
+        let mut mac = Keymap::new(Profile::Macos);
+        mac.set_extension_binding_sets(vec![
+            ("test.a".into(), binding("a.run")),
+            ("test.z".into(), binding("z.run")),
+        ])
+        .unwrap();
+        assert_eq!(
+            mac.resolve("cmd+alt+s", &context),
+            Resolution::Command("z.run".into(), None)
+        );
     }
 }

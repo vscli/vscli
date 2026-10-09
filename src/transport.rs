@@ -126,8 +126,8 @@ impl Process {
     pub fn send(&self, message: Value) -> Result<()> {
         let bytes = serde_json::to_vec(&message)?;
         let size = bytes.len();
-        if size > MAX_QUEUED_BYTES {
-            bail!("Protocol message exceeds output limit");
+        if size > MAX_MESSAGE {
+            bail!("Protocol message exceeds 16 MiB output limit");
         }
         let mut current = self.queued_bytes.load(Ordering::Relaxed);
         loop {

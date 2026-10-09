@@ -1,9 +1,17 @@
 use super::*;
 impl App {
     pub(super) fn poll_extensions(&mut self) -> bool {
+        // Publish readiness only after the accepted-start worker releases its
+        // operation slot. Otherwise a ready UI can reject the very next action.
+        if self.extension_job.as_ref().is_some_and(|job| job.startup()) {
+            return false;
+        }
         let Some(mut host) = self.extension_host.take() else {
             return false;
         };
+        if self.extension_packages.is_empty() {
+            self.extension_packages = host.packages.clone();
+        }
         let before: Vec<_> = self.documents.iter().map(|d| d.revision).collect();
         let commands = host.commands.clone();
         let busy = host.busy();
@@ -28,17 +36,30 @@ impl App {
                 for message in messages {
                     self.message = message;
                 }
-                if let Some(bindings) = host.keybindings.take()
-                    && let Err(error) = self.keymap.set_extension_bindings(bindings)
-                {
-                    self.message =
-                        format!("Extension commands ready; keybindings rejected: {error:#}");
+                // Package validation is independent; one malformed contribution
+                // cannot discard another selected package's defaults.
+                if let Some(sets) = host.binding_sets.take() {
+                    host.keybindings = None;
+                    match self.keymap.set_extension_binding_sets(sets) {
+                        Ok(errors) if !errors.is_empty() => {
+                            self.message = format!(
+                                "Extension commands ready; keybindings rejected: {}",
+                                errors.join("; ")
+                            )
+                        }
+                        Err(error) => {
+                            self.message =
+                                format!("Extension commands ready; keybindings rejected: {error:#}")
+                        }
+                        _ => {}
+                    }
                 }
                 self.extension_host = Some(host);
                 changed
             }
             Err(error) => {
                 self.keymap.clear_extension_bindings();
+                self.retire_extension_host(host);
                 self.message = format!("Extension host stopped: {error:#}");
                 true
             }

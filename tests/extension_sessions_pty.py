@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""Real Unix PTY coverage for explicitly selected, shared extension sessions."""
+import json
+import os
+import signal
+import time
+from pathlib import Path
+import subprocess
+import tempfile
+import zipfile
+from pty_smoke import BINARY, CTRL_A, CTRL_S, CTRL_Z, Editor as PtyEditor, eventually, text
+
+LIVE = []
+
+
+class Editor(PtyEditor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        LIVE.append(self)
+
+    def finish(self, *args, **kwargs):
+        super().finish(*args, **kwargs)
+        LIVE.remove(self)
+
+
+F7, F9, F10 = b"\x1b[18~", b"\x1b[20~", b"\x1b[21~"
+
+
+def archive(root, name, version="1.0.0", fail=False, hang=False):
+    prefix = name + version[0] + " "
+    manifest = {
+        "publisher": "session", "name": name, "version": version, "main": "extension.cjs",
+        "contributes": {
+            "commands": [{"command": f"session.{name}.{command}", "title": f"Session {name} {command}"}
+                         for command in ("insert", "observe", "stale", "crash")],
+            "keybindings": [
+                {"key": "f9", "command": f"session.{name}.insert", "when": "editorTextFocus"},
+                {"key": "f7", "command": f"session.{name}.stale", "when": "editorTextFocus"},
+                {"key": "f10", "command": f"session.{name}.crash", "when": "editorTextFocus"},
+            ],
+        },
+    }
+    source = f"""
+const vscode = require('vscode');
+exports.activate = context => {{
+  require('node:fs').writeFileSync(require('node:path').join(vscode.workspace.rootPath, '{name}.pid'), String(process.pid));
+  const register = (suffix, call) => context.subscriptions.push(vscode.commands.registerCommand('session.{name}.' + suffix, call));
+  register('insert', async () => {{
+    const editor = vscode.window.activeTextEditor;
+    const applied = await editor.edit(edit => edit.insert(new vscode.Position(0, 0), '{prefix}'));
+    await vscode.window.showInformationMessage('{name} inserted=' + applied + ';v' + editor.document.version);
+  }});
+  register('observe', () => vscode.window.showInformationMessage('{name} sees=' + vscode.window.activeTextEditor.document.getText()));
+  register('stale', async () => {{
+    const applied = await vscode.window.activeTextEditor.edit(edit => edit.insert(new vscode.Position(0, 0), 'STALE'));
+    await vscode.window.showInformationMessage('{name} stale=' + applied);
+  }});
+  register('crash', () => process.exit(7));
+  {"throw new Error('deliberate session failure');" if fail else "return new Promise(() => {});" if hang else ""}
+}};
+"""
+    result = root / f"{name}-{version}.vsix"
+    with zipfile.ZipFile(result, "w", zipfile.ZIP_DEFLATED) as writer:
+        writer.writestr("extension/package.json", json.dumps(manifest))
+        writer.writestr("extension/extension.cjs", source)
+    return result
+
+
+def manage(store, operation, value):
+    subprocess.run([BINARY, "--extensions-dir", str(store), operation, str(value)], check=True, capture_output=True)
+
+
+def wait(app, expected):
+    try:
+        eventually(lambda: app.read() and expected in app.screen.text(), timeout=8)
+    except AssertionError as error:
+        raise AssertionError(f"Waiting for {expected!r}:\n{app.screen.text()}") from error
+
+
+def command(app, query):
+    app.send(b"\x1bOP")
+    app.send(query + "\r")
+
+
+def picker(app):
+    app.send(b"\x1b[120;6u")
+    wait(app, "Installed Extensions")
+
+
+def activate(app, down=0, count=4):
+    picker(app)
+    if down:
+        app.send(b"\x1b[B" * down)
+    app.send(b"\r")
+    wait(app, "Run installed extension?")
+    app.send(b"\r")
+    wait(app, f"({count} commands)")
+
+
+def save(app, file, expected):
+    app.send(CTRL_S)
+    eventually(lambda: app.read() and text(file) == expected)
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def run():
+    with tempfile.TemporaryDirectory(prefix="vscli-session-pty-") as directory:
+        root = Path(directory)
+        store = root / "extensions"
+        a, z = archive(root, "a"), archive(root, "z")
+        manage(store, "--install-extension", a)
+        manage(store, "--install-extension", z)
+        file = root / "shared.txt"
+        file.write_text("original")
+        app = Editor(root, "--extensions-dir", store, file, enhanced=True)
+        activate(app)
+        activate(app, down=1, count=8)
+        picker(app)
+        wait(app, "Session: session.a@1.0.0 · running 1.0.0")
+        wait(app, "Session: session.z@1.0.0 · running 1.0.0")
+        app.send(b"\x1b")
+        app.send(F9)
+        wait(app, "z inserted=true")
+        save(app, file, "z1 original")
+        command(app, "Session a observe")
+        wait(app, "a sees=z1 original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+        # One input batch executes against the old mirror, then makes a native edit.
+        app.send(F7 + b"!")
+        wait(app, "z stale=false")
+        save(app, file, "!original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+
+        manage(store, "--install-extension", archive(root, "a", "2.0.0"))
+        picker(app)
+        wait(app, "session.a@2.0.0  running 1.0.0")
+        app.send(b"h")
+        wait(app, "(8 commands)")
+        command(app, "Session a insert")
+        wait(app, "a inserted=true")
+        save(app, file, "a1 original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+        activate(app, count=8)  # Explicitly replaces only A's selected generation.
+        command(app, "Session a insert")
+        wait(app, "a inserted=true")
+        save(app, file, "a2 original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+        manage(store, "--rollback-extension", "session.a")
+        command(app, "Extensions: Restart Selected Session")
+        wait(app, "(8 commands)")
+        command(app, "Session a insert")
+        wait(app, "a inserted=true")
+        save(app, file, "a2 original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+
+        manage(store, "--uninstall-extension", "session.z")
+        picker(app)
+        wait(app, "Session: session.z@1.0.0 · running 1.0.0")
+        app.send(b"\x1b")
+        command(app, "Extensions: Stop Selected Package")
+        wait(app, "Stop Selected Extension ID")
+        app.send("session.z\r")
+        wait(app, "(4 commands)")
+        app.send(F9)
+        wait(app, "a inserted=true")
+        save(app, file, "a2 original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+        app.send(F10 + b"!")
+        wait(app, "Extension host stopped")
+        save(app, file, "!original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+        command(app, "Extensions: Restart Selected Session")
+        wait(app, "(4 commands)")
+        child = int((root / "a.pid").read_text())
+        app.finish()
+        eventually(lambda: not alive(child))
+        print("PASS: two installed packages, shared edits/undo/stale rejection, stable precedence, immutable upgrade/rollback snapshots, stop-selected and crash/restart")
+
+        # Repeated CLI selectors start the same bounded shared cohort.
+        manage(store, "--install-extension", z)
+        app = Editor(root, "--extensions-dir", store, "--extension", "session.z", "--extension", "session.a", file, enhanced=True)
+        wait(app, "(8 commands)")
+        app.send(F9)
+        wait(app, "z inserted=true")
+        save(app, file, "z1 original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+        manage(store, "--install-extension", archive(root, "failure", fail=True))
+        picker(app)
+        app.send(b"\x1b[B\r")  # Sorted installed IDs: a, failure, z.
+        wait(app, "Run installed extension?")
+        app.send(b"\r")
+        wait(app, "deliberate session failure")
+        child = int((root / "failure.pid").read_text())
+        eventually(lambda: not alive(child))
+        app.send(b"?")
+        save(app, file, "?original")
+        app.send(CTRL_Z)
+        save(app, file, "original")
+        app.finish()
+        print("PASS: repeatable CLI selectors and activation failure preserve responsive native editing")
+
+        app = Editor(root, "--extensions-dir", store, "--extension", "session.a", "--extension-node", root / "missing-node", file, enhanced=True)
+        wait(app, "Cannot start")
+        app.send(b"native ")
+        save(app, file, "native original")
+        app.finish()
+        print("PASS: missing optional Node leaves native edit/save usable")
+
+        manage(store, "--install-extension", archive(root, "hang", hang=True))
+        journal = root / "signal-recovery"
+        app = Editor(root, "--extensions-dir", store, "--extension", "session.hang", "--recovery-dir", journal, file, recovery=True, enhanced=True)
+        eventually(lambda: app.read() and (root / "hang.pid").exists())
+        child = int((root / "hang.pid").read_text())
+        app.send(CTRL_A)
+        app.paste("latest unsaved during activation")
+        wait(app, "latest unsaved during activation")
+        started = time.monotonic()
+        os.kill(app.process.pid, signal.SIGTERM)
+        eventually(lambda: app.read() and app.process.poll() is not None, timeout=3)
+        assert time.monotonic() - started < 3
+        assert app.process.returncode != 0 and app.process.restored
+        app.close_fds()
+        LIVE.remove(app)
+        eventually(lambda: not alive(child))
+        snapshots = [json.loads(path.read_text()) for path in journal.glob("*.json")]
+        assert len(snapshots) == 1
+        assert snapshots[0]["documents"][0]["text"] == "latest unsaved during activation"
+        assert text(file) == "native original"
+        print("PASS: SIGTERM during pending activation reaps Node, preserves latest recovery text and restores the terminal")
+
+
+if __name__ == "__main__":
+    try:
+        run()
+    finally:
+        for app in LIVE:
+            if app.process.poll() is None:
+                app.process.kill()
+                app.process.wait(timeout=3)
+            app.close_fds()

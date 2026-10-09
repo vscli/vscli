@@ -409,3 +409,147 @@ fn duplicate_packages_and_cumulative_contributions_reject_before_start() {
     app.doc_mut().insert("still native", false);
     assert_eq!(app.doc().text.to_string(), "still native");
 }
+
+#[test]
+fn simultaneous_packages_edits_accept_one_version_and_preserve_undo() {
+    let directory = tempfile::tempdir().unwrap();
+    let source = |name: &str| {
+        format!(
+            r#"
+      const vscode = require('vscode'), fs = require('node:fs'), path = require('node:path');
+      exports.activate = context => context.subscriptions.push(vscode.commands.registerCommand('race.{name}', async () => {{
+        const edit = vscode.window.activeTextEditor.edit(builder => builder.insert(new vscode.Position(0, 0), '{name}'));
+        fs.writeFileSync(path.join(vscode.workspace.rootPath, '{name}.submitted'), 'ready');
+        const applied = await edit;
+        fs.writeFileSync(path.join(vscode.workspace.rootPath, '{name}.result'), String(applied));
+      }}));
+    "#
+        )
+    };
+    let packages = vec![
+        package(directory.path(), "a", &source("a")),
+        package(directory.path(), "b", &source("b")),
+    ];
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
+    app.doc_mut().insert("original", false);
+    app.start_extension_packages(packages).unwrap();
+    until(&mut app, |a| {
+        a.extension_host.as_ref().is_some_and(|h| h.ready)
+    });
+    app.execute("race.a", Value::Null);
+    app.execute("race.b", Value::Null);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !["a.submitted", "b.submitted"]
+        .iter()
+        .all(|name| directory.path().join(name).exists())
+    {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    until(&mut app, |_| {
+        ["a.result", "b.result"]
+            .iter()
+            .all(|name| directory.path().join(name).exists())
+    });
+    let mut results = ["a", "b"].map(|name| {
+        std::fs::read_to_string(directory.path().join(format!("{name}.result"))).unwrap()
+    });
+    results.sort();
+    assert_eq!(results, ["false", "true"]);
+    assert!(matches!(
+        app.doc().text.to_string().as_str(),
+        "aoriginal" | "boriginal"
+    ));
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), "original");
+}
+
+#[test]
+fn activation_failure_keeps_valid_native_transaction_and_restart_is_explicit() {
+    let directory = tempfile::tempdir().unwrap();
+    let a = package(
+        directory.path(),
+        "a",
+        r#"
+      const vscode = require('vscode');
+      exports.activate = async context => {
+        context.subscriptions.push(vscode.commands.registerCommand('staged.a', () => {}));
+        await vscode.window.activeTextEditor.edit(edit => edit.insert(new vscode.Position(0, 0), 'valid '));
+      };
+    "#,
+    );
+    let b = package(
+        directory.path(),
+        "b",
+        "exports.activate = () => { throw new Error('deliberate failure'); };",
+    );
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
+    app.doc_mut().insert("original", false);
+    let id = app.doc().id;
+    app.start_extension_packages(vec![a, b]).unwrap();
+    until(&mut app, |a| a.message.contains("deliberate failure"));
+    assert!(app.extension_host.is_none());
+    assert!(app.palette_items("staged.a").is_empty());
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().text.to_string(), "valid original");
+    assert!(app.doc().dirty());
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), "original");
+    app.doc_mut().insert(" editable", false);
+    assert_eq!(app.doc().text.to_string(), "original editable");
+    assert_eq!(app.extension_packages.len(), 2);
+}
+
+#[test]
+fn duplicate_or_native_command_activation_fails_without_publishing_a_partial_registry() {
+    for conflict in ["collision", "type", "undo", "cursorLeft"] {
+        let directory = tempfile::tempdir().unwrap();
+        let source = |id: &str| {
+            format!(
+                "const vscode = require('vscode'); exports.activate = context => context.subscriptions.push(vscode.commands.registerCommand('{id}', () => {{}}));"
+            )
+        };
+        let a = package(directory.path(), "a", &source("collision"));
+        let b = package(directory.path(), "b", &source(conflict));
+        let mut app = App::new(directory.path().into(), Profile::Linux);
+        app.start_extension_packages(vec![b, a]).unwrap();
+        until(&mut app, |a| a.message.contains("activation failed"));
+        assert!(app.extension_host.is_none());
+        assert!(app.palette_items("collision").is_empty());
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.execute("type", serde_json::json!({"text":"native"}));
+        assert_eq!(app.doc().text.to_string(), "native");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn fifo_manifest_rejects_before_opening_and_never_blocks_selection() {
+    let directory = tempfile::tempdir().unwrap();
+    let manifest = directory.path().join("package.json");
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&manifest)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let path = directory.path().to_owned();
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    std::thread::spawn(move || {
+        sender
+            .send(
+                vscli::extensions::Package::read(&path)
+                    .err()
+                    .unwrap()
+                    .to_string(),
+            )
+            .unwrap();
+    });
+    let error = receiver
+        .recv_timeout(Duration::from_secs(2))
+        .expect("FIFO manifest must not block opening");
+    assert!(error.contains("regular file"));
+}

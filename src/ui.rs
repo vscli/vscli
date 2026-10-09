@@ -831,6 +831,7 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::RecentFiles => " Open Recent File · file history only ",
         PromptKind::Snippet => " Insert Snippet · name, prefix or description ",
         PromptKind::Theme => " Color Theme · select or Load Color Theme File from commands ",
+        PromptKind::StopExtension => " Stop Selected Extension ID (publisher.name) ",
         PromptKind::ThemeFile => " Load VS Code Color Theme (JSON/JSONC path) ",
         PromptKind::Open => " Open File (absolute or workspace-relative) ",
         PromptKind::SaveAs => " Save As (existing files are protected) ",
@@ -1213,18 +1214,30 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                 96,
                 12,
             );
-            frame.render_widget(Paragraph::new(format!("{}@{}\n{}\n\nRuns package code with your user permissions in the optional Node host.\nReplaces the current host. Only one code extension can run at a time.\nInstallation and package identity do not establish API compatibility.", clean(&item.id), clean(&item.version), clean(&item.compatibility))).wrap(Wrap {trim:false}), inner);
+            frame.render_widget(Paragraph::new(format!("{}@{}\n{}\n\nRuns package code with your user permissions in the optional Node host.\nAdds or replaces this package in the selected session; restarts all selected packages.\nInstallation and package identity do not establish API compatibility.", clean(&item.id), clean(&item.version), clean(&item.compatibility))).wrap(Wrap {trim:false}), inner);
             return;
         }
         Modal::Extensions { items, selected } => {
             let inner = popup(
                 frame,
                 colors,
-                " Installed Extensions · Enter run · R rollback · Delete remove · Esc closes ",
+                " Installed Extensions · Enter run · S stop selected · H restart session · R rollback · Delete remove ",
                 120,
                 frame.area().height.saturating_sub(2),
             );
-            let height = inner.height as usize;
+            let session_lines: Vec<_> = app
+                .extension_packages
+                .iter()
+                .map(|package| {
+                    Line::raw(format!(
+                        "Session: {}@{} · {}",
+                        clean(&package.id),
+                        clean(&package.version),
+                        clean(&app.extension_status(&package.id))
+                    ))
+                })
+                .collect();
+            let height = (inner.height as usize).saturating_sub(session_lines.len());
             let offset = selected.saturating_sub(height.saturating_sub(1));
             let lines: Vec<_> = if items.is_empty() {
                 vec![Line::raw(
@@ -1239,9 +1252,10 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                     .map(|(index, item)| {
                         Line::styled(
                             format!(
-                                "{}@{}  {}",
+                                "{}@{}  {} · {}",
                                 clean(&item.id),
                                 clean(&item.version),
+                                clean(&app.extension_status(&item.id)),
                                 clean(&item.compatibility)
                             ),
                             Style::default()
@@ -1255,7 +1269,10 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                     })
                     .collect()
             };
-            frame.render_widget(Paragraph::new(lines), inner);
+            frame.render_widget(
+                Paragraph::new(session_lines.into_iter().chain(lines).collect::<Vec<_>>()),
+                inner,
+            );
             return;
         }
         Modal::Language {
