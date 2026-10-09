@@ -7,6 +7,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 from extension_sessions_pty import Editor, LIVE, command, wait, save
 from pty_smoke import CTRL_Z, eventually, wait_screen
 from extension_activation_pty import install
@@ -145,23 +146,57 @@ const v=require('vscode');exports.activate=async()=>{
     print('PASS: newly admitted module-level tree, opaque native edit/undo, failed owner cleanup and older surface retention')
 
 
+def interrupted_output(root):
+    root.mkdir()
+    file = root / 'preserved.txt'
+    original = 'native 猫🙂\r\n'.encode()
+    file.write_bytes(original)
+    app = Editor(root, '--extension', FIXTURE, file, enhanced=True)
+    wait(app, 'Native Ready')
+    command(app, 'Surface show')
+    # Interrupt without consuming the resulting output-panel redraw first.
+    stop_surface_process(app)
+    assert app.process.restored, 'Surface interruption leaked terminal mode'
+    assert file.read_bytes() == original
+    app.close_fds()
+    LIVE.remove(app)
+    print('PASS: interrupted surface output drains within exit deadline and restores terminal/native bytes')
+
+
+def stop_surface_process(app):
+    if app.process.poll() is not None:
+        return
+    deadline = time.monotonic() + 3
+    try:
+        os.kill(app.process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        # Exit/terminal restoration may be blocked behind a full PTY output queue.
+        # Drain within the existing SIGTERM deadline before waiting on the supervisor.
+        eventually(lambda: app.read() and app.process.poll() is not None,
+                   timeout=max(0, deadline - time.monotonic()))
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise AssertionError('Surface cleanup exceeded its SIGTERM deadline')
+        app.process.wait(timeout=remaining)
+    except (AssertionError, subprocess.TimeoutExpired):
+        app.process.kill()
+        app.process.wait(timeout=3)
+
+
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='vscli-surfaces-pty-') as directory:
         try:
             run(Path(directory))
             lazy(Path(directory) / 'lazy')
+            interrupted_output(Path(directory) / 'interrupt')
         finally:
             original_failure = sys.exc_info()[0] is not None
             errors = []
             for app in LIVE[:]:
                 try:
-                    if app.process.poll() is None:
-                        os.kill(app.process.pid, signal.SIGTERM)
-                        try:
-                            app.process.wait(timeout=3)
-                        except (AssertionError, subprocess.TimeoutExpired):
-                            app.process.kill()
-                            app.process.wait(timeout=3)
+                    stop_surface_process(app)
                 except Exception as error:
                     errors.append(error)
                 finally:
