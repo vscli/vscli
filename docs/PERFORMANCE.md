@@ -282,3 +282,27 @@ repeat the same long-line workload with `fd12d48`. All 60 trials passed:
 
 The large single-line improvement remains after the short-line refinement.
 All workload and measurement limitations above still apply.
+
+## Resolved-completion core baseline: 2026-10-10
+
+[Raw samples and provenance](benchmarks/2026-10-10-intellisense-baseline.json)
+compare optimized IntelliSense source `cedc66e` against the prior main `7828303`
+on the same Linux i9-13900H machine. Both use `cargo build --release --locked`.
+Five fresh processes per editor/fixture produce 200 keystroke samples per row;
+order is interleaved, with no concurrent local builds or tests.
+
+| Fixture | Build | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | RSS median MiB |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB | Prior main | 6.051 | 0.307 | 0.664 | 0.925 | 11.71 |
+| 10 KiB | IntelliSense | 6.741 | 0.323 | 0.763 | 1.034 | 12.23 |
+| 1 MiB | Prior main | 9.105 | 0.308 | 0.685 | 0.929 | 12.89 |
+| 1 MiB | IntelliSense | 7.220 | 0.306 | 0.682 | 0.927 | 13.27 |
+
+All 20 trials completed without failures. The 10 KiB candidate records higher
+startup/key medians; the 1 MiB key median is similar. Five startup samples and
+uncontrolled host scheduling cannot establish a sustained regression or speedup.
+The 0.3-second CPU sample reported zero ticks and does not qualify sustained idle
+CPU. These ASCII, warm-cache, no-LSP/no-extension measurements cover the core;
+completion load is separately exercised by the unchanged four-second 1,200-key
+save oracle and real-server/package integrity workflows. Full IDE contention,
+physical input-to-display and fastest-editor claims remain unqualified.
