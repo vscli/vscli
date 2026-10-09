@@ -104,6 +104,12 @@ struct Args {
     /// Node executable for the optional extension host
     #[arg(long, default_value = "node")]
     extension_node: String,
+    /// Restore the previous clean-file session for this workspace (explicit files take precedence)
+    #[arg(long, conflicts_with = "no_session")]
+    restore_session: bool,
+    /// Disable clean-session metadata reads and writes (dirty recovery is independent)
+    #[arg(long)]
+    no_session: bool,
     /// Disable periodic recovery snapshots and startup recovery
     #[arg(long)]
     no_recovery: bool,
@@ -331,6 +337,13 @@ fn main() -> Result<()> {
             );
         }
     }
+    if !args.no_session {
+        let explicit_files = args.paths.iter().any(|path| !path.is_dir());
+        app.configure_session(
+            config_root.as_deref(),
+            args.restore_session && !explicit_files,
+        )?;
+    }
     if let Some(program) = &args.lsp {
         app.lsp = Some(vscli::lsp::Client::start(
             program,
@@ -463,6 +476,9 @@ fn main() -> Result<()> {
     }
     drop(terminal);
     drop(guard);
+    if let Err(error) = app.finish_session() {
+        eprintln!("Session metadata not saved: {error:#}");
+    }
     if let Err(error) = app.finish_recents() {
         eprintln!("{error:#}");
     }

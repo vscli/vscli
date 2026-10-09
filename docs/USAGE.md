@@ -539,3 +539,66 @@ cargo test --locked --test symbol_navigation real_clangd -- --ignored
 
 This evidence qualifies that fixture and server, not all workspace indexing,
 server implementations or full symbol-navigation parity.
+
+## Clean-file session restoration
+
+VSCLI records bounded clean-file layout metadata for each workspace under the native
+configuration root. Reopening that layout is opt-in:
+
+```sh
+vscli --workspace ./project --restore-session
+vscli --workspace ./project --no-session
+```
+
+`--restore-session` reopens the previous inactive instance's clean file-backed tabs,
+active tab and group, split direction, each tab's last cursor/selections, and the
+independent cursor/selections and scroll positions of visible groups. Explicit
+file arguments take precedence and suppress startup restoration. F1 → **File:
+Restore Previous Clean Session** retries the previous session from an empty
+workbench. This native command has no default shortcut. `--no-session` disables
+session metadata reads and writes; dirty-buffer recovery and recent-file history
+have independent controls. An ordinary empty launch still shows the welcome screen.
+
+Files are read from their current disk contents; restoration never writes them.
+Positions are line/character coordinates clamped to the current file, so edits made
+outside VSCLI can change their meaning. Recovery runs first: existing buffers,
+including independent dirty variants of the same path, retain their document
+identity and selections. With recovered buffers present, clean restored files are
+appended without replacing the recovered layout. Metadata contains paths and view
+positions, never document contents, undo history, or snippet text. Unsaved and
+untitled documents remain the responsibility of crash recovery and existing
+Save/Discard dialogs. This feature does not implement VS Code hot exit.
+
+A missing, unreadable, nonregular, malformed, or over-budget file rejects the whole
+restore batch. No empty file is created; the previous session remains available
+for retry. Interaction during loading cancels installation. After a failed or stale
+restore, this instance leaves its saved layout protected until a successful retry
+or an explicit close-all/last-editor close. Closing all editors intentionally
+records an empty workbench. Save As uses the final saved path; cancelled Save As and
+quit retain the live buffers. Missing-file and cancellation notices explain retry.
+
+Storage is isolated by configuration root and canonical workspace directory, and
+uses at most eight leased instance slots. Live instances are never evicted or used
+as restore sources. At capacity, if reclaiming a slot would delete the only previous
+saved session, session storage is unavailable for that instance and its previous
+metadata remains intact. Import profile directories do not receive session state.
+One worker handles metadata and file reads, with bounded/coalesced writes and atomic
+publication. Failed writes preserve the previous complete snapshot. Shutdown waits
+up to five seconds; a blocked filesystem operation may outlive that wait while its
+worker retains the slot lease. Other instances cannot claim that live lease.
+
+Limits: 32 clean tabs, four equal groups, 128 selections per view, 1 MiB metadata,
+4 KiB per path, 32 MiB per file, and 128 MiB combined restored file data. Unsupported
+state produces a notice rather than silent truncation. Independent per-group tab
+lists, hidden historical tab/group cursor combinations, nested/resizable groups,
+terminal reconnection, extension state, recent-workspace switching, and full VS Code
+session parity remain outside this slice.
+
+Native integrity tests cover duplicate recovery paths, shared-view identity,
+Unicode/CRLF edits after restart, Save/Discard/Cancel/Save As, close-all, missing-file
+retry, stale requests, lease/config/workspace isolation, read budgets, FIFO rejection,
+coalescing, shutdown deadlines, and injected failure before atomic publication.
+`tests/session_restore_pty.py` exercises actual normal restarts, shared groups,
+CLI-file precedence, disabled storage, missing-file retry, empty restart, and dirty
+recovery collisions. Injected failure tests establish atomic old/new-file behavior;
+they do not qualify arbitrary hardware power-loss or network-filesystem durability.
