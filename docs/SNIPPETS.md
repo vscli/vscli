@@ -75,8 +75,11 @@ checks; they do not extend the differential evidence below or qualify arbitrary
 published snippet packages.
 
 This remains a partial snippet feature. Choice presentation, nested session
-merging, complete contributed-language registration and completion integration
-remain pending. LSP still advertises `snippetSupport: false`; the optional extension API does not yet provide `TextEditor.insertSnippet`.
+merging and complete contributed-language registration remain pending. LSP advertises
+`snippetSupport: true`; native and extension completion snippets use the
+[atomic completion transaction](COMPLETIONS.md), including import edits and semantic
+EOL field mapping. That path is separate from the pinned API insertion traces below.
+The optional extension API does not yet provide `TextEditor.insertSnippet`.
 See [usage](USAGE.md#snippets) for a literal-template binding.
 
 ## Evidence

@@ -41,7 +41,14 @@ async function harness(t, bundled = false) {
           }
           const item = new v.CompletionItem('name', v.CompletionItemKind.Variable);
           item.textEdit = v.TextEdit.replace(new v.Range(0, 0, 0, 4), 'replacement');
+          item.data = { callback: () => 'opaque original' }; item.data.self = item.data;
           return [item];
+        },
+        resolveCompletionItem(item) {
+          if (item.data.callback() !== 'opaque original' || item.data.self !== item.data) throw new Error('Original completion data lost');
+          item.detail = 'wire-resolved'; item.documentation = new v.MarkdownString('resolved original item');
+          item.additionalTextEdits = [v.TextEdit.insert(new v.Position(1, 0), '// import\\n')];
+          return item;
         },
       }, '.');
       context.subscriptions.push(registration);
@@ -116,4 +123,20 @@ test('bundled CommonJS providers retain default and named API identities without
   const result = await receive(message => message.id === 2);
   assert.equal(result.error, undefined);
   assert.equal(result.result.items[0].textEdit.newText, 'replacement');
+});
+
+test('host resolves an original opaque completion through framed owner-scoped requests', { timeout: 10000 }, async t => {
+  const { send, receive, params } = await harness(t);
+  send({ id: 2, method: 'provideLanguage', params });
+  const completion = await receive(message => message.id === 2);
+  assert.equal(completion.error, undefined);
+  const handle = completion.result.items[0]._vscliCompletionHandle;
+  send({ id: 3, method: 'resolveLanguageCompletion', params: { ...params, origin: 2, handle } });
+  const resolved = await receive(message => message.id === 3);
+  assert.equal(resolved.error, undefined); assert.equal(resolved.result.detail, 'wire-resolved');
+  assert.equal(resolved.result.additionalTextEdits[0].newText, '// import\n');
+  send({ id: 4, method: 'cancelLanguageProvider', params: { session: 7, owner: params.owner, request: 2 } });
+  await receive(message => message.id === 4);
+  send({ id: 5, method: 'resolveLanguageCompletion', params: { ...params, origin: 2, handle } });
+  assert.match((await receive(message => message.id === 5)).error.message, /Stale/);
 });

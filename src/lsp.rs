@@ -72,6 +72,8 @@ pub struct Client {
     identity: Arc<()>,
     transport: crate::transport::Process,
     pending: HashMap<u64, Request>,
+    completion_resolve: Option<u64>,
+    completion_resolve_valid: bool,
     synced: HashMap<String, Synced>,
     next_id: u64,
     command_channel_valid: bool,
@@ -198,6 +200,8 @@ impl Client {
             identity: Arc::new(()),
             transport,
             pending: HashMap::new(),
+            completion_resolve: None,
+            completion_resolve_valid: true,
             synced: HashMap::new(),
             next_id: 1,
             command_channel_valid: true,
@@ -218,7 +222,7 @@ impl Client {
                     "synchronization":{"didSave":true}, "publishDiagnostics":{"versionSupport":true},
                     "hover":{"contentFormat":["plaintext","markdown"]},
                     "signatureHelp":{"signatureInformation":{"documentationFormat":["plaintext"],"parameterInformation":{"labelOffsetSupport":true},"activeParameterSupport":true},"contextSupport":true},
-                    "completion":{"completionItem":{"snippetSupport":false,"documentationFormat":["plaintext","markdown"]}},
+                    "completion":{"contextSupport":true,"completionItem":{"snippetSupport":true,"documentationFormat":["plaintext","markdown"],"resolveSupport":{"properties":["detail","documentation","additionalTextEdits"]}}},
                     "documentSymbol":{"hierarchicalDocumentSymbolSupport":true},
                     "definition":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{},
                     "codeAction":{"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports","source.fixAll"]}},"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]}}
@@ -519,6 +523,32 @@ impl Client {
         self.request_in_view("textDocument/completion", doc, extra, view)?;
         Ok(token)
     }
+    pub(crate) fn completion_resolve_available(&self) -> bool {
+        self.ready
+            && self.completion_resolve_valid
+            && self.completion_resolve.is_none()
+            && self.pending.len() < 32
+    }
+    pub(crate) fn completion_resolve_closed(&self) -> bool {
+        !self.completion_resolve_valid
+    }
+    pub(crate) fn resolve_completion(&mut self, original: &Request, item: Value) -> Result<u64> {
+        if !self.completion_resolve_available() {
+            bail!("A completion resolution is still running");
+        }
+        let token = self.next_id;
+        self.follow_up(original, "completionItem/resolve", item)?;
+        self.completion_resolve = Some(token);
+        Ok(token)
+    }
+    pub(crate) fn cancel_completion_resolve(&mut self, token: u64) -> Result<()> {
+        // Keep the request and its slot until its response or transport deadline.
+        // Repeated cursor/selection changes must not admit unbounded server work.
+        if self.completion_resolve == Some(token) && self.pending.contains_key(&token) {
+            self.notify("$/cancelRequest", json!({"id":token}))?;
+        }
+        Ok(())
+    }
     pub(crate) fn identity(&self) -> Arc<()> {
         self.identity.clone()
     }
@@ -551,6 +581,11 @@ impl Client {
             .collect::<Vec<_>>()
         {
             let request = self.pending.remove(&id).unwrap();
+            if self.completion_resolve == Some(id) {
+                self.completion_resolve = None;
+                // A timeout cannot prove that the canceled callback has finished.
+                self.completion_resolve_valid = false;
+            }
             if request.method == "workspace/executeCommand" {
                 // Cancellation cannot establish that all server callbacks have stopped.
                 self.command_channel_valid = false;
@@ -634,7 +669,16 @@ impl Client {
                     self.notify("initialized", json!({}))?;
                     events.push(Event::Ready);
                 } else if let Some(request) = self.pending.remove(&id) {
-                    if let Some(error) = message.get("error") {
+                    if self.completion_resolve == Some(id) {
+                        self.completion_resolve = None;
+                    }
+                    if request.method == "completionItem/resolve" && message.get("error").is_some()
+                    {
+                        events.push(Event::Response(
+                            request,
+                            json!({"_vscliResolveError":message["error"]}),
+                        ));
+                    } else if let Some(error) = message.get("error") {
                         events.push(Event::Message(format!("Language request failed: {error}")));
                     } else {
                         events.push(Event::Response(request, message["result"].clone()));
@@ -650,6 +694,74 @@ mod tests {
     use super::*;
     use crate::transport::read_message;
     use std::io::BufReader;
+    #[test]
+    fn timed_out_completion_resolution_cannot_admit_more_ignored_server_work() {
+        let root = tempfile::tempdir().unwrap();
+        for marker in ["resolve", "resolve_hold"] {
+            std::fs::write(root.path().join(marker), "").unwrap();
+        }
+        let path = root.path().join("main.rs");
+        std::fs::write(&path, "ans").unwrap();
+        let doc = Document::open(&path).unwrap();
+        let mut client = Client::start(
+            if cfg!(windows) { "python" } else { "python3" },
+            &[
+                format!(
+                    "{}/tests/fixtures/suggestions_server.py",
+                    env!("CARGO_MANIFEST_DIR")
+                ),
+                root.path().to_string_lossy().into(),
+            ],
+            root.path(),
+            "rust".into(),
+        )
+        .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !client.ready {
+            client.poll().unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        client.request_completion(&doc, json!({}), None).unwrap();
+        let (request, item) = loop {
+            if let Some(response) = client
+                .poll()
+                .unwrap()
+                .into_iter()
+                .find_map(|event| match event {
+                    Event::Response(request, value) => Some((request, value[0].clone())),
+                    _ => None,
+                })
+            {
+                break response;
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        };
+        let token = client.resolve_completion(&request, item.clone()).unwrap();
+        client.cancel_completion_resolve(token).unwrap();
+        assert!(!client.completion_resolve_available());
+        assert!(client.resolve_completion(&request, item.clone()).is_err());
+        client.pending.get_mut(&token).unwrap().started = Instant::now() - Duration::from_secs(16);
+        client.poll().unwrap();
+        assert!(client.completion_resolve_closed());
+        assert!(!client.completion_resolve_available());
+        assert!(client.resolve_completion(&request, item).is_err());
+        std::fs::remove_file(root.path().join("resolve_hold")).unwrap();
+        let deadline = Instant::now() + Duration::from_millis(100);
+        while Instant::now() < deadline {
+            assert!(
+                !client
+                    .poll()
+                    .unwrap()
+                    .iter()
+                    .any(|event| matches!(event, Event::Response(_, _)))
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(client.completion_resolve_closed());
+    }
     #[test]
     fn timed_out_command_disables_new_commands_and_late_callbacks_until_restart() {
         let root = tempfile::tempdir().unwrap();

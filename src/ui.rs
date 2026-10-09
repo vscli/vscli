@@ -1487,15 +1487,12 @@ fn draw_suggestions(frame: &mut Frame, app: &App) {
     }
     let caret_x = area.x + (column - doc.left) as u16;
     let caret_y = area.y + (doc.row() - doc.top) as u16;
-    let width = area.width.min(64);
-    let height = (model.len().min(8) as u16 + 2).min(area.height);
-    let x = caret_x.min(area.right().saturating_sub(width));
-    let y = if caret_y.saturating_add(height) < area.bottom() {
-        caret_y + 1
-    } else {
-        caret_y.saturating_sub(height).max(area.y)
-    };
-    let popup = Rect::new(x, y, width, height);
+    let selected = model.selected_item();
+    let details = selected
+        .is_some_and(|item| !item.documentation.is_empty() || !item.detail.is_empty())
+        || app.suggestion_resolving();
+    let (popup, detail_area) = suggestion_layout(area, caret_x, caret_y, model.len(), details);
+    let height = popup.height;
     let colors = app.theme.colors;
     let first = model
         .selected()
@@ -1532,6 +1529,84 @@ fn draw_suggestions(frame: &mut Frame, app: &App) {
             ),
         popup,
     );
+    if let Some(area) = detail_area {
+        let item = selected.unwrap();
+        let mut lines = Vec::new();
+        if !item.detail.is_empty() {
+            lines.push(Line::styled(
+                clean(&item.detail),
+                Style::default().fg(colors.accent),
+            ));
+        }
+        // The retained source is bounded, and rendering visits only this small
+        // preview. Markdown remains inert text; terminal escapes are sanitized.
+        let preview: String = item.documentation.chars().take(8192).collect();
+        lines.extend(preview.lines().take(64).map(|line| Line::raw(clean(line))));
+        frame.render_widget(Clear, area);
+        frame.render_widget(
+            Paragraph::new(lines)
+                .wrap(Wrap { trim: false })
+                .style(Style::default().fg(colors.foreground).bg(colors.panel))
+                .block(Block::default().borders(Borders::ALL).title(
+                    if app.suggestion_resolving() {
+                        " Details · resolving "
+                    } else {
+                        " Details "
+                    },
+                )),
+            area,
+        );
+    }
+}
+
+fn suggestion_layout(
+    area: Rect,
+    caret_x: u16,
+    caret_y: u16,
+    count: usize,
+    details: bool,
+) -> (Rect, Option<Rect>) {
+    let list_height = (count.min(8) as u16 + 2).min(area.height);
+    let side = details && area.width >= 90;
+    let stacked = details && !side && area.width >= 40 && area.height >= list_height + 4;
+    let width = if side {
+        area.width.min(108)
+    } else {
+        area.width.min(64)
+    };
+    let detail_height = if stacked {
+        (area.height - list_height).min(7)
+    } else {
+        area.height.min(10)
+    };
+    let height = if side {
+        list_height.max(detail_height)
+    } else if stacked {
+        list_height + detail_height
+    } else {
+        list_height
+    };
+    let x = caret_x.min(area.right().saturating_sub(width)).max(area.x);
+    let y = if caret_y.saturating_add(height).saturating_add(1) <= area.bottom() {
+        caret_y + 1
+    } else {
+        caret_y.saturating_sub(height).max(area.y)
+    };
+    let list_width = if side { 60 } else { width };
+    let popup = Rect::new(x, y, list_width, list_height);
+    let detail = if side {
+        Some(Rect::new(
+            x + list_width,
+            y,
+            width - list_width,
+            detail_height,
+        ))
+    } else if stacked {
+        Some(Rect::new(x, y + list_height, width, detail_height))
+    } else {
+        None
+    };
+    (popup, detail)
 }
 
 fn draw_signature(frame: &mut Frame, app: &App) {
@@ -1821,6 +1896,26 @@ fn draw_extension_modal(frame: &mut Frame, app: &mut App) {
 mod tests {
     use super::*;
     use ratatui::{Terminal, backend::TestBackend};
+    #[test]
+    fn completion_details_fit_editor_at_all_caret_edges_and_terminal_sizes() {
+        for (width, height) in [(12, 4), (39, 24), (48, 20), (76, 24), (100, 30), (160, 40)] {
+            let area = Rect::new(7, 3, width, height);
+            for x in [area.x, area.right() - 1] {
+                for y in [area.y, area.bottom() - 1] {
+                    for count in [1, 8, 300] {
+                        let (list, details) = suggestion_layout(area, x, y, count, true);
+                        assert_eq!(area.intersection(list), list);
+                        if let Some(details) = details {
+                            assert_eq!(area.intersection(details), details);
+                            assert_eq!(list.intersection(details).area(), 0);
+                            assert!(details.width >= 30);
+                            assert!(details.height >= 4);
+                        }
+                    }
+                }
+            }
+        }
+    }
     #[test]
     fn viewport_prefix_preserves_visible_clusters_and_search_matches() {
         for line in [

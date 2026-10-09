@@ -60,6 +60,42 @@ pub(crate) struct ModelOffsets {
 }
 
 impl Expansion {
+    /// Completion fields track their actual normalized text, unlike the pinned
+    /// extension insertion API's historical UTF-16 decoration offsets.
+    fn normalize_completion_eol(&mut self, eol: &str) -> Result<()> {
+        let normalized = self
+            .text
+            .replace("\r\n", "\n")
+            .replace('\r', "\n")
+            .replace('\n', eol);
+        ensure!(
+            normalized.len() <= MAX_EXPANSION,
+            "Snippet expansion exceeds 1 MiB"
+        );
+        let mut positions = vec![0];
+        let mut offset = 0;
+        let mut chars = self.text.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\r' {
+                offset += eol.chars().count();
+                positions.push(offset);
+                if chars.peek() == Some(&'\n') {
+                    chars.next();
+                    positions.push(offset);
+                }
+            } else {
+                offset += if ch == '\n' { eol.chars().count() } else { 1 };
+                positions.push(offset);
+            }
+        }
+        for marker in &mut self.placeholders {
+            marker.range = positions[marker.range.start]..positions[marker.range.end];
+        }
+        self.text = normalized;
+        self.model_offsets = None;
+        Ok(())
+    }
+
     fn normalize_model_eol(&mut self, eol: &str) -> Result<()> {
         let normalized = self
             .text
@@ -361,6 +397,23 @@ impl Template {
         variables: &mut dyn VariableResolver,
         whitespace: &Whitespace<'_>,
     ) -> Result<Expansion> {
+        self.expand_with_resolver_inner(variables, whitespace, false)
+    }
+
+    pub(crate) fn expand_for_completion(
+        &self,
+        variables: &mut dyn VariableResolver,
+        whitespace: &Whitespace<'_>,
+    ) -> Result<Expansion> {
+        self.expand_with_resolver_inner(variables, whitespace, true)
+    }
+
+    fn expand_with_resolver_inner(
+        &self,
+        variables: &mut dyn VariableResolver,
+        whitespace: &Whitespace<'_>,
+        completion: bool,
+    ) -> Result<Expansion> {
         ensure!(
             whitespace.leading.len() <= MAX_EXPANSION,
             "Snippet indentation exceeds 1 MiB"
@@ -382,7 +435,11 @@ impl Template {
         )?;
         whitespace.adjust(&mut nodes, &mut None, false, &mut 0)?;
         let mut result = Self { nodes }.expand_nodes(variables, BTreeMap::new())?;
-        result.normalize_model_eol(whitespace.eol)?;
+        if completion {
+            result.normalize_completion_eol(whitespace.eol)?;
+        } else {
+            result.normalize_model_eol(whitespace.eol)?;
+        }
         Ok(result)
     }
 
@@ -1016,6 +1073,40 @@ fn format_capture(format: &str, captures: Option<&regex::Captures<'_>>) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn completion_ranges_follow_normalized_variable_text_and_astral_fields() {
+        let template = Template::parse_user("${1:$TM_SELECTED_TEXT}-$1-${2:🙂}$0").unwrap();
+        for eol in ["\n", "\r\n"] {
+            let expansion = template
+                .expand_for_completion(
+                    &mut |name: &str, _: Option<&str>| {
+                        Ok((name == "TM_SELECTED_TEXT").then(|| "α🙂\n猫".into()))
+                    },
+                    &Whitespace {
+                        leading: "",
+                        eol,
+                        tab_size: 4,
+                        insert_spaces: true,
+                        fragment_only: false,
+                    },
+                )
+                .unwrap();
+            let value = format!("α🙂{eol}猫");
+            assert_eq!(expansion.text, format!("{value}-{value}-🙂"));
+            let rope = ropey::Rope::from_str(&expansion.text);
+            for marker in &expansion.placeholders {
+                let expected = match marker.index {
+                    1 => value.as_str(),
+                    2 => "🙂",
+                    0 => "",
+                    _ => unreachable!(),
+                };
+                assert_eq!(rope.slice(marker.range.clone()).to_string(), expected);
+            }
+            assert!(expansion.model_offsets.is_none());
+        }
+    }
     #[test]
     fn limits_reject_deep_sources_and_amplified_defaults_without_editing() {
         assert!(Template::parse(&"x".repeat(MAX_SOURCE + 1)).is_err());

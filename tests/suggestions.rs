@@ -322,3 +322,198 @@ fn malformed_additional_edit_rejects_the_whole_suggestion_before_mutating_native
     app.doc_mut().redo();
     assert_eq!(app.doc().text.to_string(), "ansx 🙂\r\n");
 }
+
+fn resolutions(root: &Path) -> Vec<Value> {
+    std::fs::read_to_string(root.join("resolves.jsonl"))
+        .unwrap_or_default()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect()
+}
+fn resolving_app(root: &Path, text: &str) -> App {
+    std::fs::write(root.join("resolve"), "").unwrap();
+    app(root, text)
+}
+
+#[test]
+fn lazy_native_resolution_waits_for_import_and_snippet_and_undo_is_atomic() {
+    let root = tempfile::tempdir().unwrap();
+    for marker in ["resolve_hold", "resolve_import", "snippet"] {
+        std::fs::write(root.path().join(marker), "").unwrap();
+    }
+    let original = "// 🙂\r\nans\r\n";
+    let mut app = resolving_app(root.path(), original);
+    let id = app.doc().id;
+    app.doc_mut().move_to("// 🙂\r\nans".chars().count(), false);
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    until(&mut app, App::suggestion_acceptable);
+    key(&mut app, KeyCode::Tab);
+    until(&mut app, |app| app.suggestion_resolving());
+    settle(&mut app);
+    assert_eq!(resolutions(root.path()).len(), 1);
+    for _ in 0..8 {
+        key(&mut app, KeyCode::Tab);
+    }
+    assert_eq!(app.doc().text.to_string(), original);
+    assert_eq!(
+        std::fs::read(root.path().join("input.rs")).unwrap(),
+        original.as_bytes()
+    );
+    std::fs::remove_file(root.path().join("resolve_hold")).unwrap();
+    until(&mut app, |app| !app.suggestion_resolving());
+    assert_eq!(app.doc().id, id);
+    assert_eq!(
+        app.doc().text.to_string(),
+        "use thing;\r\n// 🙂\r\nanswer(value)\r\n"
+    );
+    key(&mut app, KeyCode::Char('x'));
+    assert_eq!(
+        app.doc().text.to_string(),
+        "use thing;\r\n// 🙂\r\nanswer(x)\r\n"
+    );
+    app.doc_mut().undo();
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), original);
+    assert_eq!(resolutions(root.path()).len(), 1);
+}
+
+#[test]
+fn lazy_native_resolution_coalesces_selection_and_stale_acceptance_never_applies() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("resolve_hold"), "").unwrap();
+    let mut app = resolving_app(root.path(), "an 🙂\r\n");
+    app.doc_mut().move_to(2, false);
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    until(&mut app, App::suggestion_acceptable);
+    until(&mut app, App::suggestion_resolving);
+    for _ in 0..20 {
+        key(&mut app, KeyCode::Down);
+        key(&mut app, KeyCode::Up);
+    }
+    key(&mut app, KeyCode::Down);
+    key(&mut app, KeyCode::Tab);
+    settle(&mut app);
+    assert_eq!(resolutions(root.path()).len(), 1);
+    std::fs::remove_file(root.path().join("resolve_hold")).unwrap();
+    until(&mut app, |app| app.suggestion_model().is_none());
+    assert_eq!(resolutions(root.path()).len(), 2);
+    assert_eq!(app.doc().text.to_string(), "answer 🙂\r\n");
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), "an 🙂\r\n");
+}
+
+#[test]
+fn lazy_native_resolution_cancellation_retains_capacity_and_rejects_text_epoch_roundtrip() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("resolve_hold"), "").unwrap();
+    let original = "ans 🙂\r\n";
+    let mut app = resolving_app(root.path(), original);
+    app.doc_mut().move_to(3, false);
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    until(&mut app, App::suggestion_acceptable);
+    key(&mut app, KeyCode::Tab);
+    until(&mut app, App::suggestion_resolving);
+    key(&mut app, KeyCode::Char('x'));
+    app.doc_mut().undo();
+    app.poll();
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    until(&mut app, App::suggestion_acceptable);
+    key(&mut app, KeyCode::Esc);
+    settle(&mut app);
+    assert_eq!(resolutions(root.path()).len(), 1);
+    std::fs::remove_file(root.path().join("resolve_hold")).unwrap();
+    settle(&mut app);
+    assert_eq!(app.doc().text.to_string(), original);
+    assert_eq!(
+        std::fs::read(root.path().join("input.rs")).unwrap(),
+        original.as_bytes()
+    );
+    assert!(app.suggestion_model().is_none());
+}
+
+#[test]
+fn lazy_native_resolution_rejects_changed_primary_edits_and_unadvertised_commands() {
+    for marker in ["resolve_mutate", "resolve_command", "resolve_error"] {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join(marker), "").unwrap();
+        let original = "ans 🙂\r\n";
+        let mut app = resolving_app(root.path(), original);
+        app.doc_mut().move_to(3, false);
+        app.execute("editor.action.triggerSuggest", Value::Null);
+        until(&mut app, App::suggestion_acceptable);
+        key(&mut app, KeyCode::Tab);
+        until(&mut app, |app| app.suggestion_model().is_none());
+        assert_eq!(
+            app.doc().text.to_string(),
+            original,
+            "{marker}: {}",
+            app.message
+        );
+        assert_eq!(
+            std::fs::read(root.path().join("input.rs")).unwrap(),
+            original.as_bytes()
+        );
+        assert!(app.message.contains("resolution"), "{}", app.message);
+    }
+}
+
+#[test]
+fn settings_reload_round_trip_cannot_revive_held_native_resolve_acceptance_or_imports() {
+    let root = tempfile::tempdir().unwrap();
+    for marker in ["resolve_hold", "resolve_import", "snippet"] {
+        std::fs::write(root.path().join(marker), "").unwrap();
+    }
+    let settings_path = root.path().join("settings.json");
+    let configuration_a = r#"{"editor.tabSize":2}"#;
+    std::fs::write(&settings_path, configuration_a).unwrap();
+    let original = "// 🙂\r\nans\r\n";
+    let mut app = resolving_app(root.path(), original);
+    app.configure_settings(Some(settings_path.clone())).unwrap();
+    let settings_a = app.settings.clone();
+    app.doc_mut().move_to("// 🙂\r\nans".chars().count(), false);
+    app.doc_mut().insert("x", false);
+    app.doc_mut().undo();
+    let id = app.doc().id;
+    let selections = app.doc().selections();
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    until(&mut app, App::suggestion_acceptable);
+    key(&mut app, KeyCode::Tab);
+    until(&mut app, |_| resolutions(root.path()).len() == 1);
+    assert!(app.suggestion_resolving());
+
+    // Observe each actual background reload before writing the next revision.
+    // Equal settings at the end must not revive the earlier acceptance lease.
+    std::fs::write(&settings_path, r#"{"editor.tabSize":8}"#).unwrap();
+    until(&mut app, |app| {
+        app.settings.extension_layers()[0].get("editor.tabSize") == Some(&json!(8))
+    });
+    assert!(app.suggestion_model().is_none());
+    assert!(!app.suggestion_resolving());
+    std::fs::write(&settings_path, configuration_a).unwrap();
+    until(&mut app, |app| app.settings == settings_a);
+    std::fs::remove_file(root.path().join("resolve_hold")).unwrap();
+    until(&mut app, |app| {
+        app.lsp
+            .as_ref()
+            .is_some_and(|client| client.debug_summary().contains("pending=0\n"))
+    });
+    assert_eq!(resolutions(root.path()).len(), 1);
+    assert!(app.suggestion_model().is_none());
+    assert!(!app.suggestion_resolving());
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().selections(), selections);
+    assert_eq!(app.doc().text.to_string(), original);
+    assert_eq!(
+        std::fs::read(root.path().join("input.rs")).unwrap(),
+        original.as_bytes()
+    );
+    app.doc_mut().redo();
+    assert_eq!(app.doc().text.to_string(), "// 🙂\r\nansx\r\n");
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), original);
+    assert_eq!(app.doc().selections(), selections);
+    assert_eq!(
+        std::fs::read(root.path().join("input.rs")).unwrap(),
+        original.as_bytes()
+    );
+}

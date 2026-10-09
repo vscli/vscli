@@ -131,6 +131,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/automatic_language_services_pty.py target/debug/vscli
+      - name: Run resolved extension completion workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/completion_resolve_pty.py target/debug/vscli
       - name: Run automatic native suggestion workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

@@ -451,7 +451,11 @@ impl Client {
         if !(pending.method == "initialize"
             || matches!(
                 pending.method.as_str(),
-                "execute" | "provideLanguage" | "treeChildren" | "surfaceAction"
+                "execute"
+                    | "provideLanguage"
+                    | "resolveLanguageCompletion"
+                    | "treeChildren"
+                    | "surfaceAction"
             ) && owned
             || pending.method == "activate" && (pending.owner.is_none() || owned))
         {
@@ -842,7 +846,10 @@ impl Client {
             } else if let Some(id) = message["id"].as_u64()
                 && let Some(pending) = self.pending.remove(&id)
             {
-                if pending.method == "provideLanguage" {
+                if matches!(
+                    pending.method.as_str(),
+                    "provideLanguage" | "resolveLanguageCompletion"
+                ) {
                     self.provider_response(id, message)?;
                     continue;
                 }

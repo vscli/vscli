@@ -116,6 +116,102 @@ impl ViewState {
 }
 
 impl Document {
+    /// Validate and expand a completion against the original model, then commit
+    /// its primary replacement and imports as one undoable transaction.
+    pub(crate) fn apply_completion_edits(
+        &mut self,
+        primary: Range<usize>,
+        mut additional: Vec<(Range<usize>, String)>,
+        expand: impl FnOnce(&Document, &Whitespace<'_>) -> Result<Expansion>,
+    ) -> Result<()> {
+        if additional.len() >= 4096 || primary.start > primary.end || primary.end > self.len() {
+            bail!("Invalid completion range or edit count exceeds 4096");
+        }
+        let row = self.text.char_to_line(primary.start);
+        let leading: String = self
+            .text
+            .slice(self.line_start(row)..primary.start)
+            .chars()
+            .take_while(|ch| matches!(ch, ' ' | '\t'))
+            .take(1024 * 1024 + 1)
+            .collect();
+        let expanded = expand(
+            self,
+            &Whitespace {
+                leading: &leading,
+                eol: &self.eol,
+                tab_size: self.tab_size,
+                insert_spaces: self.insert_spaces,
+                fragment_only: false,
+            },
+        )?;
+        let mut bytes = expanded.text.len();
+        for (range, text) in &additional {
+            if range.start > range.end || range.end > self.len() {
+                bail!("Invalid additional completion edit range");
+            }
+            bytes = bytes.saturating_add(text.len());
+        }
+        if bytes > 1024 * 1024 || expanded.placeholders.len() > 10_000 {
+            bail!("Completion exceeds 1 MiB or 10,000 markers");
+        }
+        let inserted = expanded.text.chars().count();
+        let mut ranges: Vec<_> = additional.iter().map(|(range, _)| range.clone()).collect();
+        ranges.push(primary.clone());
+        ranges.sort_by_key(|range| (range.start, range.end));
+        for pair in ranges.windows(2) {
+            if pair[0].end > pair[1].start || pair[0].start == pair[1].start {
+                bail!("Completion edits overlap");
+            }
+        }
+        let removed: usize = ranges
+            .iter()
+            .map(|range| self.text.slice(range.clone()).len_bytes())
+            .sum();
+        if (self.text.len_bytes() - removed + bytes) as u64 > MAX_FILE_BYTES {
+            bail!("Completion exceeds document size limit");
+        }
+        let mut start = primary.start;
+        for (range, text) in &additional {
+            if range.end <= primary.start {
+                start = start
+                    .saturating_add_signed(text.chars().count() as isize - range.len() as isize);
+            }
+        }
+        let markers = expanded
+            .placeholders
+            .into_iter()
+            .map(|mut marker| {
+                marker.range.start += start;
+                marker.range.end += start;
+                Some(marker)
+            })
+            .collect();
+        additional.push((primary, expanded.text));
+        let original = self.snapshot();
+        self.cancel_snippet();
+        self.snippet_generation += 1;
+        self.apply_changes(additional);
+        if self.revision != original.revision {
+            self.replace_undo_snapshot(original);
+        }
+        let mut session = Session {
+            markers,
+            active: 0,
+            edited: false,
+        };
+        if let Some(first) = session.groups().first().copied() {
+            session.active = first;
+            self.set_selections(session.selections());
+            if first != 0 {
+                self.snippet = Some(session);
+            }
+        } else {
+            self.set_selections(vec![Selection::caret(start + inserted)]);
+        }
+        Ok(())
+    }
+
     pub fn cancel_snippet(&mut self) {
         if self.snippet.take().is_some() {
             self.snippet_generation += 1;

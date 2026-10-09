@@ -114,18 +114,61 @@ impl Client {
         );
         Ok(Some(ticket))
     }
+    pub(crate) fn request_completion_resolve(
+        &mut self,
+        original: &Ticket,
+        item: &Value,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+    ) -> Result<Ticket> {
+        let doc = documents.get(active).context("No active document")?;
+        if original.provider.kind != Kind::Completion
+            || !original.provider.resolves
+            || !self.provider_ticket_current(original, doc)
+        {
+            bail!("Completion provider ownership or document changed");
+        }
+        let handle = item["_vscliCompletionHandle"]
+            .as_u64()
+            .filter(|handle| *handle > 0 && *handle <= 9_007_199_254_740_991)
+            .context("Completion has no current resolve handle")?;
+        if !self.language_provider_capacity() {
+            bail!("Language provider callback limit reached (8); wait for pending callbacks");
+        }
+        self.sync_with_hidden(documents, hidden, active)?;
+        let mut ticket = original.clone();
+        ticket.id = self.next_id + 1;
+        self.request(
+            "resolveLanguageCompletion",
+            json!({"session":self.session,
+            "owner":original.provider.owner,"provider":original.provider.id,
+            "origin":original.id,"handle":handle,"document":doc.id,"version":original.version}),
+        )?;
+        self.providers.calls.insert(
+            ticket.id,
+            Call {
+                ticket: ticket.clone(),
+                canceled: false,
+                started: Instant::now(),
+            },
+        );
+        Ok(ticket)
+    }
     pub(crate) fn cancel_language_provider(&mut self, ticket: &Ticket) -> Result<()> {
         if ticket.session != self.session {
             return Ok(());
         }
-        if let Some(call) = self.providers.calls.get_mut(&ticket.id)
-            && !call.canceled
-        {
+        if let Some(call) = self.providers.calls.get_mut(&ticket.id) {
+            if call.canceled {
+                return Ok(());
+            }
             call.canceled = true;
-            self.process
-                .send(json!({"method":"cancelLanguageProvider","params":{
-                "session":self.session,"owner":ticket.provider.owner,"request":ticket.id}}))?;
         }
+        // Completed completion requests still own host item handles until retired.
+        self.process
+            .send(json!({"method":"cancelLanguageProvider","params":{
+            "session":self.session,"owner":ticket.provider.owner,"request":ticket.id}}))?;
         // Retain the call and generic pending origin until the real reply or deadline.
         Ok(())
     }
@@ -226,6 +269,54 @@ mod tests {
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    #[test]
+    fn completed_native_completion_lease_retirement_invalidates_original_host_handle() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerCompletionItemProvider('*',{provideCompletionItems:()=>[{label:'item'}],resolveCompletionItem:item=>item});"#,
+        );
+        let mut docs = vec![Document::from_text("α🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Completion, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while client.providers.replies.is_empty() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let completion = client
+            .take_provider_replies()
+            .pop_front()
+            .unwrap()
+            .result
+            .unwrap();
+        assert!(!client.providers.calls.contains_key(&ticket.id));
+        assert!(client.provider_ticket_current(&ticket, &docs[0]));
+        client.cancel_language_provider(&ticket).unwrap();
+        let resolve = client
+            .request_completion_resolve(&ticket, &completion["items"][0], &docs, &[], 0)
+            .unwrap();
+        while client.providers.replies.is_empty() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let reply = client.take_provider_replies().pop_front().unwrap();
+        assert_eq!(reply.ticket.id, resolve.id);
+        assert!(
+            reply
+                .result
+                .unwrap_err()
+                .contains("Stale completion resolve handle")
+        );
+        assert_eq!(docs[0].text.to_string(), "α🙂\r\n");
     }
     #[test]
     fn provider_and_hidden_service_versions_reject_edit_undo_before_sync() {

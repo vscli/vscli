@@ -223,6 +223,10 @@ async function dispatch(message) {
         if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) throw new Error('Language provider session/owner is not ready');
         result = await inExecution(message.id, message.params.owner, () => runtime.provideLanguage({ ...message.params, request: message.id }));
         break;
+      case 'resolveLanguageCompletion':
+        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) throw new Error('Language provider session/owner is not ready');
+        result = await inExecution(message.id, message.params.owner, () => runtime.resolveLanguageCompletion({ ...message.params, request: message.id }));
+        break;
       case 'cancelLanguageProvider':
         runtime?.cancelLanguageProvider(message.params);
         break;

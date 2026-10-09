@@ -199,7 +199,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, providerSnapshot: providers.snapshot, provideLanguage: providers.provide, cancelLanguageProvider: providers.cancel, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
+    api, sync, providerSnapshot: providers.snapshot, provideLanguage: providers.provide, resolveLanguageCompletion: providers.resolveCompletion, cancelLanguageProvider: providers.cancel, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     contextForExtension(owner) { return { ...mementos.forOwner(owner), extension: activation?.extension(owner) }; },
     mergeExtensionState: mementos.merge,

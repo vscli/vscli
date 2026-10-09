@@ -152,8 +152,8 @@ rollback and removal are reflected on the next invocation. Contributed paths
 must remain inside the package. User, workspace and installed files share the
 128-file, 4096-snippet and 16 MiB read limits; warnings leave valid catalogs usable.
 
-Choice menus, nested snippet merging, extension API insertion and completion
-snippets are still unfinished. Unsupported regex
+Choice menus, nested snippet merging and extension API insertion are still unfinished.
+Completion snippets use native linked fields; see [IntelliSense](COMPLETIONS.md). Unsupported regex
 constructs fail explicitly. See [snippet evidence and limits](SNIPPETS.md).
 
 ## Multiple cursors and line commands
@@ -251,7 +251,7 @@ The server must already be installed. This implementation uses native stdio JSON
 | Rename symbol | F2 | F2 | F2 |
 | Problems | Ctrl+Shift+M | Ctrl+Shift+M | Cmd+Shift+M |
 
-Completion appears automatically after ordinary identifier typing or a server/provider trigger character, and Ctrl+Space requests it explicitly. The nonmodal caret popup uses Up/Down, Page Up/Down, Tab/Enter acceptance and Escape dismissal; snippet placeholder Tab retains precedence. Formatting is undoable. Rename currently accepts unversioned text edits, stages validation before changing any buffer, and leaves files unsaved for review; undo is per file. It refuses edits to other unsaved buffers. Versioned rename edits, file operations, completion snippets/resolve/follow-up commands, server provisioning, automatic restart, multiple simultaneous servers, and advanced capability negotiation remain incomplete. Native code-action support has its own stricter transaction rules below. The server is terminated when the editor exits; graceful shutdown is still pending. Diagnostics lacking server versions have weaker stale-result guarantees.
+Completion appears automatically after ordinary identifier typing or a server/provider trigger character, and Ctrl+Space requests it explicitly. The nonmodal caret popup uses Up/Down, Page Up/Down, Tab/Enter acceptance and Escape dismissal; snippet placeholder Tab retains precedence. Formatting is undoable. Rename currently accepts unversioned text edits, stages validation before changing any buffer, and leaves files unsaved for review; undo is per file. It refuses edits to other unsaved buffers. Versioned rename edits, file operations, completion follow-up commands, server provisioning, automatic restart, multiple simultaneous servers, and advanced capability negotiation remain incomplete. Native code-action support has its own stricter transaction rules below. The server is terminated when the editor exits; graceful shutdown is still pending. Diagnostics lacking server versions have weaker stale-result guarantees.
 
 A deterministic subprocess fixture tests synchronization, completion, formatting, and rejection of a stale response. The local real-server integration test covers clangd diagnostics, hover, and formatting. This does not establish compatibility with every server.
 
@@ -708,7 +708,7 @@ Use `vscli --enable-extension publisher.name` to remember a global code grant wi
 
 A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). The highest-scoring matching provider wins, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Completion also requests automatically after identifier typing or registered trigger characters; signature invocation remains explicit.
 
-Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. Definitions and references reuse dirty/shared buffers and load closed files asynchronously. Completion uses the nonmodal caret popup with Up/Down selection, Tab/Enter acceptance and Escape cancellation; native snippet placeholder Tab retains precedence. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Snippet completion, completion commands/resolution, workspace symbol providers and provider aggregation remain unsupported. See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).
+Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. Definitions and references reuse dirty/shared buffers and load closed files asynchronously. Completion uses the nonmodal caret popup with Up/Down selection, Tab/Enter acceptance and Escape cancellation; native snippet placeholder Tab retains precedence. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Completion resolution and linked snippet fields with atomic import edits are supported. Completion commands, workspace symbol providers and provider aggregation remain unsupported. See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).
 
 The empty workbench uses an original graphical VSCLI mark, clickable actions and recent files. Settings shows the active user JSON path; Ctrl+, opens it (Cmd+, on macOS), with workspace overrides in `.vscode/settings.json`. [Welcome rendering and terminal qualification](WELCOME.md) describes the high-resolution Kitty path and cell fallback.
 
@@ -718,4 +718,15 @@ A ready native language server or enabled active extension provider can supply s
 
 Automatic requests use a 120 ms typing debounce and one latest queued editor context. Continued typing filters cached labels while a fresh reply is pending; the popup says “updating” and the old edits cannot be accepted. Tab then performs ordinary native indentation, and Enter performs its normal newline action. Cursor/focus changes, other commands, document edits, edit→Undo, source restart, or provider replacement invalidate prior replies. Native acceptance stages strict edits before one undoable transaction; files stay unsaved until you save.
 
-Native settings, including user/workspace and language scopes, support `editor.quickSuggestions` (boolean, default `true`), `editor.quickSuggestionsDelay` (0–2000 milliseconds, default 120), `editor.suggestOnTriggerCharacters` (boolean, default `true`) and `editor.acceptSuggestionOnEnter` (`"on"` or `"off"`, default `"on"`). Context-specific quick-suggestion objects, `"smart"` Enter acceptance, snippet completion items, completion resolution, provider aggregation, ghost text and AI inline suggestions remain unsupported. [Bounds and evidence](COMPATIBILITY.md) distinguish this subset from full VS Code IntelliSense behavior.
+Native settings, including user/workspace and language scopes, support `editor.quickSuggestions` (boolean, default `true`), `editor.quickSuggestionsDelay` (0–2000 milliseconds, default 120), `editor.suggestOnTriggerCharacters` (boolean, default `true`) and `editor.acceptSuggestionOnEnter` (`"on"` or `"off"`, default `"on"`). Context-specific quick-suggestion objects, `"smart"` Enter acceptance, provider aggregation, ghost text and AI inline suggestions remain unsupported. [Bounds and evidence](COMPATIBILITY.md) distinguish this subset from full VS Code IntelliSense behavior.
+
+## Resolved completions and snippet fields
+
+Selected suggestions can resolve additional documentation and import edits in the background.
+Tab/Enter waits for the selected item to resolve; Escape cancels without editing.
+Snippet completions select their first field; Tab/Shift+Tab traverse fields and repeated
+fields update together. The insertion and its additional imports share one native Undo.
+A Details panel shows inert documentation beside the list on wide editors, underneath
+on medium layouts, and is omitted in small editor areas. Filtering ranks exact and
+prefix matches, then token-boundary abbreviations and other subsequences.
+See [completion contracts and limits](COMPLETIONS.md).
