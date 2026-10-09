@@ -83,6 +83,10 @@ Default combinations for implemented actions follow the [VS Code shortcut refere
 
 Shift plus navigation extends a selection. Ctrl+Left/Right moves by words on Linux/Windows; Alt+Left/Right does so in the macOS profile. Home toggles indentation/start of line; End moves to line end. Ctrl+Home/End moves to file boundaries on Linux/Windows; Cmd+Up/Down is available on macOS. Chords wait for the second key; Escape cancels.
 
+F1 → **Keyboard Inspector** opens a themed reference keyboard. It shows the last received key, reported modifiers, readable shortcut/chord, protocol, selected platform profile, and command that would match the context captured before opening the inspector. Commands are previewed without executing or modifying text; Escape closes. At 104×30 the diagram includes function, navigation and arrow keys; 78×25 shows the main keyboard, and smaller terminals retain a compact event readout. Resizing preserves the captured event.
+
+The diagram is a US reference layout, not physical keyboard detection. Highlighting identifies the last received event, including a reported release, rather than keys currently held. Combined modifier reports cannot identify left/right keys, international physical layout, or keys intercepted before delivery. Explicit side-specific modifier events can highlight their corresponding keycap. The normalized shortcut follows native keybinding rules (including legacy ambiguities); the reported-modifier chips only show flags actually received.
+
 Exact physical key delivery depends on terminal configuration. VSCLI negotiates enhanced keyboard reporting when supported. A terminal may otherwise turn Ctrl+Shift+P into Ctrl+P or consume the combination entirely. The editor does not silently replace that binding. Use F1 → Keyboard Inspector, release the conflicting terminal binding, and retest. No terminal configuration is changed automatically. OS-global, international-layout, and multiplexer behavior still require real-device qualification.
 
 ## Snippets
