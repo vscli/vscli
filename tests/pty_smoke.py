@@ -155,6 +155,8 @@ class SupervisedProcess:
 class Editor:
     def __init__(self, root, *args, recovery=False, enhanced=False, extra_env=None):
         self.master, self.slave = pty.openpty()
+        os.set_blocking(self.master, False)
+        self.pending_input = bytearray()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack("HHHH", 32, 110, 0, 0))
         self.original_termios = termios.tcgetattr(self.slave)
 
@@ -204,14 +206,42 @@ class Editor:
             self.output.extend(chunk)
             self.screen.feed(chunk)
             if b"\x1b[6n" in chunk:
-                os.write(self.master, b"\x1b[1;1R")
+                self.pending_input.extend(b"\x1b[1;1R")
             # Respond like a terminal supporting Kitty keyboard negotiation.
             if self.enhanced and b"\x1b[?u" in chunk:
-                os.write(self.master, b"\x1b[?0u\x1b[?1;2c")
+                self.pending_input.extend(b"\x1b[?0u\x1b[?1;2c")
+        self.flush_input()
         return True
 
-    def send(self, data):
-        os.write(self.master, data.encode() if isinstance(data, str) else data)
+    def flush_input(self):
+        if not self.pending_input:
+            return
+        try:
+            written = os.write(self.master, self.pending_input)
+        except BlockingIOError:
+            return
+        except OSError as error:
+            raise AssertionError(f"PTY input failed with {len(self.pending_input)} bytes pending: {error}") from error
+        if written == 0:
+            raise AssertionError("PTY input made no progress")
+        del self.pending_input[:written]
+
+    def send(self, data, timeout=4):
+        # A blocking write can deadlock when the editor is simultaneously
+        # blocked rendering to a full PTY output queue (observed on macOS).
+        # Keep exact byte order across short writes and terminal replies while
+        # draining output; no extra keystroke is added to wake the editor.
+        self.pending_input.extend(data.encode() if isinstance(data, str) else data)
+        deadline = time.monotonic() + timeout
+        self.flush_input()
+        while self.pending_input:
+            self.read()
+            if not self.pending_input:
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise AssertionError(f"PTY input timed out with {len(self.pending_input)} bytes pending\n{self.screen.text()}")
+            select.select([self.master], [self.master], [], min(remaining, 0.01))
         time.sleep(0.08)
         self.read()
         if self.process.poll() is not None and self.process.returncode != 0:
@@ -346,7 +376,7 @@ def run():
         app = Editor(root, burst_file, enhanced=True)
         burst_text = "xz" * 600
         # Cross the event reader's 1 KiB batch boundary. The save key is part of
-        # the same write: no later input may be needed to wake buffered bytes.
+        # the same input burst: no later key may be needed to wake buffered bytes.
         app.send(burst_text.encode() + CTRL_S)
         eventually(lambda: app.read() and text(burst_file) == burst_text)
         app.finish()
