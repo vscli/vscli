@@ -90,10 +90,10 @@ struct Args {
     #[arg(long)]
     extension: Vec<PathBuf>,
     /// Remember an installed package's code-execution grant; eligible code runs on later events
-    #[arg(long, group = "extension_state", conflicts_with_all = ["disable_extension", "install_extension", "list_extensions", "uninstall_extension", "rollback_extension", "import_vscode", "extension"])]
+    #[arg(long, group = "extension_state", conflicts_with_all = ["disable_extension", "install_extension", "list_extensions", "uninstall_extension", "rollback_extension", "import_vscode", "extension", "search_extensions", "update_extension", "check_extension_updates"])]
     enable_extension: Option<String>,
     /// Revoke a remembered execution grant without starting Node
-    #[arg(long, group = "extension_state", conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension", "import_vscode", "extension"])]
+    #[arg(long, group = "extension_state", conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension", "import_vscode", "extension", "search_extensions", "update_extension", "check_extension_updates"])]
     disable_extension: Option<String>,
     /// Execution grant scope; workspace values override global values
     #[arg(

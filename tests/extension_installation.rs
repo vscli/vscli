@@ -344,6 +344,28 @@ fn cli_scoped_execution_grants_merge_preserve_overrides_and_never_start_node() {
             .status
             .success()
     );
+    let grants = fs::read(paths.path(Scope::Global).unwrap()).unwrap();
+    for action in ["--enable-extension", "--disable-extension"] {
+        for registry_operation in [
+            vec!["--search-extensions", "sort"],
+            vec!["--check-extension-updates"],
+            vec!["--update-extension", "example.command"],
+        ] {
+            let mut arguments = vec![action, "example.command"];
+            arguments.extend(registry_operation);
+            let rejected = run(&arguments);
+            assert!(!rejected.status.success());
+            assert!(String::from_utf8_lossy(&rejected.stderr).contains("cannot be used with"));
+            assert_eq!(
+                fs::read(paths.path(Scope::Global).unwrap()).unwrap(),
+                grants
+            );
+            assert_eq!(
+                fs::read(paths.path(Scope::Workspace).unwrap()).unwrap(),
+                original
+            );
+        }
+    }
 }
 #[test]
 fn cli_enable_rejects_missing_packages_and_malformed_state_without_overwriting_grants() {
