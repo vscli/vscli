@@ -262,3 +262,194 @@ exports.activate = context => {
     assert!(app.documents.is_empty());
     assert_eq!(fs::read_to_string(&path).unwrap(), "original");
 }
+
+#[test]
+fn cli_scoped_execution_grants_merge_preserve_overrides_and_never_start_node() {
+    use vscli::extension_activation::{Scope, state::Paths};
+    let root = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let storage = root.path().join("store");
+    let archive = root.path().join("package.vsix");
+    package(&archive, "1.0.0", &[]);
+    Store::new(storage.clone()).install(&archive).unwrap();
+    let run = |arguments: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_vscli"))
+            .arg("--extensions-dir")
+            .arg(&storage)
+            .arg("--config-dir")
+            .arg(config.path())
+            .arg("--workspace")
+            .arg(root.path())
+            .arg("--extension-node")
+            .arg("vscli-test-node-is-unavailable")
+            .args(arguments)
+            .output()
+            .unwrap()
+    };
+    let global = run(&["--enable-extension", "EXAMPLE.COMMAND"]);
+    assert!(
+        global.status.success(),
+        "{}",
+        String::from_utf8_lossy(&global.stderr)
+    );
+    assert!(String::from_utf8_lossy(&global.stdout).contains("effective execution enabled=true"));
+    let local = run(&[
+        "--disable-extension",
+        "example.command",
+        "--extension-scope",
+        "workspace",
+    ]);
+    assert!(
+        local.status.success(),
+        "{}",
+        String::from_utf8_lossy(&local.stderr)
+    );
+    assert!(String::from_utf8_lossy(&local.stdout).contains("effective execution enabled=false"));
+    let paths = Paths::new(Some(config.path()), root.path()).unwrap();
+    let (global, workspace) = paths.read().unwrap();
+    assert!(global.extensions["example.command"]);
+    assert!(!workspace.extensions["example.command"]);
+    let original = fs::read(paths.path(Scope::Workspace).unwrap()).unwrap();
+    assert!(
+        run(&["--enable-extension", "example.command"])
+            .status
+            .success()
+    );
+    assert_eq!(
+        fs::read(paths.path(Scope::Workspace).unwrap()).unwrap(),
+        original
+    );
+    let unrelated = tempfile::tempdir().unwrap();
+    let (_, other) = Paths::new(Some(config.path()), unrelated.path())
+        .unwrap()
+        .read()
+        .unwrap();
+    assert!(vscli::extension_activation::Preferences::enabled(
+        &global,
+        &other,
+        "example.command"
+    ));
+    assert!(
+        !run(&[
+            "--enable-extension",
+            "example.command",
+            "--disable-extension",
+            "example.command"
+        ])
+        .status
+        .success()
+    );
+    assert!(
+        !run(&["--extension-scope", "workspace", "--list-extensions"])
+            .status
+            .success()
+    );
+}
+#[test]
+fn cli_enable_rejects_missing_packages_and_malformed_state_without_overwriting_grants() {
+    let root = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let storage = root.path().join("store");
+    let archive = root.path().join("package.vsix");
+    package(&archive, "1.0.0", &[]);
+    Store::new(storage.clone()).install(&archive).unwrap();
+    let run = |id: &str| {
+        Command::new(env!("CARGO_BIN_EXE_vscli"))
+            .arg("--extensions-dir")
+            .arg(&storage)
+            .arg("--config-dir")
+            .arg(config.path())
+            .arg("--workspace")
+            .arg(root.path())
+            .arg("--enable-extension")
+            .arg(id)
+            .output()
+            .unwrap()
+    };
+    assert!(!run("missing.package").status.success());
+    assert!(!config.path().join("extensions-enabled.json").exists());
+    let path = config.path().join("extensions-enabled.json");
+    fs::write(&path, b"malformed prior state").unwrap();
+    let failed = run("example.command");
+    assert!(!failed.status.success());
+    assert!(String::from_utf8_lossy(&failed.stderr).contains("Invalid extension grant state"));
+    assert_eq!(fs::read(&path).unwrap(), b"malformed prior state");
+}
+#[test]
+#[ignore = "requires the pinned compiled Sort Lines package and Node; real protocol CI runs this"]
+fn upstream_sort_lines_inferred_command_activates_only_after_cli_enable_and_preserves_save_undo() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+    use std::time::{Duration, Instant};
+    use vscli::{app::App, keys::Profile};
+    let source = std::path::PathBuf::from(
+        std::env::var_os("VSCLI_TEST_SORT_LINES").expect("Set VSCLI_TEST_SORT_LINES"),
+    );
+    let root = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let store = Store::new(root.path().join("store"));
+    let archive = root.path().join("sort-lines.vsix");
+    let original_sources: Vec<_> = ["package.json", "out/extension.js", "out/sort-lines.js"]
+        .into_iter()
+        .map(|name| (name, fs::read(source.join(name)).unwrap()))
+        .collect();
+    let mut writer = ZipWriter::new(File::create(&archive).unwrap());
+    for (name, bytes) in &original_sources {
+        writer
+            .start_file(format!("extension/{name}"), SimpleFileOptions::default())
+            .unwrap();
+        writer.write_all(bytes).unwrap();
+    }
+    writer.finish().unwrap();
+    let installed = store.install(&archive).unwrap();
+    assert_eq!(installed.id, "tyriar.sort-lines");
+    assert_eq!(installed.version, "1.12.0");
+    let enabled = Command::new(env!("CARGO_BIN_EXE_vscli"))
+        .arg("--extensions-dir")
+        .arg(store.root())
+        .arg("--config-dir")
+        .arg(config.path())
+        .arg("--workspace")
+        .arg(root.path())
+        .args(["--enable-extension", "tyriar.sort-lines"])
+        .output()
+        .unwrap();
+    assert!(
+        enabled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&enabled.stderr)
+    );
+    let file = root.path().join("lines.txt");
+    let original = "zebra\r\napple\r\npear";
+    fs::write(&file, original).unwrap();
+    let mut app = App::new(root.path().into(), Profile::Linux);
+    app.extensions_directory = Some(store.root().into());
+    app.configure_extension_activation(Some(config.path()));
+    app.open(&file).unwrap();
+    app.doc_mut().select_all();
+    let identity = app.doc().id;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !app.extension_enabled("tyriar.sort-lines") {
+        app.poll();
+        assert!(Instant::now() < deadline, "{}", app.message);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(app.extension_host.is_none());
+    assert_eq!(app.keymap.shortcut("sortLines.sortLines"), "f9");
+    app.event(Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::NONE)));
+    while app.doc().text != "apple\npear\nzebra" {
+        app.poll();
+        assert!(Instant::now() < deadline, "{}", app.message);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(app.doc().id, identity);
+    assert_eq!(fs::read_to_string(&file).unwrap(), original);
+    app.execute("workbench.action.files.save", serde_json::Value::Null);
+    assert_eq!(fs::read_to_string(&file).unwrap(), "apple\npear\nzebra");
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), original);
+    app.execute("workbench.action.files.save", serde_json::Value::Null);
+    assert_eq!(fs::read_to_string(&file).unwrap(), original);
+    for (name, bytes) in original_sources {
+        assert_eq!(fs::read(source.join(name)).unwrap(), bytes);
+    }
+}

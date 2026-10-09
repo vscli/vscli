@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const MAX_ENABLED: usize = 128;
 pub const MAX_SELECTED: usize = 8;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Scope {
     Global,
     Workspace,
