@@ -935,11 +935,16 @@ mod tests {
             "test.b".into(),
             Metadata::selected(&b).unwrap(),
         )]));
-        while !app
-            .extension_host
-            .as_ref()
-            .is_some_and(|h| h.owner_active("test.b"))
-        {
+        while !app.extension_host.as_ref().is_some_and(|h| {
+            // Activation status and provider publication are separate wire
+            // messages; qualify the observable workflow before asserting it.
+            h.owner_active("test.b")
+                && h.language_provider(
+                    crate::extension_providers::Kind::Hover,
+                    &app.hidden_documents[0],
+                )
+                .is_some()
+        }) {
             app.poll();
             assert!(Instant::now() < deadline, "{}", app.message);
             std::thread::sleep(Duration::from_millis(2));
