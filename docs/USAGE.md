@@ -111,8 +111,10 @@ Clipboard reads run in the background and cancel insertion if the editor context
 changes before the reply arrives.
 
 F1 → **Insert Snippet** opens a searchable native picker. Type a name, prefix or
-description, then press Enter; Escape cancels. Catalogs load in the background
-when the command runs. User files live in `snippets/` beside the active user
+description, then press Enter; Escape cancels. Open or create an editor first;
+invoking insertion on the welcome screen leaves it empty. Catalogs load in the
+background when the command runs, and closing the target editor cancels pending
+insertion. User files live in `snippets/` beside the active user
 settings file (`--settings` can select a VS Code user settings file). Put
 language-specific snippets in `<language>.json`, global snippets in
 `*.code-snippets`, and project snippets in `.vscode/*.code-snippets`.

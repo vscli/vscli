@@ -256,6 +256,11 @@ def run():
         app.send(b"\x10")  # Quick Open works with no active document.
         eventually(lambda: app.read() and "Quick Open" in app.screen.text())
         app.send(b"\x1b")
+        app.send(b"\x1bOP")
+        app.send("Insert Snippet\r")
+        eventually(lambda: app.read() and "Open a file or create a new file first" in app.screen.text())
+        assert "No open editors" in app.screen.text()
+        assert "Untitled" not in app.screen.text()
         app.send(b"\x0e")  # Ctrl+N explicitly creates the first editor.
         eventually(lambda: app.read() and "Untitled" in app.screen.text())
         app.send("welcome edit")
