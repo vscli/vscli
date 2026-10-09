@@ -248,7 +248,7 @@ impl Client {
         ] {
             std::fs::write(runtime.path().join(name), source)?;
         }
-        let process = Process::start(
+        let process = Process::start_isolated(
             node,
             &[
                 "--max-old-space-size=256".into(),
@@ -561,6 +561,9 @@ impl Client {
                     ));
                 }
             }
+        }
+        if self.process.exited() {
+            bail!("Extension process exited\n{}", self.process.stderr_tail());
         }
         if self
             .pending
