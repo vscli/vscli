@@ -728,7 +728,8 @@ def run():
         extensions_dir = root / "installed-extensions"
         installed_file = root / "installed-extension.txt"
         installed_file.write_text("zebra\napple\npear")
-        app = Editor(root, "--extensions-dir", extensions_dir, installed_file, enhanced=True)
+        app = Editor(root, "--extensions-dir", extensions_dir, enhanced=True)
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
         app.send(b"\x1bOP")
         app.send("Extensions: Install from VSIX")
         app.send(b"\r")
@@ -741,6 +742,13 @@ def run():
         eventually(lambda: app.read() and "Run installed extension?" in app.screen.text())
         app.send(b"\r")
         eventually(lambda: app.read() and "Extension ready" in app.screen.text())
+        assert "No open editors" in app.screen.text(), "Activation fabricated an editor"
+        app.send(b"\x0f")  # Ctrl+O opens the first editor after package activation.
+        eventually(lambda: app.read() and "Open File" in app.screen.text())
+        app.send(CTRL_A)
+        app.send(str(installed_file))
+        app.send(b"\r")
+        eventually(lambda: app.read() and "installed-extension.txt" in app.screen.text())
         app.send(CTRL_A)
         app.send(b"\x1b[20~")  # Installed package's original F9 binding.
         eventually(lambda: app.read() and "sort applied=true" in app.screen.text())
@@ -768,8 +776,11 @@ def run():
         app.send(b"\x1b[3~")  # Delete removes registry entry while preserving host files.
         eventually(lambda: app.read() and "No packages installed" in app.screen.text())
         app.send(b"\x1b")
+        app.send(b"\x17")  # Ctrl+W closes the last editor while the host remains live.
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        assert "Untitled" not in app.screen.text()
         app.finish()
-        print("PASS: VSIX install/list/explicit activation, installed F9/save/undo, uninstall with running host")
+        print("PASS: empty welcome, VSIX install/activation, open/F9/save/undo, host replacement, uninstall and close-last")
 
 
         bindings = root / "keybindings.json"

@@ -135,23 +135,130 @@ fn original_extensions_shortcut_opens_installed_picker_on_all_profiles() {
         (Profile::Windows, KeyModifiers::CONTROL),
         (Profile::Macos, KeyModifiers::SUPER),
     ] {
-        let mut app = App::new(temp.path().into(), profile);
-        app.extensions_directory = Some(temp.path().join("empty-store"));
-        app.event(Event::Key(KeyEvent::new(
-            KeyCode::Char('x'),
-            modifier | KeyModifiers::SHIFT,
-        )));
+        for focus in [
+            vscli::app::Focus::Editor,
+            vscli::app::Focus::Explorer,
+            vscli::app::Focus::Terminal,
+        ] {
+            let mut app = App::new(temp.path().into(), profile);
+            app.focus = focus;
+            app.extensions_directory = Some(temp.path().join("empty-store"));
+            app.event(Event::Key(KeyEvent::new(
+                KeyCode::Char('x'),
+                modifier | KeyModifiers::SHIFT,
+            )));
+            let started = Instant::now();
+            while !matches!(app.modal, Some(Modal::Extensions { .. })) {
+                app.poll();
+                assert!(
+                    started.elapsed() < Duration::from_secs(5),
+                    "{}",
+                    app.message
+                );
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            assert!(app.documents.is_empty());
+            assert!(app.extension_host.is_none());
+            assert!(app.focus == vscli::app::Focus::Editor);
+        }
+    }
+}
+
+#[test]
+fn installed_host_tracks_empty_open_and_closed_workbench_without_phantom_documents() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+    use std::time::{Duration, Instant};
+    use vscli::{
+        app::{App, Modal},
+        keys::Profile,
+    };
+    fn until(app: &mut App, predicate: impl Fn(&App) -> bool) {
         let started = Instant::now();
-        while !matches!(app.modal, Some(Modal::Extensions { .. })) {
+        while !predicate(app) {
             app.poll();
             assert!(
-                started.elapsed() < Duration::from_secs(5),
+                started.elapsed() < Duration::from_secs(10),
                 "{}",
                 app.message
             );
             std::thread::sleep(Duration::from_millis(2));
         }
-        assert!(app.documents.is_empty());
-        assert!(app.extension_host.is_none());
     }
+    let temp = tempfile::tempdir().unwrap();
+    let archive = temp.path().join("inventory.vsix");
+    let mut zip = ZipWriter::new(File::create(&archive).unwrap());
+    zip.start_file("extension/package.json", SimpleFileOptions::default())
+        .unwrap();
+    write!(
+        zip,
+        "{}",
+        json!({"publisher":"example","name":"inventory","version":"1.0.0","main":"main.cjs"})
+    )
+    .unwrap();
+    zip.start_file("extension/main.cjs", SimpleFileOptions::default())
+        .unwrap();
+    zip.write_all(br#"const vscode = require('vscode');
+exports.activate = context => {
+  let captured;
+  for (const [id, fn] of Object.entries({
+    inventory: () => vscode.window.showInformationMessage(JSON.stringify({documents:vscode.workspace.textDocuments.length,active:vscode.window.activeTextEditor?.document.getText() ?? null})),
+    capture: () => { captured = vscode.window.activeTextEditor; vscode.window.showInformationMessage('captured'); },
+    stale: async () => vscode.window.showInformationMessage('closed edit=' + await captured.edit(edit => edit.insert(new vscode.Position(0,0), 'lost')))
+  })) context.subscriptions.push(vscode.commands.registerCommand('fixture.' + id, fn));
+};"#).unwrap();
+    zip.finish().unwrap();
+    let store = Store::new(temp.path().join("store"));
+    store.install(&archive).unwrap();
+    let mut app = App::new(temp.path().into(), Profile::Linux);
+    app.extensions_directory = Some(store.root().into());
+    app.execute("workbench.view.extensions", serde_json::Value::Null);
+    until(&mut app, |a| {
+        matches!(a.modal, Some(Modal::Extensions { .. }))
+    });
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+    )));
+    assert!(matches!(app.modal, Some(Modal::RunExtension(_))));
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+    )));
+    until(&mut app, |a| {
+        a.extension_host.as_ref().is_some_and(|host| host.ready)
+    });
+    app.execute("fixture.inventory", serde_json::Value::Null);
+    until(&mut app, |a| {
+        a.message.contains("\"documents\":0,\"active\":null")
+    });
+    assert!(app.documents.is_empty());
+    let path = temp.path().join("first.txt");
+    fs::write(&path, "original").unwrap();
+    app.open(&path).unwrap();
+    app.doc_mut().insert("unsaved ", false);
+    let identity = app.doc().id;
+    app.execute("fixture.inventory", serde_json::Value::Null);
+    until(&mut app, |a| {
+        a.message
+            .contains("\"documents\":1,\"active\":\"unsaved original\"")
+    });
+    assert_eq!(app.doc().id, identity);
+    assert_eq!(fs::read_to_string(&path).unwrap(), "original");
+    app.execute("fixture.capture", serde_json::Value::Null);
+    until(&mut app, |a| a.message == "captured");
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), "original");
+    app.execute(
+        "workbench.action.closeActiveEditor",
+        serde_json::Value::Null,
+    );
+    assert!(app.documents.is_empty());
+    app.execute("fixture.inventory", serde_json::Value::Null);
+    until(&mut app, |a| {
+        a.message.contains("\"documents\":0,\"active\":null")
+    });
+    app.execute("fixture.stale", serde_json::Value::Null);
+    until(&mut app, |a| a.message == "closed edit=false");
+    assert!(app.documents.is_empty());
+    assert_eq!(fs::read_to_string(&path).unwrap(), "original");
 }
