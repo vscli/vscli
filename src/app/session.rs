@@ -630,3 +630,163 @@ mod tests {
         app.finish_session().unwrap();
     }
 }
+
+#[cfg(test)]
+mod combined_tests {
+    use super::*;
+    use std::fs;
+    fn until(app: &mut App, condition: impl Fn(&App) -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            app.poll();
+            if condition(app) {
+                return;
+            }
+            assert!(Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    #[test]
+    fn queued_native_extension_prompt_cancels_restore_and_retains_metadata_for_retry() {
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("config");
+        let file = root.path().join("saved.txt");
+        fs::write(&file, "saved disk\r\n").unwrap();
+        let mut seed = App::new(root.path().into(), Profile::Linux);
+        seed.configure_session(Some(&config), false).unwrap();
+        seed.open(&file).unwrap();
+        seed.finish_session().unwrap();
+        let extension = root.path().join("extension");
+        fs::create_dir(&extension).unwrap();
+        fs::write(extension.join("package.json"), r#"{"publisher":"fixture","name":"session-prompt","version":"1.0.0","main":"extension.cjs"}"#).unwrap();
+        fs::write(extension.join("extension.cjs"), r#"
+const vscode = require('vscode');
+exports.activate = context => context.subscriptions.push(vscode.commands.registerCommand('session.prompt', async () => {
+ const answer = await vscode.window.showInputBox({title:'Session interruption'});
+ await vscode.window.showInformationMessage('session answer='+answer);
+}));
+"#).unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.configure_session(Some(&config), false).unwrap();
+        app.start_extension_packages(vec![crate::extensions::Package::read(&extension).unwrap()])
+            .unwrap();
+        until(&mut app, |a| {
+            a.session.ready && a.extension_host.as_ref().is_some_and(|h| h.ready)
+        });
+        app.start_prompt(PromptKind::Palette, "restore".into());
+        app.execute("session.prompt", Value::Null);
+        until(&mut app, |a| {
+            a.extension_host
+                .as_ref()
+                .is_some_and(|h| h.prompt().is_some())
+        });
+        assert!(matches!(
+            app.prompt.as_ref().unwrap().kind,
+            PromptKind::Palette
+        ));
+        app.prompt = None; // Native palette acceptance removes itself before dispatch.
+        app.execute("vscli.session.restore", Value::Null);
+        assert!(app.session.pending.is_some());
+        until(&mut app, |a| a.session.pending.is_none());
+        assert!(matches!(
+            app.prompt.as_ref().unwrap().kind,
+            PromptKind::Extension(_)
+        ));
+        assert!(app.documents.is_empty());
+        assert!(app.session.protected);
+        app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
+        until(&mut app, |a| a.message == "session answer=undefined");
+        // A popup can be retired by its owner before a loader reply is polled.
+        // Its appearance must still invalidate the captured restore generation.
+        app.start_prompt(PromptKind::Palette, String::new());
+        app.execute("session.prompt", Value::Null);
+        until(&mut app, |a| {
+            a.extension_host
+                .as_ref()
+                .is_some_and(|h| h.prompt().is_some())
+        });
+        app.prompt = None;
+        app.execute("vscli.session.restore", Value::Null);
+        app.poll_extensions();
+        assert!(matches!(
+            app.prompt.as_ref().unwrap().kind,
+            PromptKind::Extension(_)
+        ));
+        app.cancel_extension_prompt();
+        assert!(app.prompt.is_none());
+        until(&mut app, |a| {
+            a.session.pending.is_none() && a.extension_host.as_ref().is_some_and(|h| !h.busy())
+        });
+        assert!(app.documents.is_empty());
+        app.execute("vscli.session.restore", Value::Null);
+        until(&mut app, |a| !a.documents.is_empty());
+        assert_eq!(app.doc().text, "saved disk\r\n");
+        assert!(app.prompt.is_none());
+        let id = app.doc().id;
+        app.execute("session.prompt", Value::Null);
+        until(&mut app, |a| {
+            matches!(
+                a.prompt.as_ref().map(|p| &p.kind),
+                Some(PromptKind::Extension(_))
+            )
+        });
+        app.event(Event::Paste("answer".into()));
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::NONE,
+        )));
+        until(&mut app, |a| a.message == "session answer=answer");
+        assert_eq!(app.doc().id, id);
+        assert_eq!(fs::read_to_string(&file).unwrap(), "saved disk\r\n");
+        app.finish_session().unwrap();
+    }
+    #[test]
+    fn workspace_symbol_picker_wins_over_pending_restore_and_late_replies_cannot_revive_either_ui()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("config");
+        let file = root.path().join("saved.txt");
+        fs::write(&file, "preserved\r\n").unwrap();
+        fs::write(root.path().join("other.cpp"), "x 😀foo\r\n").unwrap();
+        let mut seed = App::new(root.path().into(), Profile::Linux);
+        seed.configure_session(Some(&config), false).unwrap();
+        seed.open(&file).unwrap();
+        seed.finish_session().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.configure_session(Some(&config), false).unwrap();
+        app.lsp = Some(
+            crate::lsp::Client::start(
+                "python3",
+                &[PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/fixtures/symbol_server.py")
+                    .to_string_lossy()
+                    .into_owned()],
+                root.path(),
+                "cpp".into(),
+            )
+            .unwrap(),
+        );
+        until(&mut app, |a| {
+            a.session.ready && a.lsp.as_ref().is_some_and(|c| c.ready)
+        });
+        app.execute("vscli.session.restore", Value::Null);
+        app.execute("workbench.action.showAllSymbols", Value::Null);
+        assert!(matches!(
+            app.prompt.as_ref().unwrap().kind,
+            PromptKind::Symbols
+        ));
+        until(&mut app, |a| {
+            a.session.pending.is_none() && !a.symbol_items("").is_empty()
+        });
+        assert!(app.documents.is_empty());
+        assert!(app.session.protected);
+        app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
+        app.execute("vscli.session.restore", Value::Null);
+        until(&mut app, |a| !a.documents.is_empty());
+        assert!(app.prompt.is_none());
+        assert_eq!(app.doc().path.as_ref(), Some(&file));
+        assert_eq!(app.doc().text, "preserved\r\n");
+        assert!(!app.doc().dirty());
+        app.finish_session().unwrap();
+    }
+}

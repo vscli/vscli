@@ -685,6 +685,7 @@ impl App {
         self.remember_active_file();
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
+        self.session_interaction();
         self.clear_signature();
         self.cancel_extension_prompt();
         if !matches!(kind, PromptKind::Symbols) {

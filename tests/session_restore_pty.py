@@ -3,6 +3,7 @@
 import json
 import os
 import signal
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -24,6 +25,90 @@ def palette(app, command):
 
 def wait(app, text):
     eventually(lambda: app.read() and text in app.screen.text())
+
+def combined(root):
+    folder = root / "combined"
+    folder.mkdir()
+    config = folder / "config"
+    file = folder / "other.cpp"
+    original = "x 😀foo\r\n".encode()
+    file.write_bytes(original)
+    extension = folder / "extension"
+    extension.mkdir()
+    (extension / "package.json").write_text(json.dumps({
+        "publisher": "fixture", "name": "session-prompt", "version": "1.0.0", "main": "extension.cjs",
+        "contributes": {"commands": [{"command": "session.prompt", "title": "Session Prompt"}]},
+    }))
+    (extension / "extension.cjs").write_text(r"""
+const vscode = require('vscode');
+exports.activate = context => context.subscriptions.push(vscode.commands.registerCommand('session.prompt', async () => {
+ const answer = vscode.window.showInputBox({title:'Session interruption'});
+ require('node:fs').writeFileSync(require('node:path').join(vscode.workspace.rootPath,'prompt.queued'), 'queued');
+ await vscode.window.showInformationMessage('session answer='+await answer);
+}));
+""")
+    bindings = folder / "bindings.json"
+    bindings.write_text(json.dumps([{"key": "f6", "command": "session.prompt"}, {"key": "f7", "command": "vscli.session.restore"}]))
+    server = Path(__file__).resolve().parent / "fixtures" / "symbol_server.py"
+    app = editor(folder, file, "--config-dir", config)
+    wait(app, "😀foo")
+    finish(app)
+    options = ("--config-dir", config, "--extension", extension, "--keybindings", bindings,
+               "--lsp", sys.executable, "--lsp-arg", server, "--lsp-language", "cpp")
+    app = editor(folder, *options)
+    wait(app, "(1 commands)")
+    # Establish actual provider readiness without depending on relative process startup speed.
+    deadline = time.monotonic() + 5
+    while "Go to Symbol in Workspace" not in app.screen.text():
+        assert time.monotonic() < deadline, app.screen.text()
+        app.send(b"\x14")
+    app.send(b"\x1b")
+    # Keep the extension request queued behind a native palette, then dispatch Restore.
+    app.send(b"\x1b[17~\x1bOP")
+    eventually(lambda: app.read() and (folder / "prompt.queued").exists())
+    app.send("File: Restore Previous Clean Session\r")
+    wait(app, "Session interruption")
+    assert "No open editors" in app.screen.text(), app.screen.text()
+    app.send(b"\x1b")
+    wait(app, "session answer=undefined")
+    assert "No open editors" in app.screen.text()
+    # One input batch starts Restore and immediately replaces it with the symbol picker.
+    app.send(b"\x1b[18~\x14")
+    wait(app, "Go to Symbol in Workspace")
+    wait(app, "Session restore cancelled")
+    assert "No open editors" in app.screen.text()
+    app.send(b"\x1b")
+    app.send(b"\x1b[18~")
+    wait(app, "Restored clean-file session")
+    assert "😀foo" in app.screen.text()
+    app.send("!")
+    app.send(CTRL_S)
+    eventually(lambda: app.read() and file.read_bytes() == b"!" + original)
+    app.send(CTRL_Z)
+    app.send(CTRL_S)
+    finish(app)
+    assert file.read_bytes() == original
+    disabled = folder / "disabled"
+    app = editor(folder, "--config-dir", disabled, "--no-session", "--extension", extension,
+                 "--keybindings", bindings, "--lsp", sys.executable, "--lsp-arg", server, "--lsp-language", "cpp")
+    wait(app, "(1 commands)")
+    app.send(b"\x1b[18~")
+    wait(app, "Session storage is disabled or unavailable")
+    app.send(b"\x1b[17~")
+    wait(app, "Session interruption")
+    app.send(b"\x1b")
+    wait(app, "session answer=undefined")
+    deadline = time.monotonic() + 5
+    while "Go to Symbol in Workspace" not in app.screen.text():
+        assert time.monotonic() < deadline, app.screen.text()
+        app.send(b"\x14")
+    app.send(b"\x1b")
+    assert "No open editors" in app.screen.text()
+    finish(app)
+    assert not (disabled / "state" / "sessions").exists()
+    assert file.read_bytes() == original
+    print("PASS: queued extension InputBox and workspace-symbol picker cancel restore; retry preserves save/undo, and --no-session preserves dialogs/symbols")
+
 
 def run():
     with tempfile.TemporaryDirectory(prefix="vscli-session-pty-") as temporary:
@@ -122,6 +207,7 @@ def run():
                 metadata = path.read_text()
                 assert "alpha recovered" not in metadata and "beta recovered" not in metadata
             print("PASS: duplicate dirty recovery variants keep identity and caret; clean session metadata never stores buffer text")
+            combined(root)
         finally:
             for app in LIVE[:]:
                 try:

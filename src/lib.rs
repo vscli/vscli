@@ -26,5 +26,5 @@ pub mod workspace;
 
 pub mod recent;
 
-pub mod signature;
 pub mod session;
+pub mod signature;

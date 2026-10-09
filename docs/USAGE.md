@@ -600,5 +600,9 @@ retry, stale requests, lease/config/workspace isolation, read budgets, FIFO reje
 coalescing, shutdown deadlines, and injected failure before atomic publication.
 `tests/session_restore_pty.py` exercises actual normal restarts, shared groups,
 CLI-file precedence, disabled storage, missing-file retry, empty restart, and dirty
-recovery collisions. Injected failure tests establish atomic old/new-file behavior;
+recovery collisions. Combined native tests and a terminal journey also qualify
+restoration cancellation by a queued extension InputBox and a workspace-symbol
+picker, safe explicit retry, and continued dialogs/symbols with `--no-session`.
+A prompt opening invalidates restoration even if its owner closes it before the
+file-loader reply arrives. Injected failure tests establish atomic old/new-file behavior;
 they do not qualify arbitrary hardware power-loss or network-filesystem durability.
