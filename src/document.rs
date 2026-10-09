@@ -227,6 +227,7 @@ pub struct Document {
     redo: Vec<Snapshot>,
     next_revision: u64,
     text_epoch: u64,
+    save_generation: u64,
     byte_changes: std::collections::VecDeque<(u64, ByteChange)>,
     typing: Option<(Instant, usize)>,
 }
@@ -317,6 +318,10 @@ impl Document {
     pub(crate) fn text_epoch(&self) -> u64 {
         self.text_epoch
     }
+    /// Counts successful persistence operations, independently of dirty state or Undo.
+    pub(crate) fn save_generation(&self) -> u64 {
+        self.save_generation
+    }
     pub(crate) fn byte_changes_since(
         &self,
         epoch: u64,
@@ -392,6 +397,7 @@ impl Document {
             redo: Vec::new(),
             next_revision: 1,
             text_epoch: 0,
+            save_generation: 0,
             byte_changes: std::collections::VecDeque::new(),
             typing: None,
         }
@@ -1119,6 +1125,10 @@ impl Document {
         self.save_to(&path, false)
     }
     pub fn save_to(&mut self, path: &Path, overwrite: bool) -> Result<()> {
+        let save_generation = self
+            .save_generation
+            .checked_add(1)
+            .context("Document save generation exhausted")?;
         let path = absolute_path(path)?;
         let same_path = self.path.as_ref() == Some(&path);
         if !overwrite {
@@ -1150,6 +1160,7 @@ impl Document {
         self.path = Some(path);
         self.disk_content = Some(self.text.clone());
         self.saved_revision = self.revision;
+        self.save_generation = save_generation;
         self.break_group();
         Ok(())
     }
@@ -1201,6 +1212,38 @@ fn map_position(p: usize, range: &Range<usize>, added: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn successful_save_generation_is_independent_of_undo_and_failed_persistence() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("save.txt");
+        fs::write(&path, "original\r\n").unwrap();
+        let mut doc = Document::open(&path).unwrap();
+        assert_eq!(doc.save_generation(), 0);
+        doc.insert("edit ", false);
+        doc.undo();
+        assert!(!doc.dirty());
+        assert_eq!(doc.save_generation(), 0);
+        doc.save().unwrap();
+        assert_eq!(doc.save_generation(), 1);
+        assert_eq!(fs::read(&path).unwrap(), b"original\r\n");
+        doc.save().unwrap();
+        assert_eq!(doc.save_generation(), 2);
+        doc.insert("unsaved ", false);
+        let before = doc.text.to_string();
+        fs::write(&path, "external").unwrap();
+        assert!(doc.save().is_err());
+        assert_eq!(doc.save_generation(), 2);
+        assert_eq!(doc.text.to_string(), before);
+        assert!(doc.dirty());
+        assert_eq!(fs::read(&path).unwrap(), b"external");
+        let alternate = root.path().join("alternate.txt");
+        doc.save_to(&alternate, false).unwrap();
+        assert_eq!(doc.save_generation(), 3);
+        assert_eq!(fs::read_to_string(alternate).unwrap(), before);
+        doc.undo();
+        doc.redo();
+        assert_eq!(doc.save_generation(), 3);
+    }
     struct ShortReads<'a> {
         bytes: &'a [u8],
         interrupted: bool,

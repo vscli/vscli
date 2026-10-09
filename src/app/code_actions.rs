@@ -238,7 +238,14 @@ impl App {
                 .position(|d| d.path.as_ref() == Some(path) && d.id == snapshot.id)
                 .context("Workspace document was closed or replaced; request code actions again")?;
             let doc = &self.documents[index];
-            if doc.revision != snapshot.revision || version.is_some_and(|v| v != snapshot.version) {
+            if doc.revision != snapshot.revision
+                || doc.text_epoch() != snapshot.text_epoch
+                || self
+                    .lsp
+                    .as_ref()
+                    .is_none_or(|client| !client.workspace_snapshot_current(path, snapshot))
+                || version.is_some_and(|v| v != snapshot.version)
+            {
                 bail!("Workspace document changed since this request; request code actions again");
             }
             let values = edits.as_array().context("Invalid workspace text edits")?;

@@ -1,5 +1,7 @@
 'use strict';
 const types = require('./api-types.cjs');
+const diagnosticTypes = require('./diagnostic-types.cjs');
+const { createDiagnostics } = require('./diagnostics.cjs');
 const providerTypes = require('./provider-types.cjs');
 const { createProviders } = require('./providers.cjs');
 const { createPrompts } = require('./prompts.cjs');
@@ -22,7 +24,7 @@ function supported(name, values) {
 function createApi(sendRequest, notify, sessionOptions = {}) {
   const documents = new Map(), editors = new Map(), commands = new Map();
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
-  const activeChanged = new EventEmitter();
+  const activeChanged = new EventEmitter(), saved = new EventEmitter();
   const configuration = createConfiguration();
   let active, workspaceFolder, activation, generation = -1;
   const facades = new Map(), owned = new Map();
@@ -42,6 +44,9 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     catch (error) { return Promise.reject(error); }
   }
   const providers = createProviders({ session: sessionOptions.session, notify, track, document: id => documents.get(id) });
+  const diagnostics = createDiagnostics({ session: sessionOptions.session, notify, track, assertOwner, document: key => {
+    for (const document of documents.values()) if (document._snapshot.uri === key) return document;
+  } });
   const surfaces = createSurfaces(notify, sessionOptions.session, track,
     (owner, id, args) => commandsFor(owner).executeCommand(id, ...args), owner => { assertOwner(owner); sessionOptions.assertOwner?.(owner); });
   function track(owner, disposable) {
@@ -98,6 +103,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       let document = documents.get(snapshot.id);
       const previous = document?.getText();
       const previousVersion = document?.version;
+      const previousSaved = document?._snapshot.savedGeneration || 0;
       const previousEnd = typeof snapshot.text === 'string' && document?.positionAt(previous.length);
       if (!document) {
         document = new TextDocument(snapshot);
@@ -111,6 +117,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
             rangeOffset: 0, rangeLength: previous.length, text: document.getText(),
           }] }));
         }
+        if (Number.isSafeInteger(snapshot.savedGeneration) && snapshot.savedGeneration > previousSaved) changes.push(() => saved.fire(document));
       }
       if (!editors.has(snapshot.id)) editors.set(snapshot.id, editorFor(snapshot.id, document));
     }
@@ -125,6 +132,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     active = editors.get(state.active);
     if (active) active._selections = state.selections.map(s => new Selection(s.anchor, s.active));
     providers.documentChanged();
+    diagnostics.documentChanged();
     // All mirrors must reflect the new state before any extension callback runs.
     for (const fire of changes) fire();
     if (active !== previousActive) activeChanged.fire(active);
@@ -163,7 +171,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     });
   }
   const api = supported('vscode', {
-    ...types, ...providerTypes, ...surfaces.types,
+    ...types, ...providerTypes, ...diagnosticTypes, ...surfaces.types,
     version: '1.95.0',
     EndOfLine: Object.freeze({ LF: 1, CRLF: 2 }),
     ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
@@ -185,6 +193,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       onDidChangeTextDocument: changed.event,
       onDidOpenTextDocument: opened.event,
       onDidCloseTextDocument: closed.event,
+      onDidSaveTextDocument: saved.event,
       getConfiguration: configuration.get,
       onDidChangeConfiguration: configuration.onDidChange,
     }),
@@ -207,6 +216,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     surfaceAction: surfaces.action, treeEvent: surfaces.treeEvent,
     disposeOwner(owner) {
       if (sessionOptions.languageProviders) providers.disposeOwner(owner);
+      diagnostics.disposeOwner(owner);
       for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
       owned.delete(owner); facades.delete(owner);
     },
@@ -222,7 +232,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       // The native document objects are shared; only request-producing editor handles are scoped.
       const facade = supported('vscode', {
         ...api,
-        ...(sessionOptions.languageProviders ? { languages: supported('languages', providers.forOwner(owner)) } : {}),
+        languages: supported('languages', { ...diagnostics.forOwner(owner), ...(sessionOptions.languageProviders ? providers.forOwner(owner) : {}) }),
         window: supported('window', {
           ...createPrompts(request, sessionOptions.session, owner, promptBudget),
           showTextDocument: services.showTextDocument,
@@ -242,6 +252,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           onDidChangeTextDocument: event(owner, changed.event),
           onDidOpenTextDocument: event(owner, opened.event),
           onDidCloseTextDocument: event(owner, closed.event),
+          onDidSaveTextDocument: event(owner, saved.event),
           getConfiguration: configuration.get,
           onDidChangeConfiguration: event(owner, configuration.onDidChange),
         }),

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::HashMap,
+    io::{self, Write},
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
@@ -42,6 +43,9 @@ pub struct Request {
     pub method: String,
     pub document_id: u64,
     pub revision: u64,
+    pub text_epoch: u64,
+    pub(crate) server: Arc<()>,
+    pub(crate) sync_version: i64,
     pub cursor: usize,
     pub path: PathBuf,
     pub selections: Vec<Selection>,
@@ -49,22 +53,35 @@ pub struct Request {
     pub workspace: Arc<HashMap<PathBuf, Snapshot>>,
     started: Instant,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Snapshot {
     pub id: u64,
     pub revision: u64,
+    pub text_epoch: u64,
     pub version: i64,
+}
+#[derive(Clone, Debug)]
+pub struct DiagnosticPublication {
+    pub uri: String,
+    pub path: PathBuf,
+    pub server: Arc<()>,
+    pub snapshot: Snapshot,
+    /// An omitted version cannot establish delayed publication provenance.
+    pub versioned: bool,
+    pub items: Vec<Diagnostic>,
+    pub(crate) serialized_bytes: usize,
 }
 pub enum Event {
     Ready,
     ApplyEdit(Value, Option<Request>, Value),
     Response(Request, Value),
-    Diagnostics(PathBuf, Vec<Diagnostic>),
+    Diagnostics(DiagnosticPublication),
     Message(String),
 }
 struct Synced {
     id: u64,
     revision: u64,
+    text_epoch: u64,
     version: i64,
     path: PathBuf,
 }
@@ -161,6 +178,64 @@ pub fn edits(
     Ok(changes)
 }
 pub use crate::languages::language;
+
+const MAX_DIAGNOSTIC_BYTES: usize = 2 * 1024 * 1024;
+struct DiagnosticBudget(usize);
+impl Write for DiagnosticBudget {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if bytes.len() > self.0 {
+            return Err(io::Error::other("Diagnostic publication exceeds 2 MiB"));
+        }
+        self.0 -= bytes.len();
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+fn publication_items(value: &Value) -> Result<(Vec<Diagnostic>, usize)> {
+    let values = value.as_array().context("Diagnostics must be an array")?;
+    if values.len() > 5000 {
+        bail!("Diagnostic publication exceeds 5000 items");
+    }
+    for item in values {
+        let message = item["message"]
+            .as_str()
+            .context("Diagnostic message must be text")?;
+        if message.len() > 4096 {
+            bail!("Diagnostic message exceeds 4 KiB");
+        }
+        if item.get("severity").is_some_and(|severity| {
+            severity
+                .as_u64()
+                .is_none_or(|value| !(1..=4).contains(&value))
+        }) {
+            bail!("Diagnostic severity must be between 1 and 4");
+        }
+    }
+    let mut budget = DiagnosticBudget(MAX_DIAGNOSTIC_BYTES);
+    serde_json::to_writer(&mut budget, value)?;
+    let items: Vec<Diagnostic> = serde_json::from_value(value.clone())?;
+    if items.iter().any(|item| {
+        [
+            item.range.start.line,
+            item.range.start.character,
+            item.range.end.line,
+            item.range.end.character,
+        ]
+        .iter()
+        .any(|coordinate| *coordinate > i32::MAX as usize)
+    }) {
+        bail!("Diagnostic coordinates exceed LSP uinteger bounds");
+    }
+    if items.iter().any(|item| {
+        (item.range.start.line, item.range.start.character)
+            > (item.range.end.line, item.range.end.character)
+    }) {
+        bail!("Diagnostic range is reversed");
+    }
+    Ok((items, MAX_DIAGNOSTIC_BYTES - budget.0))
+}
 
 impl Client {
     pub fn debug_summary(&self) -> String {
@@ -261,12 +336,17 @@ impl Client {
                         Synced {
                             id: doc.id,
                             revision: doc.revision,
+                            text_epoch: doc.text_epoch(),
                             version,
                             path: path.clone(),
                         },
                     );
                 }
-                Some(old) if old.revision != doc.revision || old.id != doc.id => {
+                Some(old)
+                    if old.revision != doc.revision
+                        || old.text_epoch != doc.text_epoch()
+                        || old.id != doc.id =>
+                {
                     let version = self.allocate_document_version()?;
                     self.notify("textDocument/didChange", json!({"textDocument":{"uri":uri,"version":version},"contentChanges":[{"text":doc.text.to_string()}]}))?;
                     self.synced.insert(
@@ -274,6 +354,7 @@ impl Client {
                         Synced {
                             id: doc.id,
                             revision: doc.revision,
+                            text_epoch: doc.text_epoch(),
                             version,
                             path: path.clone(),
                         },
@@ -303,6 +384,57 @@ impl Client {
         let version = self.next_document_version;
         self.next_document_version += 1;
         Ok(version)
+    }
+    pub fn diagnostic_current(&self, publication: &DiagnosticPublication, doc: &Document) -> bool {
+        self.ready
+            && Arc::ptr_eq(&publication.server, &self.identity)
+            && doc.path.as_ref() == Some(&publication.path)
+            && doc.id == publication.snapshot.id
+            && doc.revision == publication.snapshot.revision
+            && doc.text_epoch() == publication.snapshot.text_epoch
+            && self.synced.get(&publication.uri).is_some_and(|synced| {
+                synced.path == publication.path
+                    && synced.id == publication.snapshot.id
+                    && synced.revision == publication.snapshot.revision
+                    && synced.text_epoch == publication.snapshot.text_epoch
+                    && synced.version == publication.snapshot.version
+            })
+    }
+    pub fn workspace_snapshot_current(&self, path: &Path, snapshot: &Snapshot) -> bool {
+        self.ready
+            && file_uri(path)
+                .ok()
+                .and_then(|uri| self.synced.get(&uri))
+                .is_some_and(|synced| {
+                    synced.path == path
+                        && synced.id == snapshot.id
+                        && synced.revision == snapshot.revision
+                        && synced.text_epoch == snapshot.text_epoch
+                        && synced.version == snapshot.version
+                })
+    }
+    /// A native reply/action retains the client and synchronized document lifetime.
+    /// The app also compares the live model, selections, focus and pane before edits.
+    pub fn request_current(&self, request: &Request) -> bool {
+        if !self.ready || !Arc::ptr_eq(&request.server, &self.identity) {
+            return false;
+        }
+        let Ok(uri) = file_uri(&request.path) else {
+            return false;
+        };
+        self.synced.get(&uri).is_some_and(|synced| {
+            synced.path == request.path
+                && synced.id == request.document_id
+                && synced.revision == request.revision
+                && synced.text_epoch == request.text_epoch
+                && synced.version == request.sync_version
+                && request.workspace.get(&request.path).is_none_or(|snapshot| {
+                    snapshot.id == synced.id
+                        && snapshot.revision == synced.revision
+                        && snapshot.text_epoch == synced.text_epoch
+                        && snapshot.version == synced.version
+                })
+        })
     }
     pub fn saved(&self, doc: &Document) -> Result<()> {
         if self.ready
@@ -336,9 +468,11 @@ impl Client {
             .clone()
             .context("Save this file before requesting language features")?;
         let uri = file_uri(&path)?;
-        if !self.synced.contains_key(&uri) {
-            bail!("This language server does not handle this file type");
-        }
+        let sync_version = self
+            .synced
+            .get(&uri)
+            .context("This language server does not handle this file type")?
+            .version;
         if self.pending.len() >= 32 {
             bail!("Too many pending language requests");
         }
@@ -358,6 +492,7 @@ impl Client {
                         Snapshot {
                             id: s.id,
                             revision: s.revision,
+                            text_epoch: s.text_epoch,
                             version: s.version,
                         },
                     )
@@ -383,6 +518,9 @@ impl Client {
                 method: method.into(),
                 document_id: doc.id,
                 revision: doc.revision,
+                text_epoch: doc.text_epoch(),
+                server: self.identity.clone(),
+                sync_version,
                 cursor: doc.cursor,
                 path,
                 selections: if is_action {
@@ -439,6 +577,9 @@ impl Client {
                 method: "workspace/symbol".into(),
                 document_id: 0,
                 revision: 0,
+                text_epoch: 0,
+                server: self.identity.clone(),
+                sync_version: 0,
                 cursor: 0,
                 path: PathBuf::new(),
                 selections: Vec::new(),
@@ -636,17 +777,32 @@ impl Client {
                 } else if method == "textDocument/publishDiagnostics" {
                     if let Some(uri) = params["uri"].as_str()
                         && let Some(synced) = self.synced.get(uri)
-                        && params["version"]
-                            .as_i64()
-                            .is_none_or(|v| v == synced.version)
+                        && match params.get("version") {
+                            None => true,
+                            Some(value) => value.as_i64() == Some(synced.version),
+                        }
                     {
-                        let diagnostics: Vec<Diagnostic> =
-                            serde_json::from_value(params["diagnostics"].clone())
-                                .unwrap_or_default();
-                        events.push(Event::Diagnostics(
-                            synced.path.clone(),
-                            diagnostics.into_iter().take(5000).collect(),
-                        ));
+                        match publication_items(&params["diagnostics"]) {
+                            Ok((items, serialized_bytes)) => {
+                                events.push(Event::Diagnostics(DiagnosticPublication {
+                                    uri: uri.to_owned(),
+                                    path: synced.path.clone(),
+                                    server: self.identity.clone(),
+                                    snapshot: Snapshot {
+                                        id: synced.id,
+                                        revision: synced.revision,
+                                        text_epoch: synced.text_epoch,
+                                        version: synced.version,
+                                    },
+                                    versioned: params.get("version").is_some(),
+                                    items,
+                                    serialized_bytes,
+                                }))
+                            }
+                            Err(error) => events.push(Event::Message(format!(
+                                "Diagnostic publication rejected: {error:#}"
+                            ))),
+                        }
                     }
                 } else if method == "window/showMessage"
                     && let Some(text) = params["message"].as_str()

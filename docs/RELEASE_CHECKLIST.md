@@ -43,11 +43,13 @@ complete-product criteria above stay unchecked.
 Folding remains unshipped; preserved source and a committed internal foundation
 are not an available editor feature. The subsequent [resolved-completion slice](COMPLETIONS.md) adds bounded resolution,
 linked snippet/import insertion, documentation and abbreviation ranking. Follow-up
-completion commands and full IntelliSense parity remain incomplete. Extension
-diagnostics and automatic parameter hints are next in the approved queue.
+completion commands and full IntelliSense parity remain incomplete. The
+[diagnostics slice](DIAGNOSTICS.md) adds independent collections, successful-save
+events and native server/document text-epoch guards. Extension code-action providers
+complete the next part of priority 2; automatic parameter hints follow in priority 3.
 
 Follow the [user-approved twelve priorities](PARITY_PLAN.md#user-approved-implementation-order),
-starting with IntelliSense qualification, then extension diagnostics and smart typing.
+starting with IntelliSense qualification, then extension diagnostics/actions and smart typing.
 Qualify a complete C++/clangd repository workflow alongside these changes. C++ is the first end-to-end language qualification, not the product's
 language boundary. Keep the full release goals and explicit compatibility limits.
 

@@ -35,7 +35,7 @@ use anyhow::Result;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
 };
-pub use language::{LanguageAction, LanguageItem};
+pub use language::{Diagnostics, LanguageAction, LanguageItem};
 use ratatui::layout::Rect;
 use serde_json::{Value, json};
 use std::{
@@ -500,7 +500,7 @@ pub struct App {
     settings_loader: Option<crate::settings::Loader>,
     settings_error: Option<String>,
     settings_user: Option<PathBuf>,
-    pub diagnostics: HashMap<PathBuf, (u64, u64, Vec<crate::lsp::Diagnostic>)>,
+    pub diagnostics: HashMap<PathBuf, crate::lsp::DiagnosticPublication>,
     pub editor_area: Rect,
     pub explorer_area: Rect,
     pub tab_area: Rect,

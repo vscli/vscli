@@ -177,7 +177,7 @@ The implemented independent CommonJS JavaScript shim in `extension-host/*.cjs`
 supplies the `vscode` module inside the optional Node.js process and connects to
 native services through a versioned broker protocol. Its documented subset covers
 activation, disposables/events/cancellation, commands, configuration, shared document
-mirrors, Mementos, seven language-provider routes and native prompts/surfaces.
+mirrors, Mementos, seven language-provider routes, diagnostic collections and native prompts/surfaces.
 Broader workspace/resource, provider and UI behavior remains staged. Contracts
 remain pinned to VS Code 1.95.0; a version string is not an API compatibility claim.
 

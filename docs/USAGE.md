@@ -480,6 +480,22 @@ after restarting. These are native behavior checks, not full VS Code history or
 session parity.
 
 
+## Diagnostics and Problems
+
+Native language servers and selected compatible extensions can report diagnostics
+in the editor gutter. **Language: Problems** lists errors, warnings, information
+and hints for open native models, including hidden and untitled documents. Enter
+opens the selected document at the diagnostic position. A changed or closed
+document invalidates that navigation row; reopen Problems to refresh it.
+
+The optional host supports diagnostic collections and successful-save events.
+Native editing remains usable without Node.js. Server and extension sources have
+independent lifetimes, and bounded publication validation protects accepted state.
+Version-qualified native results and mirrored extension notifications retain
+document identity and text epochs, including across edit followed by Undo.
+Unversioned LSP results and an extension's own delayed analysis have weaker
+provenance. See [scope, limits and qualification](DIAGNOSTICS.md).
+
 ## Native code actions and quick fixes
 
 With a configured language server, **Ctrl+.** (**Cmd+.** on macOS) opens
