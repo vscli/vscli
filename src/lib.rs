@@ -9,6 +9,7 @@ pub mod jsonc;
 pub mod keys;
 pub mod languages;
 pub mod lsp;
+pub mod migration;
 pub mod recovery;
 pub mod search;
 pub mod settings;
