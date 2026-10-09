@@ -8,6 +8,7 @@ mod extension_services;
 pub mod extension_surfaces;
 mod extensions;
 mod files;
+pub mod keyboard;
 mod language;
 mod language_services;
 mod navigation;
@@ -450,7 +451,8 @@ pub struct App {
     pub message: String,
     pub running: bool,
     pub chord: Option<String>,
-    pub last_key: String,
+    pub last_key: Option<KeyEvent>,
+    pub keyboard: keyboard::State,
     pub enhanced: bool,
     pub find_query: String,
     pub search: Option<crate::search::Search>,
@@ -538,7 +540,8 @@ impl App {
             message: "F1 commands · Ctrl+P open · Ctrl+S save · Ctrl+Shift+W exit".into(),
             running: true,
             chord: None,
-            last_key: String::new(),
+            last_key: None,
+            keyboard: keyboard::State::default(),
             enhanced: false,
             find_query: String::new(),
             search: None,
@@ -954,6 +957,9 @@ impl App {
                 self.welcome_brand.resize();
             }
             Event::Key(key) if key.kind != KeyEventKind::Release => self.key(key),
+            Event::Key(key) if matches!(self.modal, Some(Modal::Inspector)) => {
+                self.inspect_key(key)
+            }
             Event::Paste(text) => {
                 if let Some(prompt) = &mut self.prompt {
                     if !prompt.insert(&text.replace(['\r', '\n'], "")) {
@@ -1071,7 +1077,10 @@ impl App {
     }
     fn key(&mut self, key: KeyEvent) {
         let token = keys::token(key);
-        self.last_key = format!("{token}  {:?}", key);
+        self.last_key = Some(key);
+        if matches!(self.modal, Some(Modal::Inspector)) {
+            self.inspect_key(key);
+        }
         if self.modal.is_some() {
             self.modal_key(key);
             return;
@@ -1447,7 +1456,7 @@ impl App {
                 self.focus = Focus::Editor;
             }
             "workbench.action.openGlobalKeybindings" => self.modal = Some(Modal::Keys),
-            "vscli.keyboardInspector" => self.modal = Some(Modal::Inspector),
+            "vscli.keyboardInspector" => self.open_keyboard_inspector(),
             "vscli.help" => self.modal = Some(Modal::Help),
             "undo" => self.doc_mut().undo(),
             "vscli.settings.report" => {

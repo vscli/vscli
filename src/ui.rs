@@ -1,3 +1,4 @@
+mod keyboard;
 pub(crate) mod welcome;
 use crate::{
     app::{App, COMMANDS, Focus, Modal, PromptKind},
@@ -32,6 +33,10 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         Block::default().style(Style::default().bg(colors.background).fg(colors.foreground)),
         area,
     );
+    if matches!(app.modal, Some(Modal::Inspector)) {
+        keyboard::draw(frame, app);
+        return;
+    }
     if area.width < 20 || area.height < 6 {
         frame.render_widget(
             Paragraph::new("VSCLI · enlarge terminal\nCtrl+Shift+W to exit")
@@ -1422,15 +1427,10 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
             text.push_str("\nAdditional movement/selection bindings: see docs/USAGE.md\nCustom bindings: --keybindings path/to/keybindings.json");
             (" Keyboard Shortcuts ", text)
         }
-        Modal::Inspector => (
-            " Keyboard Inspector · Esc to close ",
-            format!(
-                "Press a key combination to inspect the received event.\n\n{}\n\nProtocol: {}\nProfile: {:?}\n\nIf nothing changes, the terminal or OS may have intercepted it.\nThis inspector cannot reconstruct missing key events.",
-                clean(&app.last_key),
-                if app.enhanced { "enhanced" } else { "legacy" },
-                app.keymap.profile
-            ),
-        ),
+        Modal::Inspector => {
+            keyboard::draw(frame, app);
+            return;
+        }
         Modal::Confirm(_) => (
             " Unsaved Changes ",
             format!(
