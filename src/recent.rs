@@ -227,11 +227,30 @@ mod tests {
             .map(|n| {
                 let path = path.clone();
                 let file = root.path().join(format!("{n}.txt"));
-                std::thread::spawn(move || persist(&path, &[entry(&file, n)]).unwrap())
+                std::thread::spawn(move || {
+                    let update = entry(&file, n);
+                    let result = persist(&path, std::slice::from_ref(&update));
+                    (update, result)
+                })
             })
             .collect();
+        let mut retained = Vec::new();
         for handle in handles {
-            handle.join().unwrap();
+            let (update, result) = handle.join().unwrap();
+            if let Err(error) = result {
+                // The production deadline is intentional. Slow filesystems may
+                // reject contention; callers retain that batch for another action.
+                assert!(
+                    error
+                        .to_string()
+                        .starts_with("Recent-file state lock unavailable:"),
+                    "{error:#}"
+                );
+                retained.push(update);
+            }
+        }
+        if !retained.is_empty() {
+            persist(&path, &retained).unwrap();
         }
         assert_eq!(read(&path).unwrap().len(), 8);
         let file = root.path().join("7.txt");
@@ -297,5 +316,36 @@ mod tests {
         assert_eq!(saved.len(), 20);
         assert_eq!(saved[0].path, root.path().join("file19"));
         assert!(!root.path().join("imports/state").exists());
+    }
+    #[test]
+    fn lock_deadline_retains_pending_updates_for_a_later_shutdown_retry() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("state");
+        fs::create_dir_all(&directory).unwrap();
+        let lock = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(directory.join("recent-files.lock"))
+            .unwrap();
+        lock.lock().unwrap();
+        let mut state = State::default();
+        state.configure(Some(root.path()));
+        let file = root.path().join("retained.cpp");
+        state.touch(file.clone());
+        assert!(state.finish().is_err());
+        assert_eq!(state.files[0].path, file);
+        assert_eq!(state.queued[0].path, file);
+        assert!(state.pending.is_none());
+        assert!(!directory.join("recent-files.json").exists());
+        drop(lock);
+        state.finish().unwrap();
+        assert!(state.queued.is_empty());
+        assert!(state.error.is_none());
+        assert_eq!(
+            read(&directory.join("recent-files.json")).unwrap()[0].path,
+            file
+        );
     }
 }
