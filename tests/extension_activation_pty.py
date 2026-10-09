@@ -141,6 +141,12 @@ const vscode=require('vscode'); exports.activate=context=>{
     original = picker_file.read_bytes()
     app = Editor(picker, '--config-dir', picker_config, '--extensions-dir', picker_store, picker_file, enhanced=True)
     command(app, 'Extensions: Show Installed Extensions'); wait(app, 'e/d global')
+    for modified in [b'\x1b[101;33u', b'\x1b[101;18u']:
+        app.send(modified); app.send(b'\x1b')
+        eventually(lambda: app.read() and 'Installed Extensions' not in app.screen.text())
+        command(app, 'Extensions: Show Installed Extensions'); wait(app, 'e/d global')
+        assert not (picker_config / 'extensions-enabled.json').exists()
+        assert not list((picker_config / 'extension-workspaces').glob('*.json'))
     app.send('e'); wait(app, 'Enabled activation.a;')
     assert 'enabled; waiting for a supported event' in app.screen.text()
     assert not (picker / 'picker-host.pid').exists()

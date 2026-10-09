@@ -1717,9 +1717,7 @@ impl App {
                     KeyCode::Up => selected = selected.saturating_sub(1),
                     KeyCode::Down => selected = (selected + 1).min(items.len().saturating_sub(1)),
                     KeyCode::Char(character @ ('e' | 'E' | 'd' | 'D'))
-                        if !key.modifiers.intersects(
-                            KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
-                        ) =>
+                        if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT =>
                     {
                         if let Some(item) = items.get(selected) {
                             let scope = if character.is_ascii_uppercase()
@@ -2416,6 +2414,49 @@ mod tests {
     use super::*;
     fn key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         app.event(Event::Key(KeyEvent::new(code, modifiers)));
+    }
+    #[test]
+    fn extension_picker_grants_require_plain_or_shift_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        for modifiers in [
+            KeyModifiers::CONTROL,
+            KeyModifiers::ALT,
+            KeyModifiers::SUPER,
+            KeyModifiers::HYPER,
+            KeyModifiers::META,
+            KeyModifiers::META | KeyModifiers::SHIFT,
+            KeyModifiers::HYPER | KeyModifiers::SHIFT,
+            KeyModifiers::NONE,
+            KeyModifiers::SHIFT,
+        ] {
+            for character in ['e', 'd'] {
+                let mut app = App::new(dir.path().into(), Profile::Linux);
+                app.extensions_directory = Some(dir.path().join("extensions"));
+                app.configure_extension_activation(Some(&dir.path().join("config")));
+                app.modal = Some(Modal::Extensions {
+                    items: vec![crate::extension_store::Installed {
+                        id: "test.modifiers".into(),
+                        version: "1".into(),
+                        path: dir.path().join("package"),
+                        source: "fixture".into(),
+                        sha256: String::new(),
+                        manifest: json!({"main":"index.cjs"}),
+                        compatibility: "fixture".into(),
+                    }],
+                    selected: 0,
+                });
+                app.message = "No grant requested".into();
+                key(&mut app, KeyCode::Char(character), modifiers);
+                if modifiers.is_empty() || modifiers == KeyModifiers::SHIFT {
+                    assert!(app.message.starts_with("Saving "), "{modifiers:?}");
+                } else {
+                    assert_eq!(app.message, "No grant requested", "{modifiers:?}");
+                }
+                assert!(matches!(app.modal, Some(Modal::Extensions { .. })));
+                assert!(app.documents.is_empty());
+            }
+        }
+        assert!(!dir.path().join("config/extensions-enabled.json").exists());
     }
     #[test]
     fn editing_shortcuts_save_and_close_guard() {
