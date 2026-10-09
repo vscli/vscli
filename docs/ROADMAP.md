@@ -1,5 +1,7 @@
 # VSCLI delivery and open source plan
 
+The current priority order and audited gaps are in [the parity and user experience plan](PARITY_PLAN.md). The milestone dates, Phase 0 program and initial backlog below are the original planning assumptions, not current delivery estimates or completion claims.
+
 ## Release strategy
 
 Deliver a useful native editor before broad extension compatibility. Prove extension feasibility early, then grow native workflows and compatibility together. The first successful release lets someone complete real development tasks without extensive configuration; it does not need to reproduce the entire VS Code product.
