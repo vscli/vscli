@@ -82,6 +82,7 @@ impl App {
             .and_then(|path| path.parent())
             .map(|path| path.join("snippets"));
         let workspace = self.workspace.root.clone();
+        let extensions = self.extensions_directory.clone();
         let (sender, receiver) = mpsc::sync_channel(1);
         self.snippet_catalog.entries.clear();
         self.snippet_catalog.context = None;
@@ -94,7 +95,12 @@ impl App {
             name,
         });
         std::thread::spawn(move || {
-            let _ = sender.send(Catalog::load(user.as_deref(), &workspace, &language));
+            let _ = sender.send(Catalog::load_with_extensions(
+                user.as_deref(),
+                &workspace,
+                &language,
+                extensions.as_deref(),
+            ));
         });
         self.message = "Loading snippets…".into();
     }

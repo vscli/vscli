@@ -4,7 +4,7 @@ VSCLI now has an optional CommonJS extension process. It is an independent, orig
 
 ## Installing and managing packages
 
-Use **F1 → Extensions: Install from VSIX** and enter a local `.vsix` path. Installation extracts the package without running scripts or extension code. **Ctrl+Shift+X** (**Cmd+Shift+X** on macOS), or **F1 → Extensions: Show Installed Extensions**, lists installed IDs, versions and compatibility descriptions. Enter offers explicit activation of a code extension; **R** restores the previous installation and **Delete** removes the selected package from the installed registry. Starting a code extension replaces the single running host. Declarative theme packages do not need Node.
+Use **F1 → Extensions: Install from VSIX** and enter a local `.vsix` path. Installation extracts the package without running scripts or extension code. **Ctrl+Shift+X** (**Cmd+Shift+X** on macOS), or **F1 → Extensions: Show Installed Extensions**, lists installed IDs, versions and compatibility descriptions. Enter offers explicit activation of a code extension; **R** restores the previous installation and **Delete** removes the selected package from the installed registry. Starting a code extension replaces the single running host. Declarative themes and installed snippet contributions do not need Node.
 
 The same operations work without a terminal UI or JavaScript runtime:
 
@@ -24,6 +24,24 @@ Packages are extracted into private staging directories with limits of **128 MiB
 
 Automated evidence includes malicious-path/link and oversized-archive rejection, preservation of an existing install after failures, concurrent-operation rejection, upgrade/rollback/remove, noninteractive CLI operation, and an actual Unix PTY workflow installing a VSIX, explicitly activating it, running its F9 command, saving/undoing and uninstalling while its host is live. The picker is available from an empty welcome screen and from editor, Explorer and terminal focus. Dismissing its loading view prevents a late reply from reopening it over a later prompt; a successfully committed installation is reported even if refreshing another package’s metadata fails. A host lifecycle test verifies no fabricated documents at activation, correct mirrors after opening the first file, and rejection of edits to a closed final document. The real-protocol CI additionally packages the unchanged compiled **Sort Lines 1.12.0** entry files into a VSIX, installs it and checks F9 sorting plus native undo. This locally assembled archive tests installation and the named runtime workflow; it is not registry-download or publisher-signature qualification.
 
+## Native snippet packages
+
+Installed `contributes.snippets` are available through **F1 → Insert Snippet** and
+`editor.action.insertSnippet` named lookup without starting a host. The bounded
+catalog worker reads contribution data on each invocation, so upgrade, rollback
+and uninstall refresh immediately on the next request. Language contributions
+and global `.code-snippets` files are supported; paths must resolve inside the
+package. All sources share the native catalog's file, byte and entry budgets.
+Bad contributions produce notices, and an unreadable installed registry does
+not disable user/workspace snippets. See [snippet scope and evidence](SNIPPETS.md)
+for remaining language-registration, completion and extension-API gaps.
+
+Real-VSIX integration tests cover language matching, malformed data, confinement,
+combined limits and installation changes. A synthetic PTY package with an
+activation marker and unavailable Node path verifies native C++ insertion,
+linked Unicode edits, CRLF save/undo and uninstall refresh. This evidence does
+not qualify every published snippet package or code extension.
+
 ## Running an extension
 
 Build VSCLI normally, install Node 24, and pass an already unpacked, built extension directory:
@@ -40,6 +58,7 @@ F1 lists registered commands. Manifest keybindings retain their original combina
 
 The API reference target for this initial experiment is VS Code 1.95.0; the exposed `vscode.version` identifies that target, not complete compatibility. No complete baseline conformance claim is made. Coordinate clamping and argument dispatch were checked against the pinned [document implementation](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/api/common/extHostDocumentData.ts) and [keybinding dispatcher](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/keybinding/common/abstractKeybindingService.ts); the first running-reference configuration cases are described in the [differential harness](../tests/vscode-reference/README.md). Document and dispatch differential coverage remains outstanding.
 
+- Native installed snippet contributions, independently of the optional host.
 - CommonJS `require('vscode')`, explicit eager activation, subscription disposal, extension path/URI, and extension mode.
 - Command registration/disposal/execution, contribution titles in the native palette, and single-message notifications without choices.
 - Active editor and selections as read-only mirrors; synchronous document text, lines, UTF-16 position/offset conversion, ranges, selections, URIs, and document lifecycle/change events.
@@ -48,7 +67,7 @@ The API reference target for this initial experiment is VS Code 1.95.0; the expo
 
 Document versions increase across edits and undo/redo observations. State generations reject outdated document notifications. All mirrors are updated before document event callbacks run. Protocol v3 sends document text only for new or changed document revisions; selection, dirty-state, and path updates reuse cached text. Ordered state notifications precede edit acknowledgements, and the native baseline advances only after a message is queued successfully. Changed text still uses full snapshots rather than edit deltas; the total mirrored text budget is 4 MiB, transport frames are limited to 16 MiB, and pending command requests are capped at 64 with a 30-second timeout. Crossing a host limit stops or rejects extension work while preserving native buffers.
 
-Unsupported service APIs throw explicit errors. Browser-only packages, extension dependencies/proposed APIs, providers, webviews, notebooks, custom editors, workspace edits, settings writes, storage/secrets, automatic activation rules, multiple extension packages, extension menus, and built-in command delegation remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. Local VSIX installation and rollback are implemented; registry search/download remains outstanding.
+Unsupported service APIs throw explicit errors. Browser-only packages, extension dependencies/proposed APIs, providers, webviews, notebooks, custom editors, workspace edits, settings writes, storage/secrets, automatic activation rules, multiple simultaneous code extensions, extension menus, and built-in command delegation remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. Local VSIX installation and rollback are implemented; registry search/download remains outstanding.
 
 ## Extension settings
 

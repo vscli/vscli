@@ -139,7 +139,16 @@ are checked against the original document revision, cursor selections, view and
 language so changed work is not overwritten. Malformed or oversized files show
 catalog warnings while valid files remain available.
 
-Choice menus, nested snippet merging, extension insertion and completion
+Installed VSIX packages also supply `contributes.snippets` to the same picker and
+named lookup without Node or code activation. Install a local package with
+**Extensions: Install from VSIX** or `--install-extension`; `--extensions-dir`
+selects its store. Language contributions follow the document language (or
+`langId`); global `.code-snippets` contributions use body scopes. Upgrades,
+rollback and removal are reflected on the next invocation. Contributed paths
+must remain inside the package. User, workspace and installed files share the
+128-file, 4096-snippet and 16 MiB read limits; warnings leave valid catalogs usable.
+
+Choice menus, nested snippet merging, extension API insertion and completion
 snippets are still unfinished. Unsupported regex
 constructs fail explicitly. See [snippet evidence and limits](SNIPPETS.md).
 

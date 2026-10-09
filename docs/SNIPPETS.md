@@ -29,7 +29,7 @@ match the request. A failed system clipboard read falls back to the editor's
 internal clipboard, as its current paste path does. The existing external tools
 cover Linux/macOS; Windows system clipboard integration remains incomplete.
 
-Native user/workspace catalogs now provide a searchable Insert Snippet picker
+Native user/workspace and installed-extension catalogs now provide a searchable Insert Snippet picker
 and `args.name`/`args.langId` lookup. The loader reads user `snippets/<language>.json`
 and user/workspace `*.code-snippets` files, accepting JSONC, body/description
 arrays, prefix arrays, grouped definitions, no-prefix entries and comma scopes.
@@ -37,27 +37,46 @@ Language-specific user files use their filename scope; global scopes also match
 dotted parent language identifiers. Files are read afresh on each invocation in
 one background worker with one bounded reply. Both replies and picker acceptance
 validate the original document identity, revision, selections, pane and language.
-User catalogs are searched before workspace catalogs; duplicate-name precedence
-within these groups, MRU order, embedded-language detection and VS Code's language
-registry behavior are not differential-qualified. The picker uses native fuzzy
+User catalogs are searched before workspace catalogs, then installed packages;
+duplicate-name precedence within these groups, MRU order, embedded-language
+detection and VS Code's language registry behavior are not differential-qualified. The picker uses native fuzzy
 matching and displays at most 100 filtered results. It retains `isFileTemplate`
 metadata but has no separate Populate File from Snippet command yet.
 
-Loading is limited to 128 files, 4096 directory entries per directory, 4096 snippets,
-1 MiB per file and 16 MiB of file bytes in total. The source template limit remains
+Installed VSIX `contributes.snippets` files join the same picker and named lookup
+without activating extension code or requiring Node. Explicit contribution
+languages select the catalog and override body scopes; contributions without a
+language must use `.code-snippets` and retain their body scopes. Package paths
+must be relative and resolve to regular files inside the canonical package root.
+Install, upgrade, rollback and uninstall take effect on the next invocation.
+Malformed registry/package metadata reports a warning while user/workspace
+catalogs remain available. Extension discovery inspects at most 4096 contribution
+records; installed metadata also retains the extension store's bounded listing.
+
+Loading across all sources is limited to 128 files, 4096 directory entries per
+directory, 4096 snippets, 1 MiB per file and 16 MiB of file bytes in total. The source template limit remains
 64 KiB. Truncation and malformed files produce visible warnings; valid entries
-remain usable. Only regular directory entries are loaded (symlinked snippet files
-are currently skipped). Unit tests cover schema/scopes, malformed/oversized files,
-read budgets, stale replies, picker acceptance and fresh named lookup with undo.
+remain usable. User/workspace discovery loads only regular directory entries
+(symlinked snippet files are skipped); contributed paths are canonicalized and
+cannot follow a symlink outside their package. Unit tests cover schema/scopes,
+malformed/oversized files, read budgets, stale replies, picker acceptance and fresh named lookup with undo.
 A PTY workflow covers workspace JSONC selection, user language lookup, linked
 editing and CRLF save/undo. Catalog behavior is source-informed by the pinned
-[snippet file reader](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/contrib/snippets/browser/snippetsFile.ts)
-and [insert command](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/contrib/snippets/browser/commands/insertSnippet.ts);
-it does not extend the differential evidence below.
+[snippet file reader](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/contrib/snippets/browser/snippetsFile.ts),
+[insert command](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/contrib/snippets/browser/commands/insertSnippet.ts),
+and [extension contribution validation](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/contrib/snippets/browser/snippetsService.ts).
+Real-VSIX integration tests cover C++/JavaScript/global scopes, malformed
+contributions, canonical path confinement, combined budgets and upgrade/rollback/
+uninstall refresh. A PTY fixture inserts an installed C++ snippet, edits linked
+Unicode placeholders, saves CRLF and undoes, then confirms removal on the next
+picker invocation. Its unavailable Node path and unexecuted activation marker
+check that loading remains native. These are synthetic package tests and source
+checks; they do not extend the differential evidence below or qualify arbitrary
+published snippet packages.
 
-This remains a partial snippet feature. Choice presentation, extension
-contributions, nested session merging and completion integration remain pending. LSP still advertises `snippetSupport:
-false`; the optional extension API does not yet provide `TextEditor.insertSnippet`.
+This remains a partial snippet feature. Choice presentation, nested session
+merging, complete contributed-language registration and completion integration
+remain pending. LSP still advertises `snippetSupport: false`; the optional extension API does not yet provide `TextEditor.insertSnippet`.
 See [usage](USAGE.md#snippets) for a literal-template binding.
 
 ## Evidence

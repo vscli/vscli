@@ -1026,6 +1026,46 @@ def run():
         assert {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in source_files} == original_hashes
         print("PASS: empty welcome → copied profile/theme/snippet/key import → VSIX install/list/activate → edit/save/undo → empty restart, with original source hashes intact")
 
+        native_snippet_store = root / "native-snippet-store"
+        native_snippet_package = root / "native-snippets.vsix"
+        activation_marker = root / "snippet-code-must-not-run"
+        with zipfile.ZipFile(native_snippet_package, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("extension/package.json", json.dumps({
+                "publisher":"vscli-test", "name":"native-snippets", "version":"1.0.0", "main":"activate.cjs",
+                "contributes":{"snippets":[{"language":"cpp", "path":"snippets/cpp.json"}]},
+            }))
+            archive.writestr("extension/activate.cjs", "require('node:fs').writeFileSync(" + json.dumps(str(activation_marker)) + ", 'executed');")
+            archive.writestr("extension/snippets/cpp.json", json.dumps({
+                "Installed C++ class":{"prefix":"fixturecpp", "body":["class ${1:Thing} {", "  $1 value;", "};$0"]},
+            }))
+        subprocess.run([BINARY, "--extensions-dir", str(native_snippet_store), "--install-extension", str(native_snippet_package)], check=True, capture_output=True)
+        native_snippet_file = root / "native-snippet.cpp"
+        native_snippet_file.write_bytes(b"seed\r\n")
+        native_snippet_settings = root / "native-snippet-settings.json"
+        native_snippet_settings.write_text("{}")
+        app = Editor(root, "--extensions-dir", native_snippet_store, "--extension-node", root / "node-does-not-exist", "--settings", native_snippet_settings, native_snippet_file, enhanced=True)
+        app.send(CTRL_A)
+        app.send(b"\x1bOP")
+        app.send("Insert Snippet\r")
+        eventually(lambda: app.read() and "Installed C++ class" in app.screen.text())
+        app.send("fixturecpp\r")
+        app.send("猫\t")
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and native_snippet_file.read_bytes() == "class 猫 {\r\n  猫 value;\r\n};".encode())
+        app.send(CTRL_Z)
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and native_snippet_file.read_bytes() == b"seed\r\n")
+        subprocess.run([BINARY, "--extensions-dir", str(native_snippet_store), "--uninstall-extension", "vscli-test.native-snippets"], check=True, capture_output=True)
+        app.send(b"\x1bOP")
+        app.send("Insert Snippet\r")
+        eventually(lambda: app.read() and "0 snippets" in app.screen.text())
+        assert "Installed C++ class" not in app.screen.text()
+        app.send(b"\x1b")
+        app.finish()
+        assert not activation_marker.exists()
+        print("PASS: installed C++ snippets without Node/code activation, CRLF linked edits/save/undo and uninstall refresh")
+
 
 
 if __name__ == "__main__":
