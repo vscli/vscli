@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 from extension_sessions_pty import Editor, LIVE, wait, save
-from pty_smoke import CTRL_Z, eventually
+from pty_smoke import CTRL_S, CTRL_Z, eventually
 
 
 def fixture(root):
@@ -51,6 +51,18 @@ def fixture(root):
     save(app, source, 'ans 猫 🙂\r\n')
     app.finish()
     print('PASS: continued typing filters pending popup; stale Tab indents, held reply cannot overwrite responsive native input')
+
+    source.write_bytes(b'')
+    app = Editor(root, '--lsp', sys.executable, '--lsp-arg', peer, '--lsp-arg', root,
+                 source, enhanced=True)
+    wait(app, 'Language server ready')
+    burst = 'xz' * 600
+    # Preserve the existing four-second raw-input oracle with tooling ready.
+    # Save belongs to this same burst; no later key may be needed to wake it.
+    app.send(burst.encode() + CTRL_S)
+    eventually(lambda: app.read() and source.read_bytes() == burst.encode())
+    app.finish()
+    print('PASS: ready completion source retains native 1200-key burst/save responsiveness with unchanged 4s oracle')
 
 
 def real(root):
