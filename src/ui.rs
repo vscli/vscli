@@ -1894,11 +1894,14 @@ mod tests {
             r#"[{"key":"f8","command":"workbench.action.openRecent"}]"#,
         )
         .unwrap();
-        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        // Long platform temporary prefixes must not hide the distinguishing parent.
+        let workspace = root.path().join("long-temporary-root-prefix-".repeat(4));
+        std::fs::create_dir(&workspace).unwrap();
+        let mut app = App::new(workspace.clone(), crate::keys::Profile::Linux);
         app.keymap.load(&keys).unwrap();
         app.theme.colors.accent = Color::Rgb(1, 2, 3);
-        app.recent_files.touch(root.path().join("left/same.txt"));
-        app.recent_files.touch(root.path().join("right/same.txt"));
+        app.recent_files.touch(workspace.join("left/same.txt"));
+        app.recent_files.touch(workspace.join("right/same.txt"));
         let mut terminal = Terminal::new(TestBackend::new(160, 40)).unwrap();
         terminal.draw(|frame| draw(frame, &mut app)).unwrap();
         let cells = &terminal.backend().buffer().content;
