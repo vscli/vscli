@@ -105,7 +105,7 @@ fn discover(launch: &Launch, search: &std::ffi::OsStr) -> Result<PathBuf> {
 pub struct Offer(Arc<Mutex<Option<Client>>>);
 impl Offer {
     pub fn accept(self) -> Option<Client> {
-        self.0.lock().ok()?.take()
+        self.0.try_lock().ok()?.take()
     }
 }
 enum Job {
@@ -242,6 +242,12 @@ impl Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn contended_offer_never_blocks_the_input_thread() {
+        let slot = Arc::new(Mutex::new(None));
+        let _guard = slot.lock().unwrap();
+        assert!(Offer(slot.clone()).accept().is_none());
+    }
     #[test]
     fn discovery_is_bounded_and_skips_implicit_workspace_search() {
         let root = tempfile::tempdir().unwrap();
