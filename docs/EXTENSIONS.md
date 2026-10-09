@@ -135,7 +135,7 @@ VSCLI_TEST_LOREM_IPSUM=/absolute/path/to/vscode-lorem-ipsum \
   cargo test --locked --test extension_prompts -- --ignored
 ```
 
-Deterministic fixtures cover item identity, Unicode input/edit/undo, both cancellation paths, native prompt priority, FIFO order, stale session answers, stop/restart/crash cleanup, module-evaluation prompts and exact-origin deadline suspension. Unix PTY fixtures also cover module-evaluation input acceptance/cancellation before activation completes and refusal of oversized prompt input. Completed-A background prompts during B activation are independent of B's live activation deadline. Full Quick Input differential qualification against VS Code 1.95.0 remains outstanding.
+Deterministic fixtures cover item identity, Unicode input/edit/undo, both cancellation paths, native prompt priority, FIFO order, stale session answers, stop/restart/crash cleanup, module-evaluation prompts and exact-origin deadline suspension. Unix PTY fixtures also cover module-evaluation input acceptance/cancellation before activation completes and refusal of oversized prompt input. Completed-A background prompts during B activation are independent of B's live activation deadline. Cross-package nested commands retain the prompt API owner separately from the originating command owner. Opening a host-requested prompt dismisses parameter hints without changing shared native text. Full Quick Input differential qualification against VS Code 1.95.0 remains outstanding.
 
 ## Mirror performance measurement
 

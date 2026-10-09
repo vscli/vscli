@@ -397,4 +397,69 @@ exports.activate = async () => {
         assert_eq!(completed.spec.command_owner, None);
         client.cancel_prompts();
     }
+    #[test]
+    fn cross_package_prompt_keeps_api_owner_and_originating_command_distinct() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut packages = Vec::new();
+        for (name, source) in [
+            (
+                "a",
+                "const v=require('vscode');exports.activate=()=>v.commands.registerCommand('origin.outer',async()=>await v.commands.executeCommand('origin.inner'));",
+            ),
+            (
+                "b",
+                "const v=require('vscode');exports.activate=()=>v.commands.registerCommand('origin.inner',async()=>await v.window.showInputBox());",
+            ),
+        ] {
+            let folder = directory.path().join(name);
+            std::fs::create_dir(&folder).unwrap();
+            std::fs::write(
+                folder.join("package.json"),
+                json!({"publisher":"cross","name":name,"version":"1.0.0","main":"extension.cjs"})
+                    .to_string(),
+            )
+            .unwrap();
+            std::fs::write(folder.join("extension.cjs"), source).unwrap();
+            packages.push(Package::read(&folder).unwrap());
+        }
+        let settings = Settings::default();
+        let mut client =
+            Client::start_many("node", &packages, directory.path(), &[], 0, &settings).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !client.ready {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        client
+            .execute("origin.outer", None, &[], 0, &settings)
+            .unwrap();
+        while client.prompt().is_none() {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let prompt = client.prompt().unwrap().clone();
+        assert_eq!(prompt.spec.owner, "cross.b");
+        assert_eq!(prompt.spec.command_owner.as_deref(), Some("cross.a"));
+        client
+            .pending
+            .get_mut(&prompt.spec.command.unwrap())
+            .unwrap()
+            .started = Instant::now() - Duration::from_secs(31);
+        client.poll(&mut [], 0, &settings).unwrap();
+        client
+            .answer_prompt(
+                prompt.spec.session,
+                &prompt.spec.owner,
+                &prompt.id,
+                Value::Null,
+            )
+            .unwrap();
+        while client.busy() {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
 }
