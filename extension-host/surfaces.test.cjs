@@ -134,3 +134,20 @@ test('lifecycle owner guard rejects fresh resources and retained handles while d
   for (const disposable of owned) disposable.dispose();
   assert.deepEqual(messages.slice(-2).map(message => message.op), ['outputDispose', 'statusDispose']);
 });
+test('new declaration batches stage atomically and preserve existing owners', () => {
+  const f = fixture(), provider = { getChildren: () => [], getTreeItem: value => value };
+  const third = { id: 'three.extension', manifest: { contributes: { views: { explorer: [{ id: 'three.tree', name: 'Third' }] } } } };
+  const invalid = { id: 'bad.extension', manifest: { contributes: { views: { explorer: [{ id: 'bad.tree', name: 'Bad' }, { id: 'bad.tree', name: 'Duplicate' }] } } } };
+  assert.throws(() => f.runtime.configure([third, invalid]), /Duplicate/);
+  assert.throws(() => f.runtime.forExtension('three.extension').createTreeView('three.tree', { treeDataProvider: provider }), /not contributed/);
+  f.runtime.configure([third]);
+  const view = f.runtime.forExtension('three.extension').createTreeView('three.tree', { treeDataProvider: provider });
+  const old = f.api.createTreeView('one.tree', { treeDataProvider: provider });
+  assert.throws(() => f.runtime.configure([{ id: 'one.extension', manifest: {} }]), /Existing surface declaration changed/);
+  // Unsupported webview entries do not consume the native tree quota.
+  f.runtime.configure([{ id: 'web.extension', manifest: { contributes: { views: { explorer: [
+    ...Array.from({ length: 9 }, () => ({ type: 'webview' })), { id: 'web.tree', name: 'Native' },
+  ] } } } }]);
+  f.runtime.forExtension('web.extension').createTreeView('web.tree', { treeDataProvider: provider }).dispose();
+  view.dispose(); old.dispose();
+});

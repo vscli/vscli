@@ -226,19 +226,24 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
   return {
     types: enums, treeChildren, action, treeEvent,
     configure(packages) {
+      const staged = new Map();
       for (const package_ of packages) {
         const entries = new Map();
         for (const group of Object.values(package_.manifest.contributes?.views || {})) {
           if (!Array.isArray(group)) throw new Error('Invalid contributed views');
           for (const view of group) {
+            if (typeof view?.type === 'string' && view.type !== 'tree') continue;
             if (entries.size >= limits.views) throw new Error('Contributed tree view limit reached');
             text(view.id, 256, 'contributed view id', false); text(view.name, 256, 'contributed view name', false);
-            if (view.type && view.type !== 'tree') continue;
+            if (entries.has(view.id)) throw new Error('Duplicate contributed view ID');
             entries.set(view.id, view.name);
           }
         }
-        declared.set(package_.id, entries);
+        const previous = declared.get(package_.id);
+        if (previous && (previous.size !== entries.size || [...previous].some(([id, name]) => entries.get(id) !== name))) throw new Error('Existing surface declaration changed during admission');
+        staged.set(package_.id, entries);
       }
+      for (const [owner, entries] of staged) declared.set(owner, entries);
     },
     forExtension(owner) { return {
       createOutputChannel: (name, language) => createOutputChannel(owner, name, language),

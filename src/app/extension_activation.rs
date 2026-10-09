@@ -103,7 +103,12 @@ struct Snapshot {
 }
 enum Output {
     Loaded(Box<Snapshot>, Option<(String, bool)>),
-    Planned(lifecycle::Plan, String, Value),
+    Planned(
+        lifecycle::Plan,
+        String,
+        Value,
+        crate::extensions::SurfaceDeclarations,
+    ),
 }
 fn load(
     config: Option<&Path>,
@@ -582,7 +587,7 @@ impl App {
                                     );
                                 }
                             }
-                            Ok(Output::Planned(plan, owner, state)) => {
+                            Ok(Output::Planned(plan, owner, state, declarations)) => {
                                 if job.extension_epoch == Some(self.extension_epoch)
                                     && job.control == self.activation.control
                                     && !self.activation.paused
@@ -593,9 +598,13 @@ impl App {
                                             .front()
                                             .is_some_and(|command| &command.token == id)
                                     });
-                                    if let Err(error) =
-                                        self.apply_activation_plan(plan, &owner, command, state)
-                                    {
+                                    if let Err(error) = self.apply_activation_plan(
+                                        plan,
+                                        &owner,
+                                        command,
+                                        state,
+                                        declarations,
+                                    ) {
                                         self.message =
                                             format!("Cannot activate {owner}: {error:#}");
                                         if command {
@@ -768,7 +777,9 @@ impl App {
                     .collect();
                 let state =
                     crate::extensions::services::initial_state(state_store.as_ref(), &additions)?;
-                Ok::<_, anyhow::Error>(Output::Planned(plan, root, state))
+                let declarations =
+                    crate::extensions::SurfaceState::prepare_declarations(&additions)?;
+                Ok::<_, anyhow::Error>(Output::Planned(plan, root, state, declarations))
             })()
             .map_err(|e| format!("{e:#}"));
             let _ = sender.send(result);
@@ -789,6 +800,7 @@ impl App {
         owner: &str,
         command: bool,
         state: Value,
+        declarations: crate::extensions::SurfaceDeclarations,
     ) -> Result<()> {
         if !plan.needs_code() {
             self.message = format!("Declarative extension {owner} needs no JavaScript runtime");
@@ -812,6 +824,7 @@ impl App {
                 .cloned()
                 .collect();
             let request = ActivationRequest {
+                surface_declarations: declarations,
                 additions,
                 targets,
                 owner: command.then(|| owner.to_owned()),
@@ -1008,6 +1021,7 @@ mod tests {
                 },
                 "test.a".into(),
                 serde_json::json!({}),
+                Default::default(),
             )))
             .unwrap();
         app.stop_extension_host();
@@ -1086,6 +1100,7 @@ mod tests {
                 lifecycle::Plan { ordered: vec![a] },
                 "test.a".into(),
                 serde_json::json!({}),
+                Default::default(),
             )))
             .unwrap();
         app.poll_extension_activation();
@@ -1174,6 +1189,7 @@ mod tests {
                 lifecycle::Plan { ordered: vec![a] },
                 "test.a".into(),
                 serde_json::json!({}),
+                Default::default(),
             )))
             .unwrap();
         app.poll_extension_activation();

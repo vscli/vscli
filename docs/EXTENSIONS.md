@@ -158,8 +158,8 @@ opaque argument identity, refresh during asynchronous children, stale actions,
 ancestor cycles and immutable rendered handles. Rust tests cover rolling UTF-8
 output budgets, staged tree validation, native focus/read-only behavior, shared
 identity, save/undo, stale picker actions, late child replies and host retirement.
-Two Unix PTY journeys exercise output/status/tree interaction, Unicode CRLF
-save/undo, refresh/crash, native input and empty-workbench disposal. These are
+Three Unix PTY journeys exercise output/status/tree interaction, Unicode CRLF
+save/undo, refresh/crash, native input, empty-workbench disposal, lazy tree admission and failed-owner cleanup. These are
 synthetic fixture workflows, not broad extension compatibility evidence.
 
 Combined document-service fixtures additionally retain the original hidden
@@ -169,6 +169,20 @@ callbacks synchronize the borrowed visible/hidden model union; hidden models
 never become `activeTextEditor` merely because they were synchronized. The Unix
 document-service journey exercises these surfaces before showing the same
 hidden model, delegated undo/redo, host crash, recovery and explicit save.
+
+
+Lazy admission prepares bounded tree declarations in the existing activation
+worker alongside extension state; no manifest read is added to input/rendering.
+Declarations are staged before queuing activation and installed before the new
+module evaluates, so module-level tree registration works. Native actions and
+child requests require a currently active owner. Failed/disposed registry
+snapshots remove only that owner's output, status items and trees; retained API
+handles cannot issue new updates or actions after ownership ends. Older active
+owners, shared exports and hidden document mirrors remain intact. Deterministic
+combined tests cover a failed new owner followed by another lazy tree owner,
+original hidden TextDocument identity with zero close events, and native
+Unicode/CRLF save and undo. This does not add hot unload or isolate arbitrary
+JavaScript side effects within the shared process.
 
 
 ## Native Quick Pick and Input Box

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Native output/status/lazy-tree interactions with real extension commands."""
 import os
+import json
 from pathlib import Path
 import signal
 import subprocess
@@ -8,6 +9,7 @@ import sys
 import tempfile
 from extension_sessions_pty import Editor, LIVE, command, wait, save
 from pty_smoke import CTRL_Z, eventually
+from extension_activation_pty import install
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'extension-surfaces'
 
@@ -80,10 +82,62 @@ def run(root):
     print('PASS: empty workbench status/output/input and disposal create no phantom document')
 
 
+def lazy(root):
+    root.mkdir()
+    store, config = root / 'store', root / 'config'
+    install(root, store, 'b', r"""
+const v=require('vscode');
+const leaf={};v.window.createTreeView('lazy.tree',{treeDataProvider:{
+ getChildren:()=>[leaf],getTreeItem:()=>({label:'Lazy native leaf',command:{command:'lazy.edit'}})
+}});
+exports.activate=ctx=>{
+ ctx.subscriptions.push(v.commands.registerCommand('lazy.ready',()=>v.window.showInformationMessage('new owner ready')));
+ ctx.subscriptions.push(v.commands.registerCommand('lazy.edit',async()=>{
+  const ok=await v.window.activeTextEditor.edit(edit=>edit.insert(new v.Position(0,0),'LAZY:'));
+  await v.window.showInformationMessage('lazy tree applied='+ok);
+ }));
+};
+""", {'contributes': {'commands': [{'command': 'lazy.ready', 'title': 'Lazy Ready'}],
+                         'views': {'explorer': [{'id': 'lazy.tree', 'name': 'Lazy Native Tree'}]}}})
+    install(root, store, 'c', r"""
+const v=require('vscode');exports.activate=async()=>{
+ const out=v.window.createOutputChannel('Failed owner log');out.appendLine('must disappear');
+ const status=v.window.createStatusBarItem('failed');status.text='FAILED OWNER';status.show();
+ await v.window.showInputBox({title:'Fail new surface owner'});throw new Error('intentional surface failure');
+};
+""", {'contributes': {'commands': [{'command': 'lazy.fail', 'title': 'Lazy Fail'}]}})
+    keys = root / 'keys.json'
+    keys.write_text(json.dumps([
+        {'key': 'f5', 'command': 'vscli.extensions.enableGlobal', 'args': {'id': 'activation.b'}},
+        {'key': 'f6', 'command': 'vscli.extensions.enableGlobal', 'args': {'id': 'activation.c'}},
+        {'key': 'f7', 'command': 'lazy.ready'}, {'key': 'f8', 'command': 'lazy.fail'},
+    ]))
+    file = root / 'original.txt'; file.write_bytes('original猫\r\n'.encode())
+    app = Editor(root, '--config-dir', config, '--extensions-dir', store, '--keybindings', keys,
+                 '--extension', FIXTURE, file, enhanced=True)
+    wait(app, 'Native Ready')
+    app.send(b'\x1b[15~'); wait(app, 'Enabled activation.b;')
+    app.send(b'\x1b[18~'); wait(app, 'new owner ready')
+    command(app, 'Extensions: Tree Views'); wait(app, 'Lazy Native Tree')
+    app.send(b'\r'); wait(app, 'Lazy native leaf')
+    app.send(b'\r'); wait(app, 'lazy tree applied=true')
+    save(app, file, 'LAZY:original猫\r\n')
+    app.send(CTRL_Z); save(app, file, 'original猫\r\n')
+    app.send(b'\x1b[17~'); wait(app, 'Enabled activation.c;')
+    app.send(b'\x1b[19~'); wait(app, 'Fail new surface owner')
+    app.send(b'\r'); wait(app, 'Extension activation.c failed to activate; restart explicitly to retry')
+    eventually(lambda: app.read() and 'FAILED OWNER' not in app.screen.text())
+    wait(app, 'Native Ready')
+    command(app, 'Surface show'); wait(app, 'LOG 猫🙂')
+    app.send(b'\x1b'); save(app, file, 'original猫\r\n'); app.finish()
+    print('PASS: newly admitted module-level tree, opaque native edit/undo, failed owner cleanup and older surface retention')
+
+
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='vscli-surfaces-pty-') as directory:
         try:
             run(Path(directory))
+            lazy(Path(directory) / 'lazy')
         finally:
             original_failure = sys.exc_info()[0] is not None
             errors = []
@@ -93,7 +147,7 @@ if __name__ == '__main__':
                         os.kill(app.process.pid, signal.SIGTERM)
                         try:
                             app.process.wait(timeout=3)
-                        except subprocess.TimeoutExpired:
+                        except (AssertionError, subprocess.TimeoutExpired):
                             app.process.kill()
                             app.process.wait(timeout=3)
                 except Exception as error:

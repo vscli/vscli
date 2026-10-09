@@ -199,3 +199,23 @@ test('surface facade forwards the lifecycle owner guard without blocking disposa
   assert.doesNotThrow(()=>runtime.disposeOwner('fixture.owner'));
   assert.equal(messages.at(-1).params.op,'outputDispose');
 });
+
+test('surface facade uses live activation ownership and clears failed owner only', () => {
+  const active = new Set(['old.owner', 'new.owner']), messages = [];
+  const runtime = createApi(async () => ({}), (method, params) => messages.push({ method, params }), { session: 7 });
+  runtime.setActivation({ accepts: owner => active.has(owner), facade: () => ({}) });
+  const old = runtime.forExtension('old.owner'), fresh = runtime.forExtension('new.owner');
+  const retained = old.window.createOutputChannel('Retained');
+  const failed = fresh.window.createOutputChannel('Failed');
+  const status = fresh.window.createStatusBarItem('Failed'); status.show();
+  active.delete('new.owner');
+  assert.throws(() => failed.append('late'), /owner is not active/);
+  assert.throws(() => status.show(), /owner is not active/);
+  assert.throws(() => fresh.window.createOutputChannel('new late'), /owner is not active/);
+  runtime.disposeOwner('new.owner');
+  retained.append('still active');
+  assert.equal(messages.at(-1).params.owner, 'old.owner');
+  assert.equal(messages.at(-1).params.text, 'still active');
+  assert.equal(messages.filter(item => item.params.op === 'outputDispose').length, 1);
+  assert.equal(messages.filter(item => item.params.op === 'statusDispose').length, 1);
+});
