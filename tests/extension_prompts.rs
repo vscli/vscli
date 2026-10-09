@@ -245,3 +245,51 @@ fn upstream_lorem_ipsum_quick_pick_inserts_paragraphs_and_native_save_undo() {
     assert_eq!(app.doc().text.to_string(), "tail");
     assert!(app.extension_host.as_ref().is_some_and(|host| host.ready));
 }
+
+#[test]
+fn native_extension_prompt_dismisses_parameter_hints_and_retains_shared_text() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut app = fixture(directory.path());
+    let path = directory.path().join("main.cpp");
+    std::fs::write(&path, "sum(1, 2)\r\n").unwrap();
+    app.open(&path).unwrap();
+    app.doc_mut().move_to(7, false);
+    let id = app.doc().id;
+    let args = vec![
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/signature_server.py")
+            .to_string_lossy()
+            .into_owned(),
+    ];
+    app.lsp =
+        Some(vscli::lsp::Client::start("python3", &args, directory.path(), "cpp".into()).unwrap());
+    until(&mut app, |app| {
+        app.lsp.as_ref().is_some_and(|client| client.ready)
+    });
+    app.execute("editor.action.triggerParameterHints", Value::Null);
+    until(&mut app, |app| app.signature_help().is_some());
+    // A host-initiated request reaches the native prompt layer without executing
+    // another App command that would already dismiss parameter hints.
+    app.extension_host
+        .as_mut()
+        .unwrap()
+        .execute(
+            "prompts.queue",
+            None,
+            &app.documents,
+            app.active,
+            &app.settings,
+        )
+        .unwrap();
+    until(&mut app, extension_prompt);
+    assert!(app.signature_help().is_none());
+    key(&mut app, KeyCode::Esc);
+    until(&mut app, extension_prompt);
+    key(&mut app, KeyCode::Esc);
+    until(&mut app, |app| app.message == "queue=[null,null]");
+    assert!(app.signature_help().is_none());
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().text.to_string(), "sum(1, 2)\r\n");
+    assert!(!app.doc().dirty());
+    assert_eq!(std::fs::read_to_string(path).unwrap(), "sum(1, 2)\r\n");
+}
