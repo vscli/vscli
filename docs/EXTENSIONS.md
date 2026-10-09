@@ -16,13 +16,44 @@ vscli --rollback-extension publisher.extension
 vscli --uninstall-extension publisher.extension
 ```
 
-`--extensions-dir /path/to/storage` overrides the platform-local VSCLI extension directory for every operation. `--list-extensions` emits JSON with the manifest, immutable package path, source archive path, SHA-256 digest and a compatibility description. The digest records the exact locally snapshotted archive; it is not a signature or publisher authentication. Obtain packages from authors or registries whose distribution terms permit your use. Network registry search/download and Marketplace access are not implemented.
+`--extensions-dir /path/to/storage` overrides the platform-local VSCLI extension directory for every operation. `--list-extensions` emits JSON with the manifest, immutable package path, source archive path, SHA-256 digest and a compatibility description. The digest records the exact locally snapshotted archive; it is not a signature or publisher authentication. Obtain packages from authors or registries whose distribution terms permit your use. Native Open VSX search/download and explicit stable updates are available as described in [registry workflows](EXTENSION_REGISTRY.md). Marketplace access is not implemented.
 
 Packages are extracted into private staging directories with limits of **128 MiB per archive**, **256 MiB total extraction**, **32 MiB per file**, **20,000 entries** and **1 MiB for package.json**. Traversal, absolute/nonportable paths, duplicate/case-aliased paths, symlinks and special files are rejected. Declared entry counts are checked before ZIP metadata allocation; the parser is restricted to that validated archive footer so malformed metadata cannot fall back to a different unchecked count. ZIP64, multi-disk and ambiguous-footer archives are unsupported. Installed manifest listings have cumulative limits of 8 MiB of serialized metadata and 50,000 JSON nodes; reaching either limit reports an error, while direct ID lookup and uninstall remain available. A failed extraction or invalid manifest leaves the prior installation selected. Mutations take a nonblocking exclusive storage lock, publish immutable generations and atomically replace the registry. Rollback switches the registry to the previous generation; running hosts keep using their original files until restarted. Uninstall removes the registry entry, while immutable files are retained to protect running hosts; automatic garbage collection remains outstanding. Power-loss durability across filesystems has not been qualified.
 
 **Installed does not mean compatible.** The manifest classification describes runtime shape only. Engine ranges, proposed APIs, native module ABI and broad extension API coverage remain unqualified. Browser-only packages and dependency-bearing packages can be stored, but the host cannot run them. At most eight explicitly selected CommonJS code extensions run together in one optional Node process; declarative contribution support depends on native adapters. The editor performs installation and host startup in bounded background jobs; canceled pending starts, replaced hosts, stopped hosts and failed hosts are retired by those workers, and their slots remain occupied until teardown completes; native buffers retain their identity, dirty state and version checks during activation.
 
 Automated evidence includes malicious-path/link and oversized-archive rejection, preservation of an existing install after failures, concurrent-operation rejection, upgrade/rollback/remove, noninteractive CLI operation, and an actual Unix PTY workflow installing a VSIX, explicitly activating it, running its F9 command, saving/undoing and uninstalling while its host is live. The picker is available from an empty welcome screen and from editor, Explorer and terminal focus. Dismissing its loading view prevents a late reply from reopening it over a later prompt; a successfully committed installation is reported even if refreshing another package’s metadata fails. Host lifecycle tests verify canceled and outdated starts cannot become ready, readiness follows worker acknowledgement, and stalled retirement retains its slot while native input continues. A document lifecycle test verifies no fabricated documents at activation, correct mirrors after opening the first file, and rejection of edits to a closed final document. The real-protocol CI additionally packages the unchanged compiled **Sort Lines 1.12.0** entry files into a VSIX, installs it and checks F9 sorting plus native undo. This locally assembled archive tests installation and the named runtime workflow; it is not registry-download or publisher-signature qualification.
+
+## Browsing and updating Open VSX packages
+
+Use **F1 → Extensions: Search Open VSX**, type a query and press Enter. The native
+picker shows up to 20 compatible stable packages; Enter installs the displayed
+version. **/** in the installed picker opens search, and **U** checks for updates.
+**F1 → Extensions: Check for Updates** lists newer stable versions; Enter installs
+one. Installed-list refresh displays the operation result. Installation and
+updates do not activate code or change running immutable snapshots. Esc dismisses
+an operation's view while its bounded worker finishes; a late result cannot replace
+a newer prompt.
+
+CLI equivalents work without a terminal UI or Node:
+
+```sh
+vscli --search-extensions 'sort lines'
+vscli --install-extension Tyriar.sort-lines
+vscli --check-extension-updates
+vscli --update-extension Tyriar.sort-lines
+```
+
+`--extension-registry` selects an Open VSX-compatible server; the default is
+`https://open-vsx.org`. Update JSON contains `items` and per-package `notices`.
+The native picker shows the notice count and first notice; the CLI preserves all
+notices. Unavailable packages do not hide other available updates. Read
+[registry bounds, integrity checks and outstanding qualification](EXTENSION_REGISTRY.md).
+The Unix PTY fixture exercises browse/install/update/rollback with Node unavailable,
+native CRLF save/undo, and a late search reply while a newer Go to File prompt is
+active. A local live check on Linux searched public Open VSX and installed
+Tyriar Sort Lines 1.12.0 without executing it; that is registry transport and package
+installation evidence, not validation of additional published extension workflows.
 
 ## Native snippet packages
 
@@ -50,7 +81,7 @@ Build VSCLI normally, install Node 24, and pass an already unpacked, built exten
 vscli --extension /path/to/extension .
 ```
 
-The flag explicitly runs that extension's code with your user permissions. Process isolation protects editor responsiveness and contains host failures; it is not a filesystem or network sandbox. VSCLI does not download packages or execute package installation scripts; native VSIX installation is described above. Node is unnecessary unless a code extension host is explicitly started. Runtime bridge files are embedded in the native executable and materialized in a temporary directory only for an enabled host.
+The flag explicitly runs that extension's code with your user permissions. Process isolation protects editor responsiveness and contains host failures; it is not a filesystem or network sandbox. VSCLI downloads packages only for an explicit Open VSX registry request and never executes package installation scripts; native VSIX installation is described above. Node is unnecessary unless a code extension host is explicitly started. Runtime bridge files are embedded in the native executable and materialized in a temporary directory only for an enabled host.
 
 F1 lists registered commands. Manifest keybindings retain their original combinations, platform overrides, arguments, and supported `when` expressions. Packages activate in canonical extension-ID order. Duplicate extension command registration rejects with its existing owner; native command IDs and the native cursor-dispatch prefix are reserved. Defaults are ordered by package ID and then manifest order; later matching bindings win. These are documented VSCLI precedence rules, not qualified VS Code conflict-resolution parity. They are layered above native defaults and below user bindings; user removal rules are reapplied when the extension activates. Invalid or unsupported expressions reject that package’s contribution with a visible message while other packages retain their defaults. Stopping the host removes its defaults. User keybindings can also target original command IDs. Arguments remain one value, including arrays and explicit `null`; an omitted argument stays absent. Native editing and saving continue after a host crash. F1 → Extensions: Stop Host terminates it; F1 → Extensions: Restart Selected Session restarts the same selected snapshots. Enter in the installed picker replaces only that selected package’s snapshot with the currently installed generation. Adding, stopping or replacing a package restarts the cohort and resets its JavaScript state. There is no safe individual hot unload. No session is automatically restored on editor startup. Ordinary shutdown kills the process and waits up to five seconds for outstanding start/retirement workers; guaranteed `deactivate` completion and persistent extension state are not implemented.
 
@@ -77,7 +108,7 @@ The API reference target for this initial experiment is VS Code 1.95.0; the expo
 
 Document versions increase across edits and undo/redo observations. State generations reject outdated document notifications. All mirrors are updated before document event callbacks run. Protocol v4 tags command registries and edits with their session and package owner and sends document text only for new or changed document revisions; selection, dirty-state, and path updates reuse cached text. Ordered state notifications precede edit acknowledgements, and the native baseline advances only after a message is queued successfully. Changed text still uses full snapshots rather than edit deltas; the total mirrored text budget is 4 MiB, transport frames are limited to 16 MiB, and pending requests and concurrent shim command calls are capped at 64 with a 30-second native timeout. An idle host receives a heartbeat every five seconds; a missing reply uses the same timeout. One process failure, stalled callback or timeout stops the entire selected cohort; restart remains explicit. Crossing a host limit stops or rejects extension work while preserving native buffers.
 
-Unsupported service APIs throw explicit errors. Browser-only packages, extension dependencies/proposed APIs, providers, webviews, notebooks, custom editors, workspace edits, settings writes, storage/secrets, automatic activation rules, extension menus, and built-in command delegation remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. Local VSIX installation and rollback are implemented; registry search/download remains outstanding.
+Unsupported service APIs throw explicit errors. Browser-only packages, extension dependencies/proposed APIs, providers, webviews, notebooks, custom editors, workspace edits, settings writes, storage/secrets, automatic activation rules, extension menus, and built-in command delegation remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. Local VSIX installation and rollback are implemented; native Open VSX registry workflows are described above.
 
 ## Session limits and failure behavior
 
@@ -124,7 +155,7 @@ VSCLI_TEST_SORT_LINES=/absolute/path/to/vscode-sort-lines \
 
 Separate synthetic fixtures test Unicode edits, version changes through undo, stale rejection, atomic rejection of overlaps, explicit unsupported API failures, host crashes, and continued editing. Shared-session fixtures additionally check cross-package commands, shared document identity/configuration defaults, concurrent same-version edits, staged activation failure and reserved command conflicts. The Unix shared-session PTY workflow exercises two installed packages, repeated CLI selectors, deterministic F9 precedence, native save/undo/stale rejection, immutable selected generations across upgrade/rollback/uninstall, stop-selected/restart, whole-host crashes, Unix inherited-stdio descendant termination on stop/restart/leader crash, and editing with a missing Node executable. Normal exit and failed activation reap the shared process; SIGTERM during pending activation preserves the latest recovery text, restores the terminal and reaps Node and terminates its inherited-stdio descendant within the fixture’s three-second deadline. These fixtures establish those named behaviors; multi-extension differential qualification against VS Code 1.95.0 remains outstanding. The Unix PTY suite also exercises activation-time settings, live configuration events, palette/F9 dispatch, save, undo, and host stop through the actual executable. Node API tests cover callback lifetime and out-of-order mirror updates.
 
-The upstream-host extraction comparison, broader reference-editor differential tests, broader extension corpus, API capability reports, registry distribution, garbage collection, and native adapters for richer contributions remain required work. A single successful command extension does not establish compatibility with language services, Git providers, debuggers, or graphical extensions.
+The upstream-host extraction comparison, broader reference-editor differential tests, broader extension corpus, API capability reports, broader registry distribution, garbage collection, and native adapters for richer contributions remain required work. A single successful command extension does not establish compatibility with language services, Git providers, debuggers, or graphical extensions.
 
 ## Named Quick Pick workflow evidence
 

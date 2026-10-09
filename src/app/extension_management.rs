@@ -6,12 +6,16 @@ use std::sync::{
 };
 pub(super) enum Action {
     List,
+    Search(String),
+    RegistryInstall(crate::extension_registry::Entry),
+    CheckUpdates,
     Install(PathBuf),
     Uninstall(String),
     Rollback(String),
 }
 enum Output {
     Listed(Vec<Installed>, String),
+    RegistryItems(Vec<crate::extension_registry::Entry>, String),
     RefreshFailed(String),
     Started(Handoff<Box<crate::extensions::Client>>),
     Stopped,
@@ -85,10 +89,27 @@ impl App {
         self.prompt = None;
         self.modal = Some(Modal::ExtensionsLoading(view));
         let (sender, receiver) = sync_channel(1);
+        let registry = self.extension_registry.clone();
         std::thread::spawn(move || {
             let store = Store::new(directory);
             let result = (|| -> Result<Output> {
+                let cancel = std::sync::atomic::AtomicBool::new(false);
                 let message = match action {
+                    Action::Search(query) => return Ok(Output::RegistryItems(
+                        registry.search(&query, &cancel)?,
+                        "Open VSX results · Enter installs the displayed version; code is not activated".into(),
+                    )),
+                    Action::CheckUpdates => {
+                        let report = registry.updates(&store.list()?, &cancel)?;
+                        let message = if let Some(first) = report.notices.first() {
+                            format!("{} update check notice(s): {first}", report.notices.len())
+                        } else { "Available stable updates · Enter installs · running snapshots stay unchanged".into() };
+                        return Ok(Output::RegistryItems(report.items, message));
+                    }
+                    Action::RegistryInstall(entry) => {
+                        let item = registry.install(&entry, &store, &cancel)?;
+                        format!("Installed {}@{} from Open VSX; code activation remains explicit", item.id, item.version)
+                    }
                     Action::List => {
                         "Installed packages · installation does not imply compatibility".into()
                     }
@@ -317,6 +338,12 @@ impl App {
         }
         match result {
             Err(error) => self.message = format!("Extension operation failed: {error}"),
+            Ok(Output::RegistryItems(items, message)) => {
+                self.message = message;
+                if show_list {
+                    self.modal = Some(Modal::ExtensionRegistry { items, selected: 0 });
+                }
+            }
             Ok(Output::Listed(items, message)) => {
                 self.message = message;
                 if show_list {
@@ -343,6 +370,47 @@ impl App {
 mod tests {
     use super::*;
     use std::time::Duration;
+    #[test]
+    fn registry_reply_after_dismissal_preserves_new_prompt_and_dirty_buffer() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("edit.cpp");
+        std::fs::write(&path, "original").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.open(&path).unwrap();
+        app.doc_mut().insert("dirty", false);
+        let id = app.doc().id;
+        let revision = app.doc().revision;
+        let (sender, receiver) = sync_channel(1);
+        app.extension_job = Some(Job {
+            view: Some(99),
+            epoch: None,
+            discard_host: false,
+            receiver,
+        });
+        app.modal = Some(Modal::ExtensionsLoading(99));
+        app.modal = None;
+        app.start_prompt(PromptKind::QuickOpen, "later".into());
+        sender
+            .send(Ok(Output::RegistryItems(
+                Vec::new(),
+                "Search finished".into(),
+            )))
+            .unwrap();
+        app.poll_extension_management();
+        assert!(app.extension_job.is_none());
+        assert!(app.modal.is_none());
+        assert!(matches!(
+            app.prompt.as_ref().map(|p| &p.kind),
+            Some(PromptKind::QuickOpen)
+        ));
+        assert_eq!(app.prompt.as_ref().unwrap().text, "later");
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().revision, revision);
+        assert_eq!(app.doc().text.to_string(), "dirtyoriginal");
+        assert_eq!(std::fs::read_to_string(path).unwrap(), "original");
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "original");
+    }
     #[test]
     fn discarded_handoff_runs_blocking_teardown_in_the_worker() {
         struct Probe {

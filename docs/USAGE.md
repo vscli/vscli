@@ -311,7 +311,7 @@ On Linux, system clipboard integration uses `wl-copy`/`wl-paste` or `xclip` if a
 
 Files must be UTF-8, without NUL bytes, and at most 32 MiB when opened. Existing LF/CRLF bytes are preserved; newly inserted lines use the detected newline style. Very long lines, large replacements, startup recovery, and file saves can still pause this alpha. Periodic recovery I/O runs off the input thread; the performance report includes a recovery-enabled typing workload, while language-service/extension contention and the design document's latency budgets remain unqualified. Full bidirectional layout and terminal-independent emoji-width agreement are not implemented.
 
-Not yet implemented: registry downloads, broad extension API compatibility, rich webviews, notebooks, full settings migration, or a remote agent. An optional experimental command extension host is available as described below. Running the executable inside an SSH session is supported in principle; the actual terminal/multiplexer combination must be tested.
+Not yet implemented: broad extension API compatibility, rich webviews, notebooks, full settings migration, or a remote agent. An optional experimental command extension host is available as described below. Running the executable inside an SSH session is supported in principle; the actual terminal/multiplexer combination must be tested.
 
 Grammar highlighting uses a single background worker, document/revision checks, cancellation, and a 2 MiB source cap. During typing, unchanged text retains its previous grammar colors through a byte-offset mapping; inserted or replaced text receives fresh grammar colors when parsing completes. These temporary colors preserve geometry, but syntax-changing edits can make their old token classification provisional until the next parse. Other languages and larger files retain lightweight lexical colors. Embedded-language injection, semantic tokens, incremental parse-tree reuse, grammar folding and complete theme semantics remain incomplete. Native color-theme loading and its boundaries are documented in [Import and themes](IMPORT_AND_THEMES.md).
 
@@ -392,7 +392,17 @@ For a manual smoke test, open a disposable file, type text, save it, select/repl
 
 ## Experimental extension commands
 
-Install local extension packages with **F1 → Extensions: Install from VSIX**, or `vscli --install-extension ./package.vsix`. Use **Ctrl+Shift+X** (**Cmd+Shift+X** on macOS), or **F1 → Extensions: Show Installed Extensions**, to view compatibility descriptions, explicitly run a selected code package, restore its previous installation with **R**, or uninstall it with **Delete**. Installation alone never activates code. The picker also works from the empty welcome screen, Explorer and integrated terminal. Esc closes a pending loading view while its operation finishes; the result does not replace a newer prompt. CLI equivalents are `--list-extensions`, `--rollback-extension publisher.name` and `--uninstall-extension publisher.name`; `--extensions-dir` selects storage. Installed code packages can be launched with `vscli --extension publisher.name .`. Storage supports one previous generation, retains immutable files for running hosts, and does not yet download registry packages or collect old files. Installed packages are not automatically API compatible.
+Install local extension packages with **F1 → Extensions: Install from VSIX**, or `vscli --install-extension ./package.vsix`. Use **Ctrl+Shift+X** (**Cmd+Shift+X** on macOS), or **F1 → Extensions: Show Installed Extensions**, to view compatibility descriptions, explicitly run a selected code package, restore its previous installation with **R**, or uninstall it with **Delete**. Installation alone never activates code. The picker also works from the empty welcome screen, Explorer and integrated terminal. Esc closes a pending loading view while its operation finishes; the result does not replace a newer prompt. CLI equivalents are `--list-extensions`, `--rollback-extension publisher.name` and `--uninstall-extension publisher.name`; `--extensions-dir` selects storage. Installed code packages can be launched with `vscli --extension publisher.name .`. Storage supports one previous generation, retains immutable files for running hosts, and does not yet collect old files. Installed packages are not automatically API compatible.
+
+Use **F1 → Extensions: Search Open VSX** to find and install a compatible stable
+package without command-line arguments. Enter submits a query, then installs the
+selected displayed version. **/** opens search from the installed picker and
+**U** checks for newer stable versions; **F1 → Extensions: Check for Updates** is
+also available. Updates preserve rollback and leave running snapshots unchanged.
+The native client works without Node. CLI alternatives are `--search-extensions`,
+`--install-extension publisher.name`, `--check-extension-updates` and
+`--update-extension publisher.name`. The default registry is Open VSX;
+`--extension-registry` overrides it. See [registry scope](EXTENSION_REGISTRY.md).
 
 `vscli --extension /absolute/path/to/unpacked-extension .` starts the extension's Node `main` entry in an optional process. This explicitly executes trusted extension code with your user permissions. Use `--extension-node /path/to/node` to select the runtime. Normal native editing does not require Node. Extensions receive imported user/workspace settings before activation and valid live updates through `workspace.onDidChangeConfiguration`; held configuration objects remain snapshots.
 
