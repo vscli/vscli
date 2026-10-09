@@ -29,9 +29,14 @@ impl App {
         let (sender, receiver) = mpsc::sync_channel(1);
         self.theme_state.pending = Some(receiver);
         std::thread::spawn(move || {
-            let result = (|| -> Result<Loaded> {
-                let packages = installed_packages(directory.as_deref())?;
-                let (choices, mut notices) = crate::theme::contributions(&packages);
+            let result = {
+                let (choices, mut notices) = match installed_packages(directory.as_deref()) {
+                    Ok(packages) => crate::theme::contributions(&packages),
+                    Err(error) => (
+                        Vec::new(),
+                        vec![format!("Installed theme discovery failed: {error:#}")],
+                    ),
+                };
                 let saved = if let Some(path) = preferences {
                     match Preference::read(&path) {
                         Ok(preference) => preference,
@@ -61,14 +66,13 @@ impl App {
                 } else {
                     None
                 };
-                Ok(Loaded {
+                Loaded {
                     theme,
                     choices: Some(choices),
                     notices,
-                })
-            })()
-            .map_err(|error| format!("{error:#}"));
-            let _ = sender.send(result);
+                }
+            };
+            let _ = sender.send(Ok(result));
         });
     }
     pub(super) fn open_theme_picker(&mut self) {
@@ -192,7 +196,7 @@ fn resolve(selected: &Preference, choices: &[Choice]) -> Result<Theme> {
                 .iter()
                 .find(|choice| choice.id == name || choice.label == name)
                 .ok_or_else(|| anyhow::anyhow!("Color theme {name:?} is not installed"))?;
-            let mut theme = Theme::load(&choice.path)?;
+            let mut theme = Theme::load_confined(&choice.path, &choice.root)?;
             theme.name = choice.label.clone();
             Ok(theme)
         }
@@ -277,6 +281,28 @@ mod tests {
                 .path
                 .is_some()
         );
+    }
+    #[test]
+    fn broken_extension_registry_does_not_block_explicit_or_builtin_theme_selection() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("extensions");
+        std::fs::create_dir(&directory).unwrap();
+        std::fs::write(directory.join("registry.json"), "invalid").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.configure_themes(
+            Some(directory.clone()),
+            None,
+            Some("VSCLI Light".into()),
+            None,
+        );
+        poll(&mut app);
+        assert_eq!(app.theme.name, "VSCLI Light");
+        assert!(app.message.contains("discovery failed"));
+        let path = root.path().join("theme.json");
+        std::fs::write(&path, r#"{"name":"Explicit"}"#).unwrap();
+        app.configure_themes(Some(directory), None, None, Some(path));
+        poll(&mut app);
+        assert_eq!(app.theme.name, "Explicit");
     }
     #[test]
     fn installed_contributions_resolve_by_id_without_executing_package() {
