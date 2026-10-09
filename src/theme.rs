@@ -94,7 +94,11 @@ impl Theme {
     pub fn load(path: &Path) -> Result<Self> {
         let mut visited = HashSet::new();
         let mut bytes = 0;
-        load(path, &mut visited, &mut bytes)
+        load(path, &mut visited, &mut bytes, None)
+    }
+    pub fn load_confined(path: &Path, root: &Path) -> Result<Self> {
+        let root = fs::canonicalize(root)?;
+        load(path, &mut HashSet::new(), &mut 0, Some(&root))
     }
     pub fn token(&self, style: usize) -> Color {
         self.tokens
@@ -103,12 +107,23 @@ impl Theme {
             .unwrap_or(self.colors.foreground)
     }
 }
-fn load(path: &Path, visited: &mut HashSet<PathBuf>, bytes: &mut usize) -> Result<Theme> {
+fn load(
+    path: &Path,
+    visited: &mut HashSet<PathBuf>,
+    bytes: &mut usize,
+    root: Option<&Path>,
+) -> Result<Theme> {
     if visited.len() >= 8 {
         bail!("Theme includes exceed 8 files");
     }
     let path =
         fs::canonicalize(path).with_context(|| format!("Cannot open theme {}", path.display()))?;
+    if root.is_some_and(|root| !path.starts_with(root)) {
+        bail!("Theme include escapes its extension package");
+    }
+    if !path.is_file() {
+        bail!("Theme must be a regular file");
+    }
     if !visited.insert(path.clone()) {
         bail!("Theme include cycle at {}", path.display());
     }
@@ -129,8 +144,22 @@ fn load(path: &Path, visited: &mut HashSet<PathBuf>, bytes: &mut usize) -> Resul
     if !value.is_object() {
         bail!("Theme must contain an object");
     }
+    for field in ["name", "type", "include"] {
+        if value.get(field).is_some_and(|value| !value.is_string()) {
+            bail!("Theme {field} must be a string");
+        }
+    }
+    if value.get("colors").is_some_and(|value| !value.is_object()) {
+        bail!("Theme colors must contain an object");
+    }
+    if value
+        .get("tokenColors")
+        .is_some_and(|value| !value.is_array() && !value.is_string())
+    {
+        bail!("Theme tokenColors must contain an array or tmTheme path");
+    }
     let mut theme = if let Some(include) = value.get("include").and_then(Value::as_str) {
-        load(&path.parent().unwrap().join(include), visited, bytes)?
+        load(&path.parent().unwrap().join(include), visited, bytes, root)?
     } else if value.get("type").and_then(Value::as_str) == Some("light") {
         Theme::light()
     } else {
@@ -334,11 +363,48 @@ mod tests {
         }
     }
     #[test]
+    fn installed_includes_are_confined_and_preferences_fail_without_replacing_existing_bytes() {
+        let root = tempfile::tempdir().unwrap();
+        let package = root.path().join("package");
+        fs::create_dir(&package).unwrap();
+        fs::write(root.path().join("outside.json"), "{}").unwrap();
+        let path = package.join("theme.json");
+        fs::write(&path, r#"{"include":"../outside.json"}"#).unwrap();
+        assert!(
+            Theme::load_confined(&path, &package)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("escapes")
+        );
+        let preference = root.path().join("selection.json");
+        fs::write(&preference, "original bytes").unwrap();
+        assert!(
+            Preference {
+                name: "x".repeat(5000),
+                path: None
+            }
+            .save(&preference)
+            .is_err()
+        );
+        assert_eq!(fs::read_to_string(&preference).unwrap(), "original bytes");
+        assert!(
+            Preference::read(&package)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("regular file")
+        );
+    }
+    #[test]
     fn cyclic_malformed_and_oversized_themes_are_rejected() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("theme.json");
         for text in [
             r#"{"include":"theme.json"}"#.into(),
+            r#"{"include":false}"#.into(),
+            r#"{"colors":[]}"#.into(),
+            r#"{"tokenColors":42}"#.into(),
             r##"{"colors":{"editor.background":"#zzffff"}}"##.into(),
             " ".repeat(1024 * 1024 + 1),
         ] {
@@ -354,6 +420,7 @@ pub struct Choice {
     pub id: String,
     pub label: String,
     pub path: PathBuf,
+    pub root: PathBuf,
 }
 /// Installed manifests are data; discovering a color contribution never starts its extension.
 pub fn contributions(packages: &[(PathBuf, Value)]) -> (Vec<Choice>, Vec<String>) {
@@ -399,6 +466,7 @@ pub fn contributions(packages: &[(PathBuf, Value)]) -> (Vec<Choice>, Vec<String>
                     .into(),
                 label: label.into(),
                 path,
+                root: root.clone(),
             });
             if choices.len() >= 1024 {
                 warnings.push("Installed theme catalog limited to 1024 entries".into());
@@ -418,6 +486,12 @@ pub struct Preference {
 }
 impl Preference {
     pub fn read(path: &Path) -> Result<Option<Self>> {
+        match fs::metadata(path) {
+            Ok(metadata) if !metadata.is_file() => bail!("Theme preference must be a regular file"),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+            _ => {}
+        }
         let file = match fs::File::open(path) {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -437,7 +511,11 @@ impl Preference {
             .context("Theme preference has no parent directory")?;
         fs::create_dir_all(parent)?;
         let mut file = tempfile::NamedTempFile::new_in(parent)?;
-        file.write_all(&serde_json::to_vec_pretty(self)?)?;
+        let bytes = serde_json::to_vec_pretty(self)?;
+        if bytes.len() > 4096 {
+            bail!("Theme preference exceeds 4 KiB");
+        }
+        file.write_all(&bytes)?;
         file.as_file().sync_all()?;
         file.persist(path).map_err(|error| error.error)?;
         Ok(())

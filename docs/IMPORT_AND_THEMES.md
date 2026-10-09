@@ -62,7 +62,9 @@ VS Code JSON/JSONC theme path; `--theme /path/to/theme.json` overrides the saved
 selection at startup. **Preferences: Color Theme Report** displays known limits
 for the loaded file. Selections persist atomically in `theme-selection.json`
 beside the active settings profile. A failed load leaves the current theme and
-unsaved documents unchanged. The priority is explicit `--theme`, saved native
+unsaved documents unchanged. Installed-package includes are confined to their
+package; a broken extension registry reports a discovery failure while explicit
+file and built-in theme selections remain usable. The priority is explicit `--theme`, saved native
 selection, then `workbench.colorTheme`. Theme settings are resolved at startup;
 use the picker to change themes during a session.
 
