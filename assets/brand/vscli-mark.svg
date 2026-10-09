@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <title>VSCLI forward terminal mark</title>
+  <desc>Two folded blue planes form a forward chevron beside a mint terminal cursor.</desc>
+  <defs>
+    <linearGradient id="top" x1="88" y1="92" x2="294" y2="264" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B9FFF"/><stop offset="1" stop-color="#48CFFF"/>
+    </linearGradient>
+    <linearGradient id="bottom" x1="88" y1="382" x2="294" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6665E8"/><stop offset="1" stop-color="#55C8FF"/>
+    </linearGradient>
+    <linearGradient id="cursor" x1="270" y1="350" x2="420" y2="390" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4EDAC5"/><stop offset="1" stop-color="#8AF0D6"/>
+    </linearGradient>
+  </defs>
+  <path d="M88 116 132 72 302 242 258 286Z" fill="url(#top)"/>
+  <path d="M88 368 132 412 302 242 258 198Z" fill="url(#bottom)"/>
+  <path d="m258 198 44 44-44 44-44-44Z" fill="#72D8FF"/>
+  <path d="M284 362h136v48H284z" fill="url(#cursor)"/>
+</svg>

@@ -1,4 +1,5 @@
 pub mod app;
+pub mod brand;
 pub mod debug;
 pub mod document;
 pub mod extension_activation;

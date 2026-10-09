@@ -44,6 +44,8 @@ zip = { version = "8.6", default-features = false, features = ["deflate"] }
 sha2 = "0.10"
 ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
 semver = "1"
+ratatui-image = { version = "11.1.0", default-features = false }
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
