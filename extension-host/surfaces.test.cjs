@@ -27,6 +27,9 @@ test('output lifecycle is scoped, bounded and preserves focus intent without doc
   const channels = Array.from({ length: limits.channels }, (_, i) => f.api.createOutputChannel(`channel${i}`));
   assert.throws(() => f.api.createOutputChannel('overflow'), /limit/);
   assert.throws(() => channels[0].append('x'.repeat(limits.updateBytes + 1)), /Invalid output update/);
+  channels[0].replace('');
+  assert.equal(f.messages.at(-1).params.op, 'outputReplace');
+  assert.equal(f.messages.at(-1).params.text, '');
   f.dispose('one.extension');
   assert.doesNotThrow(() => f.api.createOutputChannel('released'));
 });

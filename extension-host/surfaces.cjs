@@ -52,7 +52,7 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
     return { name,
       append(value) { if (value) update('outputAppend', value); },
       appendLine(value) { text(value, limits.updateBytes - 1, 'output line'); update('outputAppend', `${value}\n`); },
-      replace(value) { if (value) update('outputReplace', value); },
+      replace(value) { update('outputReplace', value); },
       clear() { if (!state.disposed) send(owner, id, 'outputClear'); },
       show(column, preserveFocus) {
         if (typeof column !== 'number') preserveFocus = column;
