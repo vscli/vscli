@@ -6,6 +6,7 @@ All file edits and recovery snapshots use temporary directories.
 """
 import codecs
 import faulthandler
+import hashlib
 import re
 import unicodedata
 import zipfile
@@ -917,6 +918,113 @@ def run():
         app.finish()
         assert text(migration_file) == "imported  "
         print("PASS: native theme RGB rendering, picker, persistent selection, explicit file override and failed-load retention")
+
+
+        journey_root = root / "integrated-journey"
+        journey_root.mkdir()
+        journey_config = root / "journey-config"
+        journey_store = root / "journey-extensions"
+        app = Editor(journey_root, "--config-dir", journey_config, "--extensions-dir", journey_store, enhanced=True)
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        assert "Untitled" not in app.screen.text()
+        app.finish()
+
+        journey_user = root / "journey-vscode-user"
+        (journey_user / "snippets").mkdir(parents=True)
+        (journey_user / "settings.json").write_text('{ // original profile\n"editor.tabSize":2,"workbench.colorTheme":"Journey Theme","extension.unknown":true,}')
+        (journey_user / "keybindings.json").write_text(json.dumps([
+            {"key":"f6", "command":"editor.action.insertSnippet", "when":"editorTextFocus"},
+        ]))
+        (journey_user / "snippets" / "plaintext.json").write_text(json.dumps({
+            "Imported lines": {"prefix":"journey", "body":["${1:zebra}", "apple", "pear$0"]},
+        }))
+        journey_source_extensions = root / "journey-vscode-extensions"
+        theme_package = journey_source_extensions / "fixture.theme-1.0.0"
+        theme_package.mkdir(parents=True)
+        (theme_package / "package.json").write_text(json.dumps({"publisher":"fixture", "name":"theme", "version":"1.0.0", "contributes":{"themes":[{"id":"journey-theme", "label":"Journey Theme", "path":"theme.json"}]}}))
+        (theme_package / "base.json").write_text('{"colors":{"editor.background":"#16283a","editor.foreground":"#cbdced"}}')
+        (theme_package / "theme.json").write_text('{ // original theme\n"include":"base.json","name":"Journey Theme",}')
+        source_files = [path for source_root in [journey_user, journey_source_extensions] for path in source_root.rglob("*") if path.is_file()]
+        original_hashes = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in source_files}
+        import_args = [BINARY, "--import-vscode", str(journey_user), "--vscode-extensions", str(journey_source_extensions), "--config-dir", str(journey_config)]
+        report = json.loads(subprocess.run(import_args, capture_output=True, check=True).stdout)
+        assert report["activated_profile"] is None
+        assert not (journey_config / "active-profile.json").exists()
+        report = json.loads(subprocess.run([*import_args, "--apply-import"], capture_output=True, check=True).stdout)
+        active_profile = Path(report["activated_profile"])
+        for source_path in journey_user.rglob("*"):
+            if source_path.is_file():
+                assert (active_profile / source_path.relative_to(journey_user)).read_bytes() == source_path.read_bytes()
+        assert (active_profile / "themes" / "imported" / "theme.json").read_bytes() == (theme_package / "theme.json").read_bytes()
+
+        app = Editor(journey_root, "--config-dir", journey_config, "--extensions-dir", journey_store, enhanced=True)
+        eventually(lambda: app.read() and "Color theme: Journey Theme" in app.screen.text())
+        assert "No open editors" in app.screen.text()
+        assert b"48;2;22;40;58" in app.output
+        app.send(b"\x0e")  # New File in the empty workbench.
+        app.send(b"\x1b[17~")  # Imported F6 opens the imported snippet catalog.
+        eventually(lambda: app.read() and "Imported lines" in app.screen.text())
+        app.send("Imported lines\r")
+        app.send("zulu\t")
+        journey_file = journey_root / "edited.txt"
+        app.send(CTRL_SHIFT_S)
+        app.send(CTRL_A)
+        app.send(str(journey_file) + "\r")
+        eventually(lambda: app.read() and text(journey_file) == "zulu\napple\npear")
+        app.send(b"\x1bOP")
+        app.send("Extensions: Install from VSIX\r")
+        eventually(lambda: app.read() and "Install Extension from local VSIX" in app.screen.text())
+        app.send(str(package) + "\r")  # The known command fixture package created above.
+        eventually(lambda: app.read() and "vscli-test.command-fixture@1.0.0" in app.screen.text())
+        assert text(journey_file) == "zulu\napple\npear"
+        listed = json.loads(subprocess.run([BINARY, "--extensions-dir", str(journey_store), "--list-extensions"], capture_output=True, check=True).stdout)
+        assert [entry["id"] for entry in listed] == ["vscli-test.command-fixture"]
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Run installed extension?" in app.screen.text())
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Extension ready" in app.screen.text())
+        app.send(CTRL_A)
+        app.send(b"\x1b[20~")  # Installed extension's F9 binding sorts the imported snippet.
+        eventually(lambda: app.read() and "sort applied=true" in app.screen.text())
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(journey_file) == "apple\npear\nzulu")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(journey_file) == "zulu\napple\npear")
+        app.send(b"\x17")
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        assert "Untitled" not in app.screen.text()
+        app.finish()
+
+        app = Editor(journey_root, "--config-dir", journey_config, "--extensions-dir", journey_store, enhanced=True)
+        eventually(lambda: app.read() and "Color theme: Journey Theme" in app.screen.text())
+        assert "No open editors" in app.screen.text()
+        assert b"48;2;22;40;58" in app.output
+        app.send(b"\x0e\x1b[17~")
+        eventually(lambda: app.read() and "Imported lines" in app.screen.text())
+        app.send(b"\x1b")
+        app.send(b"\x17")
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        app.finish()
+        assert text(journey_file) == "zulu\napple\npear"
+        assert {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in source_files} == original_hashes
+        copied_keys = active_profile / "keybindings.json"
+        copied_keys.write_text("{malformed copied configuration")
+        app = Editor(journey_root, "--config-dir", journey_config, "--extensions-dir", journey_store, enhanced=True)
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        app.send(b"\x1bOP")
+        app.send("Settings: Compatibility Report\r")
+        eventually(lambda: app.read() and "Imported keybindings unavailable" in app.screen.text())
+        assert "No open editors" in app.screen.text()
+        app.send(b"\x1b")
+        app.send(b"\x0e")
+        eventually(lambda: app.read() and "Untitled" in app.screen.text())
+        app.send(b"\x17")
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        app.finish()
+        assert copied_keys.read_text() == "{malformed copied configuration"
+        assert {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in source_files} == original_hashes
+        print("PASS: empty welcome → copied profile/theme/snippet/key import → VSIX install/list/activate → edit/save/undo → empty restart, with original source hashes intact")
 
 
 
