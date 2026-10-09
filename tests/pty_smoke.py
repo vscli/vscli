@@ -166,6 +166,8 @@ class Editor:
             fcntl.ioctl(0, termios.TIOCSCTTY, 0)
 
         options = ["--no-mouse", "--keymap", "linux"]
+        if "--config-dir" not in args:
+            options += ["--config-dir", str(root / ".native-test-config")]
         if not enhanced:
             options += ["--legacy-keys"]
         if not recovery:
@@ -872,6 +874,49 @@ def run():
         eventually(lambda: app.read() and catalog_file.read_bytes() == b"native-native")
         app.finish()
         print("PASS: user/workspace JSONC snippet catalogs, picker, named language lookup and CRLF undo")
+        import_source = root / "vscode-user"
+        import_source.mkdir()
+        source_settings = '{ // retain original\n"editor.tabSize":2, "extension.unknown":true,}'
+        (import_source / "settings.json").write_text(source_settings)
+        (import_source / "keybindings.json").write_text(json.dumps([
+            {"key":"f6", "command":"type", "args":{"text":"imported"}},
+        ]))
+        imported_config = root / "native-config"
+        preview = subprocess.run([BINARY, "--import-vscode", str(import_source), "--config-dir", str(imported_config)], capture_output=True, check=True)
+        assert json.loads(preview.stdout)["activated_profile"] is None
+        assert not imported_config.exists()
+        subprocess.run([BINARY, "--import-vscode", str(import_source), "--config-dir", str(imported_config), "--apply-import"], capture_output=True, check=True)
+        migration_file = root / "migration.txt"
+        migration_file.write_text("")
+        app = Editor(root, "--config-dir", imported_config, migration_file, enhanced=True)
+        app.send(b"\x1b[17~\t")  # Imported F6 command followed by imported two-space indentation.
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(migration_file) == "imported  ")
+        app.finish()
+        assert (import_source / "settings.json").read_text() == source_settings
+        print("PASS: read-only VS Code import preview, atomic activation, imported settings/keybindings and source preservation")
+
+        theme_file = root / "custom-theme.json"
+        theme_file.write_text(json.dumps({"name":"PTY Custom", "colors":{"editor.background":"#123456", "editor.lineHighlightBackground":"#123456", "editor.foreground":"#abcdef"}, "tokenColors":[{"scope":"keyword", "settings":{"foreground":"#010203"}}]}))
+        app = Editor(root, "--config-dir", imported_config, "--theme", theme_file, migration_file, enhanced=True)
+        eventually(lambda: app.read() and "Color theme: PTY Custom" in app.screen.text())
+        assert b"48;2;18;52;86" in app.output
+        app.send(b"\x1bOP")
+        app.send("Preferences: Color Theme\r")
+        eventually(lambda: app.read() and "VSCLI Light" in app.screen.text())
+        app.send("VSCLI Light\r")
+        eventually(lambda: app.read() and "Color theme: VSCLI Light" in app.screen.text())
+        app.finish()
+        app = Editor(root, "--config-dir", imported_config, migration_file, enhanced=True)
+        eventually(lambda: app.read() and "Color theme: VSCLI Light" in app.screen.text())
+        assert b"48;2;255;255;255" in app.output
+        app.send(b"\x1bOP")
+        app.send("Preferences: Load Color Theme File\r")
+        app.send(str(root / "missing-theme.json") + "\r")
+        eventually(lambda: app.read() and "Theme unchanged" in app.screen.text())
+        app.finish()
+        assert text(migration_file) == "imported  "
+        print("PASS: native theme RGB rendering, picker, persistent selection, explicit file override and failed-load retention")
 
 
 

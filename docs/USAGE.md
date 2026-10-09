@@ -252,15 +252,29 @@ Files must be UTF-8, without NUL bytes, and at most 32 MiB when opened. Existing
 
 Not yet implemented: extension installation, broad extension API compatibility, rich webviews, notebooks, full settings migration, or a remote agent. An optional experimental command extension host is available as described below. Running the executable inside an SSH session is supported in principle; the actual terminal/multiplexer combination must be tested.
 
-Grammar highlighting uses a single background worker, document/revision checks, cancellation, and a 2 MiB source cap. Other languages and larger files retain lightweight lexical colors. Embedded-language injection, semantic tokens, incremental parse-tree reuse, grammar folding, and theme imports remain incomplete. Highlight work exceeding the initial time/span budget is canceled and reported; editing remains available.
+Grammar highlighting uses a single background worker, document/revision checks, cancellation, and a 2 MiB source cap. Other languages and larger files retain lightweight lexical colors. Embedded-language injection, semantic tokens, incremental parse-tree reuse, grammar folding and complete theme semantics remain incomplete. Native color-theme loading and its boundaries are documented in [Import and themes](IMPORT_AND_THEMES.md). Highlight work exceeding the initial time/span budget is canceled and reported; editing remains available.
+
+## Importing VS Code and choosing themes
+
+`vscli --import-vscode /path/to/Code/User` previews a migration. Add
+`--apply-import` to activate an immutable snapshot while retaining original files
+and earlier native profiles. `--vscode-extensions` selects the source extension
+directory for the active color theme; `--config-dir` selects the native destination.
+Copied fields are not automatically supported: the JSON report names unsupported
+settings, commands, shortcut expressions and theme features.
+
+F1 → Preferences: Color Theme selects built-in or installed extension themes;
+Preferences: Load Color Theme File loads JSON/JSONC directly. `--theme PATH`
+overrides the saved selection. Themes are native data and do not start Node.
+See [import guarantees, theme mappings and limits](IMPORT_AND_THEMES.md).
 
 ## Settings
 
-Use `--settings /path/to/settings.json` to import user settings. By default, VSCLI reads `settings.json` beside its user keybindings file. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.
+Use `--settings /path/to/settings.json` to import user settings. By default, VSCLI reads `settings.json` beside its user keybindings file. An activated import supplies the user settings/keybindings/snippet directory unless explicit CLI paths override it. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.
 
 The current supported subset is `editor.tabSize` (1–16), `editor.insertSpaces`, and `editor.lineNumbers` (`on`, `off`, `relative`, `interval`). Indentation width applies to editing, cursor/mouse coordinates, rendering, and LSP formatting options. Language blocks such as `[python]` and `[javascript][typescript]` override general values; a single-language block takes priority over a multi-language block. Workspace values override user values within the same identifier group. Combined-language groups retain their first occurrence order across scopes; changing that order can change precedence. This follows the pinned [configuration model](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/configuration/common/configurationModels.ts).
 
-Settings reload in the background every two seconds. Malformed updates retain the previous configuration. Entries outside the native subset and invalid native values appear in F1 → Settings: Compatibility Report. A notice about an extension setting does not mean an enabled extension cannot read it. Automatic indentation detection, theme imports, autosave, formatting-on-save, profiles, remote scopes, policies, and the broader settings catalog remain incomplete; importing those entries does not enable their behavior.
+Settings reload in the background every two seconds. Malformed updates retain the previous configuration. Entries outside the native subset and invalid native values appear in F1 → Settings: Compatibility Report. A notice about an extension setting does not mean an enabled extension cannot read it. Automatic indentation detection, complete theme semantics, autosave, formatting-on-save, profiles, remote scopes, policies, and the broader settings catalog remain incomplete; importing those entries does not enable their behavior.
 
 ## Native debugging
 

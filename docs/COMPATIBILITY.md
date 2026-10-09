@@ -18,6 +18,13 @@ CRLF persistence on long lines. These are native correctness checks, not a
 differential claim that every VS Code cursor or display-width behavior matches.
 See [dependency provenance](../vendor/README.md) and [current limits](USAGE.md).
 
+Native configuration migration now previews compatibility notices and atomically
+activates snapshots of user settings, keybindings, snippets and the selected
+extension color theme. Native theme loading maps a bounded workbench-color subset
+and approximates syntax foreground categories. Copying a field does not implement
+it; broader TextMate/semantic/font-style/workbench fidelity remains incomplete.
+See [implementation, test evidence and limits](IMPORT_AND_THEMES.md).
+
 ## Feature disposition
 
 | VS Code feature family | Planned terminal behavior | Scope |

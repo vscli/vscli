@@ -12,12 +12,6 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-const BG: Color = Color::Rgb(20, 24, 33);
-const PANEL: Color = Color::Rgb(27, 32, 43);
-const FG: Color = Color::Rgb(214, 222, 235);
-const MUTED: Color = Color::Rgb(116, 131, 154);
-const BLUE: Color = Color::Rgb(100, 175, 255);
-const SELECT: Color = Color::Rgb(47, 73, 112);
 fn clean(s: &str) -> String {
     s.chars()
         .map(|c| if c.is_control() { '�' } else { c })
@@ -29,8 +23,12 @@ fn clean_multiline(s: &str) -> String {
 }
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
+    let colors = app.theme.colors;
     let area = frame.area();
-    frame.render_widget(Block::default().style(Style::default().bg(BG).fg(FG)), area);
+    frame.render_widget(
+        Block::default().style(Style::default().bg(colors.background).fg(colors.foreground)),
+        area,
+    );
     if area.width < 20 || area.height < 6 {
         frame.render_widget(
             Paragraph::new("VSCLI · enlarge terminal\nCtrl+Shift+W to exit")
@@ -49,7 +47,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     app.tab_area = rows[0];
     let mut tabs = vec![Span::styled(
         " VSCLI ",
-        Style::default().fg(BLUE).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(colors.accent)
+            .add_modifier(Modifier::BOLD),
     )];
     for (i, doc) in app.documents.iter().enumerate() {
         tabs.push(Span::styled(
@@ -59,13 +59,21 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 if doc.dirty() { " ●" } else { "" }
             ),
             Style::default()
-                .fg(if i == app.active { FG } else { MUTED })
-                .bg(if i == app.active { SELECT } else { PANEL }),
+                .fg(if i == app.active {
+                    colors.foreground
+                } else {
+                    colors.muted
+                })
+                .bg(if i == app.active {
+                    colors.selection
+                } else {
+                    colors.panel
+                }),
         ));
         tabs.push(Span::raw(" "));
     }
     frame.render_widget(
-        Paragraph::new(Line::from(tabs)).style(Style::default().bg(PANEL)),
+        Paragraph::new(Line::from(tabs)).style(Style::default().bg(colors.panel)),
         rows[0],
     );
     let columns = Layout::horizontal([
@@ -97,7 +105,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         draw_terminal(frame, app, panes[1]);
     }
     frame.render_widget(
-        Paragraph::new(format!(" {}", clean(&app.message))).style(Style::default().fg(MUTED)),
+        Paragraph::new(format!(" {}", clean(&app.message)))
+            .style(Style::default().fg(colors.muted)),
         rows[2],
     );
     let status = if let Some(doc) = app.active_document() {
@@ -136,7 +145,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         )
     };
     frame.render_widget(
-        Paragraph::new(status).style(Style::default().bg(SELECT).fg(FG)),
+        Paragraph::new(status).style(Style::default().bg(colors.selection).fg(colors.foreground)),
         rows[3],
     );
     if app.prompt.is_some() {
@@ -148,6 +157,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 }
 
 fn draw_terminal(frame: &mut Frame, app: &mut App, area: Rect) {
+    let colors = app.theme.colors;
     let count = app.terminals.len();
     let Some(terminal) = app.terminals.get_mut(app.active_terminal) else {
         return;
@@ -163,9 +173,9 @@ fn draw_terminal(frame: &mut Frame, app: &mut App, area: Rect) {
         .borders(Borders::TOP)
         .title(title)
         .border_style(Style::default().fg(if app.focus == Focus::Terminal {
-            BLUE
+            colors.accent
         } else {
-            MUTED
+            colors.muted
         }));
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -191,8 +201,8 @@ fn draw_terminal(frame: &mut Frame, app: &mut App, area: Rect) {
                 continue;
             }
             let mut style = Style::default()
-                .fg(color(cell.fgcolor(), FG))
-                .bg(color(cell.bgcolor(), BG));
+                .fg(color(cell.fgcolor(), colors.foreground))
+                .bg(color(cell.bgcolor(), colors.background));
             for (enabled, modifier) in [
                 (cell.bold(), Modifier::BOLD),
                 (cell.dim(), Modifier::DIM),
@@ -233,6 +243,7 @@ fn draw_terminal(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_explorer(frame: &mut Frame, app: &mut App, area: Rect) {
+    let colors = app.theme.colors;
     let title = if app.focus == Focus::Explorer {
         " EXPLORER • "
     } else {
@@ -241,8 +252,8 @@ fn draw_explorer(frame: &mut Frame, app: &mut App, area: Rect) {
     let block = Block::default()
         .borders(Borders::RIGHT | Borders::TOP)
         .title(title)
-        .border_style(Style::default().fg(MUTED))
-        .style(Style::default().bg(PANEL));
+        .border_style(Style::default().fg(colors.muted))
+        .style(Style::default().bg(colors.panel));
     let inner = block.inner(area);
     frame.render_widget(block, area);
     app.explorer_area = inner;
@@ -262,9 +273,13 @@ fn draw_explorer(frame: &mut Frame, app: &mut App, area: Rect) {
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_default();
             let style = if i == app.explorer_selected && app.focus == Focus::Explorer {
-                Style::default().bg(SELECT).fg(FG)
+                Style::default().bg(colors.selection).fg(colors.foreground)
             } else {
-                Style::default().fg(if entry.directory { BLUE } else { FG })
+                Style::default().fg(if entry.directory {
+                    colors.accent
+                } else {
+                    colors.foreground
+                })
             };
             Line::styled(
                 format!(
@@ -280,6 +295,7 @@ fn draw_explorer(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_welcome(frame: &mut Frame, app: &App, area: Rect) {
+    let colors = app.theme.colors;
     let primary = if app.keymap.profile == crate::keys::Profile::Macos {
         "Cmd"
     } else {
@@ -297,18 +313,20 @@ fn draw_welcome(frame: &mut Frame, app: &App, area: Rect) {
     if area.width >= 42 && area.height >= 16 {
         lines.extend(
             logo.into_iter()
-                .map(|line| Line::styled(line, Style::default().fg(BLUE))),
+                .map(|line| Line::styled(line, Style::default().fg(colors.accent))),
         );
     } else {
         lines.push(Line::styled(
             "VSCLI",
-            Style::default().fg(BLUE).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(colors.accent)
+                .add_modifier(Modifier::BOLD),
         ));
     }
     lines.push(Line::default());
     lines.push(Line::styled(
         "Your terminal. Your workspace.",
-        Style::default().fg(MUTED),
+        Style::default().fg(colors.muted),
     ));
     lines.push(Line::default());
     for (label, key) in [
@@ -318,8 +336,11 @@ fn draw_welcome(frame: &mut Frame, app: &App, area: Rect) {
         ("Command Palette", "F1".into()),
     ] {
         lines.push(Line::from(vec![
-            Span::styled(format!("{label}   "), Style::default().fg(FG)),
-            Span::styled(key, Style::default().fg(MUTED)),
+            Span::styled(
+                format!("{label}   "),
+                Style::default().fg(colors.foreground),
+            ),
+            Span::styled(key, Style::default().fg(colors.muted)),
         ]));
     }
     let height = (lines.len() as u16).min(area.height);
@@ -336,6 +357,7 @@ fn draw_welcome(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_editors(frame: &mut Frame, app: &mut App, area: Rect) {
+    let colors = app.theme.colors;
     app.sync_pane();
     if app.documents.is_empty() {
         draw_welcome(frame, app, area);
@@ -368,7 +390,11 @@ fn draw_editors(frame: &mut Frame, app: &mut App, area: Rect) {
             let block = Block::default()
                 .borders(Borders::TOP | Borders::RIGHT)
                 .title(format!(" {} · {} ", index + 1, clean(&app.doc().name())))
-                .border_style(Style::default().fg(if focused { BLUE } else { MUTED }));
+                .border_style(Style::default().fg(if focused {
+                    colors.accent
+                } else {
+                    colors.muted
+                }));
             let inner = block.inner(*pane_area);
             frame.render_widget(block, *pane_area);
             inner
@@ -382,6 +408,7 @@ fn draw_editors(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
+    let colors = app.theme.colors;
     let digits = if app.doc().line_numbers == crate::settings::LineNumbers::Off {
         0
     } else {
@@ -426,9 +453,11 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
             break;
         }
         let active = row == doc.row();
-        let base = Style::default()
-            .fg(FG)
-            .bg(if active { Color::Rgb(26, 31, 42) } else { BG });
+        let base = Style::default().fg(colors.foreground).bg(if active {
+            colors.current_line
+        } else {
+            colors.background
+        });
         frame.render_widget(
             Block::default().style(base),
             Rect::new(area.x, area.y + y, area.width, 1),
@@ -484,9 +513,9 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
             } else if issue.is_some() || breakpoint {
                 Color::Rgb(244, 100, 100)
             } else if active {
-                BLUE
+                colors.accent
             } else {
-                MUTED
+                colors.muted
             }),
         );
         // The fallback lexer still needs the full line for word/string context.
@@ -503,7 +532,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
             graphemes::as_text(doc.line_slice(row))
         };
         let styles = if grammar.is_none() {
-            syntax_styles(&line, language)
+            syntax_styles(&line, language, &app.theme)
         } else {
             Vec::new()
         };
@@ -527,8 +556,11 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
             if next > doc.left && visual >= doc.left && next <= doc.left + text_area.width as usize
             {
                 let color = grammar
-                    .map(|h| h.style_at(start_byte + byte).map_or(FG, syntax_color))
-                    .unwrap_or_else(|| styles.get(byte).copied().unwrap_or(FG));
+                    .map(|h| {
+                        h.style_at(start_byte + byte)
+                            .map_or(colors.foreground, |style| app.theme.token(style))
+                    })
+                    .unwrap_or_else(|| styles.get(byte).copied().unwrap_or(colors.foreground));
                 let mut style = base.fg(color);
                 if matches.iter().any(|r| r.contains(&byte)) {
                     style = style.bg(Color::Rgb(96, 72, 21));
@@ -537,7 +569,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                     .iter()
                     .any(|r| r.start < char_pos + g.chars().count() && r.end > char_pos)
                 {
-                    style = style.bg(SELECT);
+                    style = style.bg(colors.selection);
                 }
                 paint_grapheme(
                     frame.buffer_mut(),
@@ -559,7 +591,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 text_area.x + (visual - doc.left) as u16,
                 text_area.y + y,
                 " ",
-                base.bg(SELECT),
+                base.bg(colors.selection),
             );
         }
     }
@@ -577,7 +609,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                     text_area.y + (row - doc.top) as u16,
                 ))
             {
-                cell.set_style(Style::default().bg(FG).fg(BG));
+                cell.set_style(Style::default().bg(colors.foreground).fg(colors.background));
             }
         }
         frame.set_cursor_position((
@@ -658,23 +690,12 @@ fn paint_grapheme(buffer: &mut Buffer, x: u16, y: u16, g: &str, width: usize, st
 }
 
 // Lightweight lexical colors for the first build. This is not a grammar engine.
-fn syntax_color(style: usize) -> Color {
-    match crate::syntax::NAMES.get(style).copied().unwrap_or("") {
-        "comment" => Color::Rgb(105, 145, 116),
-        "string" | "escape" => Color::Rgb(218, 180, 137),
-        "number" | "constant" => Color::Rgb(181, 205, 154),
-        "keyword" | "operator" => Color::Rgb(197, 134, 192),
-        "function" | "constructor" => Color::Rgb(220, 220, 170),
-        "type" => Color::Rgb(78, 201, 176),
-        "property" | "attribute" => Color::Rgb(156, 220, 254),
-        _ => FG,
-    }
-}
-fn syntax_styles(line: &str, language: &str) -> Vec<Color> {
+fn syntax_styles(line: &str, language: &str, theme: &crate::theme::Theme) -> Vec<Color> {
+    let colors = theme.colors;
     if language == "plaintext" {
         return Vec::new();
     }
-    let mut styles = vec![FG; line.len()];
+    let mut styles = vec![colors.foreground; line.len()];
     let mut in_string = None;
     let mut escape = false;
     let mut comment = false;
@@ -688,21 +709,21 @@ fn syntax_styles(line: &str, language: &str) -> Vec<Color> {
             comment = true;
         }
         let color = if comment {
-            Color::Rgb(105, 145, 116)
+            theme.token(0)
         } else if let Some(quote) = in_string {
             if c == quote && !escape {
                 in_string = None;
             }
             let prior = escape;
             escape = c == '\\' && !prior;
-            Color::Rgb(218, 180, 137)
+            theme.token(1)
         } else if matches!(c, '"' | '\'') {
             in_string = Some(c);
-            Color::Rgb(218, 180, 137)
+            theme.token(1)
         } else if c.is_ascii_digit() {
-            Color::Rgb(181, 205, 154)
+            theme.token(2)
         } else {
-            FG
+            colors.foreground
         };
         styles[byte..byte + c.len_utf8()].fill(color);
     }
@@ -746,14 +767,20 @@ fn syntax_styles(line: &str, language: &str) -> Vec<Color> {
         "null",
     ];
     for (start, word) in line.unicode_word_indices() {
-        if keywords.contains(&word) && styles.get(start) == Some(&FG) {
-            styles[start..start + word.len()].fill(Color::Rgb(181, 151, 232));
+        if keywords.contains(&word) && styles.get(start) == Some(&colors.foreground) {
+            styles[start..start + word.len()].fill(theme.token(4));
         }
     }
     styles
 }
 
-fn popup(frame: &mut Frame, title: &str, width: u16, height: u16) -> Rect {
+fn popup(
+    frame: &mut Frame,
+    colors: crate::theme::Colors,
+    title: &str,
+    width: u16,
+    height: u16,
+) -> Rect {
     let area = frame.area();
     let w = width.min(area.width.saturating_sub(2));
     let h = height.min(area.height.saturating_sub(2));
@@ -762,13 +789,14 @@ fn popup(frame: &mut Frame, title: &str, width: u16, height: u16) -> Rect {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(title)
-        .border_style(Style::default().fg(BLUE))
-        .style(Style::default().bg(PANEL).fg(FG));
+        .border_style(Style::default().fg(colors.accent))
+        .style(Style::default().bg(colors.panel).fg(colors.foreground));
     let inner = block.inner(rect);
     frame.render_widget(block, rect);
     inner
 }
 fn draw_prompt(frame: &mut Frame, app: &App) {
+    let colors = app.theme.colors;
     let p = app.prompt.as_ref().unwrap();
     let title = match p.kind {
         PromptKind::InstallExtension => {
@@ -777,6 +805,8 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::Palette => " Command Palette ",
         PromptKind::QuickOpen => " Go to File ",
         PromptKind::Snippet => " Insert Snippet · name, prefix or description ",
+        PromptKind::Theme => " Color Theme · select or Load Color Theme File from commands ",
+        PromptKind::ThemeFile => " Load VS Code Color Theme (JSON/JSONC path) ",
         PromptKind::Open => " Open File (absolute or workspace-relative) ",
         PromptKind::SaveAs => " Save As (existing files are protected) ",
         PromptKind::DebugEvaluate => {
@@ -797,9 +827,9 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
     };
     let list = matches!(
         p.kind,
-        PromptKind::Palette | PromptKind::QuickOpen | PromptKind::Snippet
+        PromptKind::Palette | PromptKind::QuickOpen | PromptKind::Snippet | PromptKind::Theme
     );
-    let inner = popup(frame, title, 84, if list { 19 } else { 5 });
+    let inner = popup(frame, colors, title, 84, if list { 19 } else { 5 });
     if inner.width == 0 || inner.height == 0 {
         return;
     }
@@ -819,8 +849,12 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
     frame.render_widget(
         Paragraph::new(format!("> {shown}")).style(
             Style::default()
-                .bg(if p.select_all { SELECT } else { BG })
-                .fg(FG),
+                .bg(if p.select_all {
+                    colors.selection
+                } else {
+                    colors.background
+                })
+                .fg(colors.foreground),
         ),
         Rect::new(inner.x, inner.y, inner.width, 1),
     );
@@ -862,6 +896,11 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
                     )
                 })
                 .collect()
+        } else if matches!(p.kind, PromptKind::Theme) {
+            app.theme_items(&p.text)
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
         } else {
             app.workspace
                 .matches(&p.text)
@@ -880,7 +919,11 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
             .map(|(i, item)| {
                 Line::styled(
                     format!(" {}", clean(item)),
-                    Style::default().bg(if i == selected { SELECT } else { PANEL }),
+                    Style::default().bg(if i == selected {
+                        colors.selection
+                    } else {
+                        colors.panel
+                    }),
                 )
             })
             .collect();
@@ -895,6 +938,7 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
     }
 }
 fn draw_modal(frame: &mut Frame, app: &App) {
+    let colors = app.theme.colors;
     let (title, text) = match app.modal.as_ref().unwrap() {
         Modal::ExtensionsLoading(_) => (
             " Extensions · Loading · Esc closes ",
@@ -925,7 +969,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             ),
         ),
         Modal::Tasks { tasks, selected } => {
-            let inner = popup(frame, " Tasks · Enter runs · Esc closes ", 100, 20);
+            let inner = popup(frame, colors, " Tasks · Enter runs · Esc closes ", 100, 20);
             let height = inner.height as usize;
             let offset = selected.saturating_sub(height.saturating_sub(1));
             let lines: Vec<_> = tasks
@@ -945,8 +989,12 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                             )
                         ),
                         Style::default()
-                            .fg(FG)
-                            .bg(if i == *selected { SELECT } else { PANEL }),
+                            .fg(colors.foreground)
+                            .bg(if i == *selected {
+                                colors.selection
+                            } else {
+                                colors.panel
+                            }),
                     )
                 })
                 .collect();
@@ -958,7 +1006,13 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             text,
             scroll,
         } => {
-            let inner = popup(frame, title, 110, frame.area().height.saturating_sub(2));
+            let inner = popup(
+                frame,
+                colors,
+                title,
+                110,
+                frame.area().height.saturating_sub(2),
+            );
             let lines: Vec<_> = text
                 .lines()
                 .skip(*scroll)
@@ -969,7 +1023,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                     } else if line.starts_with('-') {
                         Color::Rgb(240, 130, 140)
                     } else {
-                        FG
+                        colors.foreground
                     };
                     Line::styled(clean(line), Style::default().fg(color))
                 })
@@ -981,6 +1035,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             let title = ["Stack", "Scopes", "Variables", "Console"][*section];
             let inner = popup(
                 frame,
+                colors,
                 &format!(
                     " DEBUG · {title} · Tab changes view · Enter expands · E evaluates · Esc closes "
                 ),
@@ -1040,8 +1095,12 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                         Line::styled(
                             clean(s),
                             Style::default()
-                                .fg(FG)
-                                .bg(if i == *selected { SELECT } else { PANEL }),
+                                .fg(colors.foreground)
+                                .bg(if i == *selected {
+                                    colors.selection
+                                } else {
+                                    colors.panel
+                                }),
                         )
                     })
                     .collect()
@@ -1052,6 +1111,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
         Modal::Git => {
             let inner = popup(
                 frame,
+                colors,
                 " SOURCE CONTROL · Enter open · S stage · U unstage · D diff · Shift+D staged · R refresh · C commit ",
                 frame.area().width.saturating_sub(2),
                 frame.area().height.saturating_sub(2),
@@ -1074,7 +1134,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                 "Loading Git status…".into()
             };
             frame.render_widget(
-                Paragraph::new(header).style(Style::default().fg(BLUE)),
+                Paragraph::new(header).style(Style::default().fg(colors.accent)),
                 Rect::new(inner.x, inner.y, inner.width, 1),
             );
             if let Some(status) = &app.git_status {
@@ -1094,11 +1154,13 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                                 entry.worktree,
                                 clean(&entry.path.to_string_lossy())
                             ),
-                            Style::default().fg(FG).bg(if i == app.git_selected {
-                                SELECT
-                            } else {
-                                PANEL
-                            }),
+                            Style::default()
+                                .fg(colors.foreground)
+                                .bg(if i == app.git_selected {
+                                    colors.selection
+                                } else {
+                                    colors.panel
+                                }),
                         )
                     })
                     .collect();
@@ -1112,6 +1174,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
         Modal::RunExtension(item) => {
             let inner = popup(
                 frame,
+                colors,
                 " Run installed extension? · Enter runs · Esc cancels ",
                 96,
                 12,
@@ -1122,6 +1185,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
         Modal::Extensions { items, selected } => {
             let inner = popup(
                 frame,
+                colors,
                 " Installed Extensions · Enter run · R rollback · Delete remove · Esc closes ",
                 120,
                 frame.area().height.saturating_sub(2),
@@ -1146,11 +1210,13 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                                 clean(&item.version),
                                 clean(&item.compatibility)
                             ),
-                            Style::default().fg(FG).bg(if index == *selected {
-                                SELECT
-                            } else {
-                                PANEL
-                            }),
+                            Style::default()
+                                .fg(colors.foreground)
+                                .bg(if index == *selected {
+                                    colors.selection
+                                } else {
+                                    colors.panel
+                                }),
                         )
                     })
                     .collect()
@@ -1163,7 +1229,13 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             items,
             selected,
         } => {
-            let inner = popup(frame, title, 110, frame.area().height.saturating_sub(2));
+            let inner = popup(
+                frame,
+                colors,
+                title,
+                110,
+                frame.area().height.saturating_sub(2),
+            );
             let height = inner.height as usize;
             let offset = selected.saturating_sub(height.saturating_sub(1));
             let lines: Vec<_> = if items.is_empty() {
@@ -1178,8 +1250,12 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                         Line::styled(
                             clean(&item.label),
                             Style::default()
-                                .fg(FG)
-                                .bg(if i == *selected { SELECT } else { PANEL }),
+                                .fg(colors.foreground)
+                                .bg(if i == *selected {
+                                    colors.selection
+                                } else {
+                                    colors.panel
+                                }),
                         )
                     })
                     .collect()
@@ -1193,6 +1269,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             };
             let inner = popup(
                 frame,
+                colors,
                 " Search Results · Enter opens · Esc closes/cancels ",
                 110,
                 frame.area().height.saturating_sub(2),
@@ -1217,7 +1294,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                 }
             );
             frame.render_widget(
-                Paragraph::new(status).style(Style::default().fg(BLUE)),
+                Paragraph::new(status).style(Style::default().fg(colors.accent)),
                 Rect::new(inner.x, inner.y, inner.width, 1),
             );
             let height = inner.height.saturating_sub(2) as usize;
@@ -1237,11 +1314,13 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                             hit.column + 1,
                             clean(&hit.line)
                         ),
-                        Style::default().fg(FG).bg(if i == search.selected {
-                            SELECT
-                        } else {
-                            PANEL
-                        }),
+                        Style::default()
+                            .fg(colors.foreground)
+                            .bg(if i == search.selected {
+                                colors.selection
+                            } else {
+                                colors.panel
+                            }),
                     )
                 })
                 .collect();
@@ -1293,11 +1372,11 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             ),
         ),
     };
-    let inner = popup(frame, title, 88, (text.lines().count() + 3) as u16);
+    let inner = popup(frame, colors, title, 88, (text.lines().count() + 3) as u16);
     frame.render_widget(
         Paragraph::new(text)
             .wrap(Wrap { trim: false })
-            .style(Style::default().fg(FG)),
+            .style(Style::default().fg(colors.foreground)),
         inner,
     );
 }
@@ -1355,6 +1434,32 @@ mod tests {
     }
 
     #[test]
+    fn theme_colors_reach_editor_cells_and_fallback_syntax() {
+        use ratatui::{Terminal, backend::TestBackend};
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        app.execute(
+            "workbench.action.files.newUntitledFile",
+            serde_json::Value::Null,
+        );
+        app.sidebar = false;
+        app.doc_mut().path = Some(root.path().join("main.rs"));
+        app.doc_mut().insert("fn sample() {}", false);
+        app.doc_mut().move_to(0, false);
+        app.theme.colors.foreground = Color::Rgb(1, 2, 3);
+        app.theme.colors.current_line = Color::Rgb(4, 5, 6);
+        app.theme.tokens[4] = Color::Rgb(7, 8, 9);
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        let area = app.editor_area;
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(area.x, area.y)].symbol(), "f");
+        assert_eq!(buffer[(area.x, area.y)].fg, Color::Rgb(7, 8, 9));
+        assert_eq!(buffer[(area.x, area.y)].bg, Color::Rgb(4, 5, 6));
+        assert_eq!(buffer[(area.x + 3, area.y)].fg, Color::Rgb(1, 2, 3));
+    }
+
+    #[test]
     fn fast_grapheme_iteration_matches_unicode_segmentation() {
         let ascii: String = (0..=127).map(char::from).collect();
         for line in [
@@ -1375,6 +1480,7 @@ mod tests {
 
     #[test]
     fn fast_cell_painting_matches_previous_renderer() {
+        let colors = crate::theme::Theme::default().colors;
         let doc = crate::document::Document::default();
         for g in [
             "a",
@@ -1393,8 +1499,8 @@ mod tests {
                 for style in [
                     Style::default(),
                     Style::default()
-                        .fg(BLUE)
-                        .bg(SELECT)
+                        .fg(colors.accent)
+                        .bg(colors.selection)
                         .add_modifier(Modifier::REVERSED),
                 ] {
                     let mut expected =
