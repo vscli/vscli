@@ -110,6 +110,44 @@ fn invalid_stale_and_crashed_extensions_cannot_destroy_native_edits() {
     assert_eq!(app.doc().text.to_string(), "original! still editable");
 }
 #[test]
+fn held_extension_edit_rejects_edit_undo_revision_reuse_without_losing_native_redo_or_bytes() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("shared 猫.txt");
+    let original = "original 猫\r\n🙂\r\n";
+    std::fs::write(&path, original).unwrap();
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.open(&path).unwrap();
+    let identity = app.doc().id;
+    let revision = app.doc().revision;
+    let selections = app.doc().selections();
+    fixture(&mut app);
+    app.execute("fixture.stale", Value::Null);
+    // The extension has already sent a versioned edit; hold native polling so
+    // both text mutations happen before any mirror observes the intermediate state.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !directory.path().join("edit-submitted").exists() {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    app.doc_mut().insert("transient:", false);
+    app.doc_mut().undo();
+    assert_eq!(app.doc().revision, revision);
+    assert_eq!(app.doc().selections(), selections);
+    until(&mut app, |app| app.message == "stale applied=false");
+    assert_eq!(app.doc().id, identity);
+    assert_eq!(app.doc().text.to_string(), original);
+    assert!(!app.doc().dirty());
+    assert_eq!(std::fs::read(&path).unwrap(), original.as_bytes());
+    app.execute("fixture.version", Value::Null);
+    until(&mut app, |app| app.message == "version=2");
+    app.doc_mut().redo();
+    assert_eq!(app.doc().text.to_string(), format!("transient:{original}"));
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), original);
+    app.execute("workbench.action.files.save", Value::Null);
+    assert_eq!(std::fs::read(&path).unwrap(), original.as_bytes());
+}
+#[test]
 #[ignore = "requires an unpacked upstream Sort Lines extension in VSCLI_TEST_SORT_LINES"]
 fn upstream_sort_lines_runs_without_source_changes() {
     let extension = PathBuf::from(
