@@ -680,7 +680,13 @@ impl App {
     pub fn doc_mut(&mut self) -> &mut Document {
         &mut self.documents[self.active]
     }
+    /// Open or focus a file. Hidden-model alias resolution can finish in poll;
+    /// follow-up cursor/edit actions must travel with open_with_intent instead
+    /// of assuming this call synchronously selected the requested document.
     pub fn open(&mut self, path: &Path) -> Result<()> {
+        self.open_with_intent(path, navigation::OpenIntent::Focus)
+    }
+    fn open_with_intent(&mut self, path: &Path, intent: navigation::OpenIntent) -> Result<()> {
         let path = if path.is_absolute() {
             path.to_owned()
         } else {
@@ -691,11 +697,13 @@ impl App {
             .iter()
             .position(|doc| doc.path.as_ref() == Some(&path))
         {
+            intent.validate(&self.documents[index])?;
             self.cancel_navigation();
             self.active = index;
             self.focus = Focus::Editor;
             self.sync_pane();
             self.remember_active_file();
+            intent.apply(self);
             return Ok(());
         }
         if let Some(index) = self
@@ -703,19 +711,29 @@ impl App {
             .iter()
             .position(|doc| doc.path.as_ref() == Some(&path))
         {
+            intent.validate(&self.hidden_documents[index])?;
             self.cancel_navigation();
             let doc = self.hidden_documents.remove(index);
             self.install_open_document(doc);
+            intent.apply(self);
             return Ok(());
         }
         if !self.hidden_documents.is_empty() {
-            self.open_hidden_aware(path);
+            self.open_hidden_aware(path, intent);
             return Ok(());
         }
         self.cancel_navigation();
         let mut d = Document::open(&path)?;
+        let target = self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .find(|doc| doc.path == d.path)
+            .unwrap_or(&d);
+        intent.validate(target)?;
         self.settings.apply(&mut d);
         self.install_open_document(d);
+        intent.apply(self);
         Ok(())
     }
     fn install_open_document(&mut self, d: Document) {
@@ -1392,8 +1410,7 @@ impl App {
                 if let Some(path) = self.settings_user.clone().or_else(|| crate::recovery::config_path().map(|p| p.with_file_name("settings.json"))) {
                     let result = (|| -> Result<()> {
                         if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
-                        self.open(&path)?;
-                        if self.doc().is_empty() && self.doc().disk_content.is_none() { self.doc_mut().insert("{\n}\n", false); }
+                        self.open_with_intent(&path, navigation::OpenIntent::Settings)?;
                         Ok(())
                     })();
                     if let Err(error) = result { self.message = format!("Cannot open settings: {error:#}"); }
@@ -1882,23 +1899,10 @@ impl App {
                     }
                     KeyCode::Enter => {
                         if let Some(hit) = search.hits.get(search.selected).cloned() {
-                            match self.open(&hit.path) {
-                                Ok(()) => {
-                                    self.doc_mut().clear_secondary();
-                                    let row = hit.row.min(self.doc().line_count() - 1);
-                                    let start = self.doc().line_start(row);
-                                    if crate::search::line_hash(&self.doc().line(row))
-                                        == hit.line_hash
-                                    {
-                                        self.doc_mut().move_to(start + hit.column, false);
-                                        self.doc_mut()
-                                            .move_to(start + hit.column + hit.length, true);
-                                    } else {
-                                        self.doc_mut().move_to(start, false);
-                                        self.message = "Search result changed; rerun Find in Files for current matches".into();
-                                    }
-                                    return;
-                                }
+                            let path = hit.path.clone();
+                            match self.open_with_intent(&path, navigation::OpenIntent::Search(hit))
+                            {
+                                Ok(()) => return,
                                 Err(e) => self.message = format!("Open failed: {e:#}"),
                             }
                         }

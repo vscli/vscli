@@ -1,5 +1,71 @@
 use super::*;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
+pub(super) enum OpenIntent {
+    Focus,
+    Location(crate::lsp::Range),
+    Search(crate::search::Hit),
+    Debug { line: usize, column: usize },
+    Settings,
+}
+impl OpenIntent {
+    pub(super) fn validate(&self, doc: &Document) -> Result<()> {
+        if let Self::Location(range) = self {
+            let start = crate::lsp::offset(doc, range.start)?;
+            let end = crate::lsp::offset(doc, range.end)?;
+            if start > end {
+                anyhow::bail!("Navigation range is reversed");
+            }
+        }
+        Ok(())
+    }
+    pub(super) fn apply(&self, app: &mut App) {
+        match self {
+            Self::Focus => {}
+            Self::Location(range) => {
+                // Validated against this exact target before focus changed.
+                let start = crate::lsp::offset(app.doc(), range.start).unwrap();
+                let end = crate::lsp::offset(app.doc(), range.end).unwrap();
+                app.doc_mut().clear_secondary();
+                app.doc_mut().move_to(start, false);
+                app.doc_mut().move_to(end, true);
+            }
+            Self::Search(hit) => {
+                app.doc_mut().clear_secondary();
+                let row = hit.row.min(app.doc().line_count() - 1);
+                let start = app.doc().line_start(row);
+                if crate::search::line_hash(&app.doc().line(row)) == hit.line_hash {
+                    app.doc_mut().move_to(start + hit.column, false);
+                    app.doc_mut().move_to(start + hit.column + hit.length, true);
+                } else {
+                    app.doc_mut().move_to(start, false);
+                    app.message =
+                        "Search result changed; rerun Find in Files for current matches".into();
+                }
+            }
+            Self::Debug { line, column } => {
+                app.doc_mut().clear_secondary();
+                let row = line.saturating_sub(1).min(app.doc().line_count() - 1);
+                let position = app
+                    .doc()
+                    .line_start(row)
+                    .saturating_add(column.saturating_sub(1))
+                    .min(app.doc().line_end(row));
+                app.doc_mut().move_to(position, false);
+                app.message = if app.doc().dirty() {
+                    "Debugger stopped; source is modified, displayed lines may differ from disk"
+                } else {
+                    "Debugger stopped · F5 continue · F10 step · Ctrl+Shift+D stack/variables"
+                }
+                .into();
+            }
+            Self::Settings => {
+                if app.doc().is_empty() && app.doc().disk_content.is_none() {
+                    app.doc_mut().insert("{\n}\n", false);
+                }
+            }
+        }
+    }
+}
 #[derive(Clone)]
 struct Closed {
     id: u64,
@@ -23,6 +89,7 @@ struct Pending {
     receiver: Receiver<Result<Target, String>>,
     context: Context,
     closed: Option<Closed>,
+    intent: OpenIntent,
 }
 #[derive(Default)]
 pub(super) struct State {
@@ -133,17 +200,46 @@ impl App {
         self.message = format!("Focused {}", self.doc().name());
         true
     }
-    pub(super) fn open_hidden_aware(&mut self, path: PathBuf) {
-        self.open_navigation_mode(path, None, true);
+    fn focus_existing_intent(&mut self, path: &Path, intent: &OpenIntent) -> Result<bool> {
+        let Some(doc) = self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .find(|doc| doc.path.as_deref() == Some(path))
+        else {
+            return Ok(false);
+        };
+        intent.validate(doc)?;
+        if self.focus_existing_navigation(path) {
+            intent.apply(self);
+            return Ok(true);
+        }
+        Ok(false)
+    }
+    pub(super) fn open_hidden_aware(&mut self, path: PathBuf, intent: OpenIntent) {
+        self.open_navigation_mode(path, None, true, intent);
     }
     fn open_navigation(&mut self, path: PathBuf, closed: Option<Closed>) {
-        self.open_navigation_mode(path, closed, false);
+        self.open_navigation_mode(path, closed, false, OpenIntent::Focus);
     }
-    fn open_navigation_mode(&mut self, path: PathBuf, closed: Option<Closed>, allow_missing: bool) {
-        if self.focus_existing_navigation(&path) {
-            self.finish_reopen(closed.as_ref());
-            self.cancel_navigation();
-            return;
+    fn open_navigation_mode(
+        &mut self,
+        path: PathBuf,
+        closed: Option<Closed>,
+        allow_missing: bool,
+        intent: OpenIntent,
+    ) {
+        match self.focus_existing_intent(&path, &intent) {
+            Ok(true) => {
+                self.finish_reopen(closed.as_ref());
+                self.cancel_navigation();
+                return;
+            }
+            Err(error) => {
+                self.message = format!("Navigation target rejected: {error:#}");
+                return;
+            }
+            Ok(false) => {}
         }
         if self.navigation.pending.is_some() {
             self.message = "A recent file is still loading; retry shortly".into();
@@ -179,6 +275,7 @@ impl App {
             receiver,
             context,
             closed,
+            intent,
         });
         self.message = "Opening recent file…".into();
     }
@@ -208,29 +305,36 @@ impl App {
         {
             return changed;
         }
-        match result {
-            Ok(Target::Existing(path)) => {
-                if self.focus_existing_navigation(&path) {
-                    self.finish_reopen(pending.closed.as_ref());
-                } else {
-                    self.message =
-                        "Resolved native buffer was closed before navigation completed".into();
-                }
-            }
-            Ok(Target::Loaded(mut doc)) => {
-                if !self.focus_existing_navigation(doc.path.as_ref().unwrap()) {
-                    self.settings.apply(&mut doc);
-                    if let Some(closed) = &pending.closed {
-                        doc.move_to(doc.position_at(closed.row, closed.column), false);
+        let result = result
+            .map_err(anyhow::Error::msg)
+            .and_then(|target| -> Result<()> {
+                match target {
+                    Target::Existing(path) => {
+                        if !self.focus_existing_intent(&path, &pending.intent)? {
+                            anyhow::bail!(
+                                "Resolved native buffer was closed before navigation completed"
+                            );
+                        }
                     }
-                    self.install_open_document(*doc);
+                    Target::Loaded(mut doc) => {
+                        if !self
+                            .focus_existing_intent(doc.path.as_ref().unwrap(), &pending.intent)?
+                        {
+                            pending.intent.validate(&doc)?;
+                            self.settings.apply(&mut doc);
+                            if let Some(closed) = &pending.closed {
+                                doc.move_to(doc.position_at(closed.row, closed.column), false);
+                            }
+                            self.install_open_document(*doc);
+                            pending.intent.apply(self);
+                        }
+                    }
                 }
                 self.finish_reopen(pending.closed.as_ref());
-            }
-            Err(error) => {
-                self.message =
-                    format!("Recent file could not be opened (history retained): {error}")
-            }
+                Ok(())
+            });
+        if let Err(error) = result {
+            self.message = format!("File could not be opened (history retained): {error:#}");
         }
         changed
     }
@@ -249,6 +353,168 @@ mod tests {
     }
     fn command(app: &mut App, id: &str) {
         app.execute(id, Value::Null);
+    }
+    #[test]
+    fn deferred_settings_search_debug_and_location_never_mutate_the_previous_editor() {
+        let root = tempfile::tempdir().unwrap();
+        let held = root.path().join("hidden.txt");
+        std::fs::write(&held, "hidden").unwrap();
+        let target = root.path().join("target.txt");
+        std::fs::write(&target, "α😀 hit\r\nsecond").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.documents.push(Document::default());
+        app.documents[0].saved_revision = u64::MAX;
+        app.hidden_documents
+            .push(Document::open_existing(&held).unwrap());
+        app.sync_pane();
+        let previous = app.doc().id;
+        let settings = root.path().join("settings.json");
+        app.settings_user = Some(settings.clone());
+        app.execute("workbench.action.openSettingsJson", Value::Null);
+        assert_eq!(app.doc().id, previous);
+        assert!(app.doc().is_empty());
+        wait(&mut app);
+        assert_eq!(
+            app.doc().path.as_ref(),
+            Some(
+                &std::fs::canonicalize(root.path())
+                    .unwrap()
+                    .join("settings.json")
+            )
+        );
+        assert_eq!(app.doc().text.to_string(), "{\n}\n");
+        assert!(
+            app.documents
+                .iter()
+                .find(|doc| doc.id == previous)
+                .unwrap()
+                .is_empty()
+        );
+        let settings_id = app.doc().id;
+        let settings_cursor = app.doc().cursor;
+        let range = crate::lsp::Range {
+            start: crate::lsp::Position {
+                line: 0,
+                character: 1,
+            },
+            end: crate::lsp::Position {
+                line: 0,
+                character: 3,
+            },
+        };
+        app.language_action(&LanguageAction::Location {
+            path: target.clone(),
+            range,
+        })
+        .unwrap();
+        assert_eq!(app.doc().id, settings_id);
+        assert_eq!(app.doc().cursor, settings_cursor);
+        wait(&mut app);
+        assert_eq!(app.doc().selected_text().as_deref(), Some("😀"));
+        let target_id = app.doc().id;
+        let invalid = crate::lsp::Range {
+            start: crate::lsp::Position {
+                line: 0,
+                character: 2,
+            },
+            end: crate::lsp::Position {
+                line: 0,
+                character: 3,
+            },
+        };
+        app.active = app
+            .documents
+            .iter()
+            .position(|doc| doc.id == settings_id)
+            .unwrap();
+        app.sync_pane();
+        assert!(
+            app.language_action(&LanguageAction::Location {
+                path: app
+                    .documents
+                    .iter()
+                    .find(|doc| doc.id == target_id)
+                    .unwrap()
+                    .path
+                    .clone()
+                    .unwrap(),
+                range: invalid
+            })
+            .is_err()
+        );
+        assert_eq!(app.doc().id, settings_id);
+        assert_eq!(app.doc().cursor, settings_cursor);
+        let invalid_file = root.path().join("invalid.txt");
+        std::fs::write(&invalid_file, "α😀").unwrap();
+        let count = app.documents.len();
+        app.language_action(&LanguageAction::Location {
+            path: invalid_file,
+            range: invalid,
+        })
+        .unwrap();
+        wait(&mut app);
+        assert_eq!(app.doc().id, settings_id);
+        assert_eq!(app.doc().cursor, settings_cursor);
+        assert_eq!(app.documents.len(), count);
+        let other = root.path().join("other.txt");
+        std::fs::write(&other, "prefix match\nlast").unwrap();
+        let hit = crate::search::Hit {
+            path: other.clone(),
+            row: 0,
+            column: 7,
+            length: 5,
+            line: "prefix match".into(),
+            line_hash: crate::search::line_hash("prefix match"),
+        };
+        app.open_with_intent(&other, OpenIntent::Search(hit))
+            .unwrap();
+        assert_eq!(app.doc().id, settings_id);
+        wait(&mut app);
+        assert_eq!(app.doc().selected_text().as_deref(), Some("match"));
+        let debug = root.path().join("debug.cpp");
+        std::fs::write(&debug, "first\nsecond").unwrap();
+        let source = app.doc().id;
+        app.open_with_intent(&debug, OpenIntent::Debug { line: 2, column: 3 })
+            .unwrap();
+        assert_eq!(app.doc().id, source);
+        wait(&mut app);
+        assert_eq!(app.doc().row(), 1);
+        assert_eq!(app.doc().cursor, 8);
+        assert_eq!(
+            app.documents
+                .iter()
+                .find(|doc| doc.id == settings_id)
+                .unwrap()
+                .text
+                .to_string(),
+            "{\n}\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(target).unwrap(),
+            "α😀 hit\r\nsecond"
+        );
+        assert!(!settings.exists());
+    }
+    #[test]
+    fn changed_editor_cancels_deferred_settings_initialization() {
+        let root = tempfile::tempdir().unwrap();
+        let held = root.path().join("held.txt");
+        std::fs::write(&held, "held").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.documents.push(Document::default());
+        app.hidden_documents
+            .push(Document::open_existing(&held).unwrap());
+        app.sync_pane();
+        let previous = app.doc().id;
+        let settings = root.path().join("settings.json");
+        app.settings_user = Some(settings.clone());
+        app.execute("workbench.action.openSettingsJson", Value::Null);
+        app.doc_mut().insert("newer", false);
+        wait(&mut app);
+        assert_eq!(app.doc().id, previous);
+        assert_eq!(app.doc().text.to_string(), "newer");
+        assert!(!settings.exists());
+        assert_eq!(app.documents.len(), 1);
     }
     #[test]
     fn canceled_close_discard_save_as_and_reopen_preserve_disk_and_clamp_cursor() {

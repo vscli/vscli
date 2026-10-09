@@ -285,12 +285,7 @@ impl App {
                 self.apply_code_action(request, item, false)?
             }
             LanguageAction::Location { path, range } => {
-                self.open(path)?;
-                let start = lsp::offset(self.doc(), range.start)?;
-                let end = lsp::offset(self.doc(), range.end)?;
-                self.doc_mut().clear_secondary();
-                self.doc_mut().move_to(start, false);
-                self.doc_mut().move_to(end, true);
+                self.open_with_intent(path, super::navigation::OpenIntent::Location(*range))?;
             }
             LanguageAction::Completion { request, item } => {
                 self.request_current(request)?;
