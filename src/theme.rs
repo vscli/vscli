@@ -140,7 +140,7 @@ fn load(
         bail!("Theme exceeds file/read budget (1 MiB/file, 4 MiB total)");
     }
     let value: Value =
-        json5::from_str(std::str::from_utf8(&raw)?).context("Invalid theme JSONC")?;
+        crate::jsonc::parse(std::str::from_utf8(&raw)?).context("Invalid theme JSONC")?;
     if !value.is_object() {
         bail!("Theme must contain an object");
     }
@@ -419,6 +419,8 @@ mod tests {
 pub struct Choice {
     pub id: String,
     pub label: String,
+    pub picker_label: String,
+    pub key: String,
     pub path: PathBuf,
     pub root: PathBuf,
 }
@@ -442,9 +444,15 @@ pub fn contributions(packages: &[(PathBuf, Value)]) -> (Vec<Choice>, Vec<String>
                 .and_then(Value::as_str)
                 .or_else(|| theme.get("id").and_then(Value::as_str))
                 .unwrap_or(relative);
-            let path = match fs::canonicalize(root.join(relative)).and_then(|path| {
-                let root = fs::canonicalize(root)?;
-                if path.starts_with(root) {
+            let canonical_root = match fs::canonicalize(root) {
+                Ok(root) => root,
+                Err(error) => {
+                    warnings.push(format!("Theme {label:?}: {error}"));
+                    continue;
+                }
+            };
+            let path = match fs::canonicalize(canonical_root.join(relative)).and_then(|path| {
+                if path.starts_with(&canonical_root) {
                     Ok(path)
                 } else {
                     Err(std::io::Error::other(
@@ -458,7 +466,23 @@ pub fn contributions(packages: &[(PathBuf, Value)]) -> (Vec<Choice>, Vec<String>
                     continue;
                 }
             };
+            let package_id = match (
+                manifest.get("publisher").and_then(Value::as_str),
+                manifest.get("name").and_then(Value::as_str),
+            ) {
+                (Some(publisher), Some(name)) => format!("{publisher}.{name}").to_ascii_lowercase(),
+                _ => canonical_root.to_string_lossy().into_owned(),
+            };
+            let relative_path = path
+                .strip_prefix(&canonical_root)
+                .unwrap()
+                .components()
+                .map(|part| part.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/");
             choices.push(Choice {
+                key: format!("extension:{package_id}/{relative_path}"),
+                picker_label: format!("{label} · {package_id} · {relative_path}"),
                 id: theme
                     .get("id")
                     .and_then(Value::as_str)
@@ -466,7 +490,7 @@ pub fn contributions(packages: &[(PathBuf, Value)]) -> (Vec<Choice>, Vec<String>
                     .into(),
                 label: label.into(),
                 path,
-                root: root.clone(),
+                root: canonical_root,
             });
             if choices.len() >= 1024 {
                 warnings.push("Installed theme catalog limited to 1024 entries".into());

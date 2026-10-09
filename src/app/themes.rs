@@ -103,7 +103,7 @@ impl App {
             path: Some(path),
         });
     }
-    fn select_theme(&mut self, selected: Preference) {
+    fn select_theme(&mut self, mut selected: Preference) {
         if self.theme_state.pending.is_some() {
             self.message = "A color theme is still loading".into();
             return;
@@ -115,6 +115,9 @@ impl App {
         std::thread::spawn(move || {
             let result = (|| -> Result<Loaded> {
                 let theme = resolve(&selected, &choices)?;
+                if let Some(path) = selected.path.as_mut() {
+                    *path = std::fs::canonicalize(&*path)?;
+                }
                 if let Some(path) = preferences {
                     selected.save(&path)?;
                 }
@@ -157,24 +160,30 @@ impl App {
         }
         true
     }
-    pub fn theme_items(&self, query: &str) -> Vec<&str> {
-        ["VSCLI Dark", "VSCLI Light"]
+    fn theme_options(&self, query: &str) -> Vec<(&str, &str)> {
+        [("VSCLI Dark", "VSCLI Dark"), ("VSCLI Light", "VSCLI Light")]
             .into_iter()
             .chain(
                 self.theme_state
                     .choices
                     .iter()
-                    .map(|choice| choice.label.as_str()),
+                    .map(|choice| (choice.picker_label.as_str(), choice.key.as_str())),
             )
-            .filter(|name| score(name, query).is_some())
+            .filter(|(label, _)| score(label, query).is_some())
             .take(100)
             .collect()
     }
+    pub fn theme_items(&self, query: &str) -> Vec<&str> {
+        self.theme_options(query)
+            .into_iter()
+            .map(|(label, _)| label)
+            .collect()
+    }
     pub(super) fn accept_theme(&mut self, query: &str, selected: usize) {
-        let items = self.theme_items(query);
-        if let Some(name) = items.get(selected.min(items.len().saturating_sub(1))) {
+        let items = self.theme_options(query);
+        if let Some((_, key)) = items.get(selected.min(items.len().saturating_sub(1))) {
             self.select_theme(Preference {
-                name: (*name).into(),
+                name: (*key).into(),
                 path: None,
             });
         }
@@ -194,7 +203,12 @@ fn resolve(selected: &Preference, choices: &[Choice]) -> Result<Theme> {
         name => {
             let choice = choices
                 .iter()
-                .find(|choice| choice.id == name || choice.label == name)
+                .find(|choice| choice.key == name)
+                .or_else(|| {
+                    choices
+                        .iter()
+                        .find(|choice| choice.id == name || choice.label == name)
+                })
                 .ok_or_else(|| anyhow::anyhow!("Color theme {name:?} is not installed"))?;
             let mut theme = Theme::load_confined(&choice.path, &choice.root)?;
             theme.name = choice.label.clone();
@@ -283,6 +297,31 @@ mod tests {
         );
     }
     #[test]
+    fn relative_custom_theme_paths_are_persisted_as_absolute_paths() {
+        let cwd = std::env::current_dir().unwrap();
+        let root = tempfile::tempdir_in(&cwd).unwrap();
+        let path = root.path().join("theme.json");
+        std::fs::write(&path, r#"{"name":"Relative"}"#).unwrap();
+        let preference = root.path().join("selection.json");
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.configure_themes(
+            Some(root.path().join("extensions")),
+            Some(preference.clone()),
+            None,
+            None,
+        );
+        poll(&mut app);
+        app.load_theme(path.strip_prefix(&cwd).unwrap().into());
+        poll(&mut app);
+        let saved = Preference::read(&preference).unwrap().unwrap();
+        assert!(saved.path.as_ref().unwrap().is_absolute());
+        assert_eq!(
+            saved.path.as_ref().unwrap(),
+            &std::fs::canonicalize(&path).unwrap()
+        );
+        assert_eq!(resolve(&saved, &[]).unwrap().name, "Relative");
+    }
+    #[test]
     fn broken_extension_registry_does_not_block_explicit_or_builtin_theme_selection() {
         let root = tempfile::tempdir().unwrap();
         let directory = root.path().join("extensions");
@@ -303,6 +342,53 @@ mod tests {
         app.configure_themes(Some(directory), None, None, Some(path));
         poll(&mut app);
         assert_eq!(app.theme.name, "Explicit");
+    }
+    #[test]
+    fn duplicate_theme_labels_select_exact_rows_and_survive_package_directory_changes() {
+        let root = tempfile::tempdir().unwrap();
+        let mut packages = Vec::new();
+        for (publisher, color) in [("first", "#112233"), ("second", "#445566")] {
+            let directory = root.path().join(publisher);
+            std::fs::create_dir(&directory).unwrap();
+            std::fs::write(
+                directory.join("theme.json"),
+                format!(r#"{{"colors":{{"editor.background":"{color}"}}}}"#),
+            )
+            .unwrap();
+            packages.push((directory, json!({"publisher": publisher, "name":"theme", "contributes":{"themes":[{"id":"duplicate","label":"VSCLI Dark","path":"theme.json"}]}})));
+        }
+        let (choices, warnings) = crate::theme::contributions(&packages);
+        assert!(warnings.is_empty());
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let preference = root.path().join("preference.json");
+        app.theme_state.preferences = Some(preference.clone());
+        app.theme_state.choices = choices;
+        let labels = app.theme_items("VSCLI Dark");
+        assert_eq!(labels.len(), 3);
+        assert!(labels[1].contains("first.theme"));
+        assert!(labels[2].contains("second.theme"));
+        app.accept_theme("VSCLI Dark", 2);
+        poll(&mut app);
+        assert_eq!(
+            app.theme.colors.background,
+            ratatui::style::Color::Rgb(68, 85, 102)
+        );
+        let selected = Preference::read(&preference).unwrap().unwrap();
+        assert_eq!(selected.name, "extension:second.theme/theme.json");
+        let moved = root.path().join("second-new-version");
+        std::fs::rename(&packages[1].0, &moved).unwrap();
+        packages[1].0 = moved;
+        let (choices, _) = crate::theme::contributions(&packages);
+        assert_eq!(
+            resolve(&selected, &choices).unwrap().colors.background,
+            ratatui::style::Color::Rgb(68, 85, 102)
+        );
+        app.accept_theme("VSCLI Dark", 0);
+        poll(&mut app);
+        assert_eq!(
+            app.theme.colors.background,
+            Theme::default().colors.background
+        );
     }
     #[test]
     fn installed_contributions_resolve_by_id_without_executing_package() {
