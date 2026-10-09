@@ -511,8 +511,11 @@ Successful navigation collapses the destination view to one cursor at the symbol
 other shared views retain their selections. Every accepted range is checked against the actual
 buffer using UTF-16 positions, including rejection of split surrogate pairs.
 
-Closed targets use one bounded background loader and must be existing regular
-files within the existing 32 MiB open limit; missing files never create buffers.
+Targets needing filesystem alias resolution use one bounded background loader.
+It matches the resolved path to captured open buffers before reading file contents,
+so a dirty buffer remains usable through a parent alias after its file is deleted.
+Closed targets must be existing regular files within the existing 32 MiB open
+limit; missing files never create buffers.
 Cancellation retains the worker slot until it finishes. A server response cannot
 guarantee the revision of an unopened file, so this path validates the supplied
 range against freshly read text rather than claiming a server-version snapshot.
