@@ -160,7 +160,11 @@ impl App {
         let (sender, receiver) = sync_channel(1);
         let node = self.extension_node.clone();
         let root = self.workspace.root.clone();
-        let previous = self.extension_host.take();
+        self.cancel_extension_prompt();
+        let previous = self.extension_host.take().map(|mut host| {
+            host.cancel_prompts();
+            host
+        });
         self.keymap.clear_extension_bindings();
         std::thread::spawn(move || {
             // Retire the prior cohort before spawning another; never run two Node sessions.
@@ -212,7 +216,9 @@ impl App {
             self.message = format!("Cannot stop selected extension: {error:#}");
         }
     }
-    pub(super) fn retire_extension_host(&mut self, host: crate::extensions::Client) {
+    pub(super) fn retire_extension_host(&mut self, mut host: crate::extensions::Client) {
+        self.cancel_extension_prompt();
+        host.cancel_prompts();
         // A session has at most one live process. Starts are blocked until its
         // retirement acknowledges, including when a storage operation is active.
         assert!(self.extension_retirement.is_none());

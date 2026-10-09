@@ -823,7 +823,22 @@ fn popup(
 fn draw_prompt(frame: &mut Frame, app: &App) {
     let colors = app.theme.colors;
     let p = app.prompt.as_ref().unwrap();
+    let extension_title = if let PromptKind::Extension(ref request) = p.kind {
+        format!(
+            " Extension {} · {} · {} · Esc cancels ",
+            if request.spec.kind == crate::extensions::PromptType::QuickPick {
+                "Quick Pick"
+            } else {
+                "Input Box"
+            },
+            clean(&request.spec.owner),
+            clean(&request.spec.title)
+        )
+    } else {
+        String::new()
+    };
     let title = match p.kind {
+        PromptKind::Extension(_) => &extension_title,
         PromptKind::InstallExtension => {
             " Install Extension from local VSIX · path · Enter installs without running code "
         }
@@ -852,14 +867,15 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::ReplaceWith(_) => " Replace All · Replacement (Enter applies, Undo restores) ",
         PromptKind::Goto => " Go to Line · line:column ",
     };
-    let list = matches!(
-        p.kind,
-        PromptKind::Palette
-            | PromptKind::QuickOpen
-            | PromptKind::RecentFiles
-            | PromptKind::Snippet
-            | PromptKind::Theme
-    );
+    let list = matches!(&p.kind, PromptKind::Extension(request) if request.spec.kind == crate::extensions::PromptType::QuickPick)
+        || matches!(
+            p.kind,
+            PromptKind::Palette
+                | PromptKind::QuickOpen
+                | PromptKind::RecentFiles
+                | PromptKind::Snippet
+                | PromptKind::Theme
+        );
     let inner = popup(frame, colors, title, 84, if list { 19 } else { 5 });
     if inner.width == 0 || inner.height == 0 {
         return;
@@ -893,6 +909,17 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         inner.x + 2 + (cursor_width - skip).min(available) as u16,
         inner.y,
     ));
+    if let PromptKind::Extension(ref request) = p.kind
+        && inner.height > 1
+    {
+        frame.render_widget(
+            Paragraph::new(clean(&format!(
+                "{}  {}",
+                request.spec.prompt, request.spec.place_holder
+            ))),
+            Rect::new(inner.x, inner.y + 1, inner.width, 1),
+        );
+    }
     if matches!(p.kind, PromptKind::WorkspaceSearch) && inner.height > 1 {
         frame.render_widget(
             Paragraph::new(format!(
@@ -905,7 +932,13 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         );
     }
     if list && inner.height > 2 {
-        let items: Vec<String> = if matches!(p.kind, PromptKind::Palette) {
+        let items: Vec<String> = if let PromptKind::Extension(ref request) = p.kind {
+            request
+                .matches(&p.text)
+                .into_iter()
+                .map(|(_, item)| format!("{}  {}  {}", item.label, item.description, item.detail))
+                .collect()
+        } else if matches!(p.kind, PromptKind::Palette) {
             app.palette_items(&p.text)
                 .into_iter()
                 .map(|(name, id)| format!("{name}  {}", app.keymap.shortcut(id)))
