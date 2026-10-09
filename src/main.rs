@@ -89,6 +89,20 @@ struct Args {
     /// Run a trusted unpacked extension or installed publisher.name (repeatable; executes code)
     #[arg(long)]
     extension: Vec<PathBuf>,
+    /// Remember an installed package's code-execution grant; eligible code runs on later events
+    #[arg(long, group = "extension_state", conflicts_with_all = ["disable_extension", "install_extension", "list_extensions", "uninstall_extension", "rollback_extension", "import_vscode", "extension"])]
+    enable_extension: Option<String>,
+    /// Revoke a remembered execution grant without starting Node
+    #[arg(long, group = "extension_state", conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension", "import_vscode", "extension"])]
+    disable_extension: Option<String>,
+    /// Execution grant scope; workspace values override global values
+    #[arg(
+        long,
+        value_enum,
+        default_value = "global",
+        requires = "extension_state"
+    )]
+    extension_scope: vscli::extension_activation::Scope,
     /// Install a local VSIX or an Open VSX publisher.name without executing code
     #[arg(long, conflicts_with_all = ["list_extensions", "uninstall_extension", "rollback_extension"])]
     install_extension: Option<PathBuf>,
@@ -169,10 +183,49 @@ fn restore_terminal() {
 fn main() -> Result<()> {
     let args = Args::parse();
     let profile = args.keymap.unwrap_or_else(Profile::native);
+    let config_root = args
+        .config_dir
+        .clone()
+        .or_else(vscli::migration::config_directory);
     let extensions_directory = args
         .extensions_dir
         .clone()
         .or_else(vscli::extension_store::default_directory);
+    if let Some(id) = args
+        .enable_extension
+        .as_ref()
+        .or(args.disable_extension.as_ref())
+    {
+        let store = vscli::extension_store::Store::new(
+            extensions_directory
+                .clone()
+                .context("No extension storage directory; use --extensions-dir")?,
+        );
+        let installed = store.get(id)?;
+        let root = args
+            .workspace
+            .clone()
+            .or_else(|| args.paths.iter().find(|path| path.is_dir()).cloned())
+            .unwrap_or(std::env::current_dir()?);
+        let paths = vscli::extension_activation::state::Paths::new(config_root.as_deref(), &root)?;
+        let enabled = args.enable_extension.is_some();
+        vscli::extension_activation::state::change(
+            paths.path(args.extension_scope)?,
+            &installed.id,
+            enabled,
+        )?;
+        let (global, workspace) = paths
+            .read()
+            .context("Enablement saved; cannot read effective workspace/global state")?;
+        println!(
+            "{} {} in {:?} scope; effective execution enabled={}\nCode runs only in a later native session after a supported activation event; dependencies need their own grants.",
+            if enabled { "Enabled" } else { "Disabled" },
+            installed.id,
+            args.extension_scope,
+            vscli::extension_activation::Preferences::enabled(&global, &workspace, &installed.id)
+        );
+        return Ok(());
+    }
     let registry = vscli::extension_registry::Registry::new(&args.extension_registry)?;
     let registry_cancel = std::sync::atomic::AtomicBool::new(false);
     if let Some(query) = &args.search_extensions {
@@ -240,10 +293,6 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let config_root = args
-        .config_dir
-        .clone()
-        .or_else(vscli::migration::config_directory);
     if let Some(source) = &args.import_vscode {
         let preview = vscli::migration::preview_with_extensions(
             source,
