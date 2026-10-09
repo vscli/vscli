@@ -355,6 +355,17 @@ impl Client {
     pub fn busy(&self) -> bool {
         !self.pending.is_empty()
     }
+    pub(crate) fn validate_selected_owner(&self, session: u64, owner: &str) -> Result<()> {
+        if session != self.session || !self.packages.iter().any(|p| p.id == owner) {
+            bail!("Outdated extension native request owner/session");
+        }
+        Ok(())
+    }
+    fn owner_retired(&self, owner: &str) -> bool {
+        self.activation_states
+            .get(owner)
+            .is_some_and(|state| matches!(state.as_str(), "failed" | "disposed"))
+    }
     pub(crate) fn validate_native_origin(
         &self,
         session: u64,
@@ -362,8 +373,9 @@ impl Client {
         command: Option<u64>,
         command_owner: Option<&str>,
     ) -> Result<()> {
-        if session != self.session || !self.packages.iter().any(|p| p.id == owner) {
-            bail!("Outdated extension native request owner/session");
+        self.validate_selected_owner(session, owner)?;
+        if self.owner_retired(owner) {
+            bail!("Extension native request owner has failed or stopped");
         }
         let Some(command) = command else {
             if command_owner.is_some() {
@@ -515,7 +527,11 @@ impl Client {
         Ok(())
     }
     fn apply_edit(&self, edit: Edit, documents: &mut [Document]) -> Result<bool> {
-        if edit.session != self.session || !self.packages.iter().any(|p| p.id == edit.owner) {
+        if self
+            .validate_selected_owner(edit.session, &edit.owner)
+            .is_err()
+            || self.owner_retired(&edit.owner)
+        {
             return Ok(false);
         }
         let Some(mirror) = self.mirror.mirrors.get(&edit.document) else {
@@ -557,6 +573,7 @@ impl Client {
                 || registration.id.starts_with("cursor")
                 || reserved.contains(&registration.id)
                 || !self.packages.iter().any(|p| p.id == registration.owner)
+                || self.owner_retired(&registration.owner)
                 || owners
                     .insert(registration.id.clone(), registration.owner.clone())
                     .is_some()

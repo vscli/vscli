@@ -256,6 +256,30 @@ mod tests {
                 .validate_native_origin(client.session + 1, &owner, Some(3), Some(&owner))
                 .is_err()
         );
+        client
+            .activation_states
+            .insert("test.second".into(), "failed".into());
+        assert!(
+            client
+                .validate_native_origin(client.session, "test.second", None, None)
+                .is_err()
+        );
+        assert!(
+            client
+                .validate_native_origin(client.session, "test.second", Some(3), Some("test.second"))
+                .is_err()
+        );
+        // Previously accepted storage patches retain immutable selected-session admission.
+        assert!(
+            client
+                .validate_selected_owner(client.session, "test.second")
+                .is_ok()
+        );
+        assert!(
+            client
+                .validate_native_origin(client.session, &owner, None, None)
+                .is_ok()
+        );
     }
     #[test]
     fn prompt_queue_checks_ownership_bounds_deadlines_and_stale_answers() {

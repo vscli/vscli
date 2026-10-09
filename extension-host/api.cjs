@@ -11,7 +11,7 @@ function supported(name, values) {
   } });
 }
 
-function createApi(request, notify, sessionOptions = {}) {
+function createApi(sendRequest, notify, sessionOptions = {}) {
   const documents = new Map(), editors = new Map(), commands = new Map();
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter();
@@ -21,7 +21,15 @@ function createApi(request, notify, sessionOptions = {}) {
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
   const promptBudget = { pending: 0, bytes: 0 };
+  function assertOwner(owner) {
+    if (owner && activation && !activation.accepts(owner)) throw new Error(`Extension owner is not active: ${owner}`);
+  }
+  function request(method, params) {
+    try { assertOwner(params.owner); return sendRequest(method, params); }
+    catch (error) { return Promise.reject(error); }
+  }
   function track(owner, disposable) {
+    try { assertOwner(owner); } catch (error) { disposable.dispose(); throw error; }
     if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }
     if (!owned.has(owner)) owned.set(owner, new Set());
     const entries = owned.get(owner);
@@ -42,6 +50,7 @@ function createApi(request, notify, sessionOptions = {}) {
   function commandsFor(owner) {
     return supported('commands', {
       registerCommand(id, callback, thisArg) {
+        assertOwner(owner);
         if (typeof id !== 'string' || !id || id.length > 1024 || typeof callback !== 'function') throw new Error(`Invalid command: ${id}`);
         if (reserved.has(id) || id.startsWith('cursor')) throw new Error(`Native command is reserved: ${id}`);
         if (commands.has(id)) throw new Error(`Duplicate command: ${id}; registered by ${commands.get(id).owner}`);
@@ -52,6 +61,7 @@ function createApi(request, notify, sessionOptions = {}) {
         return disposable;
       },
       async executeCommand(id, ...args) {
+        assertOwner(owner);
         const command = commands.get(id);
         if (!command) throw new Error(`VSCLI cannot execute unregistered extension command: ${id}`);
         if (commandCalls >= 64) throw new Error('Extension command execution limit reached');
@@ -163,12 +173,13 @@ function createApi(request, notify, sessionOptions = {}) {
   });
   function message(text, ...items) { return messageFor('', text, ...items); }
   function messageFor(owner, text, ...items) {
+    try { assertOwner(owner); } catch (error) { return Promise.reject(error); }
     if (items.length) return Promise.reject(new Error('VSCLI extension message choices are not implemented'));
     notify('message', { session: sessionOptions.session, owner, text: String(text).slice(0, 2048) });
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, updateConfiguration: configuration.update, commandSnapshot,
+    api, sync, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     contextForExtension(owner) { return { extension: activation?.extension(owner) }; },
     disposeOwner(owner) {
