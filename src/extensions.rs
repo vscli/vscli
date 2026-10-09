@@ -1,16 +1,134 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::{HashMap, HashSet},
-    path::Path,
+    io::Read,
+    path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
 };
 
 const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
+const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
+const MAX_PACKAGES: usize = 8;
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Package {
+    pub id: String,
+    pub version: String,
+    pub path: PathBuf,
+    pub sha256: Option<String>,
+}
+impl Package {
+    pub fn read(path: &Path) -> Result<Self> {
+        let path = std::fs::canonicalize(path).context("Cannot open extension directory")?;
+        let (_, manifest) = read_manifest(&path)?;
+        let publisher = manifest["publisher"]
+            .as_str()
+            .context("Extension manifest has no publisher")?;
+        let name = manifest["name"]
+            .as_str()
+            .context("Extension manifest has no name")?;
+        let id = format!("{publisher}.{name}").to_ascii_lowercase();
+        if id.split('.').count() != 2
+            || id.split('.').any(|part| {
+                part.is_empty()
+                    || part.len() > 100
+                    || !part
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            })
+        {
+            bail!("Extension ID must be publisher.name");
+        }
+        let version = manifest["version"]
+            .as_str()
+            .context("Extension manifest has no version")?
+            .to_owned();
+        if version.is_empty() || version.len() > 100 {
+            bail!("Invalid extension version");
+        }
+        Ok(Self {
+            id,
+            version,
+            path,
+            sha256: None,
+        })
+    }
+    pub fn installed(item: &crate::extension_store::Installed) -> Self {
+        Self {
+            id: item.id.clone(),
+            version: item.version.clone(),
+            path: item.path.clone(),
+            sha256: Some(item.sha256.clone()),
+        }
+    }
+}
+fn read_manifest(path: &Path) -> Result<(usize, Value)> {
+    let mut bytes = Vec::new();
+    std::fs::File::open(path.join("package.json"))?
+        .take(MAX_MANIFEST_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_MANIFEST_BYTES {
+        bail!("Extension manifest exceeds 1 MiB");
+    }
+    Ok((bytes.len(), serde_json::from_slice(&bytes)?))
+}
+fn manifest_nodes(value: &Value) -> usize {
+    match value {
+        Value::Array(values) => 1 + values.iter().map(manifest_nodes).sum::<usize>(),
+        Value::Object(values) => 1 + values.values().map(manifest_nodes).sum::<usize>(),
+        _ => 1,
+    }
+}
+fn validate_packages(packages: &[Package]) -> Result<Vec<Package>> {
+    if packages.is_empty() || packages.len() > MAX_PACKAGES {
+        bail!("Select between one and eight code extensions");
+    }
+    let mut selected = packages.to_vec();
+    selected.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut ids = HashSet::new();
+    let (mut bytes, mut nodes, mut bindings, mut commands) = (0, 0, 0, 0);
+    for package in &selected {
+        if !ids.insert(package.id.clone()) {
+            bail!("Duplicate extension: {}", package.id);
+        }
+        let (size, manifest) = read_manifest(&package.path)?;
+        bytes += size;
+        nodes += manifest_nodes(&manifest);
+        if bytes > 8 * 1024 * 1024 || nodes > 50_000 {
+            bail!("Extension session manifest budget exceeded (8 MiB / 50,000 nodes)");
+        }
+        let id = format!(
+            "{}.{}",
+            manifest["publisher"].as_str().unwrap_or(""),
+            manifest["name"].as_str().unwrap_or("")
+        )
+        .to_ascii_lowercase();
+        if id != package.id || manifest["version"].as_str() != Some(package.version.as_str()) {
+            bail!("Extension identity changed: {}", package.id);
+        }
+        let count = |value: &Value| match value {
+            Value::Null => 0,
+            Value::Array(v) => v.len(),
+            _ => 1,
+        };
+        bindings += count(&manifest["contributes"]["keybindings"]);
+        commands += count(&manifest["contributes"]["commands"]);
+        if bindings > 1024 || commands > 1024 {
+            bail!("Extension session contribution limit exceeded");
+        }
+    }
+    Ok(selected)
+}
+#[derive(Deserialize)]
+struct Registration {
+    id: String,
+    owner: String,
+}
+
 #[derive(Clone)]
 struct Mirror {
     revision: u64,
@@ -23,6 +141,8 @@ struct Pending {
 }
 #[derive(Deserialize)]
 struct Edit {
+    session: u64,
+    owner: String,
     document: u64,
     version: u64,
     edits: Vec<lsp::TextEdit>,
@@ -44,6 +164,11 @@ pub struct Client {
     pub ready: bool,
     pub commands: Vec<(String, String)>,
     pub identity: String,
+    pub session: u64,
+    pub packages: Vec<Package>,
+    pub binding_sets: Option<Vec<(String, Value)>>,
+    command_owners: HashMap<String, String>,
+    titles: HashMap<(String, String), String>,
 }
 impl Client {
     pub fn start(
@@ -54,9 +179,26 @@ impl Client {
         active: usize,
         settings: &Settings,
     ) -> Result<Self> {
-        Self::start_prepared(
+        Self::start_many(
             node,
-            extension,
+            &[Package::read(extension)?],
+            root,
+            documents,
+            active,
+            settings,
+        )
+    }
+    pub fn start_many(
+        node: &str,
+        packages: &[Package],
+        root: &Path,
+        documents: &[Document],
+        active: usize,
+        settings: &Settings,
+    ) -> Result<Self> {
+        Self::start_many_prepared(
+            node,
+            packages,
             root,
             Self::prepare(documents, active, settings)?,
         )
@@ -75,8 +217,17 @@ impl Client {
         root: &Path,
         prepared: Prepared,
     ) -> Result<Self> {
-        let extension =
-            std::fs::canonicalize(extension).context("Cannot open extension directory")?;
+        Self::start_many_prepared(node, &[Package::read(extension)?], root, prepared)
+    }
+    pub fn start_many_prepared(
+        node: &str,
+        packages: &[Package],
+        root: &Path,
+        prepared: Prepared,
+    ) -> Result<Self> {
+        let packages = validate_packages(packages)?;
+        static NEXT_SESSION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let session = NEXT_SESSION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let runtime = tempfile::tempdir()?;
         for (name, source) in [
             (
@@ -111,11 +262,21 @@ impl Client {
             keybindings: None,
             ready: false,
             commands: Vec::new(),
-            identity: String::new(),
+            identity: packages
+                .iter()
+                .map(|p| p.id.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+            session,
+            packages,
+            binding_sets: None,
+            command_owners: HashMap::new(),
+            titles: HashMap::new(),
         };
         client.request(
             "initialize",
-            json!({"protocol":3, "extension": extension, "root": root, "state": prepared.state,
+            json!({"protocol":4, "session": session, "extensions": client.packages,
+                "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref()}),
         )?;
         Ok(client)
@@ -165,7 +326,7 @@ impl Client {
         self.sync(documents, active)?;
         self.sync_configuration(settings)?;
         let args: Vec<_> = args.into_iter().collect();
-        self.request("execute", json!({"command":command, "args":args}))
+        self.request("execute", json!({"session":self.session, "owner":self.command_owners[command], "command":command, "args":args}))
     }
     fn sync(&mut self, documents: &[Document], active: usize) -> Result<()> {
         if MirrorState::stamp(documents, active) != self.mirror.last_stamp {
@@ -177,6 +338,9 @@ impl Client {
         Ok(())
     }
     fn apply_edit(&self, edit: Edit, documents: &mut [Document]) -> Result<bool> {
+        if edit.session != self.session || !self.packages.iter().any(|p| p.id == edit.owner) {
+            return Ok(false);
+        }
         let Some(mirror) = self.mirror.mirrors.get(&edit.document) else {
             return Ok(false);
         };
@@ -201,6 +365,38 @@ impl Client {
         }
         doc.apply_changes(changes);
         Ok(true)
+    }
+    fn register_commands(&mut self, value: Value) -> Result<()> {
+        let registrations: Vec<Registration> = serde_json::from_value(value)?;
+        if registrations.len() > 1024 {
+            bail!("Extension command limit exceeded");
+        }
+        let mut commands = Vec::new();
+        let mut owners = HashMap::new();
+        let reserved = crate::app::native_command_ids();
+        for registration in registrations {
+            if registration.id.is_empty()
+                || registration.id.len() > 1024
+                || registration.id.starts_with("cursor")
+                || reserved.contains(&registration.id.as_str())
+                || !self.packages.iter().any(|p| p.id == registration.owner)
+                || owners
+                    .insert(registration.id.clone(), registration.owner.clone())
+                    .is_some()
+            {
+                bail!("Invalid extension command ownership: {}", registration.id);
+            }
+            let title = self
+                .titles
+                .get(&(registration.owner.clone(), registration.id.clone()))
+                .cloned()
+                .unwrap_or_else(|| format!("{} [{}]", registration.id, registration.owner));
+            commands.push((title, registration.id));
+        }
+        commands.sort_by(|a, b| a.1.cmp(&b.1));
+        self.commands = commands;
+        self.command_owners = owners;
+        Ok(())
     }
     pub fn poll(
         &mut self,
@@ -235,29 +431,32 @@ impl Client {
                         }
                     }
                     "commands" => {
-                        let commands: Vec<String> =
-                            serde_json::from_value(message["params"].clone())?;
-                        if commands.len() > 1024 {
-                            bail!("Extension command limit exceeded");
+                        if message["params"]["session"].as_u64() != Some(self.session) {
+                            continue;
                         }
-                        let old: HashMap<_, _> = self
-                            .commands
-                            .drain(..)
-                            .map(|(label, id)| (id, label))
-                            .collect();
-                        self.commands = commands
-                            .into_iter()
-                            .map(|id| (old.get(&id).cloned().unwrap_or_else(|| id.clone()), id))
-                            .collect();
+                        if !self.ready {
+                            bail!("Extension commands arrived before session activation completed");
+                        }
+                        self.register_commands(message["params"]["commands"].clone())?;
                     }
-                    "message" => messages.push(
-                        message["params"]
-                            .as_str()
-                            .unwrap_or("Extension message")
-                            .chars()
-                            .take(2048)
-                            .collect(),
-                    ),
+                    "message" => {
+                        let params = &message["params"];
+                        if params["session"].as_u64() == Some(self.session)
+                            && self
+                                .packages
+                                .iter()
+                                .any(|p| params["owner"].as_str() == Some(&p.id))
+                        {
+                            messages.push(
+                                params["text"]
+                                    .as_str()
+                                    .unwrap_or("Extension message")
+                                    .chars()
+                                    .take(2048)
+                                    .collect(),
+                            );
+                        }
+                    }
                     _ => bail!("Unknown extension request: {method}"),
                 }
             } else if let Some(id) = message["id"].as_u64()
@@ -274,26 +473,57 @@ impl Client {
                     continue;
                 }
                 if pending.method == "initialize" {
-                    if message["result"]["protocol"] != 3 {
-                        bail!("Unsupported extension host protocol version");
+                    let result = &message["result"];
+                    if result["protocol"] != 4 || result["session"].as_u64() != Some(self.session) {
+                        bail!("Unsupported or outdated extension session protocol");
                     }
-                    self.keybindings = Some(message["result"]["keybindings"].clone());
-                    self.ready = true;
-                    self.identity = message["result"]["id"]
-                        .as_str()
-                        .unwrap_or("extension")
-                        .into();
-                    if let Some(contributions) = message["result"]["contributions"].as_array() {
-                        for (label, id) in &mut self.commands {
-                            if let Some(item) = contributions
-                                .iter()
-                                .find(|item| item["command"].as_str() == Some(id.as_str()))
-                            {
-                                let title = item["title"].as_str().unwrap_or(id);
-                                *label = format!("Extension: {title}");
+                    let extensions = result["extensions"]
+                        .as_array()
+                        .context("Extension session packages missing")?;
+                    if extensions.len() != self.packages.len() {
+                        bail!("Extension session package count changed");
+                    }
+                    let mut bindings = Vec::new();
+                    let mut owners = HashSet::new();
+                    for item in extensions {
+                        let owner = item["id"]
+                            .as_str()
+                            .context("Extension session identity missing")?;
+                        if !owners.insert(owner)
+                            || !self.packages.iter().any(|p| {
+                                p.id == owner
+                                    && Some(p.version.as_str()) == item["version"].as_str()
+                            })
+                        {
+                            bail!("Extension session identity changed");
+                        }
+                        bindings.push((owner.to_owned(), item["keybindings"].clone()));
+                        if let Some(contributions) = item["contributions"].as_array() {
+                            if contributions.len() > 1024 {
+                                bail!("Extension command contribution limit exceeded");
+                            }
+                            for contribution in contributions {
+                                if let Some(id) = contribution["command"].as_str() {
+                                    let title: String = contribution["title"]
+                                        .as_str()
+                                        .unwrap_or(id)
+                                        .chars()
+                                        .take(256)
+                                        .collect();
+                                    self.titles.insert(
+                                        (owner.into(), id.into()),
+                                        format!("Extension: {title} [{owner}]"),
+                                    );
+                                }
                             }
                         }
                     }
+                    bindings.sort_by(|a, b| a.0.cmp(&b.0));
+                    // Keep single-package callers' contribution access intact.
+                    self.keybindings = (bindings.len() == 1).then(|| bindings[0].1.clone());
+                    self.binding_sets = Some(bindings);
+                    self.register_commands(result["commands"].clone())?;
+                    self.ready = true;
                     messages.push(format!(
                         "Extension ready: {} ({} commands)",
                         self.identity,

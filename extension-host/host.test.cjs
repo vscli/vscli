@@ -74,11 +74,11 @@ test('ordered document and configuration notifications are visible before comman
   }
   const state = { generation: 1, documents: [{ id: 1, uri: 'untitled:wire', text: 'old', version: 1, languageId: 'plaintext', isDirty: true }],
     active: 1, selections: [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }] };
-  child.stdin.write(frame({ id: 1, method: 'initialize', params: { protocol: 3, extension: folder, root: folder, state,
+  child.stdin.write(frame({ id: 1, method: 'initialize', params: { protocol: 4, session: 1, extensions: [{ id: 'test.wire', version: '1', path: folder }], root: folder, state,
     configuration: [{}, { 'wire.count': 2 }] } }));
   const initialized = await receive(message => message.id === 1);
   assert.equal(initialized.error, undefined);
-  child.stdin.write(frame({ id: 2, method: 'execute', params: { command: 'edit', args: [] } }));
+  child.stdin.write(frame({ id: 2, method: 'execute', params: { session: 1, owner: 'test.wire', command: 'edit', args: [] } }));
   const edit = await receive(message => message.method === 'edit');
   const updated = { ...state, generation: 2, documents: [{ ...state.documents[0], version: 2, text: 'Xold' }] };
   const { text, ...metadata } = updated.documents[0];
@@ -98,7 +98,7 @@ test('ordered document and configuration notifications are visible before comman
   assert.ok([0, 2].includes(result.result.cursor));
   child.stdin.write(Buffer.concat([
     frame({ method: 'configuration', params: [{}, { 'wire.count': 3 }] }),
-    frame({ id: 3, method: 'execute', params: { command: 'configuration', args: [] } }),
+    frame({ id: 3, method: 'execute', params: { session: 1, owner: 'test.wire', command: 'configuration', args: [] } }),
   ]));
   const configured = await receive(message => message.id === 3);
   assert.equal(configured.error, undefined);

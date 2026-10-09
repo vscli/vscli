@@ -10,12 +10,55 @@ function supported(name, values) {
   } });
 }
 
-function createApi(request, notify) {
+function createApi(request, notify, sessionOptions = {}) {
   const documents = new Map(), editors = new Map(), commands = new Map();
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter();
   const configuration = createConfiguration();
   let active, workspaceFolder, generation = -1;
+  const facades = new Map(), owned = new Map();
+  const reserved = new Set(sessionOptions.reservedCommands || []);
+  let registrationCount = 0, commandCalls = 0;
+  function track(owner, disposable) {
+    if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }
+    if (!owned.has(owner)) owned.set(owner, new Set());
+    const entries = owned.get(owner);
+    registrationCount++;
+    const wrapped = new Disposable(() => { disposable.dispose(); entries.delete(wrapped); registrationCount--; });
+    entries.add(wrapped);
+    return wrapped;
+  }
+  function event(owner, source, transform = value => value) {
+    return (listener, thisArg, disposables) => {
+      const result = track(owner, source(value => listener.call(thisArg, transform(value))));
+      if (disposables) disposables.push(result);
+      return result;
+    };
+  }
+  function commandSnapshot() { return [...commands].map(([id, entry]) => ({ id, owner: entry.owner })); }
+  function publishCommands() { notify('commands', { session: sessionOptions.session, commands: commandSnapshot() }); }
+  function commandsFor(owner) {
+    return supported('commands', {
+      registerCommand(id, callback, thisArg) {
+        if (typeof id !== 'string' || !id || id.length > 1024 || typeof callback !== 'function') throw new Error(`Invalid command: ${id}`);
+        if (reserved.has(id) || id.startsWith('cursor')) throw new Error(`Native command is reserved: ${id}`);
+        if (commands.has(id)) throw new Error(`Duplicate command: ${id}; registered by ${commands.get(id).owner}`);
+        if (commands.size >= 1024) throw new Error('Extension command limit reached');
+        commands.set(id, { owner, callback: (...args) => callback.apply(thisArg, args) });
+        const disposable = track(owner, new Disposable(() => { commands.delete(id); publishCommands(); }));
+        publishCommands();
+        return disposable;
+      },
+      async executeCommand(id, ...args) {
+        const command = commands.get(id);
+        if (!command) throw new Error(`VSCLI cannot execute unregistered extension command: ${id}`);
+        if (commandCalls >= 64) throw new Error('Extension command execution limit reached');
+        commandCalls++;
+        try { return await command.callback(...args); } finally { commandCalls--; }
+      },
+      async getCommands() { return [...commands.keys()]; },
+    });
+  }
   function sync(state) {
     // A newer notification can arrive before an edit promise callback runs.
     if (state.generation <= generation) return;
@@ -56,11 +99,11 @@ function createApi(request, notify) {
     for (const fire of changes) fire();
     if (active !== previousActive) activeChanged.fire(active);
   }
-  function editorFor(id, document) {
+  function editorFor(id, document, owner = '') {
     return supported('TextEditor', {
       document, _selections: [new Selection(0, 0, 0, 0)],
-      get selection() { return this._selections[0]; },
-      get selections() { return this._selections.slice(); },
+      get selection() { return (owner ? (editors.get(id)?._selections || this._selections) : this._selections)[0]; },
+      get selections() { return (owner ? (editors.get(id)?._selections || this._selections) : this._selections).slice(); },
       edit(callback, options) {
         if (options && (options.undoStopBefore === false || options.undoStopAfter === false)) {
           return Promise.reject(new Error('VSCLI does not yet support grouped extension undo stops'));
@@ -81,7 +124,7 @@ function createApi(request, notify) {
         try { callback(builder); } catch (error) { return Promise.reject(error); }
         finally { valid = false; }
         // State notifications are processed before the native acknowledgement.
-        return request('edit', { document: id, version, edits }).then(result => result.applied);
+        return request('edit', { session: sessionOptions.session, owner, document: id, version, edits }).then(result => result.applied);
       },
     });
   }
@@ -108,29 +151,54 @@ function createApi(request, notify) {
       getConfiguration: configuration.get,
       onDidChangeConfiguration: configuration.onDidChange,
     }),
-    commands: supported('commands', {
-      registerCommand(id, callback, thisArg) {
-        if (typeof id !== 'string' || !id || commands.has(id)) throw new Error(`Invalid or duplicate command: ${id}`);
-        if (commands.size >= 1024) throw new Error('Extension command limit reached');
-        commands.set(id, (...args) => callback.apply(thisArg, args));
-        notify('commands', [...commands.keys()]);
-        return new Disposable(() => { commands.delete(id); notify('commands', [...commands.keys()]); });
-      },
-      async executeCommand(id, ...args) {
-        const command = commands.get(id);
-        if (!command) throw new Error(`VSCLI cannot execute unregistered extension command: ${id}`);
-        return command(...args);
-      },
-      async getCommands() { return [...commands.keys()]; },
-    }),
+    commands: commandsFor(''),
   });
-  function message(text, ...items) {
+  function message(text, ...items) { return messageFor('', text, ...items); }
+  function messageFor(owner, text, ...items) {
     if (items.length) return Promise.reject(new Error('VSCLI extension message choices are not implemented'));
-    notify('message', String(text));
+    notify('message', { session: sessionOptions.session, owner, text: String(text).slice(0, 2048) });
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, updateConfiguration: configuration.update,
+    api, sync, updateConfiguration: configuration.update, commandSnapshot,
+    disposeOwner(owner) {
+      for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
+      owned.delete(owner); facades.delete(owner);
+    },
+    forExtension(owner) {
+      if (facades.has(owner)) return facades.get(owner);
+      const scopedEditors = new WeakMap();
+      function scopedEditor(base) {
+        if (!base) return undefined;
+        if (!scopedEditors.has(base.document)) scopedEditors.set(base.document, editorFor(base.document._snapshot.id, base.document, owner));
+        return scopedEditors.get(base.document);
+      }
+      // The native document objects are shared; only request-producing editor handles are scoped.
+      const facade = supported('vscode', {
+        ...api,
+        window: supported('window', {
+          get activeTextEditor() { return scopedEditor(active); },
+          get visibleTextEditors() { return active ? [scopedEditor(active)] : []; },
+          onDidChangeActiveTextEditor: event(owner, activeChanged.event, scopedEditor),
+          showInformationMessage: (text, ...items) => messageFor(owner, text, ...items),
+          showWarningMessage: (text, ...items) => messageFor(owner, text, ...items),
+          showErrorMessage: (text, ...items) => messageFor(owner, text, ...items),
+        }),
+        workspace: supported('workspace', {
+          get textDocuments() { return [...documents.values()]; },
+          get workspaceFolders() { return workspaceFolder ? [workspaceFolder] : undefined; },
+          get rootPath() { return workspaceFolder?.uri.fsPath; },
+          onDidChangeTextDocument: event(owner, changed.event),
+          onDidOpenTextDocument: event(owner, opened.event),
+          onDidCloseTextDocument: event(owner, closed.event),
+          getConfiguration: configuration.get,
+          onDidChangeConfiguration: event(owner, configuration.onDidChange),
+        }),
+        commands: commandsFor(owner),
+      });
+      facades.set(owner, facade);
+      return facade;
+    },
     configure(root, schema, layers) {
       workspaceFolder = { uri: Uri.file(root), name: require('node:path').basename(root), index: 0 };
       configuration.initialize(schema, layers);

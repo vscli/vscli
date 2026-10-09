@@ -116,3 +116,37 @@ test('edit acknowledgement cannot lose text before a following selection-only no
   assert.equal(changed.text, 'edited🙂');
   assert.deepEqual(changed.range.end, new runtime.api.Position(2, 0));
 });
+
+test('extension facades share documents, route commands and retain edit owners', async () => {
+  const calls = [], registries = [];
+  const runtime = createApi(async (method, params) => { calls.push({ method, params }); return { applied: false }; }, (method, params) => {
+    if (method === 'commands') registries.push(params);
+  }, { session: 17, reservedCommands: ['type'] });
+  runtime.sync(initial());
+  const a = runtime.forExtension('test.a'), b = runtime.forExtension('test.b');
+  assert.equal(a.workspace.textDocuments[0], b.workspace.textDocuments[0]);
+  assert.equal(a.window.activeTextEditor.document, b.window.activeTextEditor.document);
+  a.commands.registerCommand('a.run', () => a.window.activeTextEditor.edit(edit => edit.insert(new a.Position(0, 0), 'A')));
+  b.commands.registerCommand('b.run', () => b.commands.executeCommand('a.run'));
+  assert.equal(await b.commands.executeCommand('b.run'), false);
+  assert.equal(calls[0].params.owner, 'test.a');
+  assert.equal(calls[0].params.session, 17);
+  assert.throws(() => b.commands.registerCommand('a.run', () => {}), /registered by test.a/);
+  assert.throws(() => b.commands.registerCommand('type', () => {}), /reserved/);
+  let observed;
+  b.workspace.onDidChangeTextDocument(event => { observed = [event.document === a.workspace.textDocuments[0], a.window.activeTextEditor.document.version]; });
+  runtime.sync({ ...initial(), generation: 2, documents: [{ ...initial().documents[0], version: 2, text: 'shared' }] });
+  assert.deepEqual(observed, [true, 2]);
+  runtime.disposeOwner('test.a');
+  assert.deepEqual(await b.commands.getCommands(), ['b.run']);
+  assert.deepEqual(registries.at(-1), { session: 17, commands: [{ id: 'b.run', owner: 'test.b' }] });
+});
+
+test('shared registration limits include listeners and disposal releases the budget', () => {
+  const runtime = createApi(() => {}, () => {});
+  const api = runtime.forExtension('test.bounded');
+  for (let i = 0; i < 4096; i++) api.workspace.onDidChangeTextDocument(() => {});
+  assert.throws(() => api.workspace.onDidCloseTextDocument(() => {}), /registration limit/);
+  runtime.disposeOwner('test.bounded');
+  assert.doesNotThrow(() => runtime.forExtension('test.bounded').workspace.onDidCloseTextDocument(() => {}));
+});
