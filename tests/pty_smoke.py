@@ -42,6 +42,22 @@ def eventually(predicate, timeout=4):
     raise AssertionError("Timed out waiting for expected state")
 
 
+def wait_screen(app, *expected, timeout=4):
+    """Require all markers in one screen snapshot, including partially read frames."""
+    snapshot = ''
+    def ready():
+        nonlocal snapshot
+        if not app.read():
+            return False
+        snapshot = app.screen.text()
+        return all(marker in snapshot for marker in expected)
+    try:
+        eventually(ready, timeout=timeout)
+    except AssertionError as error:
+        raise AssertionError(f'Waiting for screen markers {expected!r}:\n{snapshot}') from error
+    return snapshot
+
+
 class Screen:
     """Small display model for the cursor-addressed ANSI subset emitted by Ratatui."""
     def __init__(self):
@@ -1174,7 +1190,8 @@ def run():
         assert recent_state["schema"] == 1
         assert recent_state["files"][0]["path"] == str(navigation_file.resolve())
         app = Editor(navigation_root, "--config-dir", navigation_config, enhanced=True)
-        eventually(lambda: app.read() and "Recent files" in app.screen.text() and "navigation.txt" in app.screen.text())
+        # A PTY read may stop after the welcome body, before the bottom status row.
+        wait_screen(app, "Recent files", "navigation.txt", "No open editors")
         assert "No open editors" in app.screen.text()
         app.send(b"\x1b[116;6u")
         eventually(lambda: app.read() and "No closed file-backed editors" in app.screen.text())
