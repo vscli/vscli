@@ -49,7 +49,7 @@ fn read(path: &Path) -> Result<Map<String, Value>> {
     if text.len() > 1024 * 1024 {
         bail!("Settings file exceeds 1 MiB");
     }
-    let value: Value = json5::from_str(&text)
+    let value: Value = crate::jsonc::parse(&text)
         .with_context(|| format!("Invalid settings in {}", path.display()))?;
     value
         .as_object()

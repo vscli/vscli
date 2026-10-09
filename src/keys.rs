@@ -413,7 +413,8 @@ impl Keymap {
     pub fn load(&mut self, path: &Path) -> Result<usize> {
         let raw = std::fs::read_to_string(path)
             .with_context(|| format!("Cannot read {}", path.display()))?;
-        let entries: Vec<Binding> = json5::from_str(&raw).context("Invalid keybindings.json")?;
+        let entries: Vec<Binding> =
+            crate::jsonc::parse(&raw).context("Invalid keybindings.json")?;
         validate_bindings(&entries)?;
         let count = entries.len();
         self.user.extend(entries);

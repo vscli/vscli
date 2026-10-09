@@ -31,7 +31,7 @@ pub fn load(root: &Path) -> Result<Vec<Task>> {
     if raw.len() > 1024 * 1024 {
         bail!("tasks.json exceeds 1 MiB");
     }
-    let config: Value = json5::from_str(&raw).context("Invalid tasks.json")?;
+    let config: Value = crate::jsonc::parse(&raw).context("Invalid tasks.json")?;
     if config["version"] != "2.0.0" {
         bail!("Only tasks.json version 2.0.0 is supported");
     }

@@ -101,7 +101,7 @@ impl Catalog {
     }
 
     fn parse(&mut self, path: &Path, text: &str, language: &str) -> Result<()> {
-        let value: Value = json5::from_str(text).context("Invalid snippet JSONC")?;
+        let value: Value = crate::jsonc::parse(text).context("Invalid snippet JSONC")?;
         let object = value
             .as_object()
             .context("Snippet file must contain an object")?;
@@ -205,6 +205,23 @@ fn read_file(path: &Path, total: &mut usize) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn deeply_nested_file_is_reported_without_hiding_other_snippets() {
+        let root = tempfile::tempdir().unwrap();
+        let nested = format!("{}0{}", "[".repeat(50_000), "]".repeat(50_000));
+        fs::write(root.path().join("a.code-snippets"), nested).unwrap();
+        fs::write(
+            root.path().join("b.code-snippets"),
+            r#"{"Good":{"body":"works"}}"#,
+        )
+        .unwrap();
+        let catalog = Catalog::load(Some(root.path()), root.path(), "rust");
+        assert_eq!(catalog.warnings.len(), 1);
+        assert!(catalog.warnings[0].contains("nesting"));
+        assert_eq!(catalog.entries.len(), 1);
+        assert_eq!(catalog.entries[0].name, "Good");
+    }
+
     #[test]
     fn language_global_workspace_scopes_groups_and_no_prefix() {
         let root = tempfile::tempdir().unwrap();
