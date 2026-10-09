@@ -1,3 +1,4 @@
+mod code_actions;
 mod debugger;
 mod extension_management;
 mod extensions;
@@ -252,6 +253,8 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Language: Find References", "editor.action.goToReferences"),
     ("Language: Format Document", "editor.action.formatDocument"),
     ("Language: Rename Symbol", "editor.action.rename"),
+    ("Language: Quick Fix", "editor.action.quickFix"),
+    ("Language: Refactor", "editor.action.refactor"),
     ("View: Problems", "workbench.actions.view.problems"),
     (
         "Preferences: Keyboard Shortcuts",
@@ -717,6 +720,15 @@ impl App {
                 json!(self.extensions_directory.is_some()),
             ),
             (
+                "editorHasCodeActionsProvider".into(),
+                json!(
+                    self.active_document().is_some()
+                        && self.lsp.as_ref().is_some_and(|c| c.ready
+                            && (c.capabilities["codeActionProvider"].is_object()
+                                || c.capabilities["codeActionProvider"] == true))
+                ),
+            ),
+            (
                 "editorHasSelection".into(),
                 json!(
                     self.active_document()
@@ -1116,6 +1128,8 @@ impl App {
                 "textDocument/formatting",
                 json!({"options":{"tabSize":self.doc().tab_size,"insertSpaces":self.doc().insert_spaces}}),
             ),
+            "editor.action.quickFix" => self.request_code_actions(None),
+            "editor.action.refactor" => self.request_code_actions(Some("refactor")),
             "editor.action.rename" => self.start_prompt(
                 PromptKind::Rename,
                 self.doc().selected_text().unwrap_or_default(),

@@ -1,11 +1,12 @@
 //! Native stdio LSP transport. Subprocess I/O never blocks the input/render loop.
-use crate::document::Document;
+use crate::document::{Document, Selection};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use url::Url;
@@ -20,11 +21,14 @@ pub struct Range {
     pub start: Position,
     pub end: Position,
 }
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Diagnostic {
     pub range: Range,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub severity: Option<u8>,
     pub message: String,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
 }
 #[derive(Clone, Debug, Deserialize)]
 pub struct TextEdit {
@@ -39,10 +43,20 @@ pub struct Request {
     pub revision: u64,
     pub cursor: usize,
     pub path: PathBuf,
+    pub selections: Vec<Selection>,
+    pub view: Option<u64>,
+    pub workspace: Arc<HashMap<PathBuf, Snapshot>>,
     started: Instant,
+}
+#[derive(Clone, Debug)]
+pub struct Snapshot {
+    pub id: u64,
+    pub revision: u64,
+    pub version: i64,
 }
 pub enum Event {
     Ready,
+    ApplyEdit(Value, Option<Request>, Value),
     Response(Request, Value),
     Diagnostics(PathBuf, Vec<Diagnostic>),
     Message(String),
@@ -171,12 +185,13 @@ impl Client {
             "rootUri":client.root_uri, "workspaceFolders":[{"uri":client.root_uri,"name":root.file_name().unwrap_or_default().to_string_lossy()}],
             "capabilities":{
                 "general":{"positionEncodings":["utf-16"]},
-                "workspace":{"configuration":true,"workspaceFolders":true,"applyEdit":false},
+                "workspace":{"configuration":true,"workspaceFolders":true,"applyEdit":true,"workspaceEdit":{"documentChanges":true,"resourceOperations":[],"failureHandling":"transactional"}},
                 "textDocument":{
                     "synchronization":{"didSave":true}, "publishDiagnostics":{"versionSupport":true},
                     "hover":{"contentFormat":["plaintext","markdown"]},
                     "completion":{"completionItem":{"snippetSupport":false,"documentationFormat":["plaintext","markdown"]}},
-                    "definition":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{}
+                    "definition":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{},
+                    "codeAction":{"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports","source.fixAll"]}},"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]}}
                 }
             }
         }}))?;
@@ -259,6 +274,15 @@ impl Client {
         Ok(())
     }
     pub fn request(&mut self, method: &str, doc: &Document, extra: Value) -> Result<()> {
+        self.request_in_view(method, doc, extra, None)
+    }
+    pub fn request_in_view(
+        &mut self,
+        method: &str,
+        doc: &Document,
+        extra: Value,
+        view: Option<u64>,
+    ) -> Result<()> {
         if !self.ready {
             bail!("Language server is still initializing");
         }
@@ -273,9 +297,36 @@ impl Client {
         if self.pending.len() >= 32 {
             bail!("Too many pending language requests");
         }
+        let is_action = method == "textDocument/codeAction";
+        if is_action && !self.action_available() {
+            bail!("A code action request is already running; retry shortly");
+        }
+        if is_action && self.synced.len() > 128 {
+            bail!("Code actions support at most 128 synchronized buffers");
+        }
+        let workspace = if is_action {
+            self.synced
+                .values()
+                .map(|s| {
+                    (
+                        s.path.clone(),
+                        Snapshot {
+                            id: s.id,
+                            revision: s.revision,
+                            version: s.version,
+                        },
+                    )
+                })
+                .collect()
+        } else {
+            HashMap::new()
+        };
         let id = self.next_id;
         self.next_id += 1;
-        let mut params = json!({"textDocument":{"uri":uri},"position":position(doc, doc.cursor)});
+        let mut params = json!({"textDocument":{"uri":uri}});
+        if !is_action {
+            params["position"] = json!(position(doc, doc.cursor));
+        }
         if let Some(extra) = extra.as_object() {
             params.as_object_mut().unwrap().extend(extra.clone());
         }
@@ -288,10 +339,56 @@ impl Client {
                 revision: doc.revision,
                 cursor: doc.cursor,
                 path,
+                selections: if is_action {
+                    doc.selections()
+                } else {
+                    Vec::new()
+                },
+                view,
+                workspace: Arc::new(workspace),
                 started: Instant::now(),
             },
         );
         Ok(())
+    }
+    pub fn action_available(&self) -> bool {
+        !self.pending.values().any(|request| {
+            matches!(
+                request.method.as_str(),
+                "textDocument/codeAction" | "codeAction/resolve" | "workspace/executeCommand"
+            )
+        })
+    }
+    pub fn command_available(&self) -> bool {
+        self.pending.len() < 32
+            && !self
+                .pending
+                .values()
+                .any(|r| r.method == "workspace/executeCommand")
+    }
+    pub fn follow_up(&mut self, original: &Request, method: &str, params: Value) -> Result<()> {
+        if self.pending.len() >= 32 {
+            bail!("Too many pending language requests");
+        }
+        if method == "workspace/executeCommand" && self.pending.values().any(|r| r.method == method)
+        {
+            bail!("A language server command is already running");
+        }
+        let id = self.next_id;
+        self.next_id += 1;
+        self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
+        let mut request = original.clone();
+        request.method = method.into();
+        request.started = Instant::now();
+        self.pending.insert(id, request);
+        Ok(())
+    }
+    pub fn acknowledge_edit(&self, id: Value, result: Result<()>) -> Result<()> {
+        let result = match result {
+            Ok(()) => json!({"applied":true}),
+            Err(error) => json!({"applied":false,"failureReason":format!("{error:#}")}),
+        };
+        self.send(json!({"jsonrpc":"2.0","id":id,"result":result}))
     }
     pub fn poll(&mut self) -> Result<Vec<Event>> {
         let mut events = Vec::new();
@@ -319,6 +416,19 @@ impl Client {
             if let Some(method) = message["method"].as_str() {
                 let params = &message["params"];
                 if let Some(id) = message.get("id") {
+                    if method == "workspace/applyEdit" {
+                        let request = self
+                            .pending
+                            .values()
+                            .find(|r| r.method == "workspace/executeCommand")
+                            .cloned();
+                        events.push(Event::ApplyEdit(
+                            id.clone(),
+                            request,
+                            params["edit"].clone(),
+                        ));
+                        continue;
+                    }
                     let result = match method {
                         "workspace/configuration" => Some(Value::Array(
                             params["items"]

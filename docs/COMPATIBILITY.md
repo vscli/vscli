@@ -30,6 +30,12 @@ reopening of closed file-backed editors. Workspace switching, restored session
 layouts and full VS Code history ordering remain unimplemented; see
 [recent-file behavior and integrity evidence](USAGE.md#recent-files-and-reopening-closed-editors).
 
+
+Native LSP Quick Fix/Refactor now supports bounded action discovery, lazy edit
+resolution, and validated edits across synchronized open buffers. C++ qualification
+includes a real clangd 23.1.1 missing-semicolon fix on Linux; broader server/refactor
+compatibility remains unqualified. See [supported edits and integrity boundaries](USAGE.md#native-code-actions-and-quick-fixes).
+
 ## Feature disposition
 
 | VS Code feature family | Planned terminal behavior | Scope |
