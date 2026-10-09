@@ -14,6 +14,7 @@ mod language_services;
 mod navigation;
 mod panes;
 mod signature_help;
+mod suggestions;
 
 mod session;
 mod snippet_catalogs;
@@ -483,6 +484,7 @@ pub struct App {
     pub lsp: Option<crate::lsp::Client>,
     language_services: language_services::State,
     signature: signature_help::State,
+    suggestions: suggestions::State,
     pub syntax: crate::syntax::Engine,
     pub theme: crate::theme::Theme,
     pub recent_files: crate::recent::State,
@@ -571,6 +573,7 @@ impl App {
             lsp: None,
             language_services: language_services::State::default(),
             signature: signature_help::State::default(),
+            suggestions: suggestions::State::default(),
             syntax: crate::syntax::Engine::default(),
             theme: crate::theme::Theme::default(),
             recent_files: crate::recent::State::default(),
@@ -599,6 +602,7 @@ impl App {
     pub fn poll(&mut self) -> bool {
         let brand_changed = self.welcome_brand.poll();
         let invalidated = self.refresh_signature();
+        let invalidated = self.poll_suggestions() || invalidated;
         let changed = self.poll_symbols() || invalidated;
         let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
@@ -792,6 +796,7 @@ impl App {
         self.remember_active_file();
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
+        self.cancel_suggestions();
         self.session_interaction();
         self.clear_signature();
         self.cancel_extension_prompt();
@@ -844,6 +849,11 @@ impl App {
     }
     pub fn context(&self) -> HashMap<String, Value> {
         HashMap::from([
+            (
+                "suggestWidgetVisible".into(),
+                json!(self.suggestion_model().is_some()),
+            ),
+            ("acceptSuggestionOnEnter".into(), json!(true)),
             (
                 "editorHasSignatureHelpProvider".into(),
                 json!(self.has_signature_provider()),
@@ -937,6 +947,7 @@ impl App {
     }
 
     pub fn event(&mut self, event: Event) {
+        self.suggestion_ui_event(&event);
         self.provider_ui_event(&event);
         if matches!(&event, Event::Key(key) if key.kind != KeyEventKind::Release)
             || matches!(&event, Event::Paste(_))
@@ -1179,6 +1190,11 @@ impl App {
         self.invalidate_pending_extension_commands();
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
+        if suggestions::command(command) {
+            self.advance_suggestion_interaction();
+        } else {
+            self.cancel_suggestions();
+        }
         if command != "editor.action.triggerParameterHints" {
             self.clear_signature();
         }
@@ -1190,6 +1206,10 @@ impl App {
         // A duplicate reopen keeps the existing bounded request alive.
         if command != "workbench.action.reopenClosedEditor" {
             self.cancel_navigation();
+        }
+        if suggestions::command(command) {
+            self.execute_suggestion_command(command);
+            return;
         }
         let args = command_args.clone().unwrap_or(Value::Null);
         if command.is_empty() {

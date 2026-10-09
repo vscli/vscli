@@ -37,7 +37,7 @@ def run(root):
     wait(app, 'Extension ready:')
     app.send(b'\x1b[C' * (original.index('lo') + 2))
     app.send(b'\x1b[32;5u')
-    wait(app, 'Extension Completion')
+    wait(app, 'Suggestions')
     wait(app, 'lodash')
     app.send(b'\r')
     save(app, source, original.replace("'lo'", "'lodash'"))

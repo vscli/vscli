@@ -79,6 +79,10 @@ impl App {
         }
     }
     pub(super) fn language_request(&mut self, method: &str, extra: Value) {
+        if method == "textDocument/completion" {
+            self.request_suggestions(extra);
+            return;
+        }
         if self.extension_language_request(method, extra.clone()) {
             return;
         }
@@ -120,6 +124,9 @@ impl App {
         Ok(())
     }
     fn language_response(&mut self, request: Request, response: Value) -> Result<()> {
+        if request.method == "textDocument/completion" {
+            return self.native_suggestion_response(request, response);
+        }
         if matches!(
             request.method.as_str(),
             "textDocument/documentSymbol" | "workspace/symbol"
@@ -196,42 +203,6 @@ impl App {
                     title: " Hover · Esc closes ".into(),
                     scroll: 0,
                     text: content_text(&response["contents"]),
-                });
-            }
-            "textDocument/completion" => {
-                if self.doc().cursor != request.cursor {
-                    return Ok(());
-                }
-                let mut items = response
-                    .as_array()
-                    .or_else(|| response["items"].as_array())
-                    .cloned()
-                    .unwrap_or_default();
-                items.sort_by(|a, b| {
-                    a["sortText"]
-                        .as_str()
-                        .or(a["label"].as_str())
-                        .cmp(&b["sortText"].as_str().or(b["label"].as_str()))
-                });
-                let items = items
-                    .into_iter()
-                    .take(300)
-                    .map(|item| LanguageItem {
-                        label: format!(
-                            "{}  {}",
-                            item["label"].as_str().unwrap_or("?"),
-                            item["detail"].as_str().unwrap_or("")
-                        ),
-                        action: LanguageAction::Completion {
-                            request: request.clone(),
-                            item,
-                        },
-                    })
-                    .collect();
-                self.modal = Some(Modal::Language {
-                    title: " Completion · arrows select · Enter applies · Esc closes ".into(),
-                    items,
-                    selected: 0,
                 });
             }
             "textDocument/definition" | "textDocument/references" => {

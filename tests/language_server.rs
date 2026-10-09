@@ -53,9 +53,7 @@ fn native_lsp_lifecycle_completion_formatting_and_stale_response() {
     until(&mut app, |a| matches!(a.modal, Some(Modal::Text { .. })));
     app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
     app.execute("editor.action.triggerSuggest", Value::Null);
-    until(&mut app, |a| {
-        matches!(a.modal, Some(Modal::Language { .. }))
-    });
+    until(&mut app, |a| a.suggestion_model().is_some());
     app.event(Event::Key(KeyEvent::new(
         KeyCode::Enter,
         KeyModifiers::NONE,

@@ -38,6 +38,7 @@ pub struct TextEdit {
 }
 #[derive(Clone, Debug)]
 pub struct Request {
+    pub(crate) token: u64,
     pub method: String,
     pub document_id: u64,
     pub revision: u64,
@@ -68,6 +69,7 @@ struct Synced {
     path: PathBuf,
 }
 pub struct Client {
+    identity: Arc<()>,
     transport: crate::transport::Process,
     pending: HashMap<u64, Request>,
     synced: HashMap<String, Synced>,
@@ -193,6 +195,7 @@ impl Client {
             crate::transport::Process::start(program, args, root)?
         };
         let client = Self {
+            identity: Arc::new(()),
             transport,
             pending: HashMap::new(),
             synced: HashMap::new(),
@@ -372,6 +375,7 @@ impl Client {
         self.pending.insert(
             id,
             Request {
+                token: id,
                 method: method.into(),
                 document_id: doc.id,
                 revision: doc.revision,
@@ -427,6 +431,7 @@ impl Client {
         self.pending.insert(
             id,
             Request {
+                token: id,
                 method: "workspace/symbol".into(),
                 document_id: 0,
                 revision: 0,
@@ -477,6 +482,7 @@ impl Client {
         self.next_id += 1;
         self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
         let mut request = original.clone();
+        request.token = id;
         request.method = method.into();
         request.started = Instant::now();
         self.pending.insert(id, request);
@@ -500,6 +506,32 @@ impl Client {
         for id in ids {
             self.pending.remove(&id);
             self.notify("$/cancelRequest", json!({"id":id}))?;
+        }
+        Ok(())
+    }
+    pub(crate) fn request_completion(
+        &mut self,
+        doc: &Document,
+        extra: Value,
+        view: Option<u64>,
+    ) -> Result<u64> {
+        let token = self.next_id;
+        self.request_in_view("textDocument/completion", doc, extra, view)?;
+        Ok(token)
+    }
+    pub(crate) fn identity(&self) -> Arc<()> {
+        self.identity.clone()
+    }
+    pub(crate) fn cancel_completions(&mut self) -> Result<()> {
+        let ids: Vec<_> = self
+            .pending
+            .iter()
+            .filter(|(_, request)| request.method == "textDocument/completion")
+            .map(|(id, _)| *id)
+            .collect();
+        for id in ids {
+            self.pending.remove(&id);
+            self.notify("$/cancelRequest", json!({"id": id}))?;
         }
         Ok(())
     }
