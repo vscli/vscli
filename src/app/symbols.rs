@@ -23,6 +23,7 @@ impl Context {
             documents: app
                 .documents
                 .iter()
+                .chain(&app.hidden_documents)
                 .map(|d| (d.id, d.revision, d.path.clone()))
                 .collect(),
             selections: app
@@ -102,7 +103,7 @@ impl App {
     }
     pub(super) fn start_symbols(&mut self, workspace: bool) {
         self.cancel_symbols();
-        if self.documents.len() > 128 {
+        if self.documents.len() + self.hidden_documents.len() > 128 {
             self.message = "Symbol navigation supports at most 128 open buffers".into();
             return;
         }
@@ -241,6 +242,11 @@ impl App {
             self.message = "No matching symbols".into();
             return;
         };
+        if let Err(error) = self.reveal_hidden_symbol(&symbol.path, &symbol.range) {
+            self.cancel_symbols();
+            self.message = format!("Symbol navigation: {error:#}");
+            return;
+        }
         if let Some(index) = self.symbol_document(&symbol.path) {
             let result = self.focus_symbol(index, &symbol.range);
             self.cancel_symbols();
@@ -259,6 +265,7 @@ impl App {
         let open: Vec<_> = self
             .documents
             .iter()
+            .chain(&self.hidden_documents)
             .filter_map(|d| d.path.clone())
             .collect();
         std::thread::spawn(move || {
@@ -273,6 +280,18 @@ impl App {
             symbol,
         });
         self.message = "Opening symbol file…".into();
+    }
+    fn reveal_hidden_symbol(&mut self, path: &Path, range: &lsp::Range) -> Result<()> {
+        if let Some(index) = self
+            .hidden_documents
+            .iter()
+            .position(|d| d.path.as_deref() == Some(path))
+        {
+            symbol_offset(&self.hidden_documents[index], range)?;
+            let doc = self.hidden_documents.remove(index);
+            self.install_open_document(doc);
+        }
+        Ok(())
     }
     fn symbol_document(&self, path: &Path) -> Option<usize> {
         let uri = lsp::file_uri(path).ok();
@@ -321,12 +340,17 @@ impl App {
                             .map_err(anyhow::Error::msg)
                             .and_then(|target| match target {
                                 Target::Open(path) => {
+                                    self.reveal_hidden_symbol(&path, &loader.symbol.range)?;
                                     let index = self
                                         .symbol_document(&path)
                                         .context("Resolved symbol buffer is no longer open")?;
                                     self.focus_symbol(index, &loader.symbol.range)
                                 }
                                 Target::Loaded(mut doc) => {
+                                    self.reveal_hidden_symbol(
+                                        doc.path.as_ref().context("Loaded symbol has no path")?,
+                                        &loader.symbol.range,
+                                    )?;
                                     if let Some(index) = self.symbol_document(
                                         doc.path.as_ref().context("Loaded symbol has no path")?,
                                     ) {

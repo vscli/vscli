@@ -247,7 +247,16 @@ impl Client {
         )
     }
     pub fn prepare(documents: &[Document], active: usize, settings: &Settings) -> Result<Prepared> {
-        let (mirror, state) = MirrorState::default().next(documents, active)?;
+        Self::prepare_with_hidden(documents, &[], active, settings)
+    }
+    pub fn prepare_with_hidden(
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+        settings: &Settings,
+    ) -> Result<Prepared> {
+        let refs: Vec<_> = documents.iter().chain(hidden).collect();
+        let (mirror, state) = MirrorState::default().next_refs(&refs, documents.get(active))?;
         Ok(Prepared {
             mirror,
             state,
@@ -453,7 +462,7 @@ impl Client {
         {
             bail!("Activation targets and owner must be selected");
         }
-        self.sync(documents, active)?;
+        self.sync_with_hidden(documents, &[], active)?;
         self.sync_configuration(settings)?;
         self.request(
             "activate",
@@ -520,27 +529,54 @@ impl Client {
         active: usize,
         settings: &Settings,
     ) -> Result<()> {
+        self.execute_with_hidden(command, args, documents, &[], active, settings)
+    }
+    pub fn execute_with_hidden(
+        &mut self,
+        command: &str,
+        args: Option<Value>,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+        settings: &Settings,
+    ) -> Result<()> {
         if !self.ready {
             bail!("Extension host is not ready");
         }
         if !self.commands.iter().any(|(_, id)| id == command) {
             bail!("Extension command is not registered: {command}");
         }
-        self.sync(documents, active)?;
+        self.sync_with_hidden(documents, hidden, active)?;
         self.sync_configuration(settings)?;
         let args: Vec<_> = args.into_iter().collect();
         self.request("execute", json!({"session":self.session, "owner":self.command_owners[command], "command":command, "args":args}))
     }
-    fn sync(&mut self, documents: &[Document], active: usize) -> Result<()> {
-        if MirrorState::stamp(documents, active) != self.mirror.last_stamp {
-            let (next, state) = self.mirror.next(documents, active)?;
+    pub(crate) fn sync_with_hidden(
+        &mut self,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+    ) -> Result<()> {
+        let refs: Vec<_> = documents.iter().chain(hidden).collect();
+        let active = documents.get(active);
+        if MirrorState::stamp_refs(&refs, active) != self.mirror.last_stamp {
+            let (next, state) = self.mirror.next_refs(&refs, active)?;
             self.process
                 .send(json!({"method":"state", "params":state}))?;
             self.mirror = next;
         }
         Ok(())
     }
+    #[cfg(test)]
     fn apply_edit(&self, edit: Edit, documents: &mut [Document]) -> Result<bool> {
+        self.apply_edit_with_hidden(edit, documents, &mut [])
+    }
+    fn apply_edit_with_hidden(
+        &self,
+        edit: Edit,
+        documents: &mut [Document],
+        hidden: &mut [Document],
+    ) -> Result<bool> {
         if self
             .validate_selected_owner(edit.session, &edit.owner)
             .is_err()
@@ -551,8 +587,16 @@ impl Client {
         let Some(mirror) = self.mirror.mirrors.get(&edit.document) else {
             return Ok(false);
         };
-        let total: usize = documents.iter().map(|d| d.text.len_bytes()).sum();
-        let Some(doc) = documents.iter_mut().find(|d| d.id == edit.document) else {
+        let total: usize = documents
+            .iter()
+            .chain(hidden.iter())
+            .map(|d| d.text.len_bytes())
+            .sum();
+        let Some(doc) = documents
+            .iter_mut()
+            .chain(hidden.iter_mut())
+            .find(|d| d.id == edit.document)
+        else {
             return Ok(false);
         };
         if edit.version != mirror.version
@@ -613,7 +657,16 @@ impl Client {
         active: usize,
         settings: &Settings,
     ) -> Result<Vec<String>> {
-        self.sync(documents, active)?;
+        self.poll_with_hidden(documents, &mut [], active, settings)
+    }
+    pub fn poll_with_hidden(
+        &mut self,
+        documents: &mut [Document],
+        hidden: &mut [Document],
+        active: usize,
+        settings: &Settings,
+    ) -> Result<Vec<String>> {
+        self.sync_with_hidden(documents, hidden, active)?;
         self.sync_configuration(settings)?;
         if self.ready
             && self.pending.is_empty()
@@ -652,12 +705,14 @@ impl Client {
                         } else {
                             serde_json::from_value::<Edit>(message["params"].take())
                                 .map_err(anyhow::Error::from)
-                                .and_then(|edit| self.apply_edit(edit, documents))
+                                .and_then(|edit| {
+                                    self.apply_edit_with_hidden(edit, documents, hidden)
+                                })
                         };
                         match result {
                             Ok(applied) => {
                                 // Ordered notifications precede the acknowledgement.
-                                self.sync(documents, active)?;
+                                self.sync_with_hidden(documents, hidden, active)?;
                                 self.process.send(
                                     json!({"id":message["id"], "result":{"applied":applied}}),
                                 )?;
@@ -800,17 +855,25 @@ struct MirrorState {
     last_stamp: Value,
 }
 impl MirrorState {
-    fn stamp(documents: &[Document], active: usize) -> Value {
+    fn stamp_refs(documents: &[&Document], active: Option<&Document>) -> Value {
         json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.path, d.dirty()])).collect::<Vec<_>>(),
-            "active": documents.get(active).map(|d| d.id), "selections": documents.get(active).map(selections)})
+            "active": active.map(|d| d.id), "selections": active.map(selections)})
     }
+    #[cfg(test)]
     fn next(&self, documents: &[Document], active: usize) -> Result<(Self, Value)> {
+        self.next_refs(&documents.iter().collect::<Vec<_>>(), documents.get(active))
+    }
+    fn next_refs(
+        &self,
+        documents: &[&Document],
+        active: Option<&Document>,
+    ) -> Result<(Self, Value)> {
         // Only publish the new baseline after the transport accepts the update.
         let mut next = self.clone();
         let state = next.state(documents, active)?;
         Ok((next, state))
     }
-    fn state(&mut self, documents: &[Document], active: usize) -> Result<Value> {
+    fn state(&mut self, documents: &[&Document], active: Option<&Document>) -> Result<Value> {
         if documents.iter().map(|d| d.text.len_bytes()).sum::<usize>() > MAX_DOCUMENT_BYTES {
             bail!(
                 "Extension document mirrors currently support at most 4 MiB total; native editing remains available"
@@ -847,10 +910,10 @@ impl MirrorState {
         let ids: HashSet<_> = documents.iter().map(|d| d.id).collect();
         self.mirrors.retain(|id, _| ids.contains(id));
         self.generation += 1;
-        self.last_stamp = Self::stamp(documents, active);
+        self.last_stamp = Self::stamp_refs(documents, active);
         Ok(
-            json!({"generation":self.generation, "documents":snapshots, "active":documents.get(active).map(|d|d.id),
-            "selections":documents.get(active).map(selections).unwrap_or_default()}),
+            json!({"generation":self.generation, "documents":snapshots, "active":active.map(|d|d.id),
+            "selections":active.map(selections).unwrap_or_default()}),
         )
     }
 }
@@ -868,6 +931,22 @@ fn selections(doc: &Document) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn hidden_models_have_no_active_editor_and_keep_versions_when_shown() {
+        let hidden = vec![Document::from_text("hidden α\r\n")];
+        let id = hidden[0].id;
+        let initial = Client::prepare_with_hidden(&[], &hidden, 0, &Settings::default()).unwrap();
+        assert!(initial.state["active"].is_null());
+        assert_eq!(initial.state["selections"], json!([]));
+        assert_eq!(initial.state["documents"][0]["id"], id);
+        let (shown, state) = initial.mirror.next(&hidden, 0).unwrap();
+        assert_eq!(state["active"], id);
+        assert_eq!(state["documents"][0]["version"], 1);
+        assert!(state["documents"][0].get("text").is_none());
+        assert_eq!(shown.mirrors.len(), 1);
+        let huge = vec![Document::from_text(&"x".repeat(MAX_DOCUMENT_BYTES))];
+        assert!(Client::prepare_with_hidden(&huge, &hidden, 0, &Settings::default()).is_err());
+    }
     #[test]
     fn cursor_updates_are_bounded_metadata_and_edits_only_send_changed_documents() {
         let mut docs = vec![
@@ -929,7 +1008,10 @@ mod tests {
         docs[0].insert("transient", false);
         docs[0].undo();
         assert_eq!(docs[0].revision, revision);
-        assert_ne!(MirrorState::stamp(&docs, 0), first.last_stamp);
+        assert_ne!(
+            MirrorState::stamp_refs(&docs.iter().collect::<Vec<_>>(), docs.first()),
+            first.last_stamp
+        );
         let (second, restored) = first.next(&docs, 0).unwrap();
         assert_eq!(restored["documents"][0]["version"], 2);
         assert_eq!(restored["documents"][0]["text"], "猫\r\n🙂");

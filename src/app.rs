@@ -425,6 +425,7 @@ pub struct App {
     pub horizontal_split: bool,
     next_pane_id: u64,
     pub documents: Vec<Document>,
+    pub(crate) hidden_documents: Vec<Document>,
     pub active: usize,
     pub workspace: Workspace,
     pub keymap: Keymap,
@@ -506,6 +507,7 @@ impl App {
             horizontal_split: false,
             next_pane_id: 2,
             documents: Vec::new(),
+            hidden_documents: Vec::new(),
             active: 0,
             workspace: Workspace::new(root.clone()),
             watch: crate::watch::State::new(root.clone()),
@@ -588,7 +590,7 @@ impl App {
                     self.settings_error = None;
                     if settings != self.settings {
                         self.settings = settings;
-                        for doc in &mut self.documents {
+                        for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
                             self.settings.apply(doc);
                         }
                         self.message = format!(
@@ -637,6 +639,12 @@ impl App {
         }
         changed
     }
+    pub fn recovery_documents(&self) -> Vec<&Document> {
+        self.documents
+            .iter()
+            .chain(self.hidden_documents.iter().filter(|doc| doc.dirty()))
+            .collect()
+    }
     pub fn active_document(&self) -> Option<&Document> {
         self.documents.get(self.active)
     }
@@ -655,7 +663,7 @@ impl App {
                 return Err(error);
             }
         };
-        for doc in &mut self.documents {
+        for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
             self.settings.apply(doc);
         }
         if !self.settings.warnings.is_empty() {
@@ -687,12 +695,30 @@ impl App {
             self.remember_active_file();
             return Ok(());
         }
+        if let Some(index) = self
+            .hidden_documents
+            .iter()
+            .position(|doc| doc.path.as_ref() == Some(&path))
+        {
+            let doc = self.hidden_documents.remove(index);
+            self.install_open_document(doc);
+            return Ok(());
+        }
         let mut d = Document::open(&path)?;
         self.settings.apply(&mut d);
         self.install_open_document(d);
         Ok(())
     }
     fn install_open_document(&mut self, d: Document) {
+        let d = if let Some(index) = self
+            .hidden_documents
+            .iter()
+            .position(|doc| doc.path == d.path)
+        {
+            self.hidden_documents.remove(index)
+        } else {
+            d
+        };
         if let Some(index) = self.documents.iter().position(|old| old.path == d.path) {
             self.active = index;
         } else if self.documents.len() == 1
@@ -1552,6 +1578,16 @@ impl App {
     }
     fn request_close(&mut self, action: AfterSave) {
         if matches!(action, AfterSave::Quit | AfterSave::CloseAll) {
+            // Hidden models remain authoritative native buffers. Bring dirty
+            // models into the existing Save/Discard/Cancel flow before exit.
+            let mut index = 0;
+            while index < self.hidden_documents.len() {
+                if self.hidden_documents[index].dirty() {
+                    self.documents.push(self.hidden_documents.remove(index));
+                } else {
+                    index += 1;
+                }
+            }
             if let Some(index) = self.documents.iter().position(Document::dirty) {
                 self.active = index;
             } else {
@@ -2414,6 +2450,36 @@ mod tests {
     use super::*;
     fn key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         app.event(Event::Key(KeyEvent::new(code, modifiers)));
+    }
+    #[test]
+    fn hidden_dirty_models_reuse_identity_and_require_close_confirmation() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("hidden.txt");
+        std::fs::write(&path, "original").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let mut hidden = Document::open_existing(&path).unwrap();
+        let id = hidden.id;
+        let canonical = hidden.path.clone().unwrap();
+        hidden.insert("unsaved ", false);
+        app.hidden_documents.push(hidden);
+        assert!(app.active_document().is_none());
+        assert!(app.panes.is_empty());
+        assert_eq!(app.recovery_documents().len(), 1);
+        std::fs::remove_file(&path).unwrap();
+        app.open(&canonical).unwrap();
+        assert_eq!(app.doc().id, id);
+        assert!(app.hidden_documents.is_empty());
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "original");
+        app.doc_mut().redo();
+        app.hidden_documents.push(app.documents.remove(0));
+        app.sync_pane();
+        app.request_close(AfterSave::Quit);
+        assert_eq!(app.doc().id, id);
+        assert!(matches!(app.modal, Some(Modal::Confirm(AfterSave::Quit))));
+        app.modal_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+        assert!(app.running);
+        assert_eq!(app.doc().text.to_string(), "unsaved original");
     }
     #[test]
     fn extension_picker_grants_require_plain_or_shift_keys() {

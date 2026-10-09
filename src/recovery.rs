@@ -36,6 +36,9 @@ impl Serialize for SharedText {
 
 impl Session<SharedText> {
     fn capture(documents: &[Document]) -> Self {
+        Self::capture_refs(documents.iter().collect::<Vec<_>>().as_slice())
+    }
+    fn capture_refs(documents: &[&Document]) -> Self {
         Self {
             version: 1,
             documents: documents
@@ -229,6 +232,9 @@ impl Worker {
     /// Capture only cheap shared ropes and metadata on the input thread. An
     /// acknowledgement records the submitted revisions, never the current ones.
     pub fn submit(&mut self, documents: &[Document]) -> Result<bool> {
+        self.submit_refs(&documents.iter().collect::<Vec<_>>())
+    }
+    pub fn submit_refs(&mut self, documents: &[&Document]) -> Result<bool> {
         if self.pending {
             return Ok(false);
         }
@@ -244,7 +250,7 @@ impl Worker {
             .context("Recovery worker already closed")?
             .try_send(Request {
                 signature,
-                session: Session::capture(documents),
+                session: Session::capture_refs(documents),
             })
             .map_err(|_| anyhow::anyhow!("Recovery worker cannot accept a snapshot"))?;
         self.pending = true;
@@ -262,8 +268,12 @@ impl Worker {
     }
     /// Interruption must write the latest state after all earlier writes finish.
     /// This deliberately waits during shutdown, outside the interactive loop.
-    pub fn preserve(mut self, documents: &[Document]) -> Result<()> {
-        self.join()?.persist(documents)
+    pub fn preserve(self, documents: &[Document]) -> Result<()> {
+        self.preserve_refs(&documents.iter().collect::<Vec<_>>())
+    }
+    pub fn preserve_refs(mut self, documents: &[&Document]) -> Result<()> {
+        self.join()?
+            .persist_snapshot(&Session::capture_refs(documents))
     }
     /// Normal confirmed exit removes the journal only after the worker stops.
     pub fn finish(mut self) -> Result<()> {

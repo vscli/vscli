@@ -101,6 +101,15 @@ impl App {
         }
     }
     fn focus_existing_navigation(&mut self, path: &Path) -> bool {
+        if let Some(index) = self
+            .hidden_documents
+            .iter()
+            .position(|doc| doc.path.as_deref() == Some(path))
+        {
+            let doc = self.hidden_documents.remove(index);
+            self.install_open_document(doc);
+            return true;
+        }
         let Some(index) = self
             .documents
             .iter()
