@@ -1,5 +1,6 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
 mod prompts;
+pub(crate) mod providers;
 pub(crate) mod services;
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
@@ -195,6 +196,7 @@ pub struct ActivationRequest {
     pub owner: Option<String>,
 }
 pub struct Client {
+    providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
     state_store: Option<crate::extension_state::Store>,
     // Drop the process before deleting its embedded runtime files on Windows.
@@ -338,6 +340,7 @@ impl Client {
             root,
         )?;
         let mut client = Self {
+            providers: providers::State::default(),
             services: services::empty_queue(),
             state_store,
             process,
@@ -366,7 +369,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -759,6 +762,15 @@ impl Client {
                             )?,
                         }
                     }
+                    "languageProviders" => {
+                        if message["params"]["session"].as_u64() != Some(self.session) {
+                            continue;
+                        }
+                        if !self.ready {
+                            bail!("Language providers arrived before activation completed");
+                        }
+                        self.register_language_providers(message["params"]["providers"].take())?;
+                    }
                     "commands" => {
                         if message["params"]["session"].as_u64() != Some(self.session) {
                             continue;
@@ -791,6 +803,10 @@ impl Client {
             } else if let Some(id) = message["id"].as_u64()
                 && let Some(pending) = self.pending.remove(&id)
             {
+                if pending.method == "provideLanguage" {
+                    self.provider_response(id, message)?;
+                    continue;
+                }
                 if !message["error"].is_null() {
                     let error = message["error"]["message"]
                         .as_str()
@@ -860,6 +876,11 @@ impl Client {
                     self.binding_sets = Some(bindings);
                     self.register_commands(result["commands"].clone())?;
                     self.register_activation(&result["activation"])?;
+                    self.register_language_providers(
+                        result["languageProviders"]
+                            .as_array()
+                            .map_or_else(|| json!([]), |v| json!(v)),
+                    )?;
                     self.ready = true;
                     messages.push(format!(
                         "Extension ready: {} ({} commands)",
@@ -870,6 +891,7 @@ impl Client {
             }
         }
         self.expire_prompts()?;
+        self.expire_language_providers()?;
         if self.process.exited() {
             bail!("Extension process exited\n{}", self.process.stderr_tail());
         }

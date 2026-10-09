@@ -19,24 +19,35 @@ struct DocumentContext {
     selections: Vec<crate::document::Selection>,
 }
 #[derive(Clone, PartialEq)]
-struct Context {
+pub(super) struct Context {
     epoch: u64,
     workspace: PathBuf,
     focus: Focus,
     active: Option<u64>,
     panes: Vec<(u64, u64)>,
+    pane_selections: Vec<(usize, Option<usize>, Vec<crate::document::Selection>)>,
     active_pane: usize,
     visible: usize,
     documents: Vec<DocumentContext>,
 }
 impl Context {
-    fn capture(app: &App) -> Self {
+    pub(super) fn capture(app: &App) -> Self {
         Self {
             epoch: app.extension_services.epoch,
             workspace: app.workspace.root.clone(),
             focus: app.focus.clone(),
             active: app.active_document().map(|doc| doc.id),
             panes: app.panes.iter().map(|p| (p.id, p.document)).collect(),
+            pane_selections: app
+                .panes
+                .iter()
+                .filter_map(|p| {
+                    app.documents.iter().find(|d| d.id == p.document).map(|d| {
+                        let view = d.view_state(Some(p.id));
+                        (view.cursor, view.anchor, view.secondary.clone())
+                    })
+                })
+                .collect(),
             active_pane: app.active_pane,
             visible: app.documents.len(),
             documents: app
@@ -53,6 +64,13 @@ impl Context {
                 })
                 .collect(),
         }
+    }
+    pub(super) fn same_editor(&self, app: &App) -> bool {
+        app.documents.len() + app.hidden_documents.len() <= MAX_MODELS
+            && self == &Self::capture(app)
+    }
+    pub(super) fn accept_next_interaction(&mut self) {
+        self.epoch = self.epoch.wrapping_add(1);
     }
     fn valid(&self, app: &App) -> bool {
         app.documents.len() + app.hidden_documents.len() <= MAX_MODELS

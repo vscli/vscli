@@ -35,6 +35,9 @@ pub(super) struct State {
 }
 impl App {
     pub(super) fn has_signature_provider(&self) -> bool {
+        if self.has_extension_provider(crate::extension_providers::Kind::Signature) {
+            return true;
+        }
         self.active_document()
             .and_then(|doc| doc.path.as_ref())
             .is_some_and(|path| {
@@ -49,6 +52,9 @@ impl App {
     }
 
     pub fn signature_help(&self) -> Option<&Hint> {
+        if let Some(hint) = self.extension_signature_help() {
+            return Some(hint);
+        }
         self.signature
             .context
             .as_ref()
@@ -56,6 +62,7 @@ impl App {
             .and(self.signature.hint.as_ref())
     }
     pub(super) fn clear_signature(&mut self) {
+        self.clear_extension_signature();
         self.signature = State::default();
         if let Some(client) = &mut self.lsp {
             let _ = client.cancel_signature_help();
@@ -76,6 +83,9 @@ impl App {
     }
     pub(super) fn request_signature(&mut self) {
         self.clear_signature();
+        if self.extension_language_request("textDocument/signatureHelp", json!({})) {
+            return;
+        }
         if self.active_document().is_none() {
             self.message = "Open a file before requesting parameter hints".into();
             return;

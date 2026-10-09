@@ -3,6 +3,7 @@ mod debugger;
 mod extension_activation;
 mod extension_management;
 mod extension_prompts;
+mod extension_providers;
 mod extension_services;
 mod extensions;
 mod files;
@@ -428,6 +429,7 @@ pub struct App {
     pub documents: Vec<Document>,
     pub(crate) hidden_documents: Vec<Document>,
     extension_services: extension_services::State,
+    extension_providers: extension_providers::State,
     pub active: usize,
     pub workspace: Workspace,
     pub keymap: Keymap,
@@ -511,6 +513,7 @@ impl App {
             documents: Vec::new(),
             hidden_documents: Vec::new(),
             extension_services: extension_services::State::default(),
+            extension_providers: extension_providers::State::default(),
             active: 0,
             workspace: Workspace::new(root.clone()),
             watch: crate::watch::State::new(root.clone()),
@@ -621,6 +624,7 @@ impl App {
         changed |= self.poll_extension_management();
         changed |= self.poll_extensions();
         changed |= self.poll_extension_activation();
+        changed |= self.poll_extension_providers();
         changed |= self.poll_snippet();
         changed |= self.poll_snippet_catalog();
         changed |= self.poll_theme();
@@ -910,6 +914,7 @@ impl App {
     }
 
     pub fn event(&mut self, event: Event) {
+        self.provider_ui_event(&event);
         if matches!(&event, Event::Key(key) if key.kind != KeyEventKind::Release)
             || matches!(&event, Event::Paste(_))
             || matches!(&event, Event::Mouse(mouse) if mouse.kind != MouseEventKind::Moved)

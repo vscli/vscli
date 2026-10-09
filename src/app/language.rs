@@ -7,6 +7,10 @@ pub struct LanguageItem {
     pub action: LanguageAction,
 }
 pub enum LanguageAction {
+    Provider {
+        ticket: crate::extensions::providers::Ticket,
+        item: Value,
+    },
     Location {
         path: PathBuf,
         range: lsp::Range,
@@ -75,6 +79,9 @@ impl App {
         }
     }
     pub(super) fn language_request(&mut self, method: &str, extra: Value) {
+        if self.extension_language_request(method, extra.clone()) {
+            return;
+        }
         let Some(client) = self.lsp.as_mut() else {
             self.message =
                 "Language server not ready; use Language: Server Status or Language: Restart Server"
@@ -281,6 +288,9 @@ impl App {
     }
     pub(super) fn language_action(&mut self, action: &LanguageAction) -> Result<()> {
         match action {
+            LanguageAction::Provider { ticket, item } => {
+                self.apply_provider_action(ticket, item)?
+            }
             LanguageAction::CodeAction { request, item } => {
                 self.apply_code_action(request, item, false)?
             }
@@ -419,7 +429,7 @@ impl App {
         });
     }
 }
-fn content_text(value: &Value) -> String {
+pub(super) fn content_text(value: &Value) -> String {
     if let Some(text) = value.as_str() {
         text.to_owned()
     } else if let Some(items) = value.as_array() {
