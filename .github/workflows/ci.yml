@@ -190,3 +190,35 @@ jobs:
       - run: cargo test --locked --test extension_prompts -- --ignored
         env:
           VSCLI_TEST_LOREM_IPSUM: ${{ github.workspace }}/target/lorem-ipsum-upstream
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ChristianKohler/NpmIntellisense
+          ref: bc5521b659b700c8a91cf04897007c611ed9532a # 1.4.5, MIT
+          path: target/npm-intellisense-upstream
+          persist-credentials: false
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: target/npm-intellisense-upstream
+      - run: npm run compile
+        working-directory: target/npm-intellisense-upstream
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: sql-formatter-org/sql-formatter-vscode
+          ref: a9988c9e667efca000d17995dae742c9efcdcec8 # 4.2.6, MIT
+          path: target/sql-formatter-upstream
+          persist-credentials: false
+      - run: npm exec --yes --package=yarn@1.22.22 -- yarn install --frozen-lockfile --ignore-scripts --non-interactive
+        working-directory: target/sql-formatter-upstream
+      - run: npm run build
+        working-directory: target/sql-formatter-upstream
+      - name: Qualify unchanged language-provider packages against native buffers
+        run: cargo test --locked --test extension_provider_corpus -- --ignored
+        env:
+          VSCLI_NPM_INTELLISENSE: ${{ github.workspace }}/target/npm-intellisense-upstream
+          VSCLI_SQL_FORMATTER: ${{ github.workspace }}/target/sql-formatter-upstream
+      - run: cargo build --locked
+      - name: Qualify unchanged language-provider packages in the terminal
+        timeout-minutes: 2
+        run: python3 -u tests/extension_provider_corpus_pty.py target/debug/vscli
+        env:
+          VSCLI_NPM_INTELLISENSE: ${{ github.workspace }}/target/npm-intellisense-upstream
+          VSCLI_SQL_FORMATTER: ${{ github.workspace }}/target/sql-formatter-upstream
