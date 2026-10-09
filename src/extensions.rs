@@ -299,6 +299,14 @@ impl Client {
                 include_str!("../extension-host/api-types.cjs"),
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
+            (
+                "provider-types.cjs",
+                include_str!("../extension-host/provider-types.cjs"),
+            ),
+            (
+                "providers.cjs",
+                include_str!("../extension-host/providers.cjs"),
+            ),
             ("prompts.cjs", include_str!("../extension-host/prompts.cjs")),
             (
                 "document-services.cjs",

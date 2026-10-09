@@ -63,7 +63,7 @@ jobs:
         with:
           node-version: '24'
       - run: node --test extension-host/api-types.test.cjs extension-host/api.test.cjs extension-host/configuration.test.cjs extension-host/host.test.cjs extension-host/prompts.test.cjs extension-host/activation.test.cjs extension-host/activation-host.test.cjs extension-host/document-services.test.cjs extension-host/memento.test.cjs
-      - run: node --test extension-host/providers.test.cjs
+      - run: node --test extension-host/providers.test.cjs extension-host/provider-wire.test.cjs
       - run: cargo test --locked
       - run: cargo build --locked
       - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs

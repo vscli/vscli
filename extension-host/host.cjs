@@ -16,7 +16,7 @@ const { createActivation } = require('./activation.cjs');
 // Console output from extensions must never corrupt the protocol stream.
 global.console = new Console(process.stderr, process.stderr);
 const MAX = 16 * 1024 * 1024;
-let buffer = Buffer.alloc(0), nextId = 0, initialized = false, ready = false, runtime, activation, session, root, configuration, activating = 0, activationBusy = false;
+let buffer = Buffer.alloc(0), nextId = 0, initialized = false, ready = false, runtime, activation, session, root, configuration, activating = 0, activationBusy = false, languageProviders = false;
 const pending = new Map(), packages = [];
 function send(message) {
   const body = Buffer.from(JSON.stringify(message));
@@ -136,6 +136,7 @@ function activationHooks() {
       if (ready && !activating) {
         send({ method: 'activation', params: { session, activation: activation.statuses() } });
         send({ method: 'commands', params: { session, commands: runtime.commandSnapshot() } });
+        if (languageProviders) send({ method: 'languageProviders', params: { session, providers: runtime.providerSnapshot() } });
       }
     },
     listenerError: error => console.error(error),
@@ -151,6 +152,7 @@ async function activateBatch(message, targets) {
 }
 function snapshot() {
   return { protocol: 4, session, commands: runtime.commandSnapshot(), activation: activation.statuses(),
+    ...(languageProviders ? { languageProviders: runtime.providerSnapshot() } : {}),
     extensions: packages.map(item => ({ id: item.id, version: item.manifest.version,
       keybindings: item.manifest.contributes?.keybindings || [], contributions: item.manifest.contributes?.commands || [] })) };
 }
@@ -169,12 +171,12 @@ async function dispatch(message) {
       case 'initialize': {
         if (message.params.protocol !== 4) throw new Error('Unsupported native protocol version');
         if (initialized) throw new Error('Extension host already initialized');
-        initialized = true; session = message.params.session;
+        initialized = true; session = message.params.session; languageProviders = message.params.languageProviders === true;
         packages.push(...prepare(message.params.extensions));
         runtime = createApi(request, (method, params) => {
           // A failed startup must never publish partially activated command registries.
-          if (method !== 'commands' || (ready && !activating)) send({ method, params });
-        }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState });
+          if (!['commands', 'languageProviders'].includes(method) || (ready && !activating)) send({ method, params });
+        }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders });
         const schemas = packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration)
           ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
         root = message.params.root; configuration = message.params.configuration;
@@ -209,6 +211,13 @@ async function dispatch(message) {
         if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');
         if (!runtime.commandSnapshot().some(item => item.id === message.params.command && item.owner === message.params.owner)) throw new Error('Extension command owner changed');
         result = await inExecution(message.id, message.params.owner, () => runtime.api.commands.executeCommand(message.params.command, ...message.params.args));
+        break;
+      case 'provideLanguage':
+        if (!ready || message.params.session !== session || !packages.some(item => item.id === message.params.owner)) throw new Error('Language provider session/owner is not ready');
+        result = await inExecution(message.id, message.params.owner, () => runtime.provideLanguage({ ...message.params, request: message.id }));
+        break;
+      case 'cancelLanguageProvider':
+        runtime?.cancelLanguageProvider(message.params);
         break;
       case 'ping':
         if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');
