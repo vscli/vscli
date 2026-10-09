@@ -57,6 +57,14 @@ struct Registry {
 pub struct Store {
     root: PathBuf,
 }
+struct OperationLock(File);
+impl Drop for OperationLock {
+    fn drop(&mut self) {
+        // A concurrently spawned process may inherit the open description until
+        // exec despite CLOEXEC. Close alone can leave that inherited lock held.
+        let _ = self.0.unlock();
+    }
+}
 impl Store {
     pub fn new(root: PathBuf) -> Self {
         Self { root }
@@ -91,7 +99,7 @@ impl Store {
         }
         Ok(registry)
     }
-    fn lock(&self) -> Result<File> {
+    fn lock(&self) -> Result<OperationLock> {
         fs::create_dir_all(&self.root)?;
         let lock = OpenOptions::new()
             .create(true)
@@ -101,7 +109,7 @@ impl Store {
             .open(self.root.join(".lock"))?;
         lock.try_lock()
             .context("Another extension operation is running; retry when it finishes")?;
-        Ok(lock)
+        Ok(OperationLock(lock))
     }
     fn write_registry(&self, registry: &Registry) -> Result<()> {
         let mut temp = tempfile::NamedTempFile::new_in(&self.root)?;
@@ -478,5 +486,29 @@ impl Seek for ValidatedArchive<'_> {
             }
         }
         Ok(offset)
+    }
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::*;
+
+    #[test]
+    fn operation_unlocks_even_when_an_open_description_is_still_retained() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::new(temp.path().join("store"));
+        let operation = store.lock().unwrap();
+        // try_clone shares the open description, as an inherited descriptor does
+        // between fork and exec. Keep it alive through two separate operations.
+        let retained = operation.0.try_clone().unwrap();
+        assert!(store.lock().is_err());
+        drop(operation);
+        let next = store.lock().expect("finished operation releases its lock");
+        assert!(store.lock().is_err());
+        drop(next);
+        store
+            .lock()
+            .expect("second operation also releases its lock");
+        assert!(retained.metadata().unwrap().is_file());
     }
 }
