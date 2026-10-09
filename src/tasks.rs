@@ -25,6 +25,12 @@ pub struct Variables<'a> {
 }
 pub fn load(root: &Path) -> Result<Vec<Task>> {
     let path = root.join(".vscode/tasks.json");
+    if !std::fs::metadata(&path)
+        .with_context(|| format!("Cannot read {}", path.display()))?
+        .is_file()
+    {
+        bail!("tasks.json must be a regular file");
+    }
     let file = std::fs::File::open(&path).with_context(|| {
         format!(
             "Cannot read {}; create a VS Code tasks.json with shell/process tasks",

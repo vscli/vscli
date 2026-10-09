@@ -40,6 +40,12 @@ const SUPPORTED: &[&str] = &[
     "workbench.colorTheme",
 ];
 fn read(path: &Path) -> Result<Map<String, Value>> {
+    match std::fs::metadata(path) {
+        Ok(metadata) if !metadata.is_file() => bail!("Settings must be a regular file"),
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Map::new()),
+        Err(error) => return Err(error).with_context(|| format!("Cannot read {}", path.display())),
+    }
     let file = match File::open(path) {
         Ok(file) => file,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Map::new()),
