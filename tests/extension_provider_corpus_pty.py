@@ -55,9 +55,8 @@ def run(root):
     app.send(CTRL_S)
     eventually(lambda: app.read() and source.read_bytes() != original.encode())
     formatted = source.read_bytes()
-    assert b'\r\n' in formatted
-    assert b'\n' not in formatted.replace(b'\r\n', b'')
-    assert '🙂'.encode() in formatted and b'users' in formatted
+    expected = ("select\r\n    '🙂' as greeting,\r\n    id\r\nfrom\r\n    users\r\nwhere\r\n    id = 1;\r\n")
+    assert formatted == expected.encode(), repr(formatted)
     app.send(CTRL_Z)
     save(app, source, original)
     app.finish()
