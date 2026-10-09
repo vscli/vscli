@@ -665,6 +665,41 @@ mod tests {
         assert_eq!(app.doc().text.to_string(), "sel 🙂\r\nfrom table;\r\n");
     }
     #[test]
+    fn rejected_popup_edit_retires_its_provider_lease_without_changing_bytes_or_undo() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        app.doc_mut().move_to(3, false);
+        app.doc_mut().insert("x", false);
+        app.doc_mut().undo();
+        let id = app.doc().id;
+        let before = app.doc().text.to_string();
+        let selections = app.doc().selections();
+        app.settings = crate::settings::Settings::from_values(
+            serde_json::from_value(json!({"fixture.badCompletion":true})).unwrap(),
+            "invalid popup completion fixture",
+        )
+        .unwrap();
+        request(&mut app, Kind::Completion);
+        assert!(app.suggestion_acceptable());
+        app.event(Event::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)));
+        assert!(
+            app.message.starts_with("Suggestion rejected:"),
+            "{}",
+            app.message
+        );
+        assert!(app.extension_providers.lease.is_none());
+        assert!(app.suggestion_model().is_none());
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), before);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            before.as_bytes()
+        );
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "selx 🙂\r\nfrom table;\r\n");
+    }
+    #[test]
     fn all_seven_native_provider_workflows_keep_crlf_identity_and_undo() {
         let root = tempfile::tempdir().unwrap();
         let mut app = app(root.path());

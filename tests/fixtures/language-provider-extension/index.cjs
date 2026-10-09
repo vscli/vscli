@@ -6,6 +6,9 @@ exports.activate = () => {
     provideCompletionItems(doc, position) {
       const item = new v.CompletionItem('SELECT', v.CompletionItemKind.Keyword);
       item.range = new v.Range(0, 0, 0, 3); item.insertText = 'SELECT';
+      if (v.workspace.getConfiguration('fixture').get('badCompletion', false)) {
+        item.additionalTextEdits = [v.TextEdit.replace(new v.Range(0, 0, 0, 1), 'overlap')];
+      }
       return [item];
     }
   });
