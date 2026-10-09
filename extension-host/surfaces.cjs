@@ -17,7 +17,7 @@ const enums = Object.freeze({ StatusBarAlignment: Object.freeze({ Left: 1, Right
   TreeItemCollapsibleState: Object.freeze({ None: 0, Collapsed: 1, Expanded: 2 }), ThemeColor, TreeItem });
 function createSurfaces(notify, session, track, execute, assertOwner = () => {}) {
   const channels = new Map(), statuses = new Map(), views = new Map(), declared = new Map();
-  let sequence = 0;
+  let sequence = 0, treeCallbackPending = false;
   function send(owner, id, op, data = {}) {
     if (!op.endsWith('Dispose')) assertOwner(owner);
     notify('nativeSurface', { session, owner, id, op, ...data });
@@ -149,15 +149,32 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
     return view;
   }
   async function treeChildren(params) {
-    const view = getView(params), generation = view.generation;
+    const view = getView(params);
+    if (treeCallbackPending) throw new Error('A tree provider callback is still running; wait for it to settle or restart the extension host');
+    // A caller timeout, refresh or disposal cannot cancel extension promises.
+    // Retain one shared slot until the actual callback chain has settled.
+    treeCallbackPending = true;
+    try { return await loadTreeChildren(params, view); }
+    finally { treeCallbackPending = false; }
+  }
+  async function loadTreeChildren(params, view) {
+    const generation = view.generation;
+    function current() {
+      assertOwner(view.owner);
+      if (views.get(view.id) !== view || view.disposed || view.generation !== generation) throw new Error('Tree changed while children were loading');
+    }
     const parent = params.node === undefined ? undefined : view.handles.get(params.node);
     if (params.node !== undefined && !parent) throw new Error('Unknown native tree node');
+    current();
     const children = await view.provider.getChildren(parent?.element) ?? [];
+    current();
     if (!Array.isArray(children) || children.length > limits.children) throw new Error('Native tree children exceed 256 items');
     const prepared = [], seen = new Set();
     let bytes = 0;
     for (const element of children) {
+      current();
       const item = await view.provider.getTreeItem(element);
+      current();
       if (!item || ![undefined, 0, 1, 2].includes(item.collapsibleState) || item.checkboxState !== undefined) throw new Error('Unsupported native tree item');
       let label = typeof item.label === 'object' ? item.label?.label : item.label;
       if (!label && item.resourceUri instanceof Uri) label = require('node:path').basename(item.resourceUri.fsPath);
@@ -173,7 +190,7 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
       seen.add(element);
       prepared.push({ element, explicit, action, label, description, tooltip, collapsible: item.collapsibleState || 0 });
     }
-    if (view.disposed || view.generation !== generation) throw new Error('Tree changed while children were loading');
+    current();
     // Never overwrite an old handle: native validation can reject a new batch,
     // in which case the previously rendered actions must retain their meaning.
     if (view.handles.size + prepared.length > limits.handles) throw new Error('Native tree handle budget exceeded');
