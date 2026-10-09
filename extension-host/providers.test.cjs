@@ -179,3 +179,113 @@ test('deprecated completion textEdit retains original replacement range and prec
   assert.equal(result.insertText, 'actual'); assert.equal(result.insertTextFormat, undefined);
   assert.deepEqual(result.textEdit.range, { start: new Position(0, 0), end: new Position(0, 4) });
 });
+
+test('completion resolve retains exact original object identity without serializing opaque data', async () => {
+  const { providers, request } = fixture(); const item = new types.CompletionItem('名字');
+  item.insertText = new types.SnippetString('${1:猫}$0'); item.data = { callback: () => 'opaque' }; item.data.self = item.data;
+  let resolved = 0;
+  providers.forOwner('test.extension').registerCompletionItemProvider('cpp', {
+    provideCompletionItems: () => [item],
+    resolveCompletionItem(original, token) {
+      assert.equal(original, item); assert.equal(original.data.callback(), 'opaque'); assert.equal(token.isCancellationRequested, false);
+      resolved++; original.documentation = new types.MarkdownString('**documentation**'); original.detail = 'resolved';
+      original.additionalTextEdits = [types.TextEdit.insert(new Position(1, 0), '#include <猫>\r\n')]; return original;
+    },
+  });
+  const params = { ...request(providers.snapshot()[0].id), request: 10 };
+  assert.equal(providers.snapshot()[0].resolves, true);
+  const completion = await providers.provide(params), wire = completion.items[0];
+  assert.equal(wire.insertTextFormat, 2); assert.equal(wire.data, undefined);
+  const result = await providers.resolveCompletion({ ...params, origin: 10, request: 11, handle: wire._vscliCompletionHandle });
+  assert.equal(resolved, 1); assert.equal(result.detail, 'resolved'); assert.equal(result.insertText, '${1:猫}$0');
+  assert.equal(result.additionalTextEdits[0].newText, '#include <猫>\r\n'); assert.equal(providers.retainedCompletionCount(), 1);
+  providers.cancel({ session: 7, owner: 'wrong', request: 10 }); assert.equal(providers.retainedCompletionCount(), 1);
+  providers.cancel({ session: 7, owner: 'test.extension', request: 10 }); assert.equal(providers.retainedCompletionCount(), 0);
+  await assert.rejects(providers.resolveCompletion({ ...params, origin: 10, request: 12, handle: wire._vscliCompletionHandle }), /Stale/);
+});
+
+test('resolve rejects mutations to original filtering, insertion, selection and unsafe commands', async () => {
+  for (const patch of [{ label: 'changed' }, { insertText: 'changed' }, { filterText: 'different' }, { sortText: 'first' }, { preselect: true }, { range: new Range(0, 0, 0, 1) }, { command: { command: 'test' } }]) {
+    const { providers, request } = fixture(); const item = { label: 'original' };
+    providers.forOwner('test.extension').registerCompletionItemProvider('cpp', { provideCompletionItems: () => [item], resolveCompletionItem(value) { Object.assign(value, patch); return value; } });
+    const params = { ...request(providers.snapshot()[0].id), request: 20 }, result = await providers.provide(params);
+    await assert.rejects(providers.resolveCompletion({ ...params, origin: 20, request: 21, handle: result.items[0]._vscliCompletionHandle }), /immutable|commands/);
+    assert.equal(providers.pendingCount(), 0);
+  }
+});
+
+test('resolve cancellation and deadline retain uncooperative callback slots until actual completion', async () => {
+  const { providers, request } = fixture(5); const waits = [];
+  providers.forOwner('test.extension').registerCompletionItemProvider('cpp', {
+    provideCompletionItems: () => [{ label: 'item' }], resolveCompletionItem(_, token) { const wait = deferred(); waits.push({ wait, token }); return wait.promise; },
+  });
+  const params = { ...request(providers.snapshot()[0].id), request: 30 }, result = await providers.provide(params);
+  const resolved = { ...params, origin: 30, handle: result.items[0]._vscliCompletionHandle };
+  for (let i = 0; i < 8; i++) await assert.rejects(providers.resolveCompletion({ ...resolved, request: 31 + i }), /deadline/);
+  assert.equal(providers.pendingCount(), 8); assert.ok(waits.every(({ token }) => token.isCancellationRequested));
+  await assert.rejects(providers.resolveCompletion({ ...resolved, request: 40 }), /invocation limit/);
+  waits.forEach(({ wait }) => wait.resolve({ label: 'item' })); await new Promise(done => setImmediate(done));
+  assert.equal(providers.pendingCount(), 0);
+});
+
+test('completion handle cache bounds cohorts and retires on provider registry and document changes', async () => {
+  const { providers, request, document } = fixture();
+  const provider = { provideCompletionItems: () => Array.from({ length: 300 }, (_, index) => ({ label: `item${index}` })), resolveCompletionItem: value => value };
+  const first = providers.forOwner('test.extension').registerCompletionItemProvider('cpp', provider);
+  const params = { ...request(providers.snapshot()[0].id), request: 50 };
+  const old = await providers.provide(params); assert.equal(providers.retainedCompletionCount(), 300);
+  await providers.provide({ ...params, request: 51 }); assert.equal(providers.retainedCompletionCount(), 300);
+  await assert.rejects(providers.resolveCompletion({ ...params, origin: 50, request: 52, handle: old.items[0]._vscliCompletionHandle }), /Stale/);
+  providers.forOwner('other').registerCompletionItemProvider('cpp', provider); assert.equal(providers.retainedCompletionCount(), 0);
+  await providers.provide({ ...params, request: 53 });
+  await assert.rejects(providers.provide({ ...params, owner: 'other', provider: providers.snapshot()[1].id, request: 54 }), /handle budget/);
+  document._update({ ...document._snapshot, version: 4, text: 'changed' }); providers.documentChanged(); assert.equal(providers.retainedCompletionCount(), 0);
+  first.dispose(); assert.equal(providers.retainedCompletionCount(), 0);
+});
+
+test('provider retirement cannot publish a held resolved item and wrong leases cannot invoke resolver', async () => {
+  for (const retirement of ['document', 'dispose', 'registry', 'origin']) {
+    const { providers, request, document } = fixture(); const wait = deferred(); let token, invoked = 0;
+    const registration = providers.forOwner('test.extension').registerCompletionItemProvider('cpp', { provideCompletionItems: () => [{ label: 'item' }], resolveCompletionItem(_, value) { invoked++; token = value; return wait.promise; } });
+    const params = { ...request(providers.snapshot()[0].id), request: 60 }, list = await providers.provide(params);
+    const resolve = { ...params, origin: 60, request: 61, handle: list.items[0]._vscliCompletionHandle };
+    for (const invalid of [{ owner: 'wrong' }, { session: 8 }, { provider: 999 }, { version: 2 }, { document: 2 }, { origin: 999 }]) await assert.rejects(providers.resolveCompletion({ ...resolve, ...invalid }), /Stale/);
+    assert.equal(invoked, 0);
+    const pending = providers.resolveCompletion(resolve); await Promise.resolve();
+    if (retirement === 'document') { document._update({ ...document._snapshot, version: 4 }); providers.documentChanged(); }
+    if (retirement === 'dispose') registration.dispose();
+    if (retirement === 'registry') providers.forOwner('other').registerHoverProvider('*', { provideHover() {} });
+    if (retirement === 'origin') providers.cancel({ session: 7, owner: 'test.extension', request: 60 });
+    wait.resolve({ label: 'item', detail: 'stale' }); await assert.rejects(pending, /stale|canceled/);
+    assert.equal(providers.pendingCount(), 0); if (retirement === 'document' || retirement === 'dispose') assert.equal(token.isCancellationRequested, true);
+  }
+});
+
+test('completion normalization getters cannot publish retired lists or resolved handles', async () => {
+  for (const phase of ['list', 'resolve']) for (const retirement of ['owner', 'registry', 'document']) {
+    const { providers, request, document } = fixture(); let retired = false;
+    const retire = () => {
+      if (retired) return; retired = true;
+      if (retirement === 'owner') providers.disposeOwner('test.extension');
+      if (retirement === 'registry') providers.forOwner('other').registerHoverProvider('*', { provideHover() {} });
+      if (retirement === 'document') { document._update({ ...document._snapshot, version: 4 }); providers.documentChanged(); }
+    };
+    const original = { label: 'item' };
+    if (phase === 'list') Object.defineProperty(original, 'detail', { get() { retire(); return 'retired while normalizing'; } });
+    providers.forOwner('test.extension').registerCompletionItemProvider('cpp', {
+      provideCompletionItems: () => [original],
+      resolveCompletionItem(item) {
+        Object.defineProperty(item, 'documentation', { get() { retire(); return 'retired during resolve normalization'; } });
+        return item;
+      },
+    });
+    const params = { ...request(providers.snapshot()[0].id), request: 70 };
+    if (phase === 'list') await assert.rejects(providers.provide(params), /stale|canceled/);
+    else {
+      const list = await providers.provide(params);
+      await assert.rejects(providers.resolveCompletion({ ...params, origin: 70, request: 71, handle: list.items[0]._vscliCompletionHandle }), /stale|canceled/);
+    }
+    assert.equal(retired, true); assert.equal(providers.retainedCompletionCount(), 0);
+    assert.equal(providers.pendingCount(), 0);
+  }
+});

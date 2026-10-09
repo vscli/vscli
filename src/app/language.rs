@@ -1,5 +1,5 @@
 use super::*;
-use crate::lsp::{self, Event, Request, TextEdit};
+use crate::lsp::{self, Event, Request};
 use anyhow::{Context, bail};
 
 pub struct LanguageItem {
@@ -124,6 +124,9 @@ impl App {
         Ok(())
     }
     fn language_response(&mut self, request: Request, response: Value) -> Result<()> {
+        if request.method == "completionItem/resolve" {
+            return self.native_suggestion_resolve_response(request, response);
+        }
         if request.method == "textDocument/completion" {
             return self.native_suggestion_response(request, response);
         }
@@ -273,47 +276,7 @@ impl App {
                 if self.doc().cursor != request.cursor {
                     bail!("Cursor moved; request completion again");
                 }
-                if item["insertTextFormat"].as_u64() == Some(2) {
-                    bail!("Server sent a snippet despite snippetSupport=false");
-                }
-                let mut changes: Vec<TextEdit> = if let Some(edit) = item.get("textEdit") {
-                    if edit.get("range").is_none() {
-                        bail!("Server returned an unadvertised insert/replace edit");
-                    }
-                    vec![serde_json::from_value(edit.clone())?]
-                } else {
-                    let mut start = request.cursor;
-                    while start > 0
-                        && (self.doc().text.char(start - 1).is_alphanumeric()
-                            || self.doc().text.char(start - 1) == '_')
-                    {
-                        start -= 1;
-                    }
-                    vec![TextEdit {
-                        range: lsp::Range {
-                            start: lsp::position(self.doc(), start),
-                            end: lsp::position(self.doc(), request.cursor),
-                        },
-                        new_text: item["insertText"]
-                            .as_str()
-                            .or_else(|| item["label"].as_str())
-                            .context("Completion has no text")?
-                            .into(),
-                    }]
-                };
-                let primary_end = lsp::offset(self.doc(), changes[0].range.end)?;
-                if let Some(additional) = item.get("additionalTextEdits") {
-                    changes.extend(serde_json::from_value::<Vec<TextEdit>>(additional.clone())?);
-                }
-                let changes = lsp::edits(self.doc(), changes)?;
-                self.doc_mut().clear_secondary();
-                self.doc_mut().move_to(primary_end, false);
-                self.doc_mut().apply_changes(changes);
-                self.message = "Completion applied".into();
-                if item.get("command").is_some() {
-                    self.message
-                        .push_str("; follow-up server command is not supported yet");
-                }
+                self.apply_completion_item(item, request.cursor)?;
             }
         }
         Ok(())

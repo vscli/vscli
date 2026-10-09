@@ -41,12 +41,14 @@ CI result or full workflow qualification. These remain bounded subsets, so the
 complete-product criteria above stay unchecked.
 
 Folding remains unshipped; preserved source and a committed internal foundation
-are not an available editor feature. Completion resolve/snippets, extension
-diagnostics and automatic parameter hints remain incomplete.
+are not an available editor feature. The subsequent [resolved-completion slice](COMPLETIONS.md) adds bounded resolution,
+linked snippet/import insertion, documentation and abbreviation ranking. Follow-up
+completion commands and full IntelliSense parity remain incomplete. Extension
+diagnostics and automatic parameter hints are next in the approved queue.
 
-Next prioritize completion resolve/snippets and extension diagnostics, a complete
-C++/clangd repository workflow, then navigation/layout and advanced development
-workflows. C++ is the first end-to-end language qualification, not the product's
+Follow the [user-approved twelve priorities](PARITY_PLAN.md#user-approved-implementation-order),
+starting with IntelliSense qualification, then extension diagnostics and smart typing.
+Qualify a complete C++/clangd repository workflow alongside these changes. C++ is the first end-to-end language qualification, not the product's
 language boundary. Keep the full release goals and explicit compatibility limits.
 
 The evidence below identifies implemented behavior and named qualification, not

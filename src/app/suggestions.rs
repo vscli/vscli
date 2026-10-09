@@ -11,6 +11,7 @@ enum Awaiting {
     Native { instance: Arc<()>, token: u64 },
     Provider(Ticket),
 }
+#[derive(Clone)]
 enum Source {
     Native {
         instance: Arc<()>,
@@ -19,6 +20,7 @@ enum Source {
     Provider(Ticket),
 }
 struct Pending {
+    settings: crate::settings::Settings,
     origin: Awaiting,
     context: Context,
     started: Instant,
@@ -27,6 +29,17 @@ struct Popup {
     model: Model,
     source: Source,
     context: Context,
+    settings: crate::settings::Settings,
+}
+enum ResolveOrigin {
+    Native { instance: Arc<()>, token: u64 },
+    Provider(Ticket),
+}
+struct Resolving {
+    origin: ResolveOrigin,
+    context: Context,
+    original: Value,
+    started: Instant,
 }
 enum Fence {
     Native(Arc<()>),
@@ -50,6 +63,9 @@ pub(super) struct State {
     popup: Option<Popup>,
     cached: Option<Cached>,
     queued: Option<Queued>,
+    resolving: Option<Resolving>,
+    accept_after_resolve: Option<Value>,
+    resolve_due: Option<Instant>,
 }
 pub(super) fn typing_command(command: &str) -> bool {
     matches!(command, "type" | "deleteLeft" | "deleteRight")
@@ -123,6 +139,7 @@ impl App {
         self.suggestions.popup.as_ref().is_some_and(|popup| {
             !popup.model.is_empty()
                 && popup.context.same_editor(self)
+                && popup.settings == self.settings
                 && self.suggestion_source_current(&popup.source)
                 && self.prompt.is_none()
                 && self.modal.is_none()
@@ -150,16 +167,28 @@ impl App {
     pub(super) fn cancel_suggestions(&mut self) {
         self.suggestions.cached = None;
         self.suggestions.queued = None;
+        self.suggestions.accept_after_resolve = None;
+        self.suggestions.resolve_due = None;
+        if let Some(resolving) = self.suggestions.resolving.take() {
+            match resolving.origin {
+                ResolveOrigin::Native { instance, token } => {
+                    if let Some(client) = &mut self.lsp
+                        && Arc::ptr_eq(&instance, &client.identity())
+                    {
+                        let _ = client.cancel_completion_resolve(token);
+                    }
+                }
+                ResolveOrigin::Provider(ticket) => self.cancel_provider_completion_resolve(&ticket),
+            }
+        }
         let pending = self.suggestions.pending.take();
         let popup = self.suggestions.popup.take();
-        if (pending
-            .as_ref()
-            .is_some_and(|pending| matches!(pending.origin, Awaiting::Native { .. }))
-            || popup
-                .as_ref()
-                .is_some_and(|popup| matches!(popup.source, Source::Native { .. })))
-            && let Some(client) = &mut self.lsp
-        {
+        let native_current = self.lsp.as_ref().is_some_and(|client| {
+            let identity = client.identity();
+            pending.as_ref().is_some_and(|pending| matches!(&pending.origin, Awaiting::Native { instance, .. } if Arc::ptr_eq(instance, &identity)))
+                || popup.as_ref().is_some_and(|popup| matches!(&popup.source, Source::Native { instance, .. } if Arc::ptr_eq(instance, &identity)))
+        });
+        if native_current && let Some(client) = &mut self.lsp {
             let _ = client.cancel_completions();
         }
         if pending
@@ -208,6 +237,7 @@ impl App {
                 };
             self.suggestions.pending = Some(Pending {
                 origin,
+                settings: self.settings.clone(),
                 context,
                 started: Instant::now(),
             });
@@ -285,7 +315,9 @@ impl App {
             model,
             source,
             context: pending.context,
+            settings: pending.settings,
         });
+        self.suggestions.resolve_due = Some(Instant::now() + Duration::from_millis(120));
         Ok(())
     }
     pub(super) fn advance_suggestion_interaction(&mut self) {
@@ -310,6 +342,19 @@ impl App {
         if queued_current {
             self.suggestions
                 .queued
+                .as_mut()
+                .unwrap()
+                .context
+                .accept_next_interaction();
+        }
+        if self
+            .suggestions
+            .resolving
+            .as_ref()
+            .is_some_and(|pending| pending.context.same_editor(self))
+        {
+            self.suggestions
+                .resolving
                 .as_mut()
                 .unwrap()
                 .context
@@ -372,48 +417,250 @@ impl App {
             self.cancel_suggestions();
             return;
         }
-        let model = if let Some(popup) = &mut self.suggestions.popup {
-            &mut popup.model
-        } else {
-            &mut self.suggestions.cached.as_mut().unwrap().model
-        };
         match command {
-            "selectNextSuggestion" => model.step(1),
-            "selectPrevSuggestion" => model.step(-1),
-            "selectNextPageSuggestion" => model.step(8),
-            "selectPrevPageSuggestion" => model.step(-8),
+            "selectNextSuggestion"
+            | "selectPrevSuggestion"
+            | "selectNextPageSuggestion"
+            | "selectPrevPageSuggestion" => {
+                let model = if let Some(popup) = &mut self.suggestions.popup {
+                    &mut popup.model
+                } else {
+                    &mut self.suggestions.cached.as_mut().unwrap().model
+                };
+                let delta = match command {
+                    "selectNextSuggestion" => 1,
+                    "selectPrevSuggestion" => -1,
+                    "selectNextPageSuggestion" => 8,
+                    _ => -8,
+                };
+                model.step(delta);
+                self.suggestions.accept_after_resolve = None;
+                self.suggestions.resolve_due = Some(Instant::now() + Duration::from_millis(120));
+            }
             "acceptSelectedSuggestion" => {
                 if !self.suggestion_acceptable() {
                     self.cancel_suggestions();
                     return;
                 }
-                let popup = self.suggestions.popup.take().unwrap();
-                let Some(item) = popup.model.selected_item() else {
+                if self.selected_suggestion_needs_resolve() {
+                    self.suggestions.accept_after_resolve = self
+                        .suggestions
+                        .popup
+                        .as_ref()
+                        .and_then(|popup| popup.model.selected_item())
+                        .map(|item| item.value.clone());
+                    self.suggestions.resolve_due = Some(Instant::now());
+                    self.message = "Resolving suggestion · Esc cancels".into();
+                    self.poll_suggestion_resolution();
                     return;
-                };
-                let provider = matches!(&popup.source, Source::Provider(_));
-                let action = match popup.source {
-                    Source::Native { request, .. } => LanguageAction::Completion {
-                        request,
-                        item: item.value.clone(),
-                    },
-                    Source::Provider(ticket) => LanguageAction::Provider {
-                        ticket,
-                        item: item.value.clone(),
-                    },
-                };
-                if let Err(error) = self.language_action(&action) {
-                    self.message = format!("Suggestion rejected: {error:#}");
                 }
-                if provider {
-                    // The popup has already been taken, so generic cancellation
-                    // cannot discover its provider lease after a rejected edit.
-                    self.cancel_extension_provider();
-                }
-                self.cancel_suggestions();
+                self.apply_selected_suggestion();
             }
             _ => {}
         }
+    }
+    fn apply_selected_suggestion(&mut self) {
+        if !self.suggestion_acceptable() {
+            self.cancel_suggestions();
+            return;
+        }
+        let popup = self.suggestions.popup.take().unwrap();
+        let Some(item) = popup.model.selected_item() else {
+            return;
+        };
+        let provider = matches!(&popup.source, Source::Provider(_));
+        let action = match popup.source {
+            Source::Native { request, .. } => LanguageAction::Completion {
+                request,
+                item: item.value.clone(),
+            },
+            Source::Provider(ticket) => LanguageAction::Provider {
+                ticket,
+                item: item.value.clone(),
+            },
+        };
+        if let Err(error) = self.language_action(&action) {
+            self.message = format!("Suggestion rejected: {error:#}");
+        }
+        if provider {
+            self.cancel_extension_provider();
+        }
+        self.cancel_suggestions();
+    }
+    pub fn suggestion_resolving(&self) -> bool {
+        self.suggestions.resolving.is_some() || self.suggestions.accept_after_resolve.is_some()
+    }
+    fn selected_suggestion_needs_resolve(&self) -> bool {
+        self.suggestions.popup.as_ref().is_some_and(|popup| {
+            popup
+                .model
+                .selected_item()
+                .is_some_and(|item| !item.resolved)
+                && match &popup.source {
+                    Source::Native { .. } => self.lsp.as_ref().is_some_and(|client| {
+                        client.capabilities["completionProvider"]["resolveProvider"] == true
+                    }),
+                    Source::Provider(ticket) => ticket.provider.resolves,
+                }
+        })
+    }
+    fn poll_suggestion_resolution(&mut self) -> bool {
+        if let Some(pending) = &self.suggestions.resolving {
+            if pending.started.elapsed() > Duration::from_secs(6) {
+                self.cancel_suggestions();
+                self.message = "Suggestion resolution timed out; request suggestions again".into();
+                return true;
+            }
+            return false;
+        }
+        if !self.suggestion_acceptable()
+            || !self.selected_suggestion_needs_resolve()
+            || self
+                .suggestions
+                .resolve_due
+                .is_none_or(|due| due > Instant::now())
+        {
+            return false;
+        }
+        let popup = self.suggestions.popup.as_ref().unwrap();
+        // Inspect capacity before cloning retained item/context snapshots.
+        match &popup.source {
+            Source::Native { .. } => {
+                if self
+                    .lsp
+                    .as_ref()
+                    .is_some_and(|client| client.completion_resolve_closed())
+                {
+                    self.cancel_suggestions();
+                    self.message = "Suggestion resolution timed out; restart the language server before resolving again".into();
+                    return true;
+                }
+                if !self
+                    .lsp
+                    .as_ref()
+                    .is_some_and(|client| client.completion_resolve_available())
+                {
+                    return false;
+                }
+            }
+            Source::Provider(_) => {
+                if !self
+                    .extension_host
+                    .as_ref()
+                    .is_some_and(|host| host.language_provider_capacity())
+                {
+                    return false;
+                }
+            }
+        }
+        let source = popup.source.clone();
+        let original = popup.model.selected_item().unwrap().value.clone();
+        let context = popup.context.clone();
+        let origin = match source {
+            Source::Native { instance, request } => {
+                let Some(client) = &mut self.lsp else {
+                    return false;
+                };
+                client
+                    .resolve_completion(&request, original.clone())
+                    .map(|token| ResolveOrigin::Native { instance, token })
+            }
+            Source::Provider(ticket) => self
+                .request_provider_completion_resolve(&ticket, &original)
+                .map(ResolveOrigin::Provider),
+        };
+        match origin {
+            Ok(origin) => {
+                self.suggestions.resolving = Some(Resolving {
+                    origin,
+                    context,
+                    original,
+                    started: Instant::now(),
+                });
+                true
+            }
+            Err(error) => {
+                self.cancel_suggestions();
+                self.message = format!("Suggestion resolution failed: {error:#}");
+                true
+            }
+        }
+    }
+    pub(super) fn native_suggestion_resolve_response(
+        &mut self,
+        request: crate::lsp::Request,
+        response: Value,
+    ) -> Result<()> {
+        let Some(pending) = &self.suggestions.resolving else {
+            return Ok(());
+        };
+        if !matches!(&pending.origin, ResolveOrigin::Native { instance, token } if *token == request.token && self.lsp.as_ref().is_some_and(|client| Arc::ptr_eq(instance,&client.identity())))
+        {
+            return Ok(());
+        }
+        if let Some(error) = response.get("_vscliResolveError") {
+            self.fail_suggestion_resolution(format!("{error}"));
+            return Ok(());
+        }
+        self.finish_suggestion_resolution(response)
+    }
+    pub(super) fn provider_suggestion_resolve_response(
+        &mut self,
+        ticket: &Ticket,
+        response: Value,
+    ) -> Result<()> {
+        if !self.suggestions.resolving.as_ref().is_some_and(|pending| matches!(&pending.origin, ResolveOrigin::Provider(old) if old.id == ticket.id && old.session == ticket.session && old.epoch == ticket.epoch)) { return Ok(()); }
+        self.finish_suggestion_resolution(response)
+    }
+    pub(super) fn provider_suggestion_resolve_error(&mut self, ticket: &Ticket, message: String) {
+        if self.suggestions.resolving.as_ref().is_some_and(|pending| matches!(&pending.origin, ResolveOrigin::Provider(old) if old.id == ticket.id && old.session == ticket.session)) {
+            self.fail_suggestion_resolution(message);
+        }
+    }
+    fn fail_suggestion_resolution(&mut self, message: String) {
+        let Some(pending) = self.suggestions.resolving.take() else {
+            return;
+        };
+        if pending.context.same_editor(self)
+            && self.suggestion_acceptable()
+            && self
+                .suggestions
+                .popup
+                .as_ref()
+                .and_then(|popup| popup.model.selected_item())
+                .is_some_and(|item| item.value == pending.original)
+        {
+            self.cancel_suggestions();
+            self.message = format!("Suggestion resolution failed: {message}");
+        }
+    }
+    fn finish_suggestion_resolution(&mut self, response: Value) -> Result<()> {
+        let pending = self.suggestions.resolving.take().unwrap();
+        if !pending.context.same_editor(self) || !self.suggestion_acceptable() {
+            return Ok(());
+        }
+        let popup = self.suggestions.popup.as_mut().unwrap();
+        if !popup
+            .model
+            .selected_item()
+            .is_some_and(|item| item.value == pending.original)
+        {
+            return Ok(());
+        }
+        let accepted = self.suggestions.accept_after_resolve.as_ref() == Some(&pending.original);
+        if let Err(error) = popup
+            .model
+            .replace_selected_resolved(&pending.original, response)
+        {
+            self.cancel_suggestions();
+            self.message = format!("Suggestion resolution rejected: {error:#}");
+            return Ok(());
+        }
+        self.suggestions.accept_after_resolve = None;
+        if accepted {
+            self.apply_selected_suggestion();
+        }
+        Ok(())
     }
     fn edit_stamp(&self) -> Option<(u64, u64, Option<char>)> {
         if self.focus != Focus::Editor || self.prompt.is_some() || self.modal.is_some() {
@@ -610,6 +857,7 @@ impl App {
             };
             !source_current
                 || !pending.context.same_editor(self)
+                || pending.settings != self.settings
                 || pending.started.elapsed() > Duration::from_secs(6)
         }) || self.suggestions.cached.as_ref().is_some_and(|cached| {
             !cached.context.same_editor(self)
@@ -621,12 +869,14 @@ impl App {
             .as_ref()
             .is_some_and(|queued| !queued.context.same_editor(self))
             || self.suggestions.popup.as_ref().is_some_and(|popup| {
-                !popup.context.same_editor(self) || !self.suggestion_source_current(&popup.source)
+                !popup.context.same_editor(self)
+                    || popup.settings != self.settings
+                    || !self.suggestion_source_current(&popup.source)
             });
         if stale {
             self.cancel_suggestions();
         }
-        stale
+        self.poll_suggestion_resolution() || stale
     }
 }
 

@@ -1,6 +1,6 @@
 # VS Code parity and user experience priorities
 
-This is the current execution plan, updated 2026-10-09. It supersedes the initial
+This is the current execution plan, updated 2026-10-10. It supersedes the initial
 ordering and staffing estimates in [ROADMAP.md](ROADMAP.md). The full project
 objective and [release checklist](RELEASE_CHECKLIST.md) remain intact. A useful
 interim release does not complete VS Code parity.
@@ -33,10 +33,15 @@ capabilities; it does not extend our tested baseline to newer releases.
 | Graphical welcome and keyboard layout | [PR #51](https://github.com/vscli/vscli/pull/51): native mark with Kitty/cell fallback, clickable actions/recent files, settings path and themed keycap inspector | Broader terminal/multiplexer graphics and physical-keyboard/layout qualification; no physical held-key inference |
 | Automatic suggestions | [PR #52](https://github.com/vscli/vscli/pull/52): debounced typing/trigger-character completion, nonmodal caret popup and Tab/Enter acceptance from native LSP or active extension provider | Completion resolve/snippets/commands, fuzzy ranking, richer settings and multi-provider aggregation; parameter hints remain explicit |
 
+The current [resolved-completion slice](COMPLETIONS.md) adds lazy resolution,
+linked snippet/import transactions, inert documentation and bounded abbreviation
+ranking. Its checks and recorded workflows remain separate from full IntelliSense
+parity. Extension diagnostics is next in the approved queue.
+
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
-App/Document/UI integration. Neither is a qualified user feature. Completion
-resolve/snippets and extension diagnostics remain the next language-service slice.
+App/Document/UI integration. Neither is a qualified user feature. Extension diagnostics and quick fixes remain
+the next language-service slice after IntelliSense qualification.
 
 Linked PRs and feature documents record each implemented subset and its named
 review/test evidence.
@@ -64,13 +69,13 @@ The [usage guide](USAGE.md), [extension report](EXTENSIONS.md) and
 | Tabs and layout | Shared-document split views, four equal groups and opt-in clean-session visible-layout restore | Per-group tabs, resizing/nested splits, preview/pinned tabs, move editors between groups and complete layout restoration |
 | Session continuity | Dirty-buffer crash recovery plus opt-in clean-file tabs, active tab, cursor/selection and visible-group restoration | Full hot exit, hidden historical tab/view state, workspace history/transitions, terminal restoration and broader failure/durability qualification |
 | Editing | Multi-cursor, selections, undo, line commands, literal find/replace | Wrapping, folding, smart indentation/brackets, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |
-| Snippets | Literal insertion, linked fields, variables, user/workspace and installed-package catalogs | Choices, nested insertion, completion snippets, extension API, full transform semantics |
+| Snippets | Literal insertion, linked fields, variables, native catalogs and completion snippet/import transactions | Choices, nested insertion, extension insertion API and full transform semantics |
 | Settings and migration | Small settings subset, language overrides, copied-profile import and binding diagnostics | Autosave, format-on-save, indentation detection, excludes, EOL settings, editable settings UI, full profiles/workspace migration, extension inventory reconciliation |
 | Themes and highlighting | Tree-sitter C/C++ and other families, mapped stable colors during typing, native JSONC/installed themes and persistent picker | TextMate grammar/scope semantics, font styles, semantic themes, more workbench colors, icon themes, embedded languages and grammars |
 | Extension packages | Native local VSIX/rollback, stable Open VSX search/download/explicit updates, scoped enablement and immutable selected generations | Dependency downloading and version solving, engine/ABI qualification, authenticated registries, profiles, package cleanup and automatic update policy |
 | Extension host | Optional shared CommonJS cohort, supported lazy activation/selected dependencies, hidden/shared document handles, curated commands and bounded Mementos | Broader activation/dependency APIs, filesystem/resource edits, full editor handles, secrets/sync/storage URIs, Windows descendant cleanup and engine/ABI qualification |
 | Extension UI/providers | Commands/messages, bounded Quick Pick/Input Box, output/status/lazy trees and seven language-provider routes | Completion resolve/snippets/commands, diagnostics/code actions, aggregation, progress/menus, richer tree/UI and task/debug/test/SCM providers |
-| Language intelligence | One automatically selected installed native server or manual override; diagnostics, automatic/explicit completion popup, hover/navigation/format/rename, actions, explicit parameter hints and symbols; seven extension providers | Completion resolve/snippets/commands, automatic hints/overloads, concurrent servers, closed-file refactors, extension diagnostics, semantic tokens/inlay hints/code lenses |
+| Language intelligence | One automatically selected installed native server or manual override; diagnostics, automatic/explicit completion popup, hover/navigation/format/rename, actions, explicit parameter hints and symbols; seven extension providers | Completion commands/full completion semantics, automatic hints/overloads, concurrent servers, closed-file refactors, extension diagnostics, semantic tokens/inlay hints/code lenses |
 | Search and projects | Workspace regex search over unsaved buffers; file operations/watchers | Replace across files with preview, include/exclude controls, live results, multiline regex, multi-root `.code-workspace`, workspace trust and settings layers |
 | Git | Status, file diffs, stage/unstage, commits/history | Inline changes, hunk staging, branch/remotes/stash/worktrees, blame/history navigation, merge conflict UI, richer provider support |
 | Tasks | Basic process/POSIX-shell tasks and variables | Dependencies, background readiness, problem matchers, auto-detection/providers, inputs, cancellation UX and Windows shell tasks |
@@ -117,9 +122,11 @@ This is an impact-based engineering judgment, not a measured popularity ranking.
 ### 1. Finish everyday completion and extension diagnostics
 
 Automatic typing suggestions and the native caret popup are implemented, with
-provider/context guards and snippet-placeholder Tab precedence. Next implement completion resolve,
-snippet insertion and supported completion commands with exact provider ownership
-and revision guards; extend diagnostics collections and code-action providers.
+provider/context guards and snippet-placeholder Tab precedence. The resolved-completion
+slice adds linked snippet/import insertion and item documentation with exact source
+ownership and context guards. Qualify these before adding diagnostic collections
+and extension code-action providers; follow-up completion commands remain a separate
+required compatibility contract.
 These unlock useful coding workflows beyond a list of suggestions. Keep native
 LSP fallback and the native core independent of JavaScript.
 

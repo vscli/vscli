@@ -25,11 +25,50 @@ enum Target {
 pub(super) struct State {
     generation: u64,
     lease: Option<Lease>,
+    completion_resolves: std::collections::HashMap<u64, Ticket>,
     loading: Option<Loading>,
     pub symbols: Vec<crate::symbols::Symbol>,
     hint: Option<crate::signature::Hint>,
 }
 impl App {
+    pub(super) fn request_provider_completion_resolve(
+        &mut self,
+        original: &Ticket,
+        item: &Value,
+    ) -> Result<Ticket> {
+        Context::check_budget(self)?;
+        let lease = self
+            .extension_providers
+            .lease
+            .as_ref()
+            .context("Completion provider lease is no longer current")?;
+        if original.id != lease.ticket.id || !self.provider_current(original, &lease.context) {
+            bail!("Completion provider editor context changed");
+        }
+        let host = self
+            .extension_host
+            .as_mut()
+            .context("Extension host stopped")?;
+        let ticket = host.request_completion_resolve(
+            original,
+            item,
+            &self.documents,
+            &self.hidden_documents,
+            self.active,
+        )?;
+        self.extension_providers
+            .completion_resolves
+            .insert(ticket.id, ticket.clone());
+        Ok(ticket)
+    }
+    pub(super) fn cancel_provider_completion_resolve(&mut self, ticket: &Ticket) {
+        self.extension_providers
+            .completion_resolves
+            .remove(&ticket.id);
+        if let Some(host) = &mut self.extension_host {
+            let _ = host.cancel_language_provider(ticket);
+        }
+    }
     pub(super) fn completion_provider_ticket(&self) -> Option<Ticket> {
         self.extension_providers
             .lease
@@ -60,6 +99,11 @@ impl App {
             && let Some(host) = &mut self.extension_host
         {
             let _ = host.cancel_language_provider(&lease.ticket);
+        }
+        for (_, ticket) in self.extension_providers.completion_resolves.drain() {
+            if let Some(host) = &mut self.extension_host {
+                let _ = host.cancel_language_provider(&ticket);
+            }
         }
         self.extension_providers.symbols.clear();
         self.extension_providers.hint = None;
@@ -196,6 +240,27 @@ impl App {
             .map(|h| h.take_provider_replies())
             .unwrap_or_default();
         for reply in replies {
+            if let Some(ticket) = self
+                .extension_providers
+                .completion_resolves
+                .remove(&reply.ticket.id)
+            {
+                changed = true;
+                if ticket.session != reply.ticket.session {
+                    continue;
+                }
+                match reply.result {
+                    Ok(value) => {
+                        if let Err(error) =
+                            self.provider_suggestion_resolve_response(&ticket, value)
+                        {
+                            self.provider_suggestion_resolve_error(&ticket, error.to_string());
+                        }
+                    }
+                    Err(message) => self.provider_suggestion_resolve_error(&ticket, message),
+                }
+                continue;
+            }
             if !self.extension_providers.lease.as_ref().is_some_and(|l| {
                 l.ticket.id == reply.ticket.id
                     && l.ticket.session == reply.ticket.session
@@ -346,44 +411,7 @@ impl App {
         }
         match ticket.provider.kind {
             Kind::Completion => {
-                if item["insertTextFormat"] == 2 {
-                    bail!("Extension snippet completions are not implemented")
-                }
-                if item.get("command").is_some() {
-                    bail!("Completion commands are not implemented")
-                }
-                let mut edits: Vec<lsp::TextEdit> = if let Some(edit) = item.get("textEdit") {
-                    vec![serde_json::from_value(edit.clone())?]
-                } else {
-                    let mut start = self.doc().cursor;
-                    while start > 0
-                        && (self.doc().text.char(start - 1).is_alphanumeric()
-                            || self.doc().text.char(start - 1) == '_')
-                    {
-                        start -= 1;
-                    }
-                    vec![lsp::TextEdit {
-                        range: lsp::Range {
-                            start: lsp::position(self.doc(), start),
-                            end: lsp::position(self.doc(), self.doc().cursor),
-                        },
-                        new_text: item["insertText"]
-                            .as_str()
-                            .or(item["label"].as_str())
-                            .context("Completion missing text")?
-                            .into(),
-                    }]
-                };
-                let end = lsp::offset(self.doc(), edits[0].range.end)?;
-                if let Some(additional) = item.get("additionalTextEdits") {
-                    edits.extend(serde_json::from_value::<Vec<lsp::TextEdit>>(
-                        additional.clone(),
-                    )?);
-                }
-                let changes = provider_edits(self.doc(), edits)?;
-                self.doc_mut().clear_secondary();
-                self.doc_mut().move_to(end, false);
-                self.doc_mut().apply_changes(changes);
+                self.apply_completion_item(item, self.doc().cursor)?;
                 self.cancel_extension_provider();
                 self.message = "Extension completion applied".into();
             }
@@ -625,6 +653,88 @@ mod tests {
         });
         assert!(!app.message.contains("response:"), "{}", app.message);
     }
+    fn completion_resolve_app(root: &Path) -> App {
+        std::fs::write(root.join("input.sql"), "sel 🙂\r\nfrom table;\r\n").unwrap();
+        let mut app = App::new(root.into(), Profile::Linux);
+        app.open(&root.join("input.sql")).unwrap();
+        let package = crate::extensions::Package::read(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/completion-resolve-extension"),
+        )
+        .unwrap();
+        app.start_extension_packages(vec![package]).unwrap();
+        until(&mut app, |a| a.has_extension_provider(Kind::Completion));
+        app
+    }
+    #[test]
+    fn resolved_extension_snippet_and_import_are_one_unicode_crlf_undo_transaction() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = completion_resolve_app(root.path());
+        let original = app.doc().text.to_string();
+        let id = app.doc().id;
+        app.doc_mut().move_to(3, false);
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Char(' '),
+            KeyModifiers::CONTROL,
+        )));
+        until(&mut app, |a| {
+            a.suggestion_model().is_some_and(|m| {
+                m.item(0)
+                    .is_some_and(|i| i.value["detail"] == "Resolved import and snippet")
+            })
+        });
+        app.event(Event::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)));
+        until(&mut app, |a| {
+            a.doc().text == "SELECT 猫 🙂\r\n-- import 界\r\nfrom table;\r\n"
+        });
+        assert_eq!(app.doc().id, id);
+        assert!(app.doc().in_snippet());
+        assert_eq!(app.doc().selected_text().as_deref(), Some("猫"));
+        app.doc_mut().save().unwrap();
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            app.doc().text.to_string().as_bytes()
+        );
+        app.execute("undo", Value::Null);
+        assert_eq!(app.doc().text.to_string(), original);
+        assert_eq!(app.doc().id, id);
+        app.doc_mut().save().unwrap();
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            original.as_bytes()
+        );
+    }
+    #[test]
+    fn held_extension_resolve_cannot_apply_after_edit_undo_same_revision() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("hold-resolve"), b"hold").unwrap();
+        let mut app = completion_resolve_app(root.path());
+        let original = app.doc().text.to_string();
+        let id = app.doc().id;
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Char(' '),
+            KeyModifiers::CONTROL,
+        )));
+        until(&mut app, |_| root.path().join("resolve-started").exists());
+        let revision = app.doc().revision;
+        let epoch = app.doc().text_epoch();
+        app.doc_mut().insert("transient", false);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().revision, revision);
+        assert_ne!(app.doc().text_epoch(), epoch);
+        app.poll();
+        std::fs::remove_file(root.path().join("hold-resolve")).unwrap();
+        until(&mut app, |a| {
+            a.extension_providers.completion_resolves.is_empty()
+        });
+        assert_eq!(app.doc().text.to_string(), original);
+        assert_eq!(app.doc().id, id);
+        assert!(!app.doc().in_snippet());
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            original.as_bytes()
+        );
+    }
     #[test]
     fn immediate_dispatch_synchronizes_new_configuration_before_callback() {
         let root = tempfile::tempdir().unwrap();
@@ -804,7 +914,7 @@ mod tests {
             .clone();
         app.modal = None;
         for item in [
-            json!({"label":"snippet","insertText":"${1:x}","insertTextFormat":2}),
+            json!({"label":"snippet","insertText":"${CLIPBOARD}","insertTextFormat":2}),
             json!({"label":"bad","textEdit":{"range":{"start":{"line":0,"character":5},"end":{"line":0,"character":6}},"newText":"x"}}),
         ] {
             let before = app.doc().text.to_string();

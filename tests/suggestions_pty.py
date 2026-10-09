@@ -63,6 +63,78 @@ def fixture(root):
     eventually(lambda: app.read() and source.read_bytes() == burst.encode())
     app.finish()
     print('PASS: ready completion source retains native 1200-key burst/save responsiveness with unchanged 4s oracle')
+    resolution_fixture(root / 'resolution')
+
+
+def resolution_fixture(root):
+    root.mkdir()
+    source = root / 'input.rs'
+    original = '// 🙂\r\nans\r\n'
+    source.write_bytes(original.encode())
+    for marker in ('resolve', 'snippet', 'resolve_import', 'resolve_hold'):
+        (root / marker).touch()
+    peer = Path(__file__).resolve().parent / 'fixtures' / 'suggestions_server.py'
+    app = Editor(root, '--lsp', sys.executable, '--lsp-arg', peer, '--lsp-arg', root,
+                 source, enhanced=True, extra_env={'PATH': ''})
+    wait(app, 'Language server ready')
+    app.send(b'\x07')
+    wait(app, 'Go to Line')
+    app.send(b'2:4\r\x1b[32;5u')
+    wait(app, 'Suggestions · Tab accepts')
+    app.send(b'\t')
+    wait(app, 'Resolving suggestion')
+    eventually(lambda: app.read() and (root / 'resolves.jsonl').exists())
+    app.send(b'\t' * 8)
+    assert source.read_bytes() == original.encode()
+    assert len((root / 'resolves.jsonl').read_text().splitlines()) == 1
+    (root / 'resolve_hold').unlink()
+    eventually(lambda: app.read() and 'answer(value)' in app.screen.text())
+    app.send('x')
+    save(app, source, 'use thing;\r\n// 🙂\r\nanswer(x)\r\n')
+    app.send(CTRL_Z)
+    save(app, source, 'use thing;\r\n// 🙂\r\nanswer(value)\r\n')
+    app.send(CTRL_Z)
+    save(app, source, original)
+    app.finish()
+    print('PASS: lazy native resolve waits without duplicate work; import+snippet commit preserves CRLF/Unicode and atomic Undo')
+
+    for marker in ('snippet', 'resolve_import'):
+        (root / marker).unlink()
+    (root / 'resolves.jsonl').unlink()
+    source.write_bytes('ans 🙂\r\n'.encode())
+    app = Editor(root, '--lsp', sys.executable, '--lsp-arg', peer, '--lsp-arg', root,
+                 source, enhanced=True, extra_env={'PATH': ''})
+    wait(app, 'Language server ready')
+    app.send(b'\x1b[C' * 3 + b'\x1b[32;5u')
+    wait(app, 'Resolved docs')
+    wait(app, 'Resolved native declaration')
+    app.send(b'\t')
+    save(app, source, 'answer 🙂\r\n')
+    app.send(CTRL_Z)
+    save(app, source, 'ans 🙂\r\n')
+    app.finish()
+    print('PASS: selected native completion resolves documentation in caret details UI without Node and retains plain completion Undo')
+
+    (root / 'resolve_hold').touch()
+    (root / 'resolves.jsonl').unlink()
+    source.write_bytes('ans 🙂\r\n'.encode())
+    app = Editor(root, '--lsp', sys.executable, '--lsp-arg', peer, '--lsp-arg', root,
+                 source, enhanced=True, extra_env={'PATH': ''})
+    wait(app, 'Language server ready')
+    app.send(b'\x1b[C' * 3 + b'\x1b[32;5u')
+    wait(app, 'Suggestions · Tab accepts')
+    app.send(b'\t')
+    wait(app, 'Resolving suggestion')
+    eventually(lambda: app.read() and (root / 'resolves.jsonl').exists())
+    app.send(b'\x1b')
+    eventually(lambda: app.read() and 'Suggestions ·' not in app.screen.text())
+    app.send('猫')
+    save(app, source, 'ans猫 🙂\r\n')
+    (root / 'resolve_hold').unlink()
+    app.send('z')
+    save(app, source, 'ans猫z 🙂\r\n')
+    app.finish()
+    print('PASS: Escape cancels held native resolution; late import/primary edits cannot overwrite subsequent typing/save')
 
 
 def real(root):

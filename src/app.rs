@@ -1,4 +1,5 @@
 mod code_actions;
+mod completion_edits;
 mod debugger;
 mod extension_activation;
 mod extension_management;
@@ -616,6 +617,9 @@ impl App {
                 Ok(settings) => {
                     self.settings_error = None;
                     if settings != self.settings {
+                        // Even a later reload back to the original settings
+                        // cannot revive a completion from an earlier context.
+                        self.cancel_suggestions();
                         self.settings = settings;
                         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
                             self.settings.apply(doc);

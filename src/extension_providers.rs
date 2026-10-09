@@ -78,6 +78,8 @@ pub struct Provider {
     pub kind: Kind,
     pub selector: Vec<Filter>,
     pub triggers: Vec<String>,
+    #[serde(default)]
+    pub resolves: bool,
 }
 impl Provider {
     pub fn score(&self, document: &Document) -> u8 {
@@ -122,6 +124,7 @@ impl Registry {
                 || provider.id > 9_007_199_254_740_991
                 || !ids.insert(provider.id)
                 || !owners.contains(&provider.owner.as_str())
+                || (provider.resolves && provider.kind != Kind::Completion)
                 || provider.selector.len() > 32
                 || !provider.selector.iter().all(Filter::valid)
                 || provider.triggers.len() > 16

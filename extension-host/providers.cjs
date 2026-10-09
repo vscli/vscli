@@ -1,6 +1,6 @@
 'use strict';
 const { Position, Uri, Disposable } = require('./api-types.cjs');
-const { CancellationTokenSource } = require('./provider-types.cjs');
+const { CancellationTokenSource, SnippetString } = require('./provider-types.cjs');
 const MAX_PROVIDERS = 128, MAX_PENDING = 8, MAX_RESULT_BYTES = 1024 * 1024;
 const METHODS = Object.freeze({
   completion: ['registerCompletionItemProvider', 'provideCompletionItems'],
@@ -79,11 +79,15 @@ function normalize(type, value, document) {
   switch (type) {
     case 'completion': {
       const items = list(Array.isArray(value) ? value : value.items, 300).map(item => {
+        if (!item || typeof item !== 'object') throw new Error('Invalid completion item');
         if (item.command !== undefined) throw new Error('Completion commands are not implemented');
+        if (item.commitCharacters !== undefined || item.keepWhitespace !== undefined) throw new Error('Completion commit characters and whitespace controls are not implemented');
         const result = { label: text(typeof item.label === 'string' ? item.label : item.label?.label, 1024) };
+        if (item.preselect !== undefined) { if (typeof item.preselect !== 'boolean') throw new Error('Invalid completion preselect'); result.preselect = item.preselect; }
         if (item.kind !== undefined) result.kind = kind(item.kind, 24);
         for (const key of ['detail','sortText','filterText']) if (item[key] !== undefined) result[key] = text(item[key]);
         if (item.documentation !== undefined) result.documentation = documentation(item.documentation);
+        if (item.textEdit === undefined && item.insertText !== undefined && typeof item.insertText !== 'string' && !(item.insertText instanceof SnippetString)) throw new Error('Completion insertText requires a string or SnippetString');
         const insertion = item.textEdit !== undefined ? item.textEdit.newText : item.insertText === undefined ? result.label : typeof item.insertText === 'string' ? item.insertText : item.insertText.value;
         result.insertText = text(insertion, 65536);
         if (item.textEdit === undefined && item.insertText && typeof item.insertText === 'object') result.insertTextFormat = 2;
@@ -141,10 +145,10 @@ function wireBudget(result) {
   if (Buffer.byteLength(JSON.stringify(result)) > MAX_RESULT_BYTES) throw new Error('Language provider result exceeds 1 MiB');
 }
 function createProviders(options) {
-  const entries = new Map(), calls = new Map();
-  let nextId = 0;
-  function snapshot() { return [...entries.values()].map(({ id, owner, type, selector, triggers }) => ({ id, owner, type, selector, triggers })); }
-  function publish() { options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
+  const entries = new Map(), calls = new Map(), completions = new Map();
+  let nextId = 0, nextHandle = 0, registryEpoch = 0;
+  function snapshot() { return [...entries.values()].map(({ id, owner, type, selector, triggers, resolves }) => ({ id, owner, type, selector, triggers, resolves })); }
+  function publish() { registryEpoch++; completions.clear(); for (const call of calls.values()) if (call.completionOrigin !== undefined) call.source.cancel(); options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
   function forOwner(owner) {
     return Object.fromEntries(Object.entries(METHODS).map(([type, [registration, method]]) => [registration, (documentSelector, provider, ...triggers) => {
       if (entries.size >= MAX_PROVIDERS) throw new Error('Extension language provider limit reached');
@@ -156,12 +160,34 @@ function createProviders(options) {
       }
       if (triggers.length > 16 || triggers.some(value => typeof value !== 'string' || [...value].length !== 1 || Buffer.byteLength(value) > 4)) throw new Error('Provider trigger characters exceed their budget');
       const id = ++nextId;
-      const entry = { id, owner, type, selector: selector(documentSelector), triggers, provider, method };
+      const entry = { id, owner, type, selector: selector(documentSelector), triggers, provider, method, resolves: type === 'completion' && typeof provider.resolveCompletionItem === 'function' };
       entries.set(id, entry);
       const disposable = new Disposable(() => { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); publish(); });
       try { const result = options.track(owner, disposable); publish(); return result; }
       catch (error) { disposable.dispose(); throw error; }
     }]));
+  }
+  function assertCurrent(call) {
+    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (call.entry.type === 'completion' && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version) throw new Error('Language provider result became stale or canceled');
+  }
+  function purgeCompletions() {
+    for (const [id, cached] of completions) if (Date.now() - cached.started >= 6000 || cached.document.isClosed || cached.document.version !== cached.version || entries.get(cached.entry.id) !== cached.entry) completions.delete(id);
+  }
+  function retainCompletions(entry, call, originals, result, request) {
+    purgeCompletions();
+    // One bounded cohort per provider; new lists retire its preceding item handles.
+    for (const [id, cached] of completions) if (cached.entry === entry) completions.delete(id);
+    if (completions.size + result.items.length > 300) throw new Error('Completion resolve handle budget exceeded (300)');
+    let bytes = Buffer.byteLength(JSON.stringify(result));
+    for (const cached of completions.values()) bytes += cached.bytes;
+    if (bytes > 2 * MAX_RESULT_BYTES) throw new Error('Completion resolve cache exceeds 2 MiB');
+    const staged = result.items.map((item, index) => {
+      if (nextHandle >= Number.MAX_SAFE_INTEGER) throw new Error('Completion handle exhausted');
+      const handle = ++nextHandle;
+      return [handle, { entry, document: call.document, version: call.version, request,
+        original: originals[index], snapshot: JSON.stringify(item), bytes: Buffer.byteLength(JSON.stringify(item)), started: Date.now() }];
+    });
+    for (let index = 0; index < staged.length; index++) { completions.set(...staged[index]); result.items[index]._vscliCompletionHandle = staged[index][0]; }
   }
   async function provide(params) {
     const entry = entries.get(params.provider);
@@ -171,7 +197,7 @@ function createProviders(options) {
     if (calls.size >= MAX_PENDING) throw new Error('Language provider invocation limit reached');
     const callId = params.request === undefined ? Symbol() : params.request;
     if (typeof callId !== 'symbol' && (!Number.isSafeInteger(callId) || callId < 1 || calls.has(callId))) throw new Error('Invalid or duplicate provider request ID');
-    const source = new CancellationTokenSource(), call = { source, entry, document, version: document.version };
+    const source = new CancellationTokenSource(), call = { source, entry, document, version: document.version, epoch: registryEpoch };
     calls.set(callId, call);
     let args;
     try {
@@ -194,10 +220,25 @@ function createProviders(options) {
     } catch (error) { calls.delete(callId); source.dispose(); throw error; }
     let timer;
     const work = Promise.resolve().then(() => entry.provider[entry.method](...args)).then(value => {
-      if (source.token.isCancellationRequested || entries.get(entry.id) !== entry || document.isClosed || document.version !== call.version) throw new Error('Language provider result became stale or canceled');
-      const result = normalize(entry.type, value, document);
+      assertCurrent(call);
+      let originals, input = value;
+      if (entry.type === 'completion' && value !== undefined && value !== null) {
+        const items = list(Array.isArray(value) ? value : value.items, 300), count = items.length;
+        if (!Number.isSafeInteger(count) || count < 0 || count > 300) throw new Error('Invalid completion item count');
+        originals = [];
+        for (let index = 0; index < count; index++) originals.push(items[index]);
+        input = { items: originals, isIncomplete: value.isIncomplete };
+      }
+      const result = normalize(entry.type, input, document);
       wireBudget(result);
+      assertCurrent(call);
+      if (entry.resolves && result) retainCompletions(entry, call, originals, result, callId);
+      wireBudget(result);
+      assertCurrent(call);
       return result;
+    }).catch(error => {
+      for (const [id, cached] of completions) if (cached.request === callId) completions.delete(id);
+      throw error;
     }).finally(() => { calls.delete(callId); source.dispose(); clearTimeout(timer); });
     // A timed-out callback keeps its slot until it settles, bounding ignored cancellation.
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => { reject(new Error('Language provider deadline exceeded')); source.cancel(); }, options.timeoutMs || 5000); });
@@ -205,13 +246,45 @@ function createProviders(options) {
     const canceled = new Promise((_, reject) => { cancellationListener = source.token.onCancellationRequested(() => reject(new Error('Language provider invocation canceled'))); });
     return Promise.race([work, timeout, canceled]).finally(() => { clearTimeout(timer); cancellationListener.dispose(); });
   }
+  async function resolveCompletion(params) {
+    purgeCompletions();
+    const cached = completions.get(params.handle), entry = entries.get(params.provider);
+    if (params.session !== options.session || !cached || cached.entry !== entry || entry.owner !== params.owner || cached.request !== params.origin || cached.version !== params.version || options.document(params.document) !== cached.document) throw new Error('Stale completion resolve handle, owner, or document');
+    if (calls.size >= MAX_PENDING) throw new Error('Language provider invocation limit reached');
+    if (!Number.isSafeInteger(params.request) || params.request < 1 || calls.has(params.request)) throw new Error('Invalid or duplicate provider request ID');
+    const source = new CancellationTokenSource(), call = { source, entry, document: cached.document, version: cached.version, epoch: registryEpoch, completionOrigin: cached.request };
+    calls.set(params.request, call);
+    let timer;
+    const work = Promise.resolve().then(() => entry.provider.resolveCompletionItem(cached.original, source.token)).then(value => {
+      assertCurrent(call);
+      if (completions.get(params.handle) !== cached) throw new Error('Completion resolve became stale or canceled');
+      const result = normalize('completion', [value === undefined || value === null ? cached.original : value], cached.document).items[0];
+      const original = JSON.parse(cached.snapshot);
+      for (const key of new Set([...Object.keys(original), ...Object.keys(result)])) {
+        if (!['detail', 'documentation', 'additionalTextEdits'].includes(key) && JSON.stringify(original[key]) !== JSON.stringify(result[key])) throw new Error(`Completion resolve changed immutable field ${key}`);
+      }
+      result._vscliCompletionHandle = params.handle;
+      wireBudget(result);
+      assertCurrent(call);
+      if (completions.get(params.handle) !== cached) throw new Error('Completion resolve became stale or canceled');
+      return result;
+    }).finally(() => { calls.delete(params.request); source.dispose(); clearTimeout(timer); });
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => { reject(new Error('Language provider deadline exceeded')); source.cancel(); }, options.timeoutMs || 5000); });
+    let listener;
+    const canceled = new Promise((_, reject) => { listener = source.token.onCancellationRequested(() => reject(new Error('Language provider invocation canceled'))); });
+    return Promise.race([work, timeout, canceled]).finally(() => { clearTimeout(timer); listener.dispose(); });
+  }
   function cancel(params) {
+    if (params.session !== options.session) return false;
+    for (const [id, cached] of completions) if (cached.entry.owner === params.owner && cached.request === params.request) completions.delete(id);
+    for (const pending of calls.values()) if (pending.entry.owner === params.owner && pending.completionOrigin === params.request) pending.source.cancel();
     const call = calls.get(params.request);
-    if (params.session !== options.session || !call || call.entry.owner !== params.owner) return false;
+    if (!call || call.entry.owner !== params.owner) return false;
     call.source.cancel(); return true;
   }
-  function documentChanged() { for (const { source, document, version } of calls.values()) if (document.isClosed || document.version !== version) source.cancel(); }
+  function documentChanged() { purgeCompletions(); for (const { source, document, version } of calls.values()) if (document.isClosed || document.version !== version) source.cancel(); }
+
   function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
-  return { forOwner, provide, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size };
+  return { forOwner, provide, resolveCompletion, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
 }
 module.exports = { createProviders, score, selector, normalize };
