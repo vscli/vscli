@@ -146,7 +146,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         )
     } else {
         format!(
-            " VSCLI  |  {}  |  No open editors{}",
+            " VSCLI  |  No open editors  |  {}{}",
             clean(&app.workspace.root.file_name().map_or_else(
                 || app.workspace.root.to_string_lossy(),
                 |name| name.to_string_lossy()
