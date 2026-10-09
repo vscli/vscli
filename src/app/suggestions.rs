@@ -392,6 +392,7 @@ impl App {
                 let Some(item) = popup.model.selected_item() else {
                     return;
                 };
+                let provider = matches!(&popup.source, Source::Provider(_));
                 let action = match popup.source {
                     Source::Native { request, .. } => LanguageAction::Completion {
                         request,
@@ -404,6 +405,11 @@ impl App {
                 };
                 if let Err(error) = self.language_action(&action) {
                     self.message = format!("Suggestion rejected: {error:#}");
+                }
+                if provider {
+                    // The popup has already been taken, so generic cancellation
+                    // cannot discover its provider lease after a rejected edit.
+                    self.cancel_extension_provider();
                 }
                 self.cancel_suggestions();
             }
