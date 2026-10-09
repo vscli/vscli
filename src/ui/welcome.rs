@@ -1,11 +1,37 @@
 //! Responsive native welcome page; image preparation lives in `brand`.
 use super::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone)]
 pub(crate) enum Action {
     Command(&'static str),
     Recent(PathBuf),
+}
+
+fn recent_parent_label(parent: &Path, workspace: &Path, width: u16) -> String {
+    let relative = parent.strip_prefix(workspace).unwrap_or(parent);
+    let text = if relative.as_os_str().is_empty() {
+        ".".to_owned()
+    } else {
+        clean(&relative.to_string_lossy())
+    };
+    if text.width() <= usize::from(width) {
+        return text;
+    }
+    if width == 0 {
+        return String::new();
+    }
+    let mut start = text.len();
+    let mut used = 1; // Leading ellipsis occupies one terminal cell.
+    for (index, grapheme) in text.grapheme_indices(true).rev() {
+        used += grapheme.width();
+        if used > usize::from(width) {
+            break;
+        }
+        start = index;
+    }
+    format!("…{}", &text[start..])
 }
 
 pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -146,8 +172,12 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
                 .push((row, Action::Recent(entry.path.clone())));
             if wide && let Some(parent) = entry.path.parent() {
                 frame.render_widget(
-                    Paragraph::new(clean(&parent.to_string_lossy()))
-                        .style(Style::default().fg(colors.muted)),
+                    Paragraph::new(recent_parent_label(
+                        parent,
+                        &app.workspace.root,
+                        recent_width,
+                    ))
+                    .style(Style::default().fg(colors.muted)),
                     Rect::new(recent_x, y + 1, recent_width, 1),
                 );
             }
@@ -195,6 +225,42 @@ mod tests {
             modifiers: KeyModifiers::NONE,
         }));
     }
+    #[test]
+    fn recent_parent_labels_keep_distinguishing_suffixes_with_long_roots_and_unicode() {
+        let workspace = PathBuf::from("long-workspace-prefix-".repeat(12));
+        assert_eq!(
+            recent_parent_label(&workspace.join("left"), &workspace, 12),
+            "left"
+        );
+        assert_eq!(
+            recent_parent_label(&workspace.join("right"), &workspace, 12),
+            "right"
+        );
+        assert_eq!(recent_parent_label(&workspace, &workspace, 12), ".");
+        let outside = PathBuf::from("other-root-".repeat(12)).join("猫e\u{301}🙂right");
+        for width in 0..24 {
+            let label = recent_parent_label(&outside, &workspace, width);
+            assert!(label.width() <= usize::from(width));
+            if width > 0 {
+                assert!(label.starts_with('…'));
+            }
+            if width >= 6 {
+                assert!(label.ends_with("right"));
+            }
+        }
+        assert_eq!(
+            recent_parent_label(&outside, &workspace, 9),
+            "…e\u{301}🙂right"
+        );
+        assert_eq!(
+            recent_parent_label(&outside, &workspace, 11),
+            "…猫e\u{301}🙂right"
+        );
+        assert!(
+            !recent_parent_label(Path::new("\x1bhidden\nright"), &workspace, 30).contains('\x1b')
+        );
+    }
+
     #[test]
     fn welcome_actions_preserve_hidden_dirty_buffers_and_resize_invalidates_hitboxes() {
         let root = tempfile::tempdir().unwrap();
