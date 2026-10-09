@@ -219,6 +219,9 @@ impl App {
     pub(super) fn open_hidden_aware(&mut self, path: PathBuf, intent: OpenIntent) {
         self.open_navigation_mode(path, None, true, intent);
     }
+    pub(super) fn open_welcome_recent(&mut self, path: PathBuf) {
+        self.open_navigation(path, None);
+    }
     fn open_navigation(&mut self, path: PathBuf, closed: Option<Closed>) {
         self.open_navigation_mode(path, closed, false, OpenIntent::Focus);
     }

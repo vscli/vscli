@@ -1,3 +1,4 @@
+pub(crate) mod welcome;
 use crate::{
     app::{App, COMMANDS, Focus, Modal, PromptKind},
     document::{Document, display_width, grapheme_width, graphemes},
@@ -23,6 +24,8 @@ fn clean_multiline(s: &str) -> String {
 }
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
+    app.welcome_brand.begin_frame();
+    app.welcome_actions.clear();
     let colors = app.theme.colors;
     let area = frame.area();
     frame.render_widget(
@@ -310,97 +313,11 @@ fn draw_explorer(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(Paragraph::new(lines), inner);
 }
 
-fn draw_welcome(frame: &mut Frame, app: &App, area: Rect) {
-    let colors = app.theme.colors;
-    let logo = [
-        "██╗   ██╗███████╗ ██████╗██╗     ██╗",
-        "██║   ██║██╔════╝██╔════╝██║     ██║",
-        "██║   ██║███████╗██║     ██║     ██║",
-        "╚██╗ ██╔╝╚════██║██║     ██║     ██║",
-        " ╚████╔╝ ███████║╚██████╗███████╗██║",
-        "  ╚═══╝  ╚══════╝ ╚═════╝╚══════╝╚═╝",
-    ];
-    let mut lines = Vec::new();
-    if area.width >= 42 && area.height >= 16 {
-        lines.extend(
-            logo.into_iter()
-                .map(|line| Line::styled(line, Style::default().fg(colors.accent))),
-        );
-    } else {
-        lines.push(Line::styled(
-            "VSCLI",
-            Style::default()
-                .fg(colors.accent)
-                .add_modifier(Modifier::BOLD),
-        ));
-    }
-    lines.push(Line::default());
-    lines.push(Line::styled(
-        "Your terminal. Your workspace.",
-        Style::default().fg(colors.muted),
-    ));
-    lines.push(Line::default());
-    let context = app.context();
-    for (label, command) in [
-        ("New File", "workbench.action.files.newUntitledFile"),
-        ("Open File", "workbench.action.files.openFile"),
-        ("Quick Open", "workbench.action.quickOpen"),
-        ("Open Recent File", "workbench.action.openRecent"),
-        (
-            "Reopen Closed Editor",
-            "workbench.action.reopenClosedEditor",
-        ),
-        ("Command Palette", "workbench.action.showCommands"),
-    ] {
-        lines.push(Line::from(vec![
-            Span::styled(
-                format!("{label}   "),
-                Style::default().fg(colors.foreground),
-            ),
-            Span::styled(
-                {
-                    let key = app.keymap.shortcut_in_context(command, &context);
-                    if key.is_empty() {
-                        "Unbound".into()
-                    } else {
-                        key
-                    }
-                },
-                Style::default().fg(colors.muted),
-            ),
-        ]));
-    }
-    if !app.recent_files.files.is_empty() {
-        lines.push(Line::default());
-        lines.push(Line::styled(
-            "Recent files",
-            Style::default().fg(colors.accent),
-        ));
-        for entry in app.recent_files.files.iter().take(5) {
-            lines.push(Line::styled(
-                clean(&entry.path.to_string_lossy()),
-                Style::default().fg(colors.muted),
-            ));
-        }
-    }
-    let height = (lines.len() as u16).min(area.height);
-    let content = Rect::new(
-        area.x,
-        area.y + area.height.saturating_sub(height) / 2,
-        area.width,
-        height,
-    );
-    frame.render_widget(
-        Paragraph::new(lines).alignment(ratatui::layout::Alignment::Center),
-        content,
-    );
-}
-
 fn draw_editors(frame: &mut Frame, app: &mut App, area: Rect) {
     let colors = app.theme.colors;
     app.sync_pane();
     if app.documents.is_empty() {
-        draw_welcome(frame, app, area);
+        welcome::draw(frame, app, area);
         return;
     }
     let active_document = app.active;
@@ -1049,7 +966,7 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
         Modal::Help => (
             " Getting Started · Esc to close ",
             format!(
-                "VSCLI 0.1 · Native terminal editor\n\n{}  Command palette\n{}  Quick open (respects ignore files)\n{}  Open a path or create a file\n{}  Save    {}  Save As\n{}  Find    {}  Go to line\n{}  Toggle explorer\nCtrl+PageUp / Ctrl+PageDown  Switch tabs\nShift+arrows  Select · Mouse drag selects\n\nExplorer: arrows, Enter to open, Left for parent, Esc for editor.\n\nRecovery snapshots are written every two seconds.\nUTF-8 files up to 32 MiB. LSP: launch with --lsp PROGRAM.\nCtrl+D adds occurrences · Ctrl+Shift+F searches files.\nF1 → Extensions: Install from VSIX / Show Installed Extensions.\nCode extensions use an optional experimental Node host.\nF1 → Keyboard Inspector shows what your terminal sends.\nEnhanced shortcuts require a compatible terminal configuration.\n\n{}  Exit (unsaved changes are protected)",
+                "VSCLI 0.1 · Native terminal editor\n\n{}  Command palette\n{}  Quick open (respects ignore files)\n{}  Open a path or create a file\n{}  Save    {}  Save As\n{}  Find    {}  Go to line\n{}  Toggle explorer\nCtrl+PageUp / Ctrl+PageDown  Switch tabs\nShift+arrows  Select · Mouse drag selects\n\nExplorer: arrows, Enter to open, Left for parent, Esc for editor.\n\nRecovery snapshots are written every two seconds.\nUTF-8 files up to 32 MiB. Installed clangd / rust-analyzer start automatically.\nUse --lsp PROGRAM for a custom server or --no-lsp to disable.\nCtrl+D adds occurrences · Ctrl+Shift+F searches files.\nF1 → Extensions: Install from VSIX / Show Installed Extensions.\nCode extensions use an optional experimental Node host.\nF1 → Keyboard Inspector shows what your terminal sends.\nEnhanced shortcuts require a compatible terminal configuration.\n\n{}  Exit (unsaved changes are protected)",
                 app.keymap.shortcut("workbench.action.showCommands"),
                 app.keymap.shortcut("workbench.action.quickOpen"),
                 app.keymap.shortcut("workbench.action.files.openFile"),
@@ -1986,12 +1903,12 @@ mod tests {
         terminal.draw(|frame| draw(frame, &mut app)).unwrap();
         let cells = &terminal.backend().buffer().content;
         let text: String = cells.iter().map(|cell| cell.symbol()).collect();
-        assert!(text.contains("Open Recent File   f8"));
-        assert!(text.contains("left/same.txt") && text.contains("right/same.txt"));
+        assert!(text.contains("Open Recent File") && text.contains("f8"));
+        assert!(text.contains("same.txt") && text.contains("left") && text.contains("right"));
         assert!(
             cells
                 .iter()
-                .any(|cell| cell.symbol() == "R" && cell.fg == Color::Rgb(1, 2, 3))
+                .any(|cell| cell.symbol() == "V" && cell.fg == Color::Rgb(1, 2, 3))
         );
         assert!(app.documents.is_empty());
     }

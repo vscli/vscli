@@ -95,6 +95,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 5
         run: python3 -u tests/pty_smoke.py target/debug/vscli
+      - name: Run graphical welcome lifecycle workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/welcome_brand_pty.py target/debug/vscli
       - name: Run clean-session restart workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

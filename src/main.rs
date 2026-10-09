@@ -11,7 +11,7 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::{
-    io::{self, IsTerminal},
+    io::{self, IsTerminal, Write},
     path::PathBuf,
     sync::{
         Arc,
@@ -167,6 +167,9 @@ impl Drop for TerminalGuard {
     }
 }
 fn restore_terminal() {
+    if let Some(sequence) = vscli::brand::terminal_cleanup() {
+        let _ = io::stdout().write_all(sequence.as_bytes());
+    }
     if ENHANCED.swap(false, Ordering::SeqCst) {
         let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags);
     }
