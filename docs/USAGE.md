@@ -552,9 +552,10 @@ This is native workflow evidence, not full signature-help parity with VS Code.
 
 **Ctrl+Shift+O** (macOS **Cmd+Shift+O**) opens **Go to Symbol in Editor**.
 **Ctrl+T** (macOS **Cmd+T**) opens **Go to Symbol in Workspace**. These defaults
-and their contexts match the pinned VS Code 1.95.0 inventory. Both commands require
-a ready native LSP server advertising the relevant provider;
-document symbols additionally require a saved file handled by that server.
+and their contexts match the pinned VS Code 1.95.0 inventory. The LSP route requires a ready server advertising the relevant provider;
+LSP document symbols additionally require a saved file handled by that server.
+A matching selected extension can instead provide document symbols through the
+same picker, including hierarchical symbols for untitled buffers.
 Workspace symbol search also works from an empty welcome screen.
 
 The native searchable picker displays names, kinds, containing symbols and file
@@ -676,3 +677,9 @@ Remembered code activation is opt-in through native `vscli.extensions.enableGlob
 In the installed extensions picker, **e/d** enable or disable the selected package globally; **E/D** (Shift+e/d) write a workspace override. The picker shows effective activation state; workspace values override global values. **Enter** runs the selected package once. Each dependency needs its own explicit grant.
 
 Use `vscli --enable-extension publisher.name` to remember a global code grant without starting Node. `--disable-extension publisher.name --extension-scope workspace --workspace /path/to/project` writes a workspace override under the native user configuration root. Missing installed IDs and malformed existing state reject without replacing previous grants. These flags can be used without an interactive terminal.
+
+## Native extension language providers
+
+A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). The highest-scoring matching provider wins, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Invocation is explicit; automatic completion/signature triggers are not implemented.
+
+Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. Definitions and references reuse dirty/shared buffers and load closed files asynchronously. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Snippet completion, completion commands/resolution, workspace symbol providers and provider aggregation remain unsupported. See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).

@@ -85,6 +85,9 @@ impl App {
         }
     }
     pub(super) fn cancel_symbols(&mut self) {
+        if self.provider_symbols_active() {
+            self.cancel_extension_provider();
+        }
         self.symbols.context = None;
         self.symbols.items.clear();
         self.symbols.pending = false;
@@ -103,6 +106,9 @@ impl App {
     }
     pub(super) fn start_symbols(&mut self, workspace: bool) {
         self.cancel_symbols();
+        if !workspace && self.extension_language_request("textDocument/documentSymbol", json!({})) {
+            return;
+        }
         if self.documents.len() + self.hidden_documents.len() > 128 {
             self.message = "Symbol navigation supports at most 128 open buffers".into();
             return;
@@ -163,9 +169,12 @@ impl App {
         };
     }
     pub fn symbol_items(&self, query: &str) -> Vec<&Symbol> {
-        let mut items: Vec<_> = self
-            .symbols
-            .items
+        let source = if self.provider_symbols_active() {
+            &self.extension_providers.symbols
+        } else {
+            &self.symbols.items
+        };
+        let mut items: Vec<_> = source
             .iter()
             .enumerate()
             .filter_map(|(index, item)| score(&item.label, query).map(|score| (score, index, item)))
@@ -174,7 +183,7 @@ impl App {
         items.into_iter().map(|(_, _, item)| item).collect()
     }
     pub fn symbols_workspace(&self) -> bool {
-        self.symbols.workspace
+        !self.provider_symbols_active() && self.symbols.workspace
     }
     pub(super) fn symbol_response(
         &mut self,
@@ -220,6 +229,10 @@ impl App {
         Ok(())
     }
     pub(super) fn accept_symbol(&mut self, query: &str, selected: usize) {
+        if self.provider_symbols_active() {
+            self.accept_provider_symbol(query, selected);
+            return;
+        }
         if !self.symbols.context.as_ref().is_some_and(|c| c.valid(self)) {
             self.cancel_symbols();
             return;

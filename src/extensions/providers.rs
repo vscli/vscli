@@ -1,0 +1,329 @@
+//! Bounded native ownership and lifetime checks for optional language callbacks.
+use super::*;
+use crate::extension_providers::{Kind, Provider, Registry};
+use std::collections::VecDeque;
+const LIMIT: usize = 8;
+const DEADLINE: Duration = Duration::from_secs(6);
+#[derive(Clone, Debug)]
+pub struct Ticket {
+    pub id: u64,
+    pub session: u64,
+    pub provider: Provider,
+    pub epoch: u64,
+    pub document: u64,
+    pub revision: u64,
+    pub version: u64,
+}
+struct Call {
+    ticket: Ticket,
+    canceled: bool,
+    started: Instant,
+}
+pub(crate) struct Reply {
+    pub ticket: Ticket,
+    pub result: Result<Value, String>,
+}
+#[derive(Default)]
+pub(super) struct State {
+    registry: Registry,
+    calls: HashMap<u64, Call>,
+    replies: VecDeque<Reply>,
+}
+impl Client {
+    pub(crate) fn provider_owner_ready(&self, owner: &str) -> bool {
+        self.owner_active(owner)
+    }
+    pub(crate) fn language_provider(&self, kind: Kind, doc: &Document) -> Option<&Provider> {
+        self.providers
+            .registry
+            .entries()
+            .iter()
+            .filter(|p| p.kind == kind && self.provider_owner_ready(&p.owner))
+            .filter_map(|p| {
+                let score = p.score(doc);
+                (score > 0).then_some((score, p.id, p))
+            })
+            .max_by_key(|(score, id, _)| (*score, *id))
+            .map(|(_, _, p)| p)
+    }
+    pub(crate) fn register_language_providers(&mut self, value: Value) -> Result<()> {
+        let owners: Vec<_> = self.packages.iter().map(|p| p.id.as_str()).collect();
+        self.providers.registry.replace(value, &owners)
+    }
+    pub(crate) fn provider_ticket_current(&self, ticket: &Ticket, doc: &Document) -> bool {
+        ticket.session == self.session
+            && self.provider_owner_ready(&ticket.provider.owner)
+            && self
+                .providers
+                .registry
+                .current(&ticket.provider, ticket.epoch)
+            && ticket.document == doc.id
+            && ticket.revision == doc.revision
+            && self.service_document_current(doc, ticket.version)
+    }
+    pub(crate) fn request_language_provider(
+        &mut self,
+        kind: Kind,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+        options: Value,
+    ) -> Result<Option<Ticket>> {
+        let doc = documents.get(active).context("No active document")?;
+        let Some(provider) = self.language_provider(kind, doc).cloned() else {
+            return Ok(None);
+        };
+        if self.providers.calls.len() + self.providers.replies.len() >= LIMIT {
+            bail!("Language provider callback limit reached (8); wait for pending callbacks");
+        }
+        self.sync_with_hidden(documents, hidden, active)?;
+        let mirror = self
+            .mirror
+            .mirrors
+            .get(&doc.id)
+            .context("Document is not mirrored")?;
+        let ticket = Ticket {
+            id: self.next_id + 1,
+            session: self.session,
+            provider,
+            epoch: self.providers.registry.epoch(),
+            document: doc.id,
+            revision: doc.revision,
+            version: mirror.version,
+        };
+        self.request("provideLanguage", json!({"session":self.session,"owner":ticket.provider.owner,
+            "provider":ticket.provider.id,"document":doc.id,"version":ticket.version,
+            "position":lsp::position(doc, doc.cursor), "includeDeclaration":true,
+            "options":options.get("options").cloned().unwrap_or_else(|| json!({"tabSize":4,"insertSpaces":true}))}))?;
+        self.providers.calls.insert(
+            ticket.id,
+            Call {
+                ticket: ticket.clone(),
+                canceled: false,
+                started: Instant::now(),
+            },
+        );
+        Ok(Some(ticket))
+    }
+    pub(crate) fn cancel_language_provider(&mut self, ticket: &Ticket) -> Result<()> {
+        if ticket.session != self.session {
+            return Ok(());
+        }
+        if let Some(call) = self.providers.calls.get_mut(&ticket.id)
+            && !call.canceled
+        {
+            call.canceled = true;
+            self.process
+                .send(json!({"method":"cancelLanguageProvider","params":{
+                "session":self.session,"owner":ticket.provider.owner,"request":ticket.id}}))?;
+        }
+        // Retain the call and generic pending origin until the real reply or deadline.
+        Ok(())
+    }
+    pub(crate) fn take_provider_replies(&mut self) -> VecDeque<Reply> {
+        std::mem::take(&mut self.providers.replies)
+    }
+    pub(super) fn provider_response(&mut self, id: u64, mut message: Value) -> Result<()> {
+        let Some(call) = self.providers.calls.remove(&id) else {
+            return Ok(());
+        };
+        if call.canceled {
+            return Ok(());
+        }
+        let result = if !message["error"].is_null() {
+            Err(message["error"]["message"]
+                .as_str()
+                .unwrap_or("Language provider failed")
+                .chars()
+                .take(2048)
+                .collect())
+        } else {
+            let value = message["result"].take();
+            provider_result_budget(&value)
+                .map(|()| value)
+                .map_err(|e| e.to_string())
+        };
+        self.providers.replies.push_back(Reply {
+            ticket: call.ticket,
+            result,
+        });
+        Ok(())
+    }
+    pub(super) fn expire_language_providers(&mut self) -> Result<()> {
+        let expired: Vec<_> = self
+            .providers
+            .calls
+            .values()
+            .filter(|c| c.started.elapsed() >= DEADLINE)
+            .map(|c| c.ticket.clone())
+            .collect();
+        for ticket in expired {
+            self.cancel_language_provider(&ticket)?;
+            self.providers.calls.remove(&ticket.id);
+            self.pending.remove(&ticket.id);
+            self.providers.replies.push_back(Reply {
+                ticket,
+                result: Err("Language provider timed out".into()),
+            });
+        }
+        Ok(())
+    }
+}
+fn provider_result_budget(value: &Value) -> Result<()> {
+    let mut stack = vec![(value, 0usize)];
+    let (mut nodes, mut bytes) = (0, 0);
+    while let Some((value, depth)) = stack.pop() {
+        nodes += 1;
+        if nodes > 100_000 || depth > 32 {
+            bail!("Language provider result exceeds node/depth budget")
+        }
+        match value {
+            Value::String(s) => bytes += s.len(),
+            Value::Array(a) => stack.extend(a.iter().map(|v| (v, depth + 1))),
+            Value::Object(o) => {
+                bytes += o.keys().map(String::len).sum::<usize>();
+                stack.extend(o.values().map(|v| (v, depth + 1)));
+            }
+            _ => (),
+        }
+        if bytes > 1024 * 1024 {
+            bail!("Language provider result exceeds 1 MiB")
+        }
+    }
+    if serde_json::to_vec(value)?.len() > 1024 * 1024 {
+        bail!("Language provider result exceeds 1 MiB")
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn fixture(root: &Path, body: &str) -> PathBuf {
+        let folder = root.join("providers");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::write(
+            folder.join("package.json"),
+            r#"{"publisher":"test","name":"providers","version":"1","main":"index.cjs"}"#,
+        )
+        .unwrap();
+        std::fs::write(folder.join("index.cjs"), body).unwrap();
+        folder
+    }
+    fn ready(client: &mut Client, docs: &mut [Document]) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !client.ready {
+            client.poll(docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    #[test]
+    fn canceled_callbacks_retain_slots_until_reply_and_never_cross_owner_session_or_registry() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![Document::from_text("α🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let mut tickets = Vec::new();
+        for _ in 0..8 {
+            let ticket = client
+                .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+                .unwrap()
+                .unwrap();
+            client.cancel_language_provider(&ticket).unwrap();
+            tickets.push(ticket);
+        }
+        assert_eq!(client.providers.calls.len(), 8);
+        assert!(
+            client
+                .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+                .is_err()
+        );
+        assert!(client.provider_ticket_current(&tickets[0], &docs[0]));
+        let mut forged = tickets[0].clone();
+        forged.session += 1;
+        assert!(!client.provider_ticket_current(&forged, &docs[0]));
+        forged = tickets[0].clone();
+        forged.provider.owner = "other.owner".into();
+        assert!(!client.provider_ticket_current(&forged, &docs[0]));
+        let origin = tickets[0].id;
+        assert!(
+            client
+                .validate_native_origin(
+                    client.session,
+                    "test.providers",
+                    Some(origin),
+                    Some("test.providers")
+                )
+                .is_ok()
+        );
+        assert!(
+            client
+                .validate_native_origin(
+                    client.session,
+                    "test.providers",
+                    Some(origin),
+                    Some("other.owner")
+                )
+                .is_err()
+        );
+        client.register_language_providers(json!([])).unwrap();
+        assert!(!client.provider_ticket_current(&tickets[0], &docs[0]));
+        for ticket in tickets {
+            client
+                .provider_response(ticket.id, json!({"result":{"contents":"late"}}))
+                .unwrap();
+            client.pending.remove(&ticket.id);
+        }
+        assert!(client.take_provider_replies().is_empty());
+        assert!(client.providers.calls.is_empty());
+        assert_eq!(docs[0].text.to_string(), "α🙂\r\n");
+    }
+    #[test]
+    fn callback_timeout_and_malformed_result_are_bounded_and_retryable() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![Document::from_text("untitled")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        client.providers.calls.get_mut(&ticket.id).unwrap().started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert!(!client.pending.contains_key(&ticket.id));
+        let reply = client.take_provider_replies().pop_front().unwrap();
+        assert!(reply.result.unwrap_err().contains("timed out"));
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        client
+            .provider_response(ticket.id, json!({"result":"x".repeat(1024*1024+1)}))
+            .unwrap();
+        assert!(
+            client
+                .take_provider_replies()
+                .pop_front()
+                .unwrap()
+                .result
+                .is_err()
+        );
+        let mut nested = json!(null);
+        for _ in 0..33 {
+            nested = json!([nested]);
+        }
+        assert!(provider_result_budget(&nested).is_err());
+        assert!(provider_result_budget(&json!(vec![0; 100_001])).is_err());
+    }
+}

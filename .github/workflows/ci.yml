@@ -111,6 +111,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/extension_documents_pty.py target/debug/vscli
+      - name: Run native extension language provider workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/extension_providers_pty.py target/debug/vscli
       - name: Check syntax colors during terminal edits
         if: runner.os != 'Windows'
         timeout-minutes: 2

@@ -55,6 +55,8 @@ responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-fil
 loads. Range-less WorkspaceSymbol resolve and an outline panel remain unsupported.
 See [symbol-navigation behavior and evidence](USAGE.md#native-document-and-workspace-symbols).
 
+Optional selected extensions now dispatch seven language-provider workflows into native UI: completion, hover, definitions, references, formatting, document symbols and signature help. Native context/version checks guard responses and picker acceptance; formatting/completion preserve EOL and undo. Synthetic native/PTY qualification covers this subset. Automatic triggers, snippet completions, provider aggregation, code-action providers and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).
+
 ## Feature disposition
 
 | VS Code feature family | Planned terminal behavior | Scope |
