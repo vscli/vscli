@@ -681,7 +681,6 @@ impl App {
         &mut self.documents[self.active]
     }
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        self.cancel_navigation();
         let path = if path.is_absolute() {
             path.to_owned()
         } else {
@@ -692,6 +691,7 @@ impl App {
             .iter()
             .position(|doc| doc.path.as_ref() == Some(&path))
         {
+            self.cancel_navigation();
             self.active = index;
             self.focus = Focus::Editor;
             self.sync_pane();
@@ -703,6 +703,7 @@ impl App {
             .iter()
             .position(|doc| doc.path.as_ref() == Some(&path))
         {
+            self.cancel_navigation();
             let doc = self.hidden_documents.remove(index);
             self.install_open_document(doc);
             return Ok(());
@@ -711,6 +712,7 @@ impl App {
             self.open_hidden_aware(path);
             return Ok(());
         }
+        self.cancel_navigation();
         let mut d = Document::open(&path)?;
         self.settings.apply(&mut d);
         self.install_open_document(d);
