@@ -287,3 +287,125 @@ fn extension_commands_run_with_no_open_editors_before_and_after_last_tab_closes(
         assert!(app.extension_host.is_some());
     }
 }
+
+fn package(folder: &std::path::Path, name: &str, source: &str) -> vscli::extensions::Package {
+    let path = folder.join(name);
+    std::fs::create_dir_all(&path).unwrap();
+    std::fs::write(path.join("package.json"), serde_json::json!({"publisher":"session", "name":name, "version":"1.0.0", "main":"extension.cjs", "contributes": {"configuration": {"properties": {format!("{name}.value"): {"default": name}}}}}).to_string()).unwrap();
+    std::fs::write(path.join("extension.cjs"), source).unwrap();
+    vscli::extensions::Package::read(&path).unwrap()
+}
+
+#[test]
+fn shared_packages_execute_cross_commands_and_observe_one_native_document() {
+    let directory = tempfile::tempdir().unwrap();
+    let a = package(
+        directory.path(),
+        "a",
+        r#"
+      const vscode = require('vscode');
+      exports.activate = context => {
+        if (vscode.workspace.getConfiguration('b').get('value') !== 'b') throw new Error('Missing other package defaults');
+        const document = vscode.window.activeTextEditor.document;
+        context.subscriptions.push(vscode.commands.registerCommand('session.a', async () => {
+          const applied = await vscode.window.activeTextEditor.edit(edit => edit.insert(new vscode.Position(0, 0), 'A'));
+          return vscode.window.showInformationMessage(`a=${applied};${document.version};${document.getText()}`);
+        }));
+      };
+    "#,
+    );
+    let b = package(
+        directory.path(),
+        "b",
+        r#"
+      const vscode = require('vscode');
+      exports.activate = context => {
+        const document = vscode.window.activeTextEditor.document;
+        let events = 0;
+        context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(event => {
+          if (event.document !== document) throw new Error('Changed document identity');
+          events++;
+        }));
+        context.subscriptions.push(vscode.commands.registerCommand('session.b', () => vscode.commands.executeCommand('session.a')));
+        context.subscriptions.push(vscode.commands.registerCommand('session.observe', () => vscode.window.showInformationMessage(`b=${events};${document.version};${document.getText()}`)));
+      };
+    "#,
+    );
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
+    app.doc_mut().insert("original", false);
+    let identity = app.doc().id;
+    app.extension_host = Some(
+        Client::start_many(
+            "node",
+            &[b, a],
+            directory.path(),
+            &app.documents,
+            app.active,
+            &app.settings,
+        )
+        .unwrap(),
+    );
+    until(&mut app, |a| {
+        a.extension_host.as_ref().is_some_and(|h| h.ready)
+    });
+    assert_eq!(
+        app.extension_host.as_ref().unwrap().packages[0].id,
+        "session.a"
+    );
+    app.execute("session.b", Value::Null);
+    until(&mut app, |a| a.message == "a=true;2;Aoriginal");
+    app.execute("session.observe", Value::Null);
+    until(&mut app, |a| a.message == "b=1;2;Aoriginal");
+    assert_eq!(app.doc().id, identity);
+    assert!(app.doc().dirty());
+    app.doc_mut().undo();
+    app.execute("session.observe", Value::Null);
+    until(&mut app, |a| a.message == "b=2;3;original");
+}
+
+#[test]
+fn duplicate_packages_and_cumulative_contributions_reject_before_start() {
+    let directory = tempfile::tempdir().unwrap();
+    let a = package(directory.path(), "a", "exports.activate = () => {};");
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    assert!(
+        Client::start_many(
+            "missing-node",
+            &[a.clone(), a.clone()],
+            directory.path(),
+            &app.documents,
+            app.active,
+            &app.settings
+        )
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("Duplicate extension")
+    );
+    let b = package(directory.path(), "b", "exports.activate = () => {};");
+    for item in [&a, &b] {
+        let file = item.path.join("package.json");
+        let mut manifest: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        manifest["contributes"]["commands"] =
+            serde_json::json!(vec![serde_json::json!({"command":"unused"}); 600]);
+        std::fs::write(file, manifest.to_string()).unwrap();
+    }
+    assert!(
+        Client::start_many(
+            "missing-node",
+            &[a, b],
+            directory.path(),
+            &app.documents,
+            app.active,
+            &app.settings
+        )
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("contribution limit")
+    );
+    app.execute("workbench.action.files.newUntitledFile", Value::Null);
+    app.doc_mut().insert("still native", false);
+    assert_eq!(app.doc().text.to_string(), "still native");
+}

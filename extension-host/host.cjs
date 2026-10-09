@@ -8,8 +8,8 @@ const { Uri } = require('./api-types.cjs');
 // Console output from extensions must never corrupt the protocol stream.
 global.console = new Console(process.stderr, process.stderr);
 const MAX = 16 * 1024 * 1024;
-let buffer = Buffer.alloc(0), nextId = 0, initialized = false, extension;
-const pending = new Map(), subscriptions = [];
+let buffer = Buffer.alloc(0), nextId = 0, initialized = false, ready = false, runtime, session;
+const pending = new Map(), packages = [];
 function send(message) {
   const body = Buffer.from(JSON.stringify(message));
   if (body.length > MAX || process.stdout.writableLength + body.length > 64 * 1024 * 1024) {
@@ -28,12 +28,52 @@ function request(method, params) {
     catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
   });
 }
-const runtime = createApi(request, (method, params) => send({ method, params }));
 const originalLoad = Module._load;
 Module._load = function(name, parent, isMain) {
-  if (name === 'vscode') return runtime.api;
+  if (name === 'vscode') {
+    const owner = packages.find(item => {
+      const relative = path.relative(item.folder, parent?.filename || '');
+      return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+    });
+    if (!owner) throw new Error('Cannot identify the extension requesting vscode');
+    return runtime.forExtension(owner.id);
+  }
   return originalLoad.call(this, name, parent, isMain);
 };
+function nodes(value) {
+  if (value === null || typeof value !== 'object') return 1;
+  return 1 + Object.values(value).reduce((sum, item) => sum + nodes(item), 0);
+}
+function prepare(inputs) {
+  if (!Array.isArray(inputs) || !inputs.length || inputs.length > 8) throw new Error('Select between one and eight code extensions');
+  let bytes = 0, count = 0, bindings = 0, contributions = 0;
+  const ids = new Set();
+  return inputs.map(input => {
+    const folder = fs.realpathSync(input.path);
+    const manifestPath = path.join(folder, 'package.json');
+    const size = fs.statSync(manifestPath).size;
+    if (size > 1024 * 1024) throw new Error('Extension manifest exceeds 1 MiB');
+    bytes += size;
+    if (bytes > 8 * 1024 * 1024) throw new Error('Extension session manifests exceed 8 MiB');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    count += nodes(manifest);
+    if (count > 50000) throw new Error('Extension session manifests exceed 50,000 nodes');
+    const id = `${manifest.publisher}.${manifest.name}`.toLowerCase();
+    if (id !== input.id || manifest.version !== input.version) throw new Error(`Extension identity changed: ${input.id}`);
+    if (ids.has(id)) throw new Error(`Duplicate extension: ${id}`);
+    ids.add(id);
+    if (manifest.enabledApiProposals?.length) throw new Error(`${id}: proposed extension APIs are not implemented`);
+    if (manifest.extensionDependencies?.length) throw new Error(`${id}: extension dependencies are not implemented`);
+    if (typeof manifest.main !== 'string') throw new Error(`${id}: a CommonJS extension main entry is required`);
+    const entry = require.resolve(path.resolve(folder, manifest.main));
+    const relative = path.relative(folder, fs.realpathSync(entry));
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Extension main must be inside its directory');
+    bindings += Array.isArray(manifest.contributes?.keybindings) ? manifest.contributes.keybindings.length : manifest.contributes?.keybindings ? 1 : 0;
+    contributions += manifest.contributes?.commands?.length || 0;
+    if (bindings > 1024 || contributions > 1024) throw new Error('Extension session contribution limit exceeded');
+    return { id, folder, entry, manifest, subscriptions: [] };
+  }).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
 async function dispatch(message) {
   if (!message.method) {
     const call = pending.get(message.id);
@@ -47,46 +87,56 @@ async function dispatch(message) {
   try {
     switch (message.method) {
       case 'initialize': {
-        if (message.params.protocol !== 3) throw new Error('Unsupported native protocol version');
+        if (message.params.protocol !== 4) throw new Error('Unsupported native protocol version');
         if (initialized) throw new Error('Extension host already initialized');
-        initialized = true;
-        const folder = fs.realpathSync(message.params.extension);
-        const manifestPath = path.join(folder, 'package.json');
-        if (fs.statSync(manifestPath).size > 1024 * 1024) throw new Error('Extension manifest exceeds 1 MiB');
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        if (manifest.enabledApiProposals?.length) throw new Error('Proposed extension APIs are not implemented');
-        if (manifest.extensionDependencies?.length) throw new Error('Extension dependencies are not implemented');
-        if (typeof manifest.main !== 'string') throw new Error('A CommonJS extension main entry is required');
-        const entry = require.resolve(path.resolve(folder, manifest.main));
-        const relative = path.relative(folder, fs.realpathSync(entry));
-        if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Extension main must be inside its directory');
-        runtime.configure(message.params.root, manifest.contributes?.configuration, message.params.configuration);
+        initialized = true; session = message.params.session;
+        packages.push(...prepare(message.params.extensions));
+        runtime = createApi(request, (method, params) => {
+          // A failed startup must never publish partially activated command registries.
+          if (method !== 'commands' || ready) send({ method, params });
+        }, { session, reservedCommands: message.params.reservedCommands });
+        const schemas = packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration)
+          ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
+        runtime.configure(message.params.root, schemas, message.params.configuration);
         runtime.sync(message.params.state);
-        const context = supported('ExtensionContext', {
-          subscriptions, extensionPath: folder, extensionUri: Uri.file(folder),
-          extensionMode: runtime.api.ExtensionMode.Production,
-          asAbsolutePath: relative => path.join(folder, relative),
-        });
-        extension = require(entry);
-        if (typeof extension.activate === 'function') await extension.activate(context);
-        result = { protocol: 3, id: `${manifest.publisher}.${manifest.name}`, version: manifest.version,
-          keybindings: manifest.contributes?.keybindings || [],
-          commands: await runtime.api.commands.getCommands(), contributions: manifest.contributes?.commands || [] };
+        for (const item of packages) {
+          const context = supported('ExtensionContext', {
+            subscriptions: item.subscriptions, extensionPath: item.folder, extensionUri: Uri.file(item.folder),
+            extensionMode: runtime.api.ExtensionMode.Production,
+            asAbsolutePath: relative => path.join(item.folder, relative),
+          });
+          try {
+            item.extension = require(item.entry);
+            if (typeof item.extension.activate === 'function') await item.extension.activate(context);
+          } catch (error) { throw new Error(`${item.id}: activation failed: ${error.stack || error}`); }
+        }
+        ready = true;
+        result = { protocol: 4, session, commands: runtime.commandSnapshot(),
+          extensions: packages.map(item => ({ id: item.id, version: item.manifest.version,
+            keybindings: item.manifest.contributes?.keybindings || [], contributions: item.manifest.contributes?.commands || [] })) };
         break;
       }
-      case 'state': runtime.sync(message.params); break;
-      case 'configuration': runtime.updateConfiguration(message.params); break;
-      case 'execute': result = await runtime.api.commands.executeCommand(message.params.command, ...message.params.args); break;
+      case 'state': if (runtime) runtime.sync(message.params); break;
+      case 'configuration': if (runtime) runtime.updateConfiguration(message.params); break;
+      case 'execute':
+        if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');
+        if (!runtime.commandSnapshot().some(item => item.id === message.params.command && item.owner === message.params.owner)) throw new Error('Extension command owner changed');
+        result = await runtime.api.commands.executeCommand(message.params.command, ...message.params.args);
+        break;
       case 'shutdown':
-        if (extension?.deactivate) await extension.deactivate();
-        for (const subscription of subscriptions) subscription.dispose();
+        ready = false;
+        for (const item of [...packages].reverse()) {
+          if (item.extension?.deactivate) await item.extension.deactivate();
+          for (const subscription of item.subscriptions) subscription.dispose();
+          runtime.disposeOwner(item.id);
+        }
         break;
       default: throw new Error(`Unknown extension protocol method: ${message.method}`);
     }
     if (message.id !== undefined) send({ id: message.id, result: result ?? null });
   } catch (error) {
     if (message.id !== undefined) send({ id: message.id, error: { message: String(error.stack || error).slice(0, 8192) } });
-    else console.error(error);
+    else { console.error(error); process.exit(1); }
   }
 }
 process.stdin.on('data', chunk => {
@@ -103,6 +153,7 @@ process.stdin.on('data', chunk => {
       if (buffer.length < end + 4 + size) break;
       const message = JSON.parse(buffer.subarray(end + 4, end + 4 + size));
       buffer = buffer.subarray(end + 4 + size);
+      // Replies and state updates must bypass awaited command callbacks.
       dispatch(message).catch(error => { console.error(error); process.exit(1); });
     }
   } catch (error) { console.error(error); process.exit(1); }

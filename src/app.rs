@@ -32,6 +32,51 @@ use std::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
+pub(crate) fn native_command_ids() -> Vec<&'static str> {
+    COMMANDS
+        .iter()
+        .map(|(_, id)| *id)
+        .chain([
+            "cancelSelection",
+            "deleteLeft",
+            "deleteRight",
+            "deleteWordLeft",
+            "deleteWordRight",
+            "editor.action.addCommentLine",
+            "editor.action.changeAll",
+            "editor.action.indentLines",
+            "editor.action.nextMatchFindAction",
+            "editor.action.outdentLines",
+            "editor.action.previousMatchFindAction",
+            "editor.action.removeCommentLine",
+            "expandLineSelection",
+            "git.openChange",
+            "git.refresh",
+            "git.stage",
+            "git.unstage",
+            "jumpToNextSnippetPlaceholder",
+            "jumpToPrevSnippetPlaceholder",
+            "leaveSnippet",
+            "lineBreakInsert",
+            "outdent",
+            "tab",
+            "type",
+            "workbench.action.closeWindow",
+            "workbench.action.debug.continue",
+            "workbench.action.focusFirstEditorGroup",
+            "workbench.action.focusFourthEditorGroup",
+            "workbench.action.focusSecondEditorGroup",
+            "workbench.action.focusThirdEditorGroup",
+            "workbench.action.openSettings",
+            "workbench.action.showCommands",
+            "workbench.action.splitEditor",
+            "workbench.action.terminal.focus",
+            "workbench.action.togglePanel",
+            "workbench.view.extensions",
+        ])
+        .collect()
+}
+
 pub const COMMANDS: &[(&str, &str)] = &[
     ("Open Recent File", "workbench.action.openRecent"),
     (
