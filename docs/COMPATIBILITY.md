@@ -25,10 +25,14 @@ and approximates syntax foreground categories. Copying a field does not implemen
 it; broader TextMate/semantic/font-style/workbench fidelity remains incomplete.
 See [implementation, test evidence and limits](IMPORT_AND_THEMES.md).
 
-Recent-file navigation now provides a persistent native MRU picker and session-local
-reopening of closed file-backed editors. Workspace switching, restored session
-layouts and full VS Code history ordering remain unimplemented; see
-[recent-file behavior and integrity evidence](USAGE.md#recent-files-and-reopening-closed-editors).
+Recent-file navigation provides a persistent native MRU picker and session-local
+reopening of closed file-backed editors. Opt-in clean-session restoration additionally
+reopens clean files, the active tab and the current four-equal-group visible layout,
+with bounded cursor/selection metadata. Dirty/untitled recovery and explicit CLI
+files remain authoritative. Full hot exit, independent per-group tabs, historical
+hidden-view state, workspace transitions and terminal persistence remain incomplete.
+See [recent-file integrity](USAGE.md#recent-files-and-reopening-closed-editors) and
+[clean-session behavior and limits](USAGE.md#clean-file-session-restoration).
 
 
 Native automatic language services now discover installed clangd for C/C++ and
@@ -147,8 +151,8 @@ The four comparison categories partition the reference rules, including duplicat
 The native snippet template/document engine is compared against 34 pinned
 reference cases (96 text/selection observations), including linked editing,
 nested traversal, transforms, and undo/redo. Literal user-command insertion and conditional Tab/Shift+Tab/Escape navigation
-are exposed through terminal keybindings. Catalogs, choice UI, LSP completion,
-and the extension insertion API remain unfinished.
+are exposed through terminal keybindings. Native user/workspace/installed catalogs are implemented. Choice UI, completion
+snippet insertion and the extension insertion API remain unfinished.
 An additional 34 insertion traces (118 observations) cover multiline
 indentation/EOL conversion and API-versus-command cursor ordering, matching on
 Linux/macOS/Windows in [CI run 37857315175](https://github.com/vscli/vscli/actions/runs/37857315175). The current native regex subset is not full ECMAScript. See the
@@ -169,9 +173,15 @@ Use dry-run migration output as a contributor-friendly issue generator. Users sh
 
 The implemented experimental host now runs up to eight authorized selected packages in one shared CommonJS process. Document objects, configuration and versioned native transactions are shared; command and edit requests retain package ownership. Explicit run-once replacement/removal restarts the selected cohort; lazy activation can append eligible immutable descriptors while retaining earlier exports. Deterministic VSCLI command/keybinding precedence, epoch-safe startup, bounded registries and worker retirement are described in [session behavior](EXTENSIONS.md). Dependency-first cached activation and explicitly granted bounded native events are implemented; dependency installation, safe individual hot unload, unsupported activation events, and conflict-resolution differential qualification against VS Code 1.95.0 remain outstanding. The [native Quick Pick/Input Box subset](EXTENSIONS.md#native-quick-pick-and-input-box) supports bounded single selection, basic text input and cancellation. Its synthetic native/PTY tests and unchanged Lorem Ipsum 1.3.1 command workflow establish those named behaviors; complete Quick Input differential parity, password/validation, multi-select and live variants remain unqualified or unsupported.
 
-A TypeScript shim supplies the `vscode` module inside a maintained Node.js runtime and connects to native services through a versioned broker protocol. It handles activation, disposables, events, cancellation, commands, provider registrations, settings, storage, workspace resources, and native view models in stages. Pin a stable VS Code API baseline; do not pretend to implement the latest API by changing a version string.
+The implemented independent CommonJS JavaScript shim in `extension-host/*.cjs`
+supplies the `vscode` module inside the optional Node.js process and connects to
+native services through a versioned broker protocol. Its documented subset covers
+activation, disposables/events/cancellation, commands, configuration, shared document
+mirrors, Mementos, seven language-provider routes and native prompts/surfaces.
+Broader workspace/resource, provider and UI behavior remains staged. Contracts
+remain pinned to VS Code 1.95.0; a version string is not an API compatibility claim.
 
-VS Code distinguishes Node and browser extension hosts. Initial executable-extension support should cover the Node `main` entry point and declarative packages. Browser-only extensions need an independently evaluated worker/runtime environment and remain unsupported initially. [Web extensions](https://code.visualstudio.com/api/extension-guides/web-extensions).
+VS Code distinguishes Node and browser extension hosts. Executable-extension support covers the supported CommonJS Node `main` subset; native declarative themes/snippets do not require a code host. Browser-only extensions require a separately evaluated worker/runtime and remain unsupported. [Web extensions](https://code.visualstudio.com/api/extension-guides/web-extensions).
 
 The difficult part is synchronous API behavior. Calls such as reading document text cannot wait for arbitrary asynchronous RPC without changing the extension contract. Maintain versioned document and selection mirrors in the Node host. Deliver each text delta before the corresponding change event; synchronous reads during callbacks must see the correct mirror version. Native state remains authoritative. Resynchronize after gaps or restart, and attach expected versions to requested mutations.
 
@@ -247,7 +257,7 @@ On each release, publish a generated API report and the named workflow results. 
 
 ## Empty workbench
 
-Starting without file arguments and closing the last editor leave a true zero-document workbench. The native welcome view displays a terminal logo and keyboard actions; it does not own a hidden untitled buffer. File-specific commands require an open editor, while workspace commands and the optional extension host remain available. Dirty close confirmation and crash-recovered documents take precedence over the empty welcome view. Unit tests cover command guards, context keys, resize/rendering and save/close integrity; Unix PTY coverage exercises startup, explicit creation, dirty close, last-tab close and restarting with empty recovery state. This is a terminal welcome view, not VS Code's browser-backed walkthrough or start-page extension API.
+Starting without file arguments and closing the last editor leave a true zero-document workbench. The native welcome view displays the graphical mark with a conservative Kitty path or cell fallback, clickable actions/recent files, and the active settings path; it does not own a hidden untitled buffer. File-specific commands require an open editor, while workspace commands and the optional extension host remain available. Dirty close confirmation and crash-recovered documents take precedence over the empty welcome view. Unit tests cover command guards, context keys, resize/rendering and save/close integrity; Unix PTY coverage exercises startup, explicit creation, dirty close, last-tab close and restarting with empty recovery state. See [welcome rendering, bounds and named terminal observations](WELCOME.md). This is a native terminal welcome view, not VS Code's browser-backed walkthrough or start-page extension API.
 
 ### Native clean-session metadata
 
@@ -269,6 +279,8 @@ Selected CommonJS packages now support dependency-first cached activation and sa
 The optional host supports existing-file `openTextDocument` into a retained native model, `showTextDocument` in the active group with a bounded options subset, eleven native movement/selection/undo commands without arguments, and global/workspace Memento `get`/`keys`/`update`. Hidden models share authoritative Document identity and the 4 MiB mirror budget without fabricating a visible editor on an empty workbench. Dirty recovery and close confirmation include hidden edits; clean session layouts exclude hidden models. Filesystem work uses a bounded worker and state patches merge under a lock before atomic replacement in the native config root.
 
 Native/Node tests and two Unix PTY workflows qualify the documented Unicode, identity, stale-result, storage and crash/restart behaviors. This is synthetic fixture evidence, not complete VS Code document/Memento conformance. Untitled-content overloads, arbitrary URI providers, preview tabs, preserve-focus/group overloads, complete built-in command dispatch, cloud sync and SecretStorage remain unsupported. The exact subset and bounds are documented in [extension services](EXTENSIONS.md#native-documents-commands-and-persistent-state).
+
+## Automatic suggestions
 
 Completion replies from the native server or an active extension now use a bounded nonmodal caret popup (300 items, 4 KiB presentation fields, 64 KiB per serialized item and 2 MiB total). Selection retains the exact request, full editor context and source identity; edits and edit→Undo invalidate old suggestions. Conditional `suggestWidgetVisible` bindings support arrows, page navigation, Tab/Enter and Escape, with snippet placeholder Tab precedence. Automatic identifier typing and registered trigger characters now queue debounced requests. Cached labels may filter while pending; their old edits are never rebased or accepted. Ordinary Tab indentation and Enter newline remain available when no current suggestion is acceptable.
 
