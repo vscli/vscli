@@ -216,7 +216,7 @@ Git status currently refreshes on request and after mutations. Hunk staging, con
 
 ## Custom bindings
 
-The default configuration path is printed by `--doctor`. The file is optional. A supplied `--keybindings` path takes precedence. JSON comments and trailing commas are accepted. Configuration nesting is limited to 64 levels before parsing; deeper settings, bindings, tasks and snippet files produce a diagnostic.
+The default configuration path is printed by `--doctor`. The file is optional. A supplied `--keybindings` path takes precedence. JSON comments and trailing commas are accepted. Settings, keybindings and task files each have a 1 MiB read limit; oversized files are rejected without reading the remainder. A failed keybinding import preserves previously loaded rules. Configuration nesting is limited to 64 levels before parsing; deeper settings, bindings, tasks and snippet files produce a diagnostic.
 
 ```jsonc
 [
