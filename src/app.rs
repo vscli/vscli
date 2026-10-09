@@ -484,6 +484,8 @@ pub struct App {
     pub syntax: crate::syntax::Engine,
     pub theme: crate::theme::Theme,
     pub recent_files: crate::recent::State,
+    pub welcome_brand: crate::brand::State,
+    pub(crate) welcome_actions: Vec<(Rect, crate::ui::welcome::Action)>,
     session: session::State,
     navigation: navigation::State,
     symbols: symbols::State,
@@ -569,6 +571,8 @@ impl App {
             syntax: crate::syntax::Engine::default(),
             theme: crate::theme::Theme::default(),
             recent_files: crate::recent::State::default(),
+            welcome_brand: crate::brand::State::default(),
+            welcome_actions: Vec::new(),
             session: session::State::default(),
             navigation: navigation::State::default(),
             symbols: symbols::State::default(),
@@ -590,11 +594,12 @@ impl App {
         }
     }
     pub fn poll(&mut self) -> bool {
+        let brand_changed = self.welcome_brand.poll();
         let invalidated = self.refresh_signature();
         let changed = self.poll_symbols() || invalidated;
         let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
-        let mut changed = changed;
+        let mut changed = brand_changed | changed;
         if let Some(result) = self
             .settings_loader
             .as_mut()
@@ -667,6 +672,11 @@ impl App {
     }
     pub fn doc(&self) -> &Document {
         &self.documents[self.active]
+    }
+    pub fn user_settings_path(&self) -> Option<PathBuf> {
+        self.settings_user
+            .clone()
+            .or_else(|| crate::recovery::config_path().map(|p| p.with_file_name("settings.json")))
     }
     pub fn configure_settings(&mut self, user: Option<PathBuf>) -> Result<()> {
         self.settings_user = user.clone();
@@ -939,6 +949,10 @@ impl App {
     }
     fn event_inner(&mut self, event: Event) {
         match event {
+            Event::Resize(_, _) => {
+                self.welcome_actions.clear();
+                self.welcome_brand.resize();
+            }
             Event::Key(key) if key.kind != KeyEventKind::Release => self.key(key),
             Event::Paste(text) => {
                 if let Some(prompt) = &mut self.prompt {
@@ -972,6 +986,22 @@ impl App {
                     return;
                 }
                 let p = ratatui::layout::Position::new(mouse.column, mouse.row);
+                if self.documents.is_empty()
+                    && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+                    && let Some((_, action)) = self
+                        .welcome_actions
+                        .iter()
+                        .find(|(rect, _)| rect.contains(p))
+                {
+                    match action.clone() {
+                        crate::ui::welcome::Action::Command(command) => {
+                            self.execute(command, Value::Null)
+                        }
+                        crate::ui::welcome::Action::Recent(path) => self.open_welcome_recent(path),
+                    }
+                    return;
+                }
+
                 if self.terminal_visible && self.terminal_area.contains(p) {
                     self.focus = Focus::Terminal;
                     if let Some(terminal) = self.terminals.get_mut(self.active_terminal) {
@@ -1436,7 +1466,7 @@ impl App {
                 });
             }
             "workbench.action.openSettings" | "workbench.action.openSettingsJson" => {
-                if let Some(path) = self.settings_user.clone().or_else(|| crate::recovery::config_path().map(|p| p.with_file_name("settings.json"))) {
+                if let Some(path) = self.user_settings_path() {
                     let result = (|| -> Result<()> {
                         if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
                         self.open_with_intent(&path, navigation::OpenIntent::Settings)?;
