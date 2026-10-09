@@ -128,5 +128,40 @@ class DuplexInputTests(unittest.TestCase):
             worker.join(timeout=3)
 
 
+class ScreenReadinessTests(unittest.TestCase):
+    def test_welcome_body_does_not_complete_readiness_before_status_row(self):
+        editor = Mock()
+        editor.screen = pty_workflows.Screen()
+        chunks = iter([
+            b"\x1b[10;20HRecent files\x1b[11;20Hnavigation.txt",
+            b"\x1b[32;1HNo open editors",
+        ])
+        def read():
+            editor.screen.feed(next(chunks))
+            return True
+        editor.read.side_effect = read
+        with patch.object(pty_workflows.time, "sleep"):
+            snapshot = pty_workflows.wait_screen(
+                editor, "Recent files", "navigation.txt", "No open editors"
+            )
+        self.assertEqual(editor.read.call_count, 2)
+        self.assertIn("Recent files", snapshot)
+        self.assertIn("navigation.txt", snapshot)
+        self.assertIn("No open editors", snapshot)
+
+    def test_different_frames_cannot_jointly_satisfy_required_markers(self):
+        editor = Mock()
+        editor.read.return_value = True
+        editor.screen.text.side_effect = ["Recent files navigation.txt", "No open editors"]
+        def two_polls(predicate, timeout):
+            self.assertEqual(timeout, 4)
+            self.assertFalse(predicate())
+            self.assertFalse(predicate())
+            raise AssertionError("Timed out waiting for expected state")
+        with patch.object(pty_workflows, "eventually", side_effect=two_polls):
+            with self.assertRaisesRegex(AssertionError, "Waiting for screen markers"):
+                pty_workflows.wait_screen(editor, "Recent files", "navigation.txt", "No open editors")
+
+
 if __name__ == "__main__":
     unittest.main()
