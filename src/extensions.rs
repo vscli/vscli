@@ -249,6 +249,10 @@ impl Client {
                 "configuration.cjs",
                 include_str!("../extension-host/configuration.cjs"),
             ),
+            (
+                "activation.cjs",
+                include_str!("../extension-host/activation.cjs"),
+            ),
             ("host.cjs", include_str!("../extension-host/host.cjs")),
         ] {
             std::fs::write(runtime.path().join(name), source)?;

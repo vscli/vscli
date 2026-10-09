@@ -16,7 +16,7 @@ function createApi(request, notify, sessionOptions = {}) {
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter();
   const configuration = createConfiguration();
-  let active, workspaceFolder, generation = -1;
+  let active, workspaceFolder, activation, generation = -1;
   const facades = new Map(), owned = new Map();
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
@@ -159,6 +159,7 @@ function createApi(request, notify, sessionOptions = {}) {
       onDidChangeConfiguration: configuration.onDidChange,
     }),
     commands: commandsFor(''),
+    get extensions() { return activation?.facade(); },
   });
   function message(text, ...items) { return messageFor('', text, ...items); }
   function messageFor(owner, text, ...items) {
@@ -168,6 +169,8 @@ function createApi(request, notify, sessionOptions = {}) {
   }
   return {
     api, sync, updateConfiguration: configuration.update, commandSnapshot,
+    setActivation(value) { activation = value; },
+    contextForExtension(owner) { return { extension: activation?.extension(owner) }; },
     disposeOwner(owner) {
       for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
       owned.delete(owner); facades.delete(owner);
@@ -203,6 +206,14 @@ function createApi(request, notify, sessionOptions = {}) {
           onDidChangeConfiguration: event(owner, configuration.onDidChange),
         }),
         commands: commandsFor(owner),
+        get extensions() {
+          const registry = activation.facade();
+          return supported('extensions', {
+            getExtension: registry.getExtension,
+            get all() { return registry.all; },
+            onDidChange: event(owner, registry.onDidChange),
+          });
+        },
       });
       facades.set(owner, facade);
       return facade;
