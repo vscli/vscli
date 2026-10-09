@@ -5,6 +5,11 @@ const Module = require('node:module');
 const { Console } = require('node:console');
 const { AsyncLocalStorage } = require('node:async_hooks');
 const execution = new AsyncLocalStorage();
+async function inExecution(id, owner, call) {
+  const origin = { id, owner, active: true };
+  try { return await execution.run(origin, call); }
+  finally { origin.active = false; }
+}
 const { createApi, supported } = require('./api.cjs');
 const { Uri } = require('./api-types.cjs');
 // Console output from extensions must never corrupt the protocol stream.
@@ -23,7 +28,7 @@ function send(message) {
 function request(method, params) {
   if (method === 'prompt') {
     const context = execution.getStore();
-    if (context) params = { ...params, command: context.id, commandOwner: context.owner };
+    if (context?.active) params = { ...params, command: context.id, commandOwner: context.owner };
   }
   if (pending.size >= 64) return Promise.reject(new Error('Extension request limit exceeded'));
   const id = `host-${++nextId}`;
@@ -122,8 +127,10 @@ async function dispatch(message) {
             asAbsolutePath: relative => path.join(item.folder, relative),
           });
           try {
-            item.extension = require(item.entry);
-            if (typeof item.extension.activate === 'function') await execution.run({ id: message.id, owner: item.id }, () => item.extension.activate(context));
+            await inExecution(message.id, item.id, async () => {
+              item.extension = require(item.entry);
+              if (typeof item.extension.activate === 'function') await item.extension.activate(context);
+            });
           } catch (error) { console.error(error); throw new Error(`${item.id}: ${error.message || error}`, { cause: error }); }
         }
         ready = true;
@@ -137,7 +144,7 @@ async function dispatch(message) {
       case 'execute':
         if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');
         if (!runtime.commandSnapshot().some(item => item.id === message.params.command && item.owner === message.params.owner)) throw new Error('Extension command owner changed');
-        result = await execution.run({ id: message.id, owner: message.params.owner }, () => runtime.api.commands.executeCommand(message.params.command, ...message.params.args));
+        result = await inExecution(message.id, message.params.owner, () => runtime.api.commands.executeCommand(message.params.command, ...message.params.args));
         break;
       case 'ping':
         if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');

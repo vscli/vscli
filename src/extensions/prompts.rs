@@ -95,8 +95,12 @@ impl Client {
                 .pending
                 .get(&command)
                 .context("Outdated extension prompt command")?;
-            if pending.method != "initialize"
-                && (pending.method != "execute" || pending.owner != spec.command_owner)
+            if !self
+                .packages
+                .iter()
+                .any(|package| spec.command_owner.as_deref() == Some(&package.id))
+                || (pending.method != "initialize"
+                    && (pending.method != "execute" || pending.owner != spec.command_owner))
             {
                 bail!("Invalid extension prompt command owner");
             }
@@ -209,7 +213,7 @@ mod tests {
             Client::start("node", &extension, directory.path(), &[], 0, &settings).unwrap();
         let session = client.session;
         let owner = client.packages[0].id.clone();
-        let request = || json!({"session":session,"owner":owner,"kind":"quickPick","items":[{"label":"label","detail":"detail"}],"command":1});
+        let request = || json!({"session":session,"owner":owner,"kind":"quickPick","items":[{"label":"label","detail":"detail"}],"command":1,"commandOwner":owner});
         client.queue_prompt(json!("one"), request()).unwrap();
         assert_eq!(client.prompt().unwrap().matches("label").len(), 1);
         assert_eq!(client.prompt().unwrap().matches("detail").len(), 0);
@@ -257,5 +261,140 @@ mod tests {
         assert_eq!(client.prompts.len(), 6);
         client.cancel_prompts();
         assert!(client.prompt().is_none());
+    }
+    #[test]
+    fn module_load_human_wait_pauses_only_its_origin_deadline() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(
+            directory.path().join("package.json"),
+            r#"{"publisher":"deadline","name":"prompt","version":"1.0.0","main":"extension.cjs"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            directory.path().join("extension.cjs"),
+            r#"
+const vscode = require('vscode');
+const input = vscode.window.showInputBox({ title: 'module load' });
+exports.activate = async () => {
+ await input;
+ vscode.commands.registerCommand('deadline.prompt', async () => await vscode.window.showInputBox());
+};"#,
+        )
+        .unwrap();
+        let settings = Settings::default();
+        let mut client = Client::start(
+            "node",
+            directory.path(),
+            directory.path(),
+            &[],
+            0,
+            &settings,
+        )
+        .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while client.prompt().is_none() {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let prompt = client.prompt().unwrap().clone();
+        assert_eq!(prompt.spec.command, Some(1));
+        assert_eq!(
+            prompt.spec.command_owner.as_deref(),
+            Some("deadline.prompt")
+        );
+        client.pending.get_mut(&1).unwrap().started = Instant::now() - Duration::from_secs(31);
+        client.poll(&mut [], 0, &settings).unwrap();
+        client
+            .answer_prompt(
+                prompt.spec.session,
+                &prompt.spec.owner,
+                &prompt.id,
+                Value::Null,
+            )
+            .unwrap();
+        while !client.ready {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        client
+            .execute("deadline.prompt", None, &[], 0, &settings)
+            .unwrap();
+        while client.prompt().is_none() {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let command = client.prompt().unwrap().spec.command.unwrap();
+        client.pending.get_mut(&command).unwrap().started =
+            Instant::now() - Duration::from_secs(31);
+        client.poll(&mut [], 0, &settings).unwrap();
+        // Another command from the same package must keep its own deadline.
+        client.pending.insert(
+            u64::MAX,
+            Pending {
+                owner: Some("deadline.prompt".into()),
+                method: "execute".into(),
+                started: Instant::now() - Duration::from_secs(31),
+            },
+        );
+        assert!(
+            client
+                .poll(&mut [], 0, &settings)
+                .unwrap_err()
+                .to_string()
+                .contains("timed out")
+        );
+    }
+    #[test]
+    fn completed_activation_origin_does_not_revive_during_the_next_package() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut packages = Vec::new();
+        for (name, source) in [
+            (
+                "a",
+                "const vscode=require('vscode');exports.activate=()=>{setTimeout(()=>vscode.window.showInputBox({title:'completed A'}),20);};",
+            ),
+            (
+                "b",
+                "const vscode=require('vscode');exports.activate=async()=>{await vscode.window.showInputBox({title:'active B'});};",
+            ),
+        ] {
+            let folder = directory.path().join(name);
+            std::fs::create_dir(&folder).unwrap();
+            std::fs::write(
+                folder.join("package.json"),
+                json!({"publisher":"origin","name":name,"version":"1.0.0","main":"extension.cjs"})
+                    .to_string(),
+            )
+            .unwrap();
+            std::fs::write(folder.join("extension.cjs"), source).unwrap();
+            packages.push(Package::read(&folder).unwrap());
+        }
+        let settings = Settings::default();
+        let mut client =
+            Client::start_many("node", &packages, directory.path(), &[], 0, &settings).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while client.prompts.len() < 2 {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let active = client
+            .prompts
+            .iter()
+            .find(|p| p.spec.title == "active B")
+            .unwrap();
+        assert_eq!(active.spec.command, Some(1));
+        assert_eq!(active.spec.command_owner.as_deref(), Some("origin.b"));
+        let completed = client
+            .prompts
+            .iter()
+            .find(|p| p.spec.title == "completed A")
+            .unwrap();
+        assert_eq!(completed.spec.command, None);
+        assert_eq!(completed.spec.command_owner, None);
+        client.cancel_prompts();
     }
 }

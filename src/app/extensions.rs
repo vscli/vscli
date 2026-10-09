@@ -55,7 +55,7 @@ impl App {
                     }
                 }
                 self.extension_host = Some(host);
-                changed
+                self.poll_extension_prompt() || changed
             }
             Err(error) => {
                 self.keymap.clear_extension_bindings();

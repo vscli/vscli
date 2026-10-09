@@ -1,6 +1,7 @@
 mod code_actions;
 mod debugger;
 mod extension_management;
+mod extension_prompts;
 mod extensions;
 mod files;
 mod language;
@@ -278,6 +279,7 @@ pub enum Focus {
 }
 #[derive(Clone)]
 pub enum PromptKind {
+    Extension(Box<crate::extensions::NativePrompt>),
     InstallExtension,
     StopExtension,
     Palette,
@@ -318,7 +320,13 @@ impl Prompt {
             select_all: true,
         }
     }
-    pub fn insert(&mut self, text: &str) {
+    pub fn insert(&mut self, text: &str) -> bool {
+        if matches!(self.kind, PromptKind::Extension(_))
+            && (if self.select_all { 0 } else { self.text.len() }) + text.len()
+                > crate::extensions::MAX_PROMPT_TEXT
+        {
+            return false;
+        }
         if self.select_all {
             self.text.clear();
             self.cursor = 0;
@@ -327,6 +335,7 @@ impl Prompt {
         self.text.insert_str(self.cursor, text);
         self.cursor += text.len();
         self.selected = 0;
+        true
     }
 }
 #[derive(Clone)]
@@ -656,6 +665,7 @@ impl App {
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
         self.clear_signature();
+        self.cancel_extension_prompt();
         self.cancel_navigation();
         if let Some(doc) = self.documents.get_mut(self.active) {
             doc.break_group();
@@ -786,7 +796,9 @@ impl App {
             Event::Key(key) if key.kind != KeyEventKind::Release => self.key(key),
             Event::Paste(text) => {
                 if let Some(prompt) = &mut self.prompt {
-                    prompt.insert(&text.replace(['\r', '\n'], ""));
+                    if !prompt.insert(&text.replace(['\r', '\n'], "")) {
+                        self.message = "Extension prompt text exceeds 4 KiB".into();
+                    }
                 } else if self.modal.is_none() && self.focus == Focus::Terminal {
                     if let Some(terminal) = self.terminals.get_mut(self.active_terminal)
                         && let Err(e) = terminal.paste(&text)
@@ -1726,6 +1738,7 @@ impl App {
     }
     fn prompt_key(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Esc {
+            self.cancel_extension_prompt();
             self.prompt = None;
             self.pending = None;
             return;
@@ -1761,7 +1774,13 @@ impl App {
         }
         match key.code {
             KeyCode::Up => p.selected = p.selected.saturating_sub(1),
-            KeyCode::Down => p.selected = (p.selected + 1).min(99),
+            KeyCode::Down => {
+                p.selected = (p.selected + 1).min(if matches!(p.kind, PromptKind::Extension(_)) {
+                    127
+                } else {
+                    99
+                })
+            }
             KeyCode::Home => {
                 p.cursor = 0;
                 p.select_all = false;
@@ -1823,7 +1842,10 @@ impl App {
                         | KeyModifiers::META,
                 ) =>
             {
-                p.insert(&c.to_string())
+                let accepted = p.insert(&c.to_string());
+                if !accepted {
+                    self.message = "Extension prompt text exceeds 4 KiB".into();
+                }
             }
             _ => {}
         }
@@ -1831,6 +1853,9 @@ impl App {
     fn accept_prompt(&mut self) {
         let p = self.prompt.take().unwrap();
         match p.kind {
+            PromptKind::Extension(request) => {
+                self.accept_extension_prompt(request, p.text, p.selected)
+            }
             PromptKind::RecentFiles => self.accept_recent(&p.text, p.selected),
             PromptKind::Snippet => self.accept_snippet(&p.text, p.selected),
             PromptKind::InstallExtension => self.manage_extension(
