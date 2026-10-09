@@ -205,6 +205,7 @@ async function dispatch(message) {
         const owner = message.params.owner;
         if (owner !== undefined && owner !== null && (typeof owner !== 'string' || ![...packages, ...items].some(item => item.id === owner))) throw new Error('Activation owner is not selected');
         if (items.length) {
+          runtime.configureSurfaces(items);
           activation.add(items); packages.push(...items); packages.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
           runtime.configure(root, packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration) ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]), configuration);
         }
@@ -227,7 +228,7 @@ async function dispatch(message) {
         break;
       case 'treeChildren':
       case 'surfaceAction':
-        if (!ready || message.params.session !== session || !packages.some(item => item.id === message.params.owner)) throw new Error('Surface owner/session is not ready');
+        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) throw new Error('Surface owner/session is not ready');
         result = await inExecution(message.id, message.params.owner, () => runtime[message.method](message.params));
         break;
       case 'treeEvent':

@@ -147,6 +147,7 @@ struct TreePending {
     generation: u64,
     parent: Option<String>,
 }
+#[derive(Clone, Default)]
 pub struct SurfaceDeclarations(BTreeMap<SurfaceKey, String>);
 
 #[derive(Default)]
@@ -256,7 +257,10 @@ impl SurfaceState {
         }
         Ok(SurfaceDeclarations(state.declarations))
     }
-    pub fn merge_declarations(&mut self, declarations: SurfaceDeclarations) -> Result<()> {
+    pub(super) fn stage_declarations(
+        &self,
+        declarations: &SurfaceDeclarations,
+    ) -> Result<SurfaceDeclarations> {
         let additional = declarations
             .0
             .keys()
@@ -272,7 +276,16 @@ impl SurfaceState {
         }) {
             bail!("Existing surface declaration changed during admission");
         }
-        self.declarations.extend(declarations.0);
+        let mut staged = self.declarations.clone();
+        staged.extend(declarations.0.clone());
+        Ok(SurfaceDeclarations(staged))
+    }
+    pub(super) fn commit_declarations(&mut self, declarations: SurfaceDeclarations) {
+        self.declarations = declarations.0;
+    }
+    pub fn merge_declarations(&mut self, declarations: SurfaceDeclarations) -> Result<()> {
+        let staged = self.stage_declarations(&declarations)?;
+        self.commit_declarations(staged);
         Ok(())
     }
     pub(super) fn for_packages(packages: &[Package]) -> Result<Self> {
@@ -561,8 +574,8 @@ impl Client {
         active: usize,
         settings: &Settings,
     ) -> Result<()> {
-        if !self.ready {
-            bail!("Extension session is not ready");
+        if !self.owner_active(&key.owner) {
+            bail!("Extension surface owner is not active");
         }
         if self.surfaces.pending_tree.is_some() {
             bail!("A native tree request is still running");
@@ -662,8 +675,8 @@ impl Client {
         active: usize,
         settings: &Settings,
     ) -> Result<()> {
-        if !self.ready {
-            bail!("Extension session is not ready");
+        if !self.owner_active(&key.owner) {
+            bail!("Extension surface owner is not active");
         }
         if let Some(node) = node {
             let tree = self.surfaces.trees.get(key).context("Tree view closed")?;
@@ -698,6 +711,9 @@ impl Client {
         node: Option<&str>,
         visible: bool,
     ) -> Result<()> {
+        if !self.owner_active(&key.owner) {
+            bail!("Extension surface owner is not active");
+        }
         let mut params = json!({"session":self.session,"owner":key.owner,"id":key.id,"generation":generation,"event":event,"visible":visible});
         if let Some(node) = node {
             params["node"] = json!(node);

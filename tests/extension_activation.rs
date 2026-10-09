@@ -90,6 +90,7 @@ fn lazy_selected_snapshot_and_append_share_exports_native_identity_versions_and_
     activate(
         &mut app,
         ActivationRequest {
+            surface_declarations: Default::default(),
             additions: vec![],
             targets: vec!["test.a".into()],
             owner: Some("test.a".into()),
@@ -98,6 +99,7 @@ fn lazy_selected_snapshot_and_append_share_exports_native_identity_versions_and_
     activate(
         &mut app,
         ActivationRequest {
+            surface_declarations: Default::default(),
             additions: vec![b],
             targets: vec!["test.b".into()],
             owner: Some("test.b".into()),
@@ -118,6 +120,7 @@ fn lazy_selected_snapshot_and_append_share_exports_native_identity_versions_and_
     activate(
         &mut app,
         ActivationRequest {
+            surface_declarations: Default::default(),
             additions: vec![],
             targets: vec!["test.a".into()],
             owner: None,
@@ -163,6 +166,7 @@ fn failed_lazy_activation_keeps_prior_commands_and_discards_partial_owner_regist
     activate(
         &mut app,
         ActivationRequest {
+            surface_declarations: Default::default(),
             additions: vec![b],
             targets: vec!["test.b".into()],
             owner: None,
@@ -485,4 +489,202 @@ exports.activate=async context=>{
     assert_eq!(app.doc().text.to_string(), "extension:second 🙂");
     app.doc_mut().undo();
     assert_eq!(app.doc().text.to_string(), "second 🙂");
+}
+
+#[test]
+fn lazy_surface_admission_and_failed_owner_cleanup_preserve_prior_hidden_mirrors() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+    use vscli::{extension_activation::Scope, extensions::SurfaceKey};
+    let root = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let store = vscli::extension_store::Store::new(root.path().join("store"));
+    std::fs::write(root.path().join("hidden.txt"), "hidden猫\r\nretained").unwrap();
+    let contribution = |command: &str, tree: &str| json!({"extensionDependencies":["test.a"], "contributes":{"commands":[{"command":command,"title":command}],"views":{"explorer":[{"id":tree,"name":tree}]}}});
+    install(
+        root.path(),
+        &store,
+        "a",
+        Some(
+            r#"
+const v=require('vscode'),assert=require('node:assert/strict'),path=require('node:path');
+exports.activate=async ctx=>{
+ const hidden=await v.workspace.openTextDocument(v.Uri.file(path.join(v.workspace.rootPath,'hidden.txt')));
+ let closed=0;ctx.subscriptions.push(v.workspace.onDidCloseTextDocument(doc=>{if(doc===hidden)closed++;}));
+ function check(){assert.equal(closed,0);assert.equal(hidden.isClosed,false);assert(v.workspace.textDocuments.includes(hidden));assert.equal(hidden.getText(),'hidden猫\r\nretained');}
+ const out=v.window.createOutputChannel('Retained output');out.appendLine('old owner retained');
+ const status=v.window.createStatusBarItem('Retained');status.text='Retained';status.command='a.ready';status.show();
+ ctx.subscriptions.push(v.commands.registerCommand('a.ready',()=>{check();return v.window.showInformationMessage('old owner ready');}));
+ ctx.subscriptions.push(v.commands.registerCommand('a.show',async()=>{check();const editor=await v.window.showTextDocument(hidden);assert.equal(editor.document,hidden);return v.window.showInformationMessage('original hidden shown');}));
+ return {hidden,check};
+};
+"#,
+        ),
+        json!({"contributes":{"commands":[{"command":"a.ready","title":"Retained surface owner"},{"command":"a.show","title":"Show retained hidden"}]}}),
+    );
+    install(
+        root.path(),
+        &store,
+        "b",
+        Some(
+            r#"
+const v=require('vscode');exports.activate=async()=>{
+ const out=v.window.createOutputChannel('Failed output');out.appendLine('must be removed');
+ const status=v.window.createStatusBarItem('Failed');status.text='Failed';status.command='b.fail';status.show();
+ v.window.createTreeView('b.tree',{treeDataProvider:{getChildren:()=>[],getTreeItem:x=>x}});
+ await v.window.showInputBox({title:'Release failed owner'});throw new Error('intentional surface owner failure');
+};
+"#,
+        ),
+        contribution("b.fail", "b.tree"),
+    );
+    install(
+        root.path(),
+        &store,
+        "c",
+        Some(
+            r#"
+const v=require('vscode');
+// Declaration must already be admitted before evaluating this module.
+const leaf={};v.window.createTreeView('c.tree',{treeDataProvider:{
+ getChildren(){v.extensions.getExtension('test.a').exports.check();return [leaf];},
+ getTreeItem(){return {label:'Hidden mirror retained',command:{command:'c.check'}};}
+}});
+exports.activate=ctx=>{
+ ctx.subscriptions.push(v.commands.registerCommand('c.ready',()=>v.window.showInformationMessage('new tree ready')));
+ ctx.subscriptions.push(v.commands.registerCommand('c.check',()=>{v.extensions.getExtension('test.a').exports.check();return v.window.showInformationMessage('new surface action intact');}));
+};
+"#,
+        ),
+        contribution("c.ready", "c.tree"),
+    );
+    let mut app = configured(root.path(), config.path(), &store);
+    enable(&mut app, "test.a", Scope::Global);
+    app.execute("a.ready", Value::Null);
+    until(&mut app, |app| app.message == "old owner ready");
+    let session = app.extension_host.as_ref().unwrap().session;
+    assert!(app.documents.is_empty());
+    enable(&mut app, "test.b", Scope::Global);
+    app.execute("b.fail", Value::Null);
+    until(&mut app, |app| {
+        app.prompt.is_some()
+            && app
+                .extension_host
+                .as_ref()
+                .unwrap()
+                .surfaces
+                .trees
+                .keys()
+                .any(|k| k.owner == "test.b")
+    });
+    let failed_status = app
+        .extension_host
+        .as_ref()
+        .unwrap()
+        .surfaces
+        .statuses
+        .values()
+        .find(|item| item.key.owner == "test.b")
+        .unwrap()
+        .clone();
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+    )));
+    until(&mut app, |app| {
+        app.extension_host
+            .as_ref()
+            .unwrap()
+            .activation_states
+            .get("test.b")
+            .is_some_and(|state| state == "failed")
+    });
+    {
+        let host = app.extension_host.as_mut().unwrap();
+        assert_eq!(host.session, session);
+        assert!(host.owner_active("test.a"));
+        assert!(!host.owner_active("test.b"));
+        assert!(
+            host.surfaces
+                .channels
+                .keys()
+                .all(|key| key.owner == "test.a")
+        );
+        assert!(
+            host.surfaces
+                .statuses
+                .keys()
+                .all(|key| key.owner == "test.a")
+        );
+        assert!(host.surfaces.trees.is_empty());
+        // Even a stale cached presentation cannot dispatch for a failed owner.
+        host.surfaces
+            .statuses
+            .insert(failed_status.key.clone(), failed_status.clone());
+        assert!(
+            host.surface_action(
+                &failed_status.key,
+                failed_status.generation,
+                None,
+                &app.documents,
+                app.active,
+                &app.settings
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("owner is not active")
+        );
+        assert!(
+            host.surface_tree_children(
+                &SurfaceKey {
+                    owner: "test.b".into(),
+                    id: "b.tree".into()
+                },
+                None,
+                &app.documents,
+                app.active,
+                &app.settings
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("owner is not active")
+        );
+        host.surfaces.statuses.remove(&failed_status.key);
+    }
+    app.execute("a.ready", Value::Null);
+    until(&mut app, |app| app.message == "old owner ready");
+    enable(&mut app, "test.c", Scope::Global);
+    app.execute("c.ready", Value::Null);
+    until(&mut app, |app| app.message == "new tree ready");
+    assert_eq!(app.extension_host.as_ref().unwrap().session, session);
+    assert!(app.documents.is_empty());
+    app.execute("vscli.extensions.trees", Value::Null);
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+    )));
+    until(&mut app, |app| app.surface_tree_rows().len() == 1);
+    // Tree selection is checked against its actually rendered generation/rows.
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(110, 32)).unwrap();
+    terminal
+        .draw(|frame| vscli::ui::draw(frame, &mut app))
+        .unwrap();
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+    )));
+    until(&mut app, |app| app.message == "new surface action intact");
+    app.execute("a.show", Value::Null);
+    until(&mut app, |app| app.message == "original hidden shown");
+    assert_eq!(app.documents.len(), 1);
+    assert_eq!(app.doc().text.to_string(), "hidden猫\r\nretained");
+    let identity = app.doc().id;
+    app.doc_mut().insert("🙂", false);
+    app.execute("workbench.action.files.save", Value::Null);
+    assert_eq!(
+        std::fs::read_to_string(root.path().join("hidden.txt")).unwrap(),
+        "🙂hidden猫\r\nretained"
+    );
+    app.doc_mut().undo();
+    assert_eq!(app.doc().id, identity);
+    assert_eq!(app.doc().text.to_string(), "hidden猫\r\nretained");
 }

@@ -43,7 +43,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   }
   const providers = createProviders({ session: sessionOptions.session, notify, track, document: id => documents.get(id) });
   const surfaces = createSurfaces(notify, sessionOptions.session, track,
-    (owner, id, args) => commandsFor(owner).executeCommand(id, ...args), sessionOptions.assertOwner);
+    (owner, id, args) => commandsFor(owner).executeCommand(id, ...args), owner => { assertOwner(owner); sessionOptions.assertOwner?.(owner); });
   function track(owner, disposable) {
     try { assertOwner(owner); } catch (error) { disposable.dispose(); throw error; }
     if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }

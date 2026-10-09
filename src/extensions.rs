@@ -196,6 +196,8 @@ impl Prepared {
     }
 }
 pub struct ActivationRequest {
+    /// Prepared in the activation worker, never from the native input path.
+    pub surface_declarations: surfaces::SurfaceDeclarations,
     pub additions: Vec<Package>,
     pub targets: Vec<String>,
     pub owner: Option<String>,
@@ -488,6 +490,7 @@ impl Client {
         settings: &Settings,
     ) -> Result<()> {
         let ActivationRequest {
+            surface_declarations,
             additions,
             targets,
             owner,
@@ -515,6 +518,7 @@ impl Client {
         {
             bail!("Activation targets and owner must be selected");
         }
+        let declarations = self.surfaces.stage_declarations(surface_declarations)?;
         self.sync_with_hidden(documents, hidden, active)?;
         self.sync_configuration(settings)?;
         self.request(
@@ -522,6 +526,7 @@ impl Client {
             json!({"session":self.session, "owner":owner,
             "extensions":additions, "activate":targets, "extensionState":extension_state}),
         )?;
+        self.surfaces.commit_declarations(declarations);
         self.packages = packages;
         self.identity = self
             .packages
@@ -569,6 +574,11 @@ impl Client {
                 || states.insert(id.to_owned(), state.to_owned()).is_some()
             {
                 bail!("Invalid extension activation registry");
+            }
+        }
+        for (owner, state) in &states {
+            if matches!(state.as_str(), "failed" | "disposed") {
+                self.surfaces.remove_owner(owner);
             }
         }
         self.activation_states = states;
