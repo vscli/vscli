@@ -49,6 +49,8 @@ pub(crate) fn read_message(reader: &mut impl BufRead) -> Result<Value> {
 
 pub struct Process {
     child: Child,
+    #[cfg(unix)]
+    process_group: Option<libc::pid_t>,
     sender: SyncSender<Vec<u8>>,
     receiver: Receiver<std::result::Result<Value, String>>,
     queued_bytes: Arc<AtomicUsize>,
@@ -56,12 +58,33 @@ pub struct Process {
 }
 impl Process {
     pub fn start(program: &str, args: &[String], root: &Path) -> Result<Self> {
-        let mut child = Command::new(program)
+        Self::start_with_isolation(program, args, root, false)
+    }
+    /// Extensions retire their Unix process group; ordinary LSP/DAP children keep their semantics.
+    pub fn start_isolated(program: &str, args: &[String], root: &Path) -> Result<Self> {
+        Self::start_with_isolation(program, args, root, true)
+    }
+    fn start_with_isolation(
+        program: &str,
+        args: &[String],
+        root: &Path,
+        isolated: bool,
+    ) -> Result<Self> {
+        let mut command = Command::new(program);
+        command
             .args(args)
             .current_dir(root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stderr(Stdio::piped());
+        #[cfg(unix)]
+        if isolated {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
+        #[cfg(not(unix))]
+        let _ = isolated;
+        let mut child = command
             .spawn()
             .with_context(|| format!("Cannot start {program}"))?;
         let mut stdin = child.stdin.take().unwrap();
@@ -115,8 +138,12 @@ impl Process {
                 }
             }
         });
+        #[cfg(unix)]
+        let process_group = isolated.then_some(child.id() as libc::pid_t);
         Ok(Self {
             child,
+            #[cfg(unix)]
+            process_group,
             sender,
             receiver,
             queued_bytes,
@@ -163,6 +190,24 @@ impl Process {
         }
     }
     pub fn exited(&mut self) -> bool {
+        #[cfg(unix)]
+        if let Some(group) = self.process_group {
+            // Keep the group leader unreaped until Drop signals the group. Reaping it here
+            // would allow its PID/PGID to be reused before retirement.
+            let mut status = std::mem::MaybeUninit::<libc::siginfo_t>::zeroed();
+            // SAFETY: status points to writable siginfo_t storage; WNOWAIT preserves
+            // ownership of this child, and WNOHANG keeps status checks nonblocking.
+            let result = unsafe {
+                libc::waitid(
+                    libc::P_PID,
+                    group as libc::id_t,
+                    status.as_mut_ptr(),
+                    libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                )
+            };
+            // SAFETY: waitid initialized the zeroed output on success.
+            return result == 0 && unsafe { status.assume_init().si_pid() } == group;
+        }
         matches!(self.child.try_wait(), Ok(Some(_)))
     }
     pub fn stderr_tail(&self) -> String {
@@ -174,7 +219,61 @@ impl Process {
 }
 impl Drop for Process {
     fn drop(&mut self) {
+        #[cfg(unix)]
+        if let Some(group) = self.process_group.take() {
+            // SAFETY: only successful isolated spawns store a positive leader PID.
+            // The leader remains unreaped, reserving this PGID until after signaling.
+            let _ = unsafe { libc::kill(-group, libc::SIGKILL) };
+        }
+        // Also handle a failed group signal and preserve non-isolated semantics.
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn isolated_exit_observation_preserves_leader_until_group_retirement() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut process = Process::start_isolated(
+            "sh",
+            &["-c".into(), "sleep 60 & exit 7".into()],
+            directory.path(),
+        )
+        .unwrap();
+        let leader = process.child.id() as libc::pid_t;
+        let stderr = process.stderr.clone();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !process.exited() {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            process.exited(),
+            "repeated status checks must not reap the leader"
+        );
+        // SAFETY: signal zero only checks that our still-owned leader PID exists.
+        assert_eq!(unsafe { libc::kill(leader, 0) }, 0);
+        drop(process);
+        // The descendant inherited stderr. Its termination closes that pipe and lets
+        // the transport reader relinquish its Arc, including after leader failure.
+        while Arc::strong_count(&stderr) != 1 {
+            assert!(Instant::now() < deadline, "inherited stderr was not closed");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let mut status = 0;
+        // SAFETY: status is writable; only our former child PID is queried.
+        assert_eq!(
+            unsafe { libc::waitpid(leader, &mut status, libc::WNOHANG) },
+            -1
+        );
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ECHILD)
+        );
     }
 }

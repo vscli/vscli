@@ -2397,6 +2397,7 @@ dependencies = [
  "directories",
  "ignore",
  "json5",
+ "libc",
  "notify",
  "portable-pty",
  "ratatui",
