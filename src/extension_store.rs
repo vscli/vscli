@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
+    cell::Cell,
     collections::{BTreeMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
@@ -15,6 +16,8 @@ const MAX_TOTAL: u64 = 256 * 1024 * 1024;
 const MAX_FILE: u64 = 32 * 1024 * 1024;
 const MAX_MANIFEST: u64 = 1024 * 1024;
 const MAX_ENTRIES: usize = 20_000;
+const MAX_LIST_BYTES: usize = 8 * 1024 * 1024;
+const MAX_LIST_NODES: usize = 50_000;
 
 pub fn default_directory() -> Option<PathBuf> {
     directories::ProjectDirs::from("org", "vscli", "vscli")
@@ -131,11 +134,22 @@ impl Store {
         })
     }
     pub fn list(&self) -> Result<Vec<Installed>> {
-        self.registry()?
-            .packages
-            .values()
-            .map(|entry| self.installed(&entry.current))
-            .collect()
+        let registry = self.registry()?;
+        let mut bytes = 0usize;
+        let mut nodes = 0usize;
+        let mut installed = Vec::new();
+        for entry in registry.packages.values() {
+            let package = self.installed(&entry.current)?;
+            bytes = bytes.saturating_add(serde_json::to_vec(&package.manifest)?.len());
+            nodes = nodes.saturating_add(manifest_nodes(&package.manifest));
+            if bytes > MAX_LIST_BYTES || nodes > MAX_LIST_NODES {
+                bail!(
+                    "Installed manifest list exceeds the 8 MiB / 50,000 JSON-node metadata budget; use an extension ID directly or remove packages"
+                );
+            }
+            installed.push(package);
+        }
+        Ok(installed)
     }
     pub fn get(&self, id: &str) -> Result<Installed> {
         let id = id.to_ascii_lowercase();
@@ -177,8 +191,15 @@ impl Store {
         std::io::copy(&mut snapshot, &mut digest)?;
         snapshot.rewind()?;
         let digest = format!("{:x}", digest.finalize());
-        let count = preflight_archive(&mut snapshot)?;
-        let mut zip = zip::ZipArchive::new(snapshot).context("Invalid VSIX ZIP archive")?;
+        let (count, footer) = preflight_archive(&mut snapshot)?;
+        let metadata = Cell::new(true);
+        let reader = ValidatedArchive {
+            file: snapshot,
+            footer,
+            metadata: &metadata,
+        };
+        let mut zip = zip::ZipArchive::new(reader).context("Invalid VSIX ZIP archive")?;
+        metadata.set(false);
         if zip.len() != count {
             bail!("Duplicate VSIX central-directory paths are forbidden");
         }
@@ -383,7 +404,7 @@ pub fn compatibility(manifest: &Value) -> String {
 
 // ZIP metadata allocates before by_index(). Bound the declared count first and
 // compare it with ZipArchive's deduplicated index before extracting anything.
-fn preflight_archive(file: &mut File) -> Result<usize> {
+fn preflight_archive(file: &mut File) -> Result<(usize, u64)> {
     let size = file.metadata()?.len();
     let tail_len = size.min(65_535 + 22);
     file.seek(SeekFrom::End(-(tail_len as i64)))?;
@@ -416,5 +437,44 @@ fn preflight_archive(file: &mut File) -> Result<usize> {
         bail!("ZIP64, prefixed or malformed VSIX archives are unsupported");
     }
     file.rewind()?;
-    Ok(count)
+    Ok((count, size - tail_len + offset as u64))
+}
+
+fn manifest_nodes(value: &Value) -> usize {
+    match value {
+        Value::Array(items) => 1 + items.iter().map(manifest_nodes).sum::<usize>(),
+        Value::Object(items) => 1 + items.values().map(manifest_nodes).sum::<usize>(),
+        _ => 1,
+    }
+}
+
+// zip-rs retries earlier EOCD candidates after malformed metadata. Its finder
+// seeks to each candidate before parsing it. Only the bounded, preflighted footer
+// may supply allocation counts. Payload reads become ordinary reads afterward.
+struct ValidatedArchive<'a> {
+    file: File,
+    footer: u64,
+    metadata: &'a Cell<bool>,
+}
+impl Read for ValidatedArchive<'_> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        self.file.read(buffer)
+    }
+}
+impl Seek for ValidatedArchive<'_> {
+    fn seek(&mut self, position: SeekFrom) -> std::io::Result<u64> {
+        let offset = self.file.seek(position)?;
+        if self.metadata.get() && offset != self.footer {
+            let mut magic = [0; 4];
+            let length = self.file.read(&mut magic)?;
+            self.file.seek(SeekFrom::Start(offset))?;
+            if length == 4 && magic == *b"PK\x05\x06" {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Unexpected VSIX end-of-directory candidate; ambiguous metadata is forbidden",
+                ));
+            }
+        }
+        Ok(offset)
+    }
 }
