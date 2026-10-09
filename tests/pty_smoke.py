@@ -48,6 +48,9 @@ class Screen:
         self.decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.pending = ""
         self.cells = {}
+        self.colors = {}
+        self.foreground = None
+        self.paint_observer = None
         self.row = self.col = 0
 
     def feed(self, data):
@@ -73,10 +76,30 @@ class Screen:
                     self.row, self.col = max(0, self.row + dr), max(0, self.col + dc)
                 elif code == "J" and args[0] in (2, 3):
                     self.cells.clear()
+                    self.colors.clear()
                 elif code == "K":
                     for pos in list(self.cells):
                         if pos[0] == self.row and (args[0] == 2 or (args[0] == 0 and pos[1] >= self.col) or (args[0] == 1 and pos[1] <= self.col)):
                             del self.cells[pos]
+                            self.colors.pop(pos, None)
+                elif code == "m":
+                    index = 0
+                    while index < len(args):
+                        value = args[index]
+                        if value in (0, 39):
+                            self.foreground = None
+                        elif 30 <= value <= 37 or 90 <= value <= 97:
+                            self.foreground = value
+                        elif value in (38, 48) and index + 1 < len(args):
+                            if args[index + 1] == 2 and index + 4 < len(args):
+                                if value == 38:
+                                    self.foreground = tuple(args[index + 2:index + 5])
+                                index += 4
+                            elif args[index + 1] == 5 and index + 2 < len(args):
+                                if value == 38:
+                                    self.foreground = (args[index + 2],)
+                                index += 2
+                        index += 1
                 continue
             if self.pending.startswith("\x1b"):
                 if len(self.pending) < 2:
@@ -108,9 +131,13 @@ class Screen:
                 if unicodedata.combining(ch):
                     continue
                 self.cells[(self.row, self.col)] = ch
+                self.colors[(self.row, self.col)] = self.foreground
+                if self.paint_observer is not None:
+                    self.paint_observer((self.row, self.col), ch, self.foreground)
                 width = 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
                 if width == 2:
                     self.cells[(self.row, self.col + 1)] = ""
+                    self.colors[(self.row, self.col + 1)] = self.foreground
                 self.col += width
 
     def text(self):
