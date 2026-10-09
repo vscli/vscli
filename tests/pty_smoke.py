@@ -757,6 +757,7 @@ def run():
         ]))
         app = Editor(root, "--settings", catalog_settings, "--keybindings", catalog_keys, catalog_file, enhanced=True)
         app.send(CTRL_A)
+        app.send(b"\x1b[101;6u")  # Ctrl+Shift+E: invoke the snippet palette from Explorer.
         app.send(b"\x1bOP")
         app.send("Insert Snippet\r")
         eventually(lambda: app.read() and "Workspace greeting" in app.screen.text())
