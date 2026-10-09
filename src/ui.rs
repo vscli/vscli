@@ -27,6 +27,11 @@ fn clean_multiline(s: &str) -> String {
 pub fn draw(frame: &mut Frame, app: &mut App) {
     app.welcome_brand.begin_frame();
     app.welcome_actions.clear();
+    // Frame presentation is rebuilt only for surfaces actually drawn below.
+    // Full-screen Inspector and tiny-terminal early returns show none of them.
+    app.extension_surfaces.output_area = Rect::default();
+    app.extension_surfaces.status_hits.clear();
+    app.extension_surfaces.presented_tree = None;
     let colors = app.theme.colors;
     let area = frame.area();
     frame.render_widget(
