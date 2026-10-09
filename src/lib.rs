@@ -3,6 +3,7 @@ pub mod debug;
 pub mod document;
 pub mod extension_activation;
 pub mod extension_registry;
+pub mod extension_state;
 pub mod extension_store;
 pub mod extensions;
 pub mod files;
