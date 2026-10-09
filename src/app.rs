@@ -1,5 +1,6 @@
 mod code_actions;
 mod debugger;
+mod extension_activation;
 mod extension_management;
 mod extension_prompts;
 mod extensions;
@@ -44,6 +45,10 @@ pub(crate) fn native_command_ids() -> Vec<String> {
         .iter()
         .map(|(_, id)| *id)
         .chain([
+            "vscli.extensions.enableGlobal",
+            "vscli.extensions.disableGlobal",
+            "vscli.extensions.enableWorkspace",
+            "vscli.extensions.disableWorkspace",
             "cancelSelection",
             "deleteLeft",
             "deleteRight",
@@ -454,6 +459,7 @@ pub struct App {
     pub extensions_directory: Option<PathBuf>,
     pub extension_registry: crate::extension_registry::Registry,
     pub extension_node: String,
+    activation: extension_activation::State,
     extension_job: Option<extension_management::Job>,
     extension_retirement: Option<std::sync::mpsc::Receiver<()>>,
     extension_epoch: u64,
@@ -535,6 +541,7 @@ impl App {
             extensions_directory: crate::extension_store::default_directory(),
             extension_registry: crate::extension_registry::Registry::default(),
             extension_node: "node".into(),
+            activation: extension_activation::State::default(),
             extension_job: None,
             extension_retirement: None,
             extension_epoch: 0,
@@ -608,6 +615,7 @@ impl App {
         changed |= self.poll_debugger();
         changed |= self.poll_extension_management();
         changed |= self.poll_extensions();
+        changed |= self.poll_extension_activation();
         changed |= self.poll_snippet();
         changed |= self.poll_snippet_catalog();
         changed |= self.poll_theme();
@@ -724,11 +732,29 @@ impl App {
                 score(label, query.trim_start_matches('>')).map(|s| (s, *label, *id))
             })
             .collect();
+        items.extend(
+            self.extension_dormant_commands()
+                .iter()
+                .filter_map(|(label, id)| {
+                    score(label, query.trim_start_matches('>'))
+                        .map(|s| (s, label.as_str(), id.as_str()))
+                }),
+        );
         if let Some(host) = &self.extension_host {
-            items.extend(host.commands.iter().filter_map(|(label, id)| {
-                score(label, query.trim_start_matches('>'))
-                    .map(|s| (s, label.as_str(), id.as_str()))
-            }));
+            items.extend(
+                host.commands
+                    .iter()
+                    .filter(|(_, id)| {
+                        !self
+                            .extension_dormant_commands()
+                            .iter()
+                            .any(|(_, dormant)| dormant == id)
+                    })
+                    .filter_map(|(label, id)| {
+                        score(label, query.trim_start_matches('>'))
+                            .map(|s| (s, label.as_str(), id.as_str()))
+                    }),
+            );
         }
         items.sort_by_key(|a| std::cmp::Reverse(a.0));
         items
@@ -1426,6 +1452,15 @@ impl App {
             "vscli.extensions.updates" => self.manage_extension(extension_management::Action::CheckUpdates),
             "workbench.extensions.action.installVSIX" => self.start_prompt(PromptKind::InstallExtension, String::new()),
             "workbench.view.extensions" | "workbench.extensions.action.showInstalledExtensions" => self.manage_extension(extension_management::Action::List),
+            "vscli.extensions.enableGlobal" | "vscli.extensions.enableWorkspace"
+                | "vscli.extensions.disableGlobal" | "vscli.extensions.disableWorkspace" => {
+                if let Some(id) = args.as_str().or_else(|| args["id"].as_str()) {
+                    let scope = if command.ends_with("Workspace") { crate::extension_activation::Scope::Workspace } else { crate::extension_activation::Scope::Global };
+                    if let Err(error) = self.set_extension_enabled(id, command.contains(".enable"), scope) {
+                        self.message = format!("Cannot change extension enablement: {error:#}");
+                    }
+                } else { self.message = "Choose an installed extension ID to change remembered enablement".into(); }
+            }
             "vscli.extensions.stop" => self.stop_extension_host(),
             "vscli.extensions.restart" => self.restart_extensions(),
             "vscli.extensions.stopSelected" => {

@@ -161,7 +161,16 @@ impl App {
     }
     pub fn start_extension_packages(
         &mut self,
+        packages: Vec<crate::extensions::Package>,
+    ) -> Result<()> {
+        self.start_extension_packages_lazy(packages, None)?;
+        self.resume_automatic_extensions();
+        Ok(())
+    }
+    pub(super) fn start_extension_packages_lazy(
+        &mut self,
         mut packages: Vec<crate::extensions::Package>,
+        activation: Option<Vec<String>>,
     ) -> Result<()> {
         if self.extension_job.is_some() || self.extension_retirement.is_some() {
             anyhow::bail!("An extension operation or retirement is already running");
@@ -173,8 +182,11 @@ impl App {
         if packages.windows(2).any(|pair| pair[0].id == pair[1].id) {
             anyhow::bail!("Duplicate selected extension");
         }
-        let prepared =
+        let mut prepared =
             crate::extensions::Client::prepare(&self.documents, self.active, &self.settings)?;
+        if let Some(activation) = activation {
+            prepared = prepared.with_activation(activation)?;
+        }
         self.extension_epoch += 1;
         let epoch = self.extension_epoch;
         self.extension_packages = packages.clone();
@@ -187,6 +199,7 @@ impl App {
             host
         });
         self.keymap.clear_extension_bindings();
+        self.clear_active_extension_bindings();
         std::thread::spawn(move || {
             // Retire the prior cohort before spawning another; never run two Node sessions.
             drop(previous);
@@ -238,6 +251,7 @@ impl App {
         }
     }
     pub(super) fn retire_extension_host(&mut self, mut host: crate::extensions::Client) {
+        self.clear_active_extension_bindings();
         self.cancel_extension_prompt();
         host.cancel_prompts();
         // A session has at most one live process. Starts are blocked until its
@@ -246,6 +260,7 @@ impl App {
         self.extension_retirement = Some(retire(host));
     }
     pub(super) fn stop_extension_host(&mut self) {
+        self.pause_automatic_extensions();
         self.cancel_extension_start();
         self.keymap.clear_extension_bindings();
         if let Some(host) = self.extension_host.take() {
@@ -283,7 +298,16 @@ impl App {
         {
             return format!(
                 "{} {}",
-                if host.ready { "running" } else { "starting" },
+                if host.ready {
+                    match host.activation_states.get(id).map(String::as_str) {
+                        Some("active") => "running",
+                        Some("failed") => "failed",
+                        Some("activating") => "activating",
+                        _ => "dormant",
+                    }
+                } else {
+                    "starting"
+                },
                 package.version
             );
         }
@@ -345,6 +369,7 @@ impl App {
                 }
             }
             Ok(Output::Listed(items, message)) => {
+                self.refresh_extension_catalog();
                 self.message = message;
                 if show_list {
                     self.modal = Some(Modal::Extensions { items, selected: 0 });

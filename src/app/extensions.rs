@@ -40,6 +40,10 @@ impl App {
                 // cannot discard another selected package's defaults.
                 if let Some(sets) = host.binding_sets.take() {
                     host.keybindings = None;
+                    if self.retain_extension_bindings(sets.clone()) {
+                        self.extension_host = Some(host);
+                        return self.poll_extension_prompt() || changed;
+                    }
                     match self.keymap.set_extension_binding_sets(sets) {
                         Ok(errors) if !errors.is_empty() => {
                             self.message = format!(
@@ -66,7 +70,23 @@ impl App {
         }
     }
     pub(super) fn execute_extension(&mut self, command: &str, args: Option<Value>) {
+        if !self.queue_extension_command(command, &args) {
+            self.execute_extension_now(command, args);
+        }
+    }
+    pub(super) fn execute_extension_now(&mut self, command: &str, args: Option<Value>) {
         if let Some(host) = &mut self.extension_host {
+            if self
+                .activation
+                .owners
+                .get(command)
+                .is_some_and(|owner| host.command_owner(command) != Some(owner.as_str()))
+            {
+                self.message = format!(
+                    "Extension command owner conflicts with the selected contribution: {command}"
+                );
+                return;
+            }
             match host.execute(command, args, &self.documents, self.active, &self.settings) {
                 Ok(()) => self.message = format!("Running extension command: {command}"),
                 Err(error) => self.message = format!("Extension command failed: {error:#}"),

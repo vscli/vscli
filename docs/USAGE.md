@@ -668,3 +668,5 @@ picker, safe explicit retry, and continued dialogs/symbols with `--no-session`.
 A prompt opening invalidates restoration even if its owner closes it before the
 file-loader reply arrives. Injected failure tests establish atomic old/new-file behavior;
 they do not qualify arbitrary hardware power-loss or network-filesystem durability.
+
+Remembered code activation is opt-in through native `vscli.extensions.enableGlobal` / `enableWorkspace` commands with an installed ID argument; matching disable commands revoke the corresponding scope. A workspace value overrides a global value. Explicit `--extension` and installed Enter run once without changing that state. See [execution grants, activation events and limits](EXTENSIONS.md#remembered-execution-enablement-and-supported-events) for a keybinding example. Installation and native editing require no Node runtime; eligible enabled code does.
