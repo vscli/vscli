@@ -492,7 +492,9 @@ def run():
         app.send(b"\x1b[102;6u")  # Ctrl+Shift+F
         app.send("unique_search_token")
         app.send(b"\r")
-        eventually(lambda: app.read() and "search.txt" in app.screen.text())
+        # The explorer already contains the basename before the asynchronous
+        # search publishes hits. Enter must wait for the actual result row.
+        eventually(lambda: app.read() and "search.txt:1:1  unique_search_token" in app.screen.text())
         app.send(b"\r")
         app.send("replaced")
         app.send(CTRL_S)
