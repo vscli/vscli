@@ -129,7 +129,12 @@ function activationHooks() {
       } finally { activating--; }
     },
     failed: dispose,
-    changed() { if (ready && !activating) send({ method: 'commands', params: { session, commands: runtime.commandSnapshot() } }); },
+    changed() {
+      if (ready && !activating) {
+        send({ method: 'activation', params: { session, activation: activation.statuses() } });
+        send({ method: 'commands', params: { session, commands: runtime.commandSnapshot() } });
+      }
+    },
     listenerError: error => console.error(error),
     async deactivate(item) { try { await item.extension?.deactivate?.(); } finally { dispose(item); } },
   };
@@ -185,10 +190,11 @@ async function dispatch(message) {
       case 'activate': {
         if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');
         if (activationBusy) throw new Error('Another activation batch is in progress');
-        if (message.params.owner && !packages.some(item => item.id === message.params.owner)) throw new Error('Activation owner is not selected');
         const additions = message.params.extensions || [];
-        if (additions.length) {
-          const items = prepare(additions, packages);
+        const items = additions.length ? prepare(additions, packages) : [];
+        const owner = message.params.owner;
+        if (owner !== undefined && owner !== null && (typeof owner !== 'string' || ![...packages, ...items].some(item => item.id === owner))) throw new Error('Activation owner is not selected');
+        if (items.length) {
           activation.add(items); packages.push(...items); packages.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
           runtime.configure(root, packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration) ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]), configuration);
         }
