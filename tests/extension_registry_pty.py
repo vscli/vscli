@@ -67,7 +67,13 @@ def run():
                 summary = dict(metadata)
                 summary.pop("targetPlatform")
                 summary.pop("license")
-                body = json.dumps({"extensions": [summary]}).encode()
+                preview = dict(summary, name="preview", version="9.0.0")
+                body = json.dumps({"extensions": [preview, summary]}).encode()
+            elif self.path.startswith("/api/fixture/preview/"):
+                # Open VSX can expose a plain-semver prerelease flag only in
+                # hydrated metadata, before later stable search results.
+                preview = dict(metadata, name="preview", version="9.0.0", preRelease=True)
+                body = json.dumps(preview).encode()
             elif self.path == f"/api/fixture/registry/universal/{version}" or self.path == "/api/fixture/registry/universal/latest":
                 body = json.dumps(metadata).encode()
             elif self.path == "/download":
@@ -102,10 +108,12 @@ def run():
             wait(app, "Search Open VSX")
             app.send("registry\r")
             wait(app, "fixture.registry@1.0.0")
+            assert "fixture.preview" not in app.screen.text()
             app.send(b"\r")
             wait(app, "Installed fixture.registry@1.0.0")
             assert not (root / "activated.marker").exists()
             installed = json.loads(subprocess.check_output([BINARY, "--list-extensions", "--extensions-dir", str(storage)]))
+            assert [item["id"] for item in installed] == ["fixture.registry"]
             original_path = Path(installed[0]["path"])
             assert installed[0]["source"] == registry + "/download"
             app.send(b"\x1b")
@@ -142,7 +150,7 @@ def run():
             app.send(b"\x1b")
             finish(app)
             live.remove(app)
-            print("PASS: native registry browse/download/update/rollback with Node unavailable; save/undo and late-search prompt ownership preserved")
+            print("PASS: mixed prerelease/stable native registry browse/download/update/rollback with Node unavailable; save/undo and late-search prompt ownership preserved")
     finally:
         release.set()
         failure = sys.exc_info()[0] is not None

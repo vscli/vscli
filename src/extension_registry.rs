@@ -91,7 +91,7 @@ pub fn target_platform() -> &'static str {
     }
 }
 impl Entry {
-    fn parse(value: &serde_json::Value) -> Result<Self> {
+    fn parse_stable(value: &serde_json::Value) -> Result<Option<Self>> {
         if value["error"].is_string() {
             bail!("Registry: {}", field(value, "error", 1024)?);
         }
@@ -103,7 +103,7 @@ impl Entry {
         let parsed =
             semver::Version::parse(&version).context("Invalid registry extension version")?;
         if !parsed.pre.is_empty() || value["preRelease"] == true {
-            bail!("Prerelease packages are not selected automatically");
+            return Ok(None);
         }
         let platform = match value["targetPlatform"].as_str() {
             None => bail!("Registry metadata lacks targetPlatform"),
@@ -129,7 +129,7 @@ impl Entry {
             }
             validate_url(&Url::parse(s)?)?;
         }
-        Ok(Self {
+        Ok(Some(Self {
             id,
             version,
             name: field(value, "displayName", 512)?,
@@ -138,7 +138,7 @@ impl Entry {
             platform: platform.into(),
             download: download.into(),
             checksum,
-        })
+        }))
     }
 }
 fn canceled(cancel: &AtomicBool, deadline: Instant) -> Result<()> {
@@ -274,7 +274,10 @@ impl Registry {
         let mut entries = Vec::new();
         for value in values {
             let entry = if value["targetPlatform"].is_string() {
-                Entry::parse(value)?
+                match Entry::parse_stable(value)? {
+                    Some(entry) => entry,
+                    None => continue,
+                }
             } else {
                 // Search summaries omit target platform and license. Never infer
                 // a platform from an arbitrary summary download URL.
@@ -321,14 +324,21 @@ impl Registry {
                 cancel,
                 deadline,
             )?)?;
-            let entry = Entry::parse(&value)?;
-            if !entry.id.eq_ignore_ascii_case(id) {
+            let entry = Entry::parse_stable(&value)?;
+            let returned_id = format!(
+                "{}.{}",
+                field(&value, "namespace", 100)?,
+                field(&value, "name", 100)?
+            );
+            if !returned_id.eq_ignore_ascii_case(id) {
                 bail!("Registry metadata returned a different package identity");
             }
-            if version != "latest" && entry.version != version {
+            if version != "latest" && field(&value, "version", 100)? != version {
                 bail!("Registry metadata returned a different package version");
             }
-            return Ok(Some(entry));
+            if entry.is_some() {
+                return Ok(entry);
+            }
         }
         Ok(None)
     }
