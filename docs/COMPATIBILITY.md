@@ -31,6 +31,16 @@ layouts and full VS Code history ordering remain unimplemented; see
 [recent-file behavior and integrity evidence](USAGE.md#recent-files-and-reopening-closed-editors).
 
 
+Native automatic language services now discover installed clangd for C/C++ and
+rust-analyzer for Rust when a saved file is selected. Explicit manual LSP remains
+available. One selected server, bounded background startup/retirement, settings
+controls and crash/retry handling are implemented; automatic downloads, concurrent
+multi-language pools and activation through arbitrary language extensions are not.
+Deterministic lifecycle tests and terminal journeys qualify native editing across
+server transitions; real-clangd qualification exercises opening C++ and parameter
+hints without `--lsp`. Installed rust-analyzer launch selection is implemented,
+while broad real Rust project behavior remains outstanding qualification.
+
 Native LSP Quick Fix/Refactor now supports bounded action discovery, lazy edit
 resolution, and validated edits across synchronized open buffers. C++ qualification
 includes a real clangd 23.1.1 missing-semicolon fix on Linux; broader server/refactor

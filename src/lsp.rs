@@ -169,8 +169,29 @@ impl Client {
         )
     }
     pub fn start(program: &str, args: &[String], root: &Path, language: String) -> Result<Self> {
+        Self::start_with_isolation(program, args, root, language, false)
+    }
+    pub(crate) fn start_isolated(
+        program: &str,
+        args: &[String],
+        root: &Path,
+        language: String,
+    ) -> Result<Self> {
+        Self::start_with_isolation(program, args, root, language, true)
+    }
+    fn start_with_isolation(
+        program: &str,
+        args: &[String],
+        root: &Path,
+        language: String,
+        isolated: bool,
+    ) -> Result<Self> {
         let root_uri = file_uri(root)?;
-        let transport = crate::transport::Process::start(program, args, root)?;
+        let transport = if isolated {
+            crate::transport::Process::start_isolated(program, args, root)?
+        } else {
+            crate::transport::Process::start(program, args, root)?
+        };
         let client = Self {
             transport,
             pending: HashMap::new(),
@@ -483,6 +504,9 @@ impl Client {
         Ok(())
     }
     pub fn poll(&mut self) -> Result<Vec<Event>> {
+        if self.transport.exited() {
+            bail!("Language server process exited");
+        }
         let mut events = Vec::new();
         if !self.ready && self.started.elapsed() > Duration::from_secs(30) {
             bail!("Language server initialization timed out");

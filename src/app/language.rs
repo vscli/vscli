@@ -28,9 +28,7 @@ impl App {
         let events = client.sync(&self.documents).and_then(|_| client.poll());
         match events {
             Err(error) => {
-                self.message = format!("Language server stopped: {error:#}");
-                self.lsp = None;
-                self.diagnostics.clear();
+                self.language_service_failed(&format!("{error:#}"));
                 true
             }
             Ok(events) => {
@@ -79,7 +77,7 @@ impl App {
     pub(super) fn language_request(&mut self, method: &str, extra: Value) {
         let Some(client) = self.lsp.as_mut() else {
             self.message =
-                "No language server configured. Start with --lsp PROGRAM --lsp-language LANGUAGE"
+                "Language server not ready; use Language: Server Status or Language: Restart Server"
                     .into();
             return;
         };

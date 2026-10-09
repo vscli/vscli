@@ -5,6 +5,7 @@ mod extension_prompts;
 mod extensions;
 mod files;
 mod language;
+mod language_services;
 mod navigation;
 mod panes;
 mod signature_help;
@@ -96,6 +97,10 @@ pub(crate) fn native_command_ids() -> Vec<String> {
 }
 
 pub const COMMANDS: &[(&str, &str)] = &[
+    ("Language: Restart Server", "vscli.languageServer.restart"),
+    ("Language: Disable Services", "vscli.languageServer.disable"),
+    ("Language: Enable Services", "vscli.languageServer.enable"),
+    ("Language: Server Status", "vscli.languageServer.status"),
     ("Open Recent File", "workbench.action.openRecent"),
     (
         "Reopen Closed Editor",
@@ -447,6 +452,7 @@ pub struct App {
     pub extension_packages: Vec<crate::extensions::Package>,
     pub extension_host: Option<crate::extensions::Client>,
     pub lsp: Option<crate::lsp::Client>,
+    language_services: language_services::State,
     signature: signature_help::State,
     pub syntax: crate::syntax::Engine,
     pub theme: crate::theme::Theme,
@@ -473,6 +479,7 @@ pub struct App {
 impl Drop for App {
     fn drop(&mut self) {
         self.shutdown_extensions();
+        self.shutdown_language_services();
     }
 }
 impl App {
@@ -524,6 +531,7 @@ impl App {
             extension_epoch: 0,
             extension_packages: Vec::new(),
             lsp: None,
+            language_services: language_services::State::default(),
             signature: signature_help::State::default(),
             syntax: crate::syntax::Engine::default(),
             theme: crate::theme::Theme::default(),
@@ -553,7 +561,7 @@ impl App {
         let changed = self.poll_symbols() || invalidated;
         let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
-        let mut changed = self.poll_language() || changed;
+        let mut changed = changed;
         if let Some(result) = self
             .settings_loader
             .as_mut()
@@ -583,6 +591,8 @@ impl App {
                 _ => {}
             }
         }
+        changed |= self.poll_language_services();
+        changed |= self.poll_language();
         changed |= self.poll_git();
         changed |= self.poll_files();
         changed |= self.poll_watching();
@@ -621,7 +631,7 @@ impl App {
         let mut paths: Vec<_> = user.into_iter().collect();
         paths.push(self.workspace.root.join(".vscode/settings.json"));
         self.settings_loader = Some(crate::settings::Loader::new(paths.clone()));
-        self.settings = match crate::settings::Settings::load(&paths) {
+        self.settings = match crate::settings::Settings::load_editor(&paths) {
             Ok(settings) => settings,
             Err(error) => {
                 self.settings_error = Some(format!("{error:#}"));
@@ -1188,6 +1198,7 @@ impl App {
                         (self.active_terminal + self.terminals.len() - 1) % self.terminals.len();
                 }
             }
+            "vscli.languageServer.restart" | "vscli.languageServer.disable" | "vscli.languageServer.enable" | "vscli.languageServer.status" => self.language_service_command(command),
             "editor.action.triggerParameterHints" => self.request_signature(),
             "closeParameterHints" => self.clear_signature(),
             "editor.action.showHover" => self.language_request("textDocument/hover", Value::Null),

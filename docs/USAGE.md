@@ -176,14 +176,64 @@ Search respects ignore files and the same excluded directories as quick open. It
 
 ## Language servers
 
-Start an explicitly selected language server; no project-supplied executable is launched automatically:
+Opening a saved C/C++ file automatically starts installed `clangd`; opening a Rust
+file starts installed `rust-analyzer`. Start with `vscli .`, then **Ctrl+O** or
+**Ctrl+P** to open a file. No LSP flags or JavaScript runtime are needed. Empty and
+untitled editors do not start a server, and nothing is downloaded automatically.
+
+There is one active native server per window. Default C and C++ files share clangd.
+Selecting a different language replaces the active server; selecting an unsupported
+language, closing the last editor or disabling services retires it. Existing text,
+undo history and shared views remain intact. Language pickers, hints and diagnostics
+from the retired server are canceled. This first slice is not a concurrent
+multi-language server pool or extension-provided language-server activation.
+
+**Language: Restart Server**, **Language: Disable Services**, **Language: Enable
+Services** and **Language: Server Status** are available in F1, without new default
+shortcuts. Failed discovery/crashes report a useful notice and do not restart in a
+loop; explicitly restart or change the effective server configuration to retry.
+`--no-lsp` starts with automatic services disabled. Explicit `--lsp` remains an
+authoritative manual override independent of the selected file and settings:
 
 ```sh
+vscli .
+vscli --no-lsp .
 vscli --lsp rust-analyzer --lsp-language rust .
-vscli --lsp clangd --lsp-language cpp src/main.cpp
-# Repeat --lsp-arg for individual process arguments:
-vscli --lsp clangd --lsp-language c --lsp-arg=--background-index=false example.c
+vscli --lsp clangd --lsp-language cpp --lsp-arg=--background-index=false src/main.cpp
 ```
+
+User settings, including imported settings or `--settings FILE`, can configure a
+language's executable, separate process arguments and enabled state:
+
+```jsonc
+{
+  "[cpp]": {
+    "vscli.languageServer.program": "clangd",
+    "vscli.languageServer.args": ["--background-index=false", "-j=2"]
+  },
+  "[rust]": { "vscli.languageServer.enabled": false }
+}
+```
+
+`vscli.languageServer.enabled` defaults to true and follows existing user/workspace
+and language-block precedence. Workspace `.vscode/settings.json` program/args are
+ignored with a notice unless **user** settings set
+`"vscli.languageServer.allowWorkspaceConfiguration": true`; a repository cannot
+turn that permission on itself. Workspace disabling is honored without this opt-in.
+The existing task-specific trust dialog does not govern language servers. Programs
+run directly, without a shell; relative explicit paths resolve against the workspace.
+PATH lookup ignores empty/relative entries, examines at most 128 entries/64 KiB and
+requires a regular executable. Program paths and individual args are limited to
+4 KiB, with at most 32 args/16 KiB total. Settings reload applies effective changes.
+
+Discovery, startup and process retirement use one bounded background worker;
+rapid switches/retries retain its occupied slot. Stale startup offers cannot replace
+a newer document/pane/focus or modal context. Initialization carries no document
+edit: accepted servers synchronize the current buffers, while later language replies
+retain document/revision/view checks. Normal shutdown waits at most five seconds
+for this worker. On Unix, managed language servers use an isolated process group
+for retirement, including ordinary descendants; Windows retirement owns the direct
+child only. Neither behavior is a sandbox or a whole process-tree resource limit.
 
 The server must already be installed. This implementation uses native stdio JSON-RPC with bounded transport queues, UTF-16 positions, document versions, and stale-response checks. Diagnostics appear as gutter markers and in Problems. Server failure leaves editing available. Incoming and outgoing serialized JSON frames are each capped at 16 MiB. Oversized document synchronization or tooling requests reject language-server work while retaining native buffers; the editor’s 32 MiB file-opening limit does not qualify every such file for LSP.
 
@@ -285,7 +335,7 @@ See [import guarantees, theme mappings and limits](IMPORT_AND_THEMES.md).
 
 Use `--settings /path/to/settings.json` to import user settings. By default, VSCLI reads `settings.json` beside its user keybindings file. An activated import supplies the user settings/keybindings/snippet directory unless explicit CLI paths override it. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.
 
-The current supported subset is `editor.tabSize` (1–16), `editor.insertSpaces`, and `editor.lineNumbers` (`on`, `off`, `relative`, `interval`). Indentation width applies to editing, cursor/mouse coordinates, rendering, and LSP formatting options. Language blocks such as `[python]` and `[javascript][typescript]` override general values; a single-language block takes priority over a multi-language block. Workspace values override user values within the same identifier group. Combined-language groups retain their first occurrence order across scopes; changing that order can change precedence. This follows the pinned [configuration model](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/configuration/common/configurationModels.ts).
+The current supported subset includes the native language-server controls above, `editor.tabSize` (1–16), `editor.insertSpaces`, and `editor.lineNumbers` (`on`, `off`, `relative`, `interval`). Indentation width applies to editing, cursor/mouse coordinates, rendering, and LSP formatting options. Language blocks such as `[python]` and `[javascript][typescript]` override general values; a single-language block takes priority over a multi-language block. Workspace values override user values within the same identifier group. Combined-language groups retain their first occurrence order across scopes; changing that order can change precedence. This follows the pinned [configuration model](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/configuration/common/configurationModels.ts).
 
 Settings reload in the background every two seconds. Malformed updates retain the previous configuration. Entries outside the native subset and invalid native values appear in F1 → Settings: Compatibility Report. A notice about an extension setting does not mean an enabled extension cannot read it. Automatic indentation detection, complete theme semantics, autosave, formatting-on-save, profiles, remote scopes, policies, and the broader settings catalog remain incomplete; importing those entries does not enable their behavior.
 
@@ -433,8 +483,8 @@ Limits are 128 intersecting diagnostics, 128 synchronized/edited buffers, 300
 picker actions, 4096 text edits and 4 MiB total replacement text. Exceeding these
 limits reports an error. Existing LSP edit validation also rejects resulting buffers
 over the 32 MiB document limit before mutation. The native transport bounds messages and queues;
-no Node runtime is required. This implementation does not provision or automatically
-start a language server.
+no Node runtime is required. Quick Fix does not provision a language server; native automatic services above
+start supported installed servers when a saved file is selected.
 
 Deterministic protocol tests cover lazy resolve, selected commands, multi-file
 atomic rejection, dirty/shared buffers, late replies, source-byte preservation and
@@ -491,7 +541,7 @@ This is native workflow evidence, not full signature-help parity with VS Code.
 **Ctrl+Shift+O** (macOS **Cmd+Shift+O**) opens **Go to Symbol in Editor**.
 **Ctrl+T** (macOS **Cmd+T**) opens **Go to Symbol in Workspace**. These defaults
 and their contexts match the pinned VS Code 1.95.0 inventory. Both commands require
-an explicitly configured, ready LSP server advertising the relevant provider;
+a ready native LSP server advertising the relevant provider;
 document symbols additionally require a saved file handled by that server.
 Workspace symbol search also works from an empty welcome screen.
 

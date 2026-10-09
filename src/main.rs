@@ -65,6 +65,9 @@ struct Args {
     /// Start this language server over stdio (explicit executable, no shell)
     #[arg(long)]
     lsp: Option<String>,
+    /// Disable native automatic language services for this window
+    #[arg(long, conflicts_with = "lsp")]
+    no_lsp: bool,
     /// Language served by --lsp, e.g. rust, python, cpp
     #[arg(long, requires = "lsp", default_value = "rust")]
     lsp_language: String,
@@ -344,15 +347,13 @@ fn main() -> Result<()> {
             args.restore_session && !explicit_files,
         )?;
     }
-    if let Some(program) = &args.lsp {
-        app.lsp = Some(vscli::lsp::Client::start(
-            program,
-            &args.lsp_arg,
-            &app.workspace.root,
-            args.lsp_language,
-        )?);
-        app.message = format!("Starting language server: {program}");
-    }
+    let manual_language = args.lsp.map(|program| vscli::language_services::Launch {
+        workspace: app.workspace.root.clone(),
+        language: args.lsp_language,
+        program,
+        args: args.lsp_arg,
+    });
+    app.configure_language_services(manual_language, args.no_lsp)?;
     if let Some(adapter) = args.debug_adapter {
         let program = args.debug_program.map(|p| {
             if p.is_absolute() {
