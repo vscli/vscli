@@ -35,8 +35,13 @@ pub fn config_directory() -> Option<PathBuf> {
 /// A pointer may select only an immediate immutable profile under imports/.
 pub fn active_directory(root: &Path) -> Result<PathBuf> {
     let pointer = root.join("active-profile.json");
-    if !pointer.exists() {
-        return Ok(root.into());
+    match fs::symlink_metadata(&pointer) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(root.into()),
+        Err(error) => return Err(error.into()),
+        Ok(metadata) if !metadata.file_type().is_file() => {
+            bail!("Imported-profile pointer must be a regular file")
+        }
+        _ => {}
     }
     let bytes = read(&pointer, 4096)?;
     let active: Active =
@@ -47,14 +52,16 @@ pub fn active_directory(root: &Path) -> Result<PathBuf> {
     {
         bail!("Invalid imported-profile identifier");
     }
-    let directory = root.join("imports").join(active.profile);
-    if !directory.is_dir() {
+    let imports = root.join("imports");
+    managed_directory(&imports)?;
+    let directory = imports.join(active.profile);
+    if !fs::symlink_metadata(&directory)?.file_type().is_dir() {
         bail!(
             "Active imported profile is missing: {}",
             directory.display()
         );
     }
-    Ok(directory)
+    Ok(fs::canonicalize(directory)?)
 }
 
 pub fn preview(source: &Path, profile: crate::keys::Profile) -> Result<Preview> {
@@ -187,9 +194,17 @@ pub fn preview_with_extensions(
 impl Preview {
     /// Prepare every file before activating the profile with a single atomic pointer replacement.
     pub fn apply(mut self, root: &Path) -> Result<Report> {
-        fs::create_dir_all(root)?;
+        let root = destination_path(root)?;
+        if root.starts_with(&self.report.source) {
+            bail!("Import destination must be outside the original VS Code User directory");
+        }
+        fs::create_dir_all(&root)?;
         let imports = root.join("imports");
-        fs::create_dir_all(&imports)?;
+        if imports.exists() || fs::symlink_metadata(&imports).is_ok() {
+            managed_directory(&imports)?;
+        } else {
+            fs::create_dir(&imports)?;
+        }
         let staging = tempfile::Builder::new()
             .prefix(".staging-")
             .tempdir_in(&imports)?;
@@ -217,7 +232,7 @@ impl Preview {
             schema: 1,
             profile: id,
         };
-        let mut file = tempfile::NamedTempFile::new_in(root)?;
+        let mut file = tempfile::NamedTempFile::new_in(&root)?;
         file.write_all(&serde_json::to_vec_pretty(&pointer)?)?;
         file.as_file().sync_all()?;
         file.persist(root.join("active-profile.json"))
@@ -226,6 +241,48 @@ impl Preview {
         Ok(self.report)
     }
 }
+fn managed_directory(path: &Path) -> Result<()> {
+    if !fs::symlink_metadata(path)?.file_type().is_dir() {
+        bail!(
+            "Managed import path must be a directory, not a symlink: {}",
+            path.display()
+        );
+    }
+    Ok(())
+}
+fn destination_path(path: &Path) -> Result<PathBuf> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(fs::canonicalize(path)?),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let name = path.file_name().context("Invalid import destination")?;
+            let parent = path
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            Ok(destination_path(parent)?.join(name))
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+/// Keep source include bytes portable by refusing aliases or absolute paths.
+fn portable_theme_path(root: &Path, relative: &Path) -> Result<PathBuf> {
+    let mut normalized = PathBuf::new();
+    for component in relative.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::Normal(part) => normalized.push(part),
+            std::path::Component::ParentDir if normalized.pop() => {}
+            _ => bail!("Imported theme paths must be relative and stay inside the package"),
+        }
+    }
+    let path = root.join(normalized);
+    let canonical = fs::canonicalize(&path)?;
+    if path != canonical || !canonical.starts_with(root) {
+        bail!("Imported theme includes cannot use symlinks or escape the package");
+    }
+    Ok(canonical)
+}
+
 type ThemeSnapshot = (PathBuf, Vec<(PathBuf, Vec<u8>)>, Vec<String>);
 fn snapshot_theme(directory: &Path, selected: &str) -> Result<Option<ThemeSnapshot>> {
     if !directory.exists() {
@@ -283,7 +340,7 @@ fn snapshot_theme(directory: &Path, selected: &str) -> Result<Option<ThemeSnapsh
                 .and_then(Value::as_str)
                 .context("Theme contribution lacks path")?;
             let root = fs::canonicalize(&package)?;
-            let path = fs::canonicalize(package.join(relative))?;
+            let path = portable_theme_path(&root, Path::new(relative))?;
             if !path.starts_with(&root) {
                 bail!("Theme contribution escapes its extension package");
             }
@@ -307,7 +364,11 @@ fn snapshot_theme(directory: &Path, selected: &str) -> Result<Option<ThemeSnapsh
                 }
                 let value: Value = json5::from_str(std::str::from_utf8(&bytes)?)?;
                 if let Some(include) = value.get("include").and_then(Value::as_str) {
-                    current = Some(fs::canonicalize(path.parent().unwrap().join(include))?);
+                    if Path::new(include).is_absolute() {
+                        bail!("Absolute theme includes cannot be imported portably");
+                    }
+                    let relative = path.parent().unwrap().strip_prefix(&root)?.join(include);
+                    current = Some(portable_theme_path(&root, &relative)?);
                 }
                 files.push((
                     PathBuf::from("themes/imported").join(path.strip_prefix(&root)?),
@@ -430,6 +491,112 @@ mod tests {
         );
         assert_eq!(preference.name, "Test Theme");
         assert!(!selected.join("must-not-run.js").exists());
+    }
+
+    #[test]
+    fn relative_destinations_freeze_source_bytes_and_failed_publish_retains_native_files() {
+        let temp = tempfile::tempdir_in(std::env::current_dir().unwrap()).unwrap();
+        let relative = temp
+            .path()
+            .strip_prefix(std::env::current_dir().unwrap())
+            .unwrap();
+        let source = temp.path().join("User");
+        fs::create_dir(&source).unwrap();
+        fs::write(source.join("settings.json"), "{\"editor.tabSize\":2}").unwrap();
+        let plan = preview(&source, crate::keys::Profile::Linux).unwrap();
+        fs::write(source.join("settings.json"), "{\"editor.tabSize\":8}").unwrap();
+        let report = plan.apply(&relative.join("config")).unwrap();
+        let snapshot = report.activated_profile.unwrap();
+        assert!(snapshot.is_absolute());
+        assert_eq!(
+            fs::read_to_string(snapshot.join("settings.json")).unwrap(),
+            "{\"editor.tabSize\":2}"
+        );
+        assert_eq!(
+            fs::read_to_string(source.join("settings.json")).unwrap(),
+            "{\"editor.tabSize\":8}"
+        );
+        let target = temp.path().join("failed");
+        fs::create_dir_all(target.join("active-profile.json")).unwrap();
+        fs::write(target.join("active-profile.json/sentinel"), "untouched").unwrap();
+        fs::write(target.join("settings.json"), "native settings").unwrap();
+        assert!(
+            preview(&source, crate::keys::Profile::Linux)
+                .unwrap()
+                .apply(&target)
+                .is_err()
+        );
+        assert_eq!(
+            fs::read_to_string(target.join("settings.json")).unwrap(),
+            "native settings"
+        );
+        assert_eq!(
+            fs::read_to_string(target.join("active-profile.json/sentinel")).unwrap(),
+            "untouched"
+        );
+        for entry in fs::read_dir(target.join("imports")).unwrap() {
+            let entry = entry.unwrap();
+            assert!(!entry.file_name().to_string_lossy().starts_with(".staging-"));
+            assert_eq!(
+                fs::read_to_string(entry.path().join("settings.json")).unwrap(),
+                "{\"editor.tabSize\":8}"
+            );
+        }
+        assert!(
+            preview(&source, crate::keys::Profile::Linux)
+                .unwrap()
+                .apply(&source.join("native"))
+                .is_err()
+        );
+        assert!(!source.join("native").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_import_controls_and_unportable_theme_aliases_are_rejected() {
+        use std::os::unix::fs::symlink;
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("User");
+        fs::create_dir(&source).unwrap();
+        fs::write(source.join("settings.json"), "{}").unwrap();
+        let native = temp.path().join("native");
+        let snapshot = preview(&source, crate::keys::Profile::Linux)
+            .unwrap()
+            .apply(&native)
+            .unwrap()
+            .activated_profile
+            .unwrap();
+        let moved = temp.path().join("moved");
+        fs::rename(&snapshot, &moved).unwrap();
+        symlink(&moved, &snapshot).unwrap();
+        assert!(active_directory(&native).is_err());
+        fs::remove_file(&snapshot).unwrap();
+        fs::rename(&moved, &snapshot).unwrap();
+        let pointer = native.join("active-profile.json");
+        fs::rename(&pointer, native.join("pointer-copy")).unwrap();
+        symlink(native.join("pointer-copy"), &pointer).unwrap();
+        assert!(active_directory(&native).is_err());
+        fs::remove_file(&pointer).unwrap();
+        fs::rename(native.join("pointer-copy"), &pointer).unwrap();
+        let external = temp.path().join("external-imports");
+        fs::rename(native.join("imports"), &external).unwrap();
+        symlink(&external, native.join("imports")).unwrap();
+        assert!(active_directory(&native).is_err());
+        assert!(
+            preview(&source, crate::keys::Profile::Linux)
+                .unwrap()
+                .apply(&native)
+                .is_err()
+        );
+        fs::write(temp.path().join("real-theme.json"), "{}").unwrap();
+        symlink(
+            temp.path().join("real-theme.json"),
+            temp.path().join("alias.json"),
+        )
+        .unwrap();
+        let canonical = fs::canonicalize(temp.path()).unwrap();
+        assert!(portable_theme_path(&canonical, Path::new("alias.json")).is_err());
+        assert!(portable_theme_path(&canonical, &canonical.join("real-theme.json")).is_err());
     }
 
     #[test]
