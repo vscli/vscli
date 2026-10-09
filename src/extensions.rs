@@ -445,7 +445,7 @@ impl Client {
         }
         Ok(())
     }
-    fn sync_configuration(&mut self, settings: &Settings) -> Result<()> {
+    pub(crate) fn sync_configuration(&mut self, settings: &Settings) -> Result<()> {
         if !Arc::ptr_eq(&self.configuration, settings.extension_layers()) {
             self.process.send(
                 json!({"method":"configuration", "params":settings.extension_layers().as_ref()}),
@@ -460,6 +460,18 @@ impl Client {
         &mut self,
         request: &ActivationRequest,
         documents: &[Document],
+        active: usize,
+        settings: &Settings,
+    ) -> Result<()> {
+        self.activate_prepared_with_hidden(request, json!({}), documents, &[], active, settings)
+    }
+    /// State is staged by the activation worker before admitting new packages.
+    pub(crate) fn activate_prepared_with_hidden(
+        &mut self,
+        request: &ActivationRequest,
+        extension_state: Value,
+        documents: &[Document],
+        hidden: &[Document],
         active: usize,
         settings: &Settings,
     ) -> Result<()> {
@@ -491,12 +503,12 @@ impl Client {
         {
             bail!("Activation targets and owner must be selected");
         }
-        self.sync_with_hidden(documents, &[], active)?;
+        self.sync_with_hidden(documents, hidden, active)?;
         self.sync_configuration(settings)?;
         self.request(
             "activate",
             json!({"session":self.session, "owner":owner,
-            "extensions":additions, "activate":targets}),
+            "extensions":additions, "activate":targets, "extensionState":extension_state}),
         )?;
         self.packages = packages;
         self.identity = self

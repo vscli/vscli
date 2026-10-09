@@ -138,17 +138,16 @@ impl App {
             self.start_prompt(PromptKind::Symbols, String::new());
         }
         let context = Context::capture(self);
-        let result = self
-            .extension_host
-            .as_mut()
-            .unwrap()
-            .request_language_provider(
+        let host = self.extension_host.as_mut().unwrap();
+        let result = host.sync_configuration(&self.settings).and_then(|()| {
+            host.request_language_provider(
                 kind,
                 &self.documents,
                 &self.hidden_documents,
                 self.active,
                 extra,
-            );
+            )
+        });
         match result {
             Ok(Some(ticket)) => {
                 self.extension_providers.lease = Some(Lease {
@@ -634,6 +633,24 @@ mod tests {
                 || a.message.contains("response:")
         });
         assert!(!app.message.contains("response:"), "{}", app.message);
+    }
+    #[test]
+    fn immediate_dispatch_synchronizes_new_configuration_before_callback() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        let id = app.doc().id;
+        let before = app.doc().text.to_string();
+        app.settings = crate::settings::Settings::from_values(
+            serde_json::from_value(json!({"fixture.formatted":"CURRENT 🙂\n"})).unwrap(),
+            "immediate configuration test",
+        )
+        .unwrap();
+        // No App::poll between replacing settings and issuing the provider RPC.
+        app.language_request(Kind::Formatting.method(), json!({}));
+        until(&mut app, |a| a.doc().text == "CURRENT 🙂\r\n");
+        assert_eq!(app.doc().id, id);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), before);
     }
     #[test]
     fn all_seven_native_provider_workflows_keep_crlf_identity_and_undo() {

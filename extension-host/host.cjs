@@ -203,6 +203,7 @@ async function dispatch(message) {
           activation.add(items); packages.push(...items); packages.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
           runtime.configure(root, packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration) ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]), configuration);
         }
+        runtime.mergeExtensionState(message.params.extensionState || {});
         await activateBatch(message, message.params.activate);
         result = snapshot();
         break;
@@ -213,7 +214,7 @@ async function dispatch(message) {
         result = await inExecution(message.id, message.params.owner, () => runtime.api.commands.executeCommand(message.params.command, ...message.params.args));
         break;
       case 'provideLanguage':
-        if (!ready || message.params.session !== session || !packages.some(item => item.id === message.params.owner)) throw new Error('Language provider session/owner is not ready');
+        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) throw new Error('Language provider session/owner is not ready');
         result = await inExecution(message.id, message.params.owner, () => runtime.provideLanguage({ ...message.params, request: message.id }));
         break;
       case 'cancelLanguageProvider':

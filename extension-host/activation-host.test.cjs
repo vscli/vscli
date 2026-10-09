@@ -110,3 +110,29 @@ test('activation failure removes partial registrations while keeping older activ
   assert.match((await h.call(4, 'execute', { session: 7, owner: 'test.b', command: 'partial', args: [] })).error.message, /owner changed/);
   assert.match((await h.call(5, 'activate', { session: 7, extensions: [], activate: ['test.b'] })).error.message, /bounded activation failure/);
 });
+
+test('dynamic admission seeds Mementos before activation and only publishes active providers', { timeout: 10000 }, async t => {
+  const h = harness(t);
+  const a = h.item('a', `exports.activate = context => ({ saved: context.globalState.get('saved') });`);
+  const init = await h.call(1, 'initialize', { protocol: 4, session: 7, extensions: [a], activate: ['test.a'],
+    languageProviders: true, extensionState: { 'test.a': { global: { saved: 'original' } } }, root: h.root,
+    state: { generation: 1, documents: [], selections: [] }, configuration: [] });
+  assert.equal(init.error, undefined); assert.deepEqual(init.result.languageProviders, []);
+  const b = h.item('b', `const v = require('vscode'); exports.activate = context => {
+    if (context.globalState.get('saved') !== 'new' || context.workspaceState.get('saved') !== 'workspace') throw Error('missing state');
+    if (v.extensions.getExtension('test.a').exports.saved !== 'original') throw Error('old state replaced');
+    v.languages.registerHoverProvider('sql', { provideHover: () => new v.Hover('state loaded') });
+  };`);
+  const appended = await h.call(2, 'activate', { session: 7, extensions: [b], activate: ['test.b'], extensionState: {
+    'test.a': { global: { saved: 'must not replace' } }, 'test.b': { global: { saved: 'new' }, workspace: { saved: 'workspace' } }
+  } });
+  assert.equal(appended.error, undefined); assert.equal(appended.result.languageProviders.length, 1);
+  assert.equal(appended.result.languageProviders[0].owner, 'test.b');
+  const bad = h.item('bad', `const v = require('vscode'); exports.activate = () => {
+    v.languages.registerHoverProvider('sql', { provideHover: () => new v.Hover('never') }); throw Error('intentional failure');
+  };`);
+  assert.match((await h.call(3, 'activate', { session: 7, extensions: [bad], activate: ['test.bad'] })).error.message, /intentional failure/);
+  const registry = await h.receive(message => message.method === 'languageProviders');
+  assert.deepEqual(registry.params.providers.map(item => item.owner), ['test.b']);
+  assert.match((await h.call(4, 'provideLanguage', { session: 7, owner: 'test.bad', provider: 2, document: 1, version: 1 })).error.message, /not ready/);
+});

@@ -103,7 +103,7 @@ struct Snapshot {
 }
 enum Output {
     Loaded(Box<Snapshot>, Option<(String, bool)>),
-    Planned(lifecycle::Plan, String),
+    Planned(lifecycle::Plan, String, Value),
 }
 fn load(
     config: Option<&Path>,
@@ -582,7 +582,7 @@ impl App {
                                     );
                                 }
                             }
-                            Ok(Output::Planned(plan, owner)) => {
+                            Ok(Output::Planned(plan, owner, state)) => {
                                 if job.extension_epoch == Some(self.extension_epoch)
                                     && job.control == self.activation.control
                                     && !self.activation.paused
@@ -594,7 +594,7 @@ impl App {
                                             .is_some_and(|command| &command.token == id)
                                     });
                                     if let Err(error) =
-                                        self.apply_activation_plan(plan, &owner, command)
+                                        self.apply_activation_plan(plan, &owner, command, state)
                                     {
                                         self.message =
                                             format!("Cannot activate {owner}: {error:#}");
@@ -676,6 +676,7 @@ impl App {
         let languages: BTreeSet<_> = self
             .documents
             .iter()
+            .chain(&self.hidden_documents)
             .map(|doc| {
                 doc.path
                     .as_deref()
@@ -741,6 +742,10 @@ impl App {
         let mut enabled =
             Preferences::effective(&self.activation.global, &self.activation.workspace);
         enabled.extend(packages.iter().map(|package| package.id.clone()));
+        let state_store = self
+            .extension_host
+            .as_ref()
+            .and_then(|host| host.state_store());
         let root = owner.clone();
         let (sender, receiver) = sync_channel(1);
         std::thread::spawn(move || {
@@ -749,13 +754,21 @@ impl App {
                     .iter()
                     .map(Metadata::selected)
                     .collect::<Result<_>>()?;
-                lifecycle::plan(
+                let plan = lifecycle::plan(
                     &catalog,
                     &enabled,
                     &retained,
                     &BTreeSet::from([root.clone()]),
-                )
-                .map(|plan| Output::Planned(plan, root))
+                )?;
+                let additions: Vec<_> = plan
+                    .ordered
+                    .iter()
+                    .filter(|item| !packages.iter().any(|old| old.id == item.package.id))
+                    .map(|item| item.package.clone())
+                    .collect();
+                let state =
+                    crate::extensions::services::initial_state(state_store.as_ref(), &additions)?;
+                Ok::<_, anyhow::Error>(Output::Planned(plan, root, state))
             })()
             .map_err(|e| format!("{e:#}"));
             let _ = sender.send(result);
@@ -775,6 +788,7 @@ impl App {
         plan: lifecycle::Plan,
         owner: &str,
         command: bool,
+        state: Value,
     ) -> Result<()> {
         if !plan.needs_code() {
             self.message = format!("Declarative extension {owner} needs no JavaScript runtime");
@@ -802,7 +816,14 @@ impl App {
                 targets,
                 owner: command.then(|| owner.to_owned()),
             };
-            host.activate(&request, &self.documents, self.active, &self.settings)?;
+            host.activate_prepared_with_hidden(
+                &request,
+                state,
+                &self.documents,
+                &self.hidden_documents,
+                self.active,
+                &self.settings,
+            )?;
             self.extension_packages = host.packages.clone();
         } else {
             self.start_extension_packages_lazy(packages, Some(targets))?;
@@ -823,6 +844,120 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn hidden_language_activation_preloads_state_and_preserves_mirrored_identity() {
+        use crate::extension_state::{Scope, Store};
+        use crate::extensions::{Client, Package};
+        use std::time::{Duration, Instant};
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("config");
+        std::fs::create_dir(&config).unwrap();
+        let make = |name: &str, source: &str, events: Value| {
+            let path = root.path().join(name);
+            std::fs::create_dir(&path).unwrap();
+            std::fs::write(
+                path.join("package.json"),
+                serde_json::to_vec(&json!({
+                    "publisher":"test", "name":name, "version":"1", "main":"index.cjs",
+                    "activationEvents":events
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+            std::fs::write(path.join("index.cjs"), source).unwrap();
+            Package::read(&path).unwrap()
+        };
+        let a = make(
+            "a",
+            r#"
+            const v = require('vscode'); exports.activate = () => ({
+                hidden: v.workspace.textDocuments[0]
+            });
+        "#,
+            json!([]),
+        );
+        let b = make(
+            "b",
+            r#"
+            const v = require('vscode');
+            const initialDocument = v.workspace.textDocuments[0];
+            exports.activate = context => {
+                if (v.window.activeTextEditor || v.window.visibleTextEditors.length) throw Error('invented editor');
+                if (v.workspace.textDocuments.length !== 1 || initialDocument !== v.extensions.getExtension('test.a').exports.hidden) throw Error('lost hidden identity');
+                if (initialDocument.getText() !== 'dirty 猫\r\n') throw Error('lost hidden text');
+                if (context.globalState.get('saved') !== 'global' || context.workspaceState.get('saved') !== 'workspace') throw Error('state missing before activation');
+                v.languages.registerHoverProvider('sql', { provideHover: () => new v.Hover('loaded state') });
+            };
+        "#,
+            json!(["onLanguage:sql"]),
+        );
+        let store = Store::new(&config, root.path()).unwrap();
+        store
+            .update("test.b", Scope::Global, "saved", Some(json!("global")))
+            .unwrap();
+        store
+            .update(
+                "test.b",
+                Scope::Workspace,
+                "saved",
+                Some(json!("workspace")),
+            )
+            .unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let mut hidden = Document::from_text("dirty 猫\r\n");
+        hidden.path = Some(root.path().join("hidden.sql"));
+        let id = hidden.id;
+        app.hidden_documents.push(hidden);
+        let prepared = Client::prepare_with_hidden(
+            &app.documents,
+            &app.hidden_documents,
+            app.active,
+            &app.settings,
+        )
+        .unwrap()
+        .with_storage_root(Some(config));
+        app.extension_host =
+            Some(Client::start_many_prepared("node", &[a], root.path(), prepared).unwrap());
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !app
+            .extension_host
+            .as_ref()
+            .is_some_and(|h| h.owner_active("test.a"))
+        {
+            app.poll();
+            assert!(Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        app.activation.configured = true;
+        app.activation.loaded = true;
+        app.activation.global.set("test.b", true).unwrap();
+        app.activation.catalog = Arc::new(BTreeMap::from([(
+            "test.b".into(),
+            Metadata::selected(&b).unwrap(),
+        )]));
+        while !app
+            .extension_host
+            .as_ref()
+            .is_some_and(|h| h.owner_active("test.b"))
+        {
+            app.poll();
+            assert!(Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(app.documents.is_empty());
+        assert_eq!(app.hidden_documents[0].id, id);
+        assert_eq!(app.hidden_documents[0].text.to_string(), "dirty 猫\r\n");
+        assert!(
+            app.extension_host
+                .as_ref()
+                .unwrap()
+                .language_provider(
+                    crate::extension_providers::Kind::Hover,
+                    &app.hidden_documents[0]
+                )
+                .is_some()
+        );
+    }
     fn metadata(id: &str) -> Metadata {
         Metadata {
             package: crate::extensions::Package {
@@ -867,6 +1002,7 @@ mod tests {
                     ordered: vec![metadata("test.a")],
                 },
                 "test.a".into(),
+                serde_json::json!({}),
             )))
             .unwrap();
         app.stop_extension_host();
@@ -944,6 +1080,7 @@ mod tests {
             .send(Ok(Output::Planned(
                 lifecycle::Plan { ordered: vec![a] },
                 "test.a".into(),
+                serde_json::json!({}),
             )))
             .unwrap();
         app.poll_extension_activation();
@@ -1031,6 +1168,7 @@ mod tests {
             .send(Ok(Output::Planned(
                 lifecycle::Plan { ordered: vec![a] },
                 "test.a".into(),
+                serde_json::json!({}),
             )))
             .unwrap();
         app.poll_extension_activation();
