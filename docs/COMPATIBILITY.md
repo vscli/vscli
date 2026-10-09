@@ -176,7 +176,7 @@ Prioritize work by the workflows it unlocks. One missing API can block a useful 
 
 ## Syntax and theme compatibility
 
-Tree-sitter support does not load TextMate grammars automatically, and mapping a theme's colors does not reproduce its scope semantics. Track language configuration, snippets, TextMate grammar loading, grammar injections, semantic tokens, and theme scope matching separately.
+Tree-sitter support does not load TextMate grammars automatically, and mapping a theme's colors does not reproduce its scope semantics. Native bundled C and C++ grammars now cover preprocessor directives, templates, multiline raw strings and Unicode comments without a code extension or language server. Header/module suffixes follow the named C/C++ contributions in the [pinned 1.95.0 manifest](https://github.com/microsoft/vscode/blob/1.95.0/extensions/cpp/package.json); this does not qualify every file association or CUDA. Grammar work retains the 2 MiB document budget, background cancellation and stale-revision rejection. Native query/worker tests and a real PTY cover theme-category rendering and CRLF edit/undo/save; exact TextMate/semantic appearance remains unqualified. Track language configuration, snippets, TextMate grammar loading, grammar injections, semantic tokens, and theme scope matching separately.
 
 Start with native syntax and an approximate theme importer. Evaluate a compatible TextMate tokenizer in the optional host or a suitable native implementation for languages supplied only by extensions. Tokenization results carry document versions and never gate input. Limit pathological regex/tokenization work. Publish the distinction between approximate visual mapping and tested grammar compatibility.
 
