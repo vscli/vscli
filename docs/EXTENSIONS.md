@@ -141,9 +141,18 @@ at those limits; up to 64 pending show/hide operations preserve ordering. There 
 256 children per reply, 1,024 retained opaque handles/nodes per view, depth 32,
 128 KiB of labels/descriptions/tooltips per host reply, and 512 KiB of aggregate
 native tree text. Only one native tree request is retained at a time; canceling
-its UI retains its slot until reply or host timeout. A failed provider can be
-retried with R; a reply rejected after host handle allocation can require a
-provider refresh to release handles. These bounds do not constrain arbitrary
+its UI retains its slot until reply or host timeout. The JavaScript adapter also
+retains one shared logical tree callback slot across all owners/views until the
+actual `getChildren`/`getTreeItem` chain settles, including rejected promises.
+Caller timeouts, refresh and disposal do not release an unresolved callback;
+further tree queries report that the provider is busy and recommend waiting or
+restarting the host. Owner, view identity and generation are checked after each
+await before another provider callback or publication. An indefinitely pending
+promise therefore blocks tree loading for that session; unrelated output/status
+surfaces remain usable until the existing whole-host timeout retires the cohort.
+This bounds adapter-initiated callback chains, not arbitrary extension work or
+memory. A failed provider whose callback has settled can be retried with R; a
+reply rejected after host handle allocation can require a provider refresh to release handles. These bounds do not constrain arbitrary
 extension-owned JavaScript objects beyond the existing host resource limits.
 
 LogOutputChannel, output highlighting/language processing, ANSI interpretation,

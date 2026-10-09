@@ -3,11 +3,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSurfaces, TreeItem, ThemeColor, limits } = require('./surfaces.cjs');
 const { EventEmitter } = require('./api-types.cjs');
-function fixture() {
+function fixture(assertOwner = () => {}) {
   const messages = [], calls = [], owned = new Map();
   const runtime = createSurfaces((method, params) => messages.push({ method, params }), 7,
     (owner, disposable) => { if (!owned.has(owner)) owned.set(owner, []); owned.get(owner).push(disposable); return disposable; },
-    async (...args) => calls.push(args));
+    async (...args) => calls.push(args), assertOwner);
   runtime.configure([{ id: 'one.extension', manifest: { contributes: { views: { explorer: [{ id: 'one.tree', name: 'First Tree' }] } } } },
     { id: 'two.extension', manifest: { contributes: { views: { explorer: [{ id: 'two.tree', name: 'Other Tree' }] } } } }]);
   return { runtime, messages, calls, api: runtime.forExtension('one.extension'),
@@ -153,4 +153,110 @@ test('new declaration batches stage atomically and preserve existing owners', ()
   ] } } } }]);
   f.runtime.forExtension('web.extension').createTreeView('web.tree', { treeDataProvider: provider }).dispose();
   view.dispose(); old.dispose();
+});
+
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+function treeRequest(f, owner = 'one.extension', id = 'one.tree') {
+  const state = f.messages.findLast(message => message.params.op === 'tree' && message.params.id === id).params;
+  return { session: 7, owner, id, generation: state.generation };
+}
+const turn = () => new Promise(resolve => setImmediate(resolve));
+for (const stage of ['getChildren', 'getTreeItem']) {
+  test(`held ${stage} retains one cross-owner slot after caller timeout and disposal`, async () => {
+    const f = fixture(), held = deferred();
+    let childrenCalls = 0, itemCalls = 0, otherCalls = 0;
+    const view = f.api.createTreeView('one.tree', { treeDataProvider: {
+      getChildren() { childrenCalls++; return stage === 'getChildren' ? held.promise : [1, 2]; },
+      getTreeItem(value) { itemCalls++; return held.promise; },
+    } });
+    const other = f.runtime.forExtension('two.extension');
+    other.createTreeView('two.tree', { treeDataProvider: {
+      getChildren() { otherCalls++; return [3]; }, getTreeItem: value => new TreeItem(String(value)),
+    } });
+    const request = treeRequest(f), otherRequest = treeRequest(f, 'two.extension', 'two.tree');
+    const pending = f.runtime.treeChildren(request);
+    await turn();
+    // Model a caller abandoning its wait. No adapter cancellation or native
+    // transport deadline may release a promise still owned by the provider.
+    assert.equal(await Promise.race([pending, turn().then(() => 'caller expired')]), 'caller expired');
+    for (let i = 0; i < 4; i++) {
+      await assert.rejects(f.runtime.treeChildren(request), /still running.*restart/);
+      await assert.rejects(f.runtime.treeChildren(otherRequest), /still running.*restart/);
+    }
+    assert.equal(childrenCalls, 1);
+    assert.equal(itemCalls, stage === 'getTreeItem' ? 1 : 0);
+    assert.equal(otherCalls, 0);
+    view.dispose();
+    await assert.rejects(f.runtime.treeChildren(otherRequest), /still running.*restart/);
+    // Tree saturation must not disable independent owner surfaces.
+    const output = other.createOutputChannel('Alive'); output.append('retained');
+    const status = other.createStatusBarItem('Alive'); status.command = 'other.run'; status.show();
+    const state = f.messages.at(-1).params;
+    await f.runtime.action({ ...state, kind: 'status' });
+    assert.equal(f.calls.at(-1)[1], 'other.run');
+    const rejected = assert.rejects(pending, /changed while/);
+    held.resolve(stage === 'getChildren' ? [1, 2] : new TreeItem('obsolete'));
+    await rejected;
+    assert.equal(itemCalls, stage === 'getTreeItem' ? 1 : 0, 'No next provider callback after disposal');
+    const reply = await f.runtime.treeChildren(otherRequest);
+    assert.equal(reply.items[0].label, '3');
+    assert.equal(otherCalls, 1);
+    await assert.rejects(f.runtime.action({ ...request, node: 'node-1' }), /Stale/);
+  });
+  for (const change of ['generation', 'owner']) {
+    test(`${stage} validates ${change} after awaiting before another callback or handles`, async () => {
+      let active = true;
+      const f = fixture(owner => { if (owner === 'one.extension' && !active) throw new Error('Owner retired'); });
+      const held = deferred(), changed = new EventEmitter();
+      let itemCalls = 0;
+      const provider = {
+        onDidChangeTreeData: changed.event,
+        getChildren: () => stage === 'getChildren' ? held.promise : [1, 2],
+        getTreeItem() { itemCalls++; return held.promise; },
+      };
+      f.api.createTreeView('one.tree', { treeDataProvider: provider });
+      const old = treeRequest(f), pending = f.runtime.treeChildren(old);
+      await turn();
+      if (change === 'generation') {
+        changed.fire();
+        await assert.rejects(f.runtime.treeChildren(treeRequest(f)), /still running/);
+      } else active = false;
+      const rejected = assert.rejects(pending, change === 'generation' ? /changed while/ : /Owner retired/);
+      held.resolve(stage === 'getChildren' ? [1, 2] : new TreeItem('obsolete'));
+      await rejected;
+      assert.equal(itemCalls, stage === 'getTreeItem' ? 1 : 0);
+      active = true;
+      provider.getChildren = () => [3]; provider.getTreeItem = value => new TreeItem(String(value));
+      const fresh = treeRequest(f), reply = await f.runtime.treeChildren(fresh);
+      assert.equal(reply.items[0].node, 'node-1', 'Invalidated response must not allocate handles');
+      assert.equal(reply.items[0].label, '3');
+    });
+  }
+  test(`rejected ${stage} releases its slot only when the callback settles`, async () => {
+    const f = fixture(), held = deferred();
+    const provider = { getChildren: () => stage === 'getChildren' ? held.promise : [1], getTreeItem: () => held.promise };
+    f.api.createTreeView('one.tree', { treeDataProvider: provider });
+    const request = treeRequest(f), pending = f.runtime.treeChildren(request);
+    await turn();
+    await assert.rejects(f.runtime.treeChildren(request), /still running/);
+    const rejected = assert.rejects(pending, /provider failed/);
+    held.reject(new Error('provider failed')); await rejected;
+    provider.getChildren = () => [1]; provider.getTreeItem = () => new TreeItem('Recovered');
+    const reply = await f.runtime.treeChildren(request);
+    assert.equal(reply.items[0].node, 'node-1');
+  });
+}
+test('tree generation changed by an item getter stops the next callback', async () => {
+  const f = fixture(), changed = new EventEmitter();
+  let calls = 0;
+  f.api.createTreeView('one.tree', { treeDataProvider: {
+    onDidChangeTreeData: changed.event, getChildren: () => [1, 2],
+    getTreeItem() { calls++; return { get label() { changed.fire(); return 'obsolete'; } }; },
+  } });
+  await assert.rejects(f.runtime.treeChildren(treeRequest(f)), /changed while/);
+  assert.equal(calls, 1);
 });
