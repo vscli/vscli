@@ -258,3 +258,5 @@ all-or-nothing restore. `--no-session` disables this separate persistence mechan
 See [usage and limits](USAGE.md#clean-file-session-restoration) for qualification.
 This is a native convenience feature, not a claim of VS Code hot-exit, independent
 per-group tabs, terminal persistence, workspace transitions, or extension-state parity.
+
+Selected CommonJS packages now support dependency-first cached activation and same-host `vscode.extensions` lookup/exports within the eight-package cohort. Missing or cyclic dependencies reject before execution; runtime reverse waits reject. See [extension lifecycle limits](EXTENSIONS.md#session-limits-and-failure-behavior). Remembered native activation event dispatch is not yet integrated.

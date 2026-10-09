@@ -424,7 +424,7 @@ pub fn compatibility(manifest: &Value) -> String {
         .and_then(Value::as_array)
         .is_some_and(|a| !a.is_empty())
     {
-        "Unsupported dependencies; installed only".into()
+        "Experimental host; dependencies must be selected and APIs remain unverified".into()
     } else if manifest.get("main").and_then(Value::as_str).is_some() {
         "Experimental command host; APIs and engine compatibility unverified".into()
     } else if manifest["contributes"]["themes"].is_array() {
