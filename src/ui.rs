@@ -148,6 +148,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         Paragraph::new(status).style(Style::default().bg(colors.selection).fg(colors.foreground)),
         rows[3],
     );
+    draw_signature(frame, app);
     if app.prompt.is_some() {
         draw_prompt(frame, app);
     }
@@ -1429,6 +1430,51 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             .wrap(Wrap { trim: false })
             .style(Style::default().fg(colors.foreground)),
         inner,
+    );
+}
+
+fn draw_signature(frame: &mut Frame, app: &App) {
+    let Some(hint) = app.signature_help() else {
+        return;
+    };
+    let area = app.editor_area;
+    if area.width < 12 || area.height < 4 {
+        return;
+    }
+    let colors = app.theme.colors;
+    let mut label = Vec::new();
+    if let Some(range) = &hint.parameter {
+        label.push(Span::raw(clean(&hint.label[..range.start])));
+        label.push(Span::styled(
+            clean(&hint.label[range.clone()]),
+            Style::default()
+                .fg(colors.accent)
+                .add_modifier(Modifier::BOLD),
+        ));
+        label.push(Span::raw(clean(&hint.label[range.end..])));
+    } else {
+        label.push(Span::raw(clean(&hint.label)));
+    }
+    let mut lines = vec![Line::from(label)];
+    lines.extend(
+        clean_multiline(&hint.documentation)
+            .lines()
+            .take(4)
+            .map(|line| Line::raw(line.to_owned())),
+    );
+    let height = (lines.len() as u16 + 2).min(area.height).min(7);
+    let popup = Rect::new(area.x, area.y + area.height - height, area.width, height);
+    frame.render_widget(Clear, popup);
+    frame.render_widget(
+        Paragraph::new(lines)
+            .wrap(Wrap { trim: false })
+            .style(Style::default().fg(colors.foreground).bg(colors.panel))
+            .block(Block::default().borders(Borders::ALL).title(format!(
+                " Parameter Hints {}/{} · Esc closes ",
+                hint.signature + 1,
+                hint.count
+            ))),
+        popup,
     );
 }
 

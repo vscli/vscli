@@ -1156,6 +1156,33 @@ def run():
         assert text(navigation_file) == "external\n"
         print("PASS: recent-file picker, dirty close cancel/save, reopen/undo, missing-file retry, welcome recents and persisted restart")
 
+        signature_file = root / "signature.cpp"
+        signature_file.write_bytes(b"sum(1, 2)\r\n")
+        signature_server = Path(__file__).resolve().parent / "fixtures" / "signature_server.py"
+        app = Editor(root, "--lsp", "python3", "--lsp-arg", signature_server, "--lsp-language", "cpp", signature_file, enhanced=True)
+        eventually(lambda: app.read() and "Language server ready" in app.screen.text())
+        trigger_hints = b"\x1b[32;6u"  # Original Ctrl+Shift+Space with enhanced terminal delivery.
+        app.send(trigger_hints)
+        eventually(lambda: app.read() and "Parameter Hints 1/1" in app.screen.text() and "int count" in app.screen.text())
+        assert signature_file.read_bytes() == b"sum(1, 2)\r\n"
+        app.send(b"\x1b[27;2u")  # Original Shift+Escape dismissal.
+        eventually(lambda: app.read() and "Parameter Hints 1/1" not in app.screen.text())
+        app.send(trigger_hints + b"//")  # Typing cancels a pending request and stays native.
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and signature_file.read_bytes() == b"//sum(1, 2)\r\n")
+        time.sleep(0.3)
+        app.read()
+        assert "Parameter Hints 1/1" not in app.screen.text()
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and signature_file.read_bytes() == b"sum(1, 2)\r\n")
+        app.send(b"\x17")
+        eventually(lambda: app.read() and "No open editors" in app.screen.text())
+        app.send(trigger_hints)
+        assert "No open editors" in app.screen.text()
+        app.finish()
+        print("PASS: original parameter-hint shortcut, active parameter, Shift+Escape, late reply cancellation, CRLF save/undo and empty welcome")
+
 
         action_root = root / "code-actions"
         action_root.mkdir()

@@ -119,6 +119,9 @@ impl App {
             // Command results are not WorkspaceEdits; mutations arrive through applyEdit.
             return Ok(());
         }
+        if request.method == "textDocument/signatureHelp" {
+            return self.signature_response(&request, &response);
+        }
         self.request_current(&request)?;
         if response.is_null() {
             self.message = "Language server returned no results".into();

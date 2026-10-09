@@ -24,3 +24,5 @@ pub mod watch;
 pub mod workspace;
 
 pub mod recent;
+
+pub mod signature;

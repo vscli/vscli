@@ -6,6 +6,7 @@ mod files;
 mod language;
 mod navigation;
 mod panes;
+mod signature_help;
 mod snippet_catalogs;
 mod snippets;
 mod source_control;
@@ -244,6 +245,10 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "editor.action.startFindReplaceAction",
     ),
     ("Go: Go to Line…", "workbench.action.gotoLine"),
+    (
+        "Language: Parameter Hints",
+        "editor.action.triggerParameterHints",
+    ),
     ("Language: Hover", "editor.action.showHover"),
     ("Language: Complete", "editor.action.triggerSuggest"),
     (
@@ -418,6 +423,7 @@ pub struct App {
     pub extension_packages: Vec<crate::extensions::Package>,
     pub extension_host: Option<crate::extensions::Client>,
     pub lsp: Option<crate::lsp::Client>,
+    signature: signature_help::State,
     pub syntax: crate::syntax::Engine,
     pub theme: crate::theme::Theme,
     pub recent_files: crate::recent::State,
@@ -492,6 +498,7 @@ impl App {
             extension_epoch: 0,
             extension_packages: Vec::new(),
             lsp: None,
+            signature: signature_help::State::default(),
             syntax: crate::syntax::Engine::default(),
             theme: crate::theme::Theme::default(),
             recent_files: crate::recent::State::default(),
@@ -514,7 +521,8 @@ impl App {
         }
     }
     pub fn poll(&mut self) -> bool {
-        let changed = self.workspace.poll();
+        let invalidated = self.refresh_signature();
+        let changed = self.workspace.poll() || invalidated;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
         let mut changed = self.poll_language() || changed;
         if let Some(result) = self
@@ -647,6 +655,7 @@ impl App {
         self.remember_active_file();
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
+        self.clear_signature();
         self.cancel_navigation();
         if let Some(doc) = self.documents.get_mut(self.active) {
             doc.break_group();
@@ -675,6 +684,14 @@ impl App {
     }
     pub fn context(&self) -> HashMap<String, Value> {
         HashMap::from([
+            (
+                "editorHasSignatureHelpProvider".into(),
+                json!(self.has_signature_provider()),
+            ),
+            (
+                "parameterHintsVisible".into(),
+                json!(self.signature_help().is_some()),
+            ),
             (
                 "editorTextFocus".into(),
                 json!(
@@ -762,6 +779,7 @@ impl App {
     pub fn event(&mut self, event: Event) {
         self.event_inner(event);
         self.sync_pane();
+        self.refresh_signature();
     }
     fn event_inner(&mut self, event: Event) {
         match event {
@@ -951,6 +969,9 @@ impl App {
         self.sync_pane();
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
+        if command != "editor.action.triggerParameterHints" {
+            self.clear_signature();
+        }
         // A duplicate reopen keeps the existing bounded request alive.
         if command != "workbench.action.reopenClosedEditor" {
             self.cancel_navigation();
@@ -1112,6 +1133,8 @@ impl App {
                         (self.active_terminal + self.terminals.len() - 1) % self.terminals.len();
                 }
             }
+            "editor.action.triggerParameterHints" => self.request_signature(),
+            "closeParameterHints" => self.clear_signature(),
             "editor.action.showHover" => self.language_request("textDocument/hover", Value::Null),
             "editor.action.triggerSuggest" => self.language_request(
                 "textDocument/completion",

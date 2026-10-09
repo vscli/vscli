@@ -445,3 +445,35 @@ cargo test --locked --test code_actions real_clangd_cpp -- --ignored
 This qualifies that C++ fix on that server, not all clangd refactors, all servers or
 full VS Code language-feature parity. The pre-existing rename path retains its
 separate limitations described above.
+
+## Parameter hints
+
+**Ctrl+Shift+Space** on Linux/Windows or **Cmd+Shift+Space** on macOS requests
+**Language: Parameter Hints** from the configured LSP server. The original binding
+requires editor focus and a server advertising signature help. The native themed
+panel shows the server-selected signature, highlights its active parameter, and
+renders signature/parameter documentation as plain text. **Escape** or
+**Shift+Escape** dismisses it. The panel remains nonmodal: typing, movement, other
+commands, prompts, selection/view changes or closing the editor dismiss it and
+cancel any pending request. Late canceled replies cannot reopen it. Invoking the
+command from an empty welcome screen does not create a document.
+
+This first slice is explicitly invoked. Automatic triggers/retriggering while
+arguments are typed, overload navigation, Markdown formatting and every server's
+parameter-selection behavior remain unqualified. UTF-16 offset-pair and substring
+parameter labels are supported; out-of-range active indices fall back to zero.
+The response accepts at most 32 signatures, 128 parameters per signature, 8 KiB per
+signature label or selected documentation field, and 64 KiB total signature labels. The panel clips
+long content to its available editor area. Malformed ranges or oversized data
+report an error without touching the buffer. Hints never edit or save files.
+
+Deterministic protocol/UI/PTY tests cover original shortcuts, active highlighting,
+shared-document identity, cancellation, out-of-order replies, empty startup,
+malformed data and CRLF save/undo after dismissal. A real clangd 23.1.1 C++ fixture
+checks the second argument of a two-parameter function without changing file bytes:
+
+```sh
+cargo test --locked --test signature_help real_clangd -- --ignored
+```
+
+This is native workflow evidence, not full signature-help parity with VS Code.

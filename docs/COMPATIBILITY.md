@@ -36,6 +36,10 @@ resolution, and validated edits across synchronized open buffers. C++ qualificat
 includes a real clangd 23.1.1 missing-semicolon fix on Linux; broader server/refactor
 compatibility remains unqualified. See [supported edits and integrity boundaries](USAGE.md#native-code-actions-and-quick-fixes).
 
+Native explicitly invoked LSP parameter hints now show the server-selected signature
+and active parameter in a themed nonmodal panel; automatic triggers and overload
+navigation remain pending. See [behavior and evidence](USAGE.md#parameter-hints).
+
 ## Feature disposition
 
 | VS Code feature family | Planned terminal behavior | Scope |
