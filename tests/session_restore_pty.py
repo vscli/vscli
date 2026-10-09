@@ -192,9 +192,12 @@ def run():
             finish(app)
             recovery = root / "recovery"
             recovery.mkdir()
+            # Native recovery captures Document paths, which are canonical even
+            # when the temporary workspace itself has a macOS /var alias.
+            recovered_path = str(first.resolve(strict=True))
             (recovery / "old.json").write_text(json.dumps({"version": 1, "documents": [
-                {"path": str(first), "text": "alpha recovered\r\n", "disk_content": original.decode(), "cursor": 3},
-                {"path": str(first), "text": "beta recovered\r\n", "disk_content": original.decode(), "cursor": 2},
+                {"path": recovered_path, "text": "alpha recovered\r\n", "disk_content": original.decode(), "cursor": 3},
+                {"path": recovered_path, "text": "beta recovered\r\n", "disk_content": original.decode(), "cursor": 2},
             ]}))
             app = editor(root, "--config-dir", config, "--restore-session", "--recovery-dir", recovery, recovery=True)
             wait(app, "Restored clean-file session")
@@ -211,6 +214,8 @@ def run():
             print("PASS: duplicate dirty recovery variants keep identity and caret; clean session metadata never stores buffer text")
             combined(root)
         finally:
+            original_failure = sys.exc_info()[0] is not None
+            cleanup_errors = []
             for app in LIVE[:]:
                 try:
                     if app.process.poll() is None:
@@ -221,10 +226,28 @@ def run():
                             time.sleep(0.02)
                     if app.process.poll() is None:
                         app.process.kill()
+                    # Continue draining after the editor's status report: on
+                    # macOS the supervising session can still be closing its PTY.
+                    deadline = time.monotonic() + 3
+                    while app.process.supervisor.poll() is None and time.monotonic() < deadline:
+                        app.read()
+                        time.sleep(0.02)
+                    if app.process.supervisor.poll() is None:
+                        app.process.supervisor.kill()
                     app.process.wait(timeout=3)
-                    app.close_fds()
+                except Exception as error:
+                    cleanup_errors.append(error)
                 finally:
+                    try:
+                        app.close_fds()
+                    except Exception as error:
+                        cleanup_errors.append(error)
                     LIVE.remove(app)
+            if cleanup_errors:
+                if not original_failure:
+                    raise cleanup_errors[0]
+                for error in cleanup_errors:
+                    print(f"Cleanup error after original failure: {error}", file=sys.stderr)
 
 if __name__ == "__main__":
     run()
