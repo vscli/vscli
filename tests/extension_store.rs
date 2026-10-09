@@ -222,3 +222,59 @@ fn duplicate_names_and_unbounded_central_directory_counts_are_rejected_before_ex
     );
     assert_eq!(store.get(&original.id).unwrap().path, original.path);
 }
+
+#[test]
+fn cumulative_manifest_budget_limits_listing_without_disabling_direct_ids() {
+    let temp = tempfile::tempdir().unwrap();
+    let archive = temp.path().join("metadata.vsix");
+    let store = Store::new(temp.path().join("store"));
+    for name in ["first", "second"] {
+        let mut zip = ZipWriter::new(File::create(&archive).unwrap());
+        zip.start_file("extension/package.json", SimpleFileOptions::default())
+            .unwrap();
+        write!(
+            zip,
+            "{}",
+            json!({"publisher":"example","name":name,"version":"1.0.0","metadata":vec![0; 30_000]})
+        )
+        .unwrap();
+        zip.finish().unwrap();
+        store.install(&archive).unwrap();
+    }
+    assert!(
+        store
+            .list()
+            .unwrap_err()
+            .to_string()
+            .contains("metadata budget")
+    );
+    assert_eq!(store.get("example.first").unwrap().id, "example.first");
+    store.uninstall("example.first").unwrap();
+    assert_eq!(store.list().unwrap().len(), 1);
+}
+
+#[test]
+fn malformed_final_footer_cannot_fall_back_to_an_unbounded_earlier_footer() {
+    let temp = tempfile::tempdir().unwrap();
+    let archive = temp.path().join("footer.vsix");
+    package(&archive, "1.0.0", &[]);
+    let mut bytes = fs::read(&archive).unwrap();
+    let old_end = bytes.len() - 22;
+    bytes[old_end + 8..old_end + 10].copy_from_slice(&30_000u16.to_le_bytes());
+    bytes[old_end + 10..old_end + 12].copy_from_slice(&30_000u16.to_le_bytes());
+    let mut misleading_footer = [0u8; 22];
+    misleading_footer[..4].copy_from_slice(b"PK\x05\x06");
+    misleading_footer[8..10].copy_from_slice(&1u16.to_le_bytes());
+    misleading_footer[10..12].copy_from_slice(&1u16.to_le_bytes());
+    misleading_footer[12..16].copy_from_slice(&22u32.to_le_bytes());
+    misleading_footer[16..20].copy_from_slice(&(old_end as u32).to_le_bytes());
+    bytes.extend(misleading_footer);
+    fs::write(&archive, bytes).unwrap();
+    let store = Store::new(temp.path().join("store"));
+    let error = store.install(&archive).unwrap_err();
+    assert!(
+        format!("{error:#}").contains("Unexpected VSIX end-of-directory"),
+        "{error:#}"
+    );
+    assert!(!store.root().join("registry.json").exists());
+}
