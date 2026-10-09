@@ -896,6 +896,10 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
 }
 fn draw_modal(frame: &mut Frame, app: &App) {
     let (title, text) = match app.modal.as_ref().unwrap() {
+        Modal::ExtensionsLoading(_) => (
+            " Extensions · Loading · Esc closes ",
+            "Reading installed packages…".into(),
+        ),
         Modal::Help => (
             " Getting Started · Esc to close ",
             format!(

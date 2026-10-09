@@ -249,6 +249,7 @@ pub enum AfterSave {
     CloseAll,
 }
 pub enum Modal {
+    ExtensionsLoading(u64),
     Extensions {
         items: Vec<crate::extension_store::Installed>,
         selected: usize,
@@ -746,6 +747,8 @@ impl App {
                         | "workbench.action.terminal.focusNext"
                         | "workbench.action.terminal.focusPrevious"
                         | "workbench.action.closeWindow"
+                        | "workbench.view.extensions"
+                        | "workbench.extensions.action.showInstalledExtensions"
                 )
             {
                 self.execute_with_args(&command, args);
@@ -1302,6 +1305,7 @@ impl App {
         }
         let modal = self.modal.take().unwrap();
         match modal {
+            Modal::ExtensionsLoading(id) => self.modal = Some(Modal::ExtensionsLoading(id)),
             Modal::Debug { section, selected } => self.debug_modal_key(key, section, selected),
             Modal::Trash(path) => {
                 if matches!(key.code, KeyCode::Enter | KeyCode::Char('y' | 'Y')) {
