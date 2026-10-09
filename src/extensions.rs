@@ -1,5 +1,6 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
 mod prompts;
+pub(crate) mod services;
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
 pub use prompts::{MAX_PROMPT_TEXT, NativePrompt, PromptType};
@@ -169,6 +170,7 @@ struct Edit {
     edits: Vec<lsp::TextEdit>,
 }
 pub struct Prepared {
+    storage_root: Option<PathBuf>,
     mirror: MirrorState,
     state: Value,
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
@@ -193,6 +195,8 @@ pub struct ActivationRequest {
     pub owner: Option<String>,
 }
 pub struct Client {
+    services: std::collections::VecDeque<services::NativeService>,
+    state_store: Option<crate::extension_state::Store>,
     // Drop the process before deleting its embedded runtime files on Windows.
     process: Process,
     _runtime: tempfile::TempDir,
@@ -258,6 +262,7 @@ impl Client {
         let refs: Vec<_> = documents.iter().chain(hidden).collect();
         let (mirror, state) = MirrorState::default().next_refs(&refs, documents.get(active))?;
         Ok(Prepared {
+            storage_root: None,
             mirror,
             state,
             configuration: settings.extension_layers().clone(),
@@ -279,6 +284,12 @@ impl Client {
         prepared: Prepared,
     ) -> Result<Self> {
         let packages = validate_packages(packages)?;
+        let state_store = prepared
+            .storage_root
+            .as_ref()
+            .map(|root_path| crate::extension_state::Store::new(root_path, root))
+            .transpose()?;
+        let extension_state = services::initial_state(state_store.as_ref(), &packages)?;
         static NEXT_SESSION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let session = NEXT_SESSION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let runtime = tempfile::tempdir()?;
@@ -289,6 +300,11 @@ impl Client {
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
             ("prompts.cjs", include_str!("../extension-host/prompts.cjs")),
+            (
+                "document-services.cjs",
+                include_str!("../extension-host/document-services.cjs"),
+            ),
+            ("memento.cjs", include_str!("../extension-host/memento.cjs")),
             (
                 "configuration.cjs",
                 include_str!("../extension-host/configuration.cjs"),
@@ -314,6 +330,8 @@ impl Client {
             root,
         )?;
         let mut client = Self {
+            services: services::empty_queue(),
+            state_store,
             process,
             _runtime: runtime,
             mirror: prepared.mirror,
@@ -341,7 +359,7 @@ impl Client {
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
                 "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
-                "configuration": client.configuration.as_ref(), "activate": prepared.activation}),
+                "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
     }
@@ -687,6 +705,17 @@ impl Client {
                             bail!("Outdated activation registry");
                         }
                         self.register_activation(&message["params"]["activation"])?;
+                    }
+                    "nativeDocumentOpen" | "nativeDocumentShow" | "nativeCommand"
+                    | "nativeStateWrite" => {
+                        let method = method.to_owned();
+                        let id = message["id"].clone();
+                        if let Err(error) =
+                            self.queue_service(&method, id.clone(), message["params"].take())
+                        {
+                            self.process
+                                .send(json!({"id":id,"error":{"message":format!("{error:#}")}}))?;
+                        }
                     }
                     "prompt" => {
                         let id = message["id"].clone();

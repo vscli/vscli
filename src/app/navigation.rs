@@ -15,8 +15,12 @@ struct Context {
     document: Option<(u64, u64, usize)>,
     generation: u64,
 }
+enum Target {
+    Existing(PathBuf),
+    Loaded(Box<Document>),
+}
 struct Pending {
-    receiver: Receiver<Result<Document, String>>,
+    receiver: Receiver<Result<Target, String>>,
     context: Context,
     closed: Option<Closed>,
 }
@@ -129,7 +133,13 @@ impl App {
         self.message = format!("Focused {}", self.doc().name());
         true
     }
+    pub(super) fn open_hidden_aware(&mut self, path: PathBuf) {
+        self.open_navigation_mode(path, None, true);
+    }
     fn open_navigation(&mut self, path: PathBuf, closed: Option<Closed>) {
+        self.open_navigation_mode(path, closed, false);
+    }
+    fn open_navigation_mode(&mut self, path: PathBuf, closed: Option<Closed>, allow_missing: bool) {
         if self.focus_existing_navigation(&path) {
             self.finish_reopen(closed.as_ref());
             self.cancel_navigation();
@@ -142,9 +152,28 @@ impl App {
         self.cancel_navigation();
         let context = self.navigation_context();
         let (sender, receiver) = mpsc::sync_channel(1);
+        let existing: Vec<_> = self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .filter_map(|d| d.path.clone())
+            .collect();
+        let workspace = self.workspace.root.clone();
         std::thread::spawn(move || {
-            let _ =
-                sender.send(Document::open_existing(&path).map_err(|error| format!("{error:#}")));
+            let result = (|| -> Result<Target> {
+                let path = super::extension_services::resolved(&path, &workspace)?;
+                if existing.contains(&path) {
+                    return Ok(Target::Existing(path));
+                }
+                let doc = if allow_missing {
+                    Document::open(&path)?
+                } else {
+                    Document::open_existing(&path)?
+                };
+                Ok(Target::Loaded(Box::new(doc)))
+            })()
+            .map_err(|error| format!("{error:#}"));
+            let _ = sender.send(result);
         });
         self.navigation.pending = Some(Pending {
             receiver,
@@ -180,13 +209,21 @@ impl App {
             return changed;
         }
         match result {
-            Ok(mut doc) => {
+            Ok(Target::Existing(path)) => {
+                if self.focus_existing_navigation(&path) {
+                    self.finish_reopen(pending.closed.as_ref());
+                } else {
+                    self.message =
+                        "Resolved native buffer was closed before navigation completed".into();
+                }
+            }
+            Ok(Target::Loaded(mut doc)) => {
                 if !self.focus_existing_navigation(doc.path.as_ref().unwrap()) {
                     self.settings.apply(&mut doc);
                     if let Some(closed) = &pending.closed {
                         doc.move_to(doc.position_at(closed.row, closed.column), false);
                     }
-                    self.install_open_document(doc);
+                    self.install_open_document(*doc);
                 }
                 self.finish_reopen(pending.closed.as_ref());
             }

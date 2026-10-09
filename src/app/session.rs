@@ -57,6 +57,7 @@ impl App {
         Ok(())
     }
     pub(super) fn session_interaction(&mut self) {
+        self.extension_services.epoch = self.extension_services.epoch.wrapping_add(1);
         self.session.epoch = self.session.epoch.wrapping_add(1);
     }
     fn session_context(&self) -> Context {

@@ -260,3 +260,10 @@ This is a native convenience feature, not a claim of VS Code hot-exit, independe
 per-group tabs, terminal persistence, workspace transitions, or extension-state parity.
 
 Selected CommonJS packages now support dependency-first cached activation and same-host `vscode.extensions` lookup/exports within the eight-package cohort. Missing or cyclic dependencies reject before execution; runtime reverse waits reject. See [extension lifecycle limits](EXTENSIONS.md#session-limits-and-failure-behavior). Remembered user-owned global/workspace execution grants and bounded `*` / startup / command / language / workspace-file event dispatch are implemented. This is an explicit subset; dependency installation, hot unloading and cross-host APIs remain unsupported. Installed native declarative contributions remain separate from execution grants.
+
+
+## Native extension document and Memento slice
+
+The optional host supports existing-file `openTextDocument` into a retained native model, `showTextDocument` in the active group with a bounded options subset, eleven native movement/selection/undo commands without arguments, and global/workspace Memento `get`/`keys`/`update`. Hidden models share authoritative Document identity and the 4 MiB mirror budget without fabricating a visible editor on an empty workbench. Dirty recovery and close confirmation include hidden edits; clean session layouts exclude hidden models. Filesystem work uses a bounded worker and state patches merge under a lock before atomic replacement in the native config root.
+
+Native/Node tests and two Unix PTY workflows qualify the documented Unicode, identity, stale-result, storage and crash/restart behaviors. This is synthetic fixture evidence, not complete VS Code document/Memento conformance. Untitled-content overloads, arbitrary URI providers, preview tabs, preserve-focus/group overloads, complete built-in command dispatch, cloud sync and SecretStorage remain unsupported. The exact subset and bounds are documented in [extension services](EXTENSIONS.md#native-documents-commands-and-persistent-state).

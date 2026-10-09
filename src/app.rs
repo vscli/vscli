@@ -3,6 +3,7 @@ mod debugger;
 mod extension_activation;
 mod extension_management;
 mod extension_prompts;
+mod extension_services;
 mod extensions;
 mod files;
 mod language;
@@ -426,6 +427,7 @@ pub struct App {
     next_pane_id: u64,
     pub documents: Vec<Document>,
     pub(crate) hidden_documents: Vec<Document>,
+    extension_services: extension_services::State,
     pub active: usize,
     pub workspace: Workspace,
     pub keymap: Keymap,
@@ -508,6 +510,7 @@ impl App {
             next_pane_id: 2,
             documents: Vec::new(),
             hidden_documents: Vec::new(),
+            extension_services: extension_services::State::default(),
             active: 0,
             workspace: Workspace::new(root.clone()),
             watch: crate::watch::State::new(root.clone()),
@@ -702,6 +705,10 @@ impl App {
         {
             let doc = self.hidden_documents.remove(index);
             self.install_open_document(doc);
+            return Ok(());
+        }
+        if !self.hidden_documents.is_empty() {
+            self.open_hidden_aware(path);
             return Ok(());
         }
         let mut d = Document::open(&path)?;

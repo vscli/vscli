@@ -27,7 +27,7 @@ function send(message) {
   process.stdout.write(body);
 }
 function request(method, params) {
-  if (method === 'prompt') {
+  if (method === 'prompt' || ['nativeDocumentOpen', 'nativeDocumentShow', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
     const context = execution.getStore();
     if (context?.active && Number.isSafeInteger(context.id)) params = { ...params, command: context.id, commandOwner: context.owner };
   }
@@ -174,7 +174,7 @@ async function dispatch(message) {
         runtime = createApi(request, (method, params) => {
           // A failed startup must never publish partially activated command registries.
           if (method !== 'commands' || (ready && !activating)) send({ method, params });
-        }, { session, reservedCommands: message.params.reservedCommands });
+        }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState });
         const schemas = packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration)
           ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
         root = message.params.root; configuration = message.params.configuration;
