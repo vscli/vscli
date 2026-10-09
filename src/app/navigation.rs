@@ -253,6 +253,7 @@ mod tests {
         let saved = root.path().join("saved-as.txt");
         app.prompt.as_mut().unwrap().text = saved.to_string_lossy().into_owned();
         app.accept_prompt();
+        let saved = std::fs::canonicalize(saved).unwrap();
         assert_eq!(app.navigation.closed.last().unwrap().path, saved);
         command(&mut app, "workbench.action.reopenClosedEditor");
         wait(&mut app);
@@ -324,7 +325,7 @@ mod tests {
         command(&mut app, "workbench.action.reopenClosedEditor");
         command(&mut app, "workbench.action.reopenClosedEditor");
         wait(&mut app);
-        assert_eq!(app.doc().path.as_ref(), Some(&path));
+        assert_eq!(app.doc().path, Some(std::fs::canonicalize(path).unwrap()));
         assert!(app.navigation.closed.is_empty());
     }
     #[test]
