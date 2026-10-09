@@ -1,7 +1,10 @@
 use anyhow::{Context, Result, bail};
 use portable_pty::CommandBuilder;
 use serde_json::Value;
-use std::path::{Path, PathBuf};
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 #[derive(Clone)]
 pub struct Task {
@@ -22,12 +25,14 @@ pub struct Variables<'a> {
 }
 pub fn load(root: &Path) -> Result<Vec<Task>> {
     let path = root.join(".vscode/tasks.json");
-    let raw = std::fs::read_to_string(&path).with_context(|| {
+    let file = std::fs::File::open(&path).with_context(|| {
         format!(
             "Cannot read {}; create a VS Code tasks.json with shell/process tasks",
             path.display()
         )
     })?;
+    let mut raw = String::new();
+    file.take(1024 * 1024 + 1).read_to_string(&mut raw)?;
     if raw.len() > 1024 * 1024 {
         bail!("tasks.json exceeds 1 MiB");
     }
@@ -267,6 +272,27 @@ pub fn prepare(task: &Task, variables: &Variables<'_>) -> Result<PreparedTask> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn task_reads_accept_limit_and_reject_before_reading_excess_bytes() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::create_dir(directory.path().join(".vscode")).unwrap();
+        let path = directory.path().join(".vscode/tasks.json");
+        let mut bytes = br#"{"version":"2.0.0","tasks":[]}"#.to_vec();
+        bytes.resize(1024 * 1024, b' ');
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(load(directory.path()).unwrap().is_empty());
+        bytes.push(b' ');
+        // Bytes beyond the read budget must never reach UTF-8 decoding or JSON parsing.
+        bytes.extend([0xff; 1024]);
+        std::fs::write(&path, bytes).unwrap();
+        assert!(
+            load(directory.path())
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("1 MiB")
+        );
+    }
     #[test]
     fn task_arguments_are_not_shell_code_and_variables_preserve_spaces() {
         let dir = tempfile::tempdir().unwrap();

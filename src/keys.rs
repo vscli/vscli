@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, io::Read, path::Path};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum Profile {
@@ -416,8 +416,13 @@ impl Keymap {
         });
     }
     pub fn load(&mut self, path: &Path) -> Result<usize> {
-        let raw = std::fs::read_to_string(path)
-            .with_context(|| format!("Cannot read {}", path.display()))?;
+        let file =
+            std::fs::File::open(path).with_context(|| format!("Cannot read {}", path.display()))?;
+        let mut raw = String::new();
+        file.take(1024 * 1024 + 1).read_to_string(&mut raw)?;
+        if raw.len() > 1024 * 1024 {
+            bail!("Keybindings file exceeds 1 MiB");
+        }
         let entries: Vec<Binding> =
             crate::jsonc::parse(&raw).context("Invalid keybindings.json")?;
         validate_bindings(&entries)?;
@@ -883,6 +888,29 @@ mod tests {
         let mut map = Keymap::new(Profile::Linux);
         map.load(&p).unwrap();
         assert!(matches!(map.resolve("ctrl+s",&ctx),Resolution::Command(c,_) if c=="type"));
+    }
+    #[test]
+    fn oversized_or_invalid_imports_preserve_existing_user_rules() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("keybindings.json");
+        let context = HashMap::from([("editorTextFocus".into(), Value::Bool(true))]);
+        let mut map = Keymap::new(Profile::Linux);
+        let rule = r#"[{"key":"f9","command":"user.command"}]"#;
+        let mut at_limit = rule.to_owned();
+        at_limit.extend(std::iter::repeat_n(' ', 1024 * 1024 - rule.len()));
+        std::fs::write(&path, &at_limit).unwrap();
+        assert_eq!(map.load(&path).unwrap(), 1);
+        let before = serde_json::to_value(&map.bindings).unwrap();
+        at_limit.push(' ');
+        std::fs::write(&path, at_limit).unwrap();
+        assert!(map.load(&path).unwrap_err().to_string().contains("1 MiB"));
+        assert_eq!(serde_json::to_value(&map.bindings).unwrap(), before);
+        std::fs::write(&path, b"[\xff]").unwrap();
+        assert!(map.load(&path).is_err());
+        assert_eq!(serde_json::to_value(&map.bindings).unwrap(), before);
+        assert!(
+            matches!(map.resolve("f9", &context), Resolution::Command(id, _) if id == "user.command")
+        );
     }
     #[test]
     fn extension_defaults_preserve_platform_keys_user_overrides_and_removals() {
