@@ -115,7 +115,10 @@ exports.activate=async context=>{
     app = Editor(held, '--config-dir', held_config, '--extensions-dir', held_store, '--keybindings', held_keys, held_file, enhanced=True)
     app.send(F5); wait(app, 'Enabled activation.a;'); app.send(F8)
     eventually(lambda: app.read() and (held / 'held-host.pid').exists())
-    app.send('N'); wait(app, 'Pending extension command canceled')
+    # Cancellation's status can be replaced by host-start progress before a
+    # frame is emitted. Assert the durable behavior before and after release:
+    # native input/save succeeds and the deferred command never edits the file.
+    app.send('N')
     save(app, held_file, 'Noriginal🙂')
     (held / 'release').write_text('yes'); wait(app, '(1 commands)')
     save(app, held_file, 'Noriginal🙂')
