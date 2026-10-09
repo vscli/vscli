@@ -92,6 +92,62 @@ fn automatic_typing_coalesces_and_tab_acceptance_preserves_crlf_unicode_identity
 }
 
 #[test]
+fn caret_popup_coexists_with_output_and_status_and_tree_focus_cancels_it() {
+    let root = tempfile::tempdir().unwrap();
+    let mut app = app(root.path(), " 🙂\r\n");
+    let id = app.doc().id;
+    let package = vscli::extensions::Package::read(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/extension-surfaces"),
+    )
+    .unwrap();
+    app.start_extension_packages(vec![package]).unwrap();
+    until(&mut app, |app| {
+        app.extension_host.as_ref().is_some_and(|host| {
+            host.owner_active("fixture.surfaces") && host.surfaces.statuses.len() == 1
+        })
+    });
+    app.execute("surfaces.preserve", Value::Null);
+    until(&mut app, |app| app.extension_surfaces.output.is_some());
+    for character in "ans".chars() {
+        key(&mut app, KeyCode::Char(character));
+    }
+    until(&mut app, App::suggestion_acceptable);
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 40)).unwrap();
+    terminal
+        .draw(|frame| vscli::ui::draw(frame, &mut app))
+        .unwrap();
+    let screen: String = terminal
+        .backend()
+        .buffer()
+        .content
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect();
+    assert!(screen.contains("Suggestions · Tab accepts"));
+    assert!(screen.contains("Native Fixture Output"));
+    assert!(screen.contains("Native Ready"));
+    assert!(app.editor_area.bottom() <= app.extension_surfaces.output_area.y);
+    key(&mut app, KeyCode::Tab);
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().text.to_string(), "answer 🙂\r\n");
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), "ans 🙂\r\n");
+    app.execute("editor.action.triggerSuggest", Value::Null);
+    until(&mut app, App::suggestion_acceptable);
+    app.execute("vscli.extensions.trees", Value::Null);
+    assert!(app.suggestion_model().is_none());
+    key(&mut app, KeyCode::Enter);
+    until(&mut app, |app| app.surface_tree_rows().len() == 1);
+    assert!(app.suggestion_model().is_none());
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().text.to_string(), "ans 🙂\r\n");
+    assert_eq!(
+        std::fs::read(root.path().join("input.rs")).unwrap(),
+        " 🙂\r\n".as_bytes()
+    );
+}
+
+#[test]
 fn pending_filter_is_nonmodal_but_old_edit_cannot_be_accepted_and_tab_still_indents() {
     let root = tempfile::tempdir().unwrap();
     let mut app = app(root.path(), "an 🙂\r\n");
