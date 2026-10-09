@@ -347,6 +347,13 @@ impl App {
         }
     }
     pub(super) fn suggestion_ui_event(&mut self, event: &Event) {
+        if self.suggestions.pending.is_none()
+            && self.suggestions.popup.is_none()
+            && self.suggestions.cached.is_none()
+            && self.suggestions.queued.is_none()
+        {
+            return;
+        }
         if let Event::Key(key) = event
             && key.kind != KeyEventKind::Release
             && matches!(
@@ -476,6 +483,16 @@ impl App {
         if doc.id != before.0 || doc.text_epoch() == before.1 {
             return;
         }
+        if !self.has_extension_provider(crate::extension_providers::Kind::Completion)
+            && !self.lsp.as_ref().is_some_and(|client| {
+                client.ready
+                    && (client.capabilities["completionProvider"].is_object()
+                        || client.capabilities["completionProvider"] == true)
+            })
+        {
+            self.cancel_suggestions();
+            return;
+        }
         let settings = self.settings.suggestions(self.language());
         let character = before
             .2
@@ -487,15 +504,6 @@ impl App {
             let prefix = prefix(self)?;
             if trigger.is_none() && (!settings.quick || prefix.is_empty()) {
                 bail!("No automatic completion trigger");
-            }
-            if !self.has_extension_provider(crate::extension_providers::Kind::Completion)
-                && !self.lsp.as_ref().is_some_and(|client| {
-                    client.ready
-                        && (client.capabilities["completionProvider"].is_object()
-                            || client.capabilities["completionProvider"] == true)
-                })
-            {
-                bail!("No ready completion provider");
             }
             Ok((context, prefix))
         })();
