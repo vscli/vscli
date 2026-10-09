@@ -316,6 +316,42 @@ impl Client {
     pub fn busy(&self) -> bool {
         !self.pending.is_empty()
     }
+    pub(crate) fn validate_native_origin(
+        &self,
+        session: u64,
+        owner: &str,
+        command: Option<u64>,
+        command_owner: Option<&str>,
+    ) -> Result<()> {
+        if session != self.session || !self.packages.iter().any(|p| p.id == owner) {
+            bail!("Outdated extension native request owner/session");
+        }
+        let Some(command) = command else {
+            if command_owner.is_some() {
+                bail!("Extension native request has an owner without a command origin");
+            }
+            return Ok(());
+        };
+        let pending = self
+            .pending
+            .get(&command)
+            .context("Outdated extension native request command")?;
+        if !self
+            .packages
+            .iter()
+            .any(|p| Some(p.id.as_str()) == command_owner)
+        {
+            bail!("Invalid extension native request command owner");
+        }
+        let owned = pending.owner.as_deref() == command_owner;
+        if !(pending.method == "initialize"
+            || pending.method == "execute" && owned
+            || pending.method == "activate" && (pending.owner.is_none() || owned))
+        {
+            bail!("Invalid extension native request command origin");
+        }
+        Ok(())
+    }
     fn sync_configuration(&mut self, settings: &Settings) -> Result<()> {
         if !Arc::ptr_eq(&self.configuration, settings.extension_layers()) {
             self.process.send(
