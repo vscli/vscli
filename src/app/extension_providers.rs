@@ -833,16 +833,22 @@ mod tests {
         }
         // Two hidden snapshots of 8191 + active document/pane of 1 = 16384.
         request(&mut app, Kind::Completion);
-        let Some(Modal::Language { items, .. }) = app.modal.take() else {
-            panic!()
-        };
+        let item = app
+            .suggestion_model()
+            .unwrap()
+            .item(0)
+            .unwrap()
+            .value
+            .clone();
+        let ticket = app.completion_provider_ticket().unwrap();
+        let action = LanguageAction::Provider { ticket, item };
         let id = app.doc().id;
         let revision = app.doc().revision;
         let text = app.doc().text.to_string();
         app.hidden_documents[1]
             .secondary
             .push(crate::document::Selection::caret(0));
-        let error = app.language_action(&items[0].action).unwrap_err();
+        let error = app.language_action(&action).unwrap_err();
         assert!(error.to_string().contains("16,384"));
         assert!(app.extension_language_request(Kind::Completion.method(), json!({})));
         assert!(app.message.contains("16,384"));
