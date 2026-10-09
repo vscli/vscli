@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import tempfile
 from extension_sessions_pty import Editor, LIVE, command, wait, save, alive
 from pty_smoke import CTRL_Z, eventually
@@ -45,7 +46,6 @@ exports.activate = context => {
    catch(error){ await vscode.window.showInformationMessage('password rejected'); }
  });
  register('crash', async()=> {
-   setTimeout(()=>process.exit(7),300);
    await vscode.window.showInputBox({title:'Crash pending'});
  });
 };
@@ -99,6 +99,10 @@ def run(root):
     command(app, 'Prompt crash')
     wait(app, 'Crash pending')
     child = int((root / 'host.pid').read_text())
+    # Trigger the crash only after the pending prompt is observable. A fixed
+    # timer can terminate Node before the terminal renders on a busy runner.
+    assert os.getpgid(child) == child
+    os.kill(child, signal.SIGKILL)
     wait(app, 'Extension host stopped')
     eventually(lambda: not alive(child))
     assert 'Crash pending' not in app.screen.text()
@@ -157,15 +161,23 @@ if __name__ == '__main__':
         try:
             run(root)
         finally:
+            original_failure = sys.exc_info()[0] is not None
+            cleanup_errors = []
             for app in LIVE:
-                if app.process.poll() is None:
-                    app.process.send_signal(signal.SIGTERM)
-                    try:
-                        app.process.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
-                        app.process.kill()
-                        app.process.wait(timeout=3)
-                app.close_fds()
+                try:
+                    if app.process.poll() is None:
+                        try:
+                            os.kill(app.process.pid, signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                        try:
+                            app.process.wait(timeout=3)
+                        except (AssertionError, subprocess.TimeoutExpired):
+                            app.process.kill()
+                            app.process.wait(timeout=3)
+                    app.close_fds()
+                except Exception as error:
+                    cleanup_errors.append(error)
             for path in root.glob('*.pid'):
                 pid = int(path.read_text())
                 try:
@@ -173,3 +185,8 @@ if __name__ == '__main__':
                         os.killpg(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+            if cleanup_errors:
+                if original_failure:
+                    print(f'Additional PTY cleanup errors: {cleanup_errors}', file=sys.stderr)
+                else:
+                    raise cleanup_errors[0]
