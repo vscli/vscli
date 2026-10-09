@@ -749,6 +749,20 @@ def run():
         app.send(CTRL_Z)
         app.send(CTRL_S)
         eventually(lambda: app.read() and text(installed_file) == "zebra\napple\npear")
+        app.send(b"\x1b[120;6u")  # Replacing the current host uses the startup worker.
+        eventually(lambda: app.read() and "Installed Extensions" in app.screen.text())
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Run installed extension?" in app.screen.text())
+        app.send(b"\r")
+        eventually(lambda: app.read() and "Extension ready" in app.screen.text())
+        app.send(CTRL_A)
+        app.send(b"\x1b[20~")
+        eventually(lambda: app.read() and "sort applied=true" in app.screen.text())
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(installed_file) == "apple\npear\nzebra")
+        app.send(CTRL_Z)
+        app.send(CTRL_S)
+        eventually(lambda: app.read() and text(installed_file) == "zebra\napple\npear")
         app.send(b"\x1b[120;6u")  # Original Ctrl+Shift+X extensions shortcut.
         eventually(lambda: app.read() and "Installed Extensions" in app.screen.text())
         app.send(b"\x1b[3~")  # Delete removes registry entry while preserving host files.
