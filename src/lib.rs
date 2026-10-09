@@ -4,6 +4,7 @@ pub mod document;
 pub mod extensions;
 pub mod files;
 pub mod git;
+pub mod jsonc;
 pub mod keys;
 pub mod languages;
 pub mod lsp;
