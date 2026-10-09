@@ -11,6 +11,9 @@ const { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument 
 function supported(name, values) {
   return new Proxy(values, { get(target, key) {
     if (typeof key === 'symbol' || key === 'then' || key in target) return target[key];
+    // This facade is a CommonJS export, not a transpiled ES module. Bundlers
+    // probe the absent marker to preserve module.exports as their default.
+    if (name === 'vscode' && key === '__esModule') return undefined;
     throw new Error(`VSCLI extension API is not implemented: ${name}.${key}`);
   } });
 }
