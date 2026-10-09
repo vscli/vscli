@@ -235,6 +235,39 @@ impl Default for Document {
 }
 
 impl Document {
+    /// Read a view without activating it or changing undo grouping.
+    pub fn view_state(&self, id: Option<u64>) -> &ViewState {
+        match id {
+            Some(id) if id != self.active_view => self.other_views.get(&id).unwrap_or(&self.view),
+            _ => &self.view,
+        }
+    }
+
+    pub(crate) fn open_existing_bounded(path: &Path, limit: u64) -> Result<Self> {
+        let path = absolute_path(path)?;
+        if !fs::metadata(&path)?.is_file() {
+            bail!("Session target is not a regular file");
+        }
+        let mut options = fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NONBLOCK);
+        }
+        let file = options.open(&path)?;
+        let metadata = file.metadata()?;
+        let limit = limit.min(MAX_FILE_BYTES);
+        if !metadata.is_file() || metadata.len() > limit {
+            bail!("Session file exceeds remaining read budget or is not regular");
+        }
+        let content = read_text(file, limit)?;
+        let mut doc = Self::from_rope(content.clone());
+        doc.path = Some(path);
+        doc.disk_content = Some(content);
+        Ok(doc)
+    }
+
     pub fn activate_view(&mut self, id: u64) {
         self.switch_view(id, true);
     }
