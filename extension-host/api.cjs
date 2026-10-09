@@ -122,7 +122,10 @@ function createApi(request, notify, sessionOptions = {}) {
         const builder = supported('TextEditorEdit', {
           replace: (range, text) => add(document.validateRange(range), text),
           insert: (position, text) => add(new Range(document.validatePosition(position), document.validatePosition(position)), text),
-          delete: range => add(document.validateRange(range), ''),
+          delete: range => {
+            const validRange = document.validateRange(range);
+            if (!validRange.isEmpty) add(validRange, '');
+          },
         });
         try { callback(builder); } catch (error) { return Promise.reject(error); }
         finally { valid = false; }
