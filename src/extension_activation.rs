@@ -1,4 +1,5 @@
 //! Native activation planning. Reading manifests and starting code are separate operations.
+pub mod state;
 use crate::{extension_store::Installed, extensions::Package};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
