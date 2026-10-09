@@ -110,11 +110,58 @@ fn workspace_symbols_focus_dirty_deleted_shared_targets_and_preserve_undo() {
     workspace(&mut app, "other");
     std::fs::remove_file(root.path().join("other.cpp")).unwrap();
     key(&mut app, KeyCode::Enter);
+    until(&mut app, |app| {
+        app.doc().id == id || app.message.starts_with("Symbol navigation:")
+    });
     assert_eq!(app.doc().id, id);
     assert!(app.doc().text.to_string().ends_with("dirty"));
     assert_eq!(app.doc().cursor, 2);
     app.execute("undo", Value::Null);
     assert_eq!(app.doc().text.to_string(), "x 😀foo\r\n");
+}
+#[cfg(unix)]
+#[test]
+fn workspace_root_alias_reuses_deleted_dirty_shared_buffer_without_reading_its_file() {
+    let (root, mut app) = fixture(true);
+    let alias_root = tempfile::tempdir().unwrap();
+    let alias = alias_root.path().join("workspace-alias");
+    std::os::unix::fs::symlink(root.path(), &alias).unwrap();
+    app.lsp = Some(
+        Client::start(
+            "python3",
+            &[PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/symbol_server.py")
+                .to_string_lossy()
+                .into_owned()],
+            &alias,
+            "cpp".into(),
+        )
+        .unwrap(),
+    );
+    until(&mut app, |a| a.lsp.as_ref().is_some_and(|c| c.ready));
+    app.open(&root.path().join("other.cpp")).unwrap();
+    app.doc_mut().insert("dirty", false);
+    let id = app.doc().id;
+    let revision = app.doc().revision;
+    let text = app.doc().text.to_string();
+    app.execute("workbench.action.splitEditorRight", Value::Null);
+    app.open(&root.path().join("main.cpp")).unwrap();
+    let buffers = app.documents.len();
+    workspace(&mut app, "other");
+    assert!(app.symbol_items("other")[0].path.starts_with(&alias));
+    std::fs::remove_file(root.path().join("other.cpp")).unwrap();
+    key(&mut app, KeyCode::Enter);
+    until(&mut app, |app| {
+        app.doc().id == id || app.message.starts_with("Symbol navigation:")
+    });
+    assert_eq!(app.doc().id, id, "{}", app.message);
+    assert_eq!(app.doc().revision, revision);
+    assert_eq!(app.doc().text.to_string(), text);
+    assert_eq!(app.documents.len(), buffers);
+    assert_eq!(app.doc().cursor, 2);
+    app.execute("undo", Value::Null);
+    assert_eq!(app.doc().text.to_string(), "x 😀foo\r\n");
+    assert!(!root.path().join("other.cpp").exists());
 }
 #[test]
 fn empty_workspace_async_navigation_requires_existing_files_and_valid_ranges() {

@@ -37,10 +37,23 @@ impl Context {
     }
 }
 struct Loading {
-    receiver: Receiver<Result<Document, String>>,
+    receiver: Receiver<Result<Target, String>>,
     context: Context,
     generation: u64,
     symbol: Symbol,
+}
+enum Target {
+    Open(PathBuf),
+    Loaded(Box<Document>),
+}
+fn load_target(path: &Path, open: &[PathBuf]) -> Result<Target> {
+    let path = crate::document::absolute_path(path)?;
+    if open.contains(&path) {
+        // Parent aliases can still resolve after the file is deleted. Reuse the
+        // captured native buffer rather than requiring its backing file to exist.
+        return Ok(Target::Open(path));
+    }
+    Ok(Target::Loaded(Box::new(Document::open_existing(&path)?)))
 }
 #[derive(Default)]
 pub(super) struct State {
@@ -243,8 +256,13 @@ impl App {
         }
         let (sender, receiver) = mpsc::sync_channel(1);
         let path = symbol.path.clone();
+        let open: Vec<_> = self
+            .documents
+            .iter()
+            .filter_map(|d| d.path.clone())
+            .collect();
         std::thread::spawn(move || {
-            let _ = sender.send(Document::open_existing(&path).map_err(|e| format!("{e:#}")));
+            let _ = sender.send(load_target(&path, &open).map_err(|e| format!("{e:#}")));
         });
         self.symbols.context = None;
         self.symbols.items.clear();
@@ -298,18 +316,29 @@ impl App {
                     && loader.context.valid(self)
                     && self.prompt.is_none()
                 {
-                    let result = result.map_err(anyhow::Error::msg).and_then(|mut doc| {
-                        if let Some(index) = self.symbol_document(
-                            doc.path.as_ref().context("Loaded symbol has no path")?,
-                        ) {
-                            return self.focus_symbol(index, &loader.symbol.range);
-                        }
-                        let offset = symbol_offset(&doc, &loader.symbol.range)?;
-                        self.settings.apply(&mut doc);
-                        doc.move_to(offset, false);
-                        self.install_open_document(doc);
-                        Ok(())
-                    });
+                    let result =
+                        result
+                            .map_err(anyhow::Error::msg)
+                            .and_then(|target| match target {
+                                Target::Open(path) => {
+                                    let index = self
+                                        .symbol_document(&path)
+                                        .context("Resolved symbol buffer is no longer open")?;
+                                    self.focus_symbol(index, &loader.symbol.range)
+                                }
+                                Target::Loaded(mut doc) => {
+                                    if let Some(index) = self.symbol_document(
+                                        doc.path.as_ref().context("Loaded symbol has no path")?,
+                                    ) {
+                                        return self.focus_symbol(index, &loader.symbol.range);
+                                    }
+                                    let offset = symbol_offset(&doc, &loader.symbol.range)?;
+                                    self.settings.apply(&mut doc);
+                                    doc.move_to(offset, false);
+                                    self.install_open_document(*doc);
+                                    Ok(())
+                                }
+                            });
                     if let Err(error) = result {
                         self.message = format!("Symbol navigation: {error:#}");
                     }
@@ -370,6 +399,45 @@ fn symbol_offset(doc: &Document, range: &lsp::Range) -> Result<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn late_alias_resolution_cannot_move_a_changed_dirty_buffer() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("open.cpp");
+        std::fs::write(&path, "abc").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.open(&path).unwrap();
+        let path = app.doc().path.clone().unwrap();
+        let id = app.doc().id;
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let position = lsp::Position {
+            line: 0,
+            character: 0,
+        };
+        app.symbols.loading = Some(Loading {
+            receiver,
+            context: Context::capture(&app),
+            generation: app.symbols.generation,
+            symbol: Symbol {
+                label: "open".into(),
+                path: path.clone(),
+                range: lsp::Range {
+                    start: position,
+                    end: position,
+                },
+            },
+        });
+        app.doc_mut().insert("unsaved", false);
+        let cursor = app.doc().cursor;
+        std::fs::remove_file(&path).unwrap();
+        sender.send(Ok(Target::Open(path))).unwrap();
+        assert!(app.poll_symbols());
+        assert!(app.symbols.loading.is_none());
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().cursor, cursor);
+        assert_eq!(app.doc().text.to_string(), "unsavedabc");
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "abc");
+    }
     #[test]
     fn pending_closed_file_load_does_not_block_existing_dirty_buffer_navigation() {
         let root = tempfile::tempdir().unwrap();
@@ -443,7 +511,9 @@ mod tests {
             assert!(app.symbols.loading.is_some());
         }
         sender
-            .send(Ok(Document::open_existing(&path).unwrap()))
+            .send(Ok(Target::Loaded(Box::new(
+                Document::open_existing(&path).unwrap(),
+            ))))
             .unwrap();
         app.poll_symbols();
         assert!(app.symbols.loading.is_none());
