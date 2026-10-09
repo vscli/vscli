@@ -172,8 +172,24 @@ impl App {
                                 self.lsp = offer.accept();
                                 self.language_services.active =
                                     self.lsp.as_ref().map(|_| launch.clone());
-                                self.language_services.status =
-                                    format!("Starting language server: {}", launch.program);
+                                self.language_services.status = if self.lsp.is_some() {
+                                    format!("Starting language server: {}", launch.program)
+                                } else {
+                                    // Normally no job can retire this offer until
+                                    // its reply is consumed. Fail closed without
+                                    // waiting if that ownership invariant changes.
+                                    if self
+                                        .language_services
+                                        .worker
+                                        .as_ref()
+                                        .unwrap()
+                                        .retire(None)
+                                        .is_ok()
+                                    {
+                                        self.language_services.pending = Some(Pending::Retirement);
+                                    }
+                                    "Language startup handoff unavailable; use Language: Restart Server".into()
+                                };
                                 self.message = self.language_services.status.clone();
                             }
                             Err(error) => {
