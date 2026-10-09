@@ -11,7 +11,11 @@ Search reads at most 20 summaries and 1 MiB per metadata response. Because Open 
 summaries can omit platform and license fields, the client resolves full metadata
 for the displayed version before offering installation. It tries this machine's
 target platform, then universal; missing compatible variants are omitted. Stable
-versions only are selected. Runtime engine and native-module compatibility remain
+versions only are selected. Prerelease-only results are skipped rather than
+aborting the search, including versions marked `preRelease: true` only in full
+metadata. Other stable results remain available; a package whose latest variants
+are all prereleases cannot be installed through the stable-only registry workflow.
+Runtime engine and native-module compatibility remain
 separate from selecting platform metadata.
 
 Downloads stream into a temporary file with a 128 MiB bound. When the registry
@@ -36,11 +40,15 @@ A request exceeding its operation deadline fails clearly. There is no automatic
 update or automatic execution grant. Running extension hosts retain their immutable
 selected package snapshots until explicitly restarted/reselected.
 
-Five deterministic Rust HTTP/integrity tests cover platform fallback, summary
+Six deterministic Rust HTTP/integrity tests cover platform fallback, summary
 resolution, exact metadata versions, query encoding, byte/result/display limits,
-unsupported targets/prereleases/URLs, cancellation, unavailable-package notices,
+unsupported targets/URLs, mixed stable/prerelease results, hidden prerelease flags,
+stable platform fallback, cancellation, unavailable-package notices,
 checksum/manifest mismatch, preserved registry bytes, rollback and fragmented requests. These tests
-run without external network access. Signature verification, engine/API/ABI
+run without external network access. A Linux PTY fixture places a prerelease-only
+summary before a stable result and verifies stable installation, updates, rollback,
+CRLF/Unicode save and undo, and preservation of a newer prompt without Node.
+Signature verification, engine/API/ABI
 qualification, dependency downloading, authenticated registries, prerelease
 selection, pagination, automatic updates and broad extension compatibility remain
 outstanding.

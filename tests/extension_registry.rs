@@ -274,7 +274,7 @@ fn search_url_encodes_query_and_rejects_oversized_or_unsupported_results() {
         200,
         serde_json::to_vec(&json!({"extensions":[entry]})).unwrap(),
     );
-    assert!(registry.search("a&b 😀", &cancel).is_err());
+    assert!(registry.search("a&b 😀", &cancel).unwrap().is_empty());
     entry = server.metadata("1.0.0");
     entry["description"] = "x".repeat(4097).into();
     server.put(
@@ -328,6 +328,94 @@ fn search_url_encodes_query_and_rejects_oversized_or_unsupported_results() {
             .contains("byte budget")
     );
     assert!(registry.search(&"x".repeat(1025), &cancel).is_err());
+}
+
+#[test]
+fn prerelease_results_do_not_block_stable_search_or_platform_fallback() {
+    let server = Server::new();
+    let registry = Registry::new(&server.url).unwrap();
+    let cancel = AtomicBool::new(false);
+    let mut preview = server.metadata("9.0.0");
+    preview["name"] = "preview".into();
+    preview["preRelease"] = true.into();
+    let mut summary = preview.clone();
+    summary.as_object_mut().unwrap().remove("targetPlatform");
+    summary.as_object_mut().unwrap().remove("preRelease");
+    for platform in [target_platform(), "universal"] {
+        let mut metadata = preview.clone();
+        metadata["targetPlatform"] = platform.into();
+        server.put(
+            &format!("/api/fixture/preview/{platform}/9.0.0"),
+            200,
+            serde_json::to_vec(&metadata).unwrap(),
+        );
+    }
+    server.put(
+        "/api/-/search?query=rust&size=20",
+        200,
+        serde_json::to_vec(&json!({"extensions":[
+            summary, server.metadata("2.0.0-beta"), preview, server.metadata("1.0.0")
+        ]}))
+        .unwrap(),
+    );
+    let results = registry.search("rust", &cancel).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].id, "fixture.command");
+    assert_eq!(results[0].version, "1.0.0");
+
+    // A preview-only latest alias is unavailable to stable install/update requests.
+    for platform in [target_platform(), "universal"] {
+        let mut metadata = server.metadata("1.0.0");
+        metadata["targetPlatform"] = platform.into();
+        metadata["preRelease"] = true.into();
+        server.put(
+            &format!("/api/fixture/command/{platform}/latest"),
+            200,
+            serde_json::to_vec(&metadata).unwrap(),
+        );
+    }
+    assert!(
+        registry
+            .latest("fixture.command", &cancel)
+            .unwrap_err()
+            .to_string()
+            .contains("No compatible stable package")
+    );
+    server.latest("1.0.0");
+    let stable = registry.latest("fixture.command", &cancel).unwrap();
+    assert_eq!(stable.platform, "universal");
+    assert_eq!(stable.version, "1.0.0");
+
+    // Filtering must not conceal a registry that returned a different package.
+    let mut wrong = server.metadata("1.0.0");
+    wrong["name"] = "other".into();
+    wrong["preRelease"] = true.into();
+    server.put(
+        &format!("/api/fixture/command/{}/latest", target_platform()),
+        200,
+        serde_json::to_vec(&wrong).unwrap(),
+    );
+    assert!(
+        registry
+            .latest("fixture.command", &cancel)
+            .unwrap_err()
+            .to_string()
+            .contains("different package identity")
+    );
+    wrong["name"] = "preview".into();
+    wrong["version"] = "8.0.0".into();
+    server.put(
+        &format!("/api/fixture/preview/{}/9.0.0", target_platform()),
+        200,
+        serde_json::to_vec(&wrong).unwrap(),
+    );
+    assert!(
+        registry
+            .search("rust", &cancel)
+            .unwrap_err()
+            .to_string()
+            .contains("different package version")
+    );
 }
 
 #[test]
