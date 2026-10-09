@@ -632,9 +632,10 @@ impl App {
             && !self.extension_job.as_ref().is_some_and(|job| job.startup())
         {
             self.pause_automatic_extensions();
-            self.message =
-                "Extension session stopped; automatic retry is paused until restart or enable"
-                    .into();
+            self.message = format!(
+                "{}; automatic retry is paused until restart or enable",
+                self.message
+            );
             return true;
         }
         if self.extension_job.is_some()
@@ -1040,5 +1041,22 @@ mod tests {
         );
         assert!(app.activation.waiting.is_none());
         assert!(app.extension_host.is_none());
+    }
+    #[test]
+    fn automatic_retry_pause_preserves_the_original_host_failure_cause() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        app.activation.last_session = Some(7);
+        app.message = "Extension host stopped: isolated Node process exited".into();
+        app.poll_extension_activation();
+        assert!(app.activation.paused);
+        assert_eq!(
+            app.message,
+            "Extension host stopped: isolated Node process exited; automatic retry is paused until restart or enable"
+        );
+        let message = app.message.clone();
+        app.poll_extension_activation();
+        assert_eq!(app.message, message);
+        assert_eq!(app.doc().text.to_string(), "unsaved 猫");
     }
 }
