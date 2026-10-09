@@ -42,7 +42,7 @@ def eventually(predicate, timeout=4):
     raise AssertionError("Timed out waiting for expected state")
 
 
-def wait_screen(app, *expected, timeout=4):
+def wait_screen(app, *expected, absent=(), timeout=4):
     """Require all markers in one screen snapshot, including partially read frames."""
     snapshot = ''
     def ready():
@@ -50,11 +50,11 @@ def wait_screen(app, *expected, timeout=4):
         if not app.read():
             return False
         snapshot = app.screen.text()
-        return all(marker in snapshot for marker in expected)
+        return all(marker in snapshot for marker in expected) and not any(marker in snapshot for marker in absent)
     try:
         eventually(ready, timeout=timeout)
     except AssertionError as error:
-        raise AssertionError(f'Waiting for screen markers {expected!r}:\n{snapshot}') from error
+        raise AssertionError(f'Waiting for screen markers {expected!r}, absent {absent!r}:\n{snapshot}') from error
     return snapshot
 
 
@@ -1034,7 +1034,7 @@ def run():
         assert (active_profile / "themes" / "imported" / "theme.json").read_bytes() == (theme_package / "theme.json").read_bytes()
 
         app = Editor(journey_root, "--config-dir", journey_config, "--extensions-dir", journey_store, enhanced=True)
-        eventually(lambda: app.read() and "Color theme: Journey Theme" in app.screen.text())
+        wait_screen(app, "Color theme: Journey Theme", "No open editors")
         assert "No open editors" in app.screen.text()
         assert b"48;2;22;40;58" in app.output
         app.send(b"\x0e")  # New File in the empty workbench.
@@ -1073,7 +1073,7 @@ def run():
         app.finish()
 
         app = Editor(journey_root, "--config-dir", journey_config, "--extensions-dir", journey_store, enhanced=True)
-        eventually(lambda: app.read() and "Color theme: Journey Theme" in app.screen.text())
+        wait_screen(app, "Color theme: Journey Theme", "No open editors")
         assert "No open editors" in app.screen.text()
         assert b"48;2;22;40;58" in app.output
         app.send(b"\x0e\x1b[17~")

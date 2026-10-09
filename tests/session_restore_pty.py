@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from pty_smoke import Editor, eventually, CTRL_S, CTRL_Z
+from pty_smoke import Editor, eventually, wait_screen, CTRL_S, CTRL_Z
 
 LIVE = []
 def editor(root, *args, **kwargs):
@@ -143,7 +143,7 @@ def run():
 
             first.unlink()
             app = editor(root, "--config-dir", config, "--restore-session")
-            wait(app, "previous metadata retained")
+            wait_screen(app, "previous metadata retained", "No open editors")
             assert "No open editors" in app.screen.text() and not first.exists()
             first.write_bytes(original)
             palette(app, "File: Restore Previous Clean Session")
