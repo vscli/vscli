@@ -20,6 +20,7 @@ pub mod recovery;
 pub mod search;
 pub mod settings;
 pub mod snippet;
+pub mod suggestions;
 pub mod symbols;
 pub mod syntax;
 pub mod tasks;
