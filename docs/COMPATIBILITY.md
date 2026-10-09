@@ -138,6 +138,8 @@ Use dry-run migration output as a contributor-friendly issue generator. Users sh
 
 ## Extension execution strategy
 
+The implemented experimental host now runs up to eight explicitly selected CommonJS packages in one shared process. Document objects, configuration and versioned native transactions are shared; command and edit requests retain package ownership. Adding/removing a package restarts the selected cohort. Deterministic VSCLI command/keybinding precedence, epoch-safe startup, bounded registries and worker retirement are described in [session behavior](EXTENSIONS.md). Dependencies, automatic activation, safe individual hot unload, and conflict-resolution differential qualification against VS Code 1.95.0 remain outstanding.
+
 A TypeScript shim supplies the `vscode` module inside a maintained Node.js runtime and connects to native services through a versioned broker protocol. It handles activation, disposables, events, cancellation, commands, provider registrations, settings, storage, workspace resources, and native view models in stages. Pin a stable VS Code API baseline; do not pretend to implement the latest API by changing a version string.
 
 VS Code distinguishes Node and browser extension hosts. Initial executable-extension support should cover the Node `main` entry point and declarative packages. Browser-only extensions need an independently evaluated worker/runtime environment and remain unsupported initially. [Web extensions](https://code.visualstudio.com/api/extension-guides/web-extensions).

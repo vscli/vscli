@@ -50,10 +50,24 @@ fn handoff<T>(value: T) -> (Handoff<T>, impl FnOnce()) {
         },
     )
 }
+fn retire<T: Send + 'static>(value: T) -> Receiver<()> {
+    let (sender, receiver) = sync_channel(1);
+    std::thread::spawn(move || {
+        drop(value);
+        let _ = sender.send(());
+    });
+    receiver
+}
 pub(super) struct Job {
     view: Option<u64>,
+    epoch: Option<u64>,
     discard_host: bool,
     receiver: Receiver<std::result::Result<Output, String>>,
+}
+impl Job {
+    pub(super) fn startup(&self) -> bool {
+        self.epoch.is_some()
+    }
 }
 impl App {
     pub(super) fn manage_extension(&mut self, action: Action) {
@@ -111,35 +125,48 @@ impl App {
             receiver,
             discard_host: false,
             view: Some(view),
+            epoch: None,
         });
         self.message = "Extension operation running…".into();
     }
     pub(super) fn run_installed_extension(&mut self, item: Installed) {
-        if self.extension_job.is_some() {
-            self.message = "An extension operation is already running".into();
-            return;
+        let mut packages = self.extension_packages.clone();
+        let package = crate::extensions::Package::installed(&item);
+        packages.retain(|p| p.id != package.id);
+        packages.push(package);
+        if let Err(error) = self.start_extension_packages(packages) {
+            self.message = format!("Cannot start extension session: {error:#}");
         }
-        let prepared = match crate::extensions::Client::prepare(
-            &self.documents,
-            self.active,
-            &self.settings,
-        ) {
-            Ok(prepared) => prepared,
-            Err(error) => {
-                self.message = format!("Cannot start extension: {error:#}");
-                return;
-            }
-        };
+    }
+    pub fn start_extension_packages(
+        &mut self,
+        mut packages: Vec<crate::extensions::Package>,
+    ) -> Result<()> {
+        if self.extension_job.is_some() || self.extension_retirement.is_some() {
+            anyhow::bail!("An extension operation or retirement is already running");
+        }
+        if packages.is_empty() || packages.len() > 8 {
+            anyhow::bail!("Select between one and eight code extensions");
+        }
+        packages.sort_by(|a, b| a.id.cmp(&b.id));
+        if packages.windows(2).any(|pair| pair[0].id == pair[1].id) {
+            anyhow::bail!("Duplicate selected extension");
+        }
+        let prepared =
+            crate::extensions::Client::prepare(&self.documents, self.active, &self.settings)?;
+        self.extension_epoch += 1;
+        let epoch = self.extension_epoch;
+        self.extension_packages = packages.clone();
         let (sender, receiver) = sync_channel(1);
         let node = self.extension_node.clone();
         let root = self.workspace.root.clone();
         let previous = self.extension_host.take();
         self.keymap.clear_extension_bindings();
         std::thread::spawn(move || {
-            let result =
-                crate::extensions::Client::start_prepared(&node, &item.path, &root, prepared);
-            // Process::drop waits for its child; keep every pending-start teardown here.
+            // Retire the prior cohort before spawning another; never run two Node sessions.
             drop(previous);
+            let result =
+                crate::extensions::Client::start_many_prepared(&node, &packages, &root, prepared);
             match result {
                 Ok(host) => {
                     let (ticket, retire) = handoff(Box::new(host));
@@ -156,26 +183,123 @@ impl App {
             receiver,
             discard_host: false,
             view: None,
+            epoch: Some(epoch),
         });
-        self.message = format!("Starting {}…", item.id);
+        self.message = format!(
+            "Starting extension session ({} packages)…",
+            self.extension_packages.len()
+        );
+        Ok(())
+    }
+    pub(super) fn restart_extensions(&mut self) {
+        if let Err(error) = self.start_extension_packages(self.extension_packages.clone()) {
+            self.message = format!("Cannot restart extension session: {error:#}");
+        }
+    }
+    pub(super) fn stop_selected_extension(&mut self, id: &str) {
+        if self.extension_job.is_some() || self.extension_retirement.is_some() {
+            self.message = "An extension operation or retirement is already running".into();
+            return;
+        }
+        let mut packages = self.extension_packages.clone();
+        packages.retain(|p| p.id != id);
+        if packages.len() == self.extension_packages.len() {
+            self.message = format!("{id} is not selected in this session");
+        } else if packages.is_empty() {
+            self.stop_extension_host();
+            self.extension_packages.clear();
+        } else if let Err(error) = self.start_extension_packages(packages) {
+            self.message = format!("Cannot stop selected extension: {error:#}");
+        }
+    }
+    pub(super) fn retire_extension_host(&mut self, host: crate::extensions::Client) {
+        // A session has at most one live process. Starts are blocked until its
+        // retirement acknowledges, including when a storage operation is active.
+        assert!(self.extension_retirement.is_none());
+        self.extension_retirement = Some(retire(host));
+    }
+    pub(super) fn stop_extension_host(&mut self) {
+        self.cancel_extension_start();
+        self.keymap.clear_extension_bindings();
+        if let Some(host) = self.extension_host.take() {
+            self.retire_extension_host(host);
+        }
+        self.message = "Extension host stopped".into();
     }
     pub(super) fn cancel_extension_start(&mut self) {
+        self.extension_epoch += 1;
         if let Some(job) = &mut self.extension_job {
             job.discard_host = true;
         }
     }
+    pub(super) fn shutdown_extensions(&mut self) {
+        self.cancel_extension_start();
+        if let Some(host) = self.extension_host.take() {
+            self.retire_extension_host(host);
+        }
+        // This runs only during App destruction, after editing has ended. Keep
+        // canceled-start and retirement workers alive long enough to reap children.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while self.extension_retirement.is_some()
+            || self.extension_job.as_ref().is_some_and(|job| job.startup())
+        {
+            self.poll_extension_management();
+            if std::time::Instant::now() >= deadline {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+    pub fn extension_status(&self, id: &str) -> String {
+        if let Some(host) = &self.extension_host
+            && let Some(package) = host.packages.iter().find(|p| p.id == id)
+        {
+            return format!(
+                "{} {}",
+                if host.ready { "running" } else { "starting" },
+                package.version
+            );
+        }
+        if let Some(package) = self.extension_packages.iter().find(|p| p.id == id) {
+            return format!(
+                "selected {} ({})",
+                package.version,
+                if self
+                    .extension_job
+                    .as_ref()
+                    .is_some_and(|j| j.epoch.is_some() && !j.discard_host)
+                {
+                    "starting"
+                } else {
+                    "stopped"
+                }
+            );
+        }
+        "inactive".into()
+    }
     pub(super) fn poll_extension_management(&mut self) -> bool {
+        let mut changed = false;
+        if self.extension_retirement.as_ref().is_some_and(|receiver| {
+            !matches!(
+                receiver.try_recv(),
+                Err(std::sync::mpsc::TryRecvError::Empty)
+            )
+        }) {
+            self.extension_retirement = None;
+            changed = true;
+        }
         let Some(job) = &self.extension_job else {
-            return false;
+            return changed;
         };
         let result = match job.receiver.try_recv() {
             Ok(result) => result,
-            Err(std::sync::mpsc::TryRecvError::Empty) => return false,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return changed,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 Err("Extension worker disconnected".into())
             }
         };
-        let discard_host = job.discard_host;
+        let discard_host =
+            job.discard_host || job.epoch.is_some_and(|epoch| epoch != self.extension_epoch);
         let current_view =
             matches!(self.modal, Some(Modal::ExtensionsLoading(id)) if Some(id) == job.view);
         let show_list = current_view && self.prompt.is_none() && self.focus == Focus::Editor;
@@ -262,6 +386,7 @@ mod tests {
             discard_host: false,
             receiver,
             view: None,
+            epoch: None,
         });
         app.cancel_extension_start();
         app.manage_extension(Action::List);
@@ -281,6 +406,7 @@ mod tests {
             discard_host: false,
             receiver,
             view: Some(99),
+            epoch: None,
         });
         app.modal = Some(Modal::ExtensionsLoading(99));
         app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
@@ -334,5 +460,114 @@ mod tests {
         assert!(app.message.contains("installed-list refresh failed"));
         assert_eq!(store.get("example.next").unwrap().version, "1.0.0");
         assert!(app.modal.is_none());
+    }
+    #[test]
+    fn stalled_retirement_does_not_block_input_and_retains_its_slot() {
+        struct Probe(Receiver<()>);
+        impl Drop for Probe {
+            fn drop(&mut self) {
+                self.0.recv().unwrap();
+            }
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let mut app = App::new(directory.path().into(), Profile::Linux);
+        let (release, blocked) = sync_channel(1);
+        app.extension_retirement = Some(retire(Probe(blocked)));
+        app.execute("vscli.extensions.restart", Value::Null);
+        assert!(app.message.contains("already running"));
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.execute("type", json!({"text":"responsive"}));
+        assert_eq!(app.doc().text.to_string(), "responsive");
+        assert!(!app.poll_extension_management());
+        release.send(()).unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while app.extension_retirement.is_some() {
+            app.poll_extension_management();
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+    #[test]
+    fn outdated_start_ticket_is_retired_without_replacing_native_state() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut app = App::new(directory.path().into(), Profile::Linux);
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let host = crate::extensions::Client::start(
+            "node",
+            &fixture,
+            directory.path(),
+            &app.documents,
+            app.active,
+            &app.settings,
+        )
+        .unwrap();
+        let (sender, receiver) = sync_channel(1);
+        std::thread::spawn(move || {
+            let (ticket, cleanup) = handoff(Box::new(host));
+            sender.send(Ok(Output::Started(ticket))).ok().unwrap();
+            cleanup();
+            sender.send(Ok(Output::Stopped)).ok().unwrap();
+        });
+        app.extension_epoch = 2;
+        app.extension_job = Some(Job {
+            receiver,
+            view: None,
+            epoch: Some(1),
+            discard_host: false,
+        });
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.execute("type", json!({"text":"retained"}));
+        let id = app.doc().id;
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while app.extension_job.is_some() {
+            app.poll_extension_management();
+            assert!(app.extension_host.is_none());
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), "retained");
+        assert!(app.doc().dirty());
+    }
+    #[test]
+    fn canceled_session_start_stays_stopped_and_preserves_native_edits() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut app = App::new(directory.path().into(), Profile::Linux);
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        app.start_extension_packages(vec![crate::extensions::Package::read(&fixture).unwrap()])
+            .unwrap();
+        app.execute("vscli.extensions.stop", Value::Null);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.execute("type", json!({"text":"unsaved"}));
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while app.extension_job.is_some() {
+            app.poll();
+            assert!(app.extension_host.is_none());
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(app.doc().text.to_string(), "unsaved");
+        assert_eq!(app.extension_packages.len(), 1);
+    }
+    #[test]
+    fn session_readiness_releases_the_operation_slot_before_another_picker_action() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut app = App::new(directory.path().into(), Profile::Linux);
+        app.extensions_directory = Some(directory.path().join("store"));
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        app.start_extension_packages(vec![crate::extensions::Package::read(&fixture).unwrap()])
+            .unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !app.extension_host.as_ref().is_some_and(|host| host.ready) {
+            app.poll();
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(app.extension_job.is_none());
+        app.manage_extension(Action::List);
+        assert!(matches!(app.modal, Some(Modal::ExtensionsLoading(_))));
     }
 }

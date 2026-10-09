@@ -83,9 +83,9 @@ struct Args {
     /// Argument to the debugged program (repeatable)
     #[arg(long, requires = "debug_adapter", allow_hyphen_values = true)]
     debug_program_arg: Vec<String>,
-    /// Run a trusted unpacked extension directory or installed publisher.name (executes code)
+    /// Run a trusted unpacked extension or installed publisher.name (repeatable; executes code)
     #[arg(long)]
-    extension: Option<PathBuf>,
+    extension: Vec<PathBuf>,
     /// Install a local VSIX without executing its code
     #[arg(long, conflicts_with_all = ["list_extensions", "uninstall_extension", "rollback_extension"])]
     install_extension: Option<PathBuf>,
@@ -355,24 +355,25 @@ fn main() -> Result<()> {
             program_args: args.debug_program_arg,
         });
     }
-    if let Some(extension) = args.extension {
-        let extension = if extension.is_dir() {
-            extension
-        } else {
-            vscli::extension_store::Store::new(
-                extensions_directory.context("No extension storage directory")?,
-            )
-            .get(&extension.to_string_lossy())?
-            .path
-        };
-        app.extension_host = Some(vscli::extensions::Client::start(
-            &args.extension_node,
-            &extension,
-            &app.workspace.root,
-            &app.documents,
-            app.active,
-            &app.settings,
-        )?);
+    if !args.extension.is_empty() {
+        let packages = args
+            .extension
+            .iter()
+            .map(|extension| {
+                if extension.is_dir() {
+                    vscli::extensions::Package::read(extension)
+                } else {
+                    let installed = vscli::extension_store::Store::new(
+                        extensions_directory
+                            .clone()
+                            .context("No extension storage directory")?,
+                    )
+                    .get(&extension.to_string_lossy())?;
+                    Ok(vscli::extensions::Package::installed(&installed))
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+        app.start_extension_packages(packages)?;
     }
     if let Some(error) = settings_error {
         app.message = format!("Settings failed to load; using defaults: {error:#}");

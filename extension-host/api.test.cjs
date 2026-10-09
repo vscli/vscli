@@ -150,3 +150,23 @@ test('shared registration limits include listeners and disposal releases the bud
   runtime.disposeOwner('test.bounded');
   assert.doesNotThrow(() => runtime.forExtension('test.bounded').workspace.onDidCloseTextDocument(() => {}));
 });
+
+test('recursive extension command calls are bounded and release their execution slots', async () => {
+  const runtime = createApi(() => {}, () => {});
+  const api = runtime.forExtension('test.recursive');
+  api.commands.registerCommand('loop', () => api.commands.executeCommand('loop'));
+  await assert.rejects(api.commands.executeCommand('loop'), /execution limit/);
+  api.commands.registerCommand('after', () => 'usable');
+  assert.equal(await api.commands.executeCommand('after'), 'usable');
+});
+
+test('oversized edit builders reject without submitting a partial transaction', async () => {
+  let requests = 0;
+  const runtime = createApi(() => { requests++; }, () => {});
+  runtime.sync(initial());
+  await assert.rejects(runtime.api.window.activeTextEditor.edit(builder => {
+    for (let i = 0; i < 4097; i++) builder.insert(new runtime.api.Position(0, 0), 'x');
+  }), /edit count limit/);
+  assert.equal(requests, 0);
+  assert.equal(runtime.api.window.activeTextEditor.document.getText(), 'b\na\n');
+});

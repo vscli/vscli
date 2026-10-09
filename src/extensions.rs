@@ -67,8 +67,12 @@ impl Package {
     }
 }
 fn read_manifest(path: &Path) -> Result<(usize, Value)> {
+    let manifest = path.join("package.json");
+    if !std::fs::metadata(&manifest)?.is_file() {
+        bail!("Extension manifest must be a regular file");
+    }
     let mut bytes = Vec::new();
-    std::fs::File::open(path.join("package.json"))?
+    std::fs::File::open(manifest)?
         .take(MAX_MANIFEST_BYTES + 1)
         .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > MAX_MANIFEST_BYTES {
@@ -160,6 +164,7 @@ pub struct Client {
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
     pending: HashMap<u64, Pending>,
     next_id: u64,
+    heartbeat: Instant,
     pub keybindings: Option<Value>,
     pub ready: bool,
     pub commands: Vec<(String, String)>,
@@ -245,11 +250,14 @@ impl Client {
         }
         let process = Process::start(
             node,
-            &[runtime
-                .path()
-                .join("host.cjs")
-                .to_string_lossy()
-                .into_owned()],
+            &[
+                "--max-old-space-size=256".into(),
+                runtime
+                    .path()
+                    .join("host.cjs")
+                    .to_string_lossy()
+                    .into_owned(),
+            ],
             root,
         )?;
         let mut client = Self {
@@ -259,6 +267,7 @@ impl Client {
             configuration: prepared.configuration,
             pending: HashMap::new(),
             next_id: 0,
+            heartbeat: Instant::now(),
             keybindings: None,
             ready: false,
             commands: Vec::new(),
@@ -378,7 +387,7 @@ impl Client {
             if registration.id.is_empty()
                 || registration.id.len() > 1024
                 || registration.id.starts_with("cursor")
-                || reserved.contains(&registration.id.as_str())
+                || reserved.contains(&registration.id)
                 || !self.packages.iter().any(|p| p.id == registration.owner)
                 || owners
                     .insert(registration.id.clone(), registration.owner.clone())
@@ -406,17 +415,31 @@ impl Client {
     ) -> Result<Vec<String>> {
         self.sync(documents, active)?;
         self.sync_configuration(settings)?;
+        if self.ready
+            && self.pending.is_empty()
+            && self.heartbeat.elapsed() >= Duration::from_secs(5)
+        {
+            self.request("ping", json!({"session":self.session}))?;
+            self.heartbeat = Instant::now();
+        }
         let mut messages = Vec::new();
         for _ in 0..16 {
-            let Some(message) = self.process.receive()? else {
+            let Some(mut message) = self.process.receive()? else {
                 break;
             };
             if let Some(method) = message["method"].as_str() {
                 match method {
                     "edit" => {
-                        let result = serde_json::from_value::<Edit>(message["params"].clone())
-                            .map_err(anyhow::Error::from)
-                            .and_then(|edit| self.apply_edit(edit, documents));
+                        let result = if message["params"]["edits"]
+                            .as_array()
+                            .is_some_and(|edits| edits.len() > 4096)
+                        {
+                            Err(anyhow::anyhow!("Extension edit count limit exceeded"))
+                        } else {
+                            serde_json::from_value::<Edit>(message["params"].take())
+                                .map_err(anyhow::Error::from)
+                                .and_then(|edit| self.apply_edit(edit, documents))
+                        };
                         match result {
                             Ok(applied) => {
                                 // Ordered notifications precede the acknowledgement.
@@ -466,8 +489,15 @@ impl Client {
                     let error = message["error"]["message"]
                         .as_str()
                         .unwrap_or("Unknown extension error");
-                    if pending.method == "initialize" {
-                        bail!("Extension activation failed: {error}");
+                    if pending.method == "initialize" || pending.method == "ping" {
+                        bail!(
+                            "Extension {} failed: {error}",
+                            if pending.method == "initialize" {
+                                "activation"
+                            } else {
+                                "heartbeat"
+                            }
+                        );
                     }
                     messages.push(format!("Extension command failed: {error}"));
                     continue;
@@ -665,5 +695,60 @@ mod tests {
         assert!(update["active"].is_null());
         let (_, reopened) = closed.next(&docs, 0).unwrap();
         assert_eq!(reopened["documents"][0]["text"], "original");
+    }
+    #[test]
+    fn outdated_owner_edits_and_expired_heartbeat_cannot_mutate_native_documents() {
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let mut documents = vec![Document::from_text("original")];
+        let settings = Settings::default();
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &documents,
+            0,
+            &settings,
+        )
+        .unwrap();
+        let edit = |session, owner| Edit {
+            session,
+            owner,
+            document: documents[0].id,
+            version: 1,
+            edits: Vec::new(),
+        };
+        assert!(
+            !client
+                .apply_edit(
+                    edit(client.session + 1, client.packages[0].id.clone()),
+                    &mut [Document::from_text("unrelated")]
+                )
+                .unwrap()
+        );
+        let edit = Edit {
+            session: client.session,
+            owner: "unknown.owner".into(),
+            document: documents[0].id,
+            version: 1,
+            edits: Vec::new(),
+        };
+        assert!(!client.apply_edit(edit, &mut documents).unwrap());
+        client.pending.insert(
+            u64::MAX,
+            Pending {
+                method: "ping".into(),
+                started: Instant::now() - Duration::from_secs(31),
+            },
+        );
+        assert!(
+            client
+                .poll(&mut documents, 0, &settings)
+                .unwrap_err()
+                .to_string()
+                .contains("timed out")
+        );
+        assert_eq!(documents[0].text.to_string(), "original");
     }
 }

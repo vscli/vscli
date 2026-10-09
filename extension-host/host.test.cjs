@@ -12,6 +12,30 @@ function frame(message) {
   return Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`), body]);
 }
 
+test('the Node manifest loader rejects a FIFO before opening it', { timeout: 5000, skip: process.platform === 'win32' }, async t => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'vscli-fifo-'));
+  const { spawnSync } = require('node:child_process');
+  assert.equal(spawnSync('mkfifo', [path.join(folder, 'package.json')]).status, 0);
+  const child = spawn(process.execPath, [path.join(__dirname, 'host.cjs')], { stdio: ['pipe', 'pipe', 'pipe'] });
+  t.after(async () => {
+    if (child.exitCode === null && child.signalCode === null) { const ended = once(child, 'exit'); child.kill(); await ended; }
+    fs.rmSync(folder, { recursive: true, force: true });
+  });
+  child.stdin.write(frame({ id: 1, method: 'initialize', params: { protocol: 4, session: 1,
+    extensions: [{ id: 'test.fifo', version: '1', path: folder }] } }));
+  let output = Buffer.alloc(0), response;
+  for await (const chunk of child.stdout) {
+    output = Buffer.concat([output, chunk]);
+    const end = output.indexOf('\r\n\r\n');
+    if (end < 0) continue;
+    const length = Number(output.subarray(0, end).toString().split(':')[1]);
+    if (output.length < end + 4 + length) continue;
+    response = JSON.parse(output.subarray(end + 4, end + 4 + length));
+    break;
+  }
+  assert.match(response.error.message, /regular file/);
+});
+
 test('ordered document and configuration notifications are visible before command replies', { timeout: 10000 }, async t => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'vscli-host-'));
   fs.writeFileSync(path.join(folder, 'package.json'), JSON.stringify({ name: 'wire', publisher: 'test', version: '1', main: 'extension.cjs' }));

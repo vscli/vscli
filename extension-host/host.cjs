@@ -31,7 +31,7 @@ function request(method, params) {
 const originalLoad = Module._load;
 Module._load = function(name, parent, isMain) {
   if (name === 'vscode') {
-    const owner = packages.find(item => {
+    const owner = [...packages].sort((a, b) => b.folder.length - a.folder.length).find(item => {
       const relative = path.relative(item.folder, parent?.filename || '');
       return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
     });
@@ -51,11 +51,21 @@ function prepare(inputs) {
   return inputs.map(input => {
     const folder = fs.realpathSync(input.path);
     const manifestPath = path.join(folder, 'package.json');
-    const size = fs.statSync(manifestPath).size;
+    if (!fs.statSync(manifestPath).isFile()) throw new Error('Extension manifest must be a regular file');
+    const fd = fs.openSync(manifestPath, 'r');
+    const contents = Buffer.alloc(1024 * 1024 + 1);
+    let size = 0;
+    try {
+      while (size < contents.length) {
+        const read = fs.readSync(fd, contents, size, contents.length - size, null);
+        if (!read) break;
+        size += read;
+      }
+    } finally { fs.closeSync(fd); }
     if (size > 1024 * 1024) throw new Error('Extension manifest exceeds 1 MiB');
     bytes += size;
     if (bytes > 8 * 1024 * 1024) throw new Error('Extension session manifests exceed 8 MiB');
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const manifest = JSON.parse(contents.subarray(0, size).toString('utf8'));
     count += nodes(manifest);
     if (count > 50000) throw new Error('Extension session manifests exceed 50,000 nodes');
     const id = `${manifest.publisher}.${manifest.name}`.toLowerCase();
@@ -108,7 +118,7 @@ async function dispatch(message) {
           try {
             item.extension = require(item.entry);
             if (typeof item.extension.activate === 'function') await item.extension.activate(context);
-          } catch (error) { throw new Error(`${item.id}: activation failed: ${error.stack || error}`); }
+          } catch (error) { console.error(error); throw new Error(`${item.id}: ${error.message || error}`, { cause: error }); }
         }
         ready = true;
         result = { protocol: 4, session, commands: runtime.commandSnapshot(),
@@ -122,6 +132,9 @@ async function dispatch(message) {
         if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');
         if (!runtime.commandSnapshot().some(item => item.id === message.params.command && item.owner === message.params.owner)) throw new Error('Extension command owner changed');
         result = await runtime.api.commands.executeCommand(message.params.command, ...message.params.args);
+        break;
+      case 'ping':
+        if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');
         break;
       case 'shutdown':
         ready = false;

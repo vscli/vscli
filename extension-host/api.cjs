@@ -114,6 +114,7 @@ function createApi(request, notify, sessionOptions = {}) {
         const add = (range, newText) => {
           if (!valid) throw new Error('TextEditorEdit is only valid during its callback');
           if (typeof newText !== 'string') throw new TypeError('Edit text must be a string');
+          if (edits.length >= 4096) throw new Error('Extension edit count limit exceeded');
           edits.push({ range, newText });
         };
         const builder = supported('TextEditorEdit', {

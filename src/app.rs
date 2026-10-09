@@ -32,8 +32,8 @@ use std::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-pub(crate) fn native_command_ids() -> Vec<&'static str> {
-    COMMANDS
+pub(crate) fn native_command_ids() -> Vec<String> {
+    let mut ids: Vec<_> = COMMANDS
         .iter()
         .map(|(_, id)| *id)
         .chain([
@@ -74,7 +74,19 @@ pub(crate) fn native_command_ids() -> Vec<&'static str> {
             "workbench.action.togglePanel",
             "workbench.view.extensions",
         ])
-        .collect()
+        .map(str::to_owned)
+        .collect();
+    for profile in [Profile::Linux, Profile::Macos, Profile::Windows] {
+        ids.extend(
+            Keymap::new(profile)
+                .bindings
+                .into_iter()
+                .map(|binding| binding.command),
+        );
+    }
+    ids.sort();
+    ids.dedup();
+    ids
 }
 
 pub const COMMANDS: &[(&str, &str)] = &[
@@ -96,6 +108,14 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Preferences: Color Theme Report", "vscli.theme.report"),
     ("Preferences: Load Color Theme File", "vscli.theme.load"),
     ("Extensions: Stop Host", "vscli.extensions.stop"),
+    (
+        "Extensions: Stop Selected Package",
+        "vscli.extensions.stopSelected",
+    ),
+    (
+        "Extensions: Restart Selected Session",
+        "vscli.extensions.restart",
+    ),
     ("Settings: Compatibility Report", "vscli.settings.report"),
     (
         "Preferences: Open User Settings (JSON)",
@@ -251,6 +271,7 @@ pub enum Focus {
 #[derive(Clone)]
 pub enum PromptKind {
     InstallExtension,
+    StopExtension,
     Palette,
     QuickOpen,
     RecentFiles,
@@ -389,6 +410,9 @@ pub struct App {
     pub extensions_directory: Option<PathBuf>,
     pub extension_node: String,
     extension_job: Option<extension_management::Job>,
+    extension_retirement: Option<std::sync::mpsc::Receiver<()>>,
+    extension_epoch: u64,
+    pub extension_packages: Vec<crate::extensions::Package>,
     pub extension_host: Option<crate::extensions::Client>,
     pub lsp: Option<crate::lsp::Client>,
     pub syntax: crate::syntax::Engine,
@@ -410,6 +434,11 @@ pub struct App {
     snippet_catalog: snippet_catalogs::State,
     clipboard: String,
     pub clipboard_line: bool,
+}
+impl Drop for App {
+    fn drop(&mut self) {
+        self.shutdown_extensions();
+    }
 }
 impl App {
     pub fn new(root: PathBuf, profile: Profile) -> Self {
@@ -456,6 +485,9 @@ impl App {
             extensions_directory: crate::extension_store::default_directory(),
             extension_node: "node".into(),
             extension_job: None,
+            extension_retirement: None,
+            extension_epoch: 0,
+            extension_packages: Vec::new(),
             lsp: None,
             syntax: crate::syntax::Engine::default(),
             theme: crate::theme::Theme::default(),
@@ -1278,11 +1310,11 @@ impl App {
             "workbench.action.gotoLine" => self.start_prompt(PromptKind::Goto, String::new()),
             "workbench.extensions.action.installVSIX" => self.start_prompt(PromptKind::InstallExtension, String::new()),
             "workbench.view.extensions" | "workbench.extensions.action.showInstalledExtensions" => self.manage_extension(extension_management::Action::List),
-            "vscli.extensions.stop" => {
-                self.cancel_extension_start();
-                self.extension_host = None;
-                self.keymap.clear_extension_bindings();
-                self.message = "Extension host stopped".into();
+            "vscli.extensions.stop" => self.stop_extension_host(),
+            "vscli.extensions.restart" => self.restart_extensions(),
+            "vscli.extensions.stopSelected" => {
+                if let Some(id) = args.as_str().or_else(|| args["id"].as_str()) { self.stop_selected_extension(id); }
+                else { self.start_prompt(PromptKind::StopExtension, String::new()); }
             },
             _ => self.execute_extension(command, command_args),
         }
@@ -1512,6 +1544,16 @@ impl App {
                                 self.message = format!("{}: {}", item.id, item.compatibility);
                             }
                         }
+                        return;
+                    }
+                    KeyCode::Char('s' | 'S') => {
+                        if let Some(item) = items.get(selected) {
+                            self.stop_selected_extension(&item.id);
+                        }
+                        return;
+                    }
+                    KeyCode::Char('h' | 'H') => {
+                        self.restart_extensions();
                         return;
                     }
                     KeyCode::Delete => {
@@ -1758,6 +1800,7 @@ impl App {
                 extension_management::Action::Install(self.resolve_path(&p.text)),
             ),
             PromptKind::Theme => self.accept_theme(&p.text, p.selected),
+            PromptKind::StopExtension => self.stop_selected_extension(p.text.trim()),
             PromptKind::ThemeFile => self.load_theme(self.resolve_path(&p.text)),
             PromptKind::DebugEvaluate => {
                 if let Some(client) = self.debugger.as_mut() {
