@@ -16,6 +16,7 @@ pub mod snippet;
 pub mod syntax;
 pub mod tasks;
 pub mod terminal;
+pub mod theme;
 pub mod transport;
 pub mod ui;
 pub mod watch;
