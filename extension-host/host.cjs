@@ -128,7 +128,10 @@ function activationHooks() {
         });
       } finally { activating--; }
     },
-    failed: dispose,
+    failed(item) {
+      activating++;
+      try { dispose(item); } finally { activating--; }
+    },
     changed() {
       if (ready && !activating) {
         send({ method: 'activation', params: { session, activation: activation.statuses() } });

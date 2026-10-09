@@ -132,6 +132,7 @@ function createActivation(items, hooks) {
   }
   add(items);
   return { add, activate, facade, extension, shutdown,
+    accepts: owner => ['active', 'activating'].includes(entries.get(owner)?.state),
     statuses: () => [...entries].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([id, entry]) => ({ id, state: entry.state, error: entry.error?.message?.slice(0, 2048) })) };
 }
 module.exports = { createActivation };

@@ -56,3 +56,27 @@ test('incremental descriptors preserve active exports and deactivate dependants 
   assert.deepEqual(deactivated, ['test.a', 'test.b']);
   disposable.dispose();
 });
+
+test('failed owners cannot issue fresh requests or revive registrations from retained handles', async () => {
+  const { createApi } = require('./api.cjs');
+  let requests = 0, stale;
+  const runtime = createApi(() => { requests++; return Promise.resolve(null); }, () => {});
+  const service = createActivation([item('test.failed')], {
+    activate() {
+      stale = runtime.forExtension('test.failed');
+      stale.commands.registerCommand('partial', () => {});
+      throw new Error('activation failed');
+    },
+    failed: selected => runtime.disposeOwner(selected.id),
+  });
+  runtime.setActivation(service);
+  await assert.rejects(service.activate('test.failed'), /activation failed/);
+  assert.deepEqual(runtime.commandSnapshot(), []);
+  assert.throws(() => stale.commands.registerCommand('late', () => {}), /not active/);
+  assert.throws(() => stale.workspace.onDidChangeConfiguration(() => {}), /not active/);
+  await assert.rejects(stale.commands.executeCommand('partial'), /not active/);
+  await assert.rejects(stale.window.showInputBox(), /not active/);
+  await assert.rejects(stale.window.showInformationMessage('late'), /not active/);
+  assert.equal(requests, 0);
+  assert.deepEqual(runtime.commandSnapshot(), []);
+});
