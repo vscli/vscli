@@ -20,6 +20,7 @@ impl App {
             .collect();
         let commands = host.commands.clone();
         let busy = host.busy();
+        let diagnostics_epoch = host.diagnostics_epoch();
         match host.poll_with_hidden(
             &mut self.documents,
             &mut self.hidden_documents,
@@ -28,6 +29,7 @@ impl App {
         ) {
             Ok(messages) => {
                 let changed = !messages.is_empty()
+                    || diagnostics_epoch != host.diagnostics_epoch()
                     || busy != host.busy()
                     || commands != host.commands
                     || before

@@ -105,6 +105,82 @@ fn native_quick_fix_resolve_and_commands_preserve_crlf_shared_identity_and_undo(
     );
 }
 #[test]
+fn held_actions_reject_edit_undo_on_active_and_secondary_targets_without_mutation() {
+    for secondary in [false, true] {
+        let (root, mut app) = fixture(true);
+        actions(&mut app);
+        let target = if secondary {
+            app.documents
+                .iter()
+                .position(|doc| doc.id != app.doc().id)
+                .unwrap()
+        } else {
+            app.active
+        };
+        let active_id = app.doc().id;
+        let revision = app.documents[target].revision;
+        app.documents[target].insert("temporary ", false);
+        let edited = app.documents[target].text.to_string();
+        app.documents[target].undo();
+        assert_eq!(app.documents[target].revision, revision);
+        let selections = app.doc().selections();
+        choose(
+            &mut app,
+            if secondary {
+                "Multiple dirty buffers"
+            } else {
+                "Fix selected text"
+            },
+        );
+        assert!(app.message.contains("changed"), "{}", app.message);
+        assert_eq!(app.doc().id, active_id);
+        assert_eq!(app.doc().selections(), selections);
+        assert!(app.documents.iter().all(|doc| doc.text == "bad\r\n"));
+        for filename in ["main.rs", "other.rs"] {
+            assert_eq!(
+                std::fs::read(root.path().join(filename)).unwrap(),
+                b"bad\r\n"
+            );
+        }
+        app.documents[target].redo();
+        assert_eq!(app.documents[target].text.to_string(), edited);
+        app.documents[target].undo();
+        assert_eq!(app.documents[target].text.to_string(), "bad\r\n");
+    }
+}
+#[test]
+fn held_unversioned_action_rejects_secondary_synchronized_lifetime_replacement() {
+    let (root, mut app) = fixture(true);
+    actions(&mut app);
+    let active = app.doc().id;
+    let secondary = app
+        .documents
+        .iter()
+        .position(|doc| doc.id != active)
+        .unwrap();
+    let hidden = app.documents.remove(secondary);
+    let secondary_id = hidden.id;
+    app.active = app
+        .documents
+        .iter()
+        .position(|doc| doc.id == active)
+        .unwrap();
+    app.poll(); // didClose retires the secondary synchronization lifetime.
+    assert_eq!(hidden.id, secondary_id);
+    app.documents.push(hidden);
+    app.poll(); // didOpen allocates a fresh protocol version for the same model.
+    choose(&mut app, "Multiple dirty buffers");
+    assert!(app.message.contains("changed"), "{}", app.message);
+    assert!(app.documents.iter().all(|doc| doc.text == "bad\r\n"));
+    assert_eq!(app.doc().id, active);
+    for filename in ["main.rs", "other.rs"] {
+        assert_eq!(
+            std::fs::read(root.path().join(filename)).unwrap(),
+            b"bad\r\n"
+        );
+    }
+}
+#[test]
 fn invalid_multi_file_edits_are_atomic_and_supported_dirty_buffers_keep_their_identity() {
     let (root, mut app) = fixture(true);
     let original: Vec<_> = app
@@ -272,12 +348,8 @@ fn text_edit_budgets_reject_without_partial_mutation_and_diagnostics_are_bounded
         assert_eq!(app.doc().text.to_string(), "bad\r\n");
     }
     let diagnostic = app.current_diagnostics()[0].clone();
-    let doc = app.doc();
-    let key = doc.path.clone().unwrap();
-    let id = doc.id;
-    let revision = doc.revision;
-    app.diagnostics
-        .insert(key, (id, revision, vec![diagnostic; 129]));
+    let key = app.doc().path.clone().unwrap();
+    app.diagnostics.get_mut(&key).unwrap().items = vec![diagnostic; 129];
     app.execute("editor.action.quickFix", Value::Null);
     assert!(app.message.contains("128 diagnostics"));
 }

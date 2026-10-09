@@ -1,4 +1,5 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
+mod diagnostics;
 mod prompts;
 pub(crate) mod providers;
 pub(crate) mod services;
@@ -159,6 +160,7 @@ struct Registration {
 struct Mirror {
     revision: u64,
     text_epoch: u64,
+    save_generation: u64,
     uri: String,
     version: u64,
 }
@@ -203,6 +205,7 @@ pub struct ActivationRequest {
     pub owner: Option<String>,
 }
 pub struct Client {
+    diagnostics: diagnostics::State,
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
     state_store: Option<crate::extension_state::Store>,
@@ -311,6 +314,14 @@ impl Client {
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
             (
+                "diagnostic-types.cjs",
+                include_str!("../extension-host/diagnostic-types.cjs"),
+            ),
+            (
+                "diagnostics.cjs",
+                include_str!("../extension-host/diagnostics.cjs"),
+            ),
+            (
                 "provider-types.cjs",
                 include_str!("../extension-host/provider-types.cjs"),
             ),
@@ -353,6 +364,7 @@ impl Client {
             root,
         )?;
         let mut client = Self {
+            diagnostics: diagnostics::State::default(),
             providers: providers::State::default(),
             services: services::empty_queue(),
             state_store,
@@ -583,6 +595,7 @@ impl Client {
         for (owner, state) in &states {
             if matches!(state.as_str(), "failed" | "disposed") {
                 self.surfaces.remove_owner(owner);
+                self.diagnostics.remove_owner(owner);
             }
         }
         self.activation_states = states;
@@ -764,6 +777,13 @@ impl Client {
                         {
                             self.process
                                 .send(json!({"id":id,"error":{"message":format!("{error:#}")}}))?;
+                        }
+                    }
+                    "diagnosticCollections" => {
+                        if let Err(error) =
+                            self.register_diagnostics(message["params"].take(), documents, hidden)
+                        {
+                            messages.push(format!("Extension diagnostics rejected: {error:#}"));
                         }
                     }
                     "nativeSurface" => {
@@ -967,7 +987,7 @@ struct MirrorState {
 }
 impl MirrorState {
     fn stamp_refs(documents: &[&Document], active: Option<&Document>) -> Value {
-        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.path, d.dirty()])).collect::<Vec<_>>(),
+        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.dirty()])).collect::<Vec<_>>(),
             "active": active.map(|d| d.id), "selections": active.map(selections)})
     }
     #[cfg(test)]
@@ -999,6 +1019,7 @@ impl MirrorState {
             let mirror = self.mirrors.entry(doc.id).or_insert_with(|| Mirror {
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
+                save_generation: doc.save_generation(),
                 uri: uri.clone(),
                 version: 1,
             });
@@ -1011,7 +1032,8 @@ impl MirrorState {
                 mirror.text_epoch = doc.text_epoch();
                 mirror.uri = uri.clone();
             }
-            let mut snapshot = json!({"id":doc.id, "uri":uri, "version":mirror.version,
+            mirror.save_generation = doc.save_generation();
+            let mut snapshot = json!({"savedGeneration": mirror.save_generation, "id":doc.id, "uri":uri, "version":mirror.version,
                 "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.dirty()});
             if needs_text {
                 snapshot["text"] = doc.text.to_string().into();
