@@ -83,6 +83,12 @@ impl Keymap {
         ] {
             map.add(&format!("{p}+{key}"), command, None);
         }
+        map.add("ctrl+r", "workbench.action.openRecent", None);
+        map.add(
+            &format!("{p}+shift+t"),
+            "workbench.action.reopenClosedEditor",
+            None,
+        );
         map.add("f1", "workbench.action.showCommands", None);
         if profile != Profile::Windows {
             map.add(&format!("{p}+q"), "workbench.action.quit", None);
@@ -547,6 +553,12 @@ impl Keymap {
             }
         }
         Resolution::None
+    }
+    /// A displayed hint must resolve to this command in the current UI context.
+    pub fn shortcut_in_context(&self, command: &str, context: &HashMap<String, Value>) -> String {
+        self.bindings.iter().rev()
+            .find(|binding| binding.command == command && matches!(self.resolve(&binding.key, context), Resolution::Command(id, _) if id == command))
+            .map(|binding| binding.key.clone()).unwrap_or_default()
     }
     pub fn shortcut(&self, command: &str) -> String {
         self.bindings
@@ -1046,6 +1058,87 @@ mod tests {
                 matches!(map.resolve("ctrl+s", &context), Resolution::Command(id, _) if id == "workbench.action.files.save")
             );
             assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        }
+    }
+    #[test]
+    fn displayed_shortcuts_honor_removal_inactive_overrides_and_shadowing() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("keys.json");
+        let command = "workbench.action.openRecent";
+        let welcome = HashMap::from([("editorTextFocus".into(), Value::Bool(false))]);
+        for (rules, expected) in [
+            (
+                r#"[{"key":"f8","command":"workbench.action.openRecent","when":"editorTextFocus"}]"#,
+                "ctrl+r",
+            ),
+            (
+                r#"[{"key":"ctrl+r","command":"workbench.action.files.newUntitledFile"}]"#,
+                "",
+            ),
+            (
+                r#"[{"key":"ctrl+r","command":"-workbench.action.openRecent"}]"#,
+                "",
+            ),
+            (
+                r#"[{"key":"f8","command":"workbench.action.openRecent"}]"#,
+                "f8",
+            ),
+        ] {
+            std::fs::write(&path, rules).unwrap();
+            let mut map = Keymap::new(Profile::Linux);
+            map.load(&path).unwrap();
+            assert_eq!(map.shortcut_in_context(command, &welcome), expected);
+        }
+    }
+    #[test]
+    fn recent_and_reopen_shortcuts_match_all_platform_profiles_without_editor_context() {
+        for profile in [Profile::Linux, Profile::Windows, Profile::Macos] {
+            let map = Keymap::new(profile);
+            let platform = match profile {
+                Profile::Linux => "linux",
+                Profile::Windows => "win32",
+                Profile::Macos => "darwin",
+            };
+            let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tests/vscode-reference/baselines/1.95.0/{platform}/inventory.json"
+            ));
+            let inventory: Value =
+                serde_json::from_slice(&std::fs::read(fixture).unwrap()).unwrap();
+            for command in [
+                "workbench.action.openRecent",
+                "workbench.action.reopenClosedEditor",
+            ] {
+                let reference = inventory["bindings"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|binding| binding["command"] == command)
+                    .unwrap();
+                assert!(reference.get("when").is_none());
+                assert_eq!(
+                    map.shortcut(command),
+                    normalize_sequence(reference["key"].as_str().unwrap())
+                );
+            }
+            let context = HashMap::new();
+            assert!(
+                matches!(map.resolve("ctrl+r", &context), Resolution::Command(id, _) if id == "workbench.action.openRecent")
+            );
+            let shortcut = format!("{}+shift+t", profile.primary());
+            assert!(
+                matches!(map.resolve(&shortcut, &context), Resolution::Command(id, _) if id == "workbench.action.reopenClosedEditor")
+            );
+            for id in [
+                "workbench.action.openRecent",
+                "workbench.action.reopenClosedEditor",
+            ] {
+                assert!(
+                    map.bindings
+                        .iter()
+                        .filter(|binding| binding.command == id)
+                        .all(|binding| binding.when.is_none())
+                );
+            }
         }
     }
     #[test]

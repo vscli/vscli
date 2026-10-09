@@ -69,6 +69,7 @@ impl App {
             self.request_close(AfterSave::Close);
             return;
         }
+        self.record_closed();
         let pane = self.panes.remove(self.active_pane);
         for doc in &mut self.documents {
             doc.remove_view(pane.id);

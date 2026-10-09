@@ -255,6 +255,7 @@ fn main() -> Result<()> {
         bail!("Workspace must be a directory");
     }
     let mut app = App::new(root, profile);
+    app.configure_recents(config_root.as_deref());
     app.extensions_directory = extensions_directory.clone();
     app.extension_node = args.extension_node.clone();
     let settings_path = args
@@ -461,6 +462,9 @@ fn main() -> Result<()> {
     }
     drop(terminal);
     drop(guard);
+    if let Err(error) = app.finish_recents() {
+        eprintln!("{error:#}");
+    }
     if let Some(worker) = recovery {
         worker.finish()?;
     }
