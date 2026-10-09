@@ -68,19 +68,19 @@ pub(super) fn command(command: &str) -> bool {
 fn prefix(app: &App) -> Result<String> {
     let doc = app.active_document().context("No active editor")?;
     let mut start = doc.cursor;
-    while start > 0
-        && (doc.text.char(start - 1).is_alphanumeric() || doc.text.char(start - 1) == '_')
-    {
+    let mut characters = doc.text.chars_at(doc.cursor);
+    let mut bytes = 0;
+    while let Some(character) = characters.prev() {
+        if !character.is_alphanumeric() && character != '_' {
+            break;
+        }
         start -= 1;
-        if doc.cursor - start > crate::suggestions::MAX_PREFIX {
+        bytes += character.len_utf8();
+        if bytes > crate::suggestions::MAX_PREFIX {
             bail!("Completion prefix exceeds 1 KiB");
         }
     }
-    let prefix = doc.text.slice(start..doc.cursor).to_string();
-    if prefix.len() > crate::suggestions::MAX_PREFIX {
-        bail!("Completion prefix exceeds 1 KiB");
-    }
-    Ok(prefix)
+    Ok(doc.text.slice(start..doc.cursor).to_string())
 }
 impl App {
     fn suggestion_context(&self) -> Result<Context> {
@@ -499,17 +499,25 @@ impl App {
             return;
         }
         let settings = self.settings.suggestions(self.language());
+        let word = doc.cursor > 0 && {
+            let character = doc.text.char(doc.cursor - 1);
+            character.is_alphanumeric() || character == '_'
+        };
         let character = before
             .2
             .filter(|character| doc.cursor > 0 && doc.text.char(doc.cursor - 1) == *character);
         let trigger =
             character.filter(|character| settings.triggers && self.completion_trigger(*character));
         let result = (|| {
-            let context = self.suggestion_context()?;
-            let prefix = prefix(self)?;
-            if trigger.is_none() && (!settings.quick || prefix.is_empty()) {
+            if trigger.is_none() && (!settings.quick || !word) {
                 bail!("No automatic completion trigger");
             }
+            let context = self.suggestion_context()?;
+            // With no labels to filter, defer the bounded word scan to dispatch.
+            // Raw input bursts must not repeatedly scan an ever-growing prefix.
+            let prefix = (self.suggestions.popup.is_some() || self.suggestions.cached.is_some())
+                .then(|| prefix(self))
+                .transpose()?;
             Ok((context, prefix))
         })();
         let model = self
@@ -536,6 +544,7 @@ impl App {
             return;
         };
         if let Some((mut model, source)) = model
+            && let Some(prefix) = prefix
             && model.filter(&prefix).is_ok()
             && !model.is_empty()
         {
@@ -624,6 +633,22 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn identifier_prefix_retains_the_utf8_byte_bound_across_rope_chunks() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("prefix.rs");
+        let identifier = "é".repeat(crate::suggestions::MAX_PREFIX / 2);
+        let text = format!("{} {identifier}", "x".repeat(4096));
+        std::fs::write(&path, &text).unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.open(&path).unwrap();
+        app.doc_mut().move_to(text.chars().count(), false);
+        assert_eq!(prefix(&app).unwrap(), identifier);
+        app.doc_mut().insert("é", false);
+        assert!(prefix(&app).unwrap_err().to_string().contains("1 KiB"));
+        app.doc_mut().insert(" ", false);
+        assert_eq!(prefix(&app).unwrap(), "");
+    }
     #[test]
     fn suggestion_dispatch_uses_reserved_default_ids_and_does_not_swallow_an_extension_alias() {
         let reserved = native_command_ids();
