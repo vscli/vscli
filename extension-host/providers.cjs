@@ -84,10 +84,11 @@ function normalize(type, value, document) {
         if (item.kind !== undefined) result.kind = kind(item.kind, 24);
         for (const key of ['detail','sortText','filterText']) if (item[key] !== undefined) result[key] = text(item[key]);
         if (item.documentation !== undefined) result.documentation = documentation(item.documentation);
-        const insertion = item.insertText === undefined ? result.label : typeof item.insertText === 'string' ? item.insertText : item.insertText.value;
+        const insertion = item.textEdit !== undefined ? item.textEdit.newText : item.insertText === undefined ? result.label : typeof item.insertText === 'string' ? item.insertText : item.insertText.value;
         result.insertText = text(insertion, 65536);
-        if (item.insertText && typeof item.insertText === 'object') result.insertTextFormat = 2;
-        if (item.range !== undefined) result.textEdit = { range: range(item.range, document), newText: result.insertText };
+        if (item.textEdit === undefined && item.insertText && typeof item.insertText === 'object') result.insertTextFormat = 2;
+        if (item.textEdit !== undefined) result.textEdit = edit(item.textEdit, document);
+        else if (item.range !== undefined) result.textEdit = { range: range(item.range, document), newText: result.insertText };
         if (item.additionalTextEdits !== undefined) result.additionalTextEdits = list(item.additionalTextEdits, 4096).map(value => edit(value, document));
         return result;
       });

@@ -153,3 +153,13 @@ test('signature metadata overload dispatches the original context and validates 
   await providers.provide(request(entry.id)); assert.deepEqual(observed, { triggerKind: 1, isRetrigger: false });
   assert.throws(() => providers.forOwner('test.extension').registerSignatureHelpProvider('*', { provideSignatureHelp() {} }, { unsupported: true }), /metadata/);
 });
+
+
+test('deprecated completion textEdit retains original replacement range and precedence', () => {
+  const { document } = fixture();
+  const item = new types.CompletionItem('label'); item.insertText = new types.SnippetString('ignored');
+  item.range = new Range(0, 3, 0, 4); item.textEdit = types.TextEdit.replace(new Range(0, 0, 0, 4), 'actual');
+  const result = normalize('completion', [item], document).items[0];
+  assert.equal(result.insertText, 'actual'); assert.equal(result.insertTextFormat, undefined);
+  assert.deepEqual(result.textEdit.range, { start: new Position(0, 0), end: new Position(0, 4) });
+});
