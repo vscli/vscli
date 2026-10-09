@@ -3,6 +3,7 @@ const types = require('./api-types.cjs');
 const providerTypes = require('./provider-types.cjs');
 const { createProviders } = require('./providers.cjs');
 const { createPrompts } = require('./prompts.cjs');
+const { createSurfaces } = require('./surfaces.cjs');
 const { createConfiguration } = require('./configuration.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
@@ -41,6 +42,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     catch (error) { return Promise.reject(error); }
   }
   const providers = createProviders({ session: sessionOptions.session, notify, track, document: id => documents.get(id) });
+  const surfaces = createSurfaces(notify, sessionOptions.session, track,
+    (owner, id, args) => commandsFor(owner).executeCommand(id, ...args), sessionOptions.assertOwner);
   function track(owner, disposable) {
     try { assertOwner(owner); } catch (error) { disposable.dispose(); throw error; }
     if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }
@@ -160,13 +163,14 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     });
   }
   const api = supported('vscode', {
-    ...types, ...providerTypes,
+    ...types, ...providerTypes, ...surfaces.types,
     version: '1.95.0',
     EndOfLine: Object.freeze({ LF: 1, CRLF: 2 }),
     ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
     ExtensionMode: Object.freeze({ Production: 1, Development: 2, Test: 3 }),
     window: supported('window', {
       ...createPrompts(request, sessionOptions.session, '', promptBudget),
+      ...surfaces.forExtension(''),
       get activeTextEditor() { return active; },
       get visibleTextEditors() { return active ? [active] : []; },
       onDidChangeActiveTextEditor: activeChanged.event,
@@ -199,6 +203,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     setActivation(value) { activation = value; },
     contextForExtension(owner) { return { ...mementos.forOwner(owner), extension: activation?.extension(owner) }; },
     mergeExtensionState: mementos.merge,
+    configureSurfaces: surfaces.configure, treeChildren: surfaces.treeChildren,
+    surfaceAction: surfaces.action, treeEvent: surfaces.treeEvent,
     disposeOwner(owner) {
       if (sessionOptions.languageProviders) providers.disposeOwner(owner);
       for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
@@ -220,6 +226,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         window: supported('window', {
           ...createPrompts(request, sessionOptions.session, owner, promptBudget),
           showTextDocument: services.showTextDocument,
+          ...surfaces.forExtension(owner),
           get activeTextEditor() { return scopedEditor(active); },
           get visibleTextEditors() { return active ? [scopedEditor(active)] : []; },
           onDidChangeActiveTextEditor: event(owner, activeChanged.event, scopedEditor),

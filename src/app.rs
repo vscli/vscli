@@ -5,6 +5,7 @@ mod extension_management;
 mod extension_prompts;
 mod extension_providers;
 mod extension_services;
+pub mod extension_surfaces;
 mod extensions;
 mod files;
 mod language;
@@ -108,6 +109,9 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Language: Disable Services", "vscli.languageServer.disable"),
     ("Language: Enable Services", "vscli.languageServer.enable"),
     ("Language: Server Status", "vscli.languageServer.status"),
+    ("Extensions: Output Channels", "vscli.extensions.output"),
+    ("Extensions: Status Items", "vscli.extensions.status"),
+    ("Extensions: Tree Views", "vscli.extensions.trees"),
     ("Open Recent File", "workbench.action.openRecent"),
     (
         "Reopen Closed Editor",
@@ -302,6 +306,7 @@ pub enum Focus {
     Editor,
     Explorer,
     Terminal,
+    Output,
 }
 #[derive(Clone)]
 pub enum PromptKind {
@@ -375,6 +380,8 @@ pub enum AfterSave {
     CloseAll,
 }
 pub enum Modal {
+    ExtensionTree,
+    ExtensionSurfaces(extension_surfaces::Picker),
     ExtensionsLoading(u64),
     ExtensionRegistry {
         items: Vec<crate::extension_registry::Entry>,
@@ -470,6 +477,7 @@ pub struct App {
     extension_epoch: u64,
     pub extension_packages: Vec<crate::extensions::Package>,
     pub extension_host: Option<crate::extensions::Client>,
+    pub extension_surfaces: extension_surfaces::State,
     pub lsp: Option<crate::lsp::Client>,
     language_services: language_services::State,
     signature: signature_help::State,
@@ -546,6 +554,7 @@ impl App {
             terminal_visible: false,
             terminal_area: Rect::default(),
             extension_host: None,
+            extension_surfaces: extension_surfaces::State::default(),
             extensions_directory: crate::extension_store::default_directory(),
             extension_registry: crate::extension_registry::Registry::default(),
             extension_node: "node".into(),
@@ -625,6 +634,7 @@ impl App {
         changed |= self.poll_extensions();
         changed |= self.poll_extension_activation();
         changed |= self.poll_extension_providers();
+        changed |= self.poll_extension_surfaces();
         changed |= self.poll_snippet();
         changed |= self.poll_snippet_catalog();
         changed |= self.poll_theme();
@@ -958,6 +968,9 @@ impl App {
                 }
             }
             Event::Mouse(mouse) if self.modal.is_none() && self.prompt.is_none() => {
+                if self.surface_mouse(mouse) {
+                    return;
+                }
                 let p = ratatui::layout::Position::new(mouse.column, mouse.row);
                 if self.terminal_visible && self.terminal_area.contains(p) {
                     self.focus = Focus::Terminal;
@@ -1093,6 +1106,10 @@ impl App {
             }
             _ => {}
         }
+        if self.focus == Focus::Output {
+            self.output_key(key);
+            return;
+        }
         if self.focus == Focus::Explorer {
             self.explorer_key(key);
             return;
@@ -1139,6 +1156,10 @@ impl App {
         if command.is_empty() {
             return;
         }
+        if self.focus == Focus::Output && Self::requires_editor(command) {
+            self.message = "Output is read-only; focus an editor to edit".into();
+            return;
+        }
         if self.active_document().is_none() && Self::requires_editor(command) {
             self.message = "Open a file or create a new file first".into();
             return;
@@ -1167,6 +1188,9 @@ impl App {
             return;
         }
         match command {
+            "vscli.extensions.output" => self.surface_picker(extension_surfaces::PickerKind::Output),
+            "vscli.extensions.status" => self.surface_picker(extension_surfaces::PickerKind::Status),
+            "vscli.extensions.trees" => self.surface_picker(extension_surfaces::PickerKind::Trees),
             "vscli.session.restore" => self.restore_session(),
             "workbench.action.debug.start" | "workbench.action.debug.continue" => {
                 self.start_or_continue_debug()
@@ -1667,6 +1691,9 @@ impl App {
     }
     fn modal_key(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Esc {
+            if matches!(self.modal, Some(Modal::ExtensionTree)) {
+                self.close_surface_tree();
+            }
             if matches!(self.modal, Some(Modal::Search))
                 && self.search.as_ref().is_some_and(|s| s.running)
             {
@@ -1677,6 +1704,8 @@ impl App {
         }
         let modal = self.modal.take().unwrap();
         match modal {
+            Modal::ExtensionSurfaces(picker) => self.surface_picker_key(key, picker),
+            Modal::ExtensionTree => self.surface_tree_key(key),
             Modal::ExtensionsLoading(id) => self.modal = Some(Modal::ExtensionsLoading(id)),
             Modal::Debug { section, selected } => self.debug_modal_key(key, section, selected),
             Modal::Trash(path) => {

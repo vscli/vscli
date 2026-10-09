@@ -174,6 +174,10 @@ async function dispatch(message) {
         initialized = true; session = message.params.session; languageProviders = message.params.languageProviders === true;
         packages.push(...prepare(message.params.extensions));
         runtime = createApi(request, (method, params) => {
+          if (method === 'nativeSurface') {
+            const context = execution.getStore();
+            if (context?.active) params = { ...params, command: context.id, commandOwner: context.owner };
+          }
           // A failed startup must never publish partially activated command registries.
           if (!['commands', 'languageProviders'].includes(method) || (ready && !activating)) send({ method, params });
         }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders });
@@ -181,6 +185,7 @@ async function dispatch(message) {
           ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
         root = message.params.root; configuration = message.params.configuration;
         runtime.configure(root, schemas, configuration);
+        runtime.configureSurfaces(packages);
         runtime.sync(message.params.state);
         activation = createActivation(packages, activationHooks());
         runtime.setActivation(activation);
@@ -219,6 +224,15 @@ async function dispatch(message) {
         break;
       case 'cancelLanguageProvider':
         runtime?.cancelLanguageProvider(message.params);
+        break;
+      case 'treeChildren':
+      case 'surfaceAction':
+        if (!ready || message.params.session !== session || !packages.some(item => item.id === message.params.owner)) throw new Error('Surface owner/session is not ready');
+        result = await inExecution(message.id, message.params.owner, () => runtime[message.method](message.params));
+        break;
+      case 'treeEvent':
+        // View refresh/disposal may race an already emitted visibility event.
+        try { if (ready) runtime.treeEvent(message.params); } catch (error) { console.error(error); }
         break;
       case 'ping':
         if (!ready || message.params.session !== session) throw new Error('Extension session is not ready');
