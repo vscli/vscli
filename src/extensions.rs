@@ -1,6 +1,8 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
+mod prompts;
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
+pub use prompts::{MAX_PROMPT_TEXT, NativePrompt, PromptType};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
@@ -140,6 +142,7 @@ struct Mirror {
     version: u64,
 }
 struct Pending {
+    owner: Option<String>,
     method: String,
     started: Instant,
 }
@@ -163,6 +166,7 @@ pub struct Client {
     mirror: MirrorState,
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
     pending: HashMap<u64, Pending>,
+    prompts: std::collections::VecDeque<NativePrompt>,
     next_id: u64,
     heartbeat: Instant,
     pub keybindings: Option<Value>,
@@ -240,6 +244,7 @@ impl Client {
                 include_str!("../extension-host/api-types.cjs"),
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
+            ("prompts.cjs", include_str!("../extension-host/prompts.cjs")),
             (
                 "configuration.cjs",
                 include_str!("../extension-host/configuration.cjs"),
@@ -266,6 +271,7 @@ impl Client {
             mirror: prepared.mirror,
             configuration: prepared.configuration,
             pending: HashMap::new(),
+            prompts: std::collections::VecDeque::new(),
             next_id: 0,
             heartbeat: Instant::now(),
             keybindings: None,
@@ -300,6 +306,7 @@ impl Client {
         self.pending.insert(
             self.next_id,
             Pending {
+                owner: params["owner"].as_str().map(str::to_owned),
                 method: method.into(),
                 started: Instant::now(),
             },
@@ -429,6 +436,14 @@ impl Client {
             };
             if let Some(method) = message["method"].as_str() {
                 match method {
+                    "prompt" => {
+                        let id = message["id"].clone();
+                        if let Err(error) = self.queue_prompt(id.clone(), message["params"].take())
+                        {
+                            self.process
+                                .send(json!({"id":id, "error":{"message":error.to_string()}}))?;
+                        }
+                    }
                     "edit" => {
                         let result = if message["params"]["edits"]
                             .as_array()
@@ -562,14 +577,17 @@ impl Client {
                 }
             }
         }
+        self.expire_prompts()?;
         if self.process.exited() {
             bail!("Extension process exited\n{}", self.process.stderr_tail());
         }
-        if self
-            .pending
-            .values()
-            .any(|p| p.started.elapsed() > Duration::from_secs(30))
-        {
+        if self.pending.iter().any(|(id, p)| {
+            p.started.elapsed() > Duration::from_secs(30)
+                && !self
+                    .prompts
+                    .iter()
+                    .any(|prompt| prompt.spec.command == Some(*id))
+        }) {
             bail!("Extension host timed out; native editing remains available");
         }
         Ok(messages)
@@ -741,6 +759,7 @@ mod tests {
         client.pending.insert(
             u64::MAX,
             Pending {
+                owner: None,
                 method: "ping".into(),
                 started: Instant::now() - Duration::from_secs(31),
             },
