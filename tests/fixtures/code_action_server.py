@@ -8,6 +8,7 @@ import time
 lock = threading.Lock()
 documents = {}
 commands = {}
+completed_commands = {}
 unsolicited_sent = False
 
 def send(message):
@@ -76,6 +77,8 @@ while True:
             {"title": "Unknown edit form", "edit": {"changes": {uri: [{"range": span, "newText": "bad", "insertTextFormat": 2}]}}},
             {"title": "Overlapping edits", "edit": {"changes": {uri: [{"range": span, "newText": "bad"}, {"range": span, "newText": "also bad"}]}}},
         ]
+        for variant in ("changes", "null", "old"):
+            items.append({"title": f"Late completed command {variant}", "command": {"command": f"fixture.late.{variant}", "arguments": [data]}})
         if params["context"].get("only") == ["refactor"]:
             items = [items[1]]
         if params["context"].get("diagnostics") and params["context"]["diagnostics"][0].get("data") != {"token": 42}:
@@ -87,9 +90,23 @@ while True:
         delayed({"id": ident, "result": {**params, "edit": edit(data["uri"], data["version"], data["span"], "resolved")}}, 0.15)
     elif method == "workspace/executeCommand":
         data = params["arguments"][0]
+        command = params["command"]
+        if command.startswith("fixture.late.") and command not in completed_commands:
+            completed_commands[command] = data
+            send({"id": ident, "result": None})
+            send({"method": "window/showMessage", "params": {"type": 3, "message": "Fixture first command completed"}})
+            continue
         callback = f"apply-{ident}"
         commands[callback] = ident
-        delayed({"id": callback, "method": "workspace/applyEdit", "params": {"edit": edit(data["uri"], data["version"], data["span"], "commanded")}}, 0.15)
+        workspace_edit = edit(data["uri"], data["version"], data["span"], "commanded")
+        if command.startswith("fixture.late."):
+            old = completed_commands[command]
+            workspace_edit = edit(old["uri"], old["version"], old["span"], "late")
+            if command.endswith(".null"):
+                workspace_edit["documentChanges"][0]["textDocument"]["version"] = None
+            elif command.endswith(".changes"):
+                workspace_edit = {"changes": {old["uri"]: workspace_edit["documentChanges"][0]["edits"]}}
+        delayed({"id": callback, "method": "workspace/applyEdit", "params": {"edit": workspace_edit}}, 0.15)
     elif method is None and ident in commands:
         original = commands.pop(ident)
         if original is not None:
