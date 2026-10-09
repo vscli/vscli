@@ -12,22 +12,29 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-The merged baseline for this audit is `7386a32`. Behavioral comparisons target
+The merged baseline for this update is `ea2e425`. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
 
 | Work | State at this audit | What remains after integration |
 | --- | --- | --- |
-| Native empty welcome screen | `feat/empty-workbench`, commit `2ce362e`, [PR #25](https://github.com/vscli/vscli/pull/25); local Rust/PTY checks and all six PR CI checks passed; not merged at audit time | Recent projects/files, onboarding, session restore and integration with import/theme commands |
-| Snippet catalogs | `feat/snippet-catalogs`, commits `6ec8475` and `32d4aa1`; local tests passed, not merged | Choice UI, nested sessions, completion and extension insertion |
-| Extension installation | `feat/extension-installation`; local VSIX storage/management/activation implemented and locally tested, not merged | Registry discovery, dependencies, multi-extension lifecycle and much broader API support |
-| VS Code import and themes | `feat/vscode-import-themes`; implementation and validation in progress, not merged | Full settings behavior, profiles, extension inventory migration, theme fidelity and sync |
+| Native empty welcome screen | Merged [PR #25](https://github.com/vscli/vscli/pull/25); no initial or last-close phantom document | Recent files/workspaces, onboarding and session restore |
+| Snippet catalogs | Merged user/workspace catalogs in [PR #27](https://github.com/vscli/vscli/pull/27) and native installed-VSIX contributions in [PR #32](https://github.com/vscli/vscli/pull/32); code activation and Node are unnecessary for declarative snippets | Choice UI, nested sessions, completion and extension insertion API |
+| Extension installation | Merged [PR #28](https://github.com/vscli/vscli/pull/28): native local VSIX install/list/uninstall/rollback and explicit optional code activation | Registry discovery, dependencies, multi-extension lifecycle and much broader API support |
+| VS Code import and themes | Merged [PR #30](https://github.com/vscli/vscli/pull/30): read-only preview, copied active profiles, original-byte preservation, native theme picker and persistent selection | Full settings/profile behavior, extension inventory migration, theme fidelity and sync |
+| Recent-file navigation | Implementation and tests underway in `feat/recent-file-navigation`; not merged at this update | Independent integrity review, combined qualification and required CI; workspace transitions and layout restoration remain separate |
+| Shared code-extension sessions | Implementation and tests underway in `feat/shared-extension-sessions`; not merged at this update | Explicit cohort lifecycle, collision/precedence and crash qualification; dependencies and automatic activation remain separate |
 | Code actions and folding | Preserved unfinished work in `feat/lsp-code-actions` and `feat/native-folding` | Resume after the current onboarding features integrate; neither is shipped |
 
-Branch checks do not prove the combined application works. Integrate the welcome
-screen, snippet catalogs, installer and import/themes through reviewed PRs, then
-exercise one end-to-end workflow using all four. No feature is counted as shipped
-until it is on main with the required checks passing.
+The merged onboarding changes passed all six required PR checks. The combined
+Linux executable passed 29 PTY workflows, including import/theme/snippet/VSIX
+activation/save/undo/restart and installed C++ snippets with Node unavailable.
+Original VS Code configuration hashes remain unchanged in the import journey.
+Linux/macOS CI exercises PTYs; Windows native/reference checks do not qualify
+every physical terminal or ConPTY interaction. Named real Sort Lines evidence is
+separate from deterministic integration fixtures. See the linked usage and
+compatibility reports for each feature's limits. Branch checks do not prove a
+combined application works; future changes still require combined review and CI.
 
 ## What is still missing
 
@@ -37,14 +44,14 @@ The [usage guide](USAGE.md), [extension report](EXTENSIONS.md) and
 
 | Area | Existing foundation | Remaining work |
 | --- | --- | --- |
-| Welcome and navigation | Explorer, quick open, palette; welcome in PR | Recent files/workspaces, back/forward history, reopen closed editor, symbol search, outline, breadcrumbs, discoverable settings and consistent focus |
+| Welcome and navigation | Explorer, quick open, palette and native empty welcome | Recent files/workspaces, back/forward history, reopen closed editor, symbol search, outline, breadcrumbs, discoverable settings and consistent focus |
 | Tabs and layout | Shared-document split views, four equal groups | Per-group tabs, resizing/nested splits, preview/pinned tabs, move editors between groups, persisted layout |
 | Session continuity | Dirty-buffer crash recovery | Reopen clean files, cursors, selections and groups after restart; recent workspaces; explicit restore controls; independent terminal restoration |
 | Editing | Multi-cursor, selections, undo, line commands, literal find/replace | Wrapping, folding, smart indentation/brackets, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |
-| Snippets | Literal insertion, linked fields, variables; catalog branch ready | Choices, nested insertion, completion snippets, extension API, full transform semantics |
-| Settings and migration | Small settings subset, language overrides; import branch underway | Autosave, format-on-save, indentation detection, excludes, EOL settings, editable settings UI, full profiles/workspace migration, extension inventory reconciliation |
-| Themes and highlighting | Several language families through Tree-sitter; theme branch underway | TextMate grammar/scope semantics, token font styles, semantic themes, additional workbench colors, icon themes, embedded languages, more grammars |
-| Extension packages | Local VSIX installer branch | Search/download from permitted registries, dependency/version/platform resolution, updates, durable enable/disable state, profiles, package cleanup |
+| Snippets | Literal insertion, linked fields, variables, user/workspace and installed-package catalogs | Choices, nested insertion, completion snippets, extension API, full transform semantics |
+| Settings and migration | Small settings subset, language overrides, copied-profile import and binding diagnostics | Autosave, format-on-save, indentation detection, excludes, EOL settings, editable settings UI, full profiles/workspace migration, extension inventory reconciliation |
+| Themes and highlighting | Several language families through Tree-sitter; native JSONC themes, includes, installed contributions and persistent picker | TextMate grammar/scope semantics, token font styles, semantic themes, additional workbench colors, icon themes, embedded languages, more grammars |
+| Extension packages | Native local VSIX install/list/uninstall/rollback | Search/download from permitted registries, dependency/version/platform resolution, updates, durable enable/disable state, profiles, package cleanup |
 | Extension host | One optional CommonJS command/edit host; named Sort Lines evidence | Concurrent packages, lazy activation, dependency APIs, storage/secrets, full document/editor handles, workspace edits/filesystem, lifecycle/restart and engine/ABI qualification |
 | Extension UI/providers | Commands and simple messages | Quick picks, input boxes, output/status/tree contributions, menus, progress, language/task/debug/test/SCM providers, built-in command delegation |
 | Language intelligence | Explicit single LSP server: diagnostics, basic completion/hover/navigation/formatting/rename | Automatic project setup, multiple servers, signature help, symbols, code actions, resolve/additional edits/snippets, safe multi-file refactors, semantic tokens/inlay hints/code lenses |
@@ -67,11 +74,11 @@ works would hide missing behavior.
 
 ### 1. A polished first session
 
-Finish and integrate the work already underway before opening more unrelated
-implementation branches. Provide a welcome screen, theme picker, migration
-preview, readable compatibility notices and installed-extension management.
-Add recent files/projects and consistent panel/focus navigation immediately after
-that integration.
+The welcome screen, theme picker, migration preview, compatibility notices,
+installed-extension management and native snippet contributions are integrated.
+Complete recent files/reopen navigation next, then workspace transitions and
+session continuity. Continue reviewing combined behavior rather than counting a
+single successful demonstration as full feature parity.
 
 Acceptance: from a clean configuration, start with no phantom document; import a
 real VS Code user directory without modifying its original bytes; select and
