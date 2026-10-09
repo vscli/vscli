@@ -346,6 +346,8 @@ Install local extension packages with **F1 → Extensions: Install from VSIX**, 
 
 Registered commands appear in F1 with an `Extension:` prefix. Manifest keybindings retain their original combinations and platform overrides beneath user overrides/removals; unsupported context expressions are reported. Commands can also be assigned in user keybindings by their original IDs. Edits are version checked and undoable, and do not save files automatically. F1 → Extensions: Stop Host terminates the process while retaining native buffers. The initial host has substantial API and contribution limitations; read the [extension evidence and scope](EXTENSIONS.md) before using an extension.
 
+Enabled command extensions can show a native single-selection Quick Pick or Input Box. Type to filter a pick or edit input, press Enter to accept, and Escape to cancel. Native prompts retain priority; stopping or replacing a host clears its prompts. Password, validation, multi-select and live Quick Input variants explicitly reject. See the [supported options, bounds and named workflow evidence](EXTENSIONS.md#native-quick-pick-and-input-box).
+
 
 ## Recent files and reopening closed editors
 
