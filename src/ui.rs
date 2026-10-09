@@ -1524,7 +1524,11 @@ fn draw_suggestions(frame: &mut Frame, app: &App) {
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(" Suggestions · Tab accepts "),
+                    .title(if app.suggestion_acceptable() {
+                        " Suggestions · Tab accepts "
+                    } else {
+                        " Suggestions · updating "
+                    }),
             ),
         popup,
     );

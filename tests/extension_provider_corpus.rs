@@ -5,11 +5,7 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
-use vscli::{
-    app::{App, Modal},
-    extensions::Package,
-    keys::Profile,
-};
+use vscli::{app::App, extensions::Package, keys::Profile};
 fn until(app: &mut App, predicate: impl Fn(&App) -> bool) {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -69,14 +65,33 @@ fn unchanged_npm_intellisense_completes_native_crlf_buffer_and_undo() {
         "1.4.5",
     );
     app.execute("editor.action.triggerSuggest", Value::Null);
-    until(
-        &mut app,
-        |app| matches!(&app.modal, Some(Modal::Language { items, .. }) if items.iter().any(|i| i.label == "lodash")),
-    );
+    until(&mut app, |app| {
+        app.suggestion_model().is_some_and(|model| {
+            (0..model.len()).any(|index| model.item(index).unwrap().label == "lodash")
+        })
+    });
     app.event(Event::Key(KeyEvent::new(
         KeyCode::Enter,
         KeyModifiers::NONE,
     )));
+    save_undo(
+        &mut app,
+        &path,
+        id,
+        original,
+        "import value from 'lodash';\r\n// 🙂\r\n",
+    );
+    // The same unchanged provider also handles ordinary typing without Ctrl+Space.
+    app.doc_mut()
+        .move_to(original.find("lo").unwrap() + 1, false);
+    app.doc_mut().delete(false);
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('o'),
+        KeyModifiers::NONE,
+    )));
+    until(&mut app, App::suggestion_acceptable);
+    assert!(app.modal.is_none());
+    app.event(Event::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)));
     save_undo(
         &mut app,
         &path,

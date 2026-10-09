@@ -16,6 +16,22 @@ function fixture(timeoutMs = 100) {
 }
 function deferred() { let resolve; const promise = new Promise(done => { resolve = done; }); return { resolve, promise }; }
 
+test('completion invocation translates bounded trigger contexts and rejects invalid variants', async () => {
+  const { providers, request } = fixture(); const seen = [];
+  providers.forOwner('test.extension').registerCompletionItemProvider('cpp', {
+    provideCompletionItems(_, __, ___, context) { seen.push(context); return []; },
+  }, '.');
+  const params = request(providers.snapshot()[0].id);
+  for (const context of [{ triggerKind: 1 }, { triggerKind: 2, triggerCharacter: '.' }, { triggerKind: 3 }]) {
+    await providers.provide({ ...params, completionContext: context });
+  }
+  assert.deepEqual(seen, [{ triggerKind: 0 }, { triggerKind: 1, triggerCharacter: '.' }, { triggerKind: 2 }]);
+  for (const context of [{ triggerKind: 0 }, { triggerKind: 2 }, { triggerKind: 2, triggerCharacter: '..' }, { triggerKind: 1, proposed: true }]) {
+    await assert.rejects(providers.provide({ ...params, completionContext: context }), /completion|trigger/);
+  }
+  assert.equal(seen.length, 3); assert.equal(providers.pendingCount(), 0);
+});
+
 test('provider selectors score exact languages/schemes and reject unsupported filters explicitly', () => {
   const { document } = fixture();
   assert.equal(score(selector('cpp'), document), 10);

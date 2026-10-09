@@ -37,6 +37,12 @@ impl Write for Budget {
 }
 impl Model {
     pub fn parse(mut response: Value, prefix: &str) -> Result<Self> {
+        if response
+            .get("itemDefaults")
+            .is_some_and(|defaults| !defaults.is_null())
+        {
+            bail!("Completion-list item defaults are not implemented");
+        }
         let incomplete = response["isIncomplete"].as_bool().unwrap_or(false);
         let values = if response.is_array() {
             response.take()
@@ -168,6 +174,13 @@ mod tests {
     fn rejects_unbounded_items_text_prefix_and_total_payload_before_retaining_a_model() {
         assert!(Model::parse(json!(vec![json!({"label":"valid"}); 301]), "").is_err());
         assert!(Model::parse(json!(false), "").is_err());
+        assert!(
+            Model::parse(
+                json!({"items":[{"label":"valid"}],"itemDefaults":{"editRange":{}}}),
+                ""
+            )
+            .is_err()
+        );
         assert!(Model::parse(json!([{"label":"x".repeat(MAX_TEXT+1)}]), "").is_err());
         assert!(
             Model::parse(

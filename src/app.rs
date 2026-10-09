@@ -652,6 +652,7 @@ impl App {
         changed |= self.poll_theme();
         changed |= self.poll_navigation();
         changed |= self.poll_session();
+        changed |= self.dispatch_queued_suggestions();
         let visible: Vec<_> = self
             .documents
             .iter()
@@ -853,7 +854,13 @@ impl App {
                 "suggestWidgetVisible".into(),
                 json!(self.suggestion_model().is_some()),
             ),
-            ("acceptSuggestionOnEnter".into(), json!(true)),
+            (
+                "acceptSuggestionOnEnter".into(),
+                json!(
+                    self.settings.suggestions(self.language()).enter
+                        && self.suggestion_acceptable()
+                ),
+            ),
             (
                 "editorHasSignatureHelpProvider".into(),
                 json!(self.has_signature_provider()),
@@ -947,6 +954,7 @@ impl App {
     }
 
     pub fn event(&mut self, event: Event) {
+        let suggestion_edit = self.suggestion_edit_event(&event);
         self.suggestion_ui_event(&event);
         self.provider_ui_event(&event);
         if matches!(&event, Event::Key(key) if key.kind != KeyEventKind::Release)
@@ -960,6 +968,7 @@ impl App {
         self.refresh_signature();
         self.invalidate_symbol_context();
         self.invalidate_pending_extension_commands();
+        self.observe_suggestion_edit(suggestion_edit);
     }
     fn event_inner(&mut self, event: Event) {
         match event {
@@ -1142,6 +1151,23 @@ impl App {
             .unwrap_or(token.clone());
         match self.keymap.resolve(&sequence, &self.context()) {
             Resolution::Command(command, args) => {
+                if matches!(
+                    command.as_str(),
+                    "acceptSelectedSuggestion" | "acceptSelectedSuggestionOnEnter"
+                ) && !self.suggestion_acceptable()
+                {
+                    match key.code {
+                        KeyCode::Tab => {
+                            self.execute_with_args("tab", None);
+                            return;
+                        }
+                        KeyCode::Enter => {
+                            self.execute_with_args("lineBreakInsert", None);
+                            return;
+                        }
+                        _ => {}
+                    }
+                }
                 self.execute_with_args(&command, args);
                 return;
             }
@@ -1185,14 +1211,16 @@ impl App {
         self.execute_with_args(command, (!args.is_null()).then_some(args));
     }
     fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
+        let suggestion_edit = self.suggestion_edit_command(command, args.as_ref());
         self.execute_inner(command, args);
         self.sync_pane();
         self.invalidate_pending_extension_commands();
+        self.observe_suggestion_edit(suggestion_edit);
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
         if suggestions::command(command) {
             self.advance_suggestion_interaction();
-        } else {
+        } else if !suggestions::typing_command(command) {
             self.cancel_suggestions();
         }
         if command != "editor.action.triggerParameterHints" {

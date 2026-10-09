@@ -152,6 +152,10 @@ function createConfiguration() {
         'editor.tabSize': { default: 4, scope: 'language-overridable' },
         'editor.insertSpaces': { default: true, scope: 'language-overridable' },
         'editor.lineNumbers': { default: 'on', scope: 'language-overridable' },
+        'editor.quickSuggestions': { default: true, scope: 'language-overridable' },
+        'editor.quickSuggestionsDelay': { default: 120, scope: 'language-overridable' },
+        'editor.suggestOnTriggerCharacters': { default: true, scope: 'language-overridable' },
+        'editor.acceptSuggestionOnEnter': { default: 'on', scope: 'language-overridable' },
       });
       for (const group of Array.isArray(configuration) ? configuration : [configuration]) {
         for (const [key, property] of Object.entries(group?.properties || {})) {
