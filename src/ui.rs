@@ -854,6 +854,7 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::RecentFiles => " Open Recent File · file history only ",
         PromptKind::Snippet => " Insert Snippet · name, prefix or description ",
         PromptKind::Theme => " Color Theme · select or Load Color Theme File from commands ",
+        PromptKind::SearchExtensions => " Search Open VSX · Enter searches · Esc cancels ",
         PromptKind::StopExtension => " Stop Selected Extension ID (publisher.name) ",
         PromptKind::ThemeFile => " Load VS Code Color Theme (JSON/JSONC path) ",
         PromptKind::Open => " Open File (absolute or workspace-relative) ",
@@ -1264,15 +1265,55 @@ fn draw_modal(frame: &mut Frame, app: &App) {
             frame.render_widget(Paragraph::new(format!("{}@{}\n{}\n\nRuns package code with your user permissions in the optional Node host.\nAdds or replaces this package in the selected session; restarts all selected packages.\nInstallation and package identity do not establish API compatibility.", clean(&item.id), clean(&item.version), clean(&item.compatibility))).wrap(Wrap {trim:false}), inner);
             return;
         }
+        Modal::ExtensionRegistry { items, selected } => {
+            let inner = popup(
+                frame,
+                colors,
+                " Open VSX · Enter installs displayed version · / search again · Esc closes ",
+                110,
+                frame.area().height.saturating_sub(2),
+            );
+            let rows = inner.height.saturating_sub(4) as usize;
+            let offset = selected.saturating_sub(rows.saturating_sub(1));
+            let mut lines = vec![Line::raw(clean(&app.message))];
+            if items.is_empty() {
+                lines.push(Line::raw("No matching packages or updates."));
+            }
+            for (index, item) in items.iter().enumerate().skip(offset).take(rows) {
+                lines.push(Line::styled(
+                    format!(
+                        "{}@{}  {}",
+                        clean(&item.id),
+                        clean(&item.version),
+                        clean(&item.name)
+                    ),
+                    if index == *selected {
+                        Style::default().fg(colors.foreground).bg(colors.selection)
+                    } else {
+                        Style::default().fg(colors.foreground)
+                    },
+                ));
+            }
+            if let Some(item) = items.get(*selected) {
+                lines.push(Line::raw(format!(
+                    "{} · {}",
+                    clean(&item.platform),
+                    clean(&item.license)
+                )));
+                lines.push(Line::raw(clean(&item.description)));
+            }
+            frame.render_widget(Paragraph::new(lines), inner);
+            return;
+        }
         Modal::Extensions { items, selected } => {
             let inner = popup(
                 frame,
                 colors,
-                " Installed Extensions · Enter run · S stop selected · H restart session · R rollback · Delete remove ",
+                " Installed Extensions · Enter run · S stop selected · H restart session · R rollback · Delete remove · / search · U updates ",
                 120,
                 frame.area().height.saturating_sub(2),
             );
-            let session_lines: Vec<_> = app
+            let mut session_lines: Vec<_> = app
                 .extension_packages
                 .iter()
                 .map(|package| {
@@ -1284,6 +1325,7 @@ fn draw_modal(frame: &mut Frame, app: &App) {
                     ))
                 })
                 .collect();
+            session_lines.insert(0, Line::raw(clean(&app.message)));
             let height = (inner.height as usize).saturating_sub(session_lines.len());
             let offset = selected.saturating_sub(height.saturating_sub(1));
             let lines: Vec<_> = if items.is_empty() {

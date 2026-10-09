@@ -89,7 +89,7 @@ struct Args {
     /// Run a trusted unpacked extension or installed publisher.name (repeatable; executes code)
     #[arg(long)]
     extension: Vec<PathBuf>,
-    /// Install a local VSIX without executing its code
+    /// Install a local VSIX or an Open VSX publisher.name without executing code
     #[arg(long, conflicts_with_all = ["list_extensions", "uninstall_extension", "rollback_extension"])]
     install_extension: Option<PathBuf>,
     /// List installed packages and experimental compatibility status
@@ -101,6 +101,18 @@ struct Args {
     /// Restore the previous installed generation
     #[arg(long)]
     rollback_extension: Option<String>,
+    /// Search Open VSX without opening the UI
+    #[arg(long, conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension", "update_extension", "check_extension_updates"])]
+    search_extensions: Option<String>,
+    /// Check installed packages for stable Open VSX updates
+    #[arg(long, conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension", "update_extension"])]
+    check_extension_updates: bool,
+    /// Download and install the latest compatible stable package (never executes code)
+    #[arg(long, conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension"])]
+    update_extension: Option<String>,
+    /// Open VSX-compatible registry URL (HTTPS or numeric loopback HTTP)
+    #[arg(long, default_value = vscli::extension_registry::DEFAULT_URL)]
+    extension_registry: String,
     /// Override native extension storage
     #[arg(long)]
     extensions_dir: Option<PathBuf>,
@@ -161,10 +173,21 @@ fn main() -> Result<()> {
         .extensions_dir
         .clone()
         .or_else(vscli::extension_store::default_directory);
+    let registry = vscli::extension_registry::Registry::new(&args.extension_registry)?;
+    let registry_cancel = std::sync::atomic::AtomicBool::new(false);
+    if let Some(query) = &args.search_extensions {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&registry.search(query, &registry_cancel)?)?
+        );
+        return Ok(());
+    }
     if args.install_extension.is_some()
         || args.list_extensions
         || args.uninstall_extension.is_some()
         || args.rollback_extension.is_some()
+        || args.update_extension.is_some()
+        || args.check_extension_updates
     {
         let store = vscli::extension_store::Store::new(
             extensions_directory
@@ -172,11 +195,39 @@ fn main() -> Result<()> {
                 .context("No extension storage directory; use --extensions-dir")?,
         );
         if let Some(path) = &args.install_extension {
-            let installed = store.install(path)?;
+            let installed = if path.is_file() {
+                store.install(path)?
+            } else {
+                registry.install(
+                    &registry.latest(&path.to_string_lossy(), &registry_cancel)?,
+                    &store,
+                    &registry_cancel,
+                )?
+            };
             println!(
                 "Installed {}@{}\n{}\nInstallation does not activate code. Run: vscli --extension {}",
                 installed.id, installed.version, installed.compatibility, installed.id
             );
+        } else if args.check_extension_updates {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&registry.updates(&store.list()?, &registry_cancel)?)?
+            );
+        } else if let Some(id) = &args.update_extension {
+            let current = store.get(id)?;
+            let entry = registry.latest(id, &registry_cancel)?;
+            if semver::Version::parse(&entry.version)? > semver::Version::parse(&current.version)? {
+                let installed = registry.install(&entry, &store, &registry_cancel)?;
+                println!(
+                    "Updated {}@{}; restart its host to use this version",
+                    installed.id, installed.version
+                );
+            } else {
+                println!(
+                    "{}@{} is current; no downgrade applied",
+                    current.id, current.version
+                );
+            }
         } else if let Some(id) = &args.uninstall_extension {
             store.uninstall(id)?;
             println!("Uninstalled {id}; retained immutable files for running hosts");
@@ -266,6 +317,7 @@ fn main() -> Result<()> {
     let mut app = App::new(root, profile);
     app.configure_recents(config_root.as_deref());
     app.extensions_directory = extensions_directory.clone();
+    app.extension_registry = registry;
     app.extension_node = args.extension_node.clone();
     let settings_path = args
         .settings

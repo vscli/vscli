@@ -118,6 +118,8 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Preferences: Color Theme", "workbench.action.selectTheme"),
     ("Preferences: Color Theme Report", "vscli.theme.report"),
     ("Preferences: Load Color Theme File", "vscli.theme.load"),
+    ("Extensions: Search Open VSX", "vscli.extensions.search"),
+    ("Extensions: Check for Updates", "vscli.extensions.updates"),
     ("Extensions: Stop Host", "vscli.extensions.stop"),
     (
         "Extensions: Stop Selected Package",
@@ -299,6 +301,7 @@ pub enum PromptKind {
     Extension(Box<crate::extensions::NativePrompt>),
     Symbols,
     InstallExtension,
+    SearchExtensions,
     StopExtension,
     Palette,
     QuickOpen,
@@ -341,7 +344,7 @@ impl Prompt {
     pub fn insert(&mut self, text: &str) -> bool {
         let limit = match self.kind {
             PromptKind::Extension(_) => crate::extensions::MAX_PROMPT_TEXT,
-            PromptKind::Symbols => 1024,
+            PromptKind::Symbols | PromptKind::SearchExtensions => 1024,
             _ => usize::MAX,
         };
         if (if self.select_all { 0 } else { self.text.len() }) + text.len() > limit {
@@ -366,6 +369,10 @@ pub enum AfterSave {
 }
 pub enum Modal {
     ExtensionsLoading(u64),
+    ExtensionRegistry {
+        items: Vec<crate::extension_registry::Entry>,
+        selected: usize,
+    },
     Extensions {
         items: Vec<crate::extension_store::Installed>,
         selected: usize,
@@ -445,6 +452,7 @@ pub struct App {
     pub terminal_visible: bool,
     pub terminal_area: Rect,
     pub extensions_directory: Option<PathBuf>,
+    pub extension_registry: crate::extension_registry::Registry,
     pub extension_node: String,
     extension_job: Option<extension_management::Job>,
     extension_retirement: Option<std::sync::mpsc::Receiver<()>>,
@@ -525,6 +533,7 @@ impl App {
             terminal_area: Rect::default(),
             extension_host: None,
             extensions_directory: crate::extension_store::default_directory(),
+            extension_registry: crate::extension_registry::Registry::default(),
             extension_node: "node".into(),
             extension_job: None,
             extension_retirement: None,
@@ -839,10 +848,10 @@ impl App {
             Event::Paste(text) => {
                 if let Some(prompt) = &mut self.prompt {
                     if !prompt.insert(&text.replace(['\r', '\n'], "")) {
-                        self.message = if matches!(prompt.kind, PromptKind::Symbols) {
-                            "Symbol query exceeds 1 KiB"
-                        } else {
-                            "Extension prompt text exceeds 4 KiB"
+                        self.message = match prompt.kind {
+                            PromptKind::Symbols => "Symbol query exceeds 1 KiB",
+                            PromptKind::SearchExtensions => "Extension search exceeds 1 KiB",
+                            _ => "Extension prompt text exceeds 4 KiB",
                         }
                         .into();
                     }
@@ -1413,6 +1422,8 @@ impl App {
             "editor.action.nextMatchFindAction" => self.find(false),
             "editor.action.previousMatchFindAction" => self.find(true),
             "workbench.action.gotoLine" => self.start_prompt(PromptKind::Goto, String::new()),
+            "vscli.extensions.search" => self.start_prompt(PromptKind::SearchExtensions, String::new()),
+            "vscli.extensions.updates" => self.manage_extension(extension_management::Action::CheckUpdates),
             "workbench.extensions.action.installVSIX" => self.start_prompt(PromptKind::InstallExtension, String::new()),
             "workbench.view.extensions" | "workbench.extensions.action.showInstalledExtensions" => self.manage_extension(extension_management::Action::List),
             "vscli.extensions.stop" => self.stop_extension_host(),
@@ -1638,6 +1649,29 @@ impl App {
                     self.modal = Some(Modal::ConfirmTask(task));
                 }
             }
+            Modal::ExtensionRegistry {
+                items,
+                mut selected,
+            } => {
+                match key.code {
+                    KeyCode::Up => selected = selected.saturating_sub(1),
+                    KeyCode::Down => selected = (selected + 1).min(items.len().saturating_sub(1)),
+                    KeyCode::Enter => {
+                        if let Some(item) = items.get(selected) {
+                            self.manage_extension(extension_management::Action::RegistryInstall(
+                                item.clone(),
+                            ));
+                        }
+                        return;
+                    }
+                    KeyCode::Char('/') => {
+                        self.start_prompt(PromptKind::SearchExtensions, String::new());
+                        return;
+                    }
+                    _ => {}
+                }
+                self.modal = Some(Modal::ExtensionRegistry { items, selected });
+            }
             Modal::Extensions {
                 items,
                 mut selected,
@@ -1653,6 +1687,14 @@ impl App {
                                 self.message = format!("{}: {}", item.id, item.compatibility);
                             }
                         }
+                        return;
+                    }
+                    KeyCode::Char('/') => {
+                        self.start_prompt(PromptKind::SearchExtensions, String::new());
+                        return;
+                    }
+                    KeyCode::Char('u' | 'U') => {
+                        self.manage_extension(extension_management::Action::CheckUpdates);
                         return;
                     }
                     KeyCode::Char('s' | 'S') => {
@@ -1906,10 +1948,10 @@ impl App {
             {
                 let accepted = p.insert(&c.to_string());
                 if !accepted {
-                    self.message = if matches!(p.kind, PromptKind::Symbols) {
-                        "Symbol query exceeds 1 KiB"
-                    } else {
-                        "Extension prompt text exceeds 4 KiB"
+                    self.message = match p.kind {
+                        PromptKind::Symbols => "Symbol query exceeds 1 KiB",
+                        PromptKind::SearchExtensions => "Extension search exceeds 1 KiB",
+                        _ => "Extension prompt text exceeds 4 KiB",
                     }
                     .into();
                 }
@@ -1926,6 +1968,9 @@ impl App {
             PromptKind::Symbols => self.accept_symbol(&p.text, p.selected),
             PromptKind::RecentFiles => self.accept_recent(&p.text, p.selected),
             PromptKind::Snippet => self.accept_snippet(&p.text, p.selected),
+            PromptKind::SearchExtensions => {
+                self.manage_extension(extension_management::Action::Search(p.text))
+            }
             PromptKind::InstallExtension => self.manage_extension(
                 extension_management::Action::Install(self.resolve_path(&p.text)),
             ),
