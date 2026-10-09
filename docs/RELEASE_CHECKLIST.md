@@ -28,7 +28,7 @@ The active goal is the complete terminal IDE described by the user, not another 
 
 ## Current implementation pass
 
-Start with multiple cursors and missing editing commands, then workspace search and language tooling. Keep the working alpha runnable throughout. Add behavior tests for changes to document state before exposing new commands in the UI. Record completed work and remaining limitations in the usage guide as capabilities land.
+Follow the [parity and user experience plan](PARITY_PLAN.md): integrate welcome, extension installation, themes and migration first; then useful concurrent extensions, familiar navigation and language workflows, session continuity, and the full development loop. C++/clangd is the first complete language qualification, while broad user impact determines priorities. Keep main runnable and distinguish branch implementation, merged behavior and qualification evidence.
 
 ## Verified additions during the full-project goal
 
@@ -42,7 +42,7 @@ Start with multiple cursors and missing editing commands, then workspace search 
 
 - Independent split views share a document and versioned undo history; core tests cover cursor mapping through disjoint edits and grouped undo/redo. Nested/resizable layouts and per-group tab stacks remain incomplete.
 
-- Explorer file/folder creation, rename with open-buffer path updates, system trash, and explicit index refresh are implemented; create/rename collision and unsaved-buffer tests pass. Trash restoration and automatic watching remain incomplete.
+- Explorer file/folder creation, rename with open-buffer path updates, system trash, and explicit index refresh are implemented; create/rename collision and unsaved-buffer tests pass. Trash restoration remains an OS workflow; native watching and index updates are implemented as described below.
 
 - Native DAP launch, breakpoints, stepping, stack/scopes/variables, and evaluation pass a real debugpy integration test. A deterministic adapter covers out-of-order variables, failed stepping, and disconnect. Launch/attach configuration, advanced breakpoints, watches, and test providers remain incomplete.
 
