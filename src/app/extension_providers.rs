@@ -59,22 +59,27 @@ impl App {
     pub(super) fn provider_ui_event(&mut self, event: &Event) {
         let allowed = match event {
             Event::Key(key) if key.kind != KeyEventKind::Release => {
+                // Resolve hint dismissal against the still-current visible hint.
+                // Advancing the input epoch first would make its when-clause false.
+                let dismiss_hint = self.extension_signature_help().is_some()
+                    && matches!(self.keymap.resolve(&keys::token(*key), &self.context()), Resolution::Command(command, _) if command == "closeParameterHints");
                 let picker = matches!(&self.modal, Some(Modal::Language { items, .. }) if items.iter().any(|i| matches!(i.action, language::LanguageAction::Provider { .. })));
                 let symbols = self.provider_symbols_active()
                     && matches!(
                         self.prompt.as_ref().map(|p| &p.kind),
                         Some(PromptKind::Symbols)
                     );
-                (picker
-                    && matches!(
-                        key.code,
-                        KeyCode::Up
-                            | KeyCode::Down
-                            | KeyCode::PageUp
-                            | KeyCode::PageDown
-                            | KeyCode::Enter
-                            | KeyCode::Tab
-                    ))
+                dismiss_hint
+                    || (picker
+                        && matches!(
+                            key.code,
+                            KeyCode::Up
+                                | KeyCode::Down
+                                | KeyCode::PageUp
+                                | KeyCode::PageDown
+                                | KeyCode::Enter
+                                | KeyCode::Tab
+                        ))
                     || (symbols
                         && (key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT)
                         && matches!(
@@ -738,6 +743,19 @@ mod tests {
             assert_eq!(app.doc().text.to_string(), before);
             assert_eq!(app.doc().selections(), selections);
         }
+    }
+    #[test]
+    fn original_signature_dismiss_binding_resolves_before_context_expiry() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        request(&mut app, Kind::Signature);
+        assert!(app.signature_help().is_some());
+        app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::SHIFT)));
+        assert!(app.signature_help().is_none());
+        assert!(
+            app.extension_providers.lease.is_none(),
+            "Shift+Escape must execute the native close command, not only hide a stale hint"
+        );
     }
     #[test]
     fn untitled_provider_symbols_filter_and_navigate_without_creating_a_file() {
