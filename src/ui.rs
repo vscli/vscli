@@ -177,6 +177,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     );
     draw_extension_status(frame, app, rows[3]);
     draw_signature(frame, app);
+    draw_suggestions(frame, app);
     if app.prompt.is_some() {
         draw_prompt(frame, app);
     }
@@ -1464,6 +1465,68 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
             .wrap(Wrap { trim: false })
             .style(Style::default().fg(colors.foreground)),
         inner,
+    );
+}
+
+fn draw_suggestions(frame: &mut Frame, app: &App) {
+    let Some(model) = app.suggestion_model() else {
+        return;
+    };
+    let doc = app.doc();
+    let area = app.editor_area;
+    if area.width < 12
+        || area.height < 4
+        || doc.row() < doc.top
+        || doc.row() >= doc.top + area.height as usize
+    {
+        return;
+    }
+    let column = doc.visual_column();
+    if column < doc.left || column >= doc.left + area.width as usize {
+        return;
+    }
+    let caret_x = area.x + (column - doc.left) as u16;
+    let caret_y = area.y + (doc.row() - doc.top) as u16;
+    let width = area.width.min(64);
+    let height = (model.len().min(8) as u16 + 2).min(area.height);
+    let x = caret_x.min(area.right().saturating_sub(width));
+    let y = if caret_y.saturating_add(height) < area.bottom() {
+        caret_y + 1
+    } else {
+        caret_y.saturating_sub(height).max(area.y)
+    };
+    let popup = Rect::new(x, y, width, height);
+    let colors = app.theme.colors;
+    let first = model
+        .selected()
+        .saturating_sub(height.saturating_sub(3) as usize);
+    let lines: Vec<_> = (first..model.len())
+        .take(height.saturating_sub(2) as usize)
+        .filter_map(|index| {
+            model.item(index).map(|item| {
+                Line::styled(
+                    format!("{}  {}", clean(&item.label), clean(&item.detail)),
+                    Style::default()
+                        .fg(colors.foreground)
+                        .bg(if index == model.selected() {
+                            colors.selection
+                        } else {
+                            colors.panel
+                        }),
+                )
+            })
+        })
+        .collect();
+    frame.render_widget(Clear, popup);
+    frame.render_widget(
+        Paragraph::new(lines)
+            .style(Style::default().fg(colors.foreground).bg(colors.panel))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Suggestions · Tab accepts "),
+            ),
+        popup,
     );
 }
 

@@ -20,7 +20,7 @@ def run(root):
     app = Editor(root, '--extension', extension, source, enhanced=True)
     wait(app, 'Extension ready:')
     app.send(b'\x1b[32;5u')  # original Ctrl+Space
-    wait(app, 'Extension Completion')
+    wait(app, 'Suggestions')
     app.send(b'\x1b[B\r')
     save(app, source, 'SELECT 🙂\r\nfrom table;\r\n')
     app.send(CTRL_Z)

@@ -30,6 +30,23 @@ pub(super) struct State {
     hint: Option<crate::signature::Hint>,
 }
 impl App {
+    pub(super) fn completion_provider_ticket(&self) -> Option<Ticket> {
+        self.extension_providers
+            .lease
+            .as_ref()
+            .filter(|lease| {
+                lease.ticket.provider.kind == Kind::Completion
+                    && self.provider_current(&lease.ticket, &lease.context)
+            })
+            .map(|lease| lease.ticket.clone())
+    }
+    pub(super) fn advance_completion_provider_interaction(&mut self) {
+        if self.completion_provider_ticket().is_some()
+            && let Some(lease) = &mut self.extension_providers.lease
+        {
+            lease.context.accept_next_interaction();
+        }
+    }
     pub(super) fn has_extension_provider(&self, kind: Kind) -> bool {
         self.active_document().is_some_and(|d| {
             self.extension_host
@@ -242,6 +259,9 @@ impl App {
         if let Some(lease) = &mut self.extension_providers.lease {
             lease.shown = true;
         }
+        if ticket.provider.kind == Kind::Completion {
+            return self.provider_suggestion_response(ticket, value);
+        }
         if value.is_null() {
             self.message = "Extension language provider returned no results".into();
             return Ok(());
@@ -254,37 +274,7 @@ impl App {
                     scroll: 0,
                 })
             }
-            Kind::Completion => {
-                let values = value
-                    .as_array()
-                    .or_else(|| value["items"].as_array())
-                    .context("Invalid completion list")?;
-                if values.len() > 300 {
-                    bail!("Completion list exceeds 300 entries")
-                }
-                let mut values = values.clone();
-                values.sort_by(|a, b| {
-                    a["sortText"]
-                        .as_str()
-                        .or(a["label"].as_str())
-                        .cmp(&b["sortText"].as_str().or(b["label"].as_str()))
-                });
-                let items = values
-                    .into_iter()
-                    .map(|item| language::LanguageItem {
-                        label: item["label"].as_str().unwrap_or("Completion").to_owned(),
-                        action: language::LanguageAction::Provider {
-                            ticket: ticket.clone(),
-                            item,
-                        },
-                    })
-                    .collect();
-                self.modal = Some(Modal::Language {
-                    title: " Extension Completion · Enter applies · Esc closes ".into(),
-                    items,
-                    selected: 0,
-                });
-            }
+            Kind::Completion => unreachable!("Completion responses use suggestion routing"),
             Kind::Formatting => {
                 let changes = provider_edits(self.doc(), serde_json::from_value(value)?)?;
                 self.doc_mut().apply_changes(changes);
@@ -660,7 +650,7 @@ mod tests {
         let id = app.doc().id;
         app.doc_mut().move_to(3, false);
         request(&mut app, Kind::Completion);
-        assert!(matches!(app.modal, Some(Modal::Language { .. })));
+        assert!(app.suggestion_model().is_some());
         app.event(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)));
         app.event(Event::Key(KeyEvent::new(
             KeyCode::Enter,
@@ -732,13 +722,19 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let mut app = app(root.path());
         request(&mut app, Kind::Completion);
-        let Some(Modal::Language { items, .. }) = app.modal.take() else {
-            panic!()
-        };
+        let item = app
+            .suggestion_model()
+            .unwrap()
+            .item(0)
+            .unwrap()
+            .value
+            .clone();
+        let ticket = app.completion_provider_ticket().unwrap();
+        let action = LanguageAction::Provider { ticket, item };
         app.doc_mut().insert("newer ", false);
         let before = app.doc().text.to_string();
         let selections = app.doc().selections();
-        assert!(app.language_action(&items[0].action).is_err());
+        assert!(app.language_action(&action).is_err());
         assert_eq!(app.doc().text.to_string(), before);
         assert_eq!(app.doc().selections(), selections);
         app.doc_mut().undo();
@@ -848,9 +844,15 @@ mod tests {
             .push(Document::from_text("hidden unsaved"));
         app.split_editor(false);
         request(&mut app, Kind::Completion);
-        let Some(Modal::Language { items, .. }) = app.modal.take() else {
-            panic!()
-        };
+        let item = app
+            .suggestion_model()
+            .unwrap()
+            .item(0)
+            .unwrap()
+            .value
+            .clone();
+        let ticket = app.completion_provider_ticket().unwrap();
+        let action = LanguageAction::Provider { ticket, item };
         let original = app.doc().text.to_string();
         let active = app.active_pane;
         let other = app.panes[0].id;
@@ -858,14 +860,20 @@ mod tests {
         app.doc_mut().activate_view(other);
         app.doc_mut().move_to(2, false);
         app.doc_mut().activate_view(current);
-        assert!(app.language_action(&items[0].action).is_err());
+        assert!(app.language_action(&action).is_err());
         assert_eq!(app.doc().text.to_string(), original);
         request(&mut app, Kind::Completion);
-        let Some(Modal::Language { items, .. }) = app.modal.take() else {
-            panic!()
-        };
+        let item = app
+            .suggestion_model()
+            .unwrap()
+            .item(0)
+            .unwrap()
+            .value
+            .clone();
+        let ticket = app.completion_provider_ticket().unwrap();
+        let action = LanguageAction::Provider { ticket, item };
         app.hidden_documents[0].insert("newer ", false);
-        assert!(app.language_action(&items[0].action).is_err());
+        assert!(app.language_action(&action).is_err());
         assert_eq!(app.doc().text.to_string(), original);
         request(&mut app, Kind::Completion);
         let before = app.doc().view_state(Some(other)).clone();
