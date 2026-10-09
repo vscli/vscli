@@ -39,8 +39,14 @@ impl Server {
                     thread::sleep(Duration::from_millis(1));
                     continue;
                 };
+                // Accepted sockets can inherit nonblocking mode on macOS/Windows.
+                // The owned fixture worker must wait for the complete request.
+                socket.set_nonblocking(false).unwrap();
                 socket
                     .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                socket
+                    .set_write_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
                 let mut data = Vec::new();
                 let mut byte = [0];
@@ -357,4 +363,24 @@ fn cancellation_and_invalid_urls_never_publish_or_touch_network() {
     };
     assert!(registry.install(&entry, &store, &cancel).is_err());
     assert!(!store.root().exists());
+}
+
+#[test]
+fn fixture_waits_for_fragmented_headers_before_looking_up_a_route() {
+    let server = Server::new();
+    server.put("/fragment", 200, b"complete".to_vec());
+    let mut socket =
+        std::net::TcpStream::connect(server.url.trim_start_matches("http://")).unwrap();
+    socket
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    socket.write_all(b"GET /frag").unwrap();
+    thread::sleep(Duration::from_millis(10));
+    socket
+        .write_all(b"ment HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        .unwrap();
+    let mut response = String::new();
+    socket.read_to_string(&mut response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+    assert!(response.ends_with("complete"), "{response}");
 }

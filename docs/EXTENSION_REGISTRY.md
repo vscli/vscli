@@ -36,10 +36,10 @@ A request exceeding its operation deadline fails clearly. There is no automatic
 update or automatic execution grant. Running extension hosts retain their immutable
 selected package snapshots until explicitly restarted/reselected.
 
-Four deterministic Rust HTTP/integrity tests cover platform fallback, summary
+Five deterministic Rust HTTP/integrity tests cover platform fallback, summary
 resolution, exact metadata versions, query encoding, byte/result/display limits,
 unsupported targets/prereleases/URLs, cancellation, unavailable-package notices,
-checksum/manifest mismatch, preserved registry bytes and rollback. These tests
+checksum/manifest mismatch, preserved registry bytes, rollback and fragmented requests. These tests
 run without external network access. Signature verification, engine/API/ABI
 qualification, dependency downloading, authenticated registries, prerelease
 selection, pagination, automatic updates and broad extension compatibility remain
