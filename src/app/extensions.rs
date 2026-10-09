@@ -12,10 +12,20 @@ impl App {
         if self.extension_packages.is_empty() {
             self.extension_packages = host.packages.clone();
         }
-        let before: Vec<_> = self.documents.iter().map(|d| d.revision).collect();
+        let before: Vec<_> = self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .map(|d| d.revision)
+            .collect();
         let commands = host.commands.clone();
         let busy = host.busy();
-        match host.poll(&mut self.documents, self.active, &self.settings) {
+        match host.poll_with_hidden(
+            &mut self.documents,
+            &mut self.hidden_documents,
+            self.active,
+            &self.settings,
+        ) {
             Ok(messages) => {
                 let changed = !messages.is_empty()
                     || busy != host.busy()
@@ -24,6 +34,7 @@ impl App {
                         != self
                             .documents
                             .iter()
+                            .chain(&self.hidden_documents)
                             .map(|d| d.revision)
                             .collect::<Vec<_>>();
                 if messages.is_empty()
@@ -87,7 +98,14 @@ impl App {
                 );
                 return;
             }
-            match host.execute(command, args, &self.documents, self.active, &self.settings) {
+            match host.execute_with_hidden(
+                command,
+                args,
+                &self.documents,
+                &self.hidden_documents,
+                self.active,
+                &self.settings,
+            ) {
                 Ok(()) => self.message = format!("Running extension command: {command}"),
                 Err(error) => self.message = format!("Extension command failed: {error:#}"),
             }

@@ -538,7 +538,7 @@ fn main() -> Result<()> {
     while app.running {
         if interrupted.load(Ordering::Relaxed) {
             if let Some(worker) = recovery.take() {
-                worker.preserve(&app.documents)?;
+                worker.preserve_refs(&app.recovery_documents())?;
             }
             bail!("Interrupted; unsaved buffers retained in recovery storage when enabled");
         }
@@ -569,7 +569,7 @@ fn main() -> Result<()> {
         }
         if last_recovery.elapsed() >= Duration::from_secs(2) {
             if let Some(worker) = &mut recovery
-                && let Err(e) = worker.submit(&app.documents)
+                && let Err(e) = worker.submit_refs(&app.recovery_documents())
             {
                 app.message = format!("Recovery write failed: {e:#}");
                 redraw = true;

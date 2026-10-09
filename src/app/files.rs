@@ -37,7 +37,7 @@ impl App {
                     }
                     Action::Rename { from, to } => {
                         let to = std::fs::canonicalize(&to).unwrap_or(to);
-                        for doc in &mut self.documents {
+                        for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
                             if let Some(path) = &doc.path
                                 && let Ok(relative) = path.strip_prefix(&from)
                             {
@@ -53,7 +53,7 @@ impl App {
                     }
                     Action::Trash(path) => {
                         let mut retained = 0;
-                        for doc in &mut self.documents {
+                        for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
                             if doc.path.as_ref().is_some_and(|p| p.starts_with(&path)) {
                                 doc.path = None;
                                 doc.disk_content = None;

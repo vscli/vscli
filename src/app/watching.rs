@@ -7,6 +7,7 @@ impl App {
         let paths: Vec<_> = self
             .documents
             .iter()
+            .chain(&self.hidden_documents)
             .filter_map(|d| d.path.clone())
             .collect();
         if paths != self.watch.paths && self.watch.monitor.set_paths(paths.clone()) {
@@ -52,6 +53,7 @@ impl App {
             let documents = self
                 .documents
                 .iter()
+                .chain(&self.hidden_documents)
                 .filter_map(|d| {
                     d.path.clone().map(|path| ReadRequest {
                         id: d.id,
@@ -81,6 +83,7 @@ impl App {
             let Some(doc) = self
                 .documents
                 .iter_mut()
+                .chain(&mut self.hidden_documents)
                 .find(|d| d.id == result.id && d.path.as_ref() == Some(&result.path))
             else {
                 continue;
@@ -123,9 +126,12 @@ impl App {
                 changed = true;
             }
         }
-        self.watch
-            .notices
-            .retain(|id, _| self.documents.iter().any(|d| d.id == *id));
+        self.watch.notices.retain(|id, _| {
+            self.documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .any(|d| d.id == *id)
+        });
         changed
     }
 }
