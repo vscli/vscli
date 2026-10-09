@@ -22,3 +22,5 @@ pub mod transport;
 pub mod ui;
 pub mod watch;
 pub mod workspace;
+
+pub mod recent;
