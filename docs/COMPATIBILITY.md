@@ -234,3 +234,15 @@ On each release, publish a generated API report and the named workflow results. 
 ## Empty workbench
 
 Starting without file arguments and closing the last editor leave a true zero-document workbench. The native welcome view displays a terminal logo and keyboard actions; it does not own a hidden untitled buffer. File-specific commands require an open editor, while workspace commands and the optional extension host remain available. Dirty close confirmation and crash-recovered documents take precedence over the empty welcome view. Unit tests cover command guards, context keys, resize/rendering and save/close integrity; Unix PTY coverage exercises startup, explicit creation, dirty close, last-tab close and restarting with empty recovery state. This is a terminal welcome view, not VS Code's browser-backed walkthrough or start-page extension API.
+
+### Native clean-session metadata
+
+Opt-in `--restore-session` and `vscli.session.restore` reopen clean disk files and
+VSCLI's current global-tab/four-equal-group layout. Recovery buffers and explicit
+CLI files remain authoritative; no editor text is stored in this metadata. The
+implementation restores each tab's last view and each visible group's view, with
+bounded background reads, per-instance leases, atomic publication and retryable
+all-or-nothing restore. `--no-session` disables this separate persistence mechanism.
+See [usage and limits](USAGE.md#clean-file-session-restoration) for qualification.
+This is a native convenience feature, not a claim of VS Code hot-exit, independent
+per-group tabs, terminal persistence, workspace transitions, or extension-state parity.

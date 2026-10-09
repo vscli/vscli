@@ -94,6 +94,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 5
         run: python3 -u tests/pty_smoke.py target/debug/vscli
+      - name: Run clean-session restart workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/session_restore_pty.py target/debug/vscli
       - name: Run shared extension session workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

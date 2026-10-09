@@ -8,6 +8,8 @@ mod language;
 mod navigation;
 mod panes;
 mod signature_help;
+
+mod session;
 mod snippet_catalogs;
 mod snippets;
 mod source_control;
@@ -130,6 +132,10 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "workbench.action.files.newUntitledFile",
     ),
     ("File: Open File…", "workbench.action.files.openFile"),
+    (
+        "File: Restore Previous Clean Session",
+        "vscli.session.restore",
+    ),
     ("Explorer: New File", "explorer.newFile"),
     ("Explorer: New Folder", "explorer.newFolder"),
     ("Explorer: Rename Selected Item", "renameFile"),
@@ -445,6 +451,7 @@ pub struct App {
     pub syntax: crate::syntax::Engine,
     pub theme: crate::theme::Theme,
     pub recent_files: crate::recent::State,
+    session: session::State,
     navigation: navigation::State,
     symbols: symbols::State,
     theme_state: themes::State,
@@ -521,6 +528,7 @@ impl App {
             syntax: crate::syntax::Engine::default(),
             theme: crate::theme::Theme::default(),
             recent_files: crate::recent::State::default(),
+            session: session::State::default(),
             navigation: navigation::State::default(),
             symbols: symbols::State::default(),
             theme_state: themes::State::default(),
@@ -585,6 +593,7 @@ impl App {
         changed |= self.poll_snippet_catalog();
         changed |= self.poll_theme();
         changed |= self.poll_navigation();
+        changed |= self.poll_session();
         let visible: Vec<_> = self
             .documents
             .iter()
@@ -802,6 +811,12 @@ impl App {
     }
 
     pub fn event(&mut self, event: Event) {
+        if matches!(&event, Event::Key(key) if key.kind != KeyEventKind::Release)
+            || matches!(&event, Event::Paste(_))
+            || matches!(&event, Event::Mouse(mouse) if mouse.kind != MouseEventKind::Moved)
+        {
+            self.session_interaction();
+        }
         self.event_inner(event);
         self.sync_pane();
         self.refresh_signature();
@@ -1006,6 +1021,10 @@ impl App {
             self.clear_signature();
         }
         self.cancel_symbols();
+
+        if command != "vscli.session.restore" {
+            self.session_interaction();
+        }
         // A duplicate reopen keeps the existing bounded request alive.
         if command != "workbench.action.reopenClosedEditor" {
             self.cancel_navigation();
@@ -1042,6 +1061,7 @@ impl App {
             return;
         }
         match command {
+            "vscli.session.restore" => self.restore_session(),
             "workbench.action.debug.start" | "workbench.action.debug.continue" => {
                 self.start_or_continue_debug()
             }
@@ -1488,6 +1508,9 @@ impl App {
     fn remove_active(&mut self) {
         self.record_closed();
         self.documents.remove(self.active);
+        if self.documents.is_empty() {
+            self.session_closed_all();
+        }
         self.active = self.active.min(self.documents.len().saturating_sub(1));
         self.sync_pane();
     }
@@ -1510,6 +1533,7 @@ impl App {
                     }
                     self.sync_pane();
                     self.active = 0;
+                    self.session_closed_all();
                 }
             }
         }
