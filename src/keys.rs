@@ -696,7 +696,14 @@ enum Tok {
     L,
     R,
 }
+const MAX_WHEN_BYTES: usize = 8 * 1024;
+const MAX_WHEN_TOKENS: usize = 1024;
+const MAX_WHEN_DEPTH: usize = 64;
+
 fn lex(s: &str) -> Result<Vec<Tok>> {
+    if s.len() > MAX_WHEN_BYTES {
+        bail!("When expression exceeds 8 KiB");
+    }
     let chars: Vec<_> = s.chars().collect();
     let mut i = 0;
     let mut out = Vec::new();
@@ -705,6 +712,9 @@ fn lex(s: &str) -> Result<Vec<Tok>> {
         if c.is_whitespace() {
             i += 1;
             continue;
+        }
+        if out.len() == MAX_WHEN_TOKENS {
+            bail!("When expression exceeds 1024 tokens");
         }
         match c {
             '(' => {
@@ -764,6 +774,7 @@ pub fn evaluate(s: &str, context: &HashMap<String, Value>) -> Result<bool> {
         t: Vec<Tok>,
         i: usize,
         c: &'a HashMap<String, Value>,
+        depth: usize,
     }
     impl Parser<'_> {
         fn expr(&mut self) -> Result<bool> {
@@ -785,6 +796,15 @@ pub fn evaluate(s: &str, context: &HashMap<String, Value>) -> Result<bool> {
             Ok(v)
         }
         fn atom(&mut self) -> Result<bool> {
+            if self.depth > MAX_WHEN_DEPTH {
+                bail!("When expression exceeds 64 nested groups or negations");
+            }
+            self.depth += 1;
+            let result = self.atom_inner();
+            self.depth -= 1;
+            result
+        }
+        fn atom_inner(&mut self) -> Result<bool> {
             if self.t.get(self.i) == Some(&Tok::Not) {
                 self.i += 1;
                 return Ok(!self.atom()?);
@@ -835,6 +855,7 @@ pub fn evaluate(s: &str, context: &HashMap<String, Value>) -> Result<bool> {
         t: lex(s)?,
         i: 0,
         c: context,
+        depth: 0,
     };
     let value = p.expr()?;
     if p.i != p.t.len() {
@@ -959,6 +980,78 @@ mod tests {
         let mut map = Keymap::new(Profile::Linux);
         map.load(&p).unwrap();
         assert!(matches!(map.resolve("ctrl+s",&ctx),Resolution::Command(c,_) if c=="type"));
+    }
+    #[test]
+    fn when_expression_limits_bound_recursive_and_flat_parsing() {
+        let context = HashMap::new();
+        for nested in [
+            format!("{}true{}", "(".repeat(64), ")".repeat(64)),
+            format!("{}true", "!".repeat(64)),
+            format!("{}{}true{}", "!".repeat(32), "(".repeat(32), ")".repeat(32)),
+        ] {
+            assert!(evaluate(&nested, &context).unwrap());
+        }
+        for nested in [
+            format!("{}true{}", "(".repeat(65), ")".repeat(65)),
+            format!("{}true", "!".repeat(65)),
+            format!("{}{}true{}", "!".repeat(33), "(".repeat(32), ")".repeat(32)),
+        ] {
+            assert!(
+                evaluate(&nested, &context)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("64 nested")
+            );
+        }
+        assert!(evaluate(&vec!["true"; 512].join(" && "), &context).unwrap());
+        assert!(
+            evaluate(&vec!["true"; 513].join(" && "), &context)
+                .unwrap_err()
+                .to_string()
+                .contains("1024 tokens")
+        );
+        assert!(!evaluate(&"x".repeat(MAX_WHEN_BYTES), &context).unwrap());
+        assert!(
+            evaluate(&"x".repeat(MAX_WHEN_BYTES + 1), &context)
+                .unwrap_err()
+                .to_string()
+                .contains("8 KiB")
+        );
+    }
+    #[test]
+    fn deeply_nested_user_and_extension_rules_preserve_the_working_keymap() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("keybindings.json");
+        let context = HashMap::new();
+        let mut map = Keymap::new(Profile::Linux);
+        std::fs::write(&path, r#"[{"key":"f9","command":"user.command"}]"#).unwrap();
+        map.load(&path).unwrap();
+        map.set_extension_bindings(serde_json::json!([
+            {"key":"f8","command":"extension.command"}
+        ]))
+        .unwrap();
+        let before = serde_json::to_value(&map.bindings).unwrap();
+        let invalid = serde_json::json!([
+            {"key":"f9","command":"-user.command"},
+            {"key":"f8","command":"invalid.command","when":format!("{}true", "!".repeat(65))}
+        ]);
+        std::fs::write(&path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+        assert!(format!("{:#}", map.load(&path).unwrap_err()).contains("64 nested"));
+        assert_eq!(serde_json::to_value(&map.bindings).unwrap(), before);
+        let extension = serde_json::json!([
+            {"key":"f8","command":"invalid.command","when":format!("{}true", "!".repeat(65))}
+        ]);
+        assert!(
+            format!("{:#}", map.set_extension_bindings(extension).unwrap_err())
+                .contains("64 nested")
+        );
+        assert_eq!(serde_json::to_value(&map.bindings).unwrap(), before);
+        assert!(
+            matches!(map.resolve("f9", &context), Resolution::Command(id, _) if id == "user.command")
+        );
+        assert!(
+            matches!(map.resolve("f8", &context), Resolution::Command(id, _) if id == "extension.command")
+        );
     }
     #[test]
     fn oversized_or_invalid_imports_preserve_existing_user_rules() {

@@ -77,6 +77,8 @@ Maintain a reproducible export of resolved default bindings for Linux, macOS, an
 
 Parse `when` expressions into an AST and implement the documented operators in stages, including negation, comparisons, regular expressions, and membership where supported. Unknown syntax produces a diagnostic; an unknown context key follows the pinned reference behavior. Reuse the context engine for menus and command enablement. [When clause contexts](https://code.visualstudio.com/api/references/when-clause-contexts).
 
+The current parser bounds each expression to 8 KiB, 1,024 tokens and 64 nested groups or negations. Native tests cover mixed grouping/negation depth, flat-token and byte limits, and preservation of active user/extension rules after rejection. Supported operators remain the documented subset; these resource limits are not evidence of complete resolver parity.
+
 Select the matching operating-system profile by default and allow an explicit profile override, including when running through SSH. The intended keyboard profile belongs to the user at the terminal and must not silently change just because the remote host runs a different OS. Layer imported user bindings over the selected defaults:
 
 | Profile | Behavior |
