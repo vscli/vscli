@@ -184,3 +184,18 @@ test('empty-range deletes do not introduce overlapping insertion edits', async (
   assert.equal(submitted.length, 1);
   assert.equal(submitted[0].newText, 'prefix');
 });
+
+test('surface facade forwards the lifecycle owner guard without blocking disposal cleanup', () => {
+  let active = true;
+  const messages=[];
+  const runtime=createApi(async()=>null,(method,params)=>messages.push({method,params}),{
+    session:7,assertOwner(owner){assert.equal(owner,'fixture.owner');if(!active)throw new Error('Owner retired');},
+  });
+  const facade=runtime.forExtension('fixture.owner');
+  const output=facade.window.createOutputChannel('native');output.append('retained');
+  active=false;
+  assert.throws(()=>output.append('late'),/Owner retired/);
+  assert.throws(()=>facade.window.createStatusBarItem('late'),/Owner retired/);
+  assert.doesNotThrow(()=>runtime.disposeOwner('fixture.owner'));
+  assert.equal(messages.at(-1).params.op,'outputDispose');
+});

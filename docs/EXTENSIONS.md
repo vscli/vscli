@@ -162,6 +162,15 @@ Two Unix PTY journeys exercise output/status/tree interaction, Unicode CRLF
 save/undo, refresh/crash, native input and empty-workbench disposal. These are
 synthetic fixture workflows, not broad extension compatibility evidence.
 
+Combined document-service fixtures additionally retain the original hidden
+TextDocument object with zero close events through output, status actions and
+lazy tree requests, both at welcome and beside a visible editor. The native
+callbacks synchronize the borrowed visible/hidden model union; hidden models
+never become `activeTextEditor` merely because they were synchronized. The Unix
+document-service journey exercises these surfaces before showing the same
+hidden model, delegated undo/redo, host crash, recovery and explicit save.
+
+
 ## Native Quick Pick and Input Box
 
 Activated packages can await `vscode.window.showQuickPick` and `showInputBox` through the native prompt layer. Quick Pick accepts an array or promised array of strings, or objects with `label`, `description` and `detail`; a selection returns the original string/object. Filtering uses case-insensitive substring matching on labels, with optional `matchOnDescription` and `matchOnDetail`. Input Box supports `title`, `prompt`, `placeHolder` and `value`. Enter accepts a single selection or input text, including an empty input; Escape returns `undefined`. Native focus is retained when the prompt closes.
