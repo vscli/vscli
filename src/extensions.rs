@@ -151,6 +151,7 @@ struct Registration {
 #[derive(Clone)]
 struct Mirror {
     revision: u64,
+    text_epoch: u64,
     uri: String,
     version: u64,
 }
@@ -556,6 +557,7 @@ impl Client {
         };
         if edit.version != mirror.version
             || doc.revision != mirror.revision
+            || doc.text_epoch() != mirror.text_epoch
             || document_uri(doc)? != mirror.uri
         {
             return Ok(false);
@@ -799,7 +801,7 @@ struct MirrorState {
 }
 impl MirrorState {
     fn stamp(documents: &[Document], active: usize) -> Value {
-        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.path, d.dirty()])).collect::<Vec<_>>(),
+        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.path, d.dirty()])).collect::<Vec<_>>(),
             "active": documents.get(active).map(|d| d.id), "selections": documents.get(active).map(selections)})
     }
     fn next(&self, documents: &[Document], active: usize) -> Result<(Self, Value)> {
@@ -817,18 +819,22 @@ impl MirrorState {
         let mut snapshots = Vec::new();
         for doc in documents {
             let uri = document_uri(doc)?;
-            let needs_text = self
-                .mirrors
-                .get(&doc.id)
-                .is_none_or(|old| old.revision != doc.revision);
+            let needs_text = self.mirrors.get(&doc.id).is_none_or(|old| {
+                old.revision != doc.revision || old.text_epoch != doc.text_epoch()
+            });
             let mirror = self.mirrors.entry(doc.id).or_insert_with(|| Mirror {
                 revision: doc.revision,
+                text_epoch: doc.text_epoch(),
                 uri: uri.clone(),
                 version: 1,
             });
-            if mirror.revision != doc.revision || mirror.uri != uri {
+            if mirror.revision != doc.revision
+                || mirror.text_epoch != doc.text_epoch()
+                || mirror.uri != uri
+            {
                 mirror.version += 1;
                 mirror.revision = doc.revision;
+                mirror.text_epoch = doc.text_epoch();
                 mirror.uri = uri.clone();
             }
             let mut snapshot = json!({"id":doc.id, "uri":uri, "version":mirror.version,
@@ -916,6 +922,23 @@ mod tests {
         assert_eq!(reopened["documents"][0]["text"], "original");
     }
     #[test]
+    fn mirror_text_epoch_advances_version_after_edit_undo_revision_reuse() {
+        let mut docs = vec![Document::from_text("猫\r\n🙂")];
+        let revision = docs[0].revision;
+        let (first, _) = MirrorState::default().next(&docs, 0).unwrap();
+        docs[0].insert("transient", false);
+        docs[0].undo();
+        assert_eq!(docs[0].revision, revision);
+        assert_ne!(MirrorState::stamp(&docs, 0), first.last_stamp);
+        let (second, restored) = first.next(&docs, 0).unwrap();
+        assert_eq!(restored["documents"][0]["version"], 2);
+        assert_eq!(restored["documents"][0]["text"], "猫\r\n🙂");
+        docs[0].move_to(1, false);
+        let (_, cursor) = second.next(&docs, 0).unwrap();
+        assert_eq!(cursor["documents"][0]["version"], 2);
+        assert!(cursor["documents"][0].get("text").is_none());
+    }
+    #[test]
     fn outdated_owner_edits_and_expired_heartbeat_cannot_mutate_native_documents() {
         let directory = tempfile::tempdir().unwrap();
         let extension =
@@ -954,6 +977,24 @@ mod tests {
             edits: Vec::new(),
         };
         assert!(!client.apply_edit(edit, &mut documents).unwrap());
+        documents[0].insert("transient", false);
+        documents[0].undo();
+        let edit = Edit {
+            session: client.session,
+            owner: client.packages[0].id.clone(),
+            document: documents[0].id,
+            version: 1,
+            edits: vec![
+                serde_json::from_value(json!({
+                    "range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},
+                    "newText":"stale"
+                }))
+                .unwrap(),
+            ],
+        };
+        // Reject even before a state sync advances the exposed host version.
+        assert!(!client.apply_edit(edit, &mut documents).unwrap());
+        assert_eq!(documents[0].text.to_string(), "original");
         client.pending.insert(
             u64::MAX,
             Pending {
