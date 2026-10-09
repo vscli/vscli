@@ -69,6 +69,8 @@ def run(root):
     wait(app, 'Type native input')
     wait(app, 'Enter Unicode')
     wait(app, 'Input hint')
+    app.paste('x' * 5000)
+    wait(app, 'Extension prompt text exceeds 4 KiB')
     app.paste('🙂')
     app.send(b'\r')
     wait(app, 'prompt applied=true')
@@ -117,6 +119,37 @@ def run(root):
     app.finish()
     print('PASS: FIFO prompts, pending-prompt crash cleanup, responsive native edit/save, explicit restart and stop without stale UI')
 
+    startup = root / 'startup'
+    startup.mkdir()
+    (startup / 'package.json').write_text(json.dumps({'publisher': 'fixture', 'name': 'activation', 'version': '1.0.0', 'main': 'extension.cjs', 'contributes': {'commands': [{'command': 'startup.answer', 'title': 'Startup answer'}]}}))
+    (startup / 'extension.cjs').write_text(r"""
+const vscode=require('vscode');
+require('node:fs').writeFileSync(require('node:path').join(vscode.workspace.rootPath,'startup.pid'),String(process.pid));
+const answer=vscode.window.showInputBox({title:'Activation input',prompt:'Module evaluation input',value:'initial'});
+exports.activate=async context=>{
+ const value=await answer;
+ context.subscriptions.push(vscode.commands.registerCommand('startup.answer',()=>vscode.window.showInformationMessage('startup answer='+value)));
+};
+""")
+    app = Editor(root, '--extension', startup, file, enhanced=True)
+    wait(app, 'Activation input')
+    wait(app, 'Module evaluation input')
+    app.paste('answer🙂')
+    app.send(b'\r')
+    wait(app, '(1 commands)')
+    command(app, 'Startup answer')
+    wait(app, 'startup answer=answer🙂')
+    command(app, 'Extensions: Restart Selected Session')
+    wait(app, 'Activation input')
+    app.send(b'\x1b')
+    wait(app, '(1 commands)')
+    command(app, 'Startup answer')
+    wait(app, 'startup answer=undefined')
+    save(app, file, 'original')
+    app.finish()
+    print('PASS: module-evaluation Input Box accepts or cancels before activation completes, with native text unchanged')
+
+
 
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='vscli-prompts-pty-') as directory:
@@ -133,8 +166,8 @@ if __name__ == '__main__':
                         app.process.kill()
                         app.process.wait(timeout=3)
                 app.close_fds()
-            if (root / 'host.pid').exists():
-                pid = int((root / 'host.pid').read_text())
+            for path in root.glob('*.pid'):
+                pid = int(path.read_text())
                 try:
                     if os.getpgid(pid) == pid:
                         os.killpg(pid, signal.SIGKILL)
