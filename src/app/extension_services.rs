@@ -8,6 +8,7 @@ use std::sync::{
 };
 const MAX_HIDDEN: usize = 16;
 const MAX_MODELS: usize = 128;
+const MAX_CONTEXT_SELECTIONS: usize = 16_384;
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 #[derive(Clone, PartialEq)]
 struct DocumentContext {
@@ -20,6 +21,10 @@ struct DocumentContext {
 }
 #[derive(Clone, PartialEq)]
 pub(super) struct Context {
+    snapshot: Option<Snapshot>,
+}
+#[derive(Clone, PartialEq)]
+struct Snapshot {
     epoch: u64,
     workspace: PathBuf,
     focus: Focus,
@@ -31,52 +36,88 @@ pub(super) struct Context {
     documents: Vec<DocumentContext>,
 }
 impl Context {
+    pub(super) fn check_budget(app: &App) -> Result<()> {
+        if app
+            .documents
+            .len()
+            .saturating_add(app.hidden_documents.len())
+            > MAX_MODELS
+        {
+            bail!("Native extension contexts support at most 128 retained models");
+        }
+        // Count the actual retained snapshots, including an active view that is
+        // captured both as a document and as a pane. Inspect lengths only.
+        let mut selections = 0usize;
+        let mut add = |secondary: usize| -> Result<()> {
+            selections = selections.saturating_add(secondary).saturating_add(1);
+            if selections > MAX_CONTEXT_SELECTIONS {
+                bail!(
+                    "Native extension context exceeds 16,384 document/pane selections; reduce selections and retry"
+                );
+            }
+            Ok(())
+        };
+        for doc in app.documents.iter().chain(&app.hidden_documents) {
+            add(doc.secondary.len())?;
+        }
+        for pane in &app.panes {
+            if let Some(doc) = app.documents.iter().find(|doc| doc.id == pane.document) {
+                add(doc.view_state(Some(pane.id)).secondary.len())?;
+            }
+        }
+        Ok(())
+    }
     pub(super) fn capture(app: &App) -> Self {
+        if Self::check_budget(app).is_err() {
+            // Preserve the infallible caller API, but never compare two invalid
+            // captures as an authorized context or clone over-budget selections.
+            return Self { snapshot: None };
+        }
         Self {
-            epoch: app.extension_services.epoch,
-            workspace: app.workspace.root.clone(),
-            focus: app.focus.clone(),
-            active: app.active_document().map(|doc| doc.id),
-            panes: app.panes.iter().map(|p| (p.id, p.document)).collect(),
-            pane_selections: app
-                .panes
-                .iter()
-                .filter_map(|p| {
-                    app.documents.iter().find(|d| d.id == p.document).map(|d| {
-                        let view = d.view_state(Some(p.id));
-                        (view.cursor, view.anchor, view.secondary.clone())
+            snapshot: Some(Snapshot {
+                epoch: app.extension_services.epoch,
+                workspace: app.workspace.root.clone(),
+                focus: app.focus.clone(),
+                active: app.active_document().map(|doc| doc.id),
+                panes: app.panes.iter().map(|p| (p.id, p.document)).collect(),
+                pane_selections: app
+                    .panes
+                    .iter()
+                    .filter_map(|p| {
+                        app.documents.iter().find(|d| d.id == p.document).map(|d| {
+                            let view = d.view_state(Some(p.id));
+                            (view.cursor, view.anchor, view.secondary.clone())
+                        })
                     })
-                })
-                .collect(),
-            active_pane: app.active_pane,
-            visible: app.documents.len(),
-            documents: app
-                .documents
-                .iter()
-                .chain(&app.hidden_documents)
-                .map(|d| DocumentContext {
-                    id: d.id,
-                    epoch: d.text_epoch(),
-                    revision: d.revision,
-                    saved: d.saved_revision,
-                    path: d.path.clone(),
-                    selections: d.selections(),
-                })
-                .collect(),
+                    .collect(),
+                active_pane: app.active_pane,
+                visible: app.documents.len(),
+                documents: app
+                    .documents
+                    .iter()
+                    .chain(&app.hidden_documents)
+                    .map(|d| DocumentContext {
+                        id: d.id,
+                        epoch: d.text_epoch(),
+                        revision: d.revision,
+                        saved: d.saved_revision,
+                        path: d.path.clone(),
+                        selections: d.selections(),
+                    })
+                    .collect(),
+            }),
         }
     }
     pub(super) fn same_editor(&self, app: &App) -> bool {
-        app.documents.len() + app.hidden_documents.len() <= MAX_MODELS
-            && self == &Self::capture(app)
+        self.snapshot.is_some() && self == &Self::capture(app)
     }
     pub(super) fn accept_next_interaction(&mut self) {
-        self.epoch = self.epoch.wrapping_add(1);
+        if let Some(snapshot) = &mut self.snapshot {
+            snapshot.epoch = snapshot.epoch.wrapping_add(1);
+        }
     }
     fn valid(&self, app: &App) -> bool {
-        app.documents.len() + app.hidden_documents.len() <= MAX_MODELS
-            && self == &Self::capture(app)
-            && app.prompt.is_none()
-            && app.modal.is_none()
+        self.same_editor(app) && app.prompt.is_none() && app.modal.is_none()
     }
 }
 enum Output {
@@ -157,14 +198,13 @@ impl App {
         self.extension_services
             .contexts
             .retain(|key, _| pending.contains(key));
+        let within_budget = Context::check_budget(self).is_ok();
         for service in host
             .queued_services()
             .filter(|service| !matches!(service.operation, Operation::State(_)))
         {
             let key = (service.request.session, service.id.clone());
-            if self.documents.len() + self.hidden_documents.len() <= MAX_MODELS
-                && !self.extension_services.contexts.contains_key(&key)
-            {
+            if within_budget && !self.extension_services.contexts.contains_key(&key) {
                 let context = Context::capture(self);
                 self.extension_services.contexts.insert(key, context);
             }
@@ -200,10 +240,8 @@ impl App {
             return false;
         };
         let validation = host.service_valid(&service).and_then(|()| {
-            if !matches!(service.operation, Operation::State(_))
-                && self.documents.len() + self.hidden_documents.len() > MAX_MODELS
-            {
-                bail!("Native document services support at most 128 retained models");
+            if !matches!(service.operation, Operation::State(_)) {
+                Context::check_budget(self)?;
             }
             if !matches!(service.operation, Operation::State(_))
                 && !self
@@ -812,12 +850,109 @@ exports.activate = async context => {
         );
     }
     #[test]
+    fn context_selection_budget_counts_document_and_inactive_pane_snapshots_before_cloning() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("kept.txt");
+        std::fs::write(&path, "original猫\r\n").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.open(&path).unwrap();
+        app.doc_mut().insert("dirty ", false);
+        app.split_editor(false);
+        let current = app.panes[app.active_pane].id;
+        let other = app.panes.iter().find(|pane| pane.id != current).unwrap().id;
+        app.doc_mut().secondary = vec![crate::document::Selection::caret(0); 8190];
+        app.hidden_documents.push(Document::default());
+        // Document + active pane each retain 8191; hidden + inactive pane each 1.
+        Context::check_budget(&app).unwrap();
+        let context = Context::capture(&app);
+        let snapshot = context.snapshot.as_ref().unwrap();
+        assert_eq!(
+            snapshot
+                .documents
+                .iter()
+                .map(|doc| doc.selections.len())
+                .sum::<usize>()
+                + snapshot
+                    .pane_selections
+                    .iter()
+                    .map(|(_, _, secondary)| secondary.len() + 1)
+                    .sum::<usize>(),
+            MAX_CONTEXT_SELECTIONS
+        );
+        assert!(context.same_editor(&app));
+        let id = app.doc().id;
+        let revision = app.doc().revision;
+        let text = app.doc().text.to_string();
+        app.doc_mut().activate_view(other);
+        app.doc_mut()
+            .secondary
+            .push(crate::document::Selection::caret(0));
+        app.doc_mut().activate_view(current);
+        assert!(
+            Context::check_budget(&app)
+                .unwrap_err()
+                .to_string()
+                .contains("16,384")
+        );
+        let invalid = Context::capture(&app);
+        assert!(
+            invalid.snapshot.is_none(),
+            "over-budget capture must allocate no snapshot"
+        );
+        assert!(
+            !invalid.same_editor(&app),
+            "invalid sentinels cannot authorize one another"
+        );
+        assert!(!context.same_editor(&app));
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().revision, revision);
+        assert_eq!(app.doc().text.to_string(), text);
+        assert!(app.doc().dirty());
+        app.doc_mut().activate_view(other);
+        app.doc_mut().secondary.pop();
+        app.doc_mut().activate_view(current);
+        assert!(context.same_editor(&app));
+        app.doc_mut().undo();
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), "original猫\r\n");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "original猫\r\n");
+    }
+    #[test]
+    fn service_selection_limit_rejects_without_snapshot_worker_or_native_edits() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = queued_app(root.path());
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("dirty猫\r\n", false);
+        app.doc_mut().secondary = vec![crate::document::Selection::caret(0); 8192];
+        let id = app.doc().id;
+        let revision = app.doc().revision;
+        assert!(
+            Context::check_budget(&app)
+                .unwrap_err()
+                .to_string()
+                .contains("16,384")
+        );
+        app.poll_extension_services();
+        assert!(app.extension_services.contexts.is_empty());
+        assert!(app.extension_services.job.is_none());
+        assert!(app.hidden_documents.is_empty());
+        assert!(app.extension_host.as_ref().unwrap().service().is_none());
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().revision, revision);
+        assert_eq!(app.doc().text.to_string(), "dirty猫\r\n");
+        assert!(app.doc().dirty());
+        app.doc_mut().undo();
+        assert!(app.doc().is_empty());
+        assert_eq!(app.doc().id, id);
+    }
+    #[test]
     fn model_count_limit_rejects_before_capturing_context_or_starting_file_work() {
         let root = tempfile::tempdir().unwrap();
         let extension =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
         let mut app = App::new(root.path().into(), Profile::Linux);
         app.documents = (0..129).map(|_| Document::default()).collect();
+        assert!(Context::capture(&app).snapshot.is_none());
         let mut host = crate::extensions::Client::start(
             "node",
             &extension,

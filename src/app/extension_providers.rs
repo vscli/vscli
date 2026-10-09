@@ -125,8 +125,8 @@ impl App {
             return false;
         }
         self.cancel_extension_provider();
-        if self.documents.len() + self.hidden_documents.len() > 128 {
-            self.message = "Extension language requests support at most 128 native buffers".into();
+        if let Err(error) = Context::check_budget(self) {
+            self.message = format!("Extension language request rejected: {error}");
             return true;
         }
         if self.prompt.is_some() || self.modal.is_some() || self.focus != Focus::Editor {
@@ -342,6 +342,7 @@ impl App {
         Ok(())
     }
     pub(super) fn apply_provider_action(&mut self, ticket: &Ticket, item: &Value) -> Result<()> {
+        Context::check_budget(self)?;
         let lease = self
             .extension_providers
             .lease
@@ -801,6 +802,43 @@ mod tests {
         assert_eq!(app.doc().text.to_string(), before);
         assert!(app.prompt.is_none());
         assert!(!root.path().join("Untitled").exists());
+    }
+    #[test]
+    fn provider_requests_and_picker_acceptance_reject_aggregate_selection_overflow() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        let disk = std::fs::read(root.path().join("input.sql")).unwrap();
+        app.doc_mut().insert("dirty ", false);
+        for _ in 0..2 {
+            let mut hidden = Document::default();
+            hidden.secondary = vec![crate::document::Selection::caret(0); 8190];
+            app.hidden_documents.push(hidden);
+        }
+        // Two hidden snapshots of 8191 + active document/pane of 1 = 16384.
+        request(&mut app, Kind::Completion);
+        let Some(Modal::Language { items, .. }) = app.modal.take() else {
+            panic!()
+        };
+        let id = app.doc().id;
+        let revision = app.doc().revision;
+        let text = app.doc().text.to_string();
+        app.hidden_documents[1]
+            .secondary
+            .push(crate::document::Selection::caret(0));
+        let error = app.language_action(&items[0].action).unwrap_err();
+        assert!(error.to_string().contains("16,384"));
+        assert!(app.extension_language_request(Kind::Completion.method(), json!({})));
+        assert!(app.message.contains("16,384"));
+        assert!(app.extension_providers.lease.is_none());
+        assert!(app.prompt.is_none() && app.modal.is_none());
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().revision, revision);
+        assert_eq!(app.doc().text.to_string(), text);
+        assert!(app.doc().dirty());
+        app.doc_mut().undo();
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string().as_bytes(), disk);
+        assert_eq!(std::fs::read(root.path().join("input.sql")).unwrap(), disk);
     }
     #[test]
     fn provider_leases_reject_hidden_edits_and_inactive_view_changes() {
