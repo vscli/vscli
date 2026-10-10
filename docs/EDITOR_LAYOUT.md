@@ -124,7 +124,7 @@ platform qualification remains separate.
 All fifteen pure-layout cases pass, covering mixed splits/collapse, exhaustive
 small/extreme rectangles, same-axis reset, resize limits, private geometry identity,
 foreign/equal-generation forks, ABA, malformed late whole-wire data, capacity and
-counter rollback. The integrated candidate passes 987 ordinary all-target Rust tests
+counter rollback. The original integrated candidate passed 987 ordinary all-target Rust tests
 across 51 reports, with 20 optional integrations ignored. Formatting and strict
 locked all-target Clippy pass on the same source. The App/UI cohort adds 22 cases,
 and schema 3 adds fourteen integrity cases. The full session-module filter passes
@@ -157,3 +157,28 @@ Native tests can proceed without launching VS Code. Upstream CSS/n-ary trees and
 trees need an explicit bounded comparison scope; raw geometry must not be rewritten
 or normalized into fabricated equality. Drag, session serialization and full layout
 parity are outside that capture's stated scope.
+
+
+## Save-policy and sticky observer integration
+
+The layout candidate is rebased onto corrected sticky parent
+`3e813500114f6c30d9e00fb15d54d5b85e1fb69b`, which includes the merged stable
+save-policy changes from PR #76. This rebase preserves the strict historical
+sticky reader and its separately bound monotonic observer; layout CI adds only
+the native nested-layout terminal journeys after the existing sticky checks.
+The archived original layout/performance observations remain historical evidence.
+
+Current local qualification passes 1,024 locked all-target Rust tests across
+51 reports, with 23 optional integrations ignored, formatting and strict locked
+all-target Clippy. Seven debug terminal scripts pass 36 reports: nested layouts,
+group tabs, preview tabs, sticky tabs, source actions on save, formatting on save
+and settings persistence. Four optimized scripts pass 22 reports: nested layouts,
+group tabs, sticky tabs and source actions on save. The nested journeys retain
+empty PATH, missing Node and disabled language services. No local reference-editor
+instance was launched for this qualification.
+
+A separate read-only source audit found no material interaction issue in staged
+group/layout/session publication, shared documents, accepted saves or pointer
+geometry guards. That review and these local tests do not qualify other operating
+systems, upstream graphical geometry or full layout parity. Fresh protected CI
+on the rebased head and parent integration remain required before merge.
