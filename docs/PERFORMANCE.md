@@ -945,3 +945,72 @@ python3 scripts/bench_editor.py --vscli /path/to/sticky-tabs/vscli \
   --sizes 10240 --trials 20 --keys 40 --idle-seconds 1 \
   --output target/benchmarks/native-sticky-editor-tabs-small-repeat.json
 ```
+
+
+## Native nested layouts core baseline (2026-10-10)
+
+The [ordinary-file report](benchmarks/2026-10-10-native-nested-editor-layouts.json),
+[single-line report](benchmarks/2026-10-10-native-nested-editor-layouts-single-line.json)
+and [large-file repeat](benchmarks/2026-10-10-native-nested-editor-layouts-large-repeat.json)
+compare the optimized nested-layout/schema-3 executable built at `fc62263`,
+qualified at `bcbed08`, with the preserved qualified sticky-tabs executable.
+The candidate native source tree is `1d4cfad6b81b4d6aeb67d1ac7c2891be724eed74`;
+subsequent documentation changes do not alter it.
+
+| Workload / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / nested layouts | 5.730 | 0.311 | 0.596 | 0.861 | 13.06 |
+| 10 KiB multiline / sticky tabs | 6.137 | 0.323 | 0.735 | 0.851 | 13.14 |
+| 1 MiB multiline / nested layouts | 8.805 | 0.331 | 0.895 | 1.169 | 14.39 |
+| 1 MiB multiline / sticky tabs | 9.271 | 0.327 | 0.797 | 0.902 | 14.34 |
+| 10 MiB multiline / nested layouts | 19.342 | 0.355 | 0.997 | 1.132 | 24.55 |
+| 10 MiB multiline / sticky tabs | 18.427 | 0.332 | 0.825 | 1.109 | 24.64 |
+| 1 MiB single line / nested layouts | 8.579 | 0.225 | 0.605 | 0.751 | 14.39 |
+| 1 MiB single line / sticky tabs | 8.720 | 0.239 | 0.488 | 0.740 | 14.18 |
+
+The first 10 MiB run had higher candidate typing tails, so the retained repeat
+uses twenty launches per executable rather than replacing that result. Both
+repeat binaries pass 800 keys each: sticky/nested medians are 0.321/0.327 ms,
+p95 0.723/0.798 ms and p99 0.941/1.007 ms. Startup medians are 17.927/18.637 ms;
+sampled RSS is 24.62/24.80 MiB. Typing tails remain higher in this repeat.
+Across all three reports, every one of 80 launches and 3,200 serial keys passes
+the visible-cell oracle; all raw trials, including the initial measurements,
+remain published. Results are mixed and establish no overall speedup, editor
+ranking or causal attribution of the observed differences.
+
+Trials alternate the two binaries with identical 120×40 PTYs, five launches per
+binary per initial workload and forty ASCII keys per launch. These warm-cache
+plain-text measurements include Python observation and PTY output; they exclude
+physical input, graphical terminal paint, language servers, extensions, recovery
+and user configuration. One editor group is active: the measurements do not
+qualify active nested-pane resizing, multi-pane editing or schema-3 IO latency.
+No builds, test suites, reference captures or other PTY journeys run concurrently
+with the timing samples. Sampled process-tree RSS is not peak memory; one-second
+idle CPU samples have coarse resolution and are not a battery-life measurement.
+
+Separate optimized behavior qualification passes 75 reports across nine Unix
+scripts, including all four nested reports over five sessions, preview/sticky/group
+ownership, saving/format/source actions, adjacent Escape and the 35-report smoke
+suite. Those native journeys do not replace cross-platform CI or a full upstream
+layout comparison. See [layout behavior and evidence](EDITOR_LAYOUT.md).
+
+Candidate executable SHA256:
+`c3ecc4c03da3ffdf654b7b873485017a705f549497879045da36e934c69bdecb`.
+Baseline executable SHA256:
+`af92cc53fbde0f514d2fc6eda0926c02a2b72c148cbae10faf4f02e966438ace`.
+The reports retain both hashes and the qualification revision.
+
+```sh
+python3 scripts/bench_editor.py --vscli /path/to/nested-layouts/vscli \
+  --compare-vscli /path/to/sticky-tabs/vscli \
+  --sizes 10240 1048576 10485760 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-nested-editor-layouts-ordinary.json
+python3 scripts/bench_editor.py --vscli /path/to/nested-layouts/vscli \
+  --compare-vscli /path/to/sticky-tabs/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-nested-editor-layouts-single-line.json
+python3 scripts/bench_editor.py --vscli /path/to/nested-layouts/vscli \
+  --compare-vscli /path/to/sticky-tabs/vscli \
+  --sizes 10485760 --trials 20 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-nested-editor-layouts-large-repeat.json
+```

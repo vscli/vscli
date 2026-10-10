@@ -142,7 +142,11 @@ The crash/recovery extension-document workflow caught a missing startup group
 initialization; moving it to recovery admission passes both original restart
 reports. All 31 prior Unix scripts passed across 145 reports during App integration;
 after schema 3, eight relevant scripts pass across 40 reports on the final source.
-Optimized-build and platform qualification remain separate gates.
+The optimized executable passes 75 reports across nine Unix scripts, including
+the four nested journeys. The [isolated paired core measurements](PERFORMANCE.md#native-nested-layouts-core-baseline-2026-10-10)
+retain 80 launches and 3,200 keys with mixed results and higher candidate typing
+tails in the large-file repeat; active nested-pane performance is unqualified.
+Platform qualification remains separate.
 
 A local raw Linux capture against VS Code 1.95.0 commit
 `912bb683695358a54ae0c670461738984cbb5b95` completed ten cases, 39 target commands,
