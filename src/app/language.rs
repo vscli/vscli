@@ -316,6 +316,7 @@ impl App {
                 let changes = crate::save_formatting_edits::stage(self.doc(), &response)?;
                 let count = changes.len();
                 self.doc_mut().apply_changes(changes);
+                self.preview_edit_barrier();
                 self.message = format!("Applied {count} formatting edits · Undo restores");
             }
             "textDocument/rename" => {
@@ -426,6 +427,7 @@ impl App {
             });
             self.documents[index].apply_changes(edits);
         }
+        self.preview_edit_barrier();
         self.message =
             format!("Renamed across {count} buffers; review and save each file (Undo is per file)");
         Ok(())

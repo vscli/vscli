@@ -47,6 +47,7 @@ struct Label {
     text: String,
     dirty: bool,
     active: bool,
+    preview: bool,
 }
 impl Label {
     fn width(&self) -> usize {
@@ -107,6 +108,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect, pane: u64, inde
                 text: document_label(doc),
                 dirty: doc.dirty(),
                 active: Some(tab.id()) == active,
+                preview: tab.is_preview(),
             })
         })
         .collect();
@@ -159,6 +161,11 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect, pane: u64, inde
                 })
                 .add_modifier(if label.active {
                     Modifier::BOLD
+                } else {
+                    Modifier::empty()
+                })
+                .add_modifier(if label.preview {
+                    Modifier::ITALIC
                 } else {
                     Modifier::empty()
                 }),

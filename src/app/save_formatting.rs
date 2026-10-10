@@ -234,6 +234,7 @@ impl App {
                 .ok_or_else(|| anyhow::anyhow!("Formatting model retired"))?;
             let changes = crate::save_formatting_edits::stage(doc, &edits)?;
             doc.apply_changes(changes);
+            self.preview_edit_barrier();
             Ok(())
         });
         if let Some(intent) = &mut self.saving.latest {

@@ -363,8 +363,15 @@ impl App {
         {
             symbol_offset(&self.hidden_documents[index], range)?;
             self.can_admit_editor(self.hidden_documents[index].id)?;
-            let doc = self.hidden_documents.remove(index);
-            self.install_open_document(doc)?;
+            if self.group_fallback {
+                let doc = self.hidden_documents.remove(index);
+                self.install_open_document(doc)?;
+            } else {
+                self.open_preview_model(
+                    self.hidden_documents[index].id,
+                    crate::editor_groups::OpenMode::Committed,
+                )?;
+            }
         }
         Ok(())
     }
@@ -379,7 +386,18 @@ impl App {
     fn focus_symbol(&mut self, index: usize, range: &lsp::Range) -> Result<()> {
         let offset = symbol_offset(&self.documents[index], range)?;
         let previous = self.suspend_navigation_observation();
-        self.can_admit_editor(self.documents[index].id)?;
+        if !self.group_fallback {
+            let result = self.open_preview_model(
+                self.documents[index].id,
+                crate::editor_groups::OpenMode::Committed,
+            );
+            if let Err(error) = result {
+                self.resume_navigation_observation(previous, navigation_history::Reason::Ordinary);
+                return Err(error);
+            }
+        } else {
+            self.can_admit_editor(self.documents[index].id)?;
+        }
         self.active = index;
         self.focus = Focus::Editor;
         self.sync_pane();

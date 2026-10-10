@@ -231,6 +231,7 @@ impl Keymap {
         );
         map.add("ctrl+shift+g", "workbench.view.scm", None);
         map.add(&format!("{p}+\\"), "workbench.action.splitEditor", None);
+        map.add(&format!("{p}+k enter"), "workbench.action.keepEditor", None);
         for (key, command) in [
             ("1", "workbench.action.focusFirstEditorGroup"),
             ("2", "workbench.action.focusSecondEditorGroup"),

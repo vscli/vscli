@@ -1,4 +1,4 @@
-# Editor groups and committed tabs
+# Editor groups and preview tabs
 
 VSCLI now implements an ordered tab list for each editor group. The native
 editor works without Node or an extension host. This document describes the
@@ -11,7 +11,8 @@ Opening a file selects its existing tab in the current group, or inserts a new
 tab immediately to the right of that group's active tab. A file already open
 in another group can therefore also have a tab in the current group. Opening
 the same file again in the same group does not duplicate or reorder its tab.
-All tabs are committed: opening another file does not replace a preview tab.
+Explicit opens are committed. Preview-enabled callers can replace the current
+group's previous eligible clean preview, as described below.
 
 Splitting creates an adjacent group containing only the active tab. Historical
 tabs in the source group stay there. Up to four groups share the available
@@ -164,7 +165,7 @@ workbench has zero engine groups and no document. This is an explicit internal
 layout boundary: absent editor/text and unchanged disk behavior may be compared,
 while the group inventories differ. The raw observation is preserved.
 
-Follow-ups include preview replacement, sticky/pinned tabs, tab movement and
+Follow-ups include sticky/pinned tabs, tab movement and
 reordering, drag-and-drop, resizable or nested layouts, non-default opening and
 close policies, multi-workspace/hot-exit continuity and terminal persistence.
 This slice does not establish complete VS Code editor-group or workspace parity.
@@ -176,9 +177,8 @@ The native membership engine supports explicit preview/committed admission,
 exact authorized replacement, Keep Editor and permanent promotion of every
 preview of an edited shared document. Admissions preflight capacities, fresh tab
 identity and checked counters before replacing or promoting a membership. A split
-keeps the source mode and creates a committed destination. App callers and styling
-are qualified in the next integrated slice; ordinary opens remain committed in
-this engine/reference milestone. Sticky ordering and preview session persistence
+keeps the source mode and creates a committed destination. App now enables Explorer left-click previews and accepted Quick Open previews
+when their settings allow them. Sticky ordering and preview session persistence
 remain pending.
 
 The new actual pinned reference contains 11 cases and 86 frames. The strict
@@ -195,3 +195,55 @@ After typing then Undo to empty, the captured document stays dirty while its tab
 is clean. Native API snapshots now preserve that distinction without changing
 revision-based tab/close decisions or Undo/Redo. See the
 [reference contract](../tests/vscode-reference/editor-preview-tabs.README.md).
+
+
+## Preview callers, Keep Editor and retained work
+
+`workbench.editor.enablePreview` defaults to true, and
+`workbench.editor.enablePreviewFromQuickOpen` defaults to false. These workbench
+settings use user/workspace root scope; language overrides are preserved in the
+imported values and reported as ignored. An ordinary Explorer left click requests
+a preview when enabled. Enter/Right in Explorer, explicit Open File, CLI resources,
+history/navigation, symbols, settings, new Untitled documents and extension
+`showTextDocument` remain committed. Accepted Ctrl+P results request previews only
+when both settings are enabled. Moving selection inside Quick Open does not open
+resources in this slice; graphical double-click is not implemented.
+
+A preview filename is italic, subject to terminal support. Cursor motion, rendering
+and reopening that same preview preserve its mode and view. Original Ctrl+K then
+Enter (Cmd+K then Enter on macOS), or F1 → **View: Keep Editor**, commits the exact
+tab in place without changing text or adding an Undo step. This is separate from
+sticky pinning; `activeEditorIsNotPreview` and `activeEditorIsPinned` stay distinct.
+Typing, accepted completion/snippets and provider/workspace edits permanently
+commit every preview of the edited shared document before follow-up UI work. Undo
+to clean text never demotes a committed tab. Splitting keeps the source mode and
+creates a committed copy with an independent historical view.
+
+Replacement requires an exact clean file-backed membership and current model,
+group, settings and loader ownership. Pending/authorized saves, source-action or
+formatter participants, Save As, close review, settings writes and file operations
+protect the old preview. If it cannot safely be replaced, a successful admission
+keeps it committed before inserting the new preview. Full/counter-exhausted
+admissions reject before removing any authoritative model or view. A failed atomic
+multi-model promotion permanently disables further preview admission for that
+instance, preserving Undo-clean models and Redo after a counter failure.
+
+Disabling preview commits existing previews; enabling it again does not demote
+historical tabs. Session schema 2 restores clean memberships committed, including
+previous previews. Preview mode is transient in this slice; sticky/tab-mode
+persistence, complete settings/open policies and full workspace parity remain
+pending.
+
+Local qualification: 864 ordinary Rust tests across 42 reports, 20 optional
+integrations ignored; seven separate preview integrity/replay tests; formatting
+and strict all-target locked Clippy pass. Eleven initial helper tests plus the
+promotion-failure fence, original-profile chord/style tests, settings ABA,
+Untitled API lifecycle and an actual authorized save gate cover the native
+ownership boundaries. Six new PTY journeys across eight sessions pass on the
+reviewed debug executable with original keys, empty PATH and missing Node. The
+27 remaining ordinary Unix PTY scripts pass with 126 reports; the existing six
+group-tab and six preview reports bring this qualification to 29 scripts and
+138 reports. All 133 extension-host and 25 Python tooling tests pass. Fresh
+platform and optimized qualification are recorded separately when complete.
+Native Explorer click is implemented; this keyboard corpus does not
+qualify graphical single/double-click parity.

@@ -21,14 +21,19 @@ impl App {
         let commands = host.commands.clone();
         let busy = host.busy();
         let diagnostics_epoch = host.diagnostics_epoch();
-        match host.poll_with_hidden(
+        let result = host.poll_with_hidden(
             &mut self.documents,
             &mut self.hidden_documents,
             self.active,
             &self.settings,
-        ) {
+        );
+        // Promote successful native edits even if a later message failed, and
+        // before a delegated Undo can restore the saved revision in this poll.
+        let promoted = self.preview_edit_barrier();
+        match result {
             Ok(messages) => {
-                let changed = !messages.is_empty()
+                let changed = promoted
+                    || !messages.is_empty()
                     || diagnostics_epoch != host.diagnostics_epoch()
                     || busy != host.busy()
                     || commands != host.commands

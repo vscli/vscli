@@ -18,6 +18,7 @@ mod navigation;
 mod navigation_history;
 mod outline;
 mod panes;
+mod preview_tabs;
 mod save_code_actions;
 mod save_formatting;
 mod saving;
@@ -120,6 +121,7 @@ pub(crate) fn native_command_ids() -> Vec<String> {
 }
 
 pub const COMMANDS: &[(&str, &str)] = &[
+    ("View: Keep Editor", "workbench.action.keepEditor"),
     ("Language: Restart Server", "vscli.languageServer.restart"),
     ("Language: Disable Services", "vscli.languageServer.disable"),
     ("Language: Enable Services", "vscli.languageServer.enable"),
@@ -489,6 +491,8 @@ pub struct App {
     next_pane_id: u64,
     editor_groups: crate::editor_groups::Groups,
     group_fallback: bool,
+    preview_tabs: preview_tabs::State,
+    preview_admission_failed: bool,
     closing_group: Option<ClosingGroup>,
     close_membership: Option<crate::editor_groups::Membership>,
     pub tab_hits: Vec<TabHit>,
@@ -594,6 +598,8 @@ impl App {
             next_pane_id: 2,
             editor_groups: crate::editor_groups::Groups::default(),
             group_fallback: false,
+            preview_tabs: preview_tabs::State::default(),
+            preview_admission_failed: false,
             closing_group: None,
             close_membership: None,
             tab_hits: Vec::new(),
@@ -711,6 +717,13 @@ impl App {
                         self.retire_save_code_actions("settings changed during code actions");
                         self.retire_save_formatting("settings changed during formatting");
                         let previous = std::mem::replace(&mut self.settings, settings);
+                        if !self.settings.editor_preview().enabled
+                            && let Err(error) = self.keep_preview_tabs()
+                        {
+                            self.message = format!(
+                                "Preview policy update rejected; buffers retained: {error:#}"
+                            );
+                        }
                         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
                             let language = doc
                                 .path
@@ -816,6 +829,9 @@ impl App {
             }
         };
         self.settings_profile_loaded();
+        if !self.settings.editor_preview().enabled {
+            self.keep_preview_tabs()?;
+        }
         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
             self.settings.apply(doc);
         }
@@ -843,7 +859,9 @@ impl App {
         self.observe_navigation(navigation_history::Reason::Ordinary);
         let reason = if matches!(
             intent,
-            navigation::OpenIntent::Focus | navigation::OpenIntent::Settings
+            navigation::OpenIntent::Focus
+                | navigation::OpenIntent::Preview
+                | navigation::OpenIntent::Settings
         ) {
             navigation_history::Reason::EditorChange
         } else {
@@ -880,6 +898,10 @@ impl App {
         {
             intent.validate(&self.documents[index])?;
             self.can_admit_editor(self.documents[index].id)?;
+            if !self.group_fallback {
+                let change = self.editor_groups.open(self.documents[index].id)?;
+                self.apply_group_change(change);
+            }
             self.cancel_navigation();
             self.active = index;
             self.focus = Focus::Editor;
@@ -897,8 +919,15 @@ impl App {
             intent.validate(&self.hidden_documents[index])?;
             self.can_admit_editor(self.hidden_documents[index].id)?;
             self.cancel_navigation();
-            let doc = self.hidden_documents.remove(index);
-            self.install_open_document(doc)?;
+            if self.group_fallback {
+                let doc = self.hidden_documents.remove(index);
+                self.install_open_document(doc)?;
+            } else {
+                self.open_preview_model(
+                    self.hidden_documents[index].id,
+                    crate::editor_groups::OpenMode::Committed,
+                )?;
+            }
             intent.apply(self);
             return Ok(());
         }
@@ -921,6 +950,10 @@ impl App {
         Ok(())
     }
     fn install_open_document(&mut self, d: Document) -> Result<()> {
+        if !self.group_fallback {
+            self.preview_edit_barrier();
+            return self.install_preview_document(d, crate::editor_groups::OpenMode::Committed);
+        }
         let id = self
             .documents
             .iter()
@@ -983,6 +1016,9 @@ impl App {
         let mut items: Vec<_> = COMMANDS
             .iter()
             .filter_map(|(label, id)| {
+                if *id == "workbench.action.keepEditor" && !self.settings.editor_preview().enabled {
+                    return None;
+                }
                 score(label, query.trim_start_matches('>')).map(|s| (s, *label, *id))
             })
             .collect();
@@ -1125,6 +1161,15 @@ impl App {
                         .is_some_and(|d| d.selection().is_some())
                 ),
             ),
+            (
+                "activeEditorIsNotPreview".into(),
+                json!(self.active_tab_membership().is_some() && !self.active_editor_is_preview()),
+            ),
+            ("activeEditorIsPinned".into(), json!(false)),
+            (
+                "config.workbench.editor.enablePreview".into(),
+                json!(self.settings.editor_preview().enabled),
+            ),
             ("inputFocus".into(), json!(self.prompt.is_some())),
             ("terminalFocus".into(), json!(self.focus == Focus::Terminal)),
             (
@@ -1171,6 +1216,7 @@ impl App {
             self.session_interaction();
         }
         self.event_inner(event);
+        self.preview_edit_barrier();
         self.sync_pane();
         self.observe_navigation(navigation_history::Reason::Ordinary);
         self.invalidate_symbol_context();
@@ -1352,7 +1398,7 @@ impl App {
                         .saturating_sub(self.explorer_area.height.saturating_sub(1) as usize);
                     self.explorer_selected = (offset + (mouse.row - self.explorer_area.y) as usize)
                         .min(self.entries.len().saturating_sub(1));
-                    self.explorer_open();
+                    self.explorer_open_mode(true);
                 }
             }
             _ => {}
@@ -1512,6 +1558,7 @@ impl App {
         let suggestion_edit = self.suggestion_edit_command(command, args.as_ref());
         let signature_edit = self.signature_edit_command(command, args.as_ref());
         self.execute_inner(command, args);
+        self.preview_edit_barrier();
         self.sync_pane();
         self.observe_outline();
         self.observe_breadcrumbs();
@@ -1647,6 +1694,7 @@ impl App {
                 }
             }
             "workbench.files.action.refreshFilesExplorer" => self.refresh_files(),
+            "workbench.action.keepEditor" => self.keep_active_editor(),
             "workbench.action.splitEditor" | "workbench.action.splitEditorRight" => {
                 self.split_editor(false)
             }
@@ -2656,9 +2704,11 @@ impl App {
                 }
                 let paths = self.workspace.matches(&p.text);
                 if let Some(path) = paths.get(p.selected.min(paths.len().saturating_sub(1))) {
-                    if let Err(e) = self.open(path) {
-                        self.message = format!("Open failed: {e:#}");
-                    }
+                    let preview = self.settings.editor_preview();
+                    self.open_editor_navigation(
+                        path.clone(),
+                        preview.enabled && preview.from_quick_open,
+                    );
                 } else {
                     self.message = "No matching files. Use Open File to enter a new path.".into();
                 }
@@ -2756,13 +2806,19 @@ impl App {
         }
     }
     fn explorer_open(&mut self) {
+        self.explorer_open_mode(false);
+    }
+    fn explorer_open_mode(&mut self, preview: bool) {
         if let Some(entry) = self.entries.get(self.explorer_selected).cloned() {
             if entry.directory {
                 self.explorer_dir = entry.path;
                 self.entries = directory_entries(&self.explorer_dir);
                 self.explorer_selected = 0;
-            } else if let Err(e) = self.open(&entry.path) {
-                self.message = format!("Open failed: {e:#}");
+            } else {
+                self.open_editor_navigation(
+                    entry.path,
+                    preview && self.settings.editor_preview().enabled,
+                );
             }
         }
     }

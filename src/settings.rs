@@ -99,6 +99,19 @@ impl Default for Breadcrumbs {
         }
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EditorPreview {
+    pub enabled: bool,
+    pub from_quick_open: bool,
+}
+impl Default for EditorPreview {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            from_quick_open: false,
+        }
+    }
+}
 #[derive(Clone, Default)]
 pub struct Settings {
     layers: Arc<Vec<Map<String, Value>>>,
@@ -255,6 +268,8 @@ const SUPPORTED: &[&str] = &[
     "files.autoSave",
     "files.autoSaveDelay",
     "workbench.colorTheme",
+    "workbench.editor.enablePreview",
+    "workbench.editor.enablePreviewFromQuickOpen",
     "vscli.languageServer.enabled",
     "vscli.languageServer.program",
     "vscli.languageServer.args",
@@ -313,6 +328,20 @@ impl Settings {
         result.serialized = serde_json::to_string(result.layers.as_ref())?.into();
         Ok(result)
     }
+    /// Workbench policy is root scoped; language blocks cannot override it.
+    pub fn editor_preview(&self) -> EditorPreview {
+        let root_bool = |key, default| {
+            self.layers
+                .iter()
+                .rev()
+                .find_map(|layer| layer.get(key).and_then(Value::as_bool))
+                .unwrap_or(default)
+        };
+        EditorPreview {
+            enabled: root_bool("workbench.editor.enablePreview", true),
+            from_quick_open: root_bool("workbench.editor.enablePreviewFromQuickOpen", false),
+        }
+    }
     pub fn color_theme(&self) -> Option<&str> {
         self.layers
             .iter()
@@ -323,15 +352,29 @@ impl Settings {
         &self.layers
     }
     fn validate(&mut self, values: &Map<String, Value>, source: &str) {
+        self.validate_scoped(values, source, false);
+    }
+    fn validate_scoped(&mut self, values: &Map<String, Value>, source: &str, language_scope: bool) {
         for (key, value) in values {
             if key.starts_with('[') && key.ends_with(']') {
                 if let Some(object) = value.as_object() {
-                    self.validate(object, &format!("{source} {key}"));
+                    self.validate_scoped(object, &format!("{source} {key}"), true);
                 } else {
                     self.warnings
                         .push(format!("{source}: {key} must be an object"));
                 }
                 continue;
+            }
+            if language_scope
+                && matches!(
+                    key.as_str(),
+                    "workbench.editor.enablePreview"
+                        | "workbench.editor.enablePreviewFromQuickOpen"
+                )
+            {
+                self.warnings.push(format!(
+                    "{source}: language override ignored for root-scoped {key}"
+                ));
             }
             if !SUPPORTED.contains(&key.as_str()) {
                 self.warnings.push(format!(
@@ -903,6 +946,9 @@ fn valid(key: &str, value: &Value) -> bool {
             .as_u64()
             .is_some_and(|delay| delay <= crate::autosave::MAX_DELAY_MS.into()),
         "workbench.colorTheme" => value.is_string(),
+        "workbench.editor.enablePreview" | "workbench.editor.enablePreviewFromQuickOpen" => {
+            value.is_boolean()
+        }
         "vscli.languageServer.enabled" | "vscli.languageServer.allowWorkspaceConfiguration" => {
             value.is_boolean()
         }
@@ -2200,5 +2246,56 @@ mod tests {
         assert_eq!(doc.line(1), "\t0123456789");
         doc.undo();
         assert_eq!(doc.line(1), "0123456789");
+    }
+}
+
+#[cfg(test)]
+mod editor_preview_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn preview_policy_uses_root_layers_and_preserves_imported_language_values() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        let original = r#"{"workbench.editor.enablePreview":false,"workbench.editor.enablePreviewFromQuickOpen":true,"[cpp]":{"workbench.editor.enablePreview":true}}"#;
+        std::fs::write(&user, original).unwrap();
+        std::fs::write(&workspace, r#"{"workbench.editor.enablePreview":true,"workbench.editor.enablePreviewFromQuickOpen":false,"[cpp]":{"workbench.editor.enablePreviewFromQuickOpen":true}}"#).unwrap();
+        let settings = Settings::load_editor(&[user.clone(), workspace]).unwrap();
+        assert_eq!(settings.editor_preview(), EditorPreview::default());
+        assert_eq!(
+            settings.extension_layers()[0]["[cpp]"]["workbench.editor.enablePreview"],
+            json!(true)
+        );
+        assert_eq!(
+            settings
+                .warnings
+                .iter()
+                .filter(|warning| warning.contains("language override ignored"))
+                .count(),
+            2
+        );
+        assert_eq!(std::fs::read_to_string(user).unwrap(), original);
+    }
+    #[test]
+    fn invalid_preview_layer_values_preserve_valid_root_policy() {
+        let root = tempfile::tempdir().unwrap();
+        let first = root.path().join("first.json");
+        let second = root.path().join("second.json");
+        std::fs::write(&first, r#"{"workbench.editor.enablePreview":false,"workbench.editor.enablePreviewFromQuickOpen":true}"#).unwrap();
+        std::fs::write(&second, r#"{"workbench.editor.enablePreview":"true","workbench.editor.enablePreviewFromQuickOpen":null}"#).unwrap();
+        let settings = Settings::load(&[first, second]).unwrap();
+        assert_eq!(
+            settings.editor_preview(),
+            EditorPreview {
+                enabled: false,
+                from_quick_open: true
+            }
+        );
+        assert_eq!(settings.warnings.len(), 2);
+        assert_eq!(
+            settings.extension_layers()[1]["workbench.editor.enablePreview"],
+            json!("true")
+        );
     }
 }

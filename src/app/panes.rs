@@ -81,6 +81,9 @@ impl App {
             }
         }
         self.project_editor_groups();
+        if let Err(error) = self.refresh_preview_tabs() {
+            self.message = format!("Preview ownership refresh failed; buffers retained: {error:#}");
+        }
         if change.changed {
             if matches!(self.modal, Some(Modal::Confirm(AfterSave::Close)))
                 && self
@@ -102,6 +105,65 @@ impl App {
             self.observe_outline();
             self.observe_breadcrumbs();
         }
+    }
+    pub fn active_editor_is_preview(&self) -> bool {
+        self.active_tab_membership().is_some_and(|member| {
+            self.editor_groups
+                .group(member.group)
+                .is_some_and(|group| group.preview() == Some(member))
+        })
+    }
+    pub(super) fn preview_edit_barrier(&mut self) -> bool {
+        if self.group_fallback {
+            return false;
+        }
+        match self.promote_dirty_preview_tabs() {
+            Ok(changed) => changed,
+            Err(error) => {
+                // An atomic multi-model failure can leave a normal-counter
+                // preview uncommitted. Even Undo-clean must not evict its Redo.
+                self.preview_admission_failed = true;
+                self.message =
+                    format!("Preview promotion rejected; edited buffers retained: {error:#}");
+                false
+            }
+        }
+    }
+    pub(super) fn keep_active_editor(&mut self) {
+        let Some(member) = self.active_tab_membership() else {
+            return;
+        };
+        match self.editor_groups.keep(member) {
+            Ok(change) => self.apply_group_change(change),
+            Err(error) => {
+                self.message = format!("Keep Editor rejected; buffers retained: {error:#}")
+            }
+        }
+    }
+    pub(super) fn keep_preview_tabs(&mut self) -> Result<bool> {
+        let members: Vec<_> = self
+            .editor_groups
+            .groups()
+            .iter()
+            .filter_map(|group| group.preview())
+            .collect();
+        if members.is_empty() {
+            return Ok(false);
+        }
+        let mut staged = self.editor_groups.clone();
+        let mut combined = Change {
+            previous: self.editor_groups.active_membership(),
+            ..Change::default()
+        };
+        for member in members {
+            let change = staged.keep(member)?;
+            combined.changed |= change.changed;
+            combined.promoted.extend(change.promoted);
+        }
+        combined.active = staged.active_membership();
+        self.editor_groups = staged;
+        self.apply_group_change(combined);
+        Ok(true)
     }
     pub(super) fn can_admit_editor(&self, document: u64) -> Result<()> {
         if self.group_fallback {
@@ -184,12 +246,17 @@ impl App {
             }
         }
         if let Some(id) = desired {
-            match self.editor_groups.open(id) {
-                Ok(change) => self.apply_group_change(change),
-                Err(error) => {
-                    self.message =
-                        format!("Editor-group admission rejected; buffers retained: {error:#}");
+            let result = self.retain_focused_preview(id).and_then(|retained| {
+                if retained {
+                    return Ok(());
                 }
+                let change = self.editor_groups.open(id)?;
+                self.apply_group_change(change);
+                Ok(())
+            });
+            if let Err(error) = result {
+                self.message =
+                    format!("Editor-group admission rejected; buffers retained: {error:#}");
             }
         } else {
             self.project_editor_groups();
@@ -423,6 +490,87 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn preview_render_is_observational_and_original_keep_chord_preserves_view_and_history() {
+        use ratatui::{Terminal, backend::TestBackend, style::Modifier};
+        for profile in [Profile::Linux, Profile::Macos, Profile::Windows] {
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join("preview.cpp");
+            std::fs::write(&path, "猫🙂 alpha\r\nbody\r\n").unwrap();
+            let mut app = App::new(root.path().into(), profile);
+            app.install_preview_document(
+                Document::open(&path).unwrap(),
+                crate::editor_groups::OpenMode::Preview,
+            )
+            .unwrap();
+            let member = app.active_tab_membership().unwrap();
+            app.doc_mut().move_to(2, false);
+            let proof = app.editor_groups.proof();
+            let epoch = app.doc().text_epoch();
+            let original = app.doc().text.clone();
+            let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+            for _ in 0..2 {
+                terminal
+                    .draw(|frame| crate::ui::draw(frame, &mut app))
+                    .unwrap();
+                assert!(app.active_editor_is_preview());
+                assert!(app.editor_groups.proof_current(&proof));
+                assert_eq!(app.doc().cursor, 2);
+                let hit = app
+                    .tab_hits
+                    .iter()
+                    .find(|hit| hit.membership == member)
+                    .unwrap();
+                let cell = terminal
+                    .backend()
+                    .buffer()
+                    .cell((hit.area.x + 1, hit.area.y))
+                    .unwrap();
+                assert!(cell.modifier.contains(Modifier::ITALIC | Modifier::BOLD));
+            }
+            assert_eq!(app.context()["activeEditorIsNotPreview"], json!(false));
+            assert_eq!(app.context()["activeEditorIsPinned"], json!(false));
+            let primary = if profile == Profile::Macos {
+                KeyModifiers::SUPER
+            } else {
+                KeyModifiers::CONTROL
+            };
+            app.event(Event::Key(KeyEvent::new(KeyCode::Char('k'), primary)));
+            app.event(Event::Key(KeyEvent::new(
+                KeyCode::Enter,
+                KeyModifiers::NONE,
+            )));
+            assert_eq!(app.active_tab_membership(), Some(member));
+            assert!(!app.active_editor_is_preview());
+            assert!(!app.editor_groups.proof_current(&proof));
+            assert!(app.tab_hits.is_empty());
+            assert_eq!(app.doc().cursor, 2);
+            assert_eq!(app.doc().text_epoch(), epoch);
+            assert_eq!(app.doc().text, original);
+            assert_eq!(app.context()["activeEditorIsNotPreview"], json!(true));
+            assert_eq!(app.context()["activeEditorIsPinned"], json!(false));
+            app.execute("undo", Value::Null);
+            assert_eq!(app.doc().text, original);
+            terminal
+                .draw(|frame| crate::ui::draw(frame, &mut app))
+                .unwrap();
+            let hit = app
+                .tab_hits
+                .iter()
+                .find(|hit| hit.membership == member)
+                .unwrap();
+            let cell = terminal
+                .backend()
+                .buffer()
+                .cell((hit.area.x + 1, hit.area.y))
+                .unwrap();
+            assert!(!cell.modifier.contains(Modifier::ITALIC));
+            assert_eq!(
+                std::fs::read(path).unwrap(),
+                original.to_string().as_bytes()
+            );
+        }
+    }
     #[test]
     fn panes_share_edits_and_close_without_losing_the_buffer() {
         let dir = tempfile::tempdir().unwrap();

@@ -64,7 +64,9 @@ reopens clean files, the active tab and the current four-equal-group visible lay
 with bounded cursor/selection metadata. Dirty/untitled recovery and explicit CLI
 files remain authoritative. Independent committed group tabs and historical
 membership views are implemented in the current candidate, with a strict schema-2
-migration and exact membership-owned closing. Full hot exit, preview/pinned tabs,
+migration and exact membership-owned closing. Native preview/Keep Editor callers
+and permanent edit promotion are implemented with protected save/model ownership;
+clean session restoration commits preview modes. Full hot exit, sticky/pinned tabs,
 resizable/nested layouts, workspace transitions and terminal persistence remain
 incomplete. See [group/tab scope and qualification](EDITOR_GROUPS.md).
 See [recent-file integrity](USAGE.md#recent-files-and-reopening-closed-editors) and

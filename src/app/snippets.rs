@@ -114,6 +114,7 @@ impl App {
         );
         match result {
             Ok(()) => {
+                self.preview_edit_barrier();
                 self.focus = Focus::Editor;
                 self.message = if self.doc().in_snippet() {
                     "Snippet · Tab next · Shift+Tab previous · Esc leave"
