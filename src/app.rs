@@ -14,6 +14,7 @@ pub mod keyboard;
 mod language;
 mod language_services;
 mod navigation;
+mod navigation_history;
 mod panes;
 mod signature_help;
 mod suggestions;
@@ -283,6 +284,8 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "editor.action.startFindReplaceAction",
     ),
     ("Go: Go to Line…", "workbench.action.gotoLine"),
+    ("Go: Back", "workbench.action.navigateBack"),
+    ("Go: Forward", "workbench.action.navigateForward"),
     (
         "Language: Parameter Hints",
         "editor.action.triggerParameterHints",
@@ -506,6 +509,7 @@ pub struct App {
     pub(crate) welcome_actions: Vec<(Rect, crate::ui::welcome::Action)>,
     session: session::State,
     navigation: navigation::State,
+    navigation_history: navigation_history::State,
     symbols: symbols::State,
     theme_state: themes::State,
     pub settings: crate::settings::Settings,
@@ -596,6 +600,7 @@ impl App {
             welcome_actions: Vec::new(),
             session: session::State::default(),
             navigation: navigation::State::default(),
+            navigation_history: navigation_history::State::default(),
             symbols: symbols::State::default(),
             theme_state: themes::State::default(),
             settings: crate::settings::Settings::default(),
@@ -695,6 +700,7 @@ impl App {
         for terminal in &mut self.terminals {
             changed |= terminal.poll();
         }
+        self.observe_navigation(navigation_history::Reason::Ordinary);
         changed
     }
     pub fn recovery_documents(&self) -> Vec<&Document> {
@@ -748,6 +754,34 @@ impl App {
         self.open_with_intent(path, navigation::OpenIntent::Focus)
     }
     fn open_with_intent(&mut self, path: &Path, intent: navigation::OpenIntent) -> Result<()> {
+        // Accepted opens advance the loader fence in the inner path. An open
+        // rejected by an occupied slot must leave its original request valid.
+        self.observe_navigation(navigation_history::Reason::Ordinary);
+        let reason = if matches!(
+            intent,
+            navigation::OpenIntent::Focus | navigation::OpenIntent::Settings
+        ) {
+            navigation_history::Reason::EditorChange
+        } else {
+            navigation_history::Reason::Jump
+        };
+        let previous = self.suspend_navigation_observation();
+        let result = self.open_with_intent_inner(path, intent);
+        self.resume_navigation_observation(
+            previous,
+            if result.is_ok() {
+                reason
+            } else {
+                navigation_history::Reason::Ordinary
+            },
+        );
+        result
+    }
+    fn open_with_intent_inner(
+        &mut self,
+        path: &Path,
+        intent: navigation::OpenIntent,
+    ) -> Result<()> {
         let path = if path.is_absolute() {
             path.to_owned()
         } else {
@@ -765,6 +799,7 @@ impl App {
             self.sync_pane();
             self.remember_active_file();
             intent.apply(self);
+            self.observe_navigation(navigation_history::Reason::EditorChange);
             return Ok(());
         }
         if let Some(index) = self
@@ -830,6 +865,7 @@ impl App {
         }
         self.sync_pane();
         self.remember_active_file();
+        self.observe_navigation(navigation_history::Reason::EditorChange);
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
         self.cancel_suggestions();
@@ -885,6 +921,11 @@ impl App {
     }
     pub fn context(&self) -> HashMap<String, Value> {
         HashMap::from([
+            ("canNavigateBack".into(), json!(self.can_navigate_back())),
+            (
+                "canNavigateForward".into(),
+                json!(self.can_navigate_forward()),
+            ),
             (
                 "suggestWidgetVisible".into(),
                 json!(self.suggestion_model().is_some()),
@@ -996,6 +1037,12 @@ impl App {
     }
 
     pub fn event(&mut self, event: Event) {
+        self.observe_navigation(navigation_history::Reason::Ordinary);
+        if matches!(&event, Event::Paste(_))
+            || matches!(&event, Event::Mouse(mouse) if mouse.kind != MouseEventKind::Moved)
+        {
+            self.navigation_input_interaction();
+        }
         let suggestion_edit = self.suggestion_edit_event(&event);
         let signature_edit = self.signature_edit_event(&event);
         self.signature_ui_event(&event);
@@ -1010,6 +1057,7 @@ impl App {
         }
         self.event_inner(event);
         self.sync_pane();
+        self.observe_navigation(navigation_history::Reason::Ordinary);
         self.invalidate_symbol_context();
         self.invalidate_pending_extension_commands();
         self.observe_suggestion_edit(suggestion_edit);
@@ -1148,10 +1196,12 @@ impl App {
             self.inspect_key(key);
         }
         if self.modal.is_some() {
+            self.navigation_input_interaction();
             self.modal_key(key);
             return;
         }
         if self.prompt.is_some() {
+            self.navigation_input_interaction();
             self.prompt_key(key);
             return;
         }
@@ -1172,19 +1222,25 @@ impl App {
                         | "workbench.action.terminal.focusNext"
                         | "workbench.action.terminal.focusPrevious"
                         | "workbench.action.closeWindow"
+                        | "workbench.action.navigateBack"
+                        | "workbench.action.navigateForward"
                         | "workbench.view.extensions"
                         | "workbench.extensions.action.showInstalledExtensions"
                 )
             {
                 self.execute_with_args(&command, args);
-            } else if let Some(terminal) = self.terminals.get_mut(self.active_terminal)
-                && let Err(e) = terminal.key(key)
-            {
-                self.message = e.to_string();
+            } else {
+                self.navigation_input_interaction();
+                if let Some(terminal) = self.terminals.get_mut(self.active_terminal)
+                    && let Err(e) = terminal.key(key)
+                {
+                    self.message = e.to_string();
+                }
             }
             return;
         }
         if key.code == KeyCode::Esc && self.chord.is_some() {
+            self.navigation_input_interaction();
             self.chord = None;
             self.message = "Chord canceled".into();
             return;
@@ -1214,16 +1270,19 @@ impl App {
                 return;
             }
             Resolution::Chord => {
+                self.navigation_input_interaction();
                 self.chord = Some(sequence.clone());
                 self.message = format!("({sequence}) waiting for second key…");
                 return;
             }
             Resolution::None if in_chord => {
+                self.navigation_input_interaction();
                 self.message = format!("No command bound to {sequence}");
                 return;
             }
             _ => {}
         }
+        self.navigation_input_interaction();
         if self.focus == Focus::Output {
             self.output_key(key);
             return;
@@ -1253,10 +1312,23 @@ impl App {
         self.execute_with_args(command, (!args.is_null()).then_some(args));
     }
     fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
+        let history_travel = matches!(
+            command,
+            "workbench.action.navigateBack" | "workbench.action.navigateForward"
+        );
+        let duplicate_reopen =
+            command == "workbench.action.reopenClosedEditor" && self.duplicate_reopen_pending();
+        if !history_travel && !duplicate_reopen {
+            self.navigation_input_interaction();
+            self.observe_navigation(navigation_history::Reason::Ordinary);
+        }
         let suggestion_edit = self.suggestion_edit_command(command, args.as_ref());
         let signature_edit = self.signature_edit_command(command, args.as_ref());
         self.execute_inner(command, args);
         self.sync_pane();
+        if !history_travel {
+            self.observe_navigation(navigation_history::Reason::Ordinary);
+        }
         self.invalidate_pending_extension_commands();
         self.observe_suggestion_edit(suggestion_edit);
         self.observe_signature_edit(signature_edit);
@@ -1274,7 +1346,12 @@ impl App {
             self.session_interaction();
         }
         // A duplicate reopen keeps the existing bounded request alive.
-        if command != "workbench.action.reopenClosedEditor" {
+        if !matches!(
+            command,
+            "workbench.action.reopenClosedEditor"
+                | "workbench.action.navigateBack"
+                | "workbench.action.navigateForward"
+        ) {
             self.cancel_navigation();
         }
         if suggestions::command(command) {
@@ -1681,6 +1758,8 @@ impl App {
             "editor.action.nextMatchFindAction" => self.find(false),
             "editor.action.previousMatchFindAction" => self.find(true),
             "workbench.action.gotoLine" => self.start_prompt(PromptKind::Goto, String::new()),
+            "workbench.action.navigateBack" => self.navigate_history(navigation_history::Direction::Back),
+            "workbench.action.navigateForward" => self.navigate_history(navigation_history::Direction::Forward),
             "vscli.extensions.search" => self.start_prompt(PromptKind::SearchExtensions, String::new()),
             "vscli.extensions.updates" => self.manage_extension(extension_management::Action::CheckUpdates),
             "workbench.extensions.action.installVSIX" => self.start_prompt(PromptKind::InstallExtension, String::new()),
@@ -2393,6 +2472,7 @@ impl App {
                         .doc()
                         .position_at(line.saturating_sub(1), col.saturating_sub(1));
                     self.doc_mut().move_to(pos, false);
+                    self.observe_navigation(navigation_history::Reason::Jump);
                 } else {
                     self.message = "Enter a line number, optionally line:column".into();
                 }

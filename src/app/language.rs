@@ -323,6 +323,7 @@ impl App {
                     bail!("Problem document changed; reopen Problems");
                 }
                 let offset = lsp::offset(doc, range.start)?;
+                let previous = self.suspend_navigation_observation();
                 self.cancel_navigation();
                 if let Some(index) = self
                     .hidden_documents
@@ -342,6 +343,7 @@ impl App {
                 self.doc_mut().move_to(offset, false);
                 self.sync_pane();
                 self.remember_active_file();
+                self.resume_navigation_observation(previous, navigation_history::Reason::Jump);
             }
             LanguageAction::Completion { request, item } => {
                 self.request_current(request)?;

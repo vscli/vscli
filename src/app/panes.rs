@@ -29,6 +29,7 @@ impl App {
         if index >= self.panes.len() {
             return;
         }
+        self.observe_navigation(navigation_history::Reason::Ordinary);
         self.sync_pane();
         self.active_pane = index;
         self.active = self
@@ -39,6 +40,7 @@ impl App {
         let view = self.panes[index].id;
         self.doc_mut().activate_view(view);
         self.focus = Focus::Editor;
+        self.observe_navigation(navigation_history::Reason::EditorChange);
     }
     pub(super) fn split_editor(&mut self, horizontal: bool) {
         if self.active_document().is_none() {

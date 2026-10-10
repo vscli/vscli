@@ -10,7 +10,7 @@ use std::{
 struct Context {
     workspace: PathBuf,
     document: Option<u64>,
-    documents: Vec<(u64, u64, Option<PathBuf>)>,
+    documents: Vec<(u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
     focus: Focus,
@@ -24,7 +24,7 @@ impl Context {
                 .documents
                 .iter()
                 .chain(&app.hidden_documents)
-                .map(|d| (d.id, d.revision, d.path.clone()))
+                .map(|d| (d.id, d.revision, d.text_epoch(), d.path.clone()))
                 .collect(),
             selections: app
                 .active_document()
@@ -316,6 +316,7 @@ impl App {
     }
     fn focus_symbol(&mut self, index: usize, range: &lsp::Range) -> Result<()> {
         let offset = symbol_offset(&self.documents[index], range)?;
+        let previous = self.suspend_navigation_observation();
         let id = self.documents[index].id;
         if self.active_document().is_some_and(|doc| doc.id == id) {
             self.focus = Focus::Editor;
@@ -330,6 +331,7 @@ impl App {
         self.doc_mut().move_to(offset, false);
         self.sync_pane();
         self.remember_active_file();
+        self.resume_navigation_observation(previous, navigation_history::Reason::Jump);
         self.message = format!("Symbol in {}", self.doc().name());
         Ok(())
     }
@@ -557,5 +559,53 @@ mod tests {
         assert_eq!(app.doc().id, id);
         assert_eq!(app.doc().text.to_string(), "unsaved");
         assert_eq!(app.prompt.as_ref().unwrap().text, "native query");
+    }
+    #[test]
+    fn held_symbol_load_cannot_revive_after_source_edit_and_undo() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("target.cpp");
+        std::fs::write(&path, "target\r\n").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("猫🙂 original\r\n", false);
+        let id = app.doc().id;
+        let revision = app.doc().revision;
+        let selections = app.doc().selections();
+        let text = app.doc().text.to_string();
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let position = lsp::Position {
+            line: 0,
+            character: 0,
+        };
+        app.symbols.loading = Some(Loading {
+            receiver,
+            context: Context::capture(&app),
+            generation: app.symbols.generation,
+            symbol: Symbol {
+                label: "target".into(),
+                path: path.clone(),
+                range: lsp::Range {
+                    start: position,
+                    end: position,
+                },
+            },
+        });
+        app.doc_mut().insert("new edit", false);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().revision, revision);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(app.doc().text.to_string(), text);
+        sender
+            .send(Ok(Target::Loaded(Box::new(
+                Document::open_existing(&path).unwrap(),
+            ))))
+            .unwrap();
+        app.poll_symbols();
+        assert!(app.symbols.loading.is_none());
+        assert_eq!(app.documents.len(), 1);
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), text);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(std::fs::read(&path).unwrap(), b"target\r\n");
     }
 }

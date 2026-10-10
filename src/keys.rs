@@ -84,6 +84,21 @@ impl Keymap {
             map.add(&format!("{p}+{key}"), command, None);
         }
         map.add("ctrl+r", "workbench.action.openRecent", None);
+        let (back, forward) = match profile {
+            Profile::Linux => ("ctrl+alt+-", "ctrl+shift+-"),
+            Profile::Windows => ("alt+left", "alt+right"),
+            Profile::Macos => ("ctrl+-", "ctrl+shift+-"),
+        };
+        map.add(
+            back,
+            "workbench.action.navigateBack",
+            Some("canNavigateBack"),
+        );
+        map.add(
+            forward,
+            "workbench.action.navigateForward",
+            Some("canNavigateForward"),
+        );
         map.add(
             &format!("{p}+shift+t"),
             "workbench.action.reopenClosedEditor",
@@ -1064,6 +1079,32 @@ mod tests {
             ));
             assert!(
                 matches!(m.resolve(&format!("{p}+k {p}+c"),&ctx),Resolution::Command(c,_) if c=="editor.action.addCommentLine")
+            );
+        }
+    }
+    #[test]
+    fn navigation_history_defaults_follow_platform_keys_and_available_direction() {
+        for (profile, back, forward) in [
+            (Profile::Linux, "ctrl+alt+-", "ctrl+shift+-"),
+            (Profile::Windows, "alt+left", "alt+right"),
+            (Profile::Macos, "ctrl+-", "ctrl+shift+-"),
+        ] {
+            let map = Keymap::new(profile);
+            let context = HashMap::from([
+                ("canNavigateBack".into(), Value::Bool(true)),
+                ("canNavigateForward".into(), Value::Bool(false)),
+            ]);
+            assert!(
+                matches!(map.resolve(back, &context), Resolution::Command(id, _) if id == "workbench.action.navigateBack")
+            );
+            assert_eq!(map.resolve(forward, &context), Resolution::None);
+            let context = HashMap::from([
+                ("canNavigateBack".into(), Value::Bool(false)),
+                ("canNavigateForward".into(), Value::Bool(true)),
+            ]);
+            assert_eq!(map.resolve(back, &context), Resolution::None);
+            assert!(
+                matches!(map.resolve(forward, &context), Resolution::Command(id, _) if id == "workbench.action.navigateForward")
             );
         }
     }
