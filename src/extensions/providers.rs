@@ -5,6 +5,15 @@ use std::collections::VecDeque;
 const LIMIT: usize = 8;
 const DEADLINE: Duration = Duration::from_secs(6);
 #[derive(Clone, Debug)]
+pub struct MirrorSnapshot {
+    pub uri: String,
+    pub document: u64,
+    pub path: Option<PathBuf>,
+    pub revision: u64,
+    pub text_epoch: u64,
+    pub version: u64,
+}
+#[derive(Clone, Debug)]
 pub struct Ticket {
     pub id: u64,
     pub session: u64,
@@ -14,6 +23,7 @@ pub struct Ticket {
     pub revision: u64,
     pub text_epoch: u64,
     pub version: u64,
+    pub workspace: Arc<Vec<MirrorSnapshot>>,
 }
 struct Call {
     ticket: Ticket,
@@ -81,7 +91,126 @@ impl Client {
         let Some(provider) = self.language_provider(kind, doc).cloned() else {
             return Ok(None);
         };
-        if self.providers.calls.len() + self.providers.replies.len() >= LIMIT {
+        self.request_language_provider_from(&provider, documents, hidden, active, options)
+            .map(Some)
+    }
+    pub(crate) fn language_providers(
+        &self,
+        kind: Kind,
+        document: &Document,
+        only: Option<&str>,
+    ) -> Result<Vec<Provider>> {
+        let mut providers: Vec<_> =
+            self.providers
+                .registry
+                .entries()
+                .iter()
+                .filter(|provider| {
+                    provider.kind == kind
+                        && self.provider_owner_ready(&provider.owner)
+                        && provider.score(document) > 0
+                })
+                .filter(|provider| {
+                    only.is_none_or(|only| {
+                        provider.action_kinds.as_ref().is_none_or(|kinds| {
+                            kinds.iter().any(|kind| kind_intersects(only, kind))
+                        })
+                    })
+                })
+                .cloned()
+                .collect();
+        if providers.len() > LIMIT {
+            bail!(
+                "More than 8 extension code action providers match; disable providers or narrow the requested kind"
+            );
+        }
+        providers.sort_by(|a, b| {
+            b.score(document)
+                .cmp(&a.score(document))
+                .then_with(|| a.owner.cmp(&b.owner))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        Ok(providers)
+    }
+    pub(crate) fn mirrored_snapshotset(
+        &self,
+        documents: &[Document],
+        hidden: &[Document],
+    ) -> Result<Arc<Vec<MirrorSnapshot>>> {
+        if documents.len().saturating_add(hidden.len()) > 128 {
+            bail!("Code action snapshots support at most128 models");
+        }
+        let mut result = Vec::new();
+        let mut ids = HashSet::new();
+        let mut uris = HashSet::new();
+        for document in documents.iter().chain(hidden) {
+            let mirror = self
+                .mirror
+                .mirrors
+                .get(&document.id)
+                .context("Workspace target is not mirrored")?;
+            if mirror.revision != document.revision
+                || mirror.text_epoch != document.text_epoch()
+                || !ids.insert(document.id)
+                || !uris.insert(&mirror.uri)
+            {
+                bail!("Workspace mirror changed or has duplicate identity");
+            }
+            result.push(MirrorSnapshot {
+                uri: mirror.uri.clone(),
+                document: document.id,
+                path: document.path.clone(),
+                revision: document.revision,
+                text_epoch: document.text_epoch(),
+                version: mirror.version,
+            });
+        }
+        result.sort_by_key(|target| target.document);
+        Ok(Arc::new(result))
+    }
+    pub(crate) fn provider_workspace_current(
+        &self,
+        ticket: &Ticket,
+        documents: &[Document],
+        hidden: &[Document],
+    ) -> bool {
+        ticket.workspace.iter().all(|target| {
+            documents
+                .iter()
+                .chain(hidden)
+                .find(|document| document.id == target.document)
+                .is_some_and(|document| {
+                    document.path == target.path
+                        && document.revision == target.revision
+                        && document.text_epoch() == target.text_epoch
+                        && self.mirror.mirrors.get(&document.id).is_some_and(|mirror| {
+                            mirror.version == target.version
+                                && mirror.uri == target.uri
+                                && mirror.revision == target.revision
+                                && mirror.text_epoch == target.text_epoch
+                        })
+                })
+        })
+    }
+    pub(crate) fn request_language_provider_from(
+        &mut self,
+        provider: &Provider,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+        options: Value,
+    ) -> Result<Ticket> {
+        let doc = documents.get(active).context("No active document")?;
+        if !self.provider_owner_ready(&provider.owner)
+            || !self
+                .providers
+                .registry
+                .current(provider, self.providers.registry.epoch())
+            || provider.score(doc) == 0
+        {
+            bail!("Language provider no longer matches its owner/document");
+        }
+        if !self.language_provider_capacity() {
             bail!("Language provider callback limit reached (8); wait for pending callbacks");
         }
         self.sync_with_hidden(documents, hidden, active)?;
@@ -90,20 +219,28 @@ impl Client {
             .mirrors
             .get(&doc.id)
             .context("Document is not mirrored")?;
+        let workspace = if provider.kind == Kind::CodeAction {
+            self.mirrored_snapshotset(documents, hidden)?
+        } else {
+            Arc::new(Vec::new())
+        };
         let ticket = Ticket {
             id: self.next_id + 1,
             session: self.session,
-            provider,
+            provider: provider.clone(),
             epoch: self.providers.registry.epoch(),
             document: doc.id,
             revision: doc.revision,
             text_epoch: doc.text_epoch(),
             version: mirror.version,
+            workspace,
         };
         self.request("provideLanguage", json!({"session":self.session,"owner":ticket.provider.owner,
             "provider":ticket.provider.id,"document":doc.id,"version":ticket.version,
-            "position":lsp::position(doc, doc.cursor), "includeDeclaration":true,
-            "completionContext":options.get("context"), "options":options.get("options").cloned().unwrap_or_else(|| json!({"tabSize":4,"insertSpaces":true}))}))?;
+            "position":lsp::position(doc,doc.cursor),"includeDeclaration":true,"completionContext":options.get("context"),
+            "range":options.get("range"),"selection":options.get("selection"),"actionContext":options.get("context"),
+            "workspace":ticket.workspace.iter().map(|target| json!({"document":target.document,"uri":target.uri,"version":target.version})).collect::<Vec<_>>(),
+            "options":options.get("options").cloned().unwrap_or_else(|| json!({"tabSize":4,"insertSpaces":true}))}))?;
         self.providers.calls.insert(
             ticket.id,
             Call {
@@ -112,7 +249,44 @@ impl Client {
                 started: Instant::now(),
             },
         );
-        Ok(Some(ticket))
+        Ok(ticket)
+    }
+    pub(crate) fn request_action_resolve(
+        &mut self,
+        original: &Ticket,
+        item: &Value,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+    ) -> Result<Ticket> {
+        let document = documents.get(active).context("No active document")?;
+        if original.provider.kind != Kind::CodeAction
+            || !original.provider.resolves
+            || !self.provider_ticket_current(original, document)
+            || !self.provider_workspace_current(original, documents, hidden)
+        {
+            bail!("Code action provider ownership or workspace changed");
+        }
+        let handle = item["_vscliCodeActionHandle"]
+            .as_u64()
+            .filter(|handle| *handle > 0 && *handle <= 9_007_199_254_740_991)
+            .context("Code action has no current resolve handle")?;
+        if !self.language_provider_capacity() {
+            bail!("Language provider callback limit reached (8); wait for pending callbacks");
+        }
+        self.sync_with_hidden(documents, hidden, active)?;
+        let mut ticket = original.clone();
+        ticket.id = self.next_id + 1;
+        self.request("resolveLanguageCodeAction",json!({"session":self.session,"owner":original.provider.owner,"provider":original.provider.id,"origin":original.id,"handle":handle,"document":document.id,"version":original.version}))?;
+        self.providers.calls.insert(
+            ticket.id,
+            Call {
+                ticket: ticket.clone(),
+                canceled: false,
+                started: Instant::now(),
+            },
+        );
+        Ok(ticket)
     }
     pub(crate) fn request_completion_resolve(
         &mut self,
@@ -220,6 +394,15 @@ impl Client {
         }
         Ok(())
     }
+}
+fn kind_intersects(a: &str, b: &str) -> bool {
+    a.is_empty()
+        || b.is_empty()
+        || a == b
+        || a.strip_prefix(b)
+            .is_some_and(|suffix| suffix.starts_with('.'))
+        || b.strip_prefix(a)
+            .is_some_and(|suffix| suffix.starts_with('.'))
 }
 fn provider_result_budget(value: &Value) -> Result<()> {
     let mut stack = vec![(value, 0usize)];
@@ -473,5 +656,157 @@ mod tests {
         }
         assert!(provider_result_budget(&nested).is_err());
         assert!(provider_result_budget(&json!(vec![0; 100_001])).is_err());
+    }
+}
+
+#[cfg(test)]
+mod code_action_tests {
+    use super::*;
+    fn client(root: &Path, documents: &mut [Document], body: &str) -> Client {
+        let extension = root.join("actions");
+        std::fs::create_dir(&extension).unwrap();
+        std::fs::write(
+            extension.join("package.json"),
+            r#"{"publisher":"test","name":"actions","version":"1","main":"index.cjs"}"#,
+        )
+        .unwrap();
+        std::fs::write(extension.join("index.cjs"), body).unwrap();
+        let mut client =
+            Client::start("node", &extension, root, documents, 0, &Settings::default()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !client.ready {
+            client.poll(documents, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        client
+    }
+    fn options() -> Value {
+        json!({"range":{"start":{"line":0,"character":1},"end":{"line":0,"character":3}},"selection":{"anchor":{"line":0,"character":3},"active":{"line":0,"character":1}},"context":{"triggerKind":1}})
+    }
+    fn reply(client: &mut Client, docs: &mut [Document], id: u64) -> Reply {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            client.poll(docs, 0, &Settings::default()).unwrap();
+            if let Some(reply) = client
+                .take_provider_replies()
+                .into_iter()
+                .find(|reply| reply.ticket.id == id)
+            {
+                return reply;
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    #[test]
+    fn code_action_cohort_enumerates_every_matching_provider_and_rejects_overflow() {
+        let root = tempfile::tempdir().unwrap();
+        let mut docs = vec![Document::from_text("猫🙂x\r\n")];
+        let mut client = client(
+            root.path(),
+            &mut docs,
+            r#"const v=require('vscode');exports.activate=()=>{v.languages.registerCodeActionsProvider('*',{provideCodeActions:()=>[]},{providedCodeActionKinds:[v.CodeActionKind.QuickFix]});v.languages.registerCodeActionsProvider('*',{provideCodeActions:()=>[]},{providedCodeActionKinds:[v.CodeActionKind.Refactor]});};"#,
+        );
+        let all = client
+            .language_providers(Kind::CodeAction, &docs[0], None)
+            .unwrap();
+        assert_eq!(all.len(), 2);
+        assert_eq!(
+            client
+                .language_providers(Kind::CodeAction, &docs[0], Some("refactor.extract"))
+                .unwrap()
+                .len(),
+            1
+        );
+        let ticket = client
+            .request_language_provider_from(&all[0], &docs, &[], 0, options())
+            .unwrap();
+        assert_eq!(ticket.workspace.len(), 1);
+        assert!(
+            reply(&mut client, &mut docs, ticket.id)
+                .result
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        client.register_language_providers(json!((1..=9).map(|id|json!({"id":id,"owner":"test.actions","type":"codeaction","selector":[{"language":"*"}],"triggers":[],"resolves":false})).collect::<Vec<_>>())).unwrap();
+        assert!(
+            client
+                .language_providers(Kind::CodeAction, &docs[0], None)
+                .unwrap_err()
+                .to_string()
+                .contains("More than 8")
+        );
+    }
+    #[test]
+    fn framed_code_action_resolve_keeps_original_target_snapshot_and_rejects_secondary_drift() {
+        let root = tempfile::tempdir().unwrap();
+        let mut docs = vec![
+            Document::from_text("猫🙂x\r\n"),
+            Document::from_text("header\r\n"),
+        ];
+        let mut client = client(
+            root.path(),
+            &mut docs,
+            r#"const v=require('vscode');let original;exports.activate=()=>v.languages.registerCodeActionsProvider('*',{provideCodeActions(){original=new v.CodeAction('original',v.CodeActionKind.QuickFix);original.opaque={closure:()=>42};original.opaque.self=original.opaque;return [original];},resolveCodeAction(item){if(item!==original||item.opaque.closure()!==42||item.opaque.self!==item.opaque)throw Error('identity lost');item.title='mutated';item.edit=new v.WorkspaceEdit();item.edit.insert(v.workspace.textDocuments[1].uri,new v.Position(0,0),'// import\r\n');return item;}});"#,
+        );
+        let provider = client
+            .language_providers(Kind::CodeAction, &docs[0], None)
+            .unwrap()
+            .remove(0);
+        let original = client
+            .request_language_provider_from(&provider, &docs, &[], 0, options())
+            .unwrap();
+        let rows = reply(&mut client, &mut docs, original.id).result.unwrap();
+        let resolve = client
+            .request_action_resolve(&original, &rows[0], &docs, &[], 0)
+            .unwrap();
+        assert!(Arc::ptr_eq(&resolve.workspace, &original.workspace));
+        let resolved = reply(&mut client, &mut docs, resolve.id).result.unwrap();
+        assert_eq!(resolved["title"], "original");
+        assert_eq!(
+            resolved["edit"]["documentChanges"][0]["textDocument"]["version"],
+            1
+        );
+        docs[1].insert("x", false);
+        docs[1].undo();
+        assert!(!client.provider_workspace_current(&original, &docs, &[]));
+        assert!(
+            client
+                .request_action_resolve(&original, &rows[0], &docs, &[], 0)
+                .is_err()
+        );
+        assert_eq!(docs[1].text.to_string(), "header\r\n");
+    }
+    #[test]
+    fn completed_action_origin_cancellation_retires_host_handle_without_native_call_record() {
+        let root = tempfile::tempdir().unwrap();
+        let mut docs = vec![Document::from_text("猫🙂x")];
+        let mut client = client(
+            root.path(),
+            &mut docs,
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerCodeActionsProvider('*',{provideCodeActions:()=>[new v.CodeAction('lazy',v.CodeActionKind.QuickFix)],resolveCodeAction:item=>item});"#,
+        );
+        let provider = client
+            .language_providers(Kind::CodeAction, &docs[0], None)
+            .unwrap()
+            .remove(0);
+        let original = client
+            .request_language_provider_from(&provider, &docs, &[], 0, options())
+            .unwrap();
+        let rows = reply(&mut client, &mut docs, original.id).result.unwrap();
+        assert!(!client.providers.calls.contains_key(&original.id));
+        client.cancel_language_provider(&original).unwrap();
+        let resolve = client
+            .request_action_resolve(&original, &rows[0], &docs, &[], 0)
+            .unwrap();
+        assert!(
+            reply(&mut client, &mut docs, resolve.id)
+                .result
+                .unwrap_err()
+                .contains("Stale code action")
+        );
     }
 }

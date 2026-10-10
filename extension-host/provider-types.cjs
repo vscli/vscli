@@ -61,4 +61,5 @@ class CancellationTokenSource {
 const CompletionTriggerKind = Object.freeze({ Invoke: 0, TriggerCharacter: 1, TriggerForIncompleteCompletions: 2 });
 const SignatureHelpTriggerKind = Object.freeze({ Invoke: 1, TriggerCharacter: 2, ContentChange: 3 });
 
-module.exports = { CompletionItemKind, SymbolKind, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };
+const { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit } = require('./code-action-types.cjs');
+module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };

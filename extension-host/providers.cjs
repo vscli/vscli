@@ -1,8 +1,11 @@
 'use strict';
 const { Position, Uri, Disposable } = require('./api-types.cjs');
+const { createActions } = require('./code-actions.cjs');
+const { CodeActionKind } = require('./code-action-types.cjs');
 const { CancellationTokenSource, SnippetString } = require('./provider-types.cjs');
 const MAX_PROVIDERS = 128, MAX_PENDING = 8, MAX_RESULT_BYTES = 1024 * 1024;
 const METHODS = Object.freeze({
+  codeaction: ['registerCodeActionsProvider', 'provideCodeActions'],
   completion: ['registerCompletionItemProvider', 'provideCompletionItems'],
   hover: ['registerHoverProvider', 'provideHover'],
   definition: ['registerDefinitionProvider', 'provideDefinition'],
@@ -147,12 +150,26 @@ function wireBudget(result) {
 function createProviders(options) {
   const entries = new Map(), calls = new Map(), completions = new Map();
   let nextId = 0, nextHandle = 0, registryEpoch = 0;
-  function snapshot() { return [...entries.values()].map(({ id, owner, type, selector, triggers, resolves }) => ({ id, owner, type, selector, triggers, resolves })); }
-  function publish() { registryEpoch++; completions.clear(); for (const call of calls.values()) if (call.completionOrigin !== undefined) call.source.cancel(); options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
+  const actions = createActions({ ...options, text, range, position, current: item => {
+    if (entries.get(item.entry.id) !== item.entry || item.epoch !== registryEpoch || item.document.isClosed || item.document.version !== item.version) return false;
+    try { actions.assertWorkspace(item.workspace, options); return true; } catch { return false; }
+  } });
+  function snapshot() { return [...entries.values()].map(({ id, owner, type, selector, triggers, resolves, actionKinds }) => ({ id, owner, type, selector, triggers, resolves, ...(actionKinds ? {actionKinds} : {}) })); }
+  function publish() { registryEpoch++; completions.clear(); actions.clear(); for (const call of calls.values()) if (call.completionOrigin !== undefined || call.actionOrigin !== undefined) call.source.cancel(); options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
   function forOwner(owner) {
     return Object.fromEntries(Object.entries(METHODS).map(([type, [registration, method]]) => [registration, (documentSelector, provider, ...triggers) => {
       if (entries.size >= MAX_PROVIDERS) throw new Error('Extension language provider limit reached');
       if (!provider || typeof provider[method] !== 'function') throw new TypeError(`Provider requires ${method}`);
+      let actionKinds;
+      if (type === 'codeaction') {
+        if (triggers.length > 1) throw new Error('Invalid code action metadata');
+        const metadata = triggers[0]; triggers = [];
+        if (metadata !== undefined) {
+          if (!metadata || typeof metadata !== 'object' || Object.keys(metadata).some(key => !['providedCodeActionKinds','documentation'].includes(key))) throw new Error('Unsupported code action metadata');
+          if (metadata.documentation !== undefined) throw new Error('Code action provider documentation is unsupported');
+          if (metadata.providedCodeActionKinds !== undefined) actionKinds = require('./code-actions.cjs').array(metadata.providedCodeActionKinds,32).map(kind => { if (!(kind instanceof CodeActionKind)) throw new Error('Code action metadata requires CodeActionKind'); return kind.value; });
+        }
+      }
       if (type === 'signature' && triggers.length === 1 && triggers[0] && typeof triggers[0] === 'object') {
         const metadata = triggers[0];
         if (Object.keys(metadata).some(key => !['triggerCharacters', 'retriggerCharacters'].includes(key))) throw new Error('Unsupported signature provider metadata');
@@ -160,7 +177,7 @@ function createProviders(options) {
       }
       if (triggers.length > 16 || triggers.some(value => typeof value !== 'string' || [...value].length !== 1 || Buffer.byteLength(value) > 4)) throw new Error('Provider trigger characters exceed their budget');
       const id = ++nextId;
-      const entry = { id, owner, type, selector: selector(documentSelector), triggers, provider, method, resolves: type === 'completion' && typeof provider.resolveCompletionItem === 'function' };
+      const entry = { id, owner, type, selector: selector(documentSelector), triggers, provider, method, actionKinds, resolves: type === 'completion' && typeof provider.resolveCompletionItem === 'function' || type === 'codeaction' && typeof provider.resolveCodeAction === 'function' };
       entries.set(id, entry);
       const disposable = new Disposable(() => { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); publish(); });
       try { const result = options.track(owner, disposable); publish(); return result; }
@@ -168,7 +185,8 @@ function createProviders(options) {
     }]));
   }
   function assertCurrent(call) {
-    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (call.entry.type === 'completion' && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version) throw new Error('Language provider result became stale or canceled');
+    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (['completion','codeaction'].includes(call.entry.type) && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version) throw new Error('Language provider result became stale or canceled');
+    if (call.workspace) actions.assertWorkspace(call.workspace, options);
   }
   function purgeCompletions() {
     for (const [id, cached] of completions) if (Date.now() - cached.started >= 6000 || cached.document.isClosed || cached.document.version !== cached.version || entries.get(cached.entry.id) !== cached.entry) completions.delete(id);
@@ -202,6 +220,7 @@ function createProviders(options) {
     let args;
     try {
       switch (entry.type) {
+        case 'codeaction': args = actions.args(params,call); assertCurrent(call); break;
         case 'completion': {
           const context = params.completionContext;
           if (context !== undefined && context !== null && (!Number.isInteger(context.triggerKind) || context.triggerKind < 1 || context.triggerKind > 3 || Object.keys(context).some(key => !['triggerKind', 'triggerCharacter'].includes(key)))) throw new TypeError('Unsupported completion context');
@@ -219,7 +238,7 @@ function createProviders(options) {
       }
     } catch (error) { calls.delete(callId); source.dispose(); throw error; }
     let timer;
-    const work = Promise.resolve().then(() => entry.provider[entry.method](...args)).then(value => {
+    const work = Promise.resolve().then(() => { assertCurrent(call); return entry.provider[entry.method](...args); }).then(value => {
       assertCurrent(call);
       let originals, input = value;
       if (entry.type === 'completion' && value !== undefined && value !== null) {
@@ -229,14 +248,18 @@ function createProviders(options) {
         for (let index = 0; index < count; index++) originals.push(items[index]);
         input = { items: originals, isIncomplete: value.isIncomplete };
       }
-      const result = normalize(entry.type, input, document);
+      let result;
+      if (entry.type === 'codeaction') { const converted = actions.normalize(value,call,args[2]); result = converted.result; originals = converted.originals; }
+      else result = normalize(entry.type, input, document);
       wireBudget(result);
       assertCurrent(call);
-      if (entry.resolves && result) retainCompletions(entry, call, originals, result, callId);
+      if (entry.type === 'codeaction') actions.retain(call,originals,result,callId);
+      if (entry.type === 'completion' && entry.resolves && result) retainCompletions(entry, call, originals, result, callId);
       wireBudget(result);
       assertCurrent(call);
       return result;
     }).catch(error => {
+      actions.retire(callId,entry.owner);
       for (const [id, cached] of completions) if (cached.request === callId) completions.delete(id);
       throw error;
     }).finally(() => { calls.delete(callId); source.dispose(); clearTimeout(timer); });
@@ -274,17 +297,36 @@ function createProviders(options) {
     const canceled = new Promise((_, reject) => { listener = source.token.onCancellationRequested(() => reject(new Error('Language provider invocation canceled'))); });
     return Promise.race([work, timeout, canceled]).finally(() => { clearTimeout(timer); listener.dispose(); });
   }
+  async function resolveAction(params) {
+    const entry = entries.get(params.provider);
+    if (params.session !== options.session || !entry || entry.owner !== params.owner || entry.type !== 'codeaction' || !entry.resolves) throw new Error('Stale code action resolve owner/session');
+    const cached = actions.lookup(params,entry);
+    if (calls.size >= MAX_PENDING) throw new Error('Language provider invocation limit reached');
+    if (!Number.isSafeInteger(params.request) || params.request < 1 || calls.has(params.request)) throw new Error('Invalid or duplicate provider request ID');
+    const source = new CancellationTokenSource(), call = {source,entry,document:cached.document,version:cached.version,epoch:cached.epoch,workspace:cached.workspace,actionOrigin:cached.origin};
+    assertCurrent(call); calls.set(params.request,call); let timer;
+    const work = Promise.resolve().then(() => { assertCurrent(call); return entry.provider.resolveCodeAction(cached.original,source.token); }).then(value => {
+      assertCurrent(call); if (!actions.has(params.handle,cached)) throw new Error('Code action resolve handle retired');
+      const result = actions.resolved(value,cached,call,params.handle); wireBudget(result); assertCurrent(call);
+      if (!actions.has(params.handle,cached)) throw new Error('Code action resolve handle retired'); return result;
+    }).finally(() => {calls.delete(params.request);source.dispose();clearTimeout(timer);});
+    const timeout = new Promise((_,reject) => {timer=setTimeout(() => {reject(new Error('Language provider deadline exceeded'));source.cancel();},options.timeoutMs||5000);});
+    let listener; const canceled = new Promise((_,reject) => {listener=source.token.onCancellationRequested(() => reject(new Error('Language provider invocation canceled')));});
+    return Promise.race([work,timeout,canceled]).finally(() => {clearTimeout(timer);listener.dispose();});
+  }
   function cancel(params) {
     if (params.session !== options.session) return false;
+    actions.retire(params.request,params.owner);
     for (const [id, cached] of completions) if (cached.entry.owner === params.owner && cached.request === params.request) completions.delete(id);
-    for (const pending of calls.values()) if (pending.entry.owner === params.owner && pending.completionOrigin === params.request) pending.source.cancel();
+    for (const pending of calls.values()) if (pending.entry.owner === params.owner && (pending.completionOrigin === params.request || pending.actionOrigin === params.request)) pending.source.cancel();
     const call = calls.get(params.request);
     if (!call || call.entry.owner !== params.owner) return false;
     call.source.cancel(); return true;
   }
-  function documentChanged() { purgeCompletions(); for (const { source, document, version } of calls.values()) if (document.isClosed || document.version !== version) source.cancel(); }
+  function documentChanged() { purgeCompletions(); actions.purge(); for (const { source, document, version } of calls.values()) if (document.isClosed || document.version !== version) source.cancel();
+    for (const call of calls.values()) if (call.workspace) { try { actions.assertWorkspace(call.workspace, options); } catch { call.source.cancel(); } } }
 
   function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
-  return { forOwner, provide, resolveCompletion, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
+  return { forOwner, provide, resolveCompletion, resolveAction, retainedActionCount:actions.count, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
 }
 module.exports = { createProviders, score, selector, normalize };

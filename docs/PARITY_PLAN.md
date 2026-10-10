@@ -37,14 +37,13 @@ The merged [PR #53](https://github.com/vscli/vscli/pull/53)
 [resolved-completion slice](COMPLETIONS.md) adds lazy resolution,
 linked snippet/import transactions, inert documentation and bounded abbreviation
 ranking. Its checks and recorded workflows remain separate from full IntelliSense
-parity. The next [diagnostics slice](DIAGNOSTICS.md) adds independent collections,
+parity. The merged [PR #54 diagnostics slice](DIAGNOSTICS.md) adds independent collections,
 native text-epoch/server guards and successful-save events. Extension code-action
-providers follow it within priority 2; those providers remain outstanding.
+providers follow it within priority 2 through the [bounded action slice](CODE_ACTIONS.md), with synthetic protocol and real clangd qualification. Official sample conformance is qualified separately. Command/resource/full-context parity remains outstanding.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
-App/Document/UI integration. Neither is a qualified user feature. Extension diagnostics and quick fixes remain
-the next language-service slice after IntelliSense qualification.
+App/Document/UI integration. Neither is a qualified user feature. The bounded diagnostics/action subsets do not finish priority 2 or full extension compatibility; further API/context/resource and production-package qualification remains.
 
 Linked PRs and feature documents record each implemented subset and its named
 review/test evidence.

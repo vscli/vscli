@@ -9,6 +9,7 @@ pub const MAX_PROVIDERS: usize = 128;
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
+    CodeAction,
     Completion,
     Hover,
     Definition,
@@ -20,6 +21,7 @@ pub enum Kind {
 impl Kind {
     pub fn method(self) -> &'static str {
         match self {
+            Self::CodeAction => "textDocument/codeAction",
             Self::Completion => "textDocument/completion",
             Self::Hover => "textDocument/hover",
             Self::Definition => "textDocument/definition",
@@ -31,6 +33,7 @@ impl Kind {
     }
     pub fn from_method(method: &str) -> Option<Self> {
         [
+            Self::CodeAction,
             Self::Completion,
             Self::Hover,
             Self::Definition,
@@ -80,6 +83,8 @@ pub struct Provider {
     pub triggers: Vec<String>,
     #[serde(default)]
     pub resolves: bool,
+    #[serde(default, rename = "actionKinds")]
+    pub action_kinds: Option<Vec<String>>,
 }
 impl Provider {
     pub fn score(&self, document: &Document) -> u8 {
@@ -124,7 +129,12 @@ impl Registry {
                 || provider.id > 9_007_199_254_740_991
                 || !ids.insert(provider.id)
                 || !owners.contains(&provider.owner.as_str())
-                || (provider.resolves && provider.kind != Kind::Completion)
+                || (provider.resolves
+                    && !matches!(provider.kind, Kind::Completion | Kind::CodeAction))
+                || (provider.kind != Kind::CodeAction && provider.action_kinds.is_some())
+                || provider.action_kinds.as_ref().is_some_and(|kinds| {
+                    kinds.len() > 32 || kinds.iter().any(|kind| kind.len() > 128)
+                })
                 || provider.selector.len() > 32
                 || !provider.selector.iter().all(Filter::valid)
                 || provider.triggers.len() > 16

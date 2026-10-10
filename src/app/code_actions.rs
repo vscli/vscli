@@ -1,59 +1,19 @@
 //! User-invoked LSP actions. Validate every target before changing any shared buffer.
+use super::workspace_edits::{
+    WorkspaceEditPolicy, WorkspaceEditTarget, WorkspaceVersion, apply_workspace_edit,
+};
 use super::*;
-use crate::lsp::{self, Request, TextEdit};
+use crate::lsp::{self, Request};
 use anyhow::{Context, bail};
-use std::collections::HashSet;
 
 impl App {
     pub(super) fn request_code_actions(&mut self, kind: Option<&str>) {
-        if self.active_document().is_none() {
-            self.message = "Open a file before requesting code actions".into();
-            return;
-        }
-        if !self.lsp.as_ref().is_some_and(|client| {
-            client.ready
-                && (client.capabilities["codeActionProvider"].is_object()
-                    || client.capabilities["codeActionProvider"] == true)
-        }) {
-            self.message = "The configured language server does not provide code actions".into();
-            return;
-        }
-        let selection = self
-            .doc()
-            .selection()
-            .unwrap_or(self.doc().cursor..self.doc().cursor);
-        let range = lsp::Range {
-            start: lsp::position(self.doc(), selection.start),
-            end: lsp::position(self.doc(), selection.end),
-        };
-        let diagnostics: Vec<_> = self
-            .current_diagnostics()
-            .iter()
-            .filter(|d| {
-                (d.range.start.line, d.range.start.character)
-                    <= (range.end.line, range.end.character)
-                    && (d.range.end.line, d.range.end.character)
-                        >= (range.start.line, range.start.character)
-            })
-            .take(129)
-            .collect();
-        if diagnostics.len() > 128 {
-            self.message = "More than 128 diagnostics intersect this selection; narrow it before requesting code actions".into();
-            return;
-        }
-        let mut context = json!({"diagnostics":diagnostics,"triggerKind":1});
-        if let Some(kind) = kind {
-            context["only"] = json!([kind]);
-        }
-        self.focus = Focus::Editor;
-        self.language_request(
-            "textDocument/codeAction",
-            json!({"range":range,"context":context}),
-        );
+        self.request_all_code_actions(kind);
     }
 
     pub(super) fn code_action_current(&self, request: &Request) -> Result<()> {
         self.request_current(request)?;
+        self.native_action_context_current(request)?;
         if self.doc().selections() != request.selections
             || request.view.is_some_and(|view| {
                 self.panes
@@ -142,143 +102,50 @@ impl App {
         if self.prompt.is_some() || self.modal.is_some() {
             bail!("Input context changed; workspace edit was rejected");
         }
-        if request.method == "workspace/executeCommand"
-            && (edit.get("changes").is_some()
-                || edit["documentChanges"].as_array().is_none_or(|changes| {
-                    changes
-                        .iter()
-                        .any(|change| change["textDocument"]["version"].as_i64().is_none())
-                }))
-        {
-            bail!("Command workspace edits require documentChanges with explicit numeric versions");
-        }
-        let object = edit
-            .as_object()
-            .context("Workspace edit must be an object")?;
-        if object.keys().any(|key| {
-            !matches!(
-                key.as_str(),
-                "changes" | "documentChanges" | "changeAnnotations"
-            )
-        }) {
-            bail!("Unsupported workspace edit fields");
-        }
-        if edit
-            .get("changeAnnotations")
-            .is_some_and(|v| v.as_object().is_none_or(|a| !a.is_empty()))
-        {
-            bail!("Annotated workspace edits require a review UI and are not supported yet");
-        }
-        let mut edits = Vec::new();
-        if let Some(changes) = edit.get("documentChanges") {
-            if edit.get("changes").is_some() {
-                bail!("Ambiguous workspace edit contains both edit forms");
-            }
-            for change in changes.as_array().context("Invalid documentChanges")? {
-                if change.get("kind").is_some() {
-                    bail!(
-                        "Workspace file creation, rename and deletion actions are not supported yet"
-                    );
-                }
-                if change.as_object().is_none_or(|object| {
-                    object
-                        .keys()
-                        .any(|key| !matches!(key.as_str(), "textDocument" | "edits"))
-                }) {
-                    bail!("Unsupported document edit fields");
-                }
-                let doc = change
-                    .get("textDocument")
-                    .context("Missing workspace edit document")?;
-                let version = match doc.get("version") {
-                    Some(Value::Null) => None,
-                    Some(value) => Some(value.as_i64().context("Invalid workspace edit version")?),
-                    None => bail!("Missing workspace edit version"),
+        let targets: Vec<_> = request
+            .workspace
+            .iter()
+            .map(|(path, snapshot)| {
+                Ok(WorkspaceEditTarget {
+                    uri: lsp::file_uri(path)?,
+                    path: Some(path.clone()),
+                    document: snapshot.id,
+                    revision: snapshot.revision,
+                    text_epoch: snapshot.text_epoch,
+                    version: WorkspaceVersion::Native(snapshot.version),
+                })
+            })
+            .collect::<Result<_>>()?;
+        let client = self.lsp.as_ref().context("Language server disconnected")?;
+        let outcome = apply_workspace_edit(
+            &mut self.documents,
+            &mut self.hidden_documents,
+            &edit,
+            &targets,
+            WorkspaceEditPolicy {
+                require_versions: request.method == "workspace/executeCommand",
+                max_total_document_bytes: None,
+            },
+            |target, _document| {
+                let Some(path) = &target.path else {
+                    return false;
                 };
-                edits.push((
-                    doc["uri"]
-                        .as_str()
-                        .context("Missing workspace edit URI")?
-                        .to_owned(),
-                    version,
-                    change["edits"].clone(),
-                ));
-            }
-        } else if let Some(changes) = edit.get("changes") {
-            for (uri, changes) in changes
-                .as_object()
-                .context("Invalid workspace edit changes")?
-            {
-                edits.push((uri.clone(), None, changes.clone()));
-            }
-        } else {
-            bail!("No workspace text edits");
-        }
-        if edits.len() > 128 {
-            bail!("Code action exceeds 128 edited buffers");
-        }
-        let mut count_edits = 0usize;
-        let mut replacement_bytes = 0usize;
-        let mut seen = HashSet::new();
-        let mut staged = Vec::new();
-        for (uri, version, edits) in edits {
-            // URI decoding and lexical normalization only: do not perform filesystem I/O here.
-            let path = url::Url::parse(&uri)?
-                .to_file_path()
-                .map_err(|_| anyhow::anyhow!("Unsupported document URI"))?;
-            let (path, snapshot) = request.workspace.iter().find(|(p, _)| {
-                lsp::file_uri(p).ok().as_deref() == Some(uri.as_str()) || **p == path
-            }).context("Code action touches a file outside the synchronized open buffers; open it and retry")?;
-            if !seen.insert(path.clone()) {
-                bail!("Repeated workspace edit target is not supported");
-            }
-            let index = self
-                .documents
-                .iter()
-                .position(|d| d.path.as_ref() == Some(path) && d.id == snapshot.id)
-                .context("Workspace document was closed or replaced; request code actions again")?;
-            let doc = &self.documents[index];
-            if doc.revision != snapshot.revision
-                || doc.text_epoch() != snapshot.text_epoch
-                || self
-                    .lsp
-                    .as_ref()
-                    .is_none_or(|client| !client.workspace_snapshot_current(path, snapshot))
-                || version.is_some_and(|v| v != snapshot.version)
-            {
-                bail!("Workspace document changed since this request; request code actions again");
-            }
-            let values = edits.as_array().context("Invalid workspace text edits")?;
-            count_edits += values.len();
-            if count_edits > 4096 {
-                bail!("Code action exceeds 4096 text edits");
-            }
-            for value in values {
-                if value.get("annotationId").is_some() {
-                    bail!("Annotated workspace text edits are not supported yet");
-                }
-                if value.as_object().is_none_or(|object| {
-                    object
-                        .keys()
-                        .any(|key| !matches!(key.as_str(), "range" | "newText"))
-                }) {
-                    bail!("Unsupported workspace text edit fields");
-                }
-                replacement_bytes += value["newText"]
-                    .as_str()
-                    .context("Invalid replacement text")?
-                    .len();
-                if replacement_bytes > 4 * 1024 * 1024 {
-                    bail!("Code action exceeds 4 MiB replacement text");
-                }
-            }
-            let changes = lsp::edits(doc, serde_json::from_value::<Vec<TextEdit>>(edits)?)?;
-            staged.push((index, changes));
-        }
-        let count = staged.len();
-        for (index, changes) in staged {
-            self.documents[index].apply_changes(changes);
-        }
+                let WorkspaceVersion::Native(version) = target.version else {
+                    return false;
+                };
+                client.workspace_snapshot_current(
+                    path,
+                    &lsp::Snapshot {
+                        id: target.document,
+                        revision: target.revision,
+                        text_epoch: target.text_epoch,
+                        version,
+                    },
+                )
+            },
+        )?;
+        self.finish_code_actions();
+        let count = outcome.buffers;
         self.message =
             format!("Applied code action to {count} buffers; review and save (Undo is per file)");
         Ok(())

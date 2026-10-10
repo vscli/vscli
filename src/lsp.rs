@@ -94,6 +94,7 @@ pub struct Client {
     synced: HashMap<String, Synced>,
     next_id: u64,
     command_channel_valid: bool,
+    action_channel_valid: bool,
     next_document_version: i64,
     root_uri: String,
     pub language: String,
@@ -280,6 +281,7 @@ impl Client {
             synced: HashMap::new(),
             next_id: 1,
             command_channel_valid: true,
+            action_channel_valid: true,
             next_document_version: 1,
             root_uri,
             language,
@@ -477,8 +479,8 @@ impl Client {
             bail!("Too many pending language requests");
         }
         let is_action = method == "textDocument/codeAction";
-        if is_action && !self.action_available() {
-            bail!("A code action request is already running; retry shortly");
+        if is_action {
+            self.ensure_action_available()?;
         }
         if is_action && self.synced.len() > 128 {
             bail!("Code actions support at most 128 synchronized buffers");
@@ -591,12 +593,43 @@ impl Client {
         Ok(())
     }
     pub fn action_available(&self) -> bool {
-        !self.pending.values().any(|request| {
-            matches!(
-                request.method.as_str(),
-                "textDocument/codeAction" | "codeAction/resolve" | "workspace/executeCommand"
-            )
-        })
+        self.action_channel_valid
+            && !self.pending.values().any(|request| {
+                matches!(
+                    request.method.as_str(),
+                    "textDocument/codeAction" | "codeAction/resolve" | "workspace/executeCommand"
+                )
+            })
+    }
+    fn ensure_action_available(&self) -> Result<()> {
+        if !self.action_channel_valid {
+            bail!(
+                "A language server code action timed out; restart the language server before requesting actions again"
+            );
+        }
+        if !self.action_available() {
+            bail!("A code action request is already running; retry shortly");
+        }
+        Ok(())
+    }
+    pub(crate) fn cancel_code_actions(&mut self) -> Result<()> {
+        let ids: Vec<_> = self
+            .pending
+            .iter()
+            .filter(|(_, request)| {
+                matches!(
+                    request.method.as_str(),
+                    "textDocument/codeAction" | "codeAction/resolve" | "workspace/executeCommand"
+                )
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in ids {
+            // Advisory cancellation cannot establish that server work has ended.
+            // Keep both the original provenance and the actual occupied slot.
+            self.notify("$/cancelRequest", json!({"id":id}))?;
+        }
+        Ok(())
     }
     pub fn ensure_command_available(&self) -> Result<()> {
         if !self.command_channel_valid {
@@ -622,6 +655,9 @@ impl Client {
         }
         if method == "workspace/executeCommand" {
             self.ensure_command_available()?;
+        }
+        if method == "codeAction/resolve" {
+            self.ensure_action_available()?;
         }
         let id = self.next_id;
         self.next_id += 1;
@@ -662,6 +698,16 @@ impl Client {
     ) -> Result<u64> {
         let token = self.next_id;
         self.request_in_view("textDocument/completion", doc, extra, view)?;
+        Ok(token)
+    }
+    pub(crate) fn request_code_actions(
+        &mut self,
+        doc: &Document,
+        extra: Value,
+        view: Option<u64>,
+    ) -> Result<u64> {
+        let token = self.next_id;
+        self.request_in_view("textDocument/codeAction", doc, extra, view)?;
         Ok(token)
     }
     pub(crate) fn completion_resolve_available(&self) -> bool {
@@ -722,6 +768,12 @@ impl Client {
             .collect::<Vec<_>>()
         {
             let request = self.pending.remove(&id).unwrap();
+            if matches!(
+                request.method.as_str(),
+                "textDocument/codeAction" | "codeAction/resolve"
+            ) {
+                self.action_channel_valid = false;
+            }
             if self.completion_resolve == Some(id) {
                 self.completion_resolve = None;
                 // A timeout cannot prove that the canceled callback has finished.
@@ -850,6 +902,198 @@ mod tests {
     use super::*;
     use crate::transport::read_message;
     use std::io::BufReader;
+    #[test]
+    fn ignored_action_cancellation_retains_slots_and_timeout_blocks_further_action_work() {
+        // A real framed peer confirms receipt and explicitly ignores cancellation.
+        // Only the client's private timer is advanced; there is no deadline sleep.
+        const PEER: &str = r#"
+import json,sys
+held={}
+def send(message):
+    data=json.dumps({'jsonrpc':'2.0',**message}).encode()
+    sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(data)).encode()+data)
+    sys.stdout.buffer.flush()
+def notice(value): send({'method':'window/showMessage','params':{'type':3,'message':value}})
+while True:
+    headers={}
+    while True:
+        line=sys.stdin.buffer.readline()
+        if not line: sys.exit(0)
+        if line==b'\r\n': break
+        key,value=line.decode().split(':',1)
+        headers[key.lower()]=value.strip()
+    message=json.loads(sys.stdin.buffer.read(int(headers['content-length'])))
+    method,ident,params=message.get('method'),message.get('id'),message.get('params',{})
+    if method=='initialize':
+        send({'id':ident,'result':{'capabilities':{'textDocumentSync':1,'codeActionProvider':{'resolveProvider':True}}}})
+    elif method in ('textDocument/codeAction','codeAction/resolve','workspace/executeCommand'):
+        result=[{'title':'Lazy action','data':{}}] if method=='textDocument/codeAction' else None
+        if params.get('hold'):
+            held[ident]=result
+            notice('held-%d'%ident)
+        else: send({'id':ident,'result':result})
+    elif method=='$/cancelRequest': notice('ignored-cancel-%d'%params['id'])
+    elif method=='fixture/release':
+        token=params['id']
+        send({'id':token,'result':held.pop(token)})
+        notice('released-%d'%token)
+    elif method=='textDocument/hover': send({'id':ident,'result':None})
+    elif method=='shutdown': send({'id':ident,'result':None})
+    elif method=='exit': break
+"#;
+        for method in [
+            "textDocument/codeAction",
+            "codeAction/resolve",
+            "workspace/executeCommand",
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join("main.rs");
+            std::fs::write(&path, "猫🙂\r\n").unwrap();
+            let doc = Document::open(&path).unwrap();
+            let mut client = Client::start(
+                if cfg!(windows) { "python" } else { "python3" },
+                &["-u".into(), "-c".into(), PEER.into()],
+                root.path(),
+                "rust".into(),
+            )
+            .unwrap();
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !client.ready {
+                client.poll().unwrap();
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            client.sync(std::slice::from_ref(&doc)).unwrap();
+            let first = client
+                .request_code_actions(
+                    &doc,
+                    json!({"hold":method == "textDocument/codeAction"}),
+                    None,
+                )
+                .unwrap();
+            let original = if method == "textDocument/codeAction" {
+                None
+            } else {
+                Some(loop {
+                    if let Some(request) =
+                        client
+                            .poll()
+                            .unwrap()
+                            .into_iter()
+                            .find_map(|event| match event {
+                                Event::Response(request, _) if request.token == first => {
+                                    Some(request)
+                                }
+                                _ => None,
+                            })
+                    {
+                        break request;
+                    }
+                    assert!(Instant::now() < deadline);
+                    std::thread::sleep(Duration::from_millis(2));
+                })
+            };
+            let token = if let Some(original) = &original {
+                let token = client.next_id;
+                client
+                    .follow_up(original, method, json!({"hold":true}))
+                    .unwrap();
+                token
+            } else {
+                first
+            };
+            for expected in [format!("held-{token}"), format!("ignored-cancel-{token}")] {
+                if expected.starts_with("ignored") {
+                    client.cancel_code_actions().unwrap();
+                }
+                loop {
+                    let events = client.poll().unwrap();
+                    assert!(!events.iter().any(|event| matches!(event, Event::Response(request, _) if request.token == token)));
+                    if events.iter().any(
+                        |event| matches!(event, Event::Message(message) if message == &expected),
+                    ) {
+                        break;
+                    }
+                    assert!(Instant::now() < deadline);
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                assert!(!client.action_available());
+                assert_eq!(client.pending.len(), 1, "{method}");
+                for _ in 0..32 {
+                    assert!(client.request_code_actions(&doc, json!({}), None).is_err());
+                    if let Some(original) = &original {
+                        assert!(
+                            client
+                                .follow_up(original, method, json!({"hold":true}))
+                                .is_err()
+                        );
+                    }
+                    assert_eq!(
+                        client.pending.len(),
+                        1,
+                        "Ignored cancellation must retain real capacity"
+                    );
+                }
+            }
+            client.pending.get_mut(&token).unwrap().started =
+                Instant::now() - Duration::from_secs(16);
+            assert!(client.poll().unwrap().iter().any(
+                |event| matches!(event, Event::Message(message) if message.contains("timed out"))
+            ));
+            assert!(client.pending.is_empty());
+            let before = client.next_id;
+            for _ in 0..32 {
+                let error = if method == "workspace/executeCommand" {
+                    client
+                        .follow_up(original.as_ref().unwrap(), method, json!({"hold":true}))
+                        .unwrap_err()
+                } else {
+                    let error = client
+                        .request_code_actions(&doc, json!({}), None)
+                        .unwrap_err();
+                    if let Some(original) = &original {
+                        assert!(
+                            client
+                                .follow_up(original, method, json!({"hold":true}))
+                                .unwrap_err()
+                                .to_string()
+                                .contains("restart")
+                        );
+                    }
+                    assert!(!client.action_available());
+                    error
+                };
+                assert!(error.to_string().contains("restart"));
+                assert_eq!(
+                    client.next_id, before,
+                    "A timeout cannot admit more ignored server work"
+                );
+            }
+            client
+                .notify("fixture/release", json!({"id":token}))
+                .unwrap();
+            loop {
+                let events = client.poll().unwrap();
+                assert!(!events.iter().any(
+                    |event| matches!(event, Event::Response(request, _) if request.token == token)
+                ));
+                if events.iter().any(|event| matches!(event, Event::Message(message) if message == &format!("released-{token}"))) { break; }
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            // The closed channel is source-specific: unrelated language reads work.
+            client
+                .request("textDocument/hover", &doc, json!({}))
+                .unwrap();
+            loop {
+                if client.poll().unwrap().iter().any(|event| matches!(event, Event::Response(request, _) if request.method == "textDocument/hover")) { break; }
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            assert_eq!(std::fs::read(&path).unwrap(), "猫🙂\r\n".as_bytes());
+            assert_eq!(doc.text.to_string(), "猫🙂\r\n");
+        }
+    }
     #[test]
     fn timed_out_completion_resolution_cannot_admit_more_ignored_server_work() {
         let root = tempfile::tempdir().unwrap();

@@ -43,7 +43,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     try { assertOwner(params.owner); return sendRequest(method, params); }
     catch (error) { return Promise.reject(error); }
   }
-  const providers = createProviders({ session: sessionOptions.session, notify, track, document: id => documents.get(id) });
+  const providers = createProviders({ session: sessionOptions.session, notify, track, document: id => documents.get(id), diagnostics: (document,range) => diagnostics.currentDiagnostics(document,range) });
   const diagnostics = createDiagnostics({ session: sessionOptions.session, notify, track, assertOwner, document: key => {
     for (const document of documents.values()) if (document._snapshot.uri === key) return document;
   } });
@@ -208,7 +208,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, providerSnapshot: providers.snapshot, provideLanguage: providers.provide, resolveLanguageCompletion: providers.resolveCompletion, cancelLanguageProvider: providers.cancel, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
+    api, sync, providerSnapshot: providers.snapshot, provideLanguage: providers.provide, resolveLanguageCompletion: providers.resolveCompletion, resolveLanguageCodeAction: providers.resolveAction, cancelLanguageProvider: providers.cancel, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     contextForExtension(owner) { return { ...mementos.forOwner(owner), extension: activation?.extension(owner) }; },
     mergeExtensionState: mementos.merge,
