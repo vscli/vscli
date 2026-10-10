@@ -1,3 +1,4 @@
+mod actions;
 mod code_actions;
 mod completion_edits;
 mod debugger;
@@ -16,6 +17,7 @@ mod navigation;
 mod panes;
 mod signature_help;
 mod suggestions;
+mod workspace_edits;
 
 mod session;
 mod snippet_catalogs;
@@ -440,6 +442,7 @@ pub struct App {
     pub(crate) hidden_documents: Vec<Document>,
     extension_services: extension_services::State,
     extension_providers: extension_providers::State,
+    actions: actions::State,
     pub active: usize,
     pub workspace: Workspace,
     pub keymap: Keymap,
@@ -529,6 +532,7 @@ impl App {
             hidden_documents: Vec::new(),
             extension_services: extension_services::State::default(),
             extension_providers: extension_providers::State::default(),
+            actions: actions::State::default(),
             active: 0,
             workspace: Workspace::new(root.clone()),
             watch: crate::watch::State::new(root.clone()),
@@ -601,13 +605,14 @@ impl App {
         }
     }
     pub fn poll(&mut self) -> bool {
+        let actions_changed = self.poll_code_actions();
         let brand_changed = self.welcome_brand.poll();
         let invalidated = self.refresh_signature();
         let invalidated = self.poll_suggestions() || invalidated;
         let changed = self.poll_symbols() || invalidated;
         let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
-        let mut changed = brand_changed | changed;
+        let mut changed = actions_changed | brand_changed | changed;
         if let Some(result) = self
             .settings_loader
             .as_mut()
@@ -620,6 +625,7 @@ impl App {
                         // Even a later reload back to the original settings
                         // cannot revive a completion from an earlier context.
                         self.cancel_suggestions();
+                        self.cancel_code_actions();
                         self.settings = settings;
                         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
                             self.settings.apply(doc);
@@ -921,9 +927,12 @@ impl App {
                 "editorHasCodeActionsProvider".into(),
                 json!(
                     self.active_document().is_some()
-                        && self.lsp.as_ref().is_some_and(|c| c.ready
+                        && (self.lsp.as_ref().is_some_and(|c| c.ready
                             && (c.capabilities["codeActionProvider"].is_object()
                                 || c.capabilities["codeActionProvider"] == true))
+                            || self.has_extension_provider(
+                                crate::extension_providers::Kind::CodeAction
+                            ))
                 ),
             ),
             (
@@ -961,6 +970,7 @@ impl App {
         let suggestion_edit = self.suggestion_edit_event(&event);
         self.suggestion_ui_event(&event);
         self.provider_ui_event(&event);
+        self.code_action_ui_event(&event);
         if matches!(&event, Event::Key(key) if key.kind != KeyEventKind::Release)
             || matches!(&event, Event::Paste(_))
             || matches!(&event, Event::Mouse(mouse) if mouse.kind != MouseEventKind::Moved)

@@ -169,7 +169,7 @@ fn held_unversioned_action_rejects_secondary_synchronized_lifetime_replacement()
     assert_eq!(hidden.id, secondary_id);
     app.documents.push(hidden);
     app.poll(); // didOpen allocates a fresh protocol version for the same model.
-    choose(&mut app, "Multiple dirty buffers");
+    assert!(app.modal.is_none(), "Stale action picker must close");
     assert!(app.message.contains("changed"), "{}", app.message);
     assert!(app.documents.iter().all(|doc| doc.text == "bad\r\n"));
     assert_eq!(app.doc().id, active);
@@ -246,7 +246,7 @@ fn secondary_revision_changes_and_closed_targets_reject_the_entire_edit() {
     app.active = 0;
     app.sync_pane();
     choose(&mut app, "Multiple dirty buffers");
-    assert!(app.message.contains("closed or replaced"));
+    assert!(app.message.contains("changed since"), "{}", app.message);
     assert_eq!(app.doc().text.to_string(), active_before);
 }
 #[test]
@@ -256,12 +256,22 @@ fn stale_reply_resolve_and_command_callbacks_do_not_change_newer_editor_context(
     app.doc_mut().move_to(0, false);
     until(&mut app, |app| app.message.contains("context changed"));
     assert!(app.modal.is_none());
+    until(&mut app, |app| {
+        app.lsp
+            .as_ref()
+            .is_some_and(|client| client.action_available())
+    });
     select_word(&mut app);
     actions(&mut app);
     choose(&mut app, "Resolve refactor");
     app.doc_mut().insert("keep", false);
     until(&mut app, |app| app.message.contains("Document changed"));
     assert_eq!(app.doc().text.to_string(), "keep\r\n");
+    until(&mut app, |app| {
+        app.lsp
+            .as_ref()
+            .is_some_and(|client| client.action_available())
+    });
     app.execute("undo", Value::Null);
     select_word(&mut app);
     actions(&mut app);

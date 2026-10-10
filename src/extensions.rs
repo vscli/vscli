@@ -314,6 +314,14 @@ impl Client {
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
             (
+                "code-action-types.cjs",
+                include_str!("../extension-host/code-action-types.cjs"),
+            ),
+            (
+                "code-actions.cjs",
+                include_str!("../extension-host/code-actions.cjs"),
+            ),
+            (
                 "diagnostic-types.cjs",
                 include_str!("../extension-host/diagnostic-types.cjs"),
             ),
@@ -466,6 +474,7 @@ impl Client {
                 "execute"
                     | "provideLanguage"
                     | "resolveLanguageCompletion"
+                    | "resolveLanguageCodeAction"
                     | "treeChildren"
                     | "surfaceAction"
             ) && owned
@@ -868,7 +877,7 @@ impl Client {
             {
                 if matches!(
                     pending.method.as_str(),
-                    "provideLanguage" | "resolveLanguageCompletion"
+                    "provideLanguage" | "resolveLanguageCompletion" | "resolveLanguageCodeAction"
                 ) {
                     self.provider_response(id, message)?;
                     continue;

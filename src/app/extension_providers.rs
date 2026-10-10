@@ -240,6 +240,11 @@ impl App {
             .map(|h| h.take_provider_replies())
             .unwrap_or_default();
         for reply in replies {
+            if reply.ticket.provider.kind == Kind::CodeAction {
+                changed = true;
+                self.extension_action_reply(reply.ticket, reply.result);
+                continue;
+            }
             if let Some(ticket) = self
                 .extension_providers
                 .completion_resolves
@@ -340,6 +345,7 @@ impl App {
                 })
             }
             Kind::Completion => unreachable!("Completion responses use suggestion routing"),
+            Kind::CodeAction => unreachable!("Code actions use combined source routing"),
             Kind::Formatting => {
                 let changes = provider_edits(self.doc(), serde_json::from_value(value)?)?;
                 self.doc_mut().apply_changes(changes);

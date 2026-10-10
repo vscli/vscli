@@ -207,8 +207,24 @@ function createDiagnostics(options) {
     for (const owner of affected) queue(owner);
   }
   function disposeOwner(owner) { for (const collection of [...collections.values()]) if (collection.owner === owner) collection.dispose(); queue(owner); }
+  function currentDiagnostics(document, requested) {
+    const result = [], anchors = [];
+    for (const collection of collections.values()) {
+      const entry = collection.entries.get(document._snapshot.uri);
+      if (!entry || entry.document !== document || entry.version !== document.version || document.isClosed) continue;
+      anchors.push({collection,generation:collection.generation,entry});
+      for (const original of entry.original) {
+        const diagnosticRange = range(original.range,document);
+        const intersects = (diagnosticRange.start.line < requested.end.line || diagnosticRange.start.line === requested.end.line && diagnosticRange.start.character <= requested.end.character)
+          && (diagnosticRange.end.line > requested.start.line || diagnosticRange.end.line === requested.start.line && diagnosticRange.end.character >= requested.start.character);
+        if (intersects) { if (result.length >= 128) throw new Error('More than128 diagnostics intersect selection'); result.push(original); }
+      }
+    }
+    for (const {collection,generation,entry} of anchors) if (collection.disposed || collection.generation !== generation || entry.document !== document || entry.version !== document.version || document.isClosed) throw new Error('Diagnostic context changed during normalization');
+    return result;
+  }
   return { forOwner: owner => ({ createDiagnosticCollection: name => create(owner, name), getDiagnostics, onDidChangeDiagnostics: (listener, thisArg, disposables) => {
     options.assertOwner(owner); const disposable = options.track(owner, events.event(listener, thisArg)); if (disposables) disposables.push(disposable); return disposable;
-  } }), documentChanged, disposeOwner };
+  } }), currentDiagnostics, documentChanged, disposeOwner };
 }
 module.exports = { createDiagnostics, normalize };

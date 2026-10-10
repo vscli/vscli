@@ -45,6 +45,10 @@ pub struct LanguageItem {
     pub action: LanguageAction,
 }
 pub enum LanguageAction {
+    ExtensionCodeAction {
+        ticket: crate::extensions::providers::Ticket,
+        item: Value,
+    },
     Provider {
         ticket: crate::extensions::providers::Ticket,
         item: Value,
@@ -131,6 +135,14 @@ impl App {
         }
     }
     pub(super) fn language_request(&mut self, method: &str, extra: Value) {
+        if method == "textDocument/codeAction" {
+            let kind = extra["context"]["only"]
+                .as_array()
+                .and_then(|only| only.first())
+                .and_then(Value::as_str);
+            self.request_all_code_actions(kind);
+            return;
+        }
         if method == "textDocument/completion" {
             self.request_suggestions(extra);
             return;
@@ -181,6 +193,12 @@ impl App {
         Ok(())
     }
     fn language_response(&mut self, request: Request, response: Value) -> Result<()> {
+        if matches!(
+            request.method.as_str(),
+            "textDocument/codeAction" | "codeAction/resolve"
+        ) {
+            return self.native_action_reply(request, response);
+        }
         if request.method == "completionItem/resolve" {
             return self.native_suggestion_resolve_response(request, response);
         }
@@ -206,55 +224,6 @@ impl App {
             return Ok(());
         }
         match request.method.as_str() {
-            "textDocument/codeAction" => {
-                self.code_action_current(&request)?;
-                if self.prompt.is_some() || self.modal.is_some() {
-                    bail!("Input context changed; request code actions again");
-                }
-                let Value::Array(mut actions) = response else {
-                    bail!("Invalid code action response");
-                };
-                if actions.len() > 300 {
-                    bail!("Code action picker exceeds 300 items; narrow the selection");
-                }
-                let request = std::sync::Arc::new(request);
-                actions.sort_by_key(|item| !item["isPreferred"].as_bool().unwrap_or(false));
-                let items = actions
-                    .into_iter()
-                    .take(300)
-                    .map(|item| {
-                        let label = format!(
-                            "{}{}",
-                            item["title"]
-                                .as_str()
-                                .unwrap_or("Untitled action")
-                                .chars()
-                                .take(1024)
-                                .collect::<String>(),
-                            item["disabled"]["reason"]
-                                .as_str()
-                                .map_or(String::new(), |r| format!(" (disabled: {r})"))
-                        );
-                        LanguageItem {
-                            label,
-                            action: LanguageAction::CodeAction {
-                                request: request.clone(),
-                                item,
-                            },
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                if items.is_empty() {
-                    self.message = "No code actions available".into();
-                } else {
-                    self.modal = Some(Modal::Language {
-                        title: " Code Actions · Enter applies · Esc closes ".into(),
-                        items,
-                        selected: 0,
-                    });
-                }
-            }
-            "codeAction/resolve" => self.apply_code_action(&request, &response, true)?,
             "textDocument/hover" => {
                 if self.doc().cursor != request.cursor {
                     return Ok(());
@@ -319,10 +288,14 @@ impl App {
     }
     pub(super) fn language_action(&mut self, action: &LanguageAction) -> Result<()> {
         match action {
+            LanguageAction::ExtensionCodeAction { ticket, item } => {
+                self.apply_extension_code_action(ticket, item, false)?;
+            }
             LanguageAction::Provider { ticket, item } => {
                 self.apply_provider_action(ticket, item)?
             }
             LanguageAction::CodeAction { request, item } => {
+                self.select_native_action(request)?;
                 self.apply_code_action(request, item, false)?
             }
             LanguageAction::Location { path, range } => {

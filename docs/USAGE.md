@@ -498,13 +498,13 @@ provenance. See [scope, limits and qualification](DIAGNOSTICS.md).
 
 ## Native code actions and quick fixes
 
-With a configured language server, **Ctrl+.** (**Cmd+.** on macOS) opens
+With a ready language server or enabled extension action provider, **Ctrl+.** (**Cmd+.** on macOS) opens
 **Language: Quick Fix**. **Ctrl+Shift+R** on all three platform profiles opens
 **Language: Refactor**. The shortcuts and provider/editability context match the
-pinned VS Code 1.95 inventories. The picker lists server actions, preferred first;
+pinned VS Code 1.95 inventories. The picker combines native and matching extension actions with source labels;
 Enter applies the chosen action and Escape closes it. Disabled actions explain
 why they cannot run. Servers can lazily resolve edits when an action is selected.
-Diagnostic codes, related fields and opaque `data` are preserved in action requests.
+Diagnostic codes, related fields and opaque `data` are preserved in native action requests. Extension fixes also support original Diagnostic/action identities and lazy resolution. Unsupported extension command/resource rows explain their limits individually. See [bounds and qualification](CODE_ACTIONS.md).
 
 Supported text edits use either `changes` or versioned `documentChanges` across
 already open, synchronized buffers. Every target identity, revision, server version,
