@@ -89,6 +89,11 @@ smart-typing workflows against the fresh debug binary. The full Rust run passed
 The four new terminal workflows also passed against the optimized binary.
 Fresh platform CI qualification remains pending.
 
+The [published optimized benchmarks](PERFORMANCE.md#native-navigation-history-baseline-2026-10-10)
+preserve ordinary-file and 1 MiB single-line typing comparisons. All 30 trials
+passed, with higher observed candidate latency in these runs; they establish no
+speedup or overall editor ranking.
+
 A separate pinned VS Code 1.95.0 observer captured ten cases and 85 snapshots.
 The capture retains source and settings provenance. Native differential comparison
 passed all ten cases and 85 snapshots, and five comparator integrity tests passed.

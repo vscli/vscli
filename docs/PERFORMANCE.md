@@ -443,3 +443,57 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/pr57/vscli \
   --sizes 10240 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
   --output target/benchmarks/native-language-configurations.json
 ```
+
+## Native navigation history baseline: 2026-10-10
+
+The [ordinary-file run](benchmarks/2026-10-10-native-navigation-history.json) and
+[single-line run](benchmarks/2026-10-10-native-navigation-history-single-line.json)
+compare the optimized navigation candidate at `ac7a838` with the saved PR #58
+native runtime. Executable SHA-256 is
+`5d83baf92ff05263f7ee231965d511cf8273cb8636e36f22adf6e054c9cbc55b`
+for the candidate and
+`d89313c42a0c06e0ca840bed2500a0bb3714c3e0c98b5775166dcfd4057fcb4f`
+for the prior runtime. Both reports preserve binary identities, fixture hashes,
+individual trials and the exact invocation.
+
+Five interleaved launches per executable and workload each observe 40 serial
+keys in a 120×40 PTY on the same Linux/i9-13900H host. No local builds, test
+workflows or reference editors ran concurrently. All 30 trials and 1,200 observed
+keys passed. Each startup/RSS median has five samples; each key distribution has
+200 samples.
+
+| Fixture | Executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled RSS MiB |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB, multiple lines | Prior runtime | 5.710 | 0.303 | 0.702 | 0.935 | 12.35 |
+| 10 KiB, multiple lines | Navigation candidate | 7.660 | 0.395 | 0.917 | 1.138 | 12.46 |
+| 1 MiB, multiple lines | Prior runtime | 7.841 | 0.303 | 0.910 | 1.090 | 13.36 |
+| 1 MiB, multiple lines | Navigation candidate | 8.803 | 0.395 | 0.938 | 1.141 | 13.92 |
+| 1 MiB, single line | Prior runtime | 7.740 | 0.209 | 0.484 | 0.820 | 13.40 |
+| 1 MiB, single line | Navigation candidate | 8.546 | 0.216 | 0.765 | 0.906 | 13.62 |
+
+The candidate has higher measured startup/key medians and key tails in these
+runs. These observations merit continued tracking; they establish no speedup,
+fastest-editor ranking or causal/sustained regression. CPU frequency and host
+scheduling remain uncontrolled, and five startup samples do not qualify startup
+tails. The short 0.3-second idle samples recorded zero ticks and do not establish
+sustained idle CPU behavior. Sampled RSS is not peak memory.
+
+This is warm-cache ASCII plain-text typing with isolated configuration/data,
+no language server, installed extensions or recovery. The single-line fixture
+types at the beginning of a 1 MiB line. Native location capture uses Rope UTF-16
+counters rather than flattening or scanning the line, but this experiment does
+not prove all history operations have constant latency. Closed-file travel,
+filesystem delays, actual language projects and sustained history contention
+remain separate workloads. Timings include the Python cell oracle and exclude
+physical input and graphical terminal painting.
+
+Reproduce with a saved PR #58 native release executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr58/vscli \
+  --sizes 10240 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/native-navigation-history.json
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr58/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/native-navigation-history-single-line.json
+```
