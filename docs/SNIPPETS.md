@@ -15,6 +15,11 @@ normalize inserted line endings to the document. Snippet state belongs to its ed
 not activate a copied session. Edits map the shared text and other views, and a
 transform does not merge another view's edit into its undo transaction.
 
+Closing and recreating a group view retires its old private snippet session.
+Undo/Redo still restores shared text and selections, but cannot reactivate that
+closed session, including when drawing recreates the view. Retained views keep
+their existing session ownership and normal snippet Undo/Redo.
+
 Literal `editor.action.insertSnippet` commands with `args.snippet` now insert
 native templates through user keybindings. Tab/Shift+Tab traverse active fields;
 Escape/Shift+Escape leave snippet mode while retaining the primary selection.

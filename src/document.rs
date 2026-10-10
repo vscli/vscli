@@ -19,6 +19,8 @@ mod snippets;
 mod typing;
 mod view_transfer;
 pub use view_transfer::ViewTransfer;
+#[cfg(test)]
+mod view_recreation_tests;
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
@@ -398,6 +400,9 @@ impl Document {
         }
         let next = self.other_views.remove(&id).unwrap_or_else(|| {
             let mut view = self.view.clone();
+            // Recreated group views must not inherit a closed view's private
+            // session authority through a retained sibling's cloned owner.
+            view.session_owner = std::sync::Arc::new(());
             view.cursor_history.clear();
             view.snippet = None;
             view.pairs = typing::Pairs::default();
