@@ -289,6 +289,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/editor_tab_transfer_pty.py target/debug/vscli
+      - name: Run native Close Group merge workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/close_group_merge_pty.py target/debug/vscli
       - name: Run original directional group focus workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

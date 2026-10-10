@@ -30,6 +30,8 @@ mod autosave_tests;
 #[cfg(test)]
 mod close_pending_tests;
 #[cfg(test)]
+mod group_merge_tests;
+#[cfg(test)]
 mod nested_layout_tests;
 #[cfg(test)]
 mod settings_lane_tests;

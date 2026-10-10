@@ -383,7 +383,7 @@ paired core samples pass 80 launches / 3,200 keys with mixed measurements.
 Platform qualification remains a separate gate. See [layout scope
 and evidence](EDITOR_LAYOUT.md).
 
-Directional/copy editor transfer, distinct Close Group merge semantics,
+Directional/copy editor transfer, broader Close Group context/empty-group semantics,
 divider dragging and workspace transitions remain priority-6 gaps. Wrap/folding
 still needs a unified display-row mapping; neither prototype is a shipped feature.
 
@@ -398,3 +398,16 @@ commands remain explicit boundaries. See [spatial-focus scope](SPATIAL_FOCUS.md)
 
 
 Native cross-group transfer candidate: the four original keyed Previous/Next/First/Last wrappers stage Groups + nested Layout + source view, reuse duplicate destination identity, preserve dirty/Undo/accepted-save ownership, and refuse unsupported insertion/empty-group policies. Local App/key/settings qualification passes 1,047 all-target Rust tests, formatting, strict Clippy and 39 native PTY reports across eight scripts, including four new transfer reports across six sessions; the pure transfer and Document projection foundation were qualified separately. Fresh platform checks and parent-stack integration remain gates. Directional missing-group creation, copy/drag, arbitrary move arguments and retained empty groups remain gaps. See [transfer contract](TAB_TRANSFER_APP.md).
+
+
+Native Close Group merge is now locally qualified, distinct from closing
+editors in a group. Its default-right merge stages Groups, nested Layout and
+bounded historical view leases while retaining dirty work and original save
+receipts. The native palette exposes the original closeGroup ID/title; upstream
+empty-group bindings and command-palette availability remain separate boundaries.
+The pure engine has twelve focused passes, historical views thirteen and App
+integration eleven. The full candidate passes 1,088 Rust tests, formatting,
+strict Clippy and 29 debug PTY reports across six scripts, including three new
+merge reports; the three new reports also pass in the optimized executable.
+Fresh platform checks and parent integration remain gates.
+See [scope and evidence](CLOSE_GROUP_MERGE.md).

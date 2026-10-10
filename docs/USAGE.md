@@ -267,9 +267,16 @@ Current View Width changes the selected group by four terminal columns; the Heig
 commands use two rows, bounded by available space. View: Reset Editor Group Sizes
 resets sibling ratios. These original command IDs have no invented resize shortcuts.
 A palette resize may wait once for the next editor repaint. Mouse divider dragging,
-left/up splits, presets and merge/maximize remain unsupported.
-The legacy View: Close Editor Group label runs Close Editors in Group; the distinct
-upstream Close Group command is not implemented.
+left/up splits, presets and maximize remain unsupported.
+F1 → View: Close Group merges all tabs into the most recently active other
+nonempty group and removes the source layout leaf without discarding dirty work.
+Its original command ID is exposed in the native palette using the toolbar title;
+this does not reproduce upstream command-palette availability. View: Close All
+Editors in Group retains the distinct existing close/review behavior. The old
+misleading Close Editor Group label is corrected rather than aliased to merge.
+The sole group remains open. Changed merges currently require default-right
+openPositioning; explicit merges allow closeEmptyGroups=false. See
+[Close Group transaction, view-cache boundaries and qualification](CLOSE_GROUP_MERGE.md).
 
 Very small editor areas project only the active group; the tree and shared models
 remain retained. Whole-screen tiny mode and covered frames grant no stale source

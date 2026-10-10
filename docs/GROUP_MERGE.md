@@ -4,8 +4,8 @@ The pure Groups engine can prepare and publish a Close Group merge into the
 most recently active other group. The sole group remains a proof-checked no-op.
 It preserves document identities and reuses existing destination tab identities;
 all incoming previews commit and unrelated destination previews survive.
-App command registration, joint Layout/document publication and terminal
-qualification remain pending in this foundation.
+App command registration and joint Layout/document publication are integrated
+separately; see [the usable operation and qualification](CLOSE_GROUP_MERGE.md).
 
 Preparation captures original source order, active editor, focus, modes and
 membership identities. It stages the complete bounded destination union and
@@ -25,6 +25,6 @@ Twelve local integrity cases pass, including independent expected orders,
 complete deduplication at capacity, sticky-boundary transitions, preview modes,
 original active/MRU targeting, stale and foreign proofs, counter exhaustion,
 reservation refusal and dropped stages. These tests qualify the Groups API.
-The original workbench.action.closeGroup workflow still needs all affected
-historical document-view leases and a merge-aware App projection before use;
-its empty-group shortcut context is not available in the current native engine.
+The original workbench.action.closeGroup workflow uses historical document-view
+leases and a merge-aware App projection. Its empty-group shortcut context is
+not available in the current native engine.

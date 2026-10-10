@@ -353,7 +353,7 @@ def run():
             app.send(SPLIT)
             open_file(app, paths["b"])
             app.send(FIRST)
-            palette(app, "View: Close Editor Group")
+            palette(app, "View: Close All Editors in Group")
             active(app, "b.txt", 1)
             strips(app, [["a.txt", "b.txt"]])
             app.send(CLOSE)
@@ -361,7 +361,7 @@ def run():
             app.send(CLOSE)
             wait_screen(app, "No open editors")
             assert all(path.read_bytes() == ORIGINAL for path in paths.values())
-        print("PASS: non-adjacent MRU close fallback and original Close Editor Group remove only intended memberships; final close reaches native welcome")
+        print("PASS: non-adjacent MRU close fallback and original Close All Editors in Group remove only intended memberships; final close reaches native welcome")
 
         case, config, paths = setup(root, "session-views")
         with launched(case, config, paths, session=True) as app:
