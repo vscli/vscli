@@ -31,6 +31,14 @@ Its metadata records product identity, platform/architecture, all nine observer 
 harness source hashes, case input hash, 44 fixture-file hashes, per-case actual
 run identities and exact trace/evidence digests.
 
+A later complete Linux capture, `target/editor-preview-tabs-observer-corrected-reference`,
+uses the corrected Windows resource lookup and explicit callback evidence. Its
+full 11-case/86-frame projection is exactly equal to the original Linux trace.
+The new trio is frozen separately in
+[editor-preview-tabs-observer-corrected](baselines/1.95.0/editor-preview-tabs-observer-corrected);
+the original trio and failed Windows artifact are preserved. The native consumer
+and its integrity tests default to the corrected source-matched trio.
+
 ## Capture contract
 
 Each case sets preview enabled, Quick Open preview disabled, code-navigation
@@ -145,3 +153,26 @@ The native comparison artifact reports the nine compared cases and two named
 deferred sticky cases. Unix also runs the six App preview journeys. The reference
 upload runs after all observation and comparison steps, including on failure;
 an interrupted capture remains diagnostic evidence, not complete qualification.
+
+## Cross-platform observer and publication corrections
+
+The first preview CI run rejected Windows evidence that marked 106 visible files
+unloaded. Canonical fixture-resource lookup replaces direct path-string equality;
+unknown file resources still fail. The native tab/document consistency assertion
+is unchanged. Seven Node tests cover Windows/POSIX containment, listener failure
+propagation and bounded supplemental evidence.
+
+Non-file document changes/closures and readiness-only non-file view metadata are
+retained separately with URI, document identity, phase and strict-event position.
+They have bounded count/text/encoded bytes, and callback failures explicitly fail
+the next snapshot or final return. Target views, Untitled and all file resources
+remain strict. Partial failed traces are preserved. The Rust preflight validates
+supplemental metadata and exact per-target slices; these logging/setup callbacks
+are outside native callback equality. The corrected Linux capture had no
+supplemental events; cross-platform CI must qualify actual startup events.
+
+The macOS smoke failure occurred before Quick Open had confirmed result/file
+publication. Its corrected journey waits for the exact first selected popup row
+and the active tab/status/source text, preserving original keys, four-second
+readiness deadlines and exact saved bytes. All 35 local smoke reports passed.
+No capture target retry or deadline increase is introduced by these corrections.

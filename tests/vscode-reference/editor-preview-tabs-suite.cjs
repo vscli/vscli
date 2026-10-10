@@ -13,11 +13,13 @@ exports.run = async () => {
   assert.equal(product.commit, '912bb683695358a54ae0c670461738984cbb5b95');
   const name = process.env.VSCLI_REFERENCE_EDITOR_PREVIEW_TABS_CASE;
   const output = process.env.VSCLI_REFERENCE_OUTPUT;
-  let evidence;
-  try { evidence = await editorPreviewTabsTrace(vscode, name, process.env.VSCLI_REFERENCE_EDITOR_PREVIEW_TABS_WORKSPACE); }
+  let evidence, partial;
+  try { evidence = await editorPreviewTabsTrace(vscode, name,
+    process.env.VSCLI_REFERENCE_EDITOR_PREVIEW_TABS_WORKSPACE, value => { partial = value; }); }
   catch (error) {
     fs.writeFileSync(path.join(output, `${name}-failure.json`), JSON.stringify({ name,
-      version: vscode.version, commit: product.commit, error: error.stack || String(error) }, null, 2) + '\n');
+      version: vscode.version, commit: product.commit, error: error?.stack || String(error),
+      partial: partial ?? null }, null, 2) + '\n');
     throw error;
   }
   const bytes = JSON.stringify(evidence, null, 2) + '\n';
