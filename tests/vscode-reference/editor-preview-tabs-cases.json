@@ -1,0 +1,295 @@
+[
+  {
+    "name": "clean-preview-replacement",
+    "steps": [
+      {
+        "open": "b.txt"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "open": "a.txt"
+      },
+      {
+        "command": "cursorRight"
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "open": "d.txt"
+      }
+    ]
+  },
+  {
+    "name": "repeated-preview-open-and-keep-editor",
+    "steps": [
+      {
+        "open": "a.txt"
+      },
+      {
+        "command": "workbench.action.keepEditor"
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "open": "a.txt"
+      },
+      {
+        "open": "d.txt"
+      }
+    ]
+  },
+  {
+    "name": "dirty-promotion-and-undo-retention",
+    "steps": [
+      {
+        "command": "type",
+        "args": {
+          "text": "λ🙂"
+        }
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "command": "workbench.action.previousEditorInGroup"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "open": "a.txt"
+      }
+    ]
+  },
+  {
+    "name": "untitled-retention-after-undo",
+    "steps": [
+      {
+        "command": "workbench.action.files.newUntitledFile"
+      },
+      {
+        "command": "type",
+        "args": {
+          "text": "λ🙂"
+        }
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "command": "workbench.action.previousEditorInGroup"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "command": "workbench.action.previousEditorInGroup"
+      }
+    ]
+  },
+  {
+    "name": "sticky-pin-unpin-and-committed-distinction",
+    "steps": [
+      {
+        "command": "workbench.action.pinEditor"
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "command": "workbench.action.keepEditor"
+      },
+      {
+        "command": "workbench.action.pinEditor"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "command": "workbench.action.previousEditorInGroup"
+      },
+      {
+        "command": "workbench.action.unpinEditor"
+      },
+      {
+        "open": "d.txt"
+      }
+    ]
+  },
+  {
+    "name": "per-group-preview-and-split",
+    "steps": [
+      {
+        "command": "workbench.action.splitEditor"
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "command": "workbench.action.focusFirstEditorGroup"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "command": "workbench.action.focusSecondEditorGroup"
+      },
+      {
+        "open": "d.txt"
+      },
+      {
+        "command": "workbench.action.focusFirstEditorGroup"
+      },
+      {
+        "open": "a.txt"
+      }
+    ]
+  },
+  {
+    "name": "committed-resource-elsewhere-prefers-active-group",
+    "steps": [
+      {
+        "command": "workbench.action.keepEditor"
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "command": "workbench.action.splitEditor"
+      },
+      {
+        "open": "a.txt"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "command": "workbench.action.focusFirstEditorGroup"
+      },
+      {
+        "open": "c.txt"
+      }
+    ]
+  },
+  {
+    "name": "dirty-split-and-undo",
+    "steps": [
+      {
+        "command": "type",
+        "args": {
+          "text": "λ🙂"
+        }
+      },
+      {
+        "command": "workbench.action.splitEditor"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "command": "workbench.action.focusFirstEditorGroup"
+      },
+      {
+        "open": "c.txt"
+      }
+    ]
+  },
+  {
+    "name": "explicit-committed-open-preserves-other-preview",
+    "steps": [
+      {
+        "open": "b.txt"
+      },
+      {
+        "open": "c.txt",
+        "preview": false
+      },
+      {
+        "open": "d.txt"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "command": "workbench.action.keepEditor"
+      },
+      {
+        "open": "a.txt"
+      }
+    ]
+  },
+  {
+    "name": "shared-edit-through-committed-split-promotes-preview",
+    "steps": [
+      {
+        "command": "workbench.action.splitEditor"
+      },
+      {
+        "command": "type",
+        "args": {
+          "text": "λ🙂"
+        }
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "workbench.action.focusFirstEditorGroup"
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "command": "workbench.action.focusSecondEditorGroup"
+      },
+      {
+        "open": "c.txt"
+      }
+    ]
+  },
+  {
+    "name": "historical-sticky-prefix-and-unpin-placement",
+    "steps": [
+      {
+        "command": "workbench.action.keepEditor"
+      },
+      {
+        "open": "b.txt"
+      },
+      {
+        "command": "workbench.action.keepEditor"
+      },
+      {
+        "open": "c.txt"
+      },
+      {
+        "command": "workbench.action.keepEditor"
+      },
+      {
+        "command": "workbench.action.previousEditorInGroup"
+      },
+      {
+        "command": "workbench.action.pinEditor"
+      },
+      {
+        "command": "workbench.action.unpinEditor"
+      }
+    ]
+  }
+]
