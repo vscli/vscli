@@ -592,3 +592,60 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/pr60/vscli \
   --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
   --output target/benchmarks/native-breadcrumbs-single-line.json
 ```
+
+
+## Native save automation core baseline: 2026-10-10
+
+The [ordinary-file run](benchmarks/2026-10-10-native-save-automation.json) and
+[single-line run](benchmarks/2026-10-10-native-save-automation-single-line.json)
+compare source `45196bd1a4f298bf73482c0627fc992bd24ca791` with the preserved
+settings-persistence executable. Each row has five interleaved launches and 200
+serial key samples: 40 successful trials and 1,600 keys, with zero failures.
+No build, test suite or reference editor ran concurrently. The Linux x86_64
+i9-13900H host had 20 logical CPUs and a 120 × 40 terminal. CPU frequency,
+scheduling and thermal state were uncontrolled.
+
+| File / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS median MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / settings | 6.124 | 0.309 | 0.656 | 0.770 | 12.61 |
+| 10 KiB multiline / save automation | 7.450 | 0.335 | 1.018 | 1.129 | 12.88 |
+| 1 MiB multiline / settings | 7.229 | 0.399 | 0.877 | 1.019 | 13.97 |
+| 1 MiB multiline / save automation | 9.260 | 0.344 | 0.769 | 0.921 | 14.12 |
+| 10 MiB multiline / settings | 20.893 | 0.320 | 0.592 | 0.843 | 24.34 |
+| 10 MiB multiline / save automation | 20.426 | 0.333 | 0.673 | 0.813 | 24.53 |
+| 1 MiB single line / settings | 8.585 | 0.222 | 0.723 | 0.909 | 13.85 |
+| 1 MiB single line / save automation | 8.708 | 0.219 | 0.756 | 0.889 | 13.86 |
+
+The candidate has higher observed 10 KiB key measurements, lower 1 MiB
+multiline key measurements, and mixed 10 MiB/single-line measurements. Sampled
+RSS medians are higher in all four workloads. These observations establish no
+overall speedup, causal regression or editor ranking. Five startup samples do
+not establish startup tails; pooled keys are not independent launches. Sampled
+RSS is not peak memory, and one-second idle windows do not qualify sustained CPU.
+
+This is warm-cache ASCII plain-text editing with isolated configuration/data,
+no language server, extensions or recovery, and autosave off. Default file
+Breadcrumbs are enabled in both executables; Outline has no active provider.
+The benchmark measures routine editing after save integration. It does not
+measure active save/autosave contention, filesystem synchronization latency,
+large project indexing or physical input-to-display latency. The Python cell
+oracle is included; graphical terminal painting and physical input are excluded.
+Save correctness, external-conflict protection and shutdown integrity have
+separate actual-worker and terminal evidence in the
+[save automation contract](SAVE_AUTOMATION_PLAN.md).
+
+Both reports retain executable and fixture hashes. Candidate SHA256 is
+`d6f4c771a98f33bcc97a9f69d2bf64170326df78c7ccc05e8ef12456ab69740f`;
+baseline SHA256 is
+`81c3f586d616bcfa59c438a53e3e3943fcb41f60d624902050e13eecb1826eea`.
+
+Reproduce with a saved settings-persistence release executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/settings/vscli \
+  --sizes 10240 1048576 10485760 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-save-automation.json
+python3 scripts/bench_editor.py --compare-vscli /path/to/settings/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-save-automation-single-line.json
+```
