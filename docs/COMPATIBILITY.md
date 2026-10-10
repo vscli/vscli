@@ -34,6 +34,15 @@ hidden-view state, workspace transitions and terminal persistence remain incompl
 See [recent-file integrity](USAGE.md#recent-files-and-reopening-closed-editors) and
 [clean-session behavior and limits](USAGE.md#clean-file-session-restoration).
 
+Native Back/Forward navigation records up to 50 session locations across retained
+models and panes, with the original platform shortcuts and conditional
+`canNavigateBack`/`canNavigateForward` contexts. History preserves dirty model
+identity, Undo and disk bytes; stale background file loads cannot commit travel.
+The recorded single-group comparison matches 10 pinned VS Code 1.95.0 cases and
+85 visible snapshots. It does not qualify every navigation integration, pending
+shortcut context, cross-launch persistence or Outline/breadcrumbs. See
+[native history behavior and evidence](NAVIGATION_HISTORY.md).
+
 
 Native automatic language services now discover installed clangd for C/C++ and
 rust-analyzer for Rust when a saved file is selected. Explicit manual LSP remains
