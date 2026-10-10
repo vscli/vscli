@@ -1,5 +1,6 @@
 'use strict';
 const vscode = require('vscode');
+const publishEvidence = require('./publish-evidence.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 exports.activate = context => {
@@ -26,11 +27,11 @@ exports.activate = context => {
       action.data = { document, range, diagnostic: original }; action.data.self = action.data;
       action.diagnostics = [original]; action.customProperty = { marker: 42 };
       originals.set(action, action.data);
-      fs.writeFileSync(path.join(vscode.workspace.rootPath, 'lazy-provided.json'), JSON.stringify({ original: true }));
+      publishEvidence(path.join(vscode.workspace.rootPath, 'lazy-provided.json'), JSON.stringify({ original: true }));
       return [action];
     },
     async resolveCodeAction(action, token) {
-      fs.writeFileSync(path.join(vscode.workspace.rootPath, 'lazy-resolving.json'), JSON.stringify({ started: true }));
+      publishEvidence(path.join(vscode.workspace.rootPath, 'lazy-resolving.json'), JSON.stringify({ started: true }));
       const deadline = Date.now() + 4000;
       while (fs.existsSync(path.join(vscode.workspace.rootPath, 'hold-resolve')) && Date.now() < deadline && !token.isCancellationRequested) await new Promise(resolve => setTimeout(resolve, 5));
       if (this.marker !== 'lazy receiver' || originals.get(action) !== action.data || action.data.self !== action.data
@@ -38,7 +39,7 @@ exports.activate = context => {
           || action.data.diagnostic.fixInfo.circular !== action.data.diagnostic.fixInfo) throw new Error('Lazy original action/diagnostic/custom identity lost');
       action.edit = new vscode.WorkspaceEdit();
       action.edit.replace(action.data.document.uri, action.data.range, 'resolved');
-      fs.writeFileSync(path.join(vscode.workspace.rootPath, 'lazy-resolved.json'), JSON.stringify({ original: true, cancelled: token.isCancellationRequested }));
+      publishEvidence(path.join(vscode.workspace.rootPath, 'lazy-resolved.json'), JSON.stringify({ original: true, cancelled: token.isCancellationRequested }));
       return action;
     },
   };
