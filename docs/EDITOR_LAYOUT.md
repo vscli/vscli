@@ -182,3 +182,13 @@ group/layout/session publication, shared documents, accepted saves or pointer
 geometry guards. That review and these local tests do not qualify other operating
 systems, upstream graphical geometry or full layout parity. Fresh protected CI
 on the rebased head and parent integration remain required before merge.
+
+
+Sticky parent PR #68 is now merged at
+`db76ed6d2a314efe2dcf1e799e5ba5a85f2dc29c` after all six required checks and
+complete corrected three-platform captures/native replay passed. The layout
+branch is rebased against that main commit. Before these evidence-only updates,
+its whole tree is byte-identical to locally qualified layout head
+`c9682f5a1a879370803c86715fc6ebf623a303f0`; no native source, test or workflow
+changed in this main rebase. The local evidence above is retained without
+repeating unchanged native tests. Fresh exact-head protected CI remains required.

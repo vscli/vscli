@@ -26,19 +26,23 @@ legacy boolean exclusions are normalized in native execution without rewriting
 settings or historical evidence. All six post-merge checks passed in
 [run 38069857502](https://github.com/vscli/vscli/actions/runs/38069857502).
 
-[Sticky PR #68](https://github.com/vscli/vscli/pull/68) implements original
-pin/unpin commands, membership-local markers and save-safe protected-close
-subsets. Its rebased local qualification passes 973 Rust tests, 18 observer
-tests and 12 terminal reports on each debug/optimized executable. A separate
-source-bound monotonic observer fixes late settlement acceptance; the complete
-rejected Windows capture is retained. Fresh platform CI remains required.
+[Sticky PR #68](https://github.com/vscli/vscli/pull/68) is merged. It adds
+original pin/unpin commands, membership-local markers and save-safe protected-close
+subsets. Its rebased local qualification passed 973 Rust tests, 18 observer tests
+and 12 terminal reports on each debug/optimized executable. All six required
+checks passed on the reviewed head in
+[run 38071676391](https://github.com/vscli/vscli/actions/runs/38071676391),
+including complete corrected captures/native replay on Linux, macOS and Windows.
+The complete earlier rejected Windows capture remains intact; the monotonic
+observer enforces the original budget without claiming the earlier delay's cause.
 See [the sticky contract](STICKY_TABS.md).
 
 [Nested layouts #69](https://github.com/vscli/vscli/pull/69) now include App/UI
 integration, original split/resize commands and strict schema-3 session metadata.
 After rebasing onto corrected sticky tabs, 1,024 Rust tests, 36 debug terminal
 reports and 22 optimized reports pass. Source review found no material
-integration issue; protected parent/platform qualification remains pending.
+integration issue. Sticky parent integration is complete; fresh required checks
+on the layout branch rebased against main remain pending.
 See [the layout contract](EDITOR_LAYOUT.md) for bounded geometry, recovery and
 remaining upstream layout gaps.
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
