@@ -710,6 +710,26 @@ fn matching_models(
     }
     Ok(matching)
 }
+fn replace_existing(temporary: tempfile::NamedTempFile, path: &Path) -> Result<()> {
+    #[cfg(windows)]
+    {
+        // tempfile 3.27 uses MoveFileExW directly, which refuses an open
+        // destination. Rust1.99 fs::rename has the FileRenameInfoEx POSIX
+        // replacement fallback, allowing the baseline handle to remain live.
+        // Own cleanup before keep(), which removes FILE_ATTRIBUTE_TEMPORARY.
+        let mut cleanup = tempfile::TempPath::try_from_path(temporary.path().to_path_buf())?;
+        let (_source_handle, source) = temporary.keep().map_err(|error| error.error)?;
+        fs::rename(&source, path)?;
+        // The old temporary pathname is no longer ours after successful rename.
+        cleanup.disable_cleanup(true);
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        temporary.persist(path).map_err(|error| error.error)?;
+        Ok(())
+    }
+}
 fn work(
     batch: &Batch,
     events: &SyncSender<WorkerEvent>,
@@ -819,7 +839,7 @@ fn work(
                 .map_err(|error| error.error)?;
         }
         Baseline::Present { .. } => {
-            temporary.persist(&path).map_err(|error| error.error)?;
+            replace_existing(temporary, &path)?;
         }
     }
     #[cfg(unix)]
@@ -1237,7 +1257,7 @@ mod tests {
         let original_identity = file_identity(&original_handle).unwrap();
         let mut replacement = tempfile::NamedTempFile::new_in(root.path()).unwrap();
         replacement.write_all(b"{\"x\":0}\n").unwrap();
-        replacement.persist(&path).unwrap();
+        replace_existing(replacement, &path).unwrap();
         let replacement_handle = open_regular(&path, false).unwrap();
         assert!(file_identity(&replacement_handle).unwrap() != original_identity);
         assert!(file_identity(&original_handle).unwrap() == original_identity);
@@ -1245,6 +1265,56 @@ mod tests {
         assert!(finished(&mut writer, id).is_err());
         assert_eq!(fs::read(&path).unwrap(), b"{\"x\":0}\n");
         assert_unlocked(&path);
+    }
+    #[test]
+    fn committed_replacement_preserves_old_open_reader_identity_and_cleans_temporary() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        let original = "{ // 猫🙂\r\n  \"breadcrumbs.enabled\": true\r\n}\r\n";
+        fs::write(&path, original).unwrap();
+        let mut reader = open_regular(&path, false).unwrap();
+        let identity = file_identity(&reader).unwrap();
+        let mut writer = Writer::default();
+        let id = writer
+            .request(intent(&path, 1, "breadcrumbs.enabled", json!(false)))
+            .unwrap();
+        prepared(&mut writer, id);
+        writer.authorize(id).unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Committed { .. }
+        ));
+        assert!(file_identity(&reader).unwrap() == identity);
+        let current = open_regular(&path, false).unwrap();
+        assert!(file_identity(&current).unwrap() != identity);
+        let mut old_bytes = Vec::new();
+        reader.read_to_end(&mut old_bytes).unwrap();
+        assert_eq!(old_bytes, original.as_bytes());
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "{ // 猫🙂\r\n  \"breadcrumbs.enabled\": false\r\n}\r\n"
+        );
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            assert_eq!(current.metadata().unwrap().file_attributes() & 0x100, 0);
+        }
+        assert_unlocked(&path);
+        assert!(!writer.busy());
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+    }
+    #[test]
+    fn failed_replacement_cleans_source_temporary_without_touching_destination() {
+        let root = tempfile::tempdir().unwrap();
+        let destination = root.path().join("directory");
+        fs::create_dir(&destination).unwrap();
+        let mut temporary = tempfile::NamedTempFile::new_in(root.path()).unwrap();
+        temporary.write_all(b"{}\n").unwrap();
+        let source = temporary.path().to_owned();
+        assert!(replace_existing(temporary, &destination).is_err());
+        assert!(destination.is_dir());
+        assert!(!source.exists());
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
     }
     #[cfg(unix)]
     #[test]
