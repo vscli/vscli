@@ -1,0 +1,437 @@
+[
+  {
+    "name": "open-switches-back-forward",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "β😀 other();\r\n"
+      },
+      {
+        "name": "c.cpp",
+        "text": "猫();\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp"
+    },
+    "steps": [
+      {
+        "command": "cursorRight"
+      },
+      {
+        "command": "cursorRight"
+      },
+      {
+        "open": "b.cpp"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "open": "c.cpp"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      }
+    ]
+  },
+  {
+    "name": "explicit-nearby-go-to-line",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "β😀 other();\r\n"
+      },
+      {
+        "name": "c.cpp",
+        "text": "猫();\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp"
+    },
+    "steps": [
+      {
+        "gotoLine": 4
+      },
+      {
+        "gotoLine": 7
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      }
+    ]
+  },
+  {
+    "name": "same-line-bracket-jump",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "(α😀) tail\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "other\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp",
+      "prepareTokens": true
+    },
+    "steps": [
+      {
+        "command": "editor.action.jumpToBracket"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "cursorRight"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      }
+    ]
+  },
+  {
+    "name": "multiline-bracket-jump",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "{\r\n    α😀();\r\n}\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "other\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp",
+      "prepareTokens": true
+    },
+    "steps": [
+      {
+        "command": "editor.action.jumpToBracket"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "gotoLine": 2
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      }
+    ]
+  },
+  {
+    "name": "ordinary-nearby-motion-retains-forward",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "β😀 other();\r\n"
+      },
+      {
+        "name": "c.cpp",
+        "text": "猫();\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp"
+    },
+    "steps": [
+      {
+        "open": "b.cpp"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      }
+    ]
+  },
+  {
+    "name": "ordinary-single-far-motion",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "β😀 other();\r\n"
+      },
+      {
+        "name": "c.cpp",
+        "text": "猫();\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp"
+    },
+    "steps": [
+      {
+        "command": "cursorBottom"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "cursorTop"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      }
+    ]
+  },
+  {
+    "name": "new-jump-after-back-truncates-forward",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "β😀 other();\r\n"
+      },
+      {
+        "name": "c.cpp",
+        "text": "猫();\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp"
+    },
+    "steps": [
+      {
+        "gotoLine": 5
+      },
+      {
+        "gotoLine": 20
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "gotoLine": 8
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      }
+    ]
+  },
+  {
+    "name": "nearby-replacement-after-back-retains-forward",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "β😀 other();\r\n"
+      },
+      {
+        "name": "c.cpp",
+        "text": "猫();\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp"
+    },
+    "steps": [
+      {
+        "gotoLine": 5
+      },
+      {
+        "gotoLine": 20
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "cursorRight"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      }
+    ]
+  },
+  {
+    "name": "dirty-unicode-crlf-edit-undo",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "α😀 β\r\n猫();\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "const other\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp"
+    },
+    "steps": [
+      {
+        "type": "é"
+      },
+      {
+        "open": "b.cpp"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "redo"
+      },
+      {
+        "command": "cursorDown"
+      },
+      {
+        "open": "b.cpp"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      }
+    ]
+  },
+  {
+    "name": "reversed-primary-selection-restoration",
+    "files": [
+      {
+        "name": "a.cpp",
+        "text": "élan😀\r\n猫();\r\n"
+      },
+      {
+        "name": "b.cpp",
+        "text": "other\r\n"
+      }
+    ],
+    "setup": {
+      "open": "a.cpp",
+      "selection": {
+        "anchor": 5,
+        "cursor": 0
+      }
+    },
+    "steps": [
+      {
+        "open": "b.cpp"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      },
+      {
+        "command": "workbench.action.navigateForward"
+      },
+      {
+        "command": "workbench.action.navigateBack"
+      }
+    ]
+  }
+]

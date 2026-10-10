@@ -1,0 +1,355 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "caseCount": 10,
+  "snapshotCount": 85,
+  "traceSha256": "2b7940d3b6427f2645c3db305cc54d325a656184168562e6ef8eece5a2d71d79",
+  "evidenceSha256": "3c91aa8f0f620ca21e0ea69112678ae3c42251bd131c956aaf2a4a75388f2db5",
+  "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+  "files": [
+    {
+      "case": "open-switches-back-forward",
+      "resource": "a.cpp",
+      "sha256": "76528f2d719f224afe31aa931158eebadd265f34068e22a5ebca10a711c97ee4"
+    },
+    {
+      "case": "open-switches-back-forward",
+      "resource": "b.cpp",
+      "sha256": "042cd0fab31b7a7fe988c6cee7483e8aac2510af5379f33bb543901da38619db"
+    },
+    {
+      "case": "open-switches-back-forward",
+      "resource": "c.cpp",
+      "sha256": "c65d40457e1ecd20c5c7073694d04cd4c341423a2f6ceec9f623b65315d39f34"
+    },
+    {
+      "case": "explicit-nearby-go-to-line",
+      "resource": "a.cpp",
+      "sha256": "76528f2d719f224afe31aa931158eebadd265f34068e22a5ebca10a711c97ee4"
+    },
+    {
+      "case": "explicit-nearby-go-to-line",
+      "resource": "b.cpp",
+      "sha256": "042cd0fab31b7a7fe988c6cee7483e8aac2510af5379f33bb543901da38619db"
+    },
+    {
+      "case": "explicit-nearby-go-to-line",
+      "resource": "c.cpp",
+      "sha256": "c65d40457e1ecd20c5c7073694d04cd4c341423a2f6ceec9f623b65315d39f34"
+    },
+    {
+      "case": "same-line-bracket-jump",
+      "resource": "a.cpp",
+      "sha256": "b91a13ff406e211d430cb6077abf17ee203e3f55efc40f7a343bf1b9e5232ada"
+    },
+    {
+      "case": "same-line-bracket-jump",
+      "resource": "b.cpp",
+      "sha256": "0b7b3f625f5ce9bc90f41d0d49fc1cf9eff4383fb91558dbbb3704a6614ba94c"
+    },
+    {
+      "case": "multiline-bracket-jump",
+      "resource": "a.cpp",
+      "sha256": "793186ba2bf8666ba0f35af8ae0af131cbd4aa9f7b60ba6de4879a6390bcd294"
+    },
+    {
+      "case": "multiline-bracket-jump",
+      "resource": "b.cpp",
+      "sha256": "0b7b3f625f5ce9bc90f41d0d49fc1cf9eff4383fb91558dbbb3704a6614ba94c"
+    },
+    {
+      "case": "ordinary-nearby-motion-retains-forward",
+      "resource": "a.cpp",
+      "sha256": "76528f2d719f224afe31aa931158eebadd265f34068e22a5ebca10a711c97ee4"
+    },
+    {
+      "case": "ordinary-nearby-motion-retains-forward",
+      "resource": "b.cpp",
+      "sha256": "042cd0fab31b7a7fe988c6cee7483e8aac2510af5379f33bb543901da38619db"
+    },
+    {
+      "case": "ordinary-nearby-motion-retains-forward",
+      "resource": "c.cpp",
+      "sha256": "c65d40457e1ecd20c5c7073694d04cd4c341423a2f6ceec9f623b65315d39f34"
+    },
+    {
+      "case": "ordinary-single-far-motion",
+      "resource": "a.cpp",
+      "sha256": "76528f2d719f224afe31aa931158eebadd265f34068e22a5ebca10a711c97ee4"
+    },
+    {
+      "case": "ordinary-single-far-motion",
+      "resource": "b.cpp",
+      "sha256": "042cd0fab31b7a7fe988c6cee7483e8aac2510af5379f33bb543901da38619db"
+    },
+    {
+      "case": "ordinary-single-far-motion",
+      "resource": "c.cpp",
+      "sha256": "c65d40457e1ecd20c5c7073694d04cd4c341423a2f6ceec9f623b65315d39f34"
+    },
+    {
+      "case": "new-jump-after-back-truncates-forward",
+      "resource": "a.cpp",
+      "sha256": "76528f2d719f224afe31aa931158eebadd265f34068e22a5ebca10a711c97ee4"
+    },
+    {
+      "case": "new-jump-after-back-truncates-forward",
+      "resource": "b.cpp",
+      "sha256": "042cd0fab31b7a7fe988c6cee7483e8aac2510af5379f33bb543901da38619db"
+    },
+    {
+      "case": "new-jump-after-back-truncates-forward",
+      "resource": "c.cpp",
+      "sha256": "c65d40457e1ecd20c5c7073694d04cd4c341423a2f6ceec9f623b65315d39f34"
+    },
+    {
+      "case": "nearby-replacement-after-back-retains-forward",
+      "resource": "a.cpp",
+      "sha256": "76528f2d719f224afe31aa931158eebadd265f34068e22a5ebca10a711c97ee4"
+    },
+    {
+      "case": "nearby-replacement-after-back-retains-forward",
+      "resource": "b.cpp",
+      "sha256": "042cd0fab31b7a7fe988c6cee7483e8aac2510af5379f33bb543901da38619db"
+    },
+    {
+      "case": "nearby-replacement-after-back-retains-forward",
+      "resource": "c.cpp",
+      "sha256": "c65d40457e1ecd20c5c7073694d04cd4c341423a2f6ceec9f623b65315d39f34"
+    },
+    {
+      "case": "dirty-unicode-crlf-edit-undo",
+      "resource": "a.cpp",
+      "sha256": "452d77816585fbe884d0ed65f299a8ea00781ed1bd3d3df17ea604f928a45db5"
+    },
+    {
+      "case": "dirty-unicode-crlf-edit-undo",
+      "resource": "b.cpp",
+      "sha256": "e2b1871eec61b198be59dfca719abb7583db30ac5385b3da47a60276e1e8222d"
+    },
+    {
+      "case": "reversed-primary-selection-restoration",
+      "resource": "a.cpp",
+      "sha256": "0f2917d8cc7d394095c4779b4fe8aee7aacee93161bceee55b510a18fb834e7a"
+    },
+    {
+      "case": "reversed-primary-selection-restoration",
+      "resource": "b.cpp",
+      "sha256": "0b7b3f625f5ce9bc90f41d0d49fc1cf9eff4383fb91558dbbb3704a6614ba94c"
+    }
+  ],
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:45:55.378Z",
+      "name": "open-switches-back-forward",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "7bbf93a6bc7841edb7a4e241f69e9147b3f2b6607da010b3cfadb4bb88459a57",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:45:58.128Z",
+      "name": "explicit-nearby-go-to-line",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "8617d0c12a8fc3d3d0296024ddd053ef9d2feb80d8e09631e9210742f07d976e",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:46:00.629Z",
+      "name": "same-line-bracket-jump",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "be8ecd8186630c958e7db603c4f299030883554b73378ca7dd066cbaf7fb5007",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:46:03.315Z",
+      "name": "multiline-bracket-jump",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "cfd821af81702de74d151dbccfa4bd31ccb625b6e7525b09a6cd85a314ee9db3",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:46:06.639Z",
+      "name": "ordinary-nearby-motion-retains-forward",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "8b6eda29b4ef2349564fa2c933f8f5d4ce9af73e8050c803bab84924f92cd5b0",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:46:09.955Z",
+      "name": "ordinary-single-far-motion",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "aa075ff276b549b3696d75c5ed68f922fbfd47d25d7cd7901dc287e0b1ac7579",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:46:12.992Z",
+      "name": "new-jump-after-back-truncates-forward",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "9a6f93047f227c5603f956a113c17648c50f0b398d91137c48fc8eee812e1754",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:46:15.960Z",
+      "name": "nearby-replacement-after-back-retains-forward",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "cfb00c2df48d1a4cc42c662502948d2f5e7823c3901e56044443cba3927e5ea2",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:46:18.990Z",
+      "name": "dirty-unicode-crlf-edit-undo",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "561f8dc490bc13c1abc346feec3b7ef8219c3e99cbda0c5d14012d2a39e7c025",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:46:22.208Z",
+      "name": "reversed-primary-selection-restoration",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "b912c5d5917f7478a8ea1b64565c6b08ee5b3ce875fc09b42179ac994538f528",
+      "profileSettingsSha256": "b6020059858e0b50a902d2295a85088f70972039c39b81f569673b273371a902",
+      "observerSha256": "6d2375d2b629985f3515556ee35c4948ecaa6910803afa2e6dd5f225e50a18d6",
+      "casesSha256": "0abdfb768f44ef0f7842b6c32a527ea9b9582194bbb99b5e94560a5e90af8eb8",
+      "suiteSha256": "d4ff98d815652e83c80a4415c0b98cf73ca66e026f7a5ea6176fb2ef63ffe169",
+      "runnerSha256": "0a9e33a96a6efff1d932d6f2d7217b00e0010c4d1915da10e99224e91e888fd9",
+      "workerSha256": "dfadcf9da5af108ca22aaac8d6e48ddad7dd0f406e6e2727b35645feb9652196",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "harnessManifestSha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+      "harnessExtensionSha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
+      "projection": "Actual single-group session history via public file opens, commands, quickOpen/accept GoToLine, primary scalar positions and dirty text; setup and composite preview recorded separately. No private stack, persisted/recent history, multi-pane equivalence or asynchronous native navigation qualification."
+    }
+  ]
+}

@@ -1,0 +1,902 @@
+[
+  {
+    "name": "open-switches-back-forward",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorRight",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 1,
+          "cursor": 1
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorRight",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 2,
+          "cursor": 2
+        },
+        "dirty": false
+      },
+      {
+        "action": "open",
+        "resource": "b.cpp",
+        "text": "β😀 other();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "b.cpp",
+        "text": "β😀 other();\r\n",
+        "primary": {
+          "anchor": 13,
+          "cursor": 13
+        },
+        "dirty": false
+      },
+      {
+        "action": "open",
+        "resource": "c.cpp",
+        "text": "猫();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "b.cpp",
+        "text": "β😀 other();\r\n",
+        "primary": {
+          "anchor": 13,
+          "cursor": 13
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 2,
+          "cursor": 2
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "b.cpp",
+        "text": "β😀 other();\r\n",
+        "primary": {
+          "anchor": 13,
+          "cursor": 13
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "c.cpp",
+        "text": "猫();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "b.cpp",
+        "text": "β😀 other();\r\n",
+        "primary": {
+          "anchor": 13,
+          "cursor": 13
+        },
+        "dirty": false
+      }
+    ]
+  },
+  {
+    "name": "explicit-nearby-go-to-line",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "gotoLine",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 39,
+          "cursor": 39
+        },
+        "dirty": false
+      },
+      {
+        "action": "gotoLine",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 78,
+          "cursor": 78
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 39,
+          "cursor": 39
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 39,
+          "cursor": 39
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 78,
+          "cursor": 78
+        },
+        "dirty": false
+      }
+    ]
+  },
+  {
+    "name": "same-line-bracket-jump",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "(α😀) tail\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "editor.action.jumpToBracket",
+        "resource": "a.cpp",
+        "text": "(α😀) tail\r\n",
+        "primary": {
+          "anchor": 3,
+          "cursor": 3
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "(α😀) tail\r\n",
+        "primary": {
+          "anchor": 3,
+          "cursor": 3
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "(α😀) tail\r\n",
+        "primary": {
+          "anchor": 3,
+          "cursor": 3
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorRight",
+        "resource": "a.cpp",
+        "text": "(α😀) tail\r\n",
+        "primary": {
+          "anchor": 4,
+          "cursor": 4
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "(α😀) tail\r\n",
+        "primary": {
+          "anchor": 4,
+          "cursor": 4
+        },
+        "dirty": false
+      }
+    ]
+  },
+  {
+    "name": "multiline-bracket-jump",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "{\r\n    α😀();\r\n}\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "editor.action.jumpToBracket",
+        "resource": "a.cpp",
+        "text": "{\r\n    α😀();\r\n}\r\n",
+        "primary": {
+          "anchor": 14,
+          "cursor": 14
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "{\r\n    α😀();\r\n}\r\n",
+        "primary": {
+          "anchor": 14,
+          "cursor": 14
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "{\r\n    α😀();\r\n}\r\n",
+        "primary": {
+          "anchor": 14,
+          "cursor": 14
+        },
+        "dirty": false
+      },
+      {
+        "action": "gotoLine",
+        "resource": "a.cpp",
+        "text": "{\r\n    α😀();\r\n}\r\n",
+        "primary": {
+          "anchor": 3,
+          "cursor": 3
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "{\r\n    α😀();\r\n}\r\n",
+        "primary": {
+          "anchor": 14,
+          "cursor": 14
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "{\r\n    α😀();\r\n}\r\n",
+        "primary": {
+          "anchor": 3,
+          "cursor": 3
+        },
+        "dirty": false
+      }
+    ]
+  },
+  {
+    "name": "ordinary-nearby-motion-retains-forward",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "open",
+        "resource": "b.cpp",
+        "text": "β😀 other();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 13,
+          "cursor": 13
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 26,
+          "cursor": 26
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 39,
+          "cursor": 39
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 52,
+          "cursor": 52
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 65,
+          "cursor": 65
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 78,
+          "cursor": 78
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 91,
+          "cursor": 91
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 104,
+          "cursor": 104
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 117,
+          "cursor": 117
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "b.cpp",
+        "text": "β😀 other();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 117,
+          "cursor": 117
+        },
+        "dirty": false
+      }
+    ]
+  },
+  {
+    "name": "ordinary-single-far-motion",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorBottom",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 455,
+          "cursor": 455
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 455,
+          "cursor": 455
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorTop",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 455,
+          "cursor": 455
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      }
+    ]
+  },
+  {
+    "name": "new-jump-after-back-truncates-forward",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "gotoLine",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 52,
+          "cursor": 52
+        },
+        "dirty": false
+      },
+      {
+        "action": "gotoLine",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 247,
+          "cursor": 247
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 52,
+          "cursor": 52
+        },
+        "dirty": false
+      },
+      {
+        "action": "gotoLine",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 91,
+          "cursor": 91
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 91,
+          "cursor": 91
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 52,
+          "cursor": 52
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      }
+    ]
+  },
+  {
+    "name": "nearby-replacement-after-back-retains-forward",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "gotoLine",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 52,
+          "cursor": 52
+        },
+        "dirty": false
+      },
+      {
+        "action": "gotoLine",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 247,
+          "cursor": 247
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 52,
+          "cursor": 52
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 65,
+          "cursor": 65
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 247,
+          "cursor": 247
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 65,
+          "cursor": 65
+        },
+        "dirty": false
+      },
+      {
+        "action": "cursorRight",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 66,
+          "cursor": 66
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "a.cpp",
+        "text": "row01 α😀();\r\nrow02 α😀();\r\nrow03 α😀();\r\nrow04 α😀();\r\nrow05 α😀();\r\nrow06 α😀();\r\nrow07 α😀();\r\nrow08 α😀();\r\nrow09 α😀();\r\nrow10 α😀();\r\nrow11 α😀();\r\nrow12 α😀();\r\nrow13 α😀();\r\nrow14 α😀();\r\nrow15 α😀();\r\nrow16 α😀();\r\nrow17 α😀();\r\nrow18 α😀();\r\nrow19 α😀();\r\nrow20 α😀();\r\nrow21 α😀();\r\nrow22 α😀();\r\nrow23 α😀();\r\nrow24 α😀();\r\nrow25 α😀();\r\nrow26 α😀();\r\nrow27 α😀();\r\nrow28 α😀();\r\nrow29 α😀();\r\nrow30 α😀();\r\nrow31 α😀();\r\nrow32 α😀();\r\nrow33 α😀();\r\nrow34 α😀();\r\nrow35 α😀();\r\n",
+        "primary": {
+          "anchor": 247,
+          "cursor": 247
+        },
+        "dirty": false
+      }
+    ]
+  },
+  {
+    "name": "dirty-unicode-crlf-edit-undo",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "α😀 β\r\n猫();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "type",
+        "resource": "a.cpp",
+        "text": "éα😀 β\r\n猫();\r\n",
+        "primary": {
+          "anchor": 1,
+          "cursor": 1
+        },
+        "dirty": true
+      },
+      {
+        "action": "open",
+        "resource": "b.cpp",
+        "text": "const other\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "éα😀 β\r\n猫();\r\n",
+        "primary": {
+          "anchor": 1,
+          "cursor": 1
+        },
+        "dirty": true
+      },
+      {
+        "action": "undo",
+        "resource": "a.cpp",
+        "text": "α😀 β\r\n猫();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "b.cpp",
+        "text": "const other\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "α😀 β\r\n猫();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "redo",
+        "resource": "a.cpp",
+        "text": "éα😀 β\r\n猫();\r\n",
+        "primary": {
+          "anchor": 1,
+          "cursor": 1
+        },
+        "dirty": true
+      },
+      {
+        "action": "cursorDown",
+        "resource": "a.cpp",
+        "text": "éα😀 β\r\n猫();\r\n",
+        "primary": {
+          "anchor": 7,
+          "cursor": 7
+        },
+        "dirty": true
+      },
+      {
+        "action": "open",
+        "resource": "b.cpp",
+        "text": "const other\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "éα😀 β\r\n猫();\r\n",
+        "primary": {
+          "anchor": 7,
+          "cursor": 7
+        },
+        "dirty": true
+      }
+    ]
+  },
+  {
+    "name": "reversed-primary-selection-restoration",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "a.cpp",
+        "text": "élan😀\r\n猫();\r\n",
+        "primary": {
+          "anchor": 5,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "open",
+        "resource": "b.cpp",
+        "text": "other\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "élan😀\r\n猫();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 5
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateForward",
+        "resource": "b.cpp",
+        "text": "other\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 0
+        },
+        "dirty": false
+      },
+      {
+        "action": "workbench.action.navigateBack",
+        "resource": "a.cpp",
+        "text": "élan😀\r\n猫();\r\n",
+        "primary": {
+          "anchor": 0,
+          "cursor": 5
+        },
+        "dirty": false
+      }
+    ]
+  }
+]

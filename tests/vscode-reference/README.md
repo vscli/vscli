@@ -245,6 +245,37 @@ test job and preserves the evidence as `vscode-reference-<runner>` artifacts for
 a new checked-in baseline. Record its run URL and commit; do not mix platforms
 from different runs.
 
+## Navigation history traces
+
+The independent `navigation-history-run.cjs` runner observes ten cases in fresh
+isolated VS Code 1.95.0 processes. It retains 85 snapshots of the active resource,
+text, primary selection and dirty state, plus raw document/version/disk evidence,
+selection-event kinds and setup operations. Commands run once. Settlement checks
+100 ms of unchanged public observations without an expected-output predicate.
+Two bracket cases prepare unchanged token state before their target gestures.
+Go to Line records its public quick-open preview and acceptance separately.
+
+```sh
+xvfb-run -a node tests/vscode-reference/navigation-history-run.cjs target/navigation-history-reference
+cargo run --locked --example navigation_history_contract -- target/navigation-history-reference/navigation-history.json
+cargo test --locked --example navigation_history_contract
+```
+
+On macOS and Windows, omit `xvfb-run -a`. The supervisor has a separate 300-second
+deadline; it does not change the existing reference suite's deadline. The native
+comparison drives public App opens, commands, typing and Go to Line input. It
+validates the full recorded source/evidence/resource inventory before creating
+fixtures, then checks all snapshots and unchanged disk bytes. The
+[Linux baseline](baselines/1.95.0/navigation-history/linux-provenance.json)
+retains this local capture. Fresh platform comparison runs in CI, with artifacts
+under `result/navigation-history/`.
+
+This qualifies named single-group primary-selection workflows. Native integrity
+and terminal suites separately exercise retained dirty models, shared panes,
+stale/canceled loads and original delivered shortcuts. These traces do not prove
+multi-group equivalence, every navigation integration, persistence or physical
+shortcut delivery on all terminals.
+
 ## Recorded baseline
 
 The additional snippet harness writes `snippets.json`: 34 insertion traces
