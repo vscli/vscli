@@ -36,6 +36,8 @@ mod settings_lane_tests;
 #[cfg(test)]
 mod shutdown_tests;
 #[cfg(test)]
+mod tab_reordering_tests;
+#[cfg(test)]
 mod tests;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Stage {

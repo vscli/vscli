@@ -231,6 +231,20 @@ impl Keymap {
         );
         map.add("ctrl+shift+g", "workbench.view.scm", None);
         map.add(&format!("{p}+\\"), "workbench.action.splitEditor", None);
+        for (direction, command) in [
+            ("left", "workbench.action.moveEditorLeftInGroup"),
+            ("right", "workbench.action.moveEditorRightInGroup"),
+        ] {
+            let key = if profile == Profile::Macos {
+                format!("cmd+k cmd+shift+{direction}")
+            } else {
+                format!(
+                    "ctrl+shift+page{}",
+                    if direction == "left" { "up" } else { "down" }
+                )
+            };
+            map.add(&key, command, None);
+        }
         map.add(&format!("{p}+k enter"), "workbench.action.keepEditor", None);
         map.add(
             &format!("{p}+k shift+enter"),
@@ -1835,5 +1849,40 @@ mod tests {
             mac.resolve("cmd+alt+s", &context),
             Resolution::Command("z.run".into(), None)
         );
+    }
+
+    #[test]
+    fn tab_reorder_defaults_match_original_platform_sequences_without_when_clause() {
+        for (profile, left, right) in [
+            (Profile::Linux, "ctrl+shift+pageup", "ctrl+shift+pagedown"),
+            (Profile::Windows, "ctrl+shift+pageup", "ctrl+shift+pagedown"),
+            (
+                Profile::Macos,
+                "cmd+k cmd+shift+left",
+                "cmd+k cmd+shift+right",
+            ),
+        ] {
+            let map = Keymap::new(profile);
+            for (key, command) in [
+                (left, "workbench.action.moveEditorLeftInGroup"),
+                (right, "workbench.action.moveEditorRightInGroup"),
+            ] {
+                assert!(
+                    matches!(map.resolve(key, &HashMap::new()), Resolution::Command(actual, None) if actual == command)
+                );
+                let binding = map
+                    .bindings
+                    .iter()
+                    .find(|binding| binding.key == key && binding.command == command)
+                    .unwrap();
+                assert!(binding.when.is_none());
+            }
+            if profile == Profile::Macos {
+                assert!(matches!(
+                    map.resolve("cmd+k", &HashMap::new()),
+                    Resolution::Chord
+                ));
+            }
+        }
     }
 }

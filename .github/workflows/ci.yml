@@ -281,6 +281,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/editor_nested_layout_pty.py target/debug/vscli
+      - name: Run original same-group tab move workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/editor_tab_reordering_pty.py target/debug/vscli
       - name: Run native code-actions-on-save workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
