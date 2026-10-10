@@ -1,6 +1,6 @@
 //! Shared bounded Content-Length framing for native LSP and DAP clients.
 use anyhow::{Context, Result, bail};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::{
     io::{BufRead, BufReader, Read, Write},
     path::Path,
@@ -13,6 +13,38 @@ use std::{
 };
 const MAX_MESSAGE: usize = 16 * 1024 * 1024;
 const MAX_QUEUED_BYTES: usize = 64 * 1024 * 1024;
+enum Outbound {
+    Bytes(Vec<u8>),
+    Saved {
+        uri: String,
+        committed: Option<ropey::Rope>,
+    },
+}
+struct BoundedBody(Vec<u8>);
+impl Write for BoundedBody {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if bytes.len() > MAX_MESSAGE.saturating_sub(self.0.len()) {
+            return Err(std::io::Error::other(
+                "Protocol save notification exceeds 16 MiB",
+            ));
+        }
+        self.0.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+fn saved_body(uri: String, committed: Option<ropey::Rope>) -> Result<Vec<u8>> {
+    let mut message = json!({"jsonrpc":"2.0","method":"textDocument/didSave",
+        "params":{"textDocument":{"uri":uri}}});
+    if let Some(committed) = committed {
+        message["params"]["text"] = Value::String(committed.to_string());
+    }
+    let mut body = BoundedBody(Vec::new());
+    serde_json::to_writer(&mut body, &message)?;
+    Ok(body.0)
+}
 pub(crate) fn read_message(reader: &mut impl BufRead) -> Result<Value> {
     let mut header = Vec::new();
     // Read headers with a hard bound before allocating the body.
@@ -51,7 +83,7 @@ pub struct Process {
     child: Child,
     #[cfg(unix)]
     process_group: Option<libc::pid_t>,
-    sender: SyncSender<Vec<u8>>,
+    sender: SyncSender<(Outbound, usize)>,
     receiver: Receiver<std::result::Result<Value, String>>,
     queued_bytes: Arc<AtomicUsize>,
     stderr: Arc<Mutex<Vec<u8>>>,
@@ -90,20 +122,37 @@ impl Process {
         let mut stdin = child.stdin.take().unwrap();
         let stdout = child.stdout.take().unwrap();
         let mut stderr = child.stderr.take().unwrap();
-        let (sender, outgoing) = mpsc::sync_channel::<Vec<u8>>(64);
+        let (sender, outgoing) = mpsc::sync_channel::<(Outbound, usize)>(64);
         let (incoming, receiver) = mpsc::sync_channel(4);
         let errors = incoming.clone();
         let queued_bytes = Arc::new(AtomicUsize::new(0));
         let pending = queued_bytes.clone();
         std::thread::spawn(move || {
-            for body in outgoing {
+            for (outbound, reservation) in outgoing {
+                let body = match outbound {
+                    Outbound::Bytes(body) => body,
+                    Outbound::Saved { uri, committed } => match saved_body(uri, committed) {
+                        Ok(body) => body,
+                        Err(error) => {
+                            pending.fetch_sub(reservation, Ordering::Relaxed);
+                            // No frame bytes were written. Persistence already
+                            // succeeded; report only this optional notification
+                            // failure and preserve the usable protocol channel.
+                            if errors.send(Ok(json!({"jsonrpc":"2.0","method":"window/showMessage",
+                                "params":{"type":1,"message":format!("Save succeeded; LSP save notification failed: {error}")}}))).is_err() {
+                                break;
+                            }
+                            continue;
+                        }
+                    },
+                };
                 let result = (|| -> Result<()> {
                     write!(stdin, "Content-Length: {}\r\n\r\n", body.len())?;
                     stdin.write_all(&body)?;
                     stdin.flush()?;
                     Ok(())
                 })();
-                pending.fetch_sub(body.len(), Ordering::Relaxed);
+                pending.fetch_sub(reservation, Ordering::Relaxed);
                 if let Err(e) = result {
                     let _ = errors.send(Err(format!("Protocol write failed: {e}")));
                     break;
@@ -156,6 +205,31 @@ impl Process {
         if size > MAX_MESSAGE {
             bail!("Protocol message exceeds 16 MiB output limit");
         }
+        self.enqueue(Outbound::Bytes(bytes), size)
+    }
+    /// Enqueue a cheap immutable save snapshot. The existing writer performs
+    /// all Rope flattening/JSON escaping; even a control-rich body is capped
+    /// before its Content-Length frame is emitted.
+    pub(crate) fn saved_snapshot(&self, uri: String, committed: Option<ropey::Rope>) -> Result<()> {
+        if uri.len() > 64 * 1024 {
+            bail!("Saved document URI exceeds 64 KiB");
+        }
+        let reservation = if let Some(text) = &committed {
+            if text.len_bytes() > MAX_MESSAGE {
+                bail!("Protocol save notification exceeds 16 MiB");
+            }
+            MAX_MESSAGE
+        } else {
+            // URI escaping and fixed framing fields fit within this bound.
+            uri.len()
+                .checked_mul(6)
+                .and_then(|n| n.checked_add(256))
+                .filter(|n| *n <= MAX_MESSAGE)
+                .context("Protocol save notification exceeds 16 MiB")?
+        };
+        self.enqueue(Outbound::Saved { uri, committed }, reservation)
+    }
+    fn enqueue(&self, outbound: Outbound, size: usize) -> Result<()> {
         let mut current = self.queued_bytes.load(Ordering::Relaxed);
         loop {
             let next = current
@@ -172,7 +246,7 @@ impl Process {
                 Err(actual) => current = actual,
             }
         }
-        if let Err(e) = self.sender.try_send(bytes) {
+        if let Err(e) = self.sender.try_send((outbound, size)) {
             self.queued_bytes.fetch_sub(size, Ordering::Relaxed);
             bail!("Protocol output unavailable: {e}");
         }

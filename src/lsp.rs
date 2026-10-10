@@ -456,18 +456,49 @@ impl Client {
         })
     }
     pub fn saved(&self, doc: &Document) -> Result<()> {
-        if self.ready
-            && let Some(path) = &doc.path
-        {
-            let uri = file_uri(path)?;
-            if self.synced.contains_key(&uri) {
-                self.notify(
-                    "textDocument/didSave",
-                    json!({"textDocument":{"uri":uri},"text":doc.text.to_string()}),
-                )?;
-            }
+        if let Some(path) = &doc.path {
+            self.saved_snapshot(path, &doc.text)?;
         }
         Ok(())
+    }
+    /// Notify a successful persistence operation using its committed bytes.
+    /// Async callers must retain that Rope, rather than reading a newer live
+    /// buffer after the filesystem worker finishes. This does not sync or edit
+    /// any model; notifications are restricted to currently synchronized URIs.
+    pub fn saved_snapshot(&self, path: &Path, committed: &ropey::Rope) -> Result<()> {
+        if !self.ready {
+            return Ok(());
+        }
+        let Some(include_text) = self.save_include_text() else {
+            return Ok(());
+        };
+        if path.as_os_str().len() > 8192 {
+            bail!("Saved document path exceeds 8 KiB");
+        }
+        let uri = file_uri(path)?;
+        if !self.synced.contains_key(&uri) {
+            return Ok(());
+        }
+        self.transport
+            .saved_snapshot(uri, include_text.then(|| committed.clone()))
+    }
+    fn save_include_text(&self) -> Option<bool> {
+        match self.capabilities.get("textDocumentSync")? {
+            // Keep legacy numeric synchronization compatible with the official
+            // language client's resolved options: Full/Incremental imply Save
+            // without text; None does not request a save notification.
+            Value::Number(kind) if matches!(kind.as_u64(), Some(1 | 2)) => Some(false),
+            Value::Object(options) => match options.get("save")? {
+                Value::Bool(true) => Some(false),
+                Value::Object(save) => match save.get("includeText") {
+                    None | Some(Value::Bool(false)) => Some(false),
+                    Some(Value::Bool(true)) => Some(true),
+                    _ => None,
+                },
+                _ => None,
+            },
+            _ => None,
+        }
     }
     pub fn request(&mut self, method: &str, doc: &Document, extra: Value) -> Result<()> {
         self.request_in_view(method, doc, extra, None)
@@ -1025,6 +1056,252 @@ impl Client {
         Ok(events)
     }
 }
+#[cfg(test)]
+mod save_notification_tests {
+    use super::*;
+
+    const PEER: &str = r#"
+import json,sys
+records=[]
+def send(message):
+    data=json.dumps({'jsonrpc':'2.0',**message}).encode()
+    sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(data)).encode()+data)
+    sys.stdout.buffer.flush()
+while True:
+    headers={}
+    while True:
+        line=sys.stdin.buffer.readline()
+        if not line: sys.exit(0)
+        if line==b'\r\n': break
+        key,value=line.decode().split(':',1)
+        headers[key.lower()]=value.strip()
+    message=json.loads(sys.stdin.buffer.read(int(headers['content-length'])))
+    method,ident=message.get('method'),message.get('id')
+    if method=='initialize':
+        send({'id':ident,'result':{'capabilities':json.loads(sys.argv[1])}})
+    elif method=='fixture/capture':
+        send({'method':'window/showMessage','params':{'type':3,'message':'fixture-capture:'+json.dumps(records)}})
+        records=[]
+    elif method=='shutdown': send({'id':ident,'result':None})
+    elif method=='exit': break
+    else: records.append(message)
+"#;
+    fn start(root: &Path, capabilities: Value) -> Client {
+        let mut client = Client::start(
+            if cfg!(windows) { "python" } else { "python3" },
+            &[
+                "-u".into(),
+                "-c".into(),
+                PEER.into(),
+                capabilities.to_string(),
+            ],
+            root,
+            "cpp".into(),
+        )
+        .unwrap();
+        outline_tests::until(&mut client, |client, _| client.ready);
+        client
+    }
+    fn capture(client: &mut Client) -> Vec<Value> {
+        capture_with_warnings(client).0
+    }
+    fn capture_with_warnings(client: &mut Client) -> (Vec<Value>, Vec<String>) {
+        // FIFO framed input guarantees this acknowledgement follows all prior
+        // notifications, including the positive absence tests.
+        client
+            .fixture_notify("fixture/capture", Value::Null)
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut warnings = Vec::new();
+        loop {
+            for event in client.poll().unwrap() {
+                if let Event::Message(message) = event {
+                    if let Some(records) = message.strip_prefix("fixture-capture:") {
+                        return (serde_json::from_str(records).unwrap(), warnings);
+                    }
+                    warnings.push(message);
+                }
+            }
+            assert!(Instant::now() < deadline, "{}", client.debug_summary());
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    fn document(root: &Path) -> Document {
+        let path = root.join("猫🙂 main.cpp");
+        std::fs::write(&path, "猫🙂 committed\r\nsecond\r\n").unwrap();
+        Document::open_existing(&path).unwrap()
+    }
+
+    #[test]
+    fn save_notifications_negotiate_boolean_object_numeric_and_absent_options() {
+        let root = tempfile::tempdir().unwrap();
+        let doc = document(root.path());
+        let cases = [
+            (json!({"textDocumentSync":{"save":true}}), Some(false)),
+            (json!({"textDocumentSync":{"save":false}}), None),
+            (json!({"textDocumentSync":{"save":{}}}), Some(false)),
+            (
+                json!({"textDocumentSync":{"save":{"includeText":false}}}),
+                Some(false),
+            ),
+            (
+                json!({"textDocumentSync":{"save":{"includeText":true}}}),
+                Some(true),
+            ),
+            (
+                json!({"textDocumentSync":{"openClose":true,"change":1}}),
+                None,
+            ),
+            (json!({"textDocumentSync":0}), None),
+            (json!({"textDocumentSync":1}), Some(false)),
+            (json!({"textDocumentSync":2}), Some(false)),
+            (json!({}), None),
+            (
+                json!({"textDocumentSync":{"save":{"includeText":"true"}}}),
+                None,
+            ),
+            (json!({"textDocumentSync":3}), None),
+        ];
+        for (capabilities, expected) in cases {
+            let mut client = start(root.path(), capabilities.clone());
+            client.sync(std::slice::from_ref(&doc)).unwrap();
+            client.saved(&doc).unwrap();
+            let messages = capture(&mut client);
+            let saves: Vec<_> = messages
+                .iter()
+                .filter(|message| message["method"] == "textDocument/didSave")
+                .collect();
+            assert_eq!(
+                saves.len(),
+                usize::from(expected.is_some()),
+                "{capabilities}"
+            );
+            if let Some(include_text) = expected {
+                let params = &saves[0]["params"];
+                assert_eq!(
+                    params["textDocument"]["uri"],
+                    file_uri(doc.path.as_ref().unwrap()).unwrap()
+                );
+                assert_eq!(params.get("text").is_some(), include_text, "{capabilities}");
+                if include_text {
+                    assert_eq!(params["text"], doc.text.to_string());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn save_snapshot_uses_committed_unicode_crlf_bytes_independently_of_the_live_buffer() {
+        let root = tempfile::tempdir().unwrap();
+        let mut doc = document(root.path());
+        let committed = doc.text.clone();
+        let mut client = start(
+            root.path(),
+            json!({"textDocumentSync":{"save":{"includeText":true}}}),
+        );
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        doc.move_to(2, false);
+        doc.insert(" UNSAVED", false);
+        let live = doc.text.to_string();
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        client
+            .saved_snapshot(doc.path.as_ref().unwrap(), &committed)
+            .unwrap();
+        client.saved(&doc).unwrap();
+        let messages = capture(&mut client);
+        let saves: Vec<_> = messages
+            .iter()
+            .filter(|message| message["method"] == "textDocument/didSave")
+            .collect();
+        assert_eq!(saves.len(), 2);
+        assert_eq!(saves[0]["params"]["text"], "猫🙂 committed\r\nsecond\r\n");
+        assert_eq!(saves[1]["params"]["text"], live);
+        assert_ne!(saves[0]["params"]["text"], saves[1]["params"]["text"]);
+        assert_eq!(doc.text.to_string(), live);
+        assert!(doc.dirty());
+        assert_eq!(
+            std::fs::read(doc.path.as_ref().unwrap()).unwrap(),
+            committed.to_string().as_bytes()
+        );
+    }
+
+    #[test]
+    fn unsynchronized_and_closed_paths_do_not_emit_save_notifications() {
+        let root = tempfile::tempdir().unwrap();
+        let doc = document(root.path());
+        let path = doc.path.as_ref().unwrap();
+        let mut client = start(
+            root.path(),
+            json!({"textDocumentSync":{"save":{"includeText":true}}}),
+        );
+        client.saved_snapshot(path, &doc.text).unwrap();
+        assert!(
+            capture(&mut client)
+                .iter()
+                .all(|message| message["method"] != "textDocument/didSave")
+        );
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        client.saved_snapshot(path, &doc.text).unwrap();
+        assert_eq!(
+            capture(&mut client)
+                .iter()
+                .filter(|message| message["method"] == "textDocument/didSave")
+                .count(),
+            1
+        );
+        client.sync(&[]).unwrap();
+        client.saved_snapshot(path, &doc.text).unwrap();
+        assert!(
+            capture(&mut client)
+                .iter()
+                .all(|message| message["method"] != "textDocument/didSave")
+        );
+    }
+
+    #[test]
+    fn oversized_raw_and_escaped_snapshots_fail_before_publish_without_poisoning_the_channel() {
+        let root = tempfile::tempdir().unwrap();
+        let doc = document(root.path());
+        let path = doc.path.as_ref().unwrap();
+        let mut client = start(
+            root.path(),
+            json!({"textDocumentSync":{"save":{"includeText":true}}}),
+        );
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        let raw = ropey::Rope::from_str(&"a".repeat(16 * 1024 * 1024 + 1));
+        assert!(
+            client
+                .saved_snapshot(path, &raw)
+                .unwrap_err()
+                .to_string()
+                .contains("16 MiB")
+        );
+        let escaped = ropey::Rope::from_str(&"\0".repeat(3 * 1024 * 1024));
+        // Raw length admission is constant-time; the worker detects escaped
+        // overflow before emitting any frame, and reports it independently of
+        // the successful filesystem save without retiring the language server.
+        client.saved_snapshot(path, &escaped).unwrap();
+        client.saved_snapshot(path, &doc.text).unwrap();
+        let (messages, warnings) = capture_with_warnings(&mut client);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("Save succeeded; LSP save notification failed"));
+        assert!(warnings[0].contains("16 MiB"));
+        let saves: Vec<_> = messages
+            .iter()
+            .filter(|message| message["method"] == "textDocument/didSave")
+            .collect();
+        assert_eq!(saves.len(), 1);
+        assert_eq!(saves[0]["params"]["text"], doc.text.to_string());
+        // A server that did not request text does not flatten or reject a large
+        // committed Rope: the small notification carries only its URI.
+        client.capabilities = json!({"textDocumentSync":{"save":true}});
+        client.saved_snapshot(path, &raw).unwrap();
+        let messages = capture(&mut client);
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0]["params"].get("text").is_none());
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod outline_tests {
     use super::*;
