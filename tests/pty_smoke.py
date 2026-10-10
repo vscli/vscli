@@ -323,6 +323,93 @@ def text(path):
     return path.read_bytes().decode() if path.exists() else None
 
 
+def parameter_hint_smoke(root):
+    signature_file = root / "signature.cpp"
+    signature_file.write_bytes(b"sum(1, 2)\r\n")
+    signature_server = Path(__file__).resolve().parent / "fixtures" / "signature_server.py"
+    app = Editor(root, "--lsp", "python3", "--lsp-arg", signature_server, "--lsp-language", "cpp", signature_file, enhanced=True)
+    eventually(lambda: app.read() and "Language server ready" in app.screen.text())
+    trigger_hints = b"\x1b[32;6u"  # Original Ctrl+Shift+Space with enhanced terminal delivery.
+    app.send(trigger_hints)
+    eventually(lambda: app.read() and "Parameter Hints 1/1" in app.screen.text() and "int count" in app.screen.text())
+    assert signature_file.read_bytes() == b"sum(1, 2)\r\n"
+    app.send(b"\x1b[27;2u")  # Original Shift+Escape dismissal.
+    eventually(lambda: app.read() and "Parameter Hints 1/1" not in app.screen.text())
+    app.send(trigger_hints)
+    wait_screen(app, "Parameter Hints 1/1", "sum2(double left, int count)")
+    app.send(b"//")  # Active manual hints legitimately retrigger on content changes.
+    wait_screen(app, "Parameter Hints 1/1", "sum3(double left, int count)")
+    app.send(CTRL_S)
+    eventually(lambda: app.read() and signature_file.read_bytes() == b"//sum(1, 2)\r\n")
+    time.sleep(0.3)
+    app.read()
+    assert "Parameter Hints 1/1" in app.screen.text()
+    assert "sum3(double left, int count)" in app.screen.text()
+    app.send(b"\x1b[27;2u")
+    eventually(lambda: app.read() and "Parameter Hints 1/1" not in app.screen.text())
+    app.send(CTRL_Z)
+    app.send(CTRL_S)
+    eventually(lambda: app.read() and signature_file.read_bytes() == b"sum(1, 2)\r\n")
+    app.send(b"\x17")
+    eventually(lambda: app.read() and "No open editors" in app.screen.text())
+    app.send(trigger_hints)
+    assert "No open editors" in app.screen.text()
+    app.finish()
+    print("PASS: original parameter-hint shortcut, active parameter, Shift+Escape, content-change retrigger, CRLF save/undo and empty welcome")
+
+    # Prove late rejection independently of legitimate content-change retriggers.
+    # A fresh runtime holds its first actual callback until focus dismissal and
+    # cancellation are observed, so this cannot accidentally test a fast reply.
+    log = root / "signature-smoke-requests.jsonl"
+    gate = root / "signature-smoke-release"
+    peer = Path(__file__).resolve().parent / "fixtures" / "signature_hints_server.py"
+
+    def records():
+        return [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+
+    app = Editor(root, "--lsp", sys.executable, "--lsp-arg", peer,
+                 "--lsp-arg", log, "--lsp-arg", gate, "--lsp-arg", "--hold-first",
+                 "--lsp-language", "cpp", signature_file, enhanced=True)
+    wait_screen(app, "Language server ready")
+    app.send(trigger_hints)
+    eventually(lambda: app.read() and any(row["event"] == "request" for row in records()))
+    requested = [row for row in records() if row["event"] == "request"]
+    assert len(requested) == 1 and requested[0]["params"]["context"] == {
+        "triggerKind": 1, "isRetrigger": False,
+    }
+    request_id = requested[0]["id"]
+    app.send(b"\x1bOP")
+    wait_screen(app, "Command Palette", absent=("Parameter Hints",))
+    eventually(lambda: app.read() and any(
+        row["event"] == "cancel" and row["id"] == request_id for row in records()
+    ))
+    assert not any(row["event"] == "response" for row in records())
+    gate.touch()
+    eventually(lambda: app.read() and any(
+        row["event"] == "response" and row["id"] == request_id for row in records()
+    ))
+    time.sleep(0.3)
+    app.read()
+    assert "Command Palette" in app.screen.text()
+    assert "Parameter Hints" not in app.screen.text()
+    assert "sum1(int left, int right)" not in app.screen.text()
+    app.send(b"\x1b")
+    wait_screen(app, "signature.cpp", absent=("Command Palette", "Parameter Hints"))
+    # A new explicit Invoke succeeds after actual release, while the canceled
+    # first reply can neither reopen its UI nor occupy another callback slot.
+    app.send(trigger_hints)
+    wait_screen(app, "Parameter Hints 1/2", "sum2(int left, int right)")
+    requested = [row for row in records() if row["event"] == "request"]
+    assert len(requested) == 2 and all(row["maxPending"] == 1 for row in requested)
+    assert requested[1]["params"]["context"] == {"triggerKind": 1, "isRetrigger": False}
+    app.send(b"\x1b[27;2u")
+    eventually(lambda: app.read() and "Parameter Hints" not in app.screen.text())
+    app.send(CTRL_S)
+    assert signature_file.read_bytes() == b"sum(1, 2)\r\n"
+    app.finish()
+    print("PASS: gated pending-hint focus dismissal rejects its late reply and admits one fresh callback without edits")
+
+
 def run():
     with tempfile.TemporaryDirectory(prefix="vscli-pty-") as directory:
         root = Path(directory)
@@ -1204,33 +1291,7 @@ def run():
         assert text(navigation_file) == "external\n"
         print("PASS: recent-file picker, dirty close cancel/save, reopen/undo, missing-file retry, welcome recents and persisted restart")
 
-        signature_file = root / "signature.cpp"
-        signature_file.write_bytes(b"sum(1, 2)\r\n")
-        signature_server = Path(__file__).resolve().parent / "fixtures" / "signature_server.py"
-        app = Editor(root, "--lsp", "python3", "--lsp-arg", signature_server, "--lsp-language", "cpp", signature_file, enhanced=True)
-        eventually(lambda: app.read() and "Language server ready" in app.screen.text())
-        trigger_hints = b"\x1b[32;6u"  # Original Ctrl+Shift+Space with enhanced terminal delivery.
-        app.send(trigger_hints)
-        eventually(lambda: app.read() and "Parameter Hints 1/1" in app.screen.text() and "int count" in app.screen.text())
-        assert signature_file.read_bytes() == b"sum(1, 2)\r\n"
-        app.send(b"\x1b[27;2u")  # Original Shift+Escape dismissal.
-        eventually(lambda: app.read() and "Parameter Hints 1/1" not in app.screen.text())
-        app.send(trigger_hints + b"//")  # Typing cancels a pending request and stays native.
-        app.send(CTRL_S)
-        eventually(lambda: app.read() and signature_file.read_bytes() == b"//sum(1, 2)\r\n")
-        time.sleep(0.3)
-        app.read()
-        assert "Parameter Hints 1/1" not in app.screen.text()
-        app.send(CTRL_Z)
-        app.send(CTRL_S)
-        eventually(lambda: app.read() and signature_file.read_bytes() == b"sum(1, 2)\r\n")
-        app.send(b"\x17")
-        eventually(lambda: app.read() and "No open editors" in app.screen.text())
-        app.send(trigger_hints)
-        assert "No open editors" in app.screen.text()
-        app.finish()
-        print("PASS: original parameter-hint shortcut, active parameter, Shift+Escape, late reply cancellation, CRLF save/undo and empty welcome")
-
+        parameter_hint_smoke(root)
 
         action_root = root / "code-actions"
         action_root.mkdir()
