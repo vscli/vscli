@@ -383,6 +383,15 @@ paired core samples pass 80 launches / 3,200 keys with mixed measurements.
 Platform qualification remains a separate gate. See [layout scope
 and evidence](EDITOR_LAYOUT.md).
 
-Editor movement/reordering, spatial focus, distinct Close Group merge semantics,
+Cross-group editor transfer, distinct Close Group merge semantics,
 divider dragging and workspace transitions remain priority-6 gaps. Wrap/folding
 still needs a unified display-row mapping; neither prototype is a shipped feature.
+
+
+The directional-focus candidate adds source-grounded original Left/Right/Above/
+Below wrappers, wrap and group-MRU selection over bounded native logical weighted
+adjacency. Native integrity and original-key terminal qualification pass locally: 1,015
+all-target Rust tests and 22 reports across five relevant Unix PTY scripts, plus
+formatting and strict Clippy. Fresh platform checks remain pending. Logical cell/divider geometry versus upstream CSS
+pixels, restored MRU, terminal chord policy and missing-group creation by other
+commands remain explicit boundaries. See [spatial-focus scope](SPATIAL_FOCUS.md).

@@ -1,4 +1,5 @@
 //! Bounded editor geometry. Memberships, documents and filesystem work belong to callers.
+mod spatial;
 use crate::editor_groups::GroupId;
 use anyhow::{Context, Result, ensure};
 use ratatui::layout::Rect;

@@ -37,7 +37,7 @@ Every group has a strip; focused Breadcrumbs reserve their existing row where sp
 allows. Input maps use exact current group/tab/document membership and the actual
 text rectangle after the line-number gutter. A divider consumes pointer input
 without editing text. **Mouse divider dragging is not implemented.** Left/up splits,
-layout presets, merge/maximize, spatial group focus and outer workbench-part sizing
+layout presets, merge/maximize and outer workbench-part sizing
 also remain outside this slice.
 
 The legacy palette label **View: Close Editor Group** invokes
@@ -157,3 +157,19 @@ Native tests can proceed without launching VS Code. Upstream CSS/n-ary trees and
 trees need an explicit bounded comparison scope; raw geometry must not be rewritten
 or normalized into fabricated equality. Drag, session serialization and full layout
 parity are outside that capture's stated scope.
+
+
+## Directional focus integration candidate
+
+The original four directional group-focus commands/chords now have a locally qualified
+native integration. They query exact retained logical weighted adjacency, choose
+by existing group MRU, wrap outer edges and never create a group. Visual dividers
+have zero logical query area; terminal clamps/CSS pixel rounding remain a
+qualification boundary. The query is independent from pointer presentation proof,
+so tiny projection retains keyboard access to hidden groups without granting
+stale hits. Approved original save receipts and captured remaining close batches
+survive changed focus. Eight pure tests, five App integrity tests, a platform-key rule test and three new
+terminal reports pass. The complete Rust suite passes 1,015 tests; five relevant
+PTY scripts pass 22 reports. Formatting and strict Clippy pass; fresh platform
+checks remain pending. See
+[the spatial-focus contract](SPATIAL_FOCUS.md).

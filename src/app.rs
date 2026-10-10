@@ -34,6 +34,7 @@ mod session;
 mod snippet_catalogs;
 mod snippets;
 mod source_control;
+mod spatial_focus;
 mod symbols;
 mod tasks;
 mod terminals;
@@ -285,6 +286,22 @@ pub const COMMANDS: &[(&str, &str)] = &[
     (
         "View: Move Editor Right",
         "workbench.action.moveEditorRightInGroup",
+    ),
+    (
+        "View: Focus Left Editor Group",
+        "workbench.action.focusLeftGroup",
+    ),
+    (
+        "View: Focus Right Editor Group",
+        "workbench.action.focusRightGroup",
+    ),
+    (
+        "View: Focus Editor Group Above",
+        "workbench.action.focusAboveGroup",
+    ),
+    (
+        "View: Focus Editor Group Below",
+        "workbench.action.focusBelowGroup",
     ),
     ("View: Next Editor", "workbench.action.nextEditor"),
     ("View: Previous Editor", "workbench.action.previousEditor"),
@@ -1643,6 +1660,9 @@ impl App {
             return;
         }
         if self.execute_tab_reorder_command(command) {
+            return;
+        }
+        if self.execute_spatial_focus_command(command) {
             return;
         }
         self.breadcrumbs_ui_command(command);
