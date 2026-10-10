@@ -55,6 +55,36 @@ const SOURCES: [(&str, &str); 8] = [
         "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75",
     ),
 ];
+const MONOTONIC_ROOT: &str = "tests/vscode-reference-sticky-monotonic-candidate";
+const MONOTONIC_SUITE: &str = "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SourceContract {
+    Historical,
+    Monotonic,
+}
+impl SourceContract {
+    fn root(self) -> &'static str {
+        match self {
+            Self::Historical => ROOT,
+            Self::Monotonic => MONOTONIC_ROOT,
+        }
+    }
+    fn sources(self) -> [(&'static str, &'static str); 8] {
+        let mut sources = SOURCES;
+        if self == Self::Monotonic {
+            sources[2].1 = MONOTONIC_SUITE;
+        }
+        sources
+    }
+    fn maximum_elapsed(self) -> u64 {
+        match self {
+            Self::Historical => 3100,
+            Self::Monotonic => 2999,
+        }
+    }
+}
+
 const FILES: [(&str, &str); 8] = [
     ("a.txt", "猫🙂 a-fixture\r\nline-a\r\n"),
     ("b.txt", "β🙂 b-fixture\r\nline-b\r\n"),
@@ -348,7 +378,7 @@ fn state(value: &Value) -> Result<Value> {
     object.remove("requestedPreview");
     Ok(value)
 }
-fn validate_settlement(value: &Value) -> Result<()> {
+fn validate_settlement(value: &Value, contract: SourceContract) -> Result<()> {
     keys(value, &["observed", "reads", "elapsedMs", "scope"], &[])?;
     ensure!(
         value["scope"] == SETTLEMENT_SCOPE
@@ -357,7 +387,7 @@ fn validate_settlement(value: &Value) -> Result<()> {
                 .is_some_and(|v| (2..=10000).contains(&v))
             && value["elapsedMs"]
                 .as_u64()
-                .is_some_and(|v| (100..=3100).contains(&v)),
+                .is_some_and(|v| (100..=contract.maximum_elapsed()).contains(&v)),
         "Settlement differs"
     );
     validate_snapshot(&value["observed"])
@@ -693,6 +723,7 @@ struct Artifact {
     value: Value,
 }
 struct Inputs {
+    contract: SourceContract,
     trace: Artifact,
     evidence: Artifact,
     proof: Value,
@@ -704,7 +735,25 @@ fn artifact(path: &Path, total: &mut u64) -> Result<Artifact> {
     Ok(Artifact { bytes, value })
 }
 fn load(directory: &Path) -> Result<Inputs> {
+    load_with_contract(directory, SourceContract::Historical)
+}
+fn verify_sources(contract: SourceContract, total: &mut u64) -> Result<()> {
+    for (name, expected) in contract.sources() {
+        ensure!(
+            hash(&read(
+                &Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join(contract.root())
+                    .join(name),
+                total
+            )?) == expected,
+            "Frozen source digest differs: {name}"
+        );
+    }
+    Ok(())
+}
+fn load_with_contract(directory: &Path, contract: SourceContract) -> Result<Inputs> {
     let mut total = 0;
+    verify_sources(contract, &mut total)?;
     let trace = artifact(&directory.join("editor-sticky-tabs.json"), &mut total)?;
     let evidence = artifact(
         &directory.join("editor-sticky-tabs-evidence.json"),
@@ -736,16 +785,8 @@ fn load(directory: &Path) -> Result<Inputs> {
             .value,
         ));
     }
-    for (name, expected) in SOURCES {
-        ensure!(
-            hash(&read(
-                &Path::new(env!("CARGO_MANIFEST_DIR")).join(ROOT).join(name),
-                &mut total
-            )?) == expected,
-            "Frozen source digest differs: {name}"
-        );
-    }
     Ok(Inputs {
+        contract,
         trace,
         evidence,
         proof,
@@ -836,15 +877,32 @@ fn compare(corpus: &Corpus) -> Result<Value> {
 }
 fn main() -> Result<()> {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
-    ensure!(
-        args.len() <= 1,
-        "Expected optional full sticky reference directory"
-    );
-    let directory = args.first().map(PathBuf::from).unwrap_or_else(|| {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/vscode-reference/baselines/1.95.0/editor-sticky-tabs-observer-corrected")
-    });
-    let inputs = load(&directory)?;
+    if args.len() == 1 && args[0] == "--verify-monotonic-source" {
+        verify_sources(SourceContract::Monotonic, &mut 0)?;
+        println!("Verified all eight frozen monotonic sticky inputs");
+        return Ok(());
+    }
+    let inputs = if args.first().is_some_and(|arg| arg == "--monotonic") {
+        ensure!(
+            args.len() == 2,
+            "Monotonic capture requires its explicit full directory"
+        );
+        load_with_contract(&PathBuf::from(&args[1]), SourceContract::Monotonic)?
+    } else {
+        ensure!(
+            args.len() <= 1
+                && args
+                    .first()
+                    .is_none_or(|arg| !arg.to_string_lossy().starts_with("--")),
+            "Expected optional full historical directory or --monotonic <full current directory>"
+        );
+        let directory = args.first().map(PathBuf::from).unwrap_or_else(|| {
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "tests/vscode-reference/baselines/1.95.0/editor-sticky-tabs-observer-corrected",
+            )
+        });
+        load(&directory)?
+    };
     // Preflight ALL artifacts and late fields before temporary fixture writes.
     let corpus = validate(&inputs)?;
     println!("{}", serde_json::to_string_pretty(&compare(&corpus)?)?);
@@ -852,6 +910,7 @@ fn main() -> Result<()> {
 }
 
 fn validate(inputs: &Inputs) -> Result<Corpus> {
+    let sources = inputs.contract.sources();
     let case_source: Value = serde_json::from_str(CASE_SOURCE)?;
     ensure!(
         hash(CASE_SOURCE.as_bytes()) == SOURCES[0].1,
@@ -987,8 +1046,8 @@ fn validate(inputs: &Inputs) -> Result<Corpus> {
             );
             let hashes = run["sources"].as_object().context("Sources missing")?;
             ensure!(
-                hashes.len() == SOURCES.len()
-                    && SOURCES
+                hashes.len() == sources.len()
+                    && sources
                         .iter()
                         .all(|(name, digest)| hashes[*name] == *digest),
                 "Run source proof differs"
@@ -1066,7 +1125,7 @@ fn validate(inputs: &Inputs) -> Result<Corpus> {
                     operation["step"] == position && operation["gesture"] == *gesture,
                     "Original setup gesture differs"
                 );
-                validate_settlement(&operation["settlement"])?;
+                validate_settlement(&operation["settlement"], inputs.contract)?;
                 validate_events(&operation["events"])?;
                 ordered_slice(
                     events,
@@ -1095,7 +1154,7 @@ fn validate(inputs: &Inputs) -> Result<Corpus> {
             for (frame, (snapshot, settlement)) in snapshots.iter().zip(settlements).enumerate() {
                 let framed = (|| -> Result<()> {
                     validate_snapshot(snapshot)?;
-                    validate_settlement(settlement)?;
+                    validate_settlement(settlement, inputs.contract)?;
                     ensure!(
                         state(snapshot)? == settlement["observed"],
                         "Snapshot/settlement differs"
@@ -1585,6 +1644,152 @@ mod tests {
             inputs.runs[i].0.bytes = bytes(&inputs.runs[i].0.value);
             inputs.runs[i].1["evidenceSha256"] = json!(hash(&inputs.runs[i].0.bytes));
             inputs.proof["runs"][i] = inputs.runs[i].1.clone();
+        }
+    }
+    fn synthetic_monotonic_metadata() -> Inputs {
+        // Explicitly synthetic source-routing fixture, derived from genuine
+        // historical bytes. This is never published as a corrected capture.
+        let mut inputs = baseline();
+        inputs.contract = SourceContract::Monotonic;
+        for i in 0..18 {
+            inputs.runs[i].1["sources"]["editor-sticky-tabs-suite.cjs"] = json!(MONOTONIC_SUITE);
+            inputs.proof["runs"][i] = inputs.runs[i].1.clone();
+        }
+        inputs
+    }
+    #[test]
+    fn source_contracts_bind_distinct_fixed_roots_without_hash_self_selection() {
+        assert_ne!(
+            SourceContract::Historical.root(),
+            SourceContract::Monotonic.root()
+        );
+        let historical = SourceContract::Historical.sources();
+        let current = SourceContract::Monotonic.sources();
+        assert_eq!(historical.len(), 8);
+        assert_eq!(current.len(), 8);
+        assert_eq!(historical[2].0, "editor-sticky-tabs-suite.cjs");
+        for i in 0..8 {
+            if i == 2 {
+                assert_ne!(historical[i].1, current[i].1);
+                assert_eq!(current[i].1, MONOTONIC_SUITE);
+            } else {
+                assert_eq!(historical[i], current[i]);
+            }
+        }
+        verify_sources(SourceContract::Historical, &mut 0).unwrap();
+        verify_sources(SourceContract::Monotonic, &mut 0).unwrap();
+    }
+    #[test]
+    fn historical_and_synthetic_current_metadata_cannot_cross_source_contracts() {
+        let mut historical = baseline();
+        validate(&historical).unwrap();
+        historical.contract = SourceContract::Monotonic;
+        assert!(
+            format!("{:#}", validate(&historical).err().unwrap())
+                .contains("Run source proof differs")
+        );
+        let mut current = synthetic_monotonic_metadata();
+        validate(&current).unwrap();
+        current.contract = SourceContract::Historical;
+        assert!(
+            format!("{:#}", validate(&current).err().unwrap()).contains("Run source proof differs")
+        );
+        for index in [0, 17] {
+            let mut current = synthetic_monotonic_metadata();
+            current.runs[index].1["sources"]["editor-sticky-tabs-suite.cjs"] = json!(SOURCES[2].1);
+            current.proof["runs"][index] = current.runs[index].1.clone();
+            assert!(
+                format!("{:#}", validate(&current).err().unwrap())
+                    .contains("Run source proof differs")
+            );
+        }
+    }
+    #[test]
+    fn monotonic_settlement_bounds_are_stricter_without_rewriting_historical_limits() {
+        let inputs = baseline();
+        let mut settlement =
+            inputs.evidence.value[0]["setup"]["operations"][0]["settlement"].clone();
+        for elapsed in [100, 2999] {
+            settlement["elapsedMs"] = json!(elapsed);
+            validate_settlement(&settlement, SourceContract::Monotonic).unwrap();
+            validate_settlement(&settlement, SourceContract::Historical).unwrap();
+        }
+        for elapsed in [3000, 3100] {
+            settlement["elapsedMs"] = json!(elapsed);
+            assert!(validate_settlement(&settlement, SourceContract::Monotonic).is_err());
+            validate_settlement(&settlement, SourceContract::Historical).unwrap();
+        }
+        for elapsed in [99, 3101, 13721] {
+            settlement["elapsedMs"] = json!(elapsed);
+            assert!(validate_settlement(&settlement, SourceContract::Monotonic).is_err());
+            assert!(validate_settlement(&settlement, SourceContract::Historical).is_err());
+        }
+    }
+    #[test]
+    fn coherently_resealed_late_setup_or_target_cannot_pass_current_preflight() {
+        for setup in [true, false] {
+            let mut inputs = synthetic_monotonic_metadata();
+            if setup {
+                inputs.evidence.value[17]["setup"]["operations"][4]["settlement"]["elapsedMs"] =
+                    json!(13721);
+            } else {
+                inputs.evidence.value[17]["settlements"][1]["elapsedMs"] = json!(3000);
+            }
+            reseal(&mut inputs);
+            assert!(
+                format!("{:#}", validate(&inputs).err().unwrap()).contains("Settlement differs")
+            );
+        }
+    }
+    #[test]
+    fn genuine_windows_late_setup_is_rejected_by_the_offline_settlement_guard() {
+        let archive = Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "tests/vscode-reference/observations/1.95.0/sticky-settlement-deadline/951f2ad-win32",
+        );
+        for (name, expected) in SOURCES {
+            assert_eq!(
+                hash(&read(&archive.join("sources").join(name), &mut 0).unwrap()),
+                expected
+            );
+        }
+        let inputs = load(&archive.join("result")).unwrap();
+        assert_eq!(inputs.proof["platform"], "win32");
+        assert_eq!(inputs.proof["caseCount"], 18);
+        let case = inputs
+            .evidence
+            .value
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["name"] == "close-editors-in-group-excludes-sticky")
+            .unwrap();
+        assert_eq!(
+            case["setup"]["operations"][0]["settlement"]["elapsedMs"],
+            13721
+        );
+        assert_eq!(case["setup"]["operations"][0]["settlement"]["reads"], 5);
+        assert_eq!(case["settlements"][1]["elapsedMs"], 133);
+        assert_eq!(inputs.proof["traceSha256"], hash(&inputs.trace.bytes));
+        assert_eq!(inputs.proof["evidenceSha256"], hash(&inputs.evidence.bytes));
+        for (i, (evidence, proof)) in inputs.runs.iter().enumerate() {
+            assert_eq!(inputs.proof["runs"][i], *proof);
+            assert_eq!(proof["evidenceSha256"], hash(&evidence.bytes));
+            assert_eq!(evidence.value, inputs.evidence.value[i]);
+            assert_eq!(proof["sources"].as_object().unwrap().len(), SOURCES.len());
+            for (name, expected) in SOURCES {
+                assert_eq!(proof["sources"][name], expected);
+            }
+        }
+        // Full Windows admission additionally verifies its actual product and
+        // executable bytes. Those remain a remote Windows gate, not fabricated
+        // local fixtures or a relaxed product_identity check.
+        for contract in [SourceContract::Historical, SourceContract::Monotonic] {
+            let error =
+                validate_settlement(&case["setup"]["operations"][0]["settlement"], contract)
+                    .err()
+                    .expect("Genuine late setup must remain rejected");
+            assert_eq!(error.to_string(), "Settlement differs");
+            validate_settlement(&case["settlements"][1], contract).unwrap();
         }
     }
     #[test]

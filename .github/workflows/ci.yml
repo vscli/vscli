@@ -287,18 +287,36 @@ jobs:
         run: cargo run --locked --example editor_preview_tabs_contract -- target/vscode-reference/result/editor-preview-tabs > target/vscode-reference/result/editor-preview-tabs/native-comparison.json
       - name: Check sticky observer canonical identity and event evidence
         run: node --test tests/vscode-reference/editor-sticky-tabs-suite.cjs tests/vscode-reference/editor-sticky-tabs-paths.test.cjs
+      - name: Verify corrected sticky observer identity before dependency setup
+        run: cargo run --locked --example editor_sticky_tabs_contract -- --verify-monotonic-source
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tests/vscode-reference-sticky-monotonic-candidate
+      - name: Check monotonic sticky settlement and unchanged event contracts
+        run: node --test tests/vscode-reference-sticky-monotonic-candidate/editor-sticky-tabs-suite.cjs
       - name: Observe complete pinned sticky tab contracts (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 5
-        run: xvfb-run -a node tests/vscode-reference/editor-sticky-tabs-run.cjs target/vscode-reference/result/editor-sticky-tabs
+        run: xvfb-run -a node tests/vscode-reference-sticky-monotonic-candidate/editor-sticky-tabs-run.cjs target/vscode-reference/result/editor-sticky-tabs
       - name: Observe complete pinned sticky tab contracts (macOS and Windows)
         if: runner.os != 'Linux'
         timeout-minutes: 5
-        run: node tests/vscode-reference/editor-sticky-tabs-run.cjs target/vscode-reference/result/editor-sticky-tabs
+        run: node tests/vscode-reference-sticky-monotonic-candidate/editor-sticky-tabs-run.cjs target/vscode-reference/result/editor-sticky-tabs
       - name: Check sticky reference integrity and replay tests
         run: cargo test --locked --example editor_sticky_tabs_contract
       - name: Compare native sticky membership with fresh complete observations
-        run: cargo run --locked --example editor_sticky_tabs_contract -- target/vscode-reference/result/editor-sticky-tabs > target/vscode-reference/result/editor-sticky-tabs/native-comparison.json
+        run: cargo run --locked --example editor_sticky_tabs_contract -- --monotonic target/vscode-reference/result/editor-sticky-tabs > target/vscode-reference/result/editor-sticky-tabs/native-comparison.json
+      - name: Preserve corrected sticky sources and every raw result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sticky-monotonic-reference-${{ matrix.os }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            target/vscode-reference/result/editor-sticky-tabs
+            tests/vscode-reference-sticky-monotonic-candidate/*.cjs
+            tests/vscode-reference-sticky-monotonic-candidate/*.json
+            tests/vscode-reference-sticky-monotonic-candidate/*.md
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
