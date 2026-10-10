@@ -43,12 +43,19 @@ impl App {
         }
     }
     pub(super) fn apply_group_change(&mut self, change: Change) {
+        self.apply_group_change_projection(change, None);
+    }
+    pub(super) fn apply_transferred_group_change(&mut self, change: Change, target: Membership) {
+        self.apply_group_change_projection(change, Some(target));
+    }
+    fn apply_group_change_projection(&mut self, change: Change, transferred: Option<Membership>) {
         for member in &change.inserted {
             let split_copy = change
                 .previous
                 .is_some_and(|source| source.document == member.document)
                 && change.created_groups.contains(&member.group);
-            if !split_copy
+            if transferred != Some(*member)
+                && !split_copy
                 && self.editor_groups.memberships(member.document).count() > 1
                 && let Some(doc) = self
                     .documents
@@ -92,7 +99,13 @@ impl App {
                     .is_some_and(|member| Some(member) != self.active_tab_membership())
             {
                 self.modal = None;
-                self.cancel_save_continuations();
+                if transferred.is_some() {
+                    // Only the unapproved modal target retires. Accepted worker
+                    // continuations already carry exact original membership.
+                    self.close_membership = None;
+                } else {
+                    self.cancel_save_continuations();
+                }
                 self.message =
                     "Close dialog retired: the active tab changed; buffers retained".into();
             }

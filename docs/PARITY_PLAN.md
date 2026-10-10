@@ -383,7 +383,7 @@ paired core samples pass 80 launches / 3,200 keys with mixed measurements.
 Platform qualification remains a separate gate. See [layout scope
 and evidence](EDITOR_LAYOUT.md).
 
-Cross-group editor transfer, distinct Close Group merge semantics,
+Directional/copy editor transfer, distinct Close Group merge semantics,
 divider dragging and workspace transitions remain priority-6 gaps. Wrap/folding
 still needs a unified display-row mapping; neither prototype is a shipped feature.
 
@@ -395,3 +395,6 @@ all-target Rust tests and 22 reports across five relevant Unix PTY scripts, plus
 formatting and strict Clippy. Fresh platform checks remain pending. Logical cell/divider geometry versus upstream CSS
 pixels, restored MRU, terminal chord policy and missing-group creation by other
 commands remain explicit boundaries. See [spatial-focus scope](SPATIAL_FOCUS.md).
+
+
+Native cross-group transfer candidate: the four original keyed Previous/Next/First/Last wrappers stage Groups + nested Layout + source view, reuse duplicate destination identity, preserve dirty/Undo/accepted-save ownership, and refuse unsupported insertion/empty-group policies. Local App/key/settings qualification passes 1,047 all-target Rust tests, formatting, strict Clippy and 39 native PTY reports across eight scripts, including four new transfer reports across six sessions; the pure transfer and Document projection foundation were qualified separately. Fresh platform checks and parent-stack integration remain gates. Directional missing-group creation, copy/drag, arbitrary move arguments and retained empty groups remain gaps. See [transfer contract](TAB_TRANSFER_APP.md).

@@ -40,11 +40,11 @@ transfer integrity tests; four new Document tests pass with concrete Unicode/CRL
 saved-byte, save-snapshot, Redo, dropped-lease and malformed/capacity oracles.
 The full locked all-target suite passes 1,032 tests across 51 reports with four
 test threads (20 optional tests ignored). Formatting and strict all-target locked
-Clippy pass. Fresh platform CI and user-visible integration remain pending.
+Clippy pass. The following App integration separately exposes commands and keys; see [native transfer workflows and evidence](TAB_TRANSFER_APP.md).
 
-App commands, original platform keys, right/down side-opening policy, joint
-create-before-remove layout publication, save-worker gate tests and native PTY
-journeys remain next work. This foundation neither enables user-visible movement
-nor establishes full VS Code group parity. Directional transfer/left-up creation,
+The App integration adds original platform keys, right/down side-opening policy,
+joint create-before-remove layout publication, save-worker gate tests and native
+PTY journeys. The foundation itself grants no UI authority or full VS Code group
+parity. Directional transfer/left-up creation,
 copy wrappers, generic argument schemas, nondefault insertion and retained empty
 groups remain separate scope.

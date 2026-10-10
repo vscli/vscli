@@ -87,6 +87,39 @@ fn ready(app: &mut App) {
             })
     });
 }
+
+#[test]
+fn transfer_endpoint_focus_retires_symbol_picker_without_changing_groups_or_redo() {
+    for command in [
+        "workbench.action.moveEditorToFirstGroup",
+        "workbench.action.moveEditorToLastGroup",
+    ] {
+        let (_temporary, mut app, source) = fixture(false, false);
+        app.doc_mut().insert("seed", false);
+        app.doc_mut().undo();
+        ready(&mut app);
+        app.execute("breadcrumbs.focusAndSelect", Value::Null);
+        assert!(app.focus == Focus::Breadcrumbs);
+        assert!(app.breadcrumbs_view().picker.is_some());
+        let generation = app.breadcrumbs_view().generation;
+        let groups = app.editor_groups().clone();
+        let identity = app.doc().id;
+        let revision = app.doc().revision;
+        let selections = app.doc().selections();
+        app.execute(command, Value::Null);
+        assert!(app.focus == Focus::Editor);
+        assert!(app.breadcrumbs_view().picker.is_none());
+        assert!(app.breadcrumbs_view().generation > generation);
+        assert_eq!(app.editor_groups(), &groups);
+        assert_eq!(app.doc().id, identity);
+        assert_eq!(app.doc().revision, revision);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(app.doc().text.to_string(), original());
+        assert_eq!(std::fs::read(source).unwrap(), original().as_bytes());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), format!("seed{}", original()));
+    }
+}
 fn goto(app: &mut App, line: &str) {
     app.execute("workbench.action.gotoLine", Value::Null);
     assert!(app.prompt.is_some());

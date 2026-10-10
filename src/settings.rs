@@ -1,5 +1,5 @@
 //! A validated, explicit subset of VS Code settings and scope precedence.
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
 use std::{
     fs::File,
@@ -268,6 +268,12 @@ impl<'a> ActionSetting<'a> {
         Ok(())
     }
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum EditorSideBySideDirection {
+    #[default]
+    Right,
+    Down,
+}
 const SUPPORTED: &[&str] = &[
     "editor.formatOnSave",
     "editor.formatOnSaveMode",
@@ -297,6 +303,9 @@ const SUPPORTED: &[&str] = &[
     "workbench.editor.enablePreview",
     "workbench.editor.enablePreviewFromQuickOpen",
     "workbench.editor.preventPinnedEditorClose",
+    "workbench.editor.openSideBySideDirection",
+    "workbench.editor.openPositioning",
+    "workbench.editor.closeEmptyGroups",
     "vscli.languageServer.enabled",
     "vscli.languageServer.program",
     "vscli.languageServer.args",
@@ -381,6 +390,46 @@ impl Settings {
             })
             .unwrap_or_default()
     }
+    /// Root-only native transfer policy. Invalid higher values retain lower
+    /// valid layers; unsupported valid policy refuses changed transfers.
+    pub fn tab_transfer_direction(&self) -> Result<EditorSideBySideDirection> {
+        let string = |key: &str, default: &'static str| {
+            self.layers
+                .iter()
+                .rev()
+                .find_map(|layer| {
+                    layer
+                        .get(key)
+                        .filter(|value| valid(key, value))
+                        .and_then(Value::as_str)
+                })
+                .unwrap_or(default)
+        };
+        ensure!(
+            string("workbench.editor.openPositioning", "right") == "right",
+            "Native group transfer supports only workbench.editor.openPositioning=right"
+        );
+        let close_empty = self
+            .layers
+            .iter()
+            .rev()
+            .find_map(|layer| {
+                layer
+                    .get("workbench.editor.closeEmptyGroups")
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(true);
+        ensure!(
+            close_empty,
+            "Native group transfer cannot retain empty groups (closeEmptyGroups=false)"
+        );
+        Ok(
+            match string("workbench.editor.openSideBySideDirection", "right") {
+                "down" => EditorSideBySideDirection::Down,
+                _ => EditorSideBySideDirection::Right,
+            },
+        )
+    }
     pub fn color_theme(&self) -> Option<&str> {
         self.layers
             .iter()
@@ -410,6 +459,9 @@ impl Settings {
                     "workbench.editor.enablePreview"
                         | "workbench.editor.enablePreviewFromQuickOpen"
                         | "workbench.editor.preventPinnedEditorClose"
+                        | "workbench.editor.openSideBySideDirection"
+                        | "workbench.editor.openPositioning"
+                        | "workbench.editor.closeEmptyGroups"
                 )
             {
                 self.warnings.push(format!(
@@ -988,6 +1040,13 @@ fn valid(key: &str, value: &Value) -> bool {
         "workbench.editor.preventPinnedEditorClose" => {
             PreventPinnedEditorClose::parse(value).is_some()
         }
+        "workbench.editor.openSideBySideDirection" => {
+            matches!(value.as_str(), Some("right" | "down"))
+        }
+        "workbench.editor.openPositioning" => {
+            matches!(value.as_str(), Some("right" | "left" | "first" | "last"))
+        }
+        "workbench.editor.closeEmptyGroups" => value.is_boolean(),
         "workbench.colorTheme" => value.is_string(),
         "workbench.editor.enablePreview" | "workbench.editor.enablePreviewFromQuickOpen" => {
             value.is_boolean()
@@ -2448,5 +2507,66 @@ mod sticky_close_policy_tests {
                 invalid
             );
         }
+    }
+    #[test]
+    fn tab_transfer_root_direction_ignores_language_and_invalid_higher_values() {
+        let directory = tempfile::tempdir().unwrap();
+        let user = directory.path().join("user.json");
+        let workspace = directory.path().join("workspace.json");
+        let original = "// preserve 猫🙂\r\n{\r\n\"workbench.editor.openSideBySideDirection\":\"down\",\r\n\"[cpp]\":{\"workbench.editor.openSideBySideDirection\":\"right\"},\r\n}\r\n";
+        std::fs::write(&user, original).unwrap();
+        std::fs::write(&workspace, r#"{"workbench.editor.openSideBySideDirection":17,"[cpp]":{"workbench.editor.closeEmptyGroups":false}}"#).unwrap();
+        let settings = Settings::load_editor(&[user.clone(), workspace.clone()]).unwrap();
+        assert_eq!(
+            settings.tab_transfer_direction().unwrap(),
+            EditorSideBySideDirection::Down
+        );
+        assert!(settings.warnings.iter().any(|warning| {
+            warning.contains("invalid value for workbench.editor.openSideBySideDirection")
+        }));
+        assert_eq!(
+            settings
+                .warnings
+                .iter()
+                .filter(|warning| warning.contains("language override ignored"))
+                .count(),
+            2
+        );
+        assert_eq!(std::fs::read(&user).unwrap(), original.as_bytes());
+        std::fs::write(
+            &workspace,
+            r#"{"workbench.editor.openSideBySideDirection":"right"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            Settings::load_editor(&[user, workspace])
+                .unwrap()
+                .tab_transfer_direction()
+                .unwrap(),
+            EditorSideBySideDirection::Right
+        );
+    }
+    #[test]
+    fn tab_transfer_unsupported_valid_policy_refuses_but_malformed_values_fall_back() {
+        assert_eq!(
+            Settings::default().tab_transfer_direction().unwrap(),
+            EditorSideBySideDirection::Right
+        );
+        for values in [
+            json!({"workbench.editor.openPositioning":"left"}),
+            json!({"workbench.editor.openPositioning":"first"}),
+            json!({"workbench.editor.openPositioning":"last"}),
+            json!({"workbench.editor.closeEmptyGroups":false}),
+        ] {
+            let settings =
+                Settings::from_values(values.as_object().unwrap().clone(), "fixture").unwrap();
+            assert!(settings.tab_transfer_direction().is_err());
+        }
+        let settings = Settings::from_values(json!({"workbench.editor.openPositioning":false,"workbench.editor.closeEmptyGroups":"false","workbench.editor.openSideBySideDirection":"left"}).as_object().unwrap().clone(), "fixture").unwrap();
+        assert_eq!(
+            settings.tab_transfer_direction().unwrap(),
+            EditorSideBySideDirection::Right
+        );
+        assert_eq!(settings.warnings.len(), 3);
     }
 }

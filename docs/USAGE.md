@@ -999,3 +999,6 @@ saved sticky prefix; older schemas restore nonsticky. Dirty/untitled recovery re
 independent. Mouse close gestures and graphical sticky-row layouts remain outside
 this candidate. Schema-3 integrity and session checks pass locally; platform
 qualification remains pending. See [scope and evidence](STICKY_TABS.md).
+
+
+Original cross-group tab moves use Ctrl+Alt+Left/Right and Shift+Alt+1/9 on Linux/Windows, or Ctrl+Cmd+Left/Right/1/9 on macOS. The palette's `View: Move Editor into Previous/Next/First/Last Group` commands carry the active document and selection. Next at the last group creates a right/down group; moving the last source tab collapses its group. Changed transfer supports default right insertion/empty-group collapse and refuses unsupported alternatives. See [scope, saved-receipt ownership and qualification](TAB_TRANSFER_APP.md).

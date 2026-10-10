@@ -246,6 +246,21 @@ impl Keymap {
             map.add(&key, command, None);
         }
         for (key, command) in [
+            ("left", "workbench.action.moveEditorToPreviousGroup"),
+            ("right", "workbench.action.moveEditorToNextGroup"),
+            ("1", "workbench.action.moveEditorToFirstGroup"),
+            ("9", "workbench.action.moveEditorToLastGroup"),
+        ] {
+            let key = if profile == Profile::Macos {
+                format!("ctrl+cmd+{key}")
+            } else if key == "1" || key == "9" {
+                format!("shift+alt+{key}")
+            } else {
+                format!("ctrl+alt+{key}")
+            };
+            map.add(&key, command, None);
+        }
+        for (key, command) in [
             ("left", "workbench.action.focusLeftGroup"),
             ("right", "workbench.action.focusRightGroup"),
             ("up", "workbench.action.focusAboveGroup"),
@@ -1912,6 +1927,33 @@ mod tests {
                 let command = format!("workbench.action.{command}");
                 assert!(
                     matches!(map.resolve(&key,&HashMap::new()),Resolution::Command(actual,None) if actual==command)
+                );
+                assert!(map.bindings.iter().any(|binding| binding.key == key
+                    && binding.command == command
+                    && binding.when.is_none()));
+            }
+        }
+    }
+    #[test]
+    fn group_transfer_keys_match_original_context_free_platform_inventory() {
+        for profile in [Profile::Linux, Profile::Windows, Profile::Macos] {
+            let map = Keymap::new(profile);
+            for (part, command) in [
+                ("left", "workbench.action.moveEditorToPreviousGroup"),
+                ("right", "workbench.action.moveEditorToNextGroup"),
+                ("1", "workbench.action.moveEditorToFirstGroup"),
+                ("9", "workbench.action.moveEditorToLastGroup"),
+            ] {
+                let key = if profile == Profile::Macos {
+                    format!("ctrl+cmd+{part}")
+                } else if part == "1" || part == "9" {
+                    format!("shift+alt+{part}")
+                } else {
+                    format!("ctrl+alt+{part}")
+                };
+                let key = normalize_sequence(&key);
+                assert!(
+                    matches!(map.resolve(&key, &HashMap::new()), Resolution::Command(actual, None) if actual == command)
                 );
                 assert!(map.bindings.iter().any(|binding| binding.key == key
                     && binding.command == command
