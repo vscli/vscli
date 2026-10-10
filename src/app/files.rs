@@ -2,6 +2,10 @@ use super::*;
 use crate::files::{Action, Job};
 impl App {
     pub(super) fn start_file_job(&mut self, action: Action) {
+        if self.saves_pending() {
+            self.message = "Wait for pending saves before changing file paths".into();
+            return;
+        }
         if self.file_job.is_some() {
             self.message = "A file operation is already running".into();
             return;

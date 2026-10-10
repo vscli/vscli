@@ -240,6 +240,7 @@ fn upstream_lorem_ipsum_quick_pick_inserts_paragraphs_and_native_save_undo() {
     assert_eq!(generated.split("\n\n").count(), 2);
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "tail");
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
     assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
     app.doc_mut().undo();
     assert_eq!(app.doc().text.to_string(), "tail");

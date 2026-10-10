@@ -18,6 +18,7 @@ mod navigation;
 mod navigation_history;
 mod outline;
 mod panes;
+mod saving;
 mod settings_persistence;
 mod signature_help;
 mod suggestions;
@@ -534,6 +535,7 @@ pub struct App {
     settings_error: Option<String>,
     settings_user: Option<PathBuf>,
     settings_writes: settings_persistence::State,
+    saving: saving::State,
     pub diagnostics: HashMap<PathBuf, crate::lsp::DiagnosticPublication>,
     pub editor_area: Rect,
     pub explorer_area: Rect,
@@ -633,6 +635,7 @@ impl App {
             settings_error: None,
             settings_user: None,
             settings_writes: settings_persistence::State::default(),
+            saving: saving::State::default(),
             diagnostics: HashMap::new(),
             editor_area: Rect::default(),
             explorer_area: Rect::default(),
@@ -659,6 +662,7 @@ impl App {
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
         let mut changed = actions_changed | brand_changed | changed;
         changed |= self.poll_settings_writes();
+        changed |= self.poll_native_saves();
         if let Some(result) = self
             .settings_loader
             .as_mut()
@@ -721,6 +725,7 @@ impl App {
         changed |= self.poll_theme();
         changed |= self.poll_navigation();
         changed |= self.poll_session();
+        changed |= self.poll_autosave(self.autosave_now());
         changed |= self.dispatch_queued_suggestions();
         let visible: Vec<_> = self
             .documents
@@ -914,6 +919,14 @@ impl App {
         self.observe_navigation(navigation_history::Reason::EditorChange);
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
+        if self
+            .prompt
+            .as_ref()
+            .is_some_and(|prompt| matches!(prompt.kind, PromptKind::SaveAs))
+            && !matches!(kind, PromptKind::SaveAs)
+        {
+            self.cancel_save_continuations();
+        }
         self.cancel_suggestions();
         self.session_interaction();
         self.clear_signature();
@@ -1293,6 +1306,9 @@ impl App {
     fn key(&mut self, key: KeyEvent) {
         let token = keys::token(key);
         self.last_key = Some(key);
+        if key.code == KeyCode::Esc && self.cancel_deferred_save_close() {
+            return;
+        }
         if matches!(self.modal, Some(Modal::Inspector)) {
             self.inspect_key(key);
         }
@@ -1698,7 +1714,10 @@ impl App {
             "workbench.action.files.save" => {
                 self.save(None);
             }
-            "workbench.action.files.saveAs" => self.save_as(),
+            "workbench.action.files.saveAs" => {
+                self.pending = None;
+                self.save_as();
+            }
             "workbench.action.closeActiveEditor" => {
                 if self
                     .panes
@@ -1932,6 +1951,7 @@ impl App {
             )
     }
     fn save_as(&mut self) {
+        self.capture_save_as_origin();
         let path = self
             .doc()
             .path
@@ -1940,28 +1960,14 @@ impl App {
         self.start_prompt(PromptKind::SaveAs, path.to_string_lossy().into_owned());
     }
     fn save(&mut self, after: Option<AfterSave>) {
-        if self.file_job.is_some() {
-            self.message = "Wait for the file operation to finish before saving".into();
-            return;
-        }
-        if self.doc().path.is_none() {
-            self.pending = after;
-            self.save_as();
-            return;
-        }
-        match self.doc_mut().save() {
-            Ok(()) => {
-                self.message = format!("Saved {}", self.doc().name());
-                self.language_saved();
-                self.remember_active_file();
-                if let Some(action) = after {
-                    self.complete_close(action);
-                }
-            }
-            Err(e) => self.message = format!("Save failed: {e:#}"),
+        if let Err(error) = self.request_native_save(after) {
+            self.message = format!("Save failed; unsaved work retained: {error:#}");
         }
     }
     fn request_close(&mut self, action: AfterSave) {
+        if self.defer_close_for_persistence(action.clone()) {
+            return;
+        }
         if matches!(action, AfterSave::Quit | AfterSave::CloseAll) {
             // Hidden models remain authoritative native buffers. Bring dirty
             // models into the existing Save/Discard/Cancel flow before exit.
@@ -2021,6 +2027,9 @@ impl App {
     }
     fn modal_key(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Esc {
+            if matches!(self.modal, Some(Modal::Confirm(_))) {
+                self.cancel_save_continuations();
+            }
             if matches!(self.modal, Some(Modal::ExtensionTree)) {
                 self.close_surface_tree();
             }
@@ -2283,7 +2292,7 @@ impl App {
                         self.complete_close(action);
                     }
                 }
-                KeyCode::Char('c' | 'C') => {}
+                KeyCode::Char('c' | 'C') => self.cancel_save_continuations(),
                 _ => self.modal = Some(Modal::Confirm(action)),
             },
             Modal::Revert => match key.code {
@@ -2311,6 +2320,13 @@ impl App {
     }
     fn prompt_key(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Esc {
+            if self
+                .prompt
+                .as_ref()
+                .is_some_and(|prompt| matches!(prompt.kind, PromptKind::SaveAs))
+            {
+                self.cancel_save_continuations();
+            }
             self.cancel_extension_prompt();
             self.prompt = None;
             self.pending = None;
@@ -2534,36 +2550,9 @@ impl App {
                 }
             }
             PromptKind::SaveAs => {
-                if self.file_job.is_some() {
-                    self.message = "Wait for the file operation to finish before saving".into();
-                    self.pending = None;
-                    return;
-                }
                 let path = self.resolve_path(&p.text);
-                if self
-                    .documents
-                    .iter()
-                    .enumerate()
-                    .any(|(i, d)| i != self.active && d.path.as_ref() == Some(&path))
-                {
-                    self.message = "That file is already open in another tab".into();
-                    self.pending = None;
-                    return;
-                }
-                match self.doc_mut().save_to(&path, false) {
-                    Ok(()) => {
-                        self.message = format!("Saved {}", self.doc().name());
-                        self.settings.apply(&mut self.documents[self.active]);
-                        self.refresh_document_language_configurations();
-                        self.remember_active_file();
-                        if let Some(after) = self.pending.take() {
-                            self.complete_close(after);
-                        }
-                    }
-                    Err(e) => {
-                        self.message = format!("Save failed: {e:#}");
-                        self.pending = None;
-                    }
+                if let Err(error) = self.request_native_save_as(path) {
+                    self.message = format!("Save failed; unsaved work retained: {error:#}");
                 }
             }
             PromptKind::Find => {
@@ -2833,6 +2822,14 @@ mod tests {
     fn key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         app.event(Event::Key(KeyEvent::new(code, modifiers)));
     }
+    fn settle_saves(app: &mut App) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while app.saves_pending() {
+            app.poll();
+            assert!(std::time::Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
     #[test]
     fn hidden_dirty_models_reuse_identity_and_require_close_confirmation() {
         let root = tempfile::tempdir().unwrap();
@@ -2917,6 +2914,7 @@ mod tests {
             key(&mut a, KeyCode::Char(c), KeyModifiers::NONE);
         }
         key(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+        settle_saves(&mut a);
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "hello");
         key(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
         key(&mut a, KeyCode::Char('x'), KeyModifiers::NONE);
@@ -2986,6 +2984,7 @@ mod tests {
         key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
         assert!(app.doc().dirty());
         app.execute("workbench.action.files.save", Value::Null);
+        settle_saves(&mut app);
         app.execute("workbench.action.closeActiveEditor", Value::Null);
         assert!(app.documents.is_empty());
         assert_eq!(std::fs::read_to_string(path).unwrap(), "unsavedsaved");

@@ -110,6 +110,10 @@ impl App {
                 self.watch.pending |= CONTENT;
                 continue;
             }
+            if self.document_save_pending(result.id) {
+                self.watch.pending |= CONTENT;
+                continue;
+            }
             let Some(doc) = self
                 .documents
                 .iter_mut()

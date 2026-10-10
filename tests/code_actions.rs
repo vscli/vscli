@@ -459,6 +459,7 @@ fn real_clangd_cpp_quick_fix_is_native_undoable_and_saved_only_on_request() {
     assert_eq!(app.doc().text.to_string(), original);
     app.execute("redo", Value::Null);
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
     assert!(
         std::fs::read_to_string(&path)
             .unwrap()

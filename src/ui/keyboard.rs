@@ -555,6 +555,12 @@ mod tests {
         assert!(app.modal.is_none());
         assert_eq!(app.doc().text.to_string(), original);
         app.execute("workbench.action.files.save", Value::Null);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while app.saves_pending() {
+            app.poll();
+            assert!(std::time::Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
         assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
     }
 

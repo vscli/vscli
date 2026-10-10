@@ -477,8 +477,9 @@ fn native_case(fixture: &Value, actual: &Value) -> Result<Value> {
             "Outline target typing saved or replaced shared document"
         );
         app.execute("workbench.action.files.save", Value::Null);
-        until(&mut app, "Explicit edited save", |_| {
-            std::fs::read(&source).ok().as_deref() == Some(edited.as_bytes())
+        until(&mut app, "Explicit edited save", |app| {
+            !app.saves_pending()
+                && std::fs::read(&source).ok().as_deref() == Some(edited.as_bytes())
         })?;
         app.execute("undo", Value::Null);
         ensure!(
@@ -486,8 +487,8 @@ fn native_case(fixture: &Value, actual: &Value) -> Result<Value> {
             "Undo after Outline reveal changed original document"
         );
         app.execute("workbench.action.files.save", Value::Null);
-        until(&mut app, "Explicit Undo save", |_| {
-            std::fs::read(&source).ok().as_deref() == Some(text.as_bytes())
+        until(&mut app, "Explicit Undo save", |app| {
+            !app.saves_pending() && std::fs::read(&source).ok().as_deref() == Some(text.as_bytes())
         })?;
     }
     Ok(

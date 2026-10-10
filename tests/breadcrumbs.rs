@@ -186,15 +186,15 @@ fn hierarchical_trail_picker_reveal_history_and_unicode_crlf_save_undo_are_atomi
     assert!(app.doc().dirty());
     assert_eq!(std::fs::read(&source).unwrap(), original().as_bytes());
     app.execute("workbench.action.files.save", Value::Null);
-    until(&mut app, "Unicode CRLF save", |_| {
-        std::fs::read(&source).unwrap() == edited.as_bytes()
+    until(&mut app, "Unicode CRLF save", |app| {
+        !app.saves_pending() && std::fs::read(&source).unwrap() == edited.as_bytes()
     });
     app.execute("undo", Value::Null);
     assert_eq!(app.doc().text.to_string(), original());
     assert_eq!(app.doc().id, identity);
     app.execute("workbench.action.files.save", Value::Null);
-    until(&mut app, "Undo save", |_| {
-        std::fs::read(&source).unwrap() == original().as_bytes()
+    until(&mut app, "Undo save", |app| {
+        !app.saves_pending() && std::fs::read(&source).unwrap() == original().as_bytes()
     });
     app.execute("redo", Value::Null);
     assert_eq!(app.doc().text.to_string(), edited);
@@ -428,8 +428,8 @@ fn actual_clangd_breadcrumbs_enclosing_trail_and_sibling_reveal_preserve_dirty_w
     assert_eq!(app.doc().text.to_string(), original());
     assert_eq!(app.doc().id, identity);
     app.execute("workbench.action.files.save", Value::Null);
-    until(&mut app, "actual clangd Undo save", |_| {
-        std::fs::read(&source).unwrap() == original().as_bytes()
+    until(&mut app, "actual clangd Undo save", |app| {
+        !app.saves_pending() && std::fs::read(&source).unwrap() == original().as_bytes()
     });
     app.execute("redo", Value::Null);
     assert_eq!(app.doc().text.to_string(), dirty);

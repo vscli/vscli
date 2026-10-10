@@ -41,6 +41,33 @@ New documents and files without line breaks use CRLF on Windows and LF on Unix. 
 
 The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary text entry, grapheme-aware horizontal movement, visual-column vertical movement, keyboard/mouse selection, undo/redo, indentation, comments, line deletion, literal find, replace all, and go to line.
 
+Save and Save As now persist on a background native worker. You can keep typing
+or switch editors while an authorized save finishes: the captured text reaches
+disk, and newer edits stay dirty with their Undo/Redo intact. Save As retains the
+editor that opened the prompt. A different existing destination is refused;
+choose a new path. Closing while that editor's save is still pending waits for
+the actual receipt, even if its disk bytes are already visible. It targets the
+original pane and keeps it open if newer unsaved edits remain; Escape cancels
+this deferred close while the save continues. Quit and Close All await pending native/settings
+writes; Escape cancels deferred closing while saves continue. Watch the status
+message for completion or failure before relying on disk bytes.
+
+Autosave defaults to off. Native user or workspace settings support
+`"files.autoSave": "afterDelay"` and `"files.autoSaveDelay": 1000` (milliseconds),
+including language overrides such as `"[cpp]"`. The native delay range is
+0–86,400,000 ms; the default is 1000 ms. Text edits and Undo/Redo restart the
+delay, while cursor motion does not. Dirty named files, including hidden models,
+qualify; untitled buffers require Save As. Malformed winning values, invalid
+delays and unsupported focus/window modes disable automation with a settings
+notice. Failed settings reloads pause autosave; repeated saves of the same failed
+snapshot are suppressed until explicit retry or new qualifying evidence.
+
+Format-on-save, save-time code actions, extension wait-until participants and
+Save All remain unsupported. The async-save/autosave runtime is implemented;
+local Rust, debug/release terminal and integrity checks pass; fresh platform CI
+qualification remains pending.
+See [save ownership, settings, limits and qualification](SAVE_AUTOMATION_PLAN.md).
+
 C/C++ and JSON/JSONC now have native [smart typing](SMART_TYPING.md): bracket/quote
 pairing, surrounding selections, generated-close skipping/deletion and bracket-aware
 Enter. Native [advanced indentation](ADVANCED_INDENTATION.md) distinguishes all five
@@ -63,7 +90,7 @@ The command palette lists implemented actions. Background Tree-sitter highlighti
 
 Explorer commands in F1 create files/folders, rename the selected item, move it to system trash, and refresh the index. F2 renames in Linux/Windows, while Enter renames in macOS. Delete moves the selected item to trash in Linux/Windows; Cmd+Backspace does so in macOS. Trash always asks for confirmation and never falls back to permanent deletion. Use the OS trash interface to restore items. Open buffers under a trashed path are retained as unsaved copies.
 
-File operations run in a worker and refresh the explorer/index afterward. Saving waits while an operation is pending. Create operations require an existing parent directory and refuse existing names. Rename preserves open unsaved buffers and refuses an existing destination; the initial portable rename implementation still has a check/rename race against concurrent filesystem writers. Native watching and undoable clean-buffer reload are implemented; dirty buffers retain their unsaved contents. See [external file changes](#external-file-changes) for limits.
+File operations run in a worker and refresh the explorer/index afterward. Save is refused while a file operation is pending, and file operations are refused until pending native saves settle. Create operations require an existing parent directory and refuse existing names. Rename preserves open unsaved buffers and refuses an existing destination; the initial portable rename implementation still has a check/rename race against concurrent filesystem writers. Native watching and undoable clean-buffer reload are implemented; dirty buffers retain their unsaved contents. See [external file changes](#external-file-changes) for limits.
 
 ## Keyboard shortcuts
 

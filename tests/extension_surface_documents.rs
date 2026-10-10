@@ -119,6 +119,7 @@ fn surface_callbacks_keep_hidden_document_identity_with_and_without_visible_edit
         assert_eq!(app.doc().id, id);
         assert_eq!(app.doc().text.to_string(), "hidden猫\r\nretained");
         app.execute("workbench.action.files.save", Value::Null);
+        until(&mut app, |app| !app.saves_pending());
         assert_eq!(
             std::fs::read_to_string(root.path().join("hidden.txt")).unwrap(),
             "hidden猫\r\nretained"

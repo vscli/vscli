@@ -539,50 +539,59 @@ fn main() -> Result<()> {
     terminal.clear()?;
     let mut redraw = true;
     let mut last_recovery = Instant::now();
-    while app.running {
-        if interrupted.load(Ordering::Relaxed) {
-            if let Some(worker) = recovery.take() {
-                worker.preserve_refs(&app.recovery_documents())?;
+    let editing_result = (|| -> Result<()> {
+        while app.running {
+            if interrupted.load(Ordering::Relaxed) {
+                bail!("Interrupted; unsaved buffers retained in recovery storage when enabled");
             }
-            bail!("Interrupted; unsaved buffers retained in recovery storage when enabled");
-        }
-        if let Some(worker) = &mut recovery
-            && let Err(e) = worker.poll()
-        {
-            app.message = format!("Recovery write failed: {e:#}");
-            redraw = true;
-        }
-        redraw |= app.poll();
-        if redraw {
-            terminal.draw(|frame| ui::draw(frame, &mut app))?;
-            redraw = false;
-        }
-        if event::poll(Duration::from_millis(50))? {
-            app.event(event::read()?);
-            redraw = true;
-            // Bound each batch so continuous input cannot starve rendering or recovery.
-            for _ in 0..31 {
-                if !app.running {
-                    break;
-                }
-                if !event::poll(Duration::ZERO)? {
-                    break;
-                }
-                app.event(event::read()?);
-            }
-        }
-        if last_recovery.elapsed() >= Duration::from_secs(2) {
             if let Some(worker) = &mut recovery
-                && let Err(e) = worker.submit_refs(&app.recovery_documents())
+                && let Err(e) = worker.poll()
             {
                 app.message = format!("Recovery write failed: {e:#}");
                 redraw = true;
             }
-            last_recovery = Instant::now();
+            redraw |= app.poll();
+            if redraw {
+                terminal.draw(|frame| ui::draw(frame, &mut app))?;
+                redraw = false;
+            }
+            if event::poll(Duration::from_millis(50))? {
+                app.event(event::read()?);
+                redraw = true;
+                // Bound each batch so continuous input cannot starve rendering or recovery.
+                for _ in 0..31 {
+                    if !app.running {
+                        break;
+                    }
+                    if !event::poll(Duration::ZERO)? {
+                        break;
+                    }
+                    app.event(event::read()?);
+                }
+            }
+            if last_recovery.elapsed() >= Duration::from_secs(2) {
+                if let Some(worker) = &mut recovery
+                    && let Err(e) = worker.submit_refs(&app.recovery_documents())
+                {
+                    app.message = format!("Recovery write failed: {e:#}");
+                    redraw = true;
+                }
+                last_recovery = Instant::now();
+            }
         }
-    }
+        Ok(())
+    })();
     drop(terminal);
     drop(guard);
+    if let Err(error) = editing_result {
+        app.settle_persistence();
+        if let Some(worker) = recovery.take() {
+            worker
+                .preserve_refs(&app.recovery_documents())
+                .context("Cannot preserve recovery after editor interruption")?;
+        }
+        return Err(error);
+    }
     if let Err(error) = app.finish_session() {
         eprintln!("Session metadata not saved: {error:#}");
     }
