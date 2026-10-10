@@ -2,8 +2,8 @@
 
 VSCLI now implements an ordered tab list for each editor group. The native
 editor works without Node or an extension host. This document describes the
-implemented slice. Local native and debug terminal qualification passes;
-optimized workflows and fresh platform CI remain separate pending checks.
+implemented slice. Local native, debug and optimized terminal qualification passes;
+fresh platform CI remains a separate pending check.
 
 ## Opening, splitting and navigating
 
@@ -82,6 +82,10 @@ buffers cannot fit the bounded group representation, VSCLI keeps the legacy
 workbench and every buffer, with an explicit layout-unavailable notice. It does
 not truncate recovered work to satisfy the tab limit.
 
+Recent-file and Reopen Closed Editor admission failures retain existing models,
+pending Redo and closed-file history. Rejected asynchronous loads also resume
+navigation-history recording, so later Back/Forward remains usable.
+
 ## Clean-file session continuity
 
 Session schema 2 records an ordered clean-file table, ordered groups and tabs,
@@ -129,7 +133,7 @@ global versus local traversal, historical/shared views, shared dirty tab close,
 recent-tab close fallback and empty-group removal. It does not qualify native
 save continuations, session migration or recovery by itself. Native engine,
 renderer, ownership, persistence and lifecycle tests pass locally. The candidate
-passes 831 ordinary Rust tests across 42 reports (20 optional integrations ignored),
+passes 835 ordinary Rust tests across 42 reports (20 optional integrations ignored),
 formatting, strict all-target locked Clippy, 133 extension-host tests and 25 Python
 tooling tests. The strict native membership consumer also passes against the
 fresh eight-case/70-frame raw capture, separately from the frozen baseline.
@@ -145,8 +149,14 @@ the original stale-row failure is preserved locally. This totals 28 scripts and
 proves Close Group retains a model whose Undo made it clean while an authorized
 snapshot was pending, then preserves its restored text as dirty after receipt.
 
-Optimized workflows, performance comparisons and fresh platform checks remain
-pending. Windows ConPTY, graphical input and every upstream tab policy are not
+The optimized executable additionally passes all six group journeys, seven
+ordinary save journeys, five format-on-save journeys and five source-action
+journeys, with original assertions and terminal restoration intact. Two reviewed
+regressions cover full-group Recent/reopen loads and clean-session admission into
+129 documents distributed across two groups. The isolated
+[core comparison](PERFORMANCE.md#native-editor-group-tabs-core-baseline-2026-10-10)
+records 40 successful launches/1,600 keys with mixed observations and no speed ranking.
+Fresh platform checks remain pending. Windows ConPTY, graphical input and every upstream tab policy are not
 qualified by these Unix terminal checks.
 
 The final upstream close retains one empty active group. VSCLI's welcome

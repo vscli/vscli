@@ -759,3 +759,59 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/formatter/vscli \
   --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
   --output target/benchmarks/native-code-actions-on-save-single-line.json
 ```
+
+
+## Native editor-group tabs core baseline (2026-10-10)
+
+The [ordinary-file report](benchmarks/2026-10-10-native-editor-group-tabs.json)
+and [single-line report](benchmarks/2026-10-10-native-editor-group-tabs-single-line.json)
+compare native Rust source `247fa0029207d62b50a656522d00f245ec4c8e00`
+with the preserved source-actions build `b69c30f038a580edb1cbd92f764457651e705e15`.
+Five interleaved launches and 200 serial keys per executable/workload yield
+40 successful launches, 1,600 observed keys and zero failures. Local builds,
+test suites and reference editors were stopped for both measurements.
+
+| File / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS median MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / source actions | 6.530 | 0.322 | 0.666 | 0.855 | 13.01 |
+| 10 KiB multiline / group tabs | 5.747 | 0.327 | 0.793 | 1.005 | 12.97 |
+| 1 MiB multiline / source actions | 8.126 | 0.330 | 0.639 | 0.847 | 14.10 |
+| 1 MiB multiline / group tabs | 7.169 | 0.317 | 0.889 | 1.017 | 14.16 |
+| 10 MiB multiline / source actions | 18.826 | 0.320 | 0.610 | 0.743 | 24.33 |
+| 10 MiB multiline / group tabs | 19.397 | 0.328 | 0.686 | 0.850 | 24.57 |
+| 1 MiB single line / source actions | 8.320 | 0.212 | 0.735 | 0.872 | 13.91 |
+| 1 MiB single line / group tabs | 7.911 | 0.217 | 0.599 | 0.817 | 14.14 |
+
+Multiline typing tails were higher in this run; single-line p95/p99 were lower.
+Startup and sampled RSS are mixed. These observations establish no overall
+speedup, causal regression or editor ranking. Five startup samples do not
+qualify startup tails; pooled keys are not independent launches, and sampled
+RSS is not peak memory. Frequency, temperature and host scheduling were
+uncontrolled on the Linux x86_64 i9-13900H/20-logical-CPU machine.
+
+Both binaries edit warm-cache ASCII plaintext at 120 × 40 cells with isolated
+settings/data, recovery disabled, no language server/extensions, and autosave,
+formatting and source actions off. Default file Breadcrumbs are enabled; the
+candidate also renders its one committed group tab. The Python PTY-cell oracle
+is included; physical input and graphical painting are excluded. These trials
+exercise one group, not multi-group churn, session restore, save contention,
+project indexing or extension-heavy workloads. Those need separate qualification.
+Native group/history/save integrity is qualified in [the group contract](EDITOR_GROUPS.md).
+
+Candidate executable SHA256:
+`f71b398da2dc6f7cba0f183f8f6f3321dc3d95115da4e29caa453eb9c66a7a3e`.
+Baseline executable SHA256:
+`9854399937ff375a57fe7c4952afa67a958b2287477a9f5ae7f4fdd7b278e2a0`.
+Raw reports preserve executable/fixture hashes, every trial and source revision.
+The comparison build predates the save-notice fixes; these trials issue no Save.
+
+```sh
+python3 scripts/bench_editor.py --vscli /path/to/group-tabs/vscli \
+  --compare-vscli /path/to/source-actions/vscli \
+  --sizes 10240 1048576 10485760 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-editor-group-tabs.json
+python3 scripts/bench_editor.py --vscli /path/to/group-tabs/vscli \
+  --compare-vscli /path/to/source-actions/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-editor-group-tabs-single-line.json
+```
