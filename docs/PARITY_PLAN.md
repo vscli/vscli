@@ -12,8 +12,9 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-Merged source extends through [PR #59](https://github.com/vscli/vscli/pull/59),
-which passed all six required platform checks.
+Merged source extends through [PR #64](https://github.com/vscli/vscli/pull/64),
+which passed all six required platform checks. Native source actions on save are
+under separate qualification.
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
@@ -149,7 +150,7 @@ The [usage guide](USAGE.md), [extension report](EXTENSIONS.md) and
 | Session continuity | Dirty-buffer crash recovery plus opt-in clean-file tabs, active tab, cursor/selection and visible-group restoration | Full hot exit, hidden historical tab/view state, workspace history/transitions, terminal restoration and broader failure/durability qualification |
 | Editing | Multi-cursor, selections, undo, line commands, literal find/replace and native C/C++/JSON smart-typing subset | Wrapping, folding, broader/extension language rules, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |
 | Snippets | Literal insertion, linked fields, variables, native catalogs and completion snippet/import transactions | Choices, nested insertion, extension insertion API and full transform semantics |
-| Settings and migration | Small settings subset, language overrides, copied-profile import and binding diagnostics | Autosave, format-on-save, indentation detection, excludes, EOL settings, editable settings UI, full profiles/workspace migration, extension inventory reconciliation |
+| Settings and migration | Language overrides, copied-profile import/binding diagnostics, lossless native scalar settings persistence, background Save/Save As, after-delay autosave and native file format-on-save; source-action candidate under qualification | Remaining save participants, full autosave/formatter modes, indentation detection, excludes, EOL settings, editable settings UI, full profiles/workspace migration, extension inventory reconciliation |
 | Themes and highlighting | Tree-sitter C/C++ and other families, mapped stable colors during typing, native JSONC/installed themes and persistent picker | TextMate grammar/scope semantics, font styles, semantic themes, more workbench colors, icon themes, embedded languages and grammars |
 | Extension packages | Native local VSIX/rollback, stable Open VSX search/download/explicit updates, scoped enablement and immutable selected generations | Dependency downloading and version solving, engine/ABI qualification, authenticated registries, profiles, package cleanup and automatic update policy |
 | Extension host | Optional shared CommonJS cohort, supported lazy activation/selected dependencies, hidden/shared document handles, curated commands and bounded Mementos | Broader activation/dependency APIs, filesystem/resource edits, full editor handles, secrets/sync/storage URIs, Windows descendant cleanup and engine/ABI qualification |
@@ -335,3 +336,18 @@ calendar claims before the work is qualified.
 - [Themes](https://code.visualstudio.com/docs/configure/themes) and [profiles](https://code.visualstudio.com/docs/configure/profiles)
 - [Settings Sync](https://code.visualstudio.com/docs/configure/settings-sync)
 - [Testing](https://code.visualstudio.com/docs/debugtest/testing) and [webview interfaces](https://code.visualstudio.com/api/extension-guides/webview)
+
+## Current priority 5 and next slice
+
+Lossless native settings persistence (PR #62), background saves/after-delay
+autosave (PR #63) and native format-on-save (PR #64) are merged with six successful
+checks each. The edit-only native source-action candidate compares fourteen
+pinned policy cases and six supported workflows/58 snapshots, with broader
+qualification recorded in [its scope document](CODE_ACTIONS_ON_SAVE.md).
+
+Priority 6 starts with independent ordered tabs in each of the existing four
+groups, exact global versus in-group navigation, membership-aware Close, and
+versioned restoration of historical group/tab views. Shared native document
+identity and dirty recovery remain authoritative. Deferred Save→Close must close
+its original group/model membership. Preview/pinned tabs, editor movement,
+resizing/nested layouts and workspace transitions follow that foundation.

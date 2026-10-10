@@ -115,3 +115,13 @@ This milestone does not establish full VS Code parity.
 ## Long workspace paths and visible save notices
 
 The save receipt now displays a workspace-relative path for ordinary in-workspace targets. The macOS PR64 failure saved the expected raw bytes but its absolute temporary path consumed the status row before the formatter-failure notice. The terminal fixture now exercises a deliberately long workspace path at its existing width, retaining exact-byte and committed didSave checks and requiring the complete failure notice. Fresh local and platform qualification remains required; outside-workspace paths and arbitrarily long notices still use the terminal display bounds.
+
+## Merged platform qualification
+
+PR #64 passed all six required checks for reviewed head
+`6ceac94b7c28038feaf0ee9abf4fdcb6e93435e3` in run 38032272972 and
+merged through protected main. Linux/macOS/Windows freshly captured the pinned
+reference and ran their native consumers; Linux/macOS also ran the terminal
+journeys. The deliberate long-workspace-path regression passed locally and on
+those terminal platforms. Earlier pending statements describe the historical
+candidate; later source-action participants need their own qualification.

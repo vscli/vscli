@@ -2,10 +2,13 @@
 
 Native command Save and Save As now use a background worker. Native autosave
 implements `files.autoSave = "off" | "afterDelay"`, including language scopes.
-Local integration, terminal and integrity checks pass; fresh platform CI is
-pending. This document does not establish full VS Code save parity.
+Local integration, terminal and integrity checks pass. PR #63 passed all six
+required checks, including Linux/macOS/Windows, before merging. This document
+does not establish full VS Code save parity.
 The original plan has been replaced with the implemented contract and remaining
-qualification work. Format-on-save and save-time code actions remain future work.
+qualification work. [Native format-on-save](FORMAT_ON_SAVE.md) merged in PR #64
+after all six required checks passed; [native source actions on save](CODE_ACTIONS_ON_SAVE.md)
+are a separately qualified implementation candidate.
 
 ## Implemented integration
 
@@ -125,9 +128,9 @@ Settings patches and ordinary native saves cooperate via the same canonical
 global one-worker claim across the two. Successful document commits force a
 fresh settings-loader read, including after a profile change.
 
-Format-on-save, source code actions on save, extension `onWillSave`/wait-until
-participants, recursive save arbitration, Save All, save reasons and dynamic
-LSP save-registration parity remain outstanding. Ordinary formatting and
+Extension `onWillSave`/wait-until participants, recursive save arbitration, Save
+All, save reasons and dynamic LSP save-registration parity remain outstanding.
+Native formatting and source-action participant scopes are documented separately. Ordinary formatting and
 workspace edits stay reviewable dirty edits; they do not implicitly save.
 Extension mirrors retain existing save-event coalescing semantics.
 
@@ -177,3 +180,13 @@ The PR63 Ubuntu rerun failed `modal_focus_change_rejects_offered_start_and_retry
 ### Suggestions terminal save-receipt readiness
 
 The third PR63 Ubuntu failure reached `suggestions_pty.py:30`, the explicit Ctrl+Space reopen after Save and Undo/Save, with `ans 🙂` and `Saved` visible but no popup. Its imported save helper waits only for matching disk bytes. Native commit visibility precedes receipt publication; the receipt changes Document.saved_revision, which is included in the completion Context and can invalidate a request made during that gap. Unchanged settings application and language-configuration refresh do not themselves change text_epoch or selections here. The local fixture wrapper preserves the original exact-byte save check and additionally waits for Saved with no current-file dirty marker before subsequent dependent Undo/completion gestures, using the existing wait_screen deadline and no target retry. This is a source-supported ordering explanation; the CI failure lacks an event trace proving that exact interleaving. The complete existing synthetic suite passed all six reported journeys against `/tmp/vscli-native-save-automation-release-benchmark`; the log is `/tmp/vscli-suggestions-save-receipt-pty.log`. This includes automatic Tab completion and explicit reopen, held-reply input integrity, the unchanged four-second 1200-key burst/save oracle, lazy import/snippet resolution and Undo, resolved documentation, and Escape rejecting late resolution. Fresh platform CI remains pending. Completion invoked while a save is actually in flight disappearing on a baseline-only receipt remains a separately testable product UX issue; this fixture correction does not weaken shared extension context proofs or claim that issue fixed.
+
+### Merged platform qualification
+
+PR #63 qualified reviewed head `d2c558f9b2fa4687e6a64c000e320fcb18e37ed1`
+with six successful checks in run 38031197585 before protected-main merge. The
+fixture corrections above are retained as historical evidence; their fresh
+platform requirement is satisfied for that head. PR #64 subsequently qualified
+head `6ceac94b7c28038feaf0ee9abf4fdcb6e93435e3` in run 38032272972,
+including the long-workspace-path notice regression, before its protected-main
+merge. Neither result qualifies later source-action changes automatically.

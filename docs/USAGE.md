@@ -62,10 +62,11 @@ delays and unsupported focus/window modes disable automation with a settings
 notice. Failed settings reloads pause autosave; repeated saves of the same failed
 snapshot are suppressed until explicit retry or new qualifying evidence.
 
-Format-on-save, save-time code actions, extension wait-until participants and
-Save All remain unsupported. The async-save/autosave runtime is implemented;
-local Rust, debug/release terminal and integrity checks pass; fresh platform CI
-qualification remains pending.
+Opt-in native [format-on-save](FORMAT_ON_SAVE.md) and edit-only
+[source actions on save](CODE_ACTIONS_ON_SAVE.md) run before background persistence.
+Extension wait-until participants and Save All remain unsupported. Async saves and
+after-delay autosave have passed the required Linux/macOS/Windows checks;
+qualification of each new participant is recorded separately.
 See [save ownership, settings, limits and qualification](SAVE_AUTOMATION_PLAN.md).
 
 C/C++ and JSON/JSONC now have native [smart typing](SMART_TYPING.md): bracket/quote
@@ -431,6 +432,14 @@ Settings reload in the background every two seconds. Malformed updates retain th
 
 Enable `"editor.formatOnSave": true`, optionally inside `[cpp]` or another language block, to format an ordinary named visible model with its native language server before Save. `editor.formatOnSaveMode` supports `"file"` only. After-delay autosave skips formatting. Missing formatters, formatter errors, unsupported targets/options and the 1500 ms native save deadline fall back to saving current bytes with a notice. Escape cancels pending formatting; a still-running canceled callback retains actual formatter capacity until its reply or server retirement. Valid formatting is a separate Undo step; null or unchanged results add none. See [behavior, integrity checks and outstanding qualification](FORMAT_ON_SAVE.md).
 
+Set `"editor.codeActionsOnSave": {"source.fixAll": "explicit", "source.organizeImports": "explicit"}`
+to run eligible native edits before formatting on an explicit Save. Object entries
+merge across settings scopes; language blocks apply. After-delay autosave skips
+source actions. This first participant supports direct/lazy origin-only edits,
+applies at most one mutating action per family, and skips command-bearing actions
+in full with a notice. Each valid edit has its own Undo stage. See
+[settings, cancellation, limits and qualification](CODE_ACTIONS_ON_SAVE.md).
+
 ## Native debugging
 
 Configure an installed stdio DAP adapter explicitly. For Python with `debugpy` installed in a chosen environment:
@@ -610,8 +619,10 @@ their own captured snapshot. LSP has no causal command identifier on `applyEdit`
 this boundary relies on the server attaching truthful document versions, and cannot
 prove which completed command produced a late callback. Document versions increase
 throughout a client session, including closing and reopening the same path. After an execute-command
-timeout, further commands and their callbacks are disabled until the language server
-restarts. Unsolicited, expired or stale edits are rejected and acknowledged
+timeout, further action requests and command callbacks remain fenced until its
+exact terminal reply or language-server retirement; late replies release capacity
+without authorizing edits. Closing the picker cancels only its own exact native
+request. Unsolicited, expired or stale edits are rejected and acknowledged
 to the server. Each accepted `applyEdit` is a separate transaction across its own
 targets; there is no whole-command rollback of earlier edits if a later callback
 fails. Undo remains per file. Only one action/resolve/command chain runs at once. Combined actions
