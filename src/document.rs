@@ -1159,12 +1159,21 @@ impl Document {
         self.save_to(&path, false)
     }
     pub fn save_to(&mut self, path: &Path, overwrite: bool) -> Result<()> {
+        self.save_to_with_before_persist(path, overwrite, |_| {})
+    }
+    fn save_to_with_before_persist(
+        &mut self,
+        path: &Path,
+        overwrite: bool,
+        before_persist: impl FnOnce(&Path),
+    ) -> Result<()> {
         let save_generation = self
             .save_generation
             .checked_add(1)
             .context("Document save generation exhausted")?;
         let path = absolute_path(path)?;
         let same_path = self.path.as_ref() == Some(&path);
+        let create_only = !overwrite && (!same_path || self.disk_content.is_none());
         if !overwrite {
             if same_path {
                 if !disk_matches(&path, self.disk_content.as_ref())? {
@@ -1188,9 +1197,16 @@ impl Document {
             writer.flush()?;
         }
         temp.as_file().sync_all()?;
-        temp.persist(&path)
-            .map_err(|e| e.error)
-            .context("Could not replace the destination file")?;
+        before_persist(&path);
+        if create_only {
+            temp.persist_noclobber(&path)
+                .map_err(|e| e.error)
+                .context("Could not create destination without replacing an existing file")?;
+        } else {
+            temp.persist(&path)
+                .map_err(|e| e.error)
+                .context("Could not replace the destination file")?;
+        }
         if !same_path {
             // Save As changes document semantics independently of Undo. A later
             // return to the old path cannot revive delimiter ownership.
@@ -1251,6 +1267,128 @@ fn map_position(p: usize, range: &Range<usize>, added: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn foreign_creation_after_save_check_preserves_save_as_and_newborn_model_history() {
+        for save_as in [true, false] {
+            let root = tempfile::tempdir().unwrap();
+            let source = root.path().join("source.cpp");
+            let destination = root.path().join("destination.cpp");
+            let original = "猫🙂 base\r\n";
+            fs::write(&source, original).unwrap();
+            let mut doc = Document::open(if save_as { &source } else { &destination }).unwrap();
+            let initial = doc.text.clone();
+            doc.insert("first ", false);
+            let once = doc.text.clone();
+            doc.insert("second ", false);
+            let twice = doc.text.clone();
+            doc.undo();
+            assert_eq!(doc.text, once);
+            doc.set_selections(vec![
+                Selection {
+                    cursor: 1,
+                    anchor: Some(0),
+                    desired_column: None,
+                },
+                Selection::caret(2),
+            ]);
+            let before = (
+                doc.id,
+                doc.path.clone(),
+                doc.revision,
+                doc.saved_revision,
+                doc.text_epoch(),
+                doc.save_generation(),
+                doc.next_revision,
+                doc.undo.len(),
+                doc.redo.len(),
+                doc.dirty(),
+            );
+            let selections = doc.selections();
+            let disk_content = doc.disk_content.clone();
+            let eol = doc.eol.clone();
+            let foreign = "foreign猫🙂\r\n";
+            let mut created = false;
+            let error = doc
+                .save_to_with_before_persist(&destination, false, |target| {
+                    assert_eq!(
+                        target,
+                        fs::canonicalize(root.path())
+                            .unwrap()
+                            .join("destination.cpp")
+                    );
+                    assert!(!target.exists());
+                    fs::write(target, foreign).unwrap();
+                    created = true;
+                })
+                .unwrap_err();
+            assert!(
+                created,
+                "conflict must occur after the original preflight check"
+            );
+            assert!(error.to_string().contains("without replacing"));
+            assert_eq!(fs::read(&destination).unwrap(), foreign.as_bytes());
+            assert_eq!(fs::read(&source).unwrap(), original.as_bytes());
+            assert_eq!(doc.text, once);
+            assert_eq!(doc.disk_content, disk_content);
+            assert_eq!(doc.eol, eol);
+            assert_eq!(doc.selections(), selections);
+            assert_eq!(
+                (
+                    doc.id,
+                    doc.path.clone(),
+                    doc.revision,
+                    doc.saved_revision,
+                    doc.text_epoch(),
+                    doc.save_generation(),
+                    doc.next_revision,
+                    doc.undo.len(),
+                    doc.redo.len(),
+                    doc.dirty()
+                ),
+                before
+            );
+            // Preserve both branches, including the redo entry existing at
+            // the time persistence failed, without creating a save history edit.
+            doc.redo();
+            assert_eq!(doc.text, twice);
+            doc.undo();
+            assert_eq!(doc.text, once);
+            doc.undo();
+            assert_eq!(doc.text, initial);
+            doc.redo();
+            assert_eq!(doc.text, once);
+            assert_eq!(doc.save_generation(), before.5);
+            assert_eq!(fs::read(&destination).unwrap(), foreign.as_bytes());
+            assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+        }
+    }
+    #[test]
+    fn explicit_overwrite_allows_foreign_creation_and_normal_save_replaces_its_baseline() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("saved.cpp");
+        let mut doc = Document::from_text("猫🙂\r\n");
+        doc.insert("first ", false);
+        let text = doc.text.clone();
+        doc.save_to_with_before_persist(&path, true, |target| {
+            fs::write(target, "foreign\r\n").unwrap();
+        })
+        .unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), text.to_string());
+        assert_eq!(doc.disk_content.as_ref(), Some(&text));
+        assert_eq!(doc.save_generation(), 1);
+        assert!(!doc.dirty());
+        doc.insert("second ", false);
+        let text = doc.text.clone();
+        doc.save().unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), text.to_string());
+        assert_eq!(doc.disk_content.as_ref(), Some(&text));
+        assert_eq!(doc.save_generation(), 2);
+        assert!(!doc.dirty());
+        doc.undo();
+        assert!(doc.dirty());
+        doc.redo();
+        assert!(!doc.dirty());
+    }
     #[test]
     fn successful_save_generation_is_independent_of_undo_and_failed_persistence() {
         let root = tempfile::tempdir().unwrap();
