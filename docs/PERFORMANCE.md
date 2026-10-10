@@ -497,3 +497,50 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/pr58/vscli \
   --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
   --output target/benchmarks/native-navigation-history-single-line.json
 ```
+
+
+## Native Outline core baseline: 2026-10-10
+
+The [ordinary-file run](benchmarks/2026-10-10-native-outline.json) and
+[single-line run](benchmarks/2026-10-10-native-outline-single-line.json) compare
+Outline source `d3b3736` with the preserved PR #59 native executable. Each row
+has five interleaved launches and 200 serial key samples. All 30 trials and
+1,200 keys passed. No build, test suite or reference editor ran concurrently.
+The machine was the same Linux x86_64 i9-13900H host, with 20 logical CPUs and
+120 × 40 terminal cells. CPU frequency, scheduling and thermal state were not
+controlled.
+
+| File / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS median MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / PR #59 | 7.186 | 0.318 | 0.880 | 0.993 | 12.29 |
+| 10 KiB multiline / Outline | 7.096 | 0.342 | 0.935 | 1.051 | 12.55 |
+| 1 MiB multiline / PR #59 | 7.789 | 0.308 | 0.677 | 0.801 | 13.54 |
+| 1 MiB multiline / Outline | 7.663 | 0.316 | 0.726 | 0.896 | 13.77 |
+| 1 MiB single line / PR #59 | 8.145 | 0.212 | 0.545 | 0.782 | 13.52 |
+| 1 MiB single line / Outline | 7.601 | 0.207 | 0.469 | 0.689 | 13.84 |
+
+Candidate key tails were higher for both multiline workloads and lower for the
+single-line workload. These mixed observations establish no overall speedup,
+causal regression or editor ranking. Five startup observations cannot establish
+startup tails. Sampled RSS is not peak memory; zero ticks in the 0.3-second idle
+windows do not establish sustained idle CPU behavior.
+
+This measures warm-cache ASCII plain-text editing with isolated configuration,
+no language server, extensions or recovery, and Outline disabled by default.
+It checks ordinary core editing after integration. It does **not** measure an
+active Outline, provider contention, large symbol trees, project indexing or
+physical terminal input-to-display latency. The Python cell oracle is included;
+graphical terminal painting and physical input are excluded. Real clangd and
+native/extension Outline correctness have separate tests, not latency claims.
+Executable and fixture hashes remain in both raw reports.
+
+Reproduce with a saved PR #59 release executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr59/vscli \
+  --sizes 10240 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/native-outline.json
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr59/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/native-outline-single-line.json
+```

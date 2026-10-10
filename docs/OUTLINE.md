@@ -80,8 +80,12 @@ and unsupported-state Escape back to the existing editor. The named actual
 UTF-16 identifier-start reveal and dirty-buffer preservation.
 
 The existing 35 terminal workflows also passed against the fresh debug binary.
-Optimized terminal workflows, Outline performance measurements and fresh platform CI remain pending. Named
-local successes do not establish every provider, project or terminal behavior.
+All three Outline terminal journeys also passed with the optimized executable.
+The [published core benchmarks](PERFORMANCE.md#native-outline-core-baseline-2026-10-10)
+record 30 successful trials and mixed latency observations with Outline disabled;
+they do not measure active symbol-provider performance or establish a speed ranking.
+Fresh platform CI remains pending. Named local successes do not establish every
+provider, project or terminal behavior.
 
 An actual pinned VS Code **1.95.0**, commit
 `912bb683695358a54ae0c670461738984cbb5b95`, capture observed two named synthetic
