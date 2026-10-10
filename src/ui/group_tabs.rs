@@ -48,12 +48,23 @@ struct Label {
     dirty: bool,
     active: bool,
     preview: bool,
+    sticky: bool,
 }
 impl Label {
     fn width(&self) -> usize {
-        (display_width(&self.text) + if self.dirty { 4 } else { 2 }).min(TAB_CELLS)
+        (display_width(&self.text)
+            + if self.dirty { 4 } else { 2 }
+            + if self.sticky { 2 } else { 0 })
+        .min(TAB_CELLS)
     }
     fn fit(&self, width: usize) -> String {
+        if self.sticky && width < 4 {
+            return if width > 0 {
+                "◆".into()
+            } else {
+                String::new()
+            };
+        }
         if width <= 2 {
             let text = breadcrumb_label(&self.text, width);
             return if text.is_empty() && width > 0 {
@@ -62,14 +73,19 @@ impl Label {
                 text
             };
         }
-        let dirty = self.dirty && width >= 5;
-        let budget = width - 2 - if dirty { 2 } else { 0 };
+        let sticky_width = if self.sticky { 2 } else { 0 };
+        let dirty = self.dirty && width >= 5 + sticky_width;
+        let budget = width - 2 - sticky_width - if dirty { 2 } else { 0 };
         let mut text = breadcrumb_label(&self.text, budget);
         if display_width(&self.text) > budget && budget > 0 {
             text = breadcrumb_label(&self.text, budget - 1);
             text.push('…');
         }
-        format!(" {text}{} ", if dirty { " ●" } else { "" })
+        format!(
+            " {}{text}{} ",
+            if self.sticky { "◆ " } else { "" },
+            if dirty { " ●" } else { "" }
+        )
     }
 }
 
@@ -109,6 +125,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect, pane: u64, inde
                 dirty: doc.dirty(),
                 active: Some(tab.id()) == active,
                 preview: tab.is_preview(),
+                sticky: tab.is_sticky(),
             })
         })
         .collect();
@@ -349,5 +366,169 @@ mod tests {
         tiny.draw(|frame| super::super::draw(frame, &mut app))
             .unwrap();
         assert!(app.tab_hits.is_empty());
+    }
+
+    #[test]
+    fn sticky_marker_is_bounded_observational_and_retires_previous_hit_proofs() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        assert_eq!(app.context()["activeEditorIsPinned"], Value::Bool(false));
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().path = Some(root.path().join(format!("猫🙂-{}.cpp", "long".repeat(80))));
+        app.doc_mut().insert("猫🙂\r\nbody", false);
+        app.doc_mut().move_to(1, false);
+        app.sync_pane();
+        let member = app.editor_groups().active_membership().unwrap();
+        let old_proof = app.editor_groups().proof();
+        let id = app.doc().id;
+        let revision = app.doc().revision;
+        let epoch = app.doc().text_epoch();
+        let saved = app.doc().save_generation();
+        let text = app.doc().text.to_string();
+        app.execute("workbench.action.pinEditor", Value::Null);
+        assert!(app.active_editor_is_sticky());
+        assert_eq!(app.context()["activeEditorIsPinned"], Value::Bool(true));
+        assert!(!app.editor_groups().proof_current(&old_proof));
+        assert_eq!(app.editor_groups().active_membership(), Some(member));
+        let sticky_proof = app.editor_groups().proof();
+        let mut old_hit = None;
+        for width in [1, 2, 3, 4, 7, 12, 28, 40, 80] {
+            app.tab_hits.clear();
+            let mut terminal = Terminal::new(TestBackend::new(width, 1)).unwrap();
+            terminal
+                .draw(|frame| {
+                    draw(
+                        frame,
+                        &mut app,
+                        Rect::new(0, 0, width, 1),
+                        member.group.value(),
+                        0,
+                    )
+                })
+                .unwrap();
+            let hit = app
+                .tab_hits
+                .iter()
+                .find(|hit| hit.membership == member)
+                .unwrap();
+            assert!(hit.area.width > 0);
+            assert_eq!(hit.area.intersection(Rect::new(0, 0, width, 1)), hit.area);
+            assert_eq!(hit.proof, sticky_proof);
+            let cells = &terminal.backend().buffer().content;
+            assert!(cells.iter().any(|cell| cell.symbol() == "◆"));
+            if width >= 7 {
+                assert!(cells.iter().any(|cell| cell.symbol() == "●"));
+            }
+            old_hit = Some(hit.clone());
+            assert_eq!(app.doc().id, id);
+            assert_eq!(app.doc().revision, revision);
+            assert_eq!(app.doc().text_epoch(), epoch);
+            assert_eq!(app.doc().save_generation(), saved);
+            assert_eq!(app.doc().cursor, 1);
+            assert_eq!(app.doc().text.to_string(), text);
+            assert_eq!(app.editor_groups().proof(), sticky_proof);
+        }
+        app.execute("workbench.action.unpinEditor", Value::Null);
+        assert!(!app.active_editor_is_sticky());
+        assert!(!app.editor_groups().proof_current(&sticky_proof));
+        let current_proof = app.editor_groups().proof();
+        let hit = old_hit.unwrap();
+        app.tab_hits = vec![hit.clone()];
+        app.event(crossterm::event::Event::Mouse(
+            crossterm::event::MouseEvent {
+                kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+                column: hit.area.x,
+                row: hit.area.y,
+                modifiers: crossterm::event::KeyModifiers::NONE,
+            },
+        ));
+        assert!(app.message.contains("Editor tabs changed"));
+        assert_eq!(app.editor_groups().active_membership(), Some(member));
+        assert_eq!(app.editor_groups().proof(), current_proof);
+        app.tab_hits.clear();
+        let mut terminal = Terminal::new(TestBackend::new(80, 1)).unwrap();
+        terminal
+            .draw(|frame| {
+                draw(
+                    frame,
+                    &mut app,
+                    Rect::new(0, 0, 80, 1),
+                    member.group.value(),
+                    0,
+                )
+            })
+            .unwrap();
+        assert!(
+            !terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .any(|cell| cell.symbol() == "◆")
+        );
+        app.doc_mut().undo();
+        assert!(app.doc().is_empty());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), text);
+        assert!(!app.doc().path.as_ref().unwrap().exists());
+    }
+
+    #[test]
+    fn sticky_membership_marker_does_not_pin_a_shared_split_or_change_views() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("猫🙂\r\nbody", false);
+        app.doc_mut().move_to(1, false);
+        app.execute("workbench.action.pinEditor", Value::Null);
+        let source = app.editor_groups().active_membership().unwrap();
+        app.execute("workbench.action.splitEditor", Value::Null);
+        let destination = app.editor_groups().active_membership().unwrap();
+        assert_ne!(source.group, destination.group);
+        assert_eq!(source.document, destination.document);
+        assert!(!app.active_editor_is_sticky());
+        app.doc_mut().move_to(6, false);
+        let proof = app.editor_groups().proof();
+        let epoch = app.doc().text_epoch();
+        let revision = app.doc().revision;
+        for (member, expected) in [(source, true), (destination, false)] {
+            app.tab_hits.clear();
+            let mut terminal = Terminal::new(TestBackend::new(60, 1)).unwrap();
+            terminal
+                .draw(|frame| {
+                    draw(
+                        frame,
+                        &mut app,
+                        Rect::new(0, 0, 60, 1),
+                        member.group.value(),
+                        0,
+                    )
+                })
+                .unwrap();
+            assert_eq!(
+                terminal
+                    .backend()
+                    .buffer()
+                    .content
+                    .iter()
+                    .any(|cell| cell.symbol() == "◆"),
+                expected
+            );
+            assert_eq!(app.tab_hits.len(), 1);
+            assert_eq!(app.tab_hits[0].membership, member);
+            assert_eq!(app.editor_groups().proof(), proof);
+        }
+        assert_eq!(app.doc().view_state(Some(source.group.value())).cursor, 1);
+        assert_eq!(
+            app.doc().view_state(Some(destination.group.value())).cursor,
+            6
+        );
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert_eq!(app.doc().revision, revision);
+        app.doc_mut().undo();
+        assert!(app.doc().is_empty());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "猫🙂\r\nbody");
+        assert!(!root.path().join("Untitled").exists());
     }
 }

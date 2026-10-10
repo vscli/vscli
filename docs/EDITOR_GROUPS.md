@@ -274,8 +274,10 @@ The engine now supports a bounded sticky prefix, exact pin/unpin ordering,
 committed split destinations, local and global nonsticky membership MRU, and
 atomic captured nonsticky close subsets. Pin/unpin preserves native shared
 identity and historical views. Original nonsticky transitions remain covered.
-User command dispatch, sticky styling and close-policy integration are separate
-App work; this engine foundation alone is not shipped sticky-tab UX.
+The App integrates original pin/unpin commands, native markers and captured
+close-policy ownership. Its local qualification is recorded in
+[the sticky contract](STICKY_TABS.md); platform checks and optimized evidence are
+separate gates.
 
 MRU storage can refuse admission recoverably. Untitled creation, loaded history
 navigation, Problems reveal and loaded native rename targets now admit their

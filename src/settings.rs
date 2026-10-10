@@ -99,6 +99,32 @@ impl Default for Breadcrumbs {
         }
     }
 }
+/// Workbench close policy; language overrides cannot change this policy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PreventPinnedEditorClose {
+    Never,
+    #[default]
+    KeyboardAndMouse,
+    Mouse,
+    Keyboard,
+}
+impl PreventPinnedEditorClose {
+    fn parse(value: &Value) -> Option<Self> {
+        match value.as_str()? {
+            "never" => Some(Self::Never),
+            "keyboardAndMouse" => Some(Self::KeyboardAndMouse),
+            "mouse" => Some(Self::Mouse),
+            "keyboard" => Some(Self::Keyboard),
+            _ => None,
+        }
+    }
+    pub fn protects_keyboard(self) -> bool {
+        matches!(self, Self::KeyboardAndMouse | Self::Keyboard)
+    }
+    pub fn protects_mouse(self) -> bool {
+        matches!(self, Self::KeyboardAndMouse | Self::Mouse)
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EditorPreview {
     pub enabled: bool,
@@ -270,6 +296,7 @@ const SUPPORTED: &[&str] = &[
     "workbench.colorTheme",
     "workbench.editor.enablePreview",
     "workbench.editor.enablePreviewFromQuickOpen",
+    "workbench.editor.preventPinnedEditorClose",
     "vscli.languageServer.enabled",
     "vscli.languageServer.program",
     "vscli.languageServer.args",
@@ -342,6 +369,18 @@ impl Settings {
             from_quick_open: root_bool("workbench.editor.enablePreviewFromQuickOpen", false),
         }
     }
+    /// Highest valid root layer wins; invalid values preserve lower policy.
+    pub fn prevent_pinned_editor_close(&self) -> PreventPinnedEditorClose {
+        self.layers
+            .iter()
+            .rev()
+            .find_map(|layer| {
+                layer
+                    .get("workbench.editor.preventPinnedEditorClose")
+                    .and_then(PreventPinnedEditorClose::parse)
+            })
+            .unwrap_or_default()
+    }
     pub fn color_theme(&self) -> Option<&str> {
         self.layers
             .iter()
@@ -370,6 +409,7 @@ impl Settings {
                     key.as_str(),
                     "workbench.editor.enablePreview"
                         | "workbench.editor.enablePreviewFromQuickOpen"
+                        | "workbench.editor.preventPinnedEditorClose"
                 )
             {
                 self.warnings.push(format!(
@@ -946,6 +986,9 @@ fn valid(key: &str, value: &Value) -> bool {
         "files.autoSaveDelay" => value
             .as_u64()
             .is_some_and(|delay| delay <= crate::autosave::MAX_DELAY_MS.into()),
+        "workbench.editor.preventPinnedEditorClose" => {
+            PreventPinnedEditorClose::parse(value).is_some()
+        }
         "workbench.colorTheme" => value.is_string(),
         "workbench.editor.enablePreview" | "workbench.editor.enablePreviewFromQuickOpen" => {
             value.is_boolean()
@@ -2444,5 +2487,113 @@ mod editor_preview_tests {
             settings.extension_layers()[1]["workbench.editor.enablePreview"],
             json!("true")
         );
+    }
+}
+
+#[cfg(test)]
+mod sticky_close_policy_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn original_close_policy_values_have_distinct_keyboard_and_mouse_semantics() {
+        assert_eq!(
+            Settings::default().prevent_pinned_editor_close(),
+            PreventPinnedEditorClose::KeyboardAndMouse
+        );
+        for (text, policy, keyboard, mouse) in [
+            (
+                "keyboardAndMouse",
+                PreventPinnedEditorClose::KeyboardAndMouse,
+                true,
+                true,
+            ),
+            ("never", PreventPinnedEditorClose::Never, false, false),
+            ("mouse", PreventPinnedEditorClose::Mouse, false, true),
+            ("keyboard", PreventPinnedEditorClose::Keyboard, true, false),
+        ] {
+            let settings = Settings::from_values(
+                json!({"workbench.editor.preventPinnedEditorClose":text})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                "fixture",
+            )
+            .unwrap();
+            assert_eq!(settings.prevent_pinned_editor_close(), policy);
+            assert_eq!(policy.protects_keyboard(), keyboard);
+            assert_eq!(policy.protects_mouse(), mouse);
+            assert!(settings.warnings.is_empty());
+        }
+    }
+    #[test]
+    fn sticky_root_precedence_ignores_language_overrides_without_rewriting_imports() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        let original = "// imported 猫🙂\r\n{\r\n\"workbench.editor.preventPinnedEditorClose\":\"mouse\",\r\n\"[cpp]\":{\"workbench.editor.preventPinnedEditorClose\":\"never\"},\r\n}\r\n";
+        std::fs::write(&user, original).unwrap();
+        std::fs::write(&workspace, r#"{"workbench.editor.preventPinnedEditorClose":"keyboard","[cpp][rust]":{"workbench.editor.preventPinnedEditorClose":"never"},"[rust]":{"workbench.editor.preventPinnedEditorClose":"mouse"}}"#).unwrap();
+        let settings = Settings::load_editor(&[user.clone(), workspace]).unwrap();
+        assert_eq!(
+            settings.prevent_pinned_editor_close(),
+            PreventPinnedEditorClose::Keyboard
+        );
+        assert_eq!(
+            settings.extension_layers()[0]["[cpp]"]["workbench.editor.preventPinnedEditorClose"],
+            "never"
+        );
+        assert_eq!(
+            settings.extension_layers()[1]["[cpp][rust]"]["workbench.editor.preventPinnedEditorClose"],
+            "never"
+        );
+        assert_eq!(
+            settings
+                .warnings
+                .iter()
+                .filter(|warning| warning.contains("language override ignored"))
+                .count(),
+            3
+        );
+        assert_eq!(std::fs::read(user).unwrap(), original.as_bytes());
+    }
+    #[test]
+    fn malformed_higher_close_policy_preserves_valid_lower_value_and_warns() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(
+            &user,
+            r#"{"workbench.editor.preventPinnedEditorClose":"never"}"#,
+        )
+        .unwrap();
+        for invalid in [
+            Value::Null,
+            json!(true),
+            json!([]),
+            json!(0),
+            json!("Keyboard"),
+            json!("mouse "),
+        ] {
+            std::fs::write(
+                &workspace,
+                serde_json::to_vec(&json!({"workbench.editor.preventPinnedEditorClose":invalid}))
+                    .unwrap(),
+            )
+            .unwrap();
+            let settings = Settings::load_editor(&[user.clone(), workspace.clone()]).unwrap();
+            assert_eq!(
+                settings.prevent_pinned_editor_close(),
+                PreventPinnedEditorClose::Never
+            );
+            assert_eq!(settings.warnings.len(), 1);
+            assert!(
+                settings.warnings[0]
+                    .contains("invalid value for workbench.editor.preventPinnedEditorClose")
+            );
+            assert_eq!(
+                settings.extension_layers()[1]["workbench.editor.preventPinnedEditorClose"],
+                invalid
+            );
+        }
     }
 }
