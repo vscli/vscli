@@ -7,6 +7,7 @@ pub mod document;
 pub mod editing_profile;
 pub mod editor_groups;
 pub mod editor_layout;
+pub mod editor_presentation;
 pub mod extension_activation;
 pub mod extension_providers;
 pub mod extension_registry;

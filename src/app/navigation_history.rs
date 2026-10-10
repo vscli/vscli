@@ -872,9 +872,13 @@ impl App {
         let change = if self.group_fallback {
             None
         } else if let Some(group) = target_group {
-            Some(self.editor_groups.open_in_group(group, document)?)
+            Some(self.open_editor_in_group(group, document)?)
         } else {
-            Some(self.editor_groups.open(document)?)
+            Some(self.open_editor_group(
+                document,
+                crate::editor_groups::OpenMode::Committed,
+                None,
+            )?)
         };
         Ok(change)
     }

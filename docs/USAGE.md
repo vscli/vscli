@@ -235,7 +235,7 @@ Line move/copy commands preserve disjoint selections and undo together. Cursor c
 
 ## Split editors
 
-Ctrl+\ / Cmd+\ splits the editor to the right. F1 → View: Split Editor Down creates a vertical layout. Ctrl+1 through Ctrl+4 (Cmd on macOS) focus existing groups; clicking an editor area focuses it. Each group has independent cursor/selection and scroll state, while edits, undo history, save state, and language synchronization belong to the shared document. Closing one of several views of a dirty document retains the buffer; closing its last view still asks about saving.
+Ctrl+\ / Cmd+\ splits the selected editor group to the right. F1 → View: Split Editor Down splits that group into two stacked groups; existing branches retain their layout. Ctrl+1 through Ctrl+4 (Cmd on macOS) focus existing groups; current drawn tab/text targets focus their exact group membership. Each group has independent cursor/selection and scroll state, while edits, undo history, save state, and language synchronization belong to the shared document. Closing one of several views of a dirty document retains the buffer; closing its last view still asks about saving.
 
 Each group now has its own ordered committed tabs. Opening a file adds it directly
 right of the current tab in the current group, or focuses its existing membership
@@ -251,7 +251,24 @@ original tab even if it became inactive, and cannot close a reopened replacement
 See [editor-group bounds, restoration and remaining scope](EDITOR_GROUPS.md).
 
 
-This first implementation supports up to four equal-sized groups in one horizontal or vertical layout. Nested/resizable groups, separate tab stacks per group, and restoring pane layout after restart remain incomplete. Undo position changes are tracked across views; inactive viewport rows are not yet anchored to text across line insertions.
+The current candidate supports up to four nested groups. F1 → View: Increase/Decrease
+Current View Width changes the selected group by four terminal columns; the Height
+commands use two rows, bounded by available space. View: Reset Editor Group Sizes
+resets sibling ratios. These original command IDs have no invented resize shortcuts.
+A palette resize may wait once for the next editor repaint. Mouse divider dragging,
+left/up splits, presets, merge/maximize and full spatial focus remain unsupported.
+The legacy View: Close Editor Group label runs Close Editors in Group; the distinct
+upstream Close Group command is not implemented.
+
+Very small editor areas project only the active group; the tree and shared models
+remain retained. Whole-screen tiny mode and covered frames grant no stale source
+hits. Recovery beyond group capacity shows its authoritative buffer for keyboard
+editing/navigation with pointer targets disabled; Save still requires at most 128
+retained models. Existing clean-session schema 2 restores a flat orientation, not
+mixed topology or resized ratios; schema 3 is pending. See [layout implementation,
+evidence and remaining qualification](EDITOR_LAYOUT.md). Undo position changes are
+tracked across views; inactive viewport rows are not yet anchored to text across
+line insertions.
 
 ## Workspace search
 
@@ -810,7 +827,7 @@ vscli --workspace ./project --no-session
 ```
 
 `--restore-session` reopens the previous inactive instance's clean file-backed tabs,
-ordered tabs in each group, active tab and group, split direction, per-group tab
+ordered tabs in each group, active tab and group, a flat split direction, per-group tab
 recency, and each membership's independent cursor/selections and scroll positions,
 including inactive historical tabs. Explicit
 file arguments take precedence and suppress startup restoration. F1 → **File:
@@ -849,14 +866,19 @@ worker retains the slot lease. Other instances cannot claim that live lease.
 
 Schema 2 stores a unique clean-file table and per-group membership views. Existing
 schema-1 layouts remain readable and are replaced only after successful atomic
-publication. No live model/group/tab identifiers are trusted from disk.
+publication. No live model/group/tab identifiers are trusted from disk. Mixed nested
+topology and resized ratios are not stored by schema 2; their strict schema-3
+integration remains pending.
 
-Limits: 32 distinct clean files, four equal groups, 128 tabs per group and selections per view, 1 MiB metadata,
+Limits: 32 distinct clean files, four groups, 128 tabs per group and selections per view, 1 MiB metadata,
 4 KiB per path, 32 MiB per file, and 128 MiB combined restored file data. Unsupported
 state produces a notice rather than silent truncation. Recovery that exceeds the
 available group-tab capacity retains all models in the legacy workbench with a
-layout-unavailable notice. Clean preview memberships restore committed; transient
-preview modes are not persisted. Nested/resizable groups, sticky/pinned tabs, terminal
+layout-unavailable notice and keyboard-editable active recovery view; source/tab
+pointer targets are disabled there. Native Save still refuses more than 128 retained
+models without dropping work or changing disk. Clean preview memberships restore
+committed; transient preview modes are not persisted. Nested/resized layout
+persistence, sticky/pinned mode persistence, terminal
 reconnection, extension state, recent-workspace switching, and full VS Code session
 parity remain outside this slice.
 

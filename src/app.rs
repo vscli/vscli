@@ -3,6 +3,7 @@ mod breadcrumbs;
 mod code_actions;
 mod completion_edits;
 mod debugger;
+mod editor_layout;
 mod extension_activation;
 mod extension_management;
 mod extension_prompts;
@@ -202,6 +203,26 @@ pub const COMMANDS: &[(&str, &str)] = &[
     (
         "View: Split Editor Down",
         "workbench.action.splitEditorDown",
+    ),
+    (
+        "View: Increase Current View Width",
+        "workbench.action.increaseViewWidth",
+    ),
+    (
+        "View: Decrease Current View Width",
+        "workbench.action.decreaseViewWidth",
+    ),
+    (
+        "View: Increase Current View Height",
+        "workbench.action.increaseViewHeight",
+    ),
+    (
+        "View: Decrease Current View Height",
+        "workbench.action.decreaseViewHeight",
+    ),
+    (
+        "View: Reset Editor Group Sizes",
+        "workbench.action.evenEditorWidths",
     ),
     (
         "View: Focus Next Editor Group",
@@ -502,6 +523,10 @@ pub struct App {
     pub horizontal_split: bool,
     next_pane_id: u64,
     editor_groups: crate::editor_groups::Groups,
+    editor_layout: crate::editor_layout::Layout,
+    pub(crate) editor_presentation: crate::editor_presentation::Presentation,
+    editor_geometry_inputs: Option<editor_layout::GeometryInputs>,
+    pending_editor_resize: Option<editor_layout::PendingResize>,
     group_fallback: bool,
     preview_tabs: preview_tabs::State,
     preview_admission_failed: bool,
@@ -610,6 +635,10 @@ impl App {
             horizontal_split: false,
             next_pane_id: 2,
             editor_groups: crate::editor_groups::Groups::default(),
+            editor_layout: crate::editor_layout::Layout::default(),
+            editor_presentation: crate::editor_presentation::Presentation::default(),
+            editor_geometry_inputs: None,
+            pending_editor_resize: None,
             group_fallback: false,
             preview_tabs: preview_tabs::State::default(),
             preview_admission_failed: false,
@@ -704,6 +733,7 @@ impl App {
         }
     }
     pub fn poll(&mut self) -> bool {
+        self.observe_editor_geometry();
         let actions_changed = self.poll_code_actions();
         let brand_changed = self.welcome_brand.poll();
         let invalidated = self.poll_signature();
@@ -806,6 +836,8 @@ impl App {
         self.observe_navigation(navigation_history::Reason::Ordinary);
         changed |= self.poll_outline();
         changed |= self.poll_breadcrumbs();
+        changed |= self.observe_editor_geometry();
+        changed |= self.poll_editor_resize();
         changed
     }
     pub fn recovery_documents(&self) -> Vec<&Document> {
@@ -913,7 +945,11 @@ impl App {
             intent.validate(&self.documents[index])?;
             self.can_admit_editor(self.documents[index].id)?;
             if !self.group_fallback {
-                let change = self.editor_groups.open(self.documents[index].id)?;
+                let change = self.open_editor_group(
+                    self.documents[index].id,
+                    crate::editor_groups::OpenMode::Committed,
+                    None,
+                )?;
                 self.apply_group_change(change);
             }
             self.cancel_navigation();
@@ -1004,6 +1040,7 @@ impl App {
         Ok(())
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
+        self.invalidate_editor_presentation();
         if self
             .prompt
             .as_ref()
@@ -1213,6 +1250,7 @@ impl App {
     }
 
     pub fn event(&mut self, event: Event) {
+        self.observe_editor_geometry();
         self.breadcrumbs_ui_event(&event);
         self.observe_navigation(navigation_history::Reason::Ordinary);
         if matches!(&event, Event::Paste(_))
@@ -1243,10 +1281,12 @@ impl App {
         self.observe_suggestion_edit(suggestion_edit);
         self.observe_signature_edit(signature_edit);
         self.refresh_signature();
+        self.observe_editor_geometry();
     }
     fn event_inner(&mut self, event: Event) {
         match event {
             Event::Resize(_, _) => {
+                self.invalidate_editor_presentation();
                 self.tab_hits.clear();
                 self.welcome_actions.clear();
                 self.welcome_brand.resize();
@@ -1291,6 +1331,15 @@ impl App {
                     return;
                 }
                 let p = ratatui::layout::Position::new(mouse.column, mouse.row);
+                let geometry_current = !self.group_fallback && self.editor_geometry_current();
+                if !self.group_fallback
+                    && geometry_current
+                    && self.editor_presentation.divider_at(p).is_some()
+                {
+                    self.message =
+                        "Divider dragging is not implemented; use editor resize commands".into();
+                    return;
+                }
                 if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
                     && let Some(hit) = self
                         .tab_hits
@@ -1298,7 +1347,8 @@ impl App {
                         .find(|hit| hit.area.contains(p))
                         .cloned()
                 {
-                    if !self.editor_groups.proof_current(&hit.proof)
+                    if !geometry_current
+                        || !self.editor_groups.proof_current(&hit.proof)
                         || !self.editor_groups.membership_current(hit.membership)
                     {
                         self.message = "Editor tabs changed; choose the current tab".into();
@@ -1307,7 +1357,8 @@ impl App {
                     }
                     return;
                 }
-                if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+                if geometry_current
+                    && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
                     && (self.breadcrumbs_area.contains(p)
                         || self.breadcrumbs_picker_area.contains(p))
                 {
@@ -1368,18 +1419,39 @@ impl App {
                     }
                     return;
                 }
-                if let Some(index) = self.pane_areas.iter().position(|area| area.contains(p)) {
-                    self.focus_pane(index);
-                    self.editor_area = self.pane_areas[index];
+                if matches!(mouse.kind, MouseEventKind::Moved | MouseEventKind::Up(_)) {
+                    return;
                 }
-                if self.active_document().is_some() && self.editor_area.contains(p) {
+                // A header/divider/gutter is never interpreted as source text.
+                // Capture the original drawn text rectangle before our own
+                // accepted focus transition retires the presentation proof.
+                let pane = geometry_current
+                    .then(|| self.editor_presentation.pane_at(p))
+                    .flatten();
+                let text_area = if self.group_fallback {
+                    // Recovery overflow has no native membership/geometry seal.
+                    // Its displayed active buffer remains keyboard editable;
+                    // no ordinal or raw editor rectangle authorizes pointers.
+                    None
+                } else if let Some(pane) = pane {
+                    if !pane.text.contains(p) {
+                        return;
+                    }
+                    if let Err(error) = self.focus_tab(pane.membership) {
+                        self.message = format!("Editor focus rejected: {error:#}");
+                        return;
+                    }
+                    Some(pane.text)
+                } else {
+                    None
+                };
+                if let Some(text_area) = text_area.filter(|_| self.active_document().is_some()) {
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left)
                         | MouseEventKind::Drag(MouseButton::Left) => {
                             self.focus = Focus::Editor;
-                            let row = self.doc().top + (mouse.row - self.editor_area.y) as usize;
-                            let col =
-                                self.doc().left + (mouse.column - self.editor_area.x) as usize;
+                            let row = self.doc().top + (mouse.row - text_area.y) as usize;
+                            let col = self.doc().left + (mouse.column - text_area.x) as usize;
                             let pos = self.doc().position_at(row, col);
                             if mouse.modifiers.contains(KeyModifiers::ALT)
                                 && matches!(mouse.kind, MouseEventKind::Down(_))
@@ -1394,12 +1466,8 @@ impl App {
                                     || mouse.modifiers.contains(KeyModifiers::SHIFT),
                             );
                         }
-                        MouseEventKind::ScrollDown => {
-                            self.doc_mut().vertical(3, false);
-                        }
-                        MouseEventKind::ScrollUp => {
-                            self.doc_mut().vertical(-3, false);
-                        }
+                        MouseEventKind::ScrollDown => self.doc_mut().vertical(3, false),
+                        MouseEventKind::ScrollUp => self.doc_mut().vertical(-3, false),
                         _ => {}
                     }
                 } else if self.outline_area.contains(p)
@@ -1561,6 +1629,10 @@ impl App {
         self.execute_with_args(command, (!args.is_null()).then_some(args));
     }
     fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
+        self.observe_editor_geometry();
+        if self.execute_editor_layout_command(command) {
+            return;
+        }
         self.breadcrumbs_ui_command(command);
         let history_travel = matches!(
             command,
@@ -1585,6 +1657,7 @@ impl App {
         self.invalidate_pending_extension_commands();
         self.observe_suggestion_edit(suggestion_edit);
         self.observe_signature_edit(signature_edit);
+        self.observe_editor_geometry();
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
         self.advance_signature_interaction(command);
