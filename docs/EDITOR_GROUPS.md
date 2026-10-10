@@ -170,16 +170,28 @@ close policies, multi-workspace/hot-exit continuity and terminal persistence.
 This slice does not establish complete VS Code editor-group or workspace parity.
 
 
-## Preview engine preparation
+## Preview engine and reference qualification
 
-The native membership engine also supports explicit preview/committed admission,
+The native membership engine supports explicit preview/committed admission,
 exact authorized replacement, Keep Editor and permanent promotion of every
 preview of an edited shared document. Admissions preflight capacities, fresh tab
 identity and checked counters before replacing or promoting a membership. A split
-keeps the source mode and creates a committed destination. This library slice
-does not yet enable preview callers or styling in the App; ordinary editor opens
-remain committed. Sticky ordering and preview session persistence remain pending.
-The new actual pinned reference contains11 cases and86 frames, including two
-sticky cases reserved for a later slice. The21 engine tests, formatting and strict all-target locked Clippy pass.
-Native replay and App/terminal qualification will be recorded separately when
-executed.
+keeps the source mode and creates a committed destination. App callers and styling
+are qualified in the next integrated slice; ordinary opens remain committed in
+this engine/reference milestone. Sticky ordering and preview session persistence
+remain pending.
+
+The new actual pinned reference contains 11 cases and 86 frames. The strict
+consumer verifies every raw frame and compares all 68 frames of the nine supported
+preview/committed cases. The two sticky cases (18 frames) remain verified raw
+evidence and are excluded explicitly by name. All 21 engine tests, seven consumer
+integrity/replay tests, formatting and strict all-target locked Clippy pass.
+Both unchanged frozen and fresh Linux captures pass native replay. Public version
+and object allocation remain raw evidence outside the native comparison. The
+capture records a product.json hash; it does not contain an executable hash.
+
+Untitled public-document dirty state and tab cleanliness are compared separately.
+After typing then Undo to empty, the captured document stays dirty while its tab
+is clean. Native API snapshots now preserve that distinction without changing
+revision-based tab/close decisions or Undo/Redo. See the
+[reference contract](../tests/vscode-reference/editor-preview-tabs.README.md).

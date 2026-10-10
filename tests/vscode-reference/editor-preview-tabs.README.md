@@ -2,9 +2,11 @@
 
 This standalone observer captures unchanged VS Code **1.95.0**, product commit
 `912bb683695358a54ae0c670461738984cbb5b95`. The actual Linux run passed **11 cases /
-86 public snapshots** in 37.929 seconds. Native preview/sticky implementation,
-consumer comparison and fresh platform qualification remain separate and pending.
-The existing native group feature still uses committed tabs.
+86 public snapshots** in 37.929 seconds. The native membership engine and strict consumer now compare nine supported
+preview/committed cases (68 frames); seven integrity/replay tests and frozen/fresh
+Linux comparisons pass. App/terminal integration and fresh platform qualification
+remain separate. Sticky behavior is pending; its two actual cases (18 frames)
+remain fully verified raw evidence.
 
 ```sh
 cd tests/vscode-reference
@@ -109,3 +111,29 @@ placement, sticky close-prevention policies, preview settings reconfiguration,
 dirty last-tab dialogs, Save receipts, stale provider/loader ownership, session
 restore/recovery and persistence of preview/sticky modes are outside this capture.
 It does not establish full VS Code tab behavior or terminal UI parity.
+
+
+## Native consumer
+
+```sh
+cargo test --locked --example editor_preview_tabs_contract
+cargo run --locked --example editor_preview_tabs_contract
+cargo run --locked --example editor_preview_tabs_contract -- target/editor-preview-tabs-reference
+```
+
+Preflight checks the complete raw 11-case/86-frame cohort before native fixture
+writes: source/input/fixture and aggregate/per-run hashes, product identity,
+configuration, original gestures and modes, object/selection consistency and
+unchanged disks. Native equality includes ordered tabs and modes, active/visible
+views, Unicode/CRLF text, selections, dirty flags and disk bytes. All frames from
+the nine supported cases are compared; the two fixed sticky cases are reported
+as deferred, with their complete raw traces still verified. Public version/object
+allocation and cache retention are outside equality. The format has a product.json
+digest, with no reference executable digest; no executable-hash claim is made.
+
+The actual empty Untitled boundary is preserved: initial untouched documents are
+clean, but after typing and Undo the public document remains dirty while its tab
+is clean. Production `Document::api_dirty` and optional-host snapshots preserve
+this state independently from revision-based native tab/close cleanliness.
+This is engine/document evidence, separate from App save/loader ownership and
+terminal workflows.
