@@ -306,3 +306,56 @@ CPU. These ASCII, warm-cache, no-LSP/no-extension measurements cover the core;
 completion load is separately exercised by the unchanged four-second 1,200-key
 save oracle and real-server/package integrity workflows. Full IDE contention,
 physical input-to-display and fastest-editor claims remain unqualified.
+
+## Smart typing and idle hint work: 2026-10-10
+
+The [initial observations](benchmarks/2026-10-10-smart-typing-initial.json)
+compare smart-typing/signature source `123defd` with saved prior main `ccea48b`
+(PR #55). The [final observations](benchmarks/2026-10-10-smart-typing-final.json)
+use clean source `a0efe29`, including `db6fd73`: an idle signature controller skips
+extra key resolution, and typing without an eligible signature source skips
+selection snapshots and settings clones. These are two separately recorded
+experiments; the initial results remain available.
+
+Both experiments use release binaries on the same Linux i9-13900H machine,
+interleaved fresh processes, five launches and 200 serial keys per build/fixture.
+No local builds, tests or reference-editor runs execute during either measurement.
+The raw records contain executable and fixture hashes; the saved comparison
+binary has SHA-256 `cdf5375e57a5e69537237a5083ba21180f82346f64096d55403992f8e556a545`.
+The final native executable was built from the same runtime source before its
+subsequent test-only commit. These warm-cache ASCII plain-text workloads have
+no LSP, extensions or recovery, and measure PTY-to-observed-cell latency including
+the Python oracle. They do not exercise bracket rules or active hint providers.
+
+| Run | Fixture | Build | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | RSS median MiB |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Initial | 10 KiB | Prior main | 6.234 | 0.305 | 0.686 | 0.895 | 12.08 |
+| Initial | 10 KiB | Smart typing | 6.140 | 0.307 | 0.708 | 0.883 | 12.73 |
+| Initial | 1 MiB | Prior main | 7.803 | 0.308 | 0.576 | 0.770 | 12.87 |
+| Initial | 1 MiB | Smart typing | 8.282 | 0.320 | 0.766 | 0.960 | 13.78 |
+| Final | 10 KiB | Prior main | 7.061 | 0.308 | 0.665 | 0.868 | 11.93 |
+| Final | 10 KiB | Smart typing | 5.439 | 0.314 | 0.751 | 0.911 | 12.49 |
+| Final | 1 MiB | Prior main | 7.136 | 0.323 | 0.716 | 1.009 | 13.23 |
+| Final | 1 MiB | Smart typing | 6.873 | 0.317 | 0.716 | 0.970 | 13.32 |
+
+All 20 trials in each experiment passed. The initial 1 MiB candidate had a higher
+observed typing tail; the final 1 MiB p95 is similar to its interleaved comparison.
+The final 10 KiB candidate still has a higher observed p95. Medians remain around
+0.31–0.32 ms; neither experiment establishes a general speedup, sustained
+regression, or a causal estimate for the fast paths. Startup and sampled RSS vary
+between experiments too. Host scheduling and CPU frequency were uncontrolled;
+five startup observations do not qualify startup tails. The 0.3-second idle
+sample records zero CPU ticks and does not establish sustained idle behavior.
+
+Reproduce with a saved PR #55 release executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr55/vscli \
+  --sizes 10240 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/smart-typing.json
+```
+
+Active signature/completion contention, source highlighting, wider document sizes,
+physical input-to-display latency and matched VS Code workloads remain separate
+performance qualification. Functional native/extension/clangd PTYs qualify their
+named interactions; they are not performance comparisons.
