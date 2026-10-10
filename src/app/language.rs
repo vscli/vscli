@@ -109,6 +109,18 @@ impl App {
                         Event::SignatureFailure(request, error) => {
                             self.signature_failure(&request, &error);
                         }
+                        Event::FormattingResult(request, result) => {
+                            if self.save_formatting_owned(&request) {
+                                self.save_formatting_result(request, result);
+                            } else if request.view.is_some()
+                                && let Err(error) = result.and_then(|response| {
+                                    self.language_response(request, response)
+                                        .map_err(|error| format!("{error:#}"))
+                                })
+                            {
+                                self.message = format!("Formatting response: {error}");
+                            }
+                        }
                         Event::SymbolFailure(request, error) => {
                             if self.symbol_request_owned(&request) {
                                 self.symbol_failure(&request, error);
@@ -291,7 +303,7 @@ impl App {
                 }
             }
             "textDocument/formatting" => {
-                let changes = lsp::edits(self.doc(), serde_json::from_value(response)?)?;
+                let changes = crate::save_formatting_edits::stage(self.doc(), &response)?;
                 let count = changes.len();
                 self.doc_mut().apply_changes(changes);
                 self.message = format!("Applied {count} formatting edits · Undo restores");

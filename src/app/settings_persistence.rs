@@ -73,6 +73,7 @@ impl App {
             self.settings_writes.writer.cancel(request.id);
         }
         self.settings_writes.profile = next;
+        self.retire_save_formatting("settings ownership changed during formatting");
         self.retire_autosave_interest();
         self.settings_writes.configured = true;
         self.settings_writes.ready = false;
@@ -84,6 +85,7 @@ impl App {
     }
     pub(super) fn settings_profile_load_failed(&mut self) {
         self.settings_writes.ready = false;
+        self.retire_save_formatting("settings ownership changed during formatting");
         self.retire_autosave_interest();
     }
     pub(super) fn request_persistent_breadcrumbs(&mut self, enabled: bool) -> Result<()> {

@@ -27,14 +27,16 @@ mod shutdown_tests;
 #[cfg(test)]
 mod tests;
 #[derive(Clone)]
-struct Intent {
-    document: u64,
-    destination: Option<PathBuf>,
+pub(super) struct Intent {
+    pub(super) document: u64,
+    pub(super) destination: Option<PathBuf>,
     continuation: Option<Continuation>,
-    automatic: Option<Automatic>,
+    pub(super) automatic: Option<Automatic>,
+    pub(super) formatting_done: bool,
+    pub(super) notice: Option<String>,
 }
 #[derive(Clone)]
-struct Automatic {
+pub(super) struct Automatic {
     generation: u64,
     workspace: PathBuf,
     proof: crate::autosave::ModelProof,
@@ -51,13 +53,16 @@ struct Active {
     models: Vec<ModelProof>,
     continuation: Option<Continuation>,
     authorized: bool,
+    notice: Option<String>,
     automatic: Option<Automatic>,
 }
 #[derive(Default)]
 pub(super) struct State {
     worker: Worker,
     active: Option<Active>,
-    latest: Option<Intent>,
+    pub(super) latest: Option<Intent>,
+    pub(super) formatting: super::save_formatting::State,
+    formatting_dispatch: bool,
     next_id: u64,
     close_generation: u64,
     save_as_origin: Option<(u64, Option<u64>)>,
@@ -167,6 +172,8 @@ impl App {
             destination: None,
             continuation: None,
             automatic: Some(automatic),
+            formatting_done: false,
+            notice: None,
         }) {
             self.saving.autosave.failed(&proof);
             self.message = format!("Save failed; autosave retained unsaved work: {error:#}");
@@ -259,10 +266,12 @@ impl App {
         self.saving.worker.busy() || self.saving.latest.is_some()
     }
     pub(super) fn document_save_pending(&self, id: u64) -> bool {
-        self.saving
-            .active
-            .as_ref()
-            .is_some_and(|active| active.snapshot.document_id() == id)
+        self.saving.formatting.document_pending(id)
+            || self
+                .saving
+                .active
+                .as_ref()
+                .is_some_and(|active| active.snapshot.document_id() == id)
     }
     fn save_continuation(
         &self,
@@ -299,6 +308,8 @@ impl App {
             continuation: self
                 .save_continuation(after, self.panes.get(self.active_pane).map(|pane| pane.id)),
             automatic: None,
+            formatting_done: false,
+            notice: None,
         };
         self.enqueue_native_save(intent)
     }
@@ -314,6 +325,8 @@ impl App {
             destination: Some(destination),
             continuation: self.save_continuation(after, pane),
             automatic: None,
+            formatting_done: false,
+            notice: None,
         })
     }
     fn enqueue_native_save(&mut self, intent: Intent) -> Result<()> {
@@ -371,6 +384,7 @@ impl App {
         {
             self.saving.worker.reject(active.id);
         }
+        self.cancel_save_formatting();
         self.saving.latest = Some(intent);
         self.message = "Saving…".into();
         self.dispatch_native_save()
@@ -379,9 +393,29 @@ impl App {
         if self.saving.worker.busy() || self.saving.shutting_down || self.file_job.is_some() {
             return Ok(());
         }
-        let Some(intent) = self.saving.latest.take() else {
+        if self.saving.formatting.pending() {
+            return Ok(());
+        }
+        let Some(intent) = self.saving.latest.as_ref().cloned() else {
             return Ok(());
         };
+        if !intent.formatting_done && intent.automatic.is_none() && !self.saving.formatting_dispatch
+        {
+            let language = self
+                .documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .find(|doc| doc.id == intent.document)
+                .and_then(|doc| doc.path.as_deref())
+                .map_or("plaintext", crate::languages::language);
+            if self.settings.save_formatting(language) != crate::settings::SaveFormatting::Off {
+                return Ok(());
+            }
+        }
+        if !intent.formatting_done && self.begin_save_formatting(&intent)? {
+            return Ok(());
+        }
+        let intent = self.saving.latest.take().context("Save intent retired")?;
         let doc = self
             .documents
             .iter()
@@ -433,6 +467,7 @@ impl App {
             models,
             continuation: intent.continuation,
             authorized: false,
+            notice: intent.notice,
             automatic: intent.automatic,
         });
         Ok(())
@@ -565,8 +600,9 @@ impl App {
                                 }
                                 self.refresh_document_language_configurations();
                                 self.language_saved_snapshot(&commit.path, snapshot.text());
-                                if let Some(continuation) =
-                                    active.and_then(|active| active.continuation)
+                                if let Some(continuation) = active
+                                    .as_ref()
+                                    .and_then(|active| active.continuation.clone())
                                 {
                                     self.finish_save_continuation(
                                         snapshot.document_id(),
@@ -587,6 +623,12 @@ impl App {
                             if let Some(warning) = commit.durability_warning {
                                 self.message = format!("File saved; durability warning: {warning}");
                             }
+                            if let Some(notice) =
+                                active.as_ref().and_then(|active| active.notice.as_ref())
+                            {
+                                self.message.push_str(" · ");
+                                self.message.push_str(notice);
+                            }
                         }
                         Ok(Outcome::Rejected | Outcome::Expired) => {
                             self.suppress_failed_save_snapshot(&snapshot);
@@ -603,7 +645,10 @@ impl App {
                 }
             }
         }
-        if let Err(error) = self.dispatch_native_save() {
+        self.saving.formatting_dispatch = true;
+        let dispatched = self.dispatch_native_save();
+        self.saving.formatting_dispatch = false;
+        if let Err(error) = dispatched {
             self.message = format!("Save failed; unsaved work retained: {error:#}");
             changed = true;
         }
@@ -756,6 +801,7 @@ impl App {
     pub fn settle_persistence(&mut self) {
         self.saving.shutting_down = true;
         self.saving.latest = None;
+        self.cancel_save_formatting();
         self.cancel_save_continuations();
         if let Some(active) = &self.saving.active
             && !active.authorized

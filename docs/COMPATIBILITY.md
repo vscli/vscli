@@ -17,6 +17,14 @@ save continues. Existing-file replacement races against uncooperative external w
 complete metadata preservation and save-participant parity remain explicit
 limits. See [save automation contract and qualification](SAVE_AUTOMATION_PLAN.md).
 
+Opt-in native file format-on-save now stages bounded UTF-16 edits before a fresh
+background-save snapshot. It preserves original model ownership across unrelated
+focus changes, rejects stale epochs/lifetimes, and skips short-delay autosaves.
+Native protocol/controller and terminal checks qualify this bounded implementation.
+The new pinned Linux observer records separate formatting Undo, null no-op and
+source-action-before-format ordering; source actions and extension save participants
+remain outstanding. See [format-on-save scope and evidence](FORMAT_ON_SAVE.md).
+
 Compatibility must describe observed behavior against a pinned reference version. An extension being downloadable, installable, or activatable does not establish that its workflows work.
 
 Publish three independent records: supported VS Code API behavior, verified extension workflows, and tested terminal/input combinations. Also record package provenance and use rights separately from technical compatibility. Most statuses in this design remain targets. The first command/edit host experiment and named Sort Lines workflow are recorded in [extension evidence](EXTENSIONS.md); that workflow does not establish broader API or package compatibility.

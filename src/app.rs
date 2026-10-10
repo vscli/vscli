@@ -18,6 +18,7 @@ mod navigation;
 mod navigation_history;
 mod outline;
 mod panes;
+mod save_formatting;
 mod saving;
 mod settings_persistence;
 mod signature_help;
@@ -662,7 +663,6 @@ impl App {
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
         let mut changed = actions_changed | brand_changed | changed;
         changed |= self.poll_settings_writes();
-        changed |= self.poll_native_saves();
         if let Some(result) = self
             .settings_loader
             .as_mut()
@@ -678,6 +678,7 @@ impl App {
                         self.cancel_suggestions();
                         self.cancel_code_actions();
                         self.clear_signature();
+                        self.retire_save_formatting("settings changed during formatting");
                         let previous = std::mem::replace(&mut self.settings, settings);
                         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
                             let language = doc
@@ -711,6 +712,8 @@ impl App {
         }
         changed |= self.poll_language_services();
         changed |= self.poll_language();
+        changed |= self.poll_save_formatting(std::time::Instant::now());
+        changed |= self.poll_native_saves();
         changed |= self.poll_git();
         changed |= self.poll_files();
         changed |= self.poll_watching();
@@ -1306,6 +1309,9 @@ impl App {
     fn key(&mut self, key: KeyEvent) {
         let token = keys::token(key);
         self.last_key = Some(key);
+        if key.code == KeyCode::Esc && self.escape_save_formatting() {
+            return;
+        }
         if key.code == KeyCode::Esc && self.cancel_deferred_save_close() {
             return;
         }
