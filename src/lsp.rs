@@ -50,6 +50,7 @@ pub struct Request {
     pub path: PathBuf,
     pub selections: Vec<Selection>,
     pub view: Option<u64>,
+    editor_view_epoch: Option<u64>,
     pub workspace: Arc<HashMap<PathBuf, Snapshot>>,
     started: Instant,
 }
@@ -208,6 +209,7 @@ fn validate_action_result(method: &str, value: &Value, original: Option<&Value>)
 
 pub struct Client {
     identity: Arc<()>,
+    editor_view_epoch: Option<u64>,
     transport: crate::transport::Process,
     pending: HashMap<u64, Request>,
     completion_resolve: Option<u64>,
@@ -398,6 +400,7 @@ impl Client {
         };
         let client = Self {
             identity: Arc::new(()),
+            editor_view_epoch: Some(0),
             transport,
             pending: HashMap::new(),
             completion_resolve: None,
@@ -556,10 +559,33 @@ impl Client {
                         && synced.version == snapshot.version
                 })
     }
+    /// Invalidate UI ownership without canceling actual requests or model-owned saves.
+    /// Exhaustion permanently retires view ownership until this client is replaced.
+    #[cfg(test)]
+    pub(crate) fn invalidate_editor_views(&mut self) -> Result<()> {
+        let epoch = self
+            .editor_view_epoch
+            .context("Native editor-view ownership is retired; restart the language server")?;
+        self.editor_view_epoch = epoch.checked_add(1);
+        if self.editor_view_epoch.is_none() {
+            bail!("Native editor-view generation exhausted; restart the language server");
+        }
+        Ok(())
+    }
+    fn editor_view_current(&self, request: &Request) -> bool {
+        match (request.view, request.editor_view_epoch) {
+            (None, None) => true,
+            (Some(_), Some(epoch)) => self.editor_view_epoch == Some(epoch),
+            _ => false,
+        }
+    }
     /// A native reply/action retains the client and synchronized document lifetime.
     /// The app also compares the live model, selections, focus and pane before edits.
     pub fn request_current(&self, request: &Request) -> bool {
-        if !self.ready || !Arc::ptr_eq(&request.server, &self.identity) {
+        if !self.ready
+            || !Arc::ptr_eq(&request.server, &self.identity)
+            || !self.editor_view_current(request)
+        {
             return false;
         }
         let Ok(uri) = file_uri(&request.path) else {
@@ -634,6 +660,14 @@ impl Client {
         extra: Value,
         view: Option<u64>,
     ) -> Result<()> {
+        let editor_view_epoch =
+            if view.is_some() {
+                Some(self.editor_view_epoch.context(
+                    "Native editor-view ownership is retired; restart the language server",
+                )?)
+            } else {
+                None
+            };
         if matches!(method, "codeAction/resolve" | "workspace/executeCommand") {
             bail!("Action follow-ups require an original source-owned action request");
         }
@@ -774,6 +808,7 @@ impl Client {
                     Vec::new()
                 },
                 view,
+                editor_view_epoch,
                 workspace: Arc::new(workspace),
                 started: Instant::now(),
             },
@@ -918,6 +953,7 @@ impl Client {
                 path: PathBuf::new(),
                 selections: Vec::new(),
                 view: None,
+                editor_view_epoch: None,
                 workspace: Arc::new(HashMap::new()),
                 started: Instant::now(),
             },
@@ -1026,6 +1062,9 @@ impl Client {
         Ok(id)
     }
     pub fn follow_up(&mut self, original: &Request, method: &str, params: Value) -> Result<()> {
+        if !self.editor_view_current(original) {
+            bail!("Original editor view changed; request the language feature again");
+        }
         if method == "textDocument/codeAction" {
             bail!("Code action discovery requires a synchronized document request");
         }
@@ -2898,3 +2937,7 @@ while True:
 #[cfg(test)]
 #[path = "lsp/action_lane_tests.rs"]
 mod action_lane_tests;
+
+#[cfg(test)]
+#[path = "lsp/group_view_tests.rs"]
+mod group_view_tests;
