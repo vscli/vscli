@@ -174,13 +174,6 @@ jobs:
         env:
           VSCLI_SAVE_CODE_ACTIONS_REFERENCE_DIR: target/vscode-reference/result/save-code-actions
         run: cargo test --locked --test save_code_actions_reference
-      - name: Preserve reference evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: vscode-reference-${{ matrix.os }}
-          path: target/vscode-reference/result/
-          retention-days: 30
       - name: Run terminal workflows
         if: runner.os != 'Windows'
         timeout-minutes: 5
@@ -237,6 +230,13 @@ jobs:
         env:
           VSCLI_EDITOR_GROUP_TABS_REFERENCE_DIR: ${{ github.workspace }}/target/vscode-reference/result/editor-group-tabs
         run: cargo test --locked --test editor_group_tabs_reference
+      - name: Preserve reference evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vscode-reference-${{ matrix.os }}
+          path: target/vscode-reference/result/
+          retention-days: 30
       - name: Run independent editor-group tab workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
