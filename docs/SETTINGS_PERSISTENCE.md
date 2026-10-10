@@ -74,8 +74,11 @@ workspace selection, source/settings UnicodeCRLF Save/Undo/Redo and terminal
 restoration. Three existing Breadcrumbs terminal journeys and the actual clangd
 Breadcrumbs workflow also passed, alongside the existing 35 terminal workflows.
 All three new terminal reports also passed with the optimized executable.
-Fresh platform CI qualification remains underway. Windows native file-ID FFI and reparse-point
-behavior require the upcoming Windows checks; capability-dependent symlink tests
+[PR #62](https://github.com/vscli/vscli/pull/62) merged after all six required
+checks passed for reviewed head `1b9d562f6dace6490ddfdc373800f236c4b6df4d` in
+[CI run 38027068626](https://github.com/vscli/vscli/actions/runs/38027068626).
+Linux, macOS and Windows checks qualify their executed native file-ID and
+replacement cases; capability-dependent symlink tests
 report a skip when Windows does not grant symlink creation privileges.
 
 The first Windows run exposed existing-target replacement failures while the
@@ -90,7 +93,7 @@ The temporary marker is cleared before replacement, and failed renames retain
 automatic temporary cleanup. Missing files retain atomic no-clobber behavior.
 Regression tests assert exact JSONC/CRLF bytes, distinct replacement identity,
 continued access through the old reader, and success/error cleanup. The repair
-awaits fresh Windows CI qualification; unsupported replacement semantics fail
+passed Windows CI qualification; unsupported replacement semantics fail
 without releasing the baseline identity proof early.
 
 The repaired head passed Windows and Linux CI. Its macOS Rust/reference checks
@@ -98,8 +101,12 @@ passed, but the dirty-settings PTY expected only the immediate refusal wording.
 An aliased macOS temporary parent correctly reached the later native-identity
 guard, which displayed `Settings write refused` and retained every file byte.
 The PTY now accepts either explicit refusal route while keeping the exact
-unchanged header, source/settings bytes and Undo/Redo assertions. Fresh complete
-platform qualification remains pending for this oracle correction.
+unchanged header, source/settings bytes and Undo/Redo assertions. Complete
+platform qualification passed for this oracle correction. The first Windows
+attempt on that head timed out in an unchanged extension-symbol test; one
+controlled rerun of the same Rust source passed. That does not establish the
+cause of the intermittent timeout. A follow-up test fixture adds bounded callback
+cleanup, actual-release acknowledgement and live phase diagnostics.
 
 This feature does not implement
 autosave, format-on-save, save-time code actions or full settings parity.

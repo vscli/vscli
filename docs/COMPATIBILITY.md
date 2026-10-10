@@ -131,7 +131,9 @@ hierarchical/flat symbol trails from the shared Outline publication. Original
 focus and selection command IDs drive a bounded sibling/root picker. File/folder
 dropdowns remain unsupported. Root toggle state now persists through
 [native background settings writes](SETTINGS_PERSISTENCE.md), with explicit
-language-override and dirty-buffer refusal; its fresh qualification is underway.
+language-override and dirty-buffer refusal. [PR #62](https://github.com/vscli/vscli/pull/62)
+merged after all six required checks passed, including Linux, macOS and Windows;
+the settings record retains the initial timeout and controlled rerun evidence.
 Four actual pinned
 synthetic-provider cases retain 31 snapshots and confirm three collapsed picker
 reveals; direct focus/reveal no-ops remain documented gaps. The narrow native
