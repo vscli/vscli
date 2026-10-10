@@ -39,7 +39,7 @@ linked snippet/import transactions, inert documentation and bounded abbreviation
 ranking. Its checks and recorded workflows remain separate from full IntelliSense
 parity. The merged [PR #54 diagnostics slice](DIAGNOSTICS.md) adds independent collections,
 native text-epoch/server guards and successful-save events. Extension code-action
-providers follow it within priority 2 through the [bounded action slice](CODE_ACTIONS.md), with synthetic protocol and real clangd qualification. Official sample conformance is qualified separately. Command/resource/full-context parity remains outstanding.
+providers follow it within priority 2 through the [bounded action slice](CODE_ACTIONS.md), with official unchanged sample and real clangd qualification. Command/resource/full-context parity remains outstanding.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
