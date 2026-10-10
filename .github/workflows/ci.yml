@@ -70,7 +70,7 @@ jobs:
       - run: node --test extension-host/symbols.test.cjs
       - run: cargo test --locked
       - run: cargo build --locked
-      - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs tests/vscode-reference/diagnostics-compare.test.cjs
+      - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs tests/vscode-reference/diagnostics-compare.test.cjs tests/vscode-reference/outline-settlement.test.cjs
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: tests/vscode-reference
       - run: node --test tests/vscode-reference/language-readiness.test.cjs

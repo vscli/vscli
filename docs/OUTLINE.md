@@ -106,7 +106,7 @@ range/selection ranges and empty children. Later original `list.select` commands
 revealed the collapsed identifier start, including a UTF-16 position following
 an emoji. These observations support that narrow provider/reveal contract.
 
-The [recorded Linux trace](../tests/vscode-reference/baselines/1.95.0/outline/linux.json),
+The original 300 ms observation's [recorded Linux trace](../tests/vscode-reference/baselines/1.95.0/outline/linux.json),
 [full evidence](../tests/vscode-reference/baselines/1.95.0/outline/linux-evidence.json)
 and [provenance](../tests/vscode-reference/baselines/1.95.0/outline/linux-provenance.json)
 retain the complete observations. The native `outline_contract` example compares
@@ -118,6 +118,28 @@ and disk checks. All four comparator integrity tests passed: the unmodified
 baseline succeeds first, then wrong source, missing original command and invalid
 UTF-16 geometry fail at their intended guards even when relevant artifact
 digests are updated.
+
+A subsequent macOS capture from run `38037611975` retained a final `list.select`
+no-op at `main()` instead of the required `render` reveal. Its exact source and
+artifact hashes verified; the strict consumer rejected it before native
+execution. The failed capture and original Linux baseline remain unchanged.
+The revised observer uses an output-independent 1,000 ms minimum and 100 ms
+quiet window within the existing 3,000 ms deadline. Eight controlled-clock
+regressions pass, including delayed events and exactly-once command dispatch.
+This pacing does not independently prove tree focus or the precise macOS race;
+it is a reference settlement correction, not a native runtime fix.
+
+One fresh Linux capture with that observer produced **two cases / 20 snapshots**
+and both required collapsed reveals, without target retries. Its public trace is
+byte-identical to the original Linux trace; timing and source provenance are
+separately preserved in the new [trace](../tests/vscode-reference/baselines/1.95.0/outline/settlement-1000ms/linux.json),
+[evidence](../tests/vscode-reference/baselines/1.95.0/outline/settlement-1000ms/linux-evidence.json)
+and [provenance](../tests/vscode-reference/baselines/1.95.0/outline/settlement-1000ms/linux-provenance.json).
+The native example's default and integrity-test fixtures now point to this
+newly observed trio, retaining all strict source and reveal guards. All four
+integrity tests and the fresh native two-provider/two-reveal consumer pass;
+formatting and strict all-target Clippy pass. Fresh platform qualification for
+the revision remains pending. See the [observer settlement scope](../tests/vscode-reference/outline.README.md).
 
 The initial Outline/list sequence did not navigate, even after an observed
 provider callback. Its no-op snapshots remain in the raw trace. Public extension
