@@ -68,6 +68,31 @@ struct Data {
 #[derive(Clone, Debug)]
 pub struct Window(Arc<Data>);
 
+/// Remaining App-wide allowance. No caller can widen the foundation defaults.
+#[derive(Clone, Copy)]
+pub(crate) struct Budget {
+    pub rows: usize,
+    pub cells: usize,
+    pub scan_bytes: usize,
+    pub payload: usize,
+}
+impl Default for Budget {
+    fn default() -> Self {
+        Self {
+            rows: MAX_ROWS,
+            cells: MAX_CELLS,
+            scan_bytes: MAX_PREPARED_BYTES,
+            payload: MAX_PAYLOAD_BYTES,
+        }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    // Observe only the actual run-Vec reserve stage. No runtime authority.
+    static RUN_ALLOCATION_STAGES:std::cell::Cell<usize>=const {std::cell::Cell::new(0)};
+}
+
 impl Window {
     pub fn prepare(
         projection: DisplayRows,
@@ -76,6 +101,23 @@ impl Window {
         width: u16,
         height: u16,
     ) -> Result<Self> {
+        Self::prepare_with_budget(projection, top, left, width, height, Budget::default())
+    }
+    pub(crate) fn prepare_with_budget(
+        projection: DisplayRows,
+        top: RowAnchor,
+        left: usize,
+        width: u16,
+        height: u16,
+        budget: Budget,
+    ) -> Result<Self> {
+        ensure!(
+            budget.rows <= MAX_ROWS
+                && budget.cells <= MAX_CELLS
+                && budget.scan_bytes <= MAX_PREPARED_BYTES
+                && budget.payload <= MAX_PAYLOAD_BYTES,
+            "Window allowance exceeds foundation limits"
+        );
         ensure!(
             width == projection.options().width,
             "Window width differs from projection"
@@ -84,7 +126,7 @@ impl Window {
         let cells = usize::from(width)
             .checked_mul(usize::from(height))
             .context("Window cell overflow")?;
-        ensure!(cells <= MAX_CELLS, "Window exceeds cell budget");
+        ensure!(cells <= budget.cells, "Window exceeds cell budget");
         let right = left
             .checked_add(usize::from(width))
             .context("Window horizontal overflow")?;
@@ -96,15 +138,18 @@ impl Window {
         } else {
             usize::from(height).min(projection.row_count() - first)
         };
+        ensure!(count <= budget.rows, "Window exceeds remaining row budget");
+        ensure!(
+            size_of::<Data>() + 2 * size_of::<usize>() + count * size_of::<PreparedRow>()
+                <= budget.payload,
+            "Window exceeds remaining payload budget"
+        );
         let mut rows = Vec::<PreparedRow>::new();
         rows.try_reserve_exact(count)
             .context("Window row allocation failed")?;
         let mut allocated =
             size_of::<Data>() + 2 * size_of::<usize>() + rows.capacity() * size_of::<PreparedRow>();
-        ensure!(
-            allocated <= MAX_PAYLOAD_BYTES,
-            "Window exceeds payload budget"
-        );
+        ensure!(allocated <= budget.payload, "Window exceeds payload budget");
         let mut prepared_bytes = 0usize;
         let mut scratch = String::new();
         for offset in 0..count {
@@ -121,7 +166,7 @@ impl Window {
                 .checked_add(text.line(anchor.logical_line).len_bytes())
                 .context("Window scan overflow")?;
             ensure!(
-                prepared_bytes <= MAX_PREPARED_BYTES,
+                prepared_bytes <= budget.scan_bytes,
                 "Window exceeds aggregate preparation budget"
             );
             let descriptor = projection
@@ -135,11 +180,14 @@ impl Window {
                 .context("Window payload overflow")?;
             ensure!(
                 allocated
-                    .checked_add(reservation)
-                    .is_some_and(|n| n <= MAX_PAYLOAD_BYTES),
+                    .checked_add(scratch.capacity())
+                    .and_then(|n| n.checked_add(reservation))
+                    .is_some_and(|n| n <= budget.payload),
                 "Window exceeds payload budget"
             );
             let mut runs = Vec::<CompactRun>::new();
+            #[cfg(test)]
+            RUN_ALLOCATION_STAGES.with(|count| count.set(count.get().saturating_add(1)));
             runs.try_reserve_exact(capacity)
                 .context("Window run allocation failed")?;
             allocated = allocated
@@ -150,13 +198,9 @@ impl Window {
                 )
                 .context("Window payload overflow")?;
             ensure!(
-                allocated <= MAX_PAYLOAD_BYTES,
-                "Window exceeds payload budget"
-            );
-            ensure!(
                 allocated
                     .checked_add(scratch.capacity())
-                    .is_some_and(|n| n <= MAX_PAYLOAD_BYTES),
+                    .is_some_and(|n| n <= budget.payload),
                 "Window preparation exceeds payload budget"
             );
             let mut scalar = descriptor.characters.start;
@@ -181,7 +225,7 @@ impl Window {
                             ensure!(
                                 allocated
                                     .checked_add(cluster.len_bytes())
-                                    .is_some_and(|n| n <= MAX_PAYLOAD_BYTES),
+                                    .is_some_and(|n| n <= budget.payload),
                                 "Window preparation exceeds payload budget"
                             );
                             scratch
@@ -191,7 +235,7 @@ impl Window {
                                 scratch.capacity() <= MAX_LINE_BYTES
                                     && allocated
                                         .checked_add(scratch.capacity())
-                                        .is_some_and(|n| n <= MAX_PAYLOAD_BYTES),
+                                        .is_some_and(|n| n <= budget.payload),
                                 "Window cluster exceeds payload budget"
                             );
                         }
@@ -712,5 +756,81 @@ mod tests {
         assert_eq!(window.hit(0, 6, Affinity::After), Some(200_008));
         assert!(window.locate(0, Affinity::Before).is_none());
         assert!(Window::prepare(rows, anchor(100_001), 0, 12, 2).is_err());
+    }
+    #[test]
+    fn remaining_allowance_refuses_before_partial_window_and_preserves_utf8_projection() {
+        let rows = projection("α🙂\r\nx\r\n", 12, 4);
+        let complete = Window::prepare(rows.clone(), anchor(0), 0, 12, 2).unwrap();
+        for budget in [
+            Budget {
+                rows: 1,
+                ..Budget::default()
+            },
+            Budget {
+                cells: 23,
+                ..Budget::default()
+            },
+            Budget {
+                scan_bytes: complete.prepared_bytes() - 1,
+                ..Budget::default()
+            },
+            Budget {
+                payload: complete.allocated_payload() - 1,
+                ..Budget::default()
+            },
+        ] {
+            assert!(
+                Window::prepare_with_budget(rows.clone(), anchor(0), 0, 12, 2, budget).is_err()
+            );
+        }
+        assert_eq!(complete.hit(0, 2, Affinity::Before), Some(1));
+        assert_eq!(
+            complete.locate(2, Affinity::Before),
+            Some(Caret { row: 0, column: 3 })
+        );
+        assert_eq!(rows.text().to_string(), "α🙂\r\nx\r\n");
+        assert!(complete.same_projection(&rows));
+        assert!(Window::prepare_with_budget(rows, anchor(0), 0, 12, 2, Budget::default()).is_ok());
+    }
+    #[test]
+    fn retained_cross_chunk_scratch_refuses_next_run_before_its_actual_allocation() {
+        let source = format!(
+            "{}e{}suffix\r\n{}\r\n",
+            "x".repeat(3000),
+            "\u{301}".repeat(2000),
+            "z".repeat(2000)
+        );
+        let rows = projection(&source, 12, 4);
+        let complete = Window::prepare(rows.clone(), anchor(0), 2998, 12, 2).unwrap();
+        assert!(
+            complete.preparation_scratch_capacity() > 0,
+            "Fixture must create a real cross-chunk scratch buffer"
+        );
+        assert!(
+            complete.0.rows[1].runs.capacity() * size_of::<CompactRun>()
+                > complete.preparation_scratch_capacity()
+        );
+        RUN_ALLOCATION_STAGES.with(|count| count.set(0));
+        let error = Window::prepare_with_budget(
+            rows.clone(),
+            anchor(0),
+            2998,
+            12,
+            2,
+            Budget {
+                payload: complete.allocated_payload(),
+                ..Budget::default()
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("payload"), "{error:#}");
+        assert_eq!(
+            RUN_ALLOCATION_STAGES.with(std::cell::Cell::get),
+            1,
+            "First row allocates and creates scratch; second row must refuse BEFORE its actual run reserve"
+        );
+        assert!(complete.same_projection(&rows));
+        assert_eq!(complete.projection().text().to_string(), source);
+        assert_eq!(complete.hit(0, 0, Affinity::Before), Some(2998));
     }
 }

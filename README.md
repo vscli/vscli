@@ -34,7 +34,7 @@ This alpha implements a **subset** of VS Code commands and bindings. Native lang
 
 An optional Node.js **CommonJS compatibility host** runs up to eight authorized packages with supported lazy activation. Its bounded subset includes shared documents/edits, configuration/Mementos, seven language-provider routes, diagnostic collections, native prompts and output/status/tree surfaces. Native Open VSX installation, themes and snippet catalogs work without code activation. See [extension compatibility](docs/EXTENSIONS.md), [diagnostic scope](docs/DIAGNOSTICS.md) and [named provider workflows](docs/EXTENSION_PROVIDERS.md): installing or activating an extension does not establish that all its features work.
 
-Full keybinding behavior and extension compatibility remain project goals. CI covers Linux, macOS and Windows, with Unix PTY workflows on Linux/macOS. Physical keyboard/layout, arbitrary terminal graphics and Windows ConPTY qualification remain incomplete; folding and many advanced IDE workflows remain outstanding. Resolved completion and linked snippet/import insertion follow the [bounded IntelliSense contract](docs/COMPLETIONS.md).
+Full keybinding behavior and extension compatibility remain project goals. CI covers Linux, macOS and Windows, with Unix PTY workflows on Linux/macOS. Physical keyboard/layout, arbitrary terminal graphics and Windows ConPTY qualification remain incomplete; a [native indentation-folding candidate](docs/FOLDING.md) is source-prepared for integration and qualification, while wrapping and many advanced IDE workflows remain outstanding. Resolved completion and linked snippet/import insertion follow the [bounded IntelliSense contract](docs/COMPLETIONS.md).
 
 ## Development
 

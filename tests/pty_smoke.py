@@ -42,6 +42,27 @@ def eventually(predicate, timeout=4):
     raise AssertionError("Timed out waiting for expected state")
 
 
+def rename_failure_snapshot(app, created, renamed):
+    """Bounded evidence only: never synchronization, authorization or a retry."""
+    screen = app.screen.text()
+    def file_state(path):
+        try:
+            info = path.lstat()
+            return {"exists": True, "bytes": info.st_size, "mode": info.st_mode}
+        except FileNotFoundError:
+            return {"exists": False}
+        except OSError as error:
+            return {"error": str(error)[:1024]}
+    return {"condition": {"renamed_exists": renamed.exists(),
+                           "created_absent": not created.exists(),
+                           "rename_notice": "Renamed to" in screen},
+            "created": file_state(created), "renamed": file_state(renamed),
+            "screen": screen[-8192:],
+            "raw_terminal_tail_hex": bytes(app.output[-8192:]).hex(),
+            "queued_input_bytes": len(app.pending_input),
+            "process_returncode": app.process.poll()}
+
+
 def wait_screen(app, *expected, absent=(), timeout=4):
     """Require all markers in one screen snapshot, including partially read frames."""
     snapshot = ''
@@ -784,12 +805,19 @@ def run():
         eventually(lambda: app.read() and created.exists() and "Opened source.txt" in app.screen.text())
         app.send("contents")
         app.send(CTRL_S)
-        eventually(lambda: app.read() and text(created) == "contents")
+        eventually(lambda: app.read() and text(created) == "contents" and "Saved source.txt" in app.screen.text())
         app.send(b"\x1b[101;6u")  # Ctrl+Shift+E
         app.send(b"\x1bOQ")  # F2 rename.
         app.send(str(renamed))
         app.send(b"\r")
-        eventually(lambda: app.read() and renamed.exists() and not created.exists() and "Renamed to" in app.screen.text())
+        try:
+            eventually(lambda: app.read() and renamed.exists() and not created.exists() and "Renamed to" in app.screen.text())
+        except AssertionError:
+            try:
+                print("RENAME_TIMEOUT_STATE " + json.dumps(rename_failure_snapshot(app, created, renamed), ensure_ascii=True))
+            except Exception as diagnostic_error:
+                print("RENAME_TIMEOUT_STATE unavailable: " + str(diagnostic_error)[:1024])
+            raise
         app.send(b"\x1b[49;5u")
         app.send("!")
         app.send(CTRL_S)

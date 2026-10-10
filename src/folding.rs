@@ -249,6 +249,9 @@ impl RowMap {
             visible_count: text.len_lines() - count,
         })
     }
+    pub(crate) fn allocated_payload(&self) -> usize {
+        std::mem::size_of::<Self>() + self.hidden.capacity() * std::mem::size_of::<Hidden>()
+    }
     pub fn visible_count(&self) -> usize {
         self.visible_count
     }

@@ -439,3 +439,9 @@ continue to use revision cleanliness, so that same tab has no modified marker.
 The pinned preview corpus observes both flags separately. Optional-host document
 snapshots now preserve this distinction without changing text, Undo/Redo or
 version ownership. Initial untouched empty Untitled documents remain clean.
+
+## Native folding candidate
+
+The source-prepared visible folding candidate connects original Fold/Unfold/Fold All/Unfold All IDs and keys to the existing one-worker, private per-view pipeline. Painting, mouse/caret/suggestion placement and vertical movement use one bounded immutable window; stale source hits are consumed rather than mapped by physical-line y. Full selected intervals stay visible, shared split views have independent fold state, and text/Undo/dirty/save authority remains separate. Off-screen Ready maps are retired across the complete retained model inventory while desired anchors persist. Metadata and retained-source reservations include actual canceled workers, phase handoff and old frames until retirement/join. See [scope, limits and prepared tests](FOLDING.md).
+
+This package has not yet been compiled or executed by its preparing agent. Native integrity/PTY/platform qualification remains pending. No local upstream editor capture was launched. Source-grounded original IDs/configuration do not establish exact folding-target, cursor relocation or provider parity. Wrapping, folding providers, marker/import/level/recursive operations and session mementos remain outstanding.

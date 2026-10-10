@@ -80,6 +80,18 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) -> Result<()> {
             if pane.breadcrumbs.width != 0 && pane.breadcrumbs.height != 0 {
                 draw_breadcrumbs(frame, app, pane.breadcrumbs);
             }
+            let member = app
+                .editor_groups()
+                .group(*group)
+                .and_then(|group| group.active())
+                .map(|tab| crate::editor_groups::Membership {
+                    group: *group,
+                    tab: tab.id(),
+                    document: tab.document(),
+                })
+                .context("Fold window membership retired")?;
+            let text = editor_text_area(app.doc(), pane.text);
+            app.prepare_folding_window(member, pane.text, text)?;
             draw_editor(frame, app, pane.text, *group == active_group);
             // This captures line-number/gutter clipping rather than guessing it.
             pane.text = app.editor_area;
@@ -97,6 +109,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) -> Result<()> {
     draw_dividers(frame, &geometry, app.theme.colors.muted);
     // Only a fully drawn, restored frame can grant input authorization.
     app.present_editor_layout(geometry, rectangles)?;
+    app.seal_folding_frame();
     Ok(())
 }
 

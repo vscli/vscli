@@ -69,6 +69,30 @@ impl Keymap {
             user: Vec::new(),
         };
         let p = profile.primary();
+        let fold = if profile == Profile::Macos {
+            "cmd+alt+["
+        } else {
+            "ctrl+shift+["
+        };
+        let unfold = if profile == Profile::Macos {
+            "cmd+alt+]"
+        } else {
+            "ctrl+shift+]"
+        };
+        for (key, command) in [(fold, "editor.fold"), (unfold, "editor.unfold")] {
+            map.add(key, command, Some("editorTextFocus && foldingEnabled"));
+        }
+        map.add(
+            &format!("{p}+k {p}+0"),
+            "editor.foldAll",
+            Some("editorTextFocus && foldingEnabled"),
+        );
+        map.add(
+            &format!("{p}+k {p}+j"),
+            "editor.unfoldAll",
+            Some("editorTextFocus && foldingEnabled"),
+        );
+
         for (key, command) in [
             ("n", "workbench.action.files.newUntitledFile"),
             ("o", "workbench.action.files.openFile"),
@@ -1835,5 +1859,53 @@ mod tests {
             mac.resolve("cmd+alt+s", &context),
             Resolution::Command("z.run".into(), None)
         );
+    }
+    #[test]
+    fn native_folding_defaults_preserve_original_ids_platform_chords_and_enabled_guard() {
+        for profile in [Profile::Linux, Profile::Windows, Profile::Macos] {
+            let map = Keymap::new(profile);
+            let mut context = HashMap::from([
+                ("editorTextFocus".into(), Value::Bool(true)),
+                ("foldingEnabled".into(), Value::Bool(true)),
+            ]);
+            let close = if profile == Profile::Macos {
+                "cmd+alt+["
+            } else {
+                "ctrl+shift+["
+            };
+            let open = if profile == Profile::Macos {
+                "cmd+alt+]"
+            } else {
+                "ctrl+shift+]"
+            };
+            assert!(
+                matches!(map.resolve(close,&context),Resolution::Command(id,_) if id=="editor.fold")
+            );
+            assert!(
+                matches!(map.resolve(open,&context),Resolution::Command(id,_) if id=="editor.unfold")
+            );
+            let p = profile.primary();
+            assert!(matches!(
+                map.resolve(&format!("{p}+k"), &context),
+                Resolution::Chord
+            ));
+            assert!(
+                matches!(map.resolve(&format!("{p}+k {p}+0"),&context),Resolution::Command(id,_) if id=="editor.foldAll")
+            );
+            assert!(matches!(
+                map.resolve(&format!("{p}+k"), &context),
+                Resolution::Chord
+            ));
+            assert!(
+                matches!(map.resolve(&format!("{p}+k {p}+j"),&context),Resolution::Command(id,_) if id=="editor.unfoldAll")
+            );
+            context.insert("foldingEnabled".into(), Value::Bool(false));
+            assert!(
+                !matches!(map.resolve(close,&context),Resolution::Command(id,_) if id=="editor.fold")
+            );
+            assert!(
+                !matches!(map.resolve(open,&context),Resolution::Command(id,_) if id=="editor.unfold")
+            );
+        }
     }
 }

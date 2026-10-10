@@ -110,4 +110,108 @@ mod tests {
         assert!(!from.exists());
         assert_eq!(std::fs::read_to_string(to).unwrap(), "unsaved original");
     }
+
+    #[test]
+    fn disk_visible_save_refuses_rename_until_actual_finished_receipt() {
+        use crate::save_worker::{GatePoint, Worker};
+        use std::{
+            sync::mpsc::TryRecvError,
+            time::{Duration, Instant},
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let from = root.join("source.txt");
+        let to = root.join("renamed.txt");
+        std::fs::write(&from, "").unwrap();
+        let mut app = App::new(root, Profile::Linux);
+        app.extension_node = "vscli-rename-proof-node-missing".into();
+        app.open(&from).unwrap();
+        app.doc_mut().insert("猫🙂 contents\r\n", false);
+        let bytes = app.doc().text.to_string();
+        let identity = (
+            app.doc().id,
+            app.doc().text_epoch(),
+            app.doc().revision,
+            app.doc().selections(),
+            app.doc().save_generation(),
+        );
+        let member = app.editor_groups.active_membership().unwrap();
+        let (worker, entered, release) = Worker::fixture_gated(vec![GatePoint::BeforeFinish]);
+        app.replace_save_worker_fixture(worker);
+        app.execute("workbench.action.files.save", Value::Null);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            app.poll();
+            match entered.try_recv() {
+                Ok(point) => {
+                    assert_eq!(point, GatePoint::BeforeFinish);
+                    break;
+                }
+                Err(TryRecvError::Empty) => {
+                    assert!(Instant::now() < deadline, "{}", app.message);
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) => panic!("Save fixture gate disconnected: {error}"),
+            }
+        }
+        assert_eq!(std::fs::read(&from).unwrap(), bytes.as_bytes());
+        assert!(app.saves_pending());
+        assert!(app.doc().dirty());
+        assert_eq!(app.doc().save_generation(), identity.4);
+        app.start_file_job(Action::Rename {
+            from: from.clone(),
+            to: to.clone(),
+        });
+        assert!(app.file_job.is_none());
+        assert!(!to.exists());
+        assert_eq!(
+            app.message,
+            "Wait for pending saves before changing file paths"
+        );
+        assert_eq!(
+            identity,
+            (
+                app.doc().id,
+                app.doc().text_epoch(),
+                app.doc().revision,
+                app.doc().selections(),
+                app.doc().save_generation()
+            )
+        );
+        assert_eq!(app.editor_groups.active_membership(), Some(member));
+        release.send(()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while app.saves_pending() {
+            app.poll();
+            assert!(Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(app.message.contains("Saved source.txt"), "{}", app.message);
+        assert!(!app.doc().dirty());
+        assert_eq!(app.doc().save_generation(), identity.4 + 1);
+        app.start_file_job(Action::Rename {
+            from: from.clone(),
+            to: to.clone(),
+        });
+        assert!(app.file_job.is_some());
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while app.file_job.is_some() {
+            app.poll();
+            assert!(Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(!from.exists());
+        assert_eq!(std::fs::read(&to).unwrap(), bytes.as_bytes());
+        assert!(app.message.contains("Renamed to"), "{}", app.message);
+        assert_eq!(app.doc().id, identity.0);
+        assert_eq!(app.doc().path.as_ref(), Some(&to));
+        assert_eq!(app.editor_groups.active_membership(), Some(member));
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "");
+        assert!(app.doc().dirty());
+        assert_eq!(std::fs::read(&to).unwrap(), bytes.as_bytes());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), bytes);
+        assert!(!app.doc().dirty());
+    }
 }

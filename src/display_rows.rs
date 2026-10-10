@@ -98,6 +98,21 @@ impl DisplayRows {
         })
     }
 
+    /// Wrap-Off width changes do not alter source/row authority or discover folds.
+    pub fn for_width(&self, width: u16) -> Result<Self> {
+        let mut rows = self.clone();
+        rows.options.width = width;
+        validate_options(rows.options)?;
+        Ok(rows)
+    }
+    /// Rust-owned row-map capacity; shared Rope allocator storage is excluded.
+    pub fn allocated_payload(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + 2 * std::mem::size_of::<usize>()
+            + self.folded.as_ref().map_or(0, |map| {
+                map.allocated_payload() + 2 * std::mem::size_of::<usize>()
+            })
+    }
     pub fn text(&self) -> &Rope {
         &self.text
     }
@@ -110,6 +125,20 @@ impl DisplayRows {
         Arc::ptr_eq(&self.identity, &other.identity)
     }
 
+    /// Logarithmic row-only clamp, without a line-prefix grapheme scan.
+    pub fn visible_anchor(&self, logical_line: usize) -> Option<RowAnchor> {
+        if logical_line >= self.text.len_lines() {
+            return None;
+        }
+        Some(RowAnchor {
+            logical_line: self
+                .folded
+                .as_ref()
+                .and_then(|map| map.hidden_header(logical_line))
+                .unwrap_or(logical_line),
+            segment: 0,
+        })
+    }
     pub fn row_count(&self) -> usize {
         self.folded
             .as_ref()

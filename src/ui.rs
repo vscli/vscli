@@ -29,6 +29,7 @@ fn clean_multiline(s: &str) -> String {
 pub fn draw(frame: &mut Frame, app: &mut App) {
     app.welcome_brand.begin_frame();
     app.editor_presentation.begin_frame();
+    app.begin_folding_frame();
     app.pane_areas.clear();
     app.editor_area = Rect::default();
     app.welcome_actions.clear();
@@ -612,6 +613,20 @@ fn draw_breadcrumbs_picker(frame: &mut Frame, app: &mut App) {
     app.breadcrumbs_picker_area = inner;
 }
 
+fn editor_text_area(doc: &Document, area: Rect) -> Rect {
+    let digits = if doc.line_numbers == crate::settings::LineNumbers::Off {
+        0
+    } else {
+        doc.line_count().to_string().len().max(3) as u16
+    };
+    let gutter = (digits + 2).min(area.width);
+    Rect::new(
+        area.x + gutter,
+        area.y,
+        area.width.saturating_sub(gutter),
+        area.height,
+    )
+}
 fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
     let colors = app.theme.colors;
     let digits = if app.doc().line_numbers == crate::settings::LineNumbers::Off {
@@ -630,30 +645,68 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
     if text_area.width == 0 || text_area.height == 0 {
         return;
     }
+    let folded = app
+        .folding_window_for(app.doc().active_view_id(), app.doc().id)
+        .cloned();
     let doc = app.doc_mut();
     let row = doc.row();
-    let col = doc.visual_column();
-    if row < doc.top {
-        doc.top = row;
-    } else if row >= doc.top + text_area.height as usize {
-        doc.top = row + 1 - text_area.height as usize;
-    }
-    if col < doc.left {
-        doc.left = col;
-    } else if col >= doc.left + text_area.width as usize {
-        doc.left = col + 1 - text_area.width as usize;
+    let col = folded
+        .as_ref()
+        .and_then(|pane| {
+            pane.window
+                .locate(doc.cursor, crate::display_rows::Affinity::Before)
+        })
+        .map_or_else(|| doc.visual_column(), |caret| doc.left + caret.column);
+    if folded.is_none() {
+        if row < doc.top {
+            doc.top = row;
+        } else if row >= doc.top + text_area.height as usize {
+            doc.top = row + 1 - text_area.height as usize;
+        }
+        if col < doc.left {
+            doc.left = col;
+        } else if col >= doc.left + text_area.width as usize {
+            doc.left = col + 1 - text_area.width as usize;
+        }
     }
     let doc = app.doc();
-    let selections: Vec<_> = doc
+    let mut selections: Vec<_> = doc
         .selections()
         .iter()
         .map(|s| s.range())
         .filter(|range| !range.is_empty())
         .collect();
+    if folded.is_some() {
+        selections.sort_unstable_by_key(|range| (range.start, range.end));
+        let mut merged: Vec<std::ops::Range<usize>> = Vec::with_capacity(selections.len());
+        for range in selections {
+            if let Some(last) = merged.last_mut()
+                && range.start <= last.end
+            {
+                last.end = last.end.max(range.end);
+            } else {
+                merged.push(range);
+            }
+        }
+        selections = merged;
+    }
+    let selected_folded = |range: std::ops::Range<usize>| {
+        let index = selections.partition_point(|selected| selected.end <= range.start);
+        selections
+            .get(index)
+            .is_some_and(|selected| selected.start < range.end)
+    };
     let grammar = app.syntax.get(doc);
     let language = app.language();
     for y in 0..text_area.height {
-        let row = doc.top + y as usize;
+        let row = if let Some(pane) = &folded {
+            let Some(row) = pane.window.row(y as usize) else {
+                break;
+            };
+            row.anchor.logical_line
+        } else {
+            doc.top + y as usize
+        };
         if row >= doc.line_count() {
             break;
         }
@@ -698,7 +751,13 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
         let number = format!(
             "{:>width$}{}",
             label,
-            if stopped {
+            if folded
+                .as_ref()
+                .and_then(|pane| pane.window.row(y as usize))
+                .is_some_and(|row| row.folded_body.is_some())
+            {
+                "▸"
+            } else if stopped {
                 ">"
             } else if breakpoint {
                 "●"
@@ -752,43 +811,98 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 .map(|(b, _)| b..b + app.find_query.len())
                 .collect()
         };
-        for (byte, g) in line_graphemes(&line) {
-            let width = doc.grapheme_width(g, visual);
-            let next = visual + width;
-            if visual >= doc.left + text_area.width as usize {
-                break;
-            }
-            if next > doc.left && visual >= doc.left && next <= doc.left + text_area.width as usize
-            {
+        if let Some(pane) = &folded {
+            for run in pane.window.runs(y as usize) {
+                if !run.complete {
+                    for cell in run.viewport.clone() {
+                        frame.buffer_mut().set_string(
+                            text_area.x + cell as u16,
+                            text_area.y + y,
+                            " ",
+                            base,
+                        );
+                    }
+                    continue;
+                }
+                let byte = run.bytes.start - start_byte;
+                let glyph = graphemes::as_text(doc.text.byte_slice(run.bytes.clone()));
                 let color = grammar
                     .map(|h| {
-                        h.style_at(start_byte + byte)
+                        h.style_at(run.bytes.start)
                             .map_or(colors.foreground, |style| app.theme.token(style))
                     })
                     .unwrap_or_else(|| styles.get(byte).copied().unwrap_or(colors.foreground));
                 let mut style = base.fg(color);
-                if matches.iter().any(|r| r.contains(&byte)) {
+                if matches.iter().any(|range| range.contains(&byte)) {
                     style = style.bg(Color::Rgb(96, 72, 21));
                 }
-                if selections
-                    .iter()
-                    .any(|r| r.start < char_pos + g.chars().count() && r.end > char_pos)
-                {
+                if selected_folded(run.characters.clone()) {
                     style = style.bg(colors.selection);
                 }
                 paint_grapheme(
                     frame.buffer_mut(),
-                    text_area.x + (visual - doc.left) as u16,
+                    text_area.x + run.viewport.start as u16,
                     text_area.y + y,
-                    g,
-                    width,
+                    &glyph,
+                    run.cells.len(),
                     style,
                 );
+                visual = run.cells.end;
             }
-            char_pos += g.chars().count();
-            visual = next;
+        } else {
+            for (byte, g) in line_graphemes(&line) {
+                let width = doc.grapheme_width(g, visual);
+                let next = visual + width;
+                if visual >= doc.left + text_area.width as usize {
+                    break;
+                }
+                if next > doc.left
+                    && visual >= doc.left
+                    && next <= doc.left + text_area.width as usize
+                {
+                    let color = grammar
+                        .map(|h| {
+                            h.style_at(start_byte + byte)
+                                .map_or(colors.foreground, |style| app.theme.token(style))
+                        })
+                        .unwrap_or_else(|| styles.get(byte).copied().unwrap_or(colors.foreground));
+                    let mut style = base.fg(color);
+                    if matches.iter().any(|r| r.contains(&byte)) {
+                        style = style.bg(Color::Rgb(96, 72, 21));
+                    }
+                    if selections
+                        .iter()
+                        .any(|r| r.start < char_pos + g.chars().count() && r.end > char_pos)
+                    {
+                        style = style.bg(colors.selection);
+                    }
+                    paint_grapheme(
+                        frame.buffer_mut(),
+                        text_area.x + (visual - doc.left) as u16,
+                        text_area.y + y,
+                        g,
+                        width,
+                        style,
+                    );
+                }
+                char_pos += g.chars().count();
+                visual = next;
+            }
         }
-        if selections.iter().any(|r| r.contains(&doc.line_end(row)))
+        if let Some(pane) = &folded {
+            if selected_folded(doc.line_end(row)..doc.line_end(row).saturating_add(1))
+                && let Some(caret) = pane
+                    .window
+                    .locate(doc.line_end(row), crate::display_rows::Affinity::Before)
+            {
+                frame.buffer_mut().set_string(
+                    text_area.x + caret.column as u16,
+                    text_area.y + y,
+                    " ",
+                    base.bg(colors.selection),
+                );
+            }
+        } else if selections.iter().any(|r| r.contains(&doc.line_end(row)))
             && visual >= doc.left
             && visual < doc.left + text_area.width as usize
         {
@@ -801,26 +915,50 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
         }
     }
     if focused && app.focus == Focus::Editor && app.prompt.is_none() && app.modal.is_none() {
-        for selection in &doc.secondary {
-            let row = doc.text.char_to_line(selection.cursor);
-            let column =
-                doc.display_width_slice(doc.text.slice(doc.line_start(row)..selection.cursor));
-            if row >= doc.top
-                && row < doc.top + text_area.height as usize
-                && column >= doc.left
-                && column < doc.left + text_area.width as usize
-                && let Some(cell) = frame.buffer_mut().cell_mut((
-                    text_area.x + (column - doc.left) as u16,
-                    text_area.y + (row - doc.top) as u16,
-                ))
-            {
-                cell.set_style(Style::default().bg(colors.foreground).fg(colors.background));
+        if let Some(pane) = &folded {
+            for selection in &doc.secondary {
+                if let Some(caret) = pane
+                    .window
+                    .locate(selection.cursor, crate::display_rows::Affinity::Before)
+                    && let Some(cell) = frame.buffer_mut().cell_mut((
+                        text_area.x + caret.column as u16,
+                        text_area.y + caret.row as u16,
+                    ))
+                {
+                    cell.set_style(Style::default().bg(colors.foreground).fg(colors.background));
+                }
             }
+            if let Some(caret) = pane
+                .window
+                .locate(doc.cursor, crate::display_rows::Affinity::Before)
+            {
+                frame.set_cursor_position((
+                    text_area.x + caret.column as u16,
+                    text_area.y + caret.row as u16,
+                ));
+            }
+        } else {
+            for selection in &doc.secondary {
+                let row = doc.text.char_to_line(selection.cursor);
+                let column =
+                    doc.display_width_slice(doc.text.slice(doc.line_start(row)..selection.cursor));
+                if row >= doc.top
+                    && row < doc.top + text_area.height as usize
+                    && column >= doc.left
+                    && column < doc.left + text_area.width as usize
+                    && let Some(cell) = frame.buffer_mut().cell_mut((
+                        text_area.x + (column - doc.left) as u16,
+                        text_area.y + (row - doc.top) as u16,
+                    ))
+                {
+                    cell.set_style(Style::default().bg(colors.foreground).fg(colors.background));
+                }
+            }
+            frame.set_cursor_position((
+                text_area.x + (col - doc.left) as u16,
+                text_area.y + (doc.row() - doc.top) as u16,
+            ));
         }
-        frame.set_cursor_position((
-            text_area.x + (col - doc.left) as u16,
-            text_area.y + (doc.row() - doc.top) as u16,
-        ));
     }
 }
 
@@ -1712,19 +1850,27 @@ fn draw_suggestions(frame: &mut Frame, app: &App) {
     };
     let doc = app.doc();
     let area = app.editor_area;
-    if area.width < 12
-        || area.height < 4
-        || doc.row() < doc.top
-        || doc.row() >= doc.top + area.height as usize
-    {
+    if area.width < 12 || area.height < 4 {
         return;
     }
-    let column = doc.visual_column();
-    if column < doc.left || column >= doc.left + area.width as usize {
-        return;
-    }
-    let caret_x = area.x + (column - doc.left) as u16;
-    let caret_y = area.y + (doc.row() - doc.top) as u16;
+    let (caret_x, caret_y) = if let Some(caret) = app.folded_caret() {
+        caret
+    } else {
+        if app.folding_window().is_some()
+            || doc.row() < doc.top
+            || doc.row() >= doc.top + area.height as usize
+        {
+            return;
+        }
+        let column = doc.visual_column();
+        if column < doc.left || column >= doc.left + area.width as usize {
+            return;
+        }
+        (
+            area.x + (column - doc.left) as u16,
+            area.y + (doc.row() - doc.top) as u16,
+        )
+    };
     let selected = model.selected_item();
     let details = selected
         .is_some_and(|item| !item.documentation.is_empty() || !item.detail.is_empty())

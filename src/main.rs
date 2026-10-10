@@ -584,8 +584,12 @@ fn main() -> Result<()> {
         }
         Ok(())
     })();
+    let folding_shutdown = app.settle_folding();
     drop(terminal);
     drop(guard);
+    if let Err(error) = folding_shutdown {
+        eprintln!("Folding shutdown: {error:#}");
+    }
     if let Err(error) = editing_result {
         app.settle_persistence();
         if let Some(worker) = recovery.take() {
