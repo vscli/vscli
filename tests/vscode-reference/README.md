@@ -107,6 +107,81 @@ grammar readiness. The native engine does not invoke VS Code's developer command
 These document observations also do not establish physical terminal delivery,
 arbitrary language configuration support, or complete VS Code indentation parity.
 
+## Installed declarative language configurations
+
+A separate observer installs one declarative development fixture in each of ten
+fresh, isolated VS Code processes. It contributes language-configuration JSON
+through `contributes.languages`; it supplies no activation code and does not call
+`setLanguageConfiguration`. It leaves the ordinary 120-second suite unchanged.
+The supervisor bounds the complete download and capture to 300 seconds.
+
+```sh
+# With the reference dependencies installed above, on Linux:
+xvfb-run -a node tests/vscode-reference/language-configuration-run.cjs target/vscode-reference/result/language-configuration
+# macOS or Windows (or Linux with an available display):
+node tests/vscode-reference/language-configuration-run.cjs target/vscode-reference/result/language-configuration
+cargo run --locked --example language_configuration_contract -- target/vscode-reference/result/language-configuration/language-configuration.json
+# Compare the committed actual Linux capture without launching VS Code:
+cargo run --locked --example language_configuration_contract
+# Also load the exact unchanged bundled CPP declaration through the native catalog:
+cargo run --locked --example language_configuration_contract -- --bundled
+```
+
+The [Linux trace](baselines/1.95.0/language-configuration/linux.json) contains
+52 cases and 208 text/scalar-selection snapshots. It captures omitted and empty
+fields, malformed entries mixed with valid entries, partial comments, configured
+pairs and surroundings, `autoCloseBefore`, conditional comment suppression, line
+comment toggle/add/remove, block comments, Unicode, CRLF, reversed and permuted
+selections, and Undo/Redo. All 52 observed Undo/Redo sequences restore the original
+and accepted bytes and selection vectors; 46 gestures change text and six are
+no-ops. These are executable observations, not expected values inferred from the
+parser source. `Add Line Comment` is a true no-op for empty/whitespace-only
+carets and an all-blank multiline range; these three cases retain the document
+version and create no edit to undo.
+
+The native comparison loads the exact captured manifest/configuration bytes
+through the public `Catalog` and native document APIs. Its declared scope is
+50 C++ cases and 200 snapshots. Two fixture-only unknown-language cases remain
+present in the raw trace and are identified explicitly rather than silently
+dropped: they show brackets-only fallback to auto-closing and surrounding, but do
+not qualify native document language-id binding. The example guards total count,
+ordering, excluded identities, product commit, and corpus/trace/package hashes.
+The expanded local native comparison passes all 50 C++ cases and 200 snapshots.
+Fresh cross-platform CI qualification remains pending; the committed capture
+records Linux only.
+
+The [evidence](baselines/1.95.0/language-configuration/linux-evidence.json)
+records 26 typed-target preparations with unchanged bytes, version, selections
+and EOL. Each process also proves that its installed declaration loaded using an
+independent scratch `onEnterRules` sentinel. That sentinel is excluded from the
+native comparison and does not qualify arbitrary native regular expressions.
+Nine C++ processes verify an independent prepared bracket jump that skips a
+block-comment closer; the unknown fixture language has no lexical grammar.
+Only these independent readiness probes may retry. Target gestures are observed
+once; preparation never occurs between Undo and Redo.
+
+The [provenance](baselines/1.95.0/language-configuration/linux-provenance.json)
+records the pinned product, exact fixture manifests and configurations, platform,
+and source/evidence/trace hashes. The evidence also inventories built-in declarations. Empty arrays in
+installed JSON normalize to omitted fields and inherit lower configuration;
+partial comment objects replace the whole comment definition. This does not
+qualify direct API empty-array semantics, arbitrary regex or multi-character
+pair support, cross-extension activation/registration ordering, configuration
+replacement timing, natural tokenization startup, or terminal key delivery.
+Native package-ID ordering remains a separately documented deterministic policy.
+
+The optional `--bundled` comparison loads the unchanged installed
+[`vscode.cpp` manifest and configuration](../fixtures/vscode-cpp-configuration/provenance.json)
+from the pinned executable. The fixture includes the original pinned source MIT
+license and verifies byte hashes plus semantic equality with upstream JSON/JSONC
+(the installed files are minified). It compares the 21 omitted-variant C++ gesture
+workflows, or 84 additional snapshots, using that declaration as catalog input.
+The local bundled-input comparison passes all 21 workflows and 84 snapshots.
+The scratch loader sentinel does not match those target gestures. Native warnings
+retain arbitrary regex, folding/word rules and multi-character pairs outside the
+comparison. This is qualification of unchanged declarative input loading; it does
+not execute or qualify the complete bundled extension or its grammar.
+
 ## Evidence and boundaries
 
 `typing.json` captures 18 C++/JSON smart-typing workflows from the executable,
