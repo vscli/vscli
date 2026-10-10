@@ -1,0 +1,12 @@
+{
+  "name": "advanced-indentation-modes-observer",
+  "publisher": "vscli-test",
+  "version": "0.0.0",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "main": "extension.cjs",
+  "activationEvents": [
+    "*"
+  ]
+}

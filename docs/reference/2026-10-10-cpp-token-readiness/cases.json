@@ -1,0 +1,38 @@
+[
+  {
+    "name": "cpp-close-early-natural",
+    "arm": "natural",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "cursor": 16
+  },
+  {
+    "name": "cpp-close-early-force-retokenize",
+    "arm": "force-retokenize",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "cursor": 16
+  },
+  {
+    "name": "cpp-close-early-model-options-recreation",
+    "arm": "model-options-recreation",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "cursor": 16
+  },
+  {
+    "name": "cpp-close-late-natural",
+    "arm": "natural",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "cursor": 16
+  },
+  {
+    "name": "cpp-close-late-force-retokenize",
+    "arm": "force-retokenize",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "cursor": 16
+  },
+  {
+    "name": "cpp-close-late-model-options-recreation",
+    "arm": "model-options-recreation",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "cursor": 16
+  }
+]

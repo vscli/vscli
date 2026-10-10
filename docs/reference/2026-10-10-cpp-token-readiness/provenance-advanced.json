@@ -1,0 +1,134 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "observedAt": "2026-10-10T01:19:32.551Z",
+  "mode": "advanced",
+  "fixtureCount": 6,
+  "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+  "observerSha256": "563816d5ef9e9fcb894f0a7c7b4d7391c494a2166e6fc6d336b705cbb96a02b4",
+  "casesSha256": "22fe8541ea47cf7efe7e9c8764b9952a4920875867f0a42b55bafedbfb28a0d8",
+  "traceSha256": "68a886e0fcfde472b39a7ebf6109ba13a25ef513cc8826f9698f190801b3cf27",
+  "runnerSha256": "508ff98d26818ac169b549b7a5d3df4d6042df965dd351c9445cccec510abb9e",
+  "workerSha256": "d1b435a6d486e229d765576d8b7c9ab96bf3375ce9d18e1280b72c618279d4f5",
+  "readinessSha256": "fa3e3b9ddc3a605894d9e8348f7bcc6cce66c8b9f42e727856d201bc5a479842",
+  "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+  "profileSettingsSha256": "8c0e70d757308f449c01c5ad46d0eadc3d01ee9b009b42125e1e48dd1dc664c5",
+  "configuration": {
+    "extension": "vscode.cpp",
+    "version": "1.0.0",
+    "path": "./language-configuration.json",
+    "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+    "actual": {
+      "comments": {
+        "lineComment": "//",
+        "blockComment": [
+          "/*",
+          "*/"
+        ]
+      },
+      "brackets": [
+        [
+          "{",
+          "}"
+        ],
+        [
+          "[",
+          "]"
+        ],
+        [
+          "(",
+          ")"
+        ]
+      ],
+      "autoClosingPairs": [
+        {
+          "open": "[",
+          "close": "]"
+        },
+        {
+          "open": "{",
+          "close": "}"
+        },
+        {
+          "open": "(",
+          "close": ")"
+        },
+        {
+          "open": "'",
+          "close": "'",
+          "notIn": [
+            "string",
+            "comment"
+          ]
+        },
+        {
+          "open": "\"",
+          "close": "\"",
+          "notIn": [
+            "string"
+          ]
+        },
+        {
+          "open": "/*",
+          "close": "*/",
+          "notIn": [
+            "string",
+            "comment"
+          ]
+        },
+        {
+          "open": "/**",
+          "close": " */",
+          "notIn": [
+            "string"
+          ]
+        }
+      ],
+      "surroundingPairs": [
+        [
+          "{",
+          "}"
+        ],
+        [
+          "[",
+          "]"
+        ],
+        [
+          "(",
+          ")"
+        ],
+        [
+          "\"",
+          "\""
+        ],
+        [
+          "'",
+          "'"
+        ],
+        [
+          "<",
+          ">"
+        ]
+      ],
+      "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+      "folding": {
+        "markers": {
+          "start": "^\\s*#pragma\\s+region\\b",
+          "end": "^\\s*#pragma\\s+endregion\\b"
+        }
+      },
+      "onEnterRules": [
+        {
+          "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+          "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+          "action": {
+            "indent": "outdent"
+          }
+        }
+      ]
+    }
+  },
+  "projection": "Fresh isolated process per mode; global and CPP override fixed before startup; independent plain Enter witnesses before/after targets; positive then negative grammar readiness only retried; target gesture never retried; natural, full force-retokenize and public model-options recreation arms explicitly distinct."
+}
