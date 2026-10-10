@@ -1,0 +1,64 @@
+name: Stable save configuration reference candidate
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tests/vscode-reference-save-actions-stable-configuration-candidate/**'
+      - '.github/workflows/save-actions-stable-configuration-reference.yml'
+      - '.gitattributes'
+permissions:
+  contents: read
+concurrency:
+  group: stable-save-reference-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  capture:
+    name: Stable save configuration (${{ matrix.os }})
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Verify exact ten-input identity before dependency setup
+        run: node -e "require('./tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.cjs').sourceIdentity(require('node:path').resolve('tests/vscode-reference-save-actions-stable-configuration-candidate'))"
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tests/vscode-reference-save-actions-stable-configuration-candidate
+      - name: Test bounded setup and original diagnostic contracts
+        run: node --test tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-readiness.test.cjs tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-diagnostics.test.cjs tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.test.cjs
+      - name: Record exact candidate revision and create cache parent
+        env:
+          CANDIDATE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node -e "const fs=require('node:fs');fs.mkdirSync('target/vscode-reference',{recursive:true});fs.mkdirSync('target/save-actions-stable-configuration',{recursive:true});fs.writeFileSync('target/save-actions-stable-configuration/candidate-revision.txt',process.env.CANDIDATE_REVISION+'\n')"
+      - name: Capture independent stable candidate (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          set -o pipefail
+          xvfb-run -a node tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-run.cjs target/save-actions-stable-configuration/result 2>&1 | tee target/save-actions-stable-configuration/capture.log
+      - name: Capture independent stable candidate (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-run.cjs target/save-actions-stable-configuration/result 2>&1 | tee target/save-actions-stable-configuration/capture.log
+      - name: Preserve every raw result and source on success or failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: save-actions-stable-configuration-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            target/save-actions-stable-configuration
+            tests/vscode-reference-save-actions-stable-configuration-candidate/*.cjs
+            tests/vscode-reference-save-actions-stable-configuration-candidate/*.json
+            tests/vscode-reference-save-actions-stable-configuration-candidate/*.md

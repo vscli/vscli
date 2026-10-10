@@ -9,3 +9,5 @@ vendor/unicode-segmentation/tests/testdata/mod.rs whitespace=-blank-at-eof
 tests/fixtures/vscode-cpp-configuration/** -text
 # Differential captures embed hashes of both reference sources and recorded data.
 tests/vscode-reference/** -text
+# Preserve source-hashed candidate inputs on Windows checkouts.
+/tests/vscode-reference-save-actions-stable-configuration-candidate/** -text
