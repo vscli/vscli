@@ -40,9 +40,13 @@ def header(app, name, visible):
     def ready():
         nonlocal snapshot
         app.read()
-        # One editor pane: tab row 0, Breadcrumbs row 1. Restrict this oracle
-        # to the editor area so Explorer and tab labels cannot satisfy it.
-        snapshot = "".join(app.screen.cells.get((1, column), " ")
+        # Locate the unique public group-1 strip and inspect only its next
+        # editor row. Explorer, strip labels and symbol panes cannot qualify.
+        rows = [row for row in range(len(app.screen.text().splitlines()))
+                if "".join(app.screen.cells.get((row, column), " ")
+                           for column in range(26, 110)).lstrip().startswith("1 ·")]
+        assert len(rows) == 1, f"Expected one group-1 strip, found {rows}:\n{app.screen.text()}"
+        snapshot = "".join(app.screen.cells.get((rows[0] + 1, column), " ")
                            for column in range(26, 110))
         return (name in snapshot) == visible
 

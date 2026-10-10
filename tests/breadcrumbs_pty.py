@@ -40,8 +40,14 @@ def trail(app, present=(), absent=()):
     def ready():
         nonlocal snapshot
         app.read()
-        # One native pane: tab row0, active editor Breadcrumbs row1.
-        snapshot = ''.join(app.screen.cells.get((1, column), ' ') for column in range(26, 110))
+        # Locate this single group's public strip, then inspect exactly its
+        # next editor row. Neither tab labels nor Outline symbol rows qualify.
+        rows = [row for row in range(len(app.screen.text().splitlines()))
+                if ''.join(app.screen.cells.get((row, column), ' ')
+                           for column in range(26, 110)).lstrip().startswith('1 ·')]
+        assert len(rows) == 1, f'Expected one group-1 strip, found {rows}:\n{app.screen.text()}'
+        snapshot = ''.join(app.screen.cells.get((rows[0] + 1, column), ' ')
+                           for column in range(26, 110))
         return all(name in snapshot for name in present) and not any(name in snapshot for name in absent)
     try:
         eventually(ready, timeout=8)

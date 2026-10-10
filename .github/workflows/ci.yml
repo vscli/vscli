@@ -225,6 +225,22 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/native_format_on_save_pty.py target/debug/vscli
+      - name: Observe committed editor-group tabs (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 4
+        run: xvfb-run -a node tests/vscode-reference/editor-group-tabs-run.cjs target/vscode-reference/result/editor-group-tabs
+      - name: Observe committed editor-group tabs (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 4
+        run: node tests/vscode-reference/editor-group-tabs-run.cjs target/vscode-reference/result/editor-group-tabs
+      - name: Compare native group membership with fresh pinned observations
+        env:
+          VSCLI_EDITOR_GROUP_TABS_REFERENCE_DIR: ${{ github.workspace }}/target/vscode-reference/result/editor-group-tabs
+        run: cargo test --locked --test editor_group_tabs_reference
+      - name: Run independent editor-group tab workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/editor_group_tabs_pty.py target/debug/vscli
       - name: Run native code-actions-on-save workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
