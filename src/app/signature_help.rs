@@ -203,7 +203,7 @@ impl DocumentStamp {
 pub(super) struct Stamp {
     before: Option<DocumentStamp>,
     source: Option<Source>,
-    settings: crate::settings::Settings,
+    settings: Option<crate::settings::Settings>,
     active: bool,
     typed: Option<char>,
     mouse: bool,
@@ -359,14 +359,14 @@ impl App {
         self.poll_signature()
     }
     fn signature_stamp(&self, typed: Option<char>, mouse: bool) -> Stamp {
-        let eligible = self.focus == Focus::Editor
-            && self.prompt.is_none()
-            && self.modal.is_none()
-            && Context::check_budget(self).is_ok();
+        let source = (self.focus == Focus::Editor && self.prompt.is_none() && self.modal.is_none())
+            .then(|| self.signature_source())
+            .flatten();
+        let eligible = source.is_some() && Context::check_budget(self).is_ok();
         Stamp {
             before: eligible.then(|| DocumentStamp::capture(self)).flatten(),
-            source: eligible.then(|| self.signature_source()).flatten(),
-            settings: self.settings.clone(),
+            source,
+            settings: eligible.then(|| self.settings.clone()),
             active: eligible && self.signature_triggered(),
             typed,
             mouse,
@@ -451,6 +451,12 @@ impl App {
         }
     }
     pub(super) fn signature_ui_event(&mut self, event: &Event) {
+        if self.signature.active.is_none()
+            && self.signature.pending.is_none()
+            && self.signature.queued.is_none()
+        {
+            return;
+        }
         let Event::Key(key) = event else {
             return;
         };
@@ -477,7 +483,7 @@ impl App {
         if stamp.mouse
             || before.document != after.document
             || before.pane != after.pane
-            || stamp.settings != self.settings
+            || stamp.settings.as_ref() != Some(&self.settings)
             || self.focus != Focus::Editor
             || self.prompt.is_some()
             || self.modal.is_some()

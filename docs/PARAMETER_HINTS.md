@@ -32,6 +32,11 @@ selections, pane/focus, workspace, input interaction, effective hint settings,
 and exact provider/server identity. Edit followed by Undo, source replacement,
 or settings A→B→A cannot revive an earlier reply. Hints never edit or save files.
 
+When no eligible source exists, typing skips signature selection snapshots and
+settings clones. An idle hint controller also skips its extra key resolution.
+Active hints, explicit invocation, and reply acceptance retain their guards;
+these shortcuts do not establish an editor performance ranking.
+
 Native signature requests have their own one-actual-request lane, separate from
 completion and other language features. Cancellation and a 15-second native
 timeout retain actual capacity until an exact terminal result/error or server
