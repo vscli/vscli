@@ -1,6 +1,6 @@
 'use strict';
 const vscode = require('vscode');
-const fs = require('node:fs');
+const publishEvidence = require('./publish-evidence.cjs');
 const path = require('node:path');
 exports.activate = context => {
   const diagnostics = vscode.languages.createDiagnosticCollection('primary');
@@ -25,7 +25,7 @@ exports.activate = context => {
       for (const diagnostic of owned) {
         if (!actionContext.diagnostics.includes(diagnostic) || diagnostic.fixInfo.self !== diagnostic.fixInfo) throw new Error('Original Diagnostic/custom fixInfo identity lost');
       }
-      fs.writeFileSync(path.join(vscode.workspace.rootPath, 'primary-observed.json'), JSON.stringify({
+      publishEvidence(path.join(vscode.workspace.rootPath, 'primary-observed.json'), JSON.stringify({
         diagnostics: owned.length, triggerKind: actionContext.triggerKind, only: actionContext.only?.value,
         selection: range instanceof vscode.Selection,
       }));
@@ -58,10 +58,10 @@ exports.activate = context => {
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider(['markdown', 'cpp'], provider,
     { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.Refactor] }));
   context.subscriptions.push(vscode.commands.registerCommand('qualification.mustNotExecute', () => {
-    fs.writeFileSync(path.join(vscode.workspace.rootPath, 'COMMAND_EXECUTED'), 'bad');
+    publishEvidence(path.join(vscode.workspace.rootPath, 'COMMAND_EXECUTED'), 'bad');
   }));
   context.subscriptions.push(vscode.commands.registerCommand('qualification.openHidden', async () => {
     const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(vscode.workspace.rootPath, 'hidden.md')));
-    fs.writeFileSync(path.join(vscode.workspace.rootPath, 'hidden-opened.json'), JSON.stringify({ id: document._snapshot.id }));
+    publishEvidence(path.join(vscode.workspace.rootPath, 'hidden-opened.json'), JSON.stringify({ id: document._snapshot.id }));
   }));
 };
