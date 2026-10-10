@@ -344,3 +344,17 @@ original profile keys, accepted-save/batch-close integration and Unix terminal
 journeys are separate pending qualification. This does not implement cross-group
 transfer, drag or original Close Group merging, and claims no new actual upstream
 behavioral capture. Policy follows the pinned original source.
+
+
+## Same-group reorder App integration candidate
+
+Original Move Editor Left/Right commands and platform keys now have a prepared
+App integration. Fresh exact group/membership proofs govern synchronous movement;
+changed moves publish once, retain layout and shared document views, and retire
+stale presentation targets. An edge no-op bypasses reorder-specific cancellation
+and publication. Remaining close batches retire on change, while the approved
+original Save→Close receipt retains its captured ownership and mode eligibility.
+The five App integrity cases pass with actual held save workers; four Unix
+terminal journeys pass across five native-only sessions. The candidate passes
+1,001 all-target tests with four test threads, formatting and strict locked
+Clippy; fresh platform qualification remains required. See [the behavior and evidence contract](TAB_REORDERING.md).
