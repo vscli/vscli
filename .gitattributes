@@ -13,3 +13,6 @@ tests/vscode-reference/** -text
 /tests/vscode-reference-save-actions-stable-configuration-candidate/** -text
 # Preserve genuine Windows capture log CRLF without whitespace normalization.
 /tests/vscode-reference/observations/1.95.0/save-configuration-stable/1338970/win32/**/capture.log whitespace=cr-at-eol
+# Preserve the earlier immutable Windows readiness/migration terminal logs.
+/tests/vscode-reference/observations/1.95.0/save-participant-readiness/2c5ee40/win32/**/capture.log whitespace=cr-at-eol
+/tests/vscode-reference/observations/1.95.0/save-configuration-diagnostics/67ab795/win32/**/capture.log whitespace=cr-at-eol

@@ -1,0 +1,85 @@
+[
+  {
+    "artifact": "save-actions-readiness-macos-14",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cases": 14,
+    "frames": 162,
+    "target_projection_equal": true,
+    "differing_cases": [],
+    "setup_attempts": [
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      2,
+      0,
+      0,
+      1,
+      2,
+      1,
+      2,
+      1
+    ],
+    "trace_sha256": "b3040a6c56b650362213cd347911de06621d5c85cc994a817ebd653577eb5f25",
+    "evidence_sha256": "e7c68a23e3dec8a7ce5f5967f57cb117b637893f1af1a50328f90f177b0864b9"
+  },
+  {
+    "artifact": "save-actions-readiness-ubuntu-24.04",
+    "platform": "linux",
+    "architecture": "x64",
+    "cases": 14,
+    "frames": 162,
+    "target_projection_equal": true,
+    "differing_cases": [],
+    "setup_attempts": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "trace_sha256": "b3040a6c56b650362213cd347911de06621d5c85cc994a817ebd653577eb5f25",
+    "evidence_sha256": "96b27f0f1b439a9adab74ef9cb914399b166bf705101b4ad7c95654cdb58ccd9"
+  },
+  {
+    "artifact": "save-actions-readiness-windows-2022",
+    "platform": "win32",
+    "architecture": "x64",
+    "cases": 14,
+    "frames": 162,
+    "target_projection_equal": false,
+    "differing_cases": [
+      "ancestor-false-child"
+    ],
+    "setup_attempts": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "trace_sha256": "98c428a4e2036daa4cebfd9bfef0ccf9a3d523b46be9c66dc6435ef9fddee629",
+    "evidence_sha256": "4faed9e1786d65eb91547fc2de3abebeed95dd281934ea77e0285b3d8b28ac87"
+  }
+]

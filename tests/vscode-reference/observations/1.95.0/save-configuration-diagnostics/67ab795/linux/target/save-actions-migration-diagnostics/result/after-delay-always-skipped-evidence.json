@@ -1,0 +1,447 @@
+{
+  "name": "after-delay-always-skipped",
+  "setup": {
+    "saveParticipantReadiness": {
+      "status": "not-run-after-delay",
+      "resource": "readiness.ini",
+      "input": "readiness=0\r\n",
+      "disk": "readiness=0\r\n",
+      "attempts": [],
+      "callbacks": [],
+      "scope": "After-delay target retains original zero-action reason scope; no auxiliary explicit Save"
+    },
+    "effective": {
+      "codeActionsOnSave": {
+        "source.fixAll": "always",
+        "source.organizeImports": "always"
+      },
+      "formatOnSave": false,
+      "autoSave": "afterDelay",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.fixAll",
+      "source.organizeImports"
+    ],
+    "configurationInspect": {
+      "key": "editor.codeActionsOnSave",
+      "defaultValue": {},
+      "globalValue": {
+        "source.fixAll": "always",
+        "source.organizeImports": "always"
+      }
+    },
+    "before": {
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "version": 1,
+      "dirty": false,
+      "selections": [
+        [
+          5,
+          0,
+          5,
+          0
+        ]
+      ],
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+    },
+    "after": {
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "version": 1,
+      "dirty": false,
+      "selections": [
+        [
+          5,
+          0,
+          5,
+          0
+        ]
+      ],
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+    },
+    "warmKinds": [
+      "source.organizeImports",
+      "source.fixAll.child",
+      "source.fixAll",
+      "source.fixAllX"
+    ],
+    "scope": "One public execute-source-provider call; no edits applied, exact unchanged proof and no readiness retry"
+  },
+  "observations": [
+    {
+      "action": "initial",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "dirty": false,
+      "primary": {
+        "anchor": 40,
+        "cursor": 40
+      },
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+    },
+    {
+      "action": "type",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+    },
+    {
+      "action": "files.autoSave.afterDelay",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+    }
+  ],
+  "steps": [
+    {
+      "action": "type",
+      "settlement": {
+        "elapsedMs": 103,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "files.autoSave.afterDelay",
+      "acknowledgement": {
+        "elapsedMs": 403,
+        "event": {
+          "phase": "target",
+          "version": 3,
+          "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+          "dirty": false,
+          "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+        }
+      },
+      "settlement": {
+        "elapsedMs": 102,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "phase": "setup",
+      "only": "source",
+      "triggerKind": 1,
+      "version": 1,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "cancelled": false,
+      "range": [
+        0,
+        0,
+        5,
+        0
+      ],
+      "returned": [
+        {
+          "title": "Synthetic imports",
+          "kind": "source.organizeImports"
+        },
+        {
+          "title": "Synthetic child fix",
+          "kind": "source.fixAll.child"
+        },
+        {
+          "title": "Synthetic root fix",
+          "kind": "source.fixAll"
+        },
+        {
+          "title": "Synthetic unrelated prefix",
+          "kind": "source.fixAllX"
+        }
+      ]
+    }
+  ],
+  "saved": [
+    {
+      "phase": "target",
+      "version": 3,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+    }
+  ],
+  "changes": [
+    {
+      "phase": "target",
+      "version": 2,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ",
+      "dirty": false,
+      "reason": null,
+      "changes": [
+        {
+          "rangeOffset": 41,
+          "rangeLength": 0,
+          "text": "λ"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 2,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ",
+      "dirty": true,
+      "reason": null,
+      "changes": []
+    },
+    {
+      "phase": "target",
+      "version": 3,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": null,
+      "changes": [
+        {
+          "rangeOffset": 42,
+          "rangeLength": 0,
+          "text": "🙂"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 3,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "reason": null,
+      "changes": []
+    },
+    {
+      "phase": "target",
+      "version": 3,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "reason": null,
+      "changes": []
+    }
+  ],
+  "configurationDiagnostics": {
+    "protocol": "save-configuration-diagnostics-v1",
+    "limits": {
+      "maxRecords": 128,
+      "maxValueNodes": 1024,
+      "maxValueDepth": 8,
+      "maxValueBytes": 32768,
+      "maxTotalBytes": 524288
+    },
+    "initial": {
+      "resource": "main.txt",
+      "uri": "file:///tmp/vscli-sca-l6Y6F3/after-delay-always-skipped/w/main.txt",
+      "languageId": "plaintext",
+      "open": false,
+      "version": null,
+      "exactDocument": null,
+      "effective": {
+        "codeActionsOnSave": {
+          "source.fixAll": "always",
+          "source.organizeImports": "always"
+        },
+        "formatOnSave": false,
+        "autoSave": "afterDelay",
+        "autoSaveDelay": 500
+      },
+      "inspect": {
+        "codeActionsOnSave": {
+          "key": "editor.codeActionsOnSave",
+          "defaultValue": {},
+          "globalValue": {
+            "source.fixAll": "always",
+            "source.organizeImports": "always"
+          }
+        },
+        "formatOnSave": {
+          "key": "editor.formatOnSave",
+          "defaultValue": false,
+          "globalValue": false,
+          "languageIds": [
+            "ini"
+          ]
+        },
+        "autoSave": {
+          "key": "files.autoSave",
+          "defaultValue": "off",
+          "globalValue": "afterDelay"
+        },
+        "autoSaveDelay": {
+          "key": "files.autoSaveDelay",
+          "defaultValue": 1000,
+          "globalValue": 500
+        }
+      }
+    },
+    "final": {
+      "resource": "main.txt",
+      "uri": "file:///tmp/vscli-sca-l6Y6F3/after-delay-always-skipped/w/main.txt",
+      "languageId": "plaintext",
+      "open": true,
+      "version": 3,
+      "exactDocument": true,
+      "effective": {
+        "codeActionsOnSave": {
+          "source.fixAll": "always",
+          "source.organizeImports": "always"
+        },
+        "formatOnSave": false,
+        "autoSave": "afterDelay",
+        "autoSaveDelay": 500
+      },
+      "inspect": {
+        "codeActionsOnSave": {
+          "key": "editor.codeActionsOnSave",
+          "defaultValue": {},
+          "globalValue": {
+            "source.fixAll": "always",
+            "source.organizeImports": "always"
+          }
+        },
+        "formatOnSave": {
+          "key": "editor.formatOnSave",
+          "defaultValue": false,
+          "globalValue": false,
+          "languageIds": [
+            "ini"
+          ]
+        },
+        "autoSave": {
+          "key": "files.autoSave",
+          "defaultValue": "off",
+          "globalValue": "afterDelay"
+        },
+        "autoSaveDelay": {
+          "key": "files.autoSaveDelay",
+          "defaultValue": 1000,
+          "globalValue": 500
+        }
+      }
+    },
+    "records": [
+      {
+        "sequence": 1,
+        "origin": "source-provider",
+        "phase": "setup",
+        "elapsedMs": 151,
+        "snapshot": {
+          "resource": "main.txt",
+          "uri": "file:///tmp/vscli-sca-l6Y6F3/after-delay-always-skipped/w/main.txt",
+          "languageId": "plaintext",
+          "open": true,
+          "version": 1,
+          "exactDocument": true,
+          "effective": {
+            "codeActionsOnSave": {
+              "source.fixAll": "always",
+              "source.organizeImports": "always"
+            },
+            "formatOnSave": false,
+            "autoSave": "afterDelay",
+            "autoSaveDelay": 500
+          },
+          "inspect": {
+            "codeActionsOnSave": {
+              "key": "editor.codeActionsOnSave",
+              "defaultValue": {},
+              "globalValue": {
+                "source.fixAll": "always",
+                "source.organizeImports": "always"
+              }
+            },
+            "formatOnSave": {
+              "key": "editor.formatOnSave",
+              "defaultValue": false,
+              "globalValue": false,
+              "languageIds": [
+                "ini"
+              ]
+            },
+            "autoSave": {
+              "key": "files.autoSave",
+              "defaultValue": "off",
+              "globalValue": "afterDelay"
+            },
+            "autoSaveDelay": {
+              "key": "files.autoSaveDelay",
+              "defaultValue": 1000,
+              "globalValue": 500
+            }
+          }
+        },
+        "context": {
+          "only": "source",
+          "triggerKind": 1,
+          "cancelled": false
+        }
+      },
+      {
+        "sequence": 2,
+        "origin": "did-save",
+        "phase": "target",
+        "elapsedMs": 700,
+        "snapshot": {
+          "resource": "main.txt",
+          "uri": "file:///tmp/vscli-sca-l6Y6F3/after-delay-always-skipped/w/main.txt",
+          "languageId": "plaintext",
+          "open": true,
+          "version": 3,
+          "exactDocument": true,
+          "effective": {
+            "codeActionsOnSave": {
+              "source.fixAll": "always",
+              "source.organizeImports": "always"
+            },
+            "formatOnSave": false,
+            "autoSave": "afterDelay",
+            "autoSaveDelay": 500
+          },
+          "inspect": {
+            "codeActionsOnSave": {
+              "key": "editor.codeActionsOnSave",
+              "defaultValue": {},
+              "globalValue": {
+                "source.fixAll": "always",
+                "source.organizeImports": "always"
+              }
+            },
+            "formatOnSave": {
+              "key": "editor.formatOnSave",
+              "defaultValue": false,
+              "globalValue": false,
+              "languageIds": [
+                "ini"
+              ]
+            },
+            "autoSave": {
+              "key": "files.autoSave",
+              "defaultValue": "off",
+              "globalValue": "afterDelay"
+            },
+            "autoSaveDelay": {
+              "key": "files.autoSaveDelay",
+              "defaultValue": 1000,
+              "globalValue": 500
+            }
+          }
+        },
+        "context": null
+      }
+    ],
+    "scope": "Public target resource/language configuration at source callbacks, didSave and all relevant configuration events; independent diagnostic metadata, no migration forcing, preferred target predicate or target retry"
+  },
+  "commandInventory": [
+    "redo",
+    "type",
+    "undo",
+    "workbench.action.files.save"
+  ],
+  "executeApiListed": false,
+  "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+}
