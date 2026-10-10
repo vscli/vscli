@@ -288,7 +288,7 @@ impl App {
     /// the same non-awaiting call, then apply Change and refresh the tracker.
     pub(super) fn commit_preview_open(&mut self, admission: Admission) -> Result<Change> {
         self.recheck_preview_admission(&admission)?;
-        self.editor_groups.open_mode(
+        self.open_editor_group(
             admission.document,
             admission.mode,
             admission.replacement.map(|(member, _)| member),

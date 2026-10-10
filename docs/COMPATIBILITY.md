@@ -60,7 +60,7 @@ See [implementation, test evidence and limits](IMPORT_AND_THEMES.md).
 
 Recent-file navigation provides a persistent native MRU picker and session-local
 reopening of closed file-backed editors. Opt-in clean-session restoration additionally
-reopens clean files, the active tab and the current four-equal-group visible layout,
+reopens clean files, the active tab and up to four groups in a recorded flat orientation,
 with bounded cursor/selection metadata. Dirty/untitled recovery and explicit CLI
 files remain authoritative. Independent committed group tabs and historical
 membership views are implemented in the current candidate, with a strict schema-2
@@ -70,8 +70,14 @@ clean session restoration commits preview modes. A prepared sticky-tab candidate
 adds group-local pin/unpin ordering, an original pin/unpin chord, a ◆ marker and
 root-scoped keyboard close protection; its native execution and platform checks
 remain pending. Mouse close gestures, sticky persistence, graphical sticky rows,
-full hot exit, resizable/nested layouts, workspace transitions and terminal
-persistence remain incomplete. See [sticky scope and qualification](STICKY_TABS.md)
+full hot exit, workspace transitions and terminal persistence remain incomplete.
+The current nested layout candidate implements native Right/Down splitting and
+bounded four-column/two-row keyboard resizing with sealed exact-group hit maps;
+its App/terminal qualification is separate from the fifteen qualified pure-layout
+cases. Mouse dragging, left/up callers and nested schema-3 persistence remain
+pending. Terminal cell increments do not establish CSS-pixel sizing parity.
+See [layout scope and evidence](EDITOR_LAYOUT.md),
+[sticky scope and qualification](STICKY_TABS.md)
 and [group/tab scope and qualification](EDITOR_GROUPS.md).
 See [recent-file integrity](USAGE.md#recent-files-and-reopening-closed-editors) and
 [clean-session behavior and limits](USAGE.md#clean-file-session-restoration).
@@ -378,14 +384,16 @@ Starting without file arguments and closing the last editor leave a true zero-do
 ### Native clean-session metadata
 
 Opt-in `--restore-session` and `vscli.session.restore` reopen clean disk files and
-VSCLI's current global-tab/four-equal-group layout. Recovery buffers and explicit
+VSCLI's ordered group/tab layout using the recorded flat orientation. Recovery buffers and explicit
 CLI files remain authoritative; no editor text is stored in this metadata. The
 implementation restores each tab's last view and each visible group's view, with
 bounded background reads, per-instance leases, atomic publication and retryable
 all-or-nothing restore. `--no-session` disables this separate persistence mechanism.
 See [usage and limits](USAGE.md#clean-file-session-restoration) for qualification.
 This is a native convenience feature, not a claim of VS Code hot-exit, independent
-preview/pinned tabs, nested/resizable layouts, terminal persistence, workspace transitions, or extension-state parity.
+preview/pinned mode persistence, nested/resized layout persistence, terminal
+persistence, workspace transitions, or extension-state parity. Current schema 2
+has no mixed tree or ratio DTO; schema 3 qualification remains pending.
 
 Selected CommonJS packages now support dependency-first cached activation and same-host `vscode.extensions` lookup/exports within the eight-package cohort. Missing or cyclic dependencies reject before execution; runtime reverse waits reject. See [extension lifecycle limits](EXTENSIONS.md#session-limits-and-failure-behavior). Remembered user-owned global/workspace execution grants and bounded `*` / startup / command / language / workspace-file event dispatch are implemented. This is an explicit subset; dependency installation, hot unloading and cross-host APIs remain unsupported. Installed native declarative contributions remain separate from execution grants.
 

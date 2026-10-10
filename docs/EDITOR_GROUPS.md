@@ -15,9 +15,11 @@ Explicit opens are committed. Preview-enabled callers can replace the current
 group's previous eligible clean preview, as described below.
 
 Splitting creates an adjacent group containing only the active tab. Historical
-tabs in the source group stay there. Up to four groups share the available
-space equally, using the existing horizontal or vertical split orientation.
-Each group has its own tab strip above its Breadcrumbs and editor. The selected
+tabs in the source group stay there. The current layout candidate places up to
+four groups in a bounded nested Right/Down tree; only the selected leaf splits.
+Keyboard/palette ratio resizing and its separate qualification are described in
+[the layout contract](EDITOR_LAYOUT.md). Each group has its own tab strip above
+its Breadcrumbs and editor. The selected
 tab remains visible when the strip is narrow; long labels are clipped by
 grapheme, controls are sanitized, and filename processing is bounded.
 
@@ -80,8 +82,10 @@ monotonic counters. The engine admits at most four groups, 128 tabs per group
 and 512 memberships. Capacity or identity exhaustion rejects the operation
 before changing ownership. Recovery remains authoritative: when retained
 buffers cannot fit the bounded group representation, VSCLI keeps the legacy
-workbench and every buffer, with an explicit layout-unavailable notice. It does
-not truncate recovered work to satisfy the tab limit.
+workbench and every buffer, with an explicit layout-unavailable notice. Its active
+recovery buffer remains keyboard-editable; no unproved source/tab/divider pointer
+map is admitted. The existing native save inventory still requires at most 128
+retained models. It does not truncate recovered work to satisfy either limit.
 
 Recent-file and Reopen Closed Editor admission failures retain existing models,
 pending Redo and closed-file history. Rejected asynchronous loads also resume
@@ -91,7 +95,8 @@ navigation-history recording, so later Back/Forward remains usable.
 
 Session schema 2 records an ordered clean-file table, ordered groups and tabs,
 each tab's view, each group's active tab and recent-tab order, active group and
-split orientation. Restore reads each unique file once, installs shared native
+flat split orientation. Current schema 2 does not retain mixed topology or resized
+ratios; schema 3 integration is pending. Restore reads each unique file once, installs shared native
 documents and allocates fresh runtime group/tab identities after validation.
 It retains inactive-tab views as well as visible views.
 
@@ -166,9 +171,11 @@ workbench has zero engine groups and no document. This is an explicit internal
 layout boundary: absent editor/text and unchanged disk behavior may be compared,
 while the group inventories differ. The raw observation is preserved.
 
-Follow-ups include sticky/pinned tabs, tab movement and
-reordering, drag-and-drop, resizable or nested layouts, non-default opening and
-close policies, multi-workspace/hot-exit continuity and terminal persistence.
+At the original group-tab milestone, sticky/pinned modes, preview policies and
+nested resizing remained follow-ups. The later sections below describe sticky and
+preview work; [the layout contract](EDITOR_LAYOUT.md) records current nested splitting
+and keyboard resizing. Tab movement/reordering, drag-and-drop, broader close
+policies, multi-workspace/hot-exit continuity and terminal persistence remain gaps.
 This slice does not establish complete VS Code editor-group or workspace parity.
 
 

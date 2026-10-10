@@ -444,6 +444,9 @@ fn main() -> Result<()> {
             app.message = format!(
                 "Recovered {count} unsaved buffer(s). Disk files were not modified. Review and Save or Save As."
             );
+            // Recovery installs authoritative models directly. Establish their
+            // group/tree views here; rendering only presents existing ownership.
+            app.sync_pane();
         }
     }
     if !args.no_session {

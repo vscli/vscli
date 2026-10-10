@@ -254,7 +254,7 @@ impl App {
         }
         // Stage every group's subset and counter checks on one bounded engine
         // clone. No model/view/closed-editor side effect occurs before success.
-        let staged = (|| -> Result<(crate::editor_groups::Groups, Change)> {
+        let staged = (|| -> Result<(crate::editor_groups::Groups, crate::editor_layout::Layout, Change)> {
             let mut groups = self.editor_groups.clone();
             let mut aggregate = Change {
                 previous: groups.active_membership(),
@@ -273,10 +273,11 @@ impl App {
                 aggregate.removed_groups.extend(change.removed_groups);
             }
             aggregate.active = groups.active_membership();
-            Ok((groups, aggregate))
+            let layout = self.prepare_group_layout(&groups, &aggregate, None)?;
+            Ok((groups, layout, aggregate))
         })();
         match staged {
-            Ok((groups, change)) => {
+            Ok((groups, layout, change)) => {
                 for member in &change.removed {
                     self.record_closed_tab(*member);
                 }
@@ -285,7 +286,7 @@ impl App {
                     .iter()
                     .map(|member| member.document)
                     .collect();
-                self.editor_groups = groups;
+                self.publish_group_layout(groups, layout);
                 self.close_membership = None;
                 self.apply_group_change(change);
                 self.documents.retain(|doc| {

@@ -470,7 +470,8 @@ impl App {
                 groups.focus(original)?;
             }
             aggregate.active = groups.active_membership();
-            Some((groups, aggregate))
+            let layout = self.prepare_group_layout(&groups, &aggregate, None)?;
+            Some((groups, layout, aggregate))
         } else {
             None
         };
@@ -481,8 +482,8 @@ impl App {
             });
             self.documents[index].apply_changes(edits);
         }
-        if let Some((groups, change)) = admitted {
-            self.editor_groups = groups;
+        if let Some((groups, layout, change)) = admitted {
+            self.publish_group_layout(groups, layout);
             self.apply_group_change(change);
         }
         self.preview_edit_barrier();
