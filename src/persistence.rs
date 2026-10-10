@@ -16,6 +16,9 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
+#[cfg(test)]
+use crate::save_worker::diagnostics::{Span, Stage};
+
 pub const MAX_BYTES: usize = 32 * 1024 * 1024;
 const PATH_BYTES: usize = 4096;
 const MODELS: usize = 128;
@@ -102,6 +105,8 @@ pub(crate) fn destination(path: &Path) -> Result<PathBuf> {
 struct LockedFile(File);
 impl Drop for LockedFile {
     fn drop(&mut self) {
+        #[cfg(test)]
+        let _progress = Span::enter(Stage::LockUnlockBegin, Stage::LockUnlockReturned);
         let _ = self.0.unlock();
     }
 }
@@ -635,6 +640,11 @@ struct TemporaryCleanup {
 }
 impl Drop for TemporaryCleanup {
     fn drop(&mut self) {
+        #[cfg(test)]
+        let _progress = Span::enter(
+            Stage::TemporaryCleanupBegin,
+            Stage::TemporaryCleanupReturned,
+        );
         #[cfg(unix)]
         {
             use std::{
@@ -734,12 +744,20 @@ impl Prepared {
         self.target.info()
     }
     pub fn commit(self) -> Result<Commit> {
-        self.target.recheck()?;
+        {
+            #[cfg(test)]
+            let _progress = Span::enter(Stage::RecheckBegin, Stage::RecheckReturned);
+            self.target.recheck()?;
+        }
         if matches!(self.target.baseline, Baseline::Missing) {
+            #[cfg(test)]
+            let _progress = Span::enter(Stage::NoClobberBegin, Stage::NoClobberReturned);
             self.temporary
                 .persist_noclobber(&self.target.path)
                 .map_err(|error| error.error)?;
         } else {
+            #[cfg(test)]
+            let _progress = Span::enter(Stage::ReplaceBegin, Stage::ReplaceReturned);
             replace_existing(self.temporary, &self.target.path)?;
         }
         #[cfg(unix)]

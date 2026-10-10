@@ -28,6 +28,7 @@ mod signature_help;
 mod sticky_tabs;
 mod suggestions;
 mod tab_reordering;
+mod tab_transfer;
 mod workspace_edits;
 
 mod session;
@@ -286,6 +287,22 @@ pub const COMMANDS: &[(&str, &str)] = &[
     (
         "View: Move Editor Right",
         "workbench.action.moveEditorRightInGroup",
+    ),
+    (
+        "View: Move Editor into Previous Group",
+        "workbench.action.moveEditorToPreviousGroup",
+    ),
+    (
+        "View: Move Editor into Next Group",
+        "workbench.action.moveEditorToNextGroup",
+    ),
+    (
+        "View: Move Editor into First Group",
+        "workbench.action.moveEditorToFirstGroup",
+    ),
+    (
+        "View: Move Editor into Last Group",
+        "workbench.action.moveEditorToLastGroup",
     ),
     (
         "View: Focus Left Editor Group",
@@ -1660,6 +1677,9 @@ impl App {
             return;
         }
         if self.execute_tab_reorder_command(command) {
+            return;
+        }
+        if self.execute_tab_transfer_command(command) {
             return;
         }
         if self.execute_spatial_focus_command(command) {

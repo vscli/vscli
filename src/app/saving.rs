@@ -40,6 +40,8 @@ mod spatial_focus_tests;
 #[cfg(test)]
 mod tab_reordering_tests;
 #[cfg(test)]
+mod tab_transfer_tests;
+#[cfg(test)]
 mod tests;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Stage {

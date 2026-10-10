@@ -470,6 +470,7 @@ impl Document {
             && self.undo.last().is_some_and(|snapshot| {
                 snapshot.view_id == self.active_view
                     && snapshot.snippet_generation == self.snippet_generation
+                    && std::sync::Arc::ptr_eq(&snapshot.session_owner, &self.session_owner)
             });
         let has_transform = session
             .markers

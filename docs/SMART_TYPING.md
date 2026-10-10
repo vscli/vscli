@@ -41,6 +41,11 @@ typing-settings change retires existing marks and breaks typing grouping; Undo
 does not revive those retired marks. Failed validation or failed Save As leaves
 the prior document and ownership intact.
 
+New or recreated editor-group views have fresh private session ownership, whether
+activated by the keyboard or projected during drawing. Undo cannot revive a
+closed view's generated pairs through a reused group. Switching to a retained
+view preserves its ownership and ordinary pair Undo/Redo.
+
 The complete cursor/selection set is staged before mutation. Mixed selected/empty
 sets and over-budget cases take a whole-gesture literal fallback. Adjacent
 selections surround independently; surrounding a reversed selection produces the

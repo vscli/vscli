@@ -17,6 +17,10 @@ pub(crate) mod graphemes;
 mod indentation;
 mod snippets;
 mod typing;
+mod view_transfer;
+pub use view_transfer::ViewTransfer;
+#[cfg(test)]
+mod view_recreation_tests;
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
@@ -152,6 +156,7 @@ struct Snapshot {
     snippet: Option<snippets::Session>,
     snippet_generation: u64,
     pairs: typing::Pairs,
+    session_owner: std::sync::Arc<()>,
     // Snippet navigation occurs after the edit. Preserve the edit's endpoint
     // selections instead of turning that later navigation into redo state.
     after_selections: Option<Vec<Selection>>,
@@ -169,6 +174,7 @@ pub struct ViewState {
     snippet: Option<snippets::Session>,
     snippet_generation: u64,
     pairs: typing::Pairs,
+    session_owner: std::sync::Arc<()>,
 }
 #[derive(Clone)]
 pub(crate) struct ByteChange {
@@ -394,6 +400,9 @@ impl Document {
         }
         let next = self.other_views.remove(&id).unwrap_or_else(|| {
             let mut view = self.view.clone();
+            // Recreated group views must not inherit a closed view's private
+            // session authority through a retained sibling's cloned owner.
+            view.session_owner = std::sync::Arc::new(());
             view.cursor_history.clear();
             view.snippet = None;
             view.pairs = typing::Pairs::default();
@@ -690,6 +699,7 @@ impl Document {
             snippet: self.snippet.clone(),
             snippet_generation: self.snippet_generation,
             pairs: self.pairs.clone(),
+            session_owner: self.session_owner.clone(),
             after_selections: None,
         }
     }
@@ -817,6 +827,7 @@ impl Document {
             snippet: view.snippet.clone(),
             snippet_generation: view.snippet_generation,
             pairs: view.pairs.clone(),
+            session_owner: view.session_owner.clone(),
             after_selections: after.map(|_| {
                 let mut selections = vec![Selection {
                     cursor: target.cursor,
@@ -843,10 +854,11 @@ impl Document {
             self.other_views.get_mut(&s.view_id)
         };
         if let Some(view) = view {
-            if view.pairs.generation == s.pairs.generation {
+            let same_session = std::sync::Arc::ptr_eq(&view.session_owner, &s.session_owner);
+            if same_session && view.pairs.generation == s.pairs.generation {
                 view.pairs = s.pairs;
             }
-            if view.snippet_generation == s.snippet_generation {
+            if same_session && view.snippet_generation == s.snippet_generation {
                 if let (Some(previous), Some(current)) = (&mut s.snippet, &view.snippet) {
                     previous.retain_removed_from(current);
                 }
