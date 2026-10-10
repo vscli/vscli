@@ -53,3 +53,14 @@ authority and aggregate reservations are being integrated in the separate
 user-visible slice. Fresh exact-head protected CI and parent integration remain
 required before this foundation merges. Earlier all-green CI results apply to
 their original heads, not this rebase.
+
+The foundation is now based on merged nested layouts in main
+`fb360539a060f118db4a10239e9d5181410e0a2e`. Layout PR #69 passed all six
+required checks on reviewed head `8664ba9` in
+[run 38073389609](https://github.com/vscli/vscli/actions/runs/38073389609).
+Foundation head `045cc6e` passed all six checks in
+[run 38072484939](https://github.com/vscli/vscli/actions/runs/38072484939).
+The main rebase changes inherited documentation only; native source, tests,
+workflows and reference inputs remain byte-identical to that qualified
+foundation head. Fresh protected exact-head checks remain required. Visible
+folding has a separately prepared source candidate and is not yet qualified.
