@@ -57,12 +57,14 @@ fn directory(path: &Path) -> Result<()> {
         Ok(meta) if meta.is_dir() && !meta.file_type().is_symlink() => Ok(()),
         Ok(_) => bail!("Extension state directory must be an ordinary directory"),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            let mut builder = fs::DirBuilder::new();
+            let builder = fs::DirBuilder::new();
             #[cfg(unix)]
-            {
+            let builder = {
                 use std::os::unix::fs::DirBuilderExt;
+                let mut builder = builder;
                 builder.mode(0o700);
-            }
+                builder
+            };
             match builder.create(path) {
                 Ok(()) => Ok(()),
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => directory(path),
