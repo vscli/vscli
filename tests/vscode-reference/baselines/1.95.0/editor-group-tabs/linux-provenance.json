@@ -1,0 +1,359 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "caseCount": 8,
+  "snapshotCount": 70,
+  "traceSha256": "dbb4ded50ae32f51c373701b0b3d789c07d49d36f0eb6a51f22ea36ad97578e9",
+  "evidenceSha256": "af96274775fcc4b0ac60229a1ee3b4e47cc7956760521cc1e8258ddedd89ee37",
+  "casesSha256": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+  "files": [
+    {
+      "case": "right-insertion-and-existing-tab-focus",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "right-insertion-and-existing-tab-focus",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "right-insertion-and-existing-tab-focus",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "right-insertion-and-existing-tab-focus",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "split-active-only-and-current-group-open",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "split-active-only-and-current-group-open",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "split-active-only-and-current-group-open",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "split-active-only-and-current-group-open",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "global-versus-group-local-navigation",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "global-versus-group-local-navigation",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "global-versus-group-local-navigation",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "global-versus-group-local-navigation",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "historical-group-selections-and-shared-view-independence",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "historical-group-selections-and-shared-view-independence",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "historical-group-selections-and-shared-view-independence",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "historical-group-selections-and-shared-view-independence",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "shared-dirty-membership-close-and-clean-last-close",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "shared-dirty-membership-close-and-clean-last-close",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "shared-dirty-membership-close-and-clean-last-close",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "shared-dirty-membership-close-and-clean-last-close",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "mru-close-fallback-differs-from-adjacent-tab",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "mru-close-fallback-differs-from-adjacent-tab",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "mru-close-fallback-differs-from-adjacent-tab",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "mru-close-fallback-differs-from-adjacent-tab",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "empty-group-removal-and-close-group-focus",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "empty-group-removal-and-close-group-focus",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "empty-group-removal-and-close-group-focus",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "empty-group-removal-and-close-group-focus",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "existing-resource-prefers-active-group",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "existing-resource-prefers-active-group",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "existing-resource-prefers-active-group",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "existing-resource-prefers-active-group",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    }
+  ],
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T07:21:32.452Z",
+      "name": "right-insertion-and-existing-tab-focus",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "a362a70b809ef4a3b452ac1294b1c3179deb69fd89948cd6f3f324f20f43f0a3",
+      "sources": {
+        "editor-group-tabs.cjs": "44b579673641422b8c2d697b0624582f19d1f49f95487a95be515c0913ef8812",
+        "editor-group-tabs-cases.json": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+        "editor-group-tabs-suite.cjs": "4911b73f005fc31f20315df2dfe2f5b2a52a446e3c9840c20ca806b7399fbef8",
+        "editor-group-tabs-run.cjs": "56da73eaa905dcb871a2d4c67913b4734661eb65a257245422b0e53b7eaaf7fd",
+        "editor-group-tabs-worker.cjs": "3553857197b5d11c609a2550f8882b21e2f2e78cfe564f4b91f7e7d778d4a648",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "bd5a6411a648abcabbf2e6dd1a4980c573f80ff8c3fcf17e7d643baa3dad3ed8",
+      "scope": "Committed text-file tabs, explicit default positioning/MRU/close-empty policy, public groups and visible editor selections only; no private workbench/MRU/layout access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T07:21:35.059Z",
+      "name": "split-active-only-and-current-group-open",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "fcf0c87cfff0dc9bbeb51ce8936935ec8181a542791c67ce6434a8ff5e5c3878",
+      "sources": {
+        "editor-group-tabs.cjs": "44b579673641422b8c2d697b0624582f19d1f49f95487a95be515c0913ef8812",
+        "editor-group-tabs-cases.json": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+        "editor-group-tabs-suite.cjs": "4911b73f005fc31f20315df2dfe2f5b2a52a446e3c9840c20ca806b7399fbef8",
+        "editor-group-tabs-run.cjs": "56da73eaa905dcb871a2d4c67913b4734661eb65a257245422b0e53b7eaaf7fd",
+        "editor-group-tabs-worker.cjs": "3553857197b5d11c609a2550f8882b21e2f2e78cfe564f4b91f7e7d778d4a648",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "bd5a6411a648abcabbf2e6dd1a4980c573f80ff8c3fcf17e7d643baa3dad3ed8",
+      "scope": "Committed text-file tabs, explicit default positioning/MRU/close-empty policy, public groups and visible editor selections only; no private workbench/MRU/layout access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T07:21:38.143Z",
+      "name": "global-versus-group-local-navigation",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "d021a1767c6804181475ed41653a972aaeb4b583f17e9e9b2e39df501a151d07",
+      "sources": {
+        "editor-group-tabs.cjs": "44b579673641422b8c2d697b0624582f19d1f49f95487a95be515c0913ef8812",
+        "editor-group-tabs-cases.json": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+        "editor-group-tabs-suite.cjs": "4911b73f005fc31f20315df2dfe2f5b2a52a446e3c9840c20ca806b7399fbef8",
+        "editor-group-tabs-run.cjs": "56da73eaa905dcb871a2d4c67913b4734661eb65a257245422b0e53b7eaaf7fd",
+        "editor-group-tabs-worker.cjs": "3553857197b5d11c609a2550f8882b21e2f2e78cfe564f4b91f7e7d778d4a648",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "bd5a6411a648abcabbf2e6dd1a4980c573f80ff8c3fcf17e7d643baa3dad3ed8",
+      "scope": "Committed text-file tabs, explicit default positioning/MRU/close-empty policy, public groups and visible editor selections only; no private workbench/MRU/layout access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T07:21:41.208Z",
+      "name": "historical-group-selections-and-shared-view-independence",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "8c0ac7d77137a67342f0af81ca29dad94b440ea5b1f1c867f6ee656fef5bc751",
+      "sources": {
+        "editor-group-tabs.cjs": "44b579673641422b8c2d697b0624582f19d1f49f95487a95be515c0913ef8812",
+        "editor-group-tabs-cases.json": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+        "editor-group-tabs-suite.cjs": "4911b73f005fc31f20315df2dfe2f5b2a52a446e3c9840c20ca806b7399fbef8",
+        "editor-group-tabs-run.cjs": "56da73eaa905dcb871a2d4c67913b4734661eb65a257245422b0e53b7eaaf7fd",
+        "editor-group-tabs-worker.cjs": "3553857197b5d11c609a2550f8882b21e2f2e78cfe564f4b91f7e7d778d4a648",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "bd5a6411a648abcabbf2e6dd1a4980c573f80ff8c3fcf17e7d643baa3dad3ed8",
+      "scope": "Committed text-file tabs, explicit default positioning/MRU/close-empty policy, public groups and visible editor selections only; no private workbench/MRU/layout access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T07:21:44.311Z",
+      "name": "shared-dirty-membership-close-and-clean-last-close",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "4c4cabce52e7c229538ca29994ea35439454e75777d9e8f7963a4de5f7ecff93",
+      "sources": {
+        "editor-group-tabs.cjs": "44b579673641422b8c2d697b0624582f19d1f49f95487a95be515c0913ef8812",
+        "editor-group-tabs-cases.json": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+        "editor-group-tabs-suite.cjs": "4911b73f005fc31f20315df2dfe2f5b2a52a446e3c9840c20ca806b7399fbef8",
+        "editor-group-tabs-run.cjs": "56da73eaa905dcb871a2d4c67913b4734661eb65a257245422b0e53b7eaaf7fd",
+        "editor-group-tabs-worker.cjs": "3553857197b5d11c609a2550f8882b21e2f2e78cfe564f4b91f7e7d778d4a648",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "bd5a6411a648abcabbf2e6dd1a4980c573f80ff8c3fcf17e7d643baa3dad3ed8",
+      "scope": "Committed text-file tabs, explicit default positioning/MRU/close-empty policy, public groups and visible editor selections only; no private workbench/MRU/layout access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T07:21:47.202Z",
+      "name": "mru-close-fallback-differs-from-adjacent-tab",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "09c1848ec705aa676f476d64d6afc580b19731c9b4fa87876023245b873f0093",
+      "sources": {
+        "editor-group-tabs.cjs": "44b579673641422b8c2d697b0624582f19d1f49f95487a95be515c0913ef8812",
+        "editor-group-tabs-cases.json": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+        "editor-group-tabs-suite.cjs": "4911b73f005fc31f20315df2dfe2f5b2a52a446e3c9840c20ca806b7399fbef8",
+        "editor-group-tabs-run.cjs": "56da73eaa905dcb871a2d4c67913b4734661eb65a257245422b0e53b7eaaf7fd",
+        "editor-group-tabs-worker.cjs": "3553857197b5d11c609a2550f8882b21e2f2e78cfe564f4b91f7e7d778d4a648",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "bd5a6411a648abcabbf2e6dd1a4980c573f80ff8c3fcf17e7d643baa3dad3ed8",
+      "scope": "Committed text-file tabs, explicit default positioning/MRU/close-empty policy, public groups and visible editor selections only; no private workbench/MRU/layout access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T07:21:49.748Z",
+      "name": "empty-group-removal-and-close-group-focus",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "a56d49045070cf18ffff7ba25ea96d1e7b4cc275be34066becb2de348b1bbdd7",
+      "sources": {
+        "editor-group-tabs.cjs": "44b579673641422b8c2d697b0624582f19d1f49f95487a95be515c0913ef8812",
+        "editor-group-tabs-cases.json": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+        "editor-group-tabs-suite.cjs": "4911b73f005fc31f20315df2dfe2f5b2a52a446e3c9840c20ca806b7399fbef8",
+        "editor-group-tabs-run.cjs": "56da73eaa905dcb871a2d4c67913b4734661eb65a257245422b0e53b7eaaf7fd",
+        "editor-group-tabs-worker.cjs": "3553857197b5d11c609a2550f8882b21e2f2e78cfe564f4b91f7e7d778d4a648",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "bd5a6411a648abcabbf2e6dd1a4980c573f80ff8c3fcf17e7d643baa3dad3ed8",
+      "scope": "Committed text-file tabs, explicit default positioning/MRU/close-empty policy, public groups and visible editor selections only; no private workbench/MRU/layout access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T07:21:52.370Z",
+      "name": "existing-resource-prefers-active-group",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "96932ff2190dd395f7621b7908b07b2e2e44a675ff9def9d8c7bfcbed98a8dd3",
+      "sources": {
+        "editor-group-tabs.cjs": "44b579673641422b8c2d697b0624582f19d1f49f95487a95be515c0913ef8812",
+        "editor-group-tabs-cases.json": "fe30bba259ad46dcc818771c422f6e21709e0734c2f785549bd8df59cf95a536",
+        "editor-group-tabs-suite.cjs": "4911b73f005fc31f20315df2dfe2f5b2a52a446e3c9840c20ca806b7399fbef8",
+        "editor-group-tabs-run.cjs": "56da73eaa905dcb871a2d4c67913b4734661eb65a257245422b0e53b7eaaf7fd",
+        "editor-group-tabs-worker.cjs": "3553857197b5d11c609a2550f8882b21e2f2e78cfe564f4b91f7e7d778d4a648",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "bd5a6411a648abcabbf2e6dd1a4980c573f80ff8c3fcf17e7d643baa3dad3ed8",
+      "scope": "Committed text-file tabs, explicit default positioning/MRU/close-empty policy, public groups and visible editor selections only; no private workbench/MRU/layout access"
+    }
+  ]
+}

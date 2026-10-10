@@ -1,0 +1,83 @@
+[
+  {
+    "name": "right-insertion-and-existing-tab-focus",
+    "steps": [
+      {"open": "b.txt"}, {"open": "c.txt"},
+      {"command": "workbench.action.previousEditorInGroup"},
+      {"open": "d.txt"}, {"open": "a.txt"},
+      {"command": "workbench.action.nextEditorInGroup"},
+      {"command": "workbench.action.previousEditorInGroup"}
+    ]
+  },
+  {
+    "name": "split-active-only-and-current-group-open",
+    "steps": [
+      {"open": "b.txt"}, {"open": "c.txt"},
+      {"command": "workbench.action.splitEditor"}, {"open": "d.txt"},
+      {"command": "workbench.action.focusFirstEditorGroup"},
+      {"command": "workbench.action.previousEditorInGroup"},
+      {"command": "workbench.action.focusSecondEditorGroup"}
+    ]
+  },
+  {
+    "name": "global-versus-group-local-navigation",
+    "steps": [
+      {"open": "b.txt"}, {"command": "workbench.action.splitEditor"}, {"open": "c.txt"},
+      {"command": "workbench.action.focusFirstEditorGroup"},
+      {"command": "workbench.action.nextEditorInGroup"},
+      {"command": "workbench.action.previousEditorInGroup"},
+      {"command": "workbench.action.nextEditor"},
+      {"command": "workbench.action.previousEditor"},
+      {"command": "workbench.action.previousEditorInGroup"},
+      {"command": "workbench.action.previousEditor"},
+      {"command": "workbench.action.nextEditorInGroup"}
+    ]
+  },
+  {
+    "name": "historical-group-selections-and-shared-view-independence",
+    "steps": [
+      {"command": "cursorRight"}, {"command": "cursorRight"}, {"open": "b.txt"},
+      {"command": "cursorRight"}, {"open": "a.txt"},
+      {"command": "workbench.action.splitEditor"}, {"command": "cursorRight"},
+      {"command": "workbench.action.focusFirstEditorGroup"},
+      {"command": "workbench.action.focusSecondEditorGroup"}, {"open": "b.txt"},
+      {"open": "a.txt"}
+    ]
+  },
+  {
+    "name": "shared-dirty-membership-close-and-clean-last-close",
+    "steps": [
+      {"command": "type", "args": {"text": "λ🙂"}},
+      {"command": "workbench.action.splitEditor"},
+      {"command": "workbench.action.closeActiveEditor", "requireSharedDirty": true},
+      {"command": "undo"}, {"command": "workbench.action.closeActiveEditor"}
+    ]
+  },
+  {
+    "name": "mru-close-fallback-differs-from-adjacent-tab",
+    "steps": [
+      {"open": "b.txt"}, {"open": "c.txt"}, {"open": "a.txt"}, {"open": "b.txt"},
+      {"command": "workbench.action.closeActiveEditor"},
+      {"command": "workbench.action.nextEditorInGroup"},
+      {"command": "workbench.action.closeActiveEditor"},
+      {"command": "workbench.action.closeActiveEditor"}
+    ]
+  },
+  {
+    "name": "empty-group-removal-and-close-group-focus",
+    "steps": [
+      {"open": "b.txt"}, {"command": "workbench.action.splitEditor"}, {"open": "c.txt"},
+      {"command": "workbench.action.closeActiveEditor"},
+      {"command": "workbench.action.closeActiveEditor"},
+      {"command": "workbench.action.closeEditorsInGroup"}
+    ]
+  },
+  {
+    "name": "existing-resource-prefers-active-group",
+    "steps": [
+      {"open": "b.txt"}, {"command": "workbench.action.splitEditor"}, {"open": "c.txt"},
+      {"open": "a.txt"}, {"command": "workbench.action.focusFirstEditorGroup"},
+      {"open": "c.txt"}, {"command": "workbench.action.nextEditorInGroup"}
+    ]
+  }
+]
