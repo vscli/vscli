@@ -97,8 +97,10 @@ installed clangd 23.1.1 also passes settings-based automatic startup without
 `--lsp`, exact C++ Unicode/CRLF formatting, one Undo, settings-disabled raw Save,
 Redo and clean restart with empty PATH and missing Node. The complete local suite
 passes 757 ordinary Rust tests across 40 suites (20 optional integrations ignored),
-formatting and strict all-target Clippy. Optimized terminal and fresh platform
-qualification remain pending.
+formatting and strict all-target Clippy. All five new terminal journeys also pass
+on the optimized executable. The [isolated routine-editing benchmark](PERFORMANCE.md#native-format-on-save-core-baseline-2026-10-10)
+records 40 successful launches and 1,600 keys with mixed measurements and no speed
+ranking. Fresh platform qualification remains pending.
 
 ## Outstanding work
 
