@@ -703,6 +703,7 @@ impl App {
                         }
                         Err(error) => {
                             self.suppress_failed_save_snapshot(&snapshot);
+                            self.retain_save_conflict_notice(&snapshot, &error);
                             self.message = format!("Save failed; unsaved work retained: {error}")
                         }
                     }

@@ -246,6 +246,24 @@ fn read_change(
     crate::document::read_disk(path).map(DiskChange::Changed)
 }
 
+/// A save failure owns duplicate conflict notices only while its model proof holds.
+pub(crate) struct SaveConflictProof {
+    pub path: PathBuf,
+    pub text_epoch: u64,
+    pub save_generation: u64,
+}
+impl SaveConflictProof {
+    pub fn current(&self, document: &crate::document::Document) -> bool {
+        document.path.as_ref() == Some(&self.path)
+            && document.text_epoch() == self.text_epoch
+            && document.save_generation() == self.save_generation
+    }
+}
+pub struct Notice {
+    pub(crate) text: String,
+    pub(crate) save_conflict: Option<SaveConflictProof>,
+}
+
 pub struct State {
     pub monitor: Monitor,
     pub paths: Vec<PathBuf>,
@@ -256,7 +274,7 @@ pub struct State {
     pub disk: Option<DiskJob>,
     pub publication_epoch: u64,
     pub publication_disabled: bool,
-    pub notices: std::collections::HashMap<u64, String>,
+    pub notices: std::collections::HashMap<u64, Notice>,
 }
 impl State {
     pub fn new(root: PathBuf) -> Self {
