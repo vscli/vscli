@@ -641,6 +641,7 @@ impl App {
             "Applied extension code action to {} buffers; review and save (Undo is per file)",
             outcome.buffers
         );
+        self.preview_edit_barrier();
         self.cancel_code_actions();
         Ok(())
     }

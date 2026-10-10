@@ -147,6 +147,7 @@ impl App {
                 )
             },
         )?;
+        self.preview_edit_barrier();
         self.finish_code_actions();
         let count = outcome.buffers;
         self.message =

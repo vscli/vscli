@@ -2,6 +2,7 @@ use super::*;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 pub(super) enum OpenIntent {
     Focus,
+    Preview,
     Location(crate::lsp::Range),
     Search(crate::search::Hit),
     Debug { line: usize, column: usize },
@@ -262,7 +263,7 @@ impl OpenIntent {
     }
     pub(super) fn apply(&self, app: &mut App) {
         match self {
-            Self::Focus => {}
+            Self::Focus | Self::Preview => {}
             Self::Location(range) => {
                 // Validated against this exact target before focus changed.
                 let start = crate::lsp::offset(app.doc(), range.start).unwrap();
@@ -322,9 +323,20 @@ struct Closed {
     row: usize,
     column: usize,
 }
+#[derive(Clone)]
+struct SettingsProof {
+    layers: std::sync::Arc<Vec<serde_json::Map<String, Value>>>,
+    profile: u64,
+}
+impl PartialEq for SettingsProof {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.layers, &other.layers) && self.profile == other.profile
+    }
+}
 #[derive(Clone, PartialEq)]
 pub(super) struct Context {
     workspace: PathBuf,
+    settings: SettingsProof,
     focus: Focus,
     pane: Option<u64>,
     groups: crate::editor_groups::UiProof,
@@ -355,6 +367,10 @@ impl App {
     pub(super) fn navigation_context(&self) -> Context {
         Context {
             workspace: self.workspace.root.clone(),
+            settings: SettingsProof {
+                layers: self.settings.extension_layers().clone(),
+                profile: self.settings_profile_generation(),
+            },
             focus: self.focus.clone(),
             pane: self.panes.get(self.active_pane).map(|pane| pane.id),
             groups: self.editor_groups.proof(),
@@ -491,7 +507,26 @@ impl App {
             self.message = "No closed file-backed editors in this session".into();
         }
     }
-    fn focus_existing_navigation(&mut self, path: &Path) -> Result<bool> {
+    fn focus_existing_navigation(
+        &mut self,
+        path: &Path,
+        mode: crate::editor_groups::OpenMode,
+    ) -> Result<bool> {
+        if !self.group_fallback {
+            let existing = self
+                .documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .find(|doc| doc.path.as_deref() == Some(path))
+                .map(|doc| doc.id);
+            if let Some(id) = existing {
+                self.preview_edit_barrier();
+                self.open_preview_model(id, mode)?;
+                return Ok(true);
+            }
+            return Ok(false);
+        }
+
         if let Some(index) = self
             .hidden_documents
             .iter()
@@ -533,7 +568,12 @@ impl App {
             return Ok(true);
         }
         let suspended = self.suspend_navigation_observation();
-        match self.focus_existing_navigation(path) {
+        let mode = if matches!(intent, OpenIntent::Preview) {
+            crate::editor_groups::OpenMode::Preview
+        } else {
+            crate::editor_groups::OpenMode::Committed
+        };
+        match self.focus_existing_navigation(path, mode) {
             Ok(true) => {
                 intent.apply(self);
                 self.resume_navigation_observation(
@@ -557,6 +597,16 @@ impl App {
                 Err(error)
             }
         }
+    }
+    /// Accepted Explorer/Quick Open resources load on the bounded native lane.
+    pub(super) fn open_editor_navigation(&mut self, path: PathBuf, preview: bool) {
+        self.preview_edit_barrier();
+        let intent = if preview && self.settings.editor_preview().enabled && !self.group_fallback {
+            OpenIntent::Preview
+        } else {
+            OpenIntent::Focus
+        };
+        self.open_navigation_mode(path, None, false, intent);
     }
     pub(super) fn open_hidden_aware(&mut self, path: PathBuf, intent: OpenIntent) {
         self.open_navigation_mode(path, None, true, intent);
@@ -708,7 +758,15 @@ impl App {
                                 doc.move_to(doc.position_at(closed.row, closed.column), false);
                             }
                             let suspended = self.suspend_navigation_observation();
-                            if let Err(error) = self.install_open_document(*doc) {
+                            let install = if matches!(pending.intent, OpenIntent::Preview) {
+                                self.install_preview_document(
+                                    *doc,
+                                    crate::editor_groups::OpenMode::Preview,
+                                )
+                            } else {
+                                self.install_open_document(*doc)
+                            };
+                            if let Err(error) = install {
                                 self.resume_navigation_observation(
                                     suspended,
                                     super::navigation_history::Reason::Ordinary,
@@ -1085,3 +1143,58 @@ mod tests {
 
 #[cfg(test)]
 mod group_tabs_tests;
+
+#[cfg(test)]
+mod preview_context_tests {
+    use super::*;
+    #[test]
+    fn identical_settings_after_round_trip_cannot_publish_an_old_preview_load() {
+        let root = tempfile::tempdir().unwrap();
+        let a = root.path().join("a.cpp");
+        let b = root.path().join("b.cpp");
+        std::fs::write(&a, "猫🙂 original\r\n").unwrap();
+        std::fs::write(&b, "B unchanged\r\n").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.settings =
+            crate::settings::Settings::from_values(serde_json::Map::new(), "test original policy")
+                .unwrap();
+        app.install_preview_document(
+            Document::open(&a).unwrap(),
+            crate::editor_groups::OpenMode::Preview,
+        )
+        .unwrap();
+        let original = app.doc().text.clone();
+        let member = app.active_tab_membership().unwrap();
+        let groups = app.editor_groups.clone();
+        let settings = app.settings.clone();
+        let (sender, receiver) = mpsc::sync_channel(1);
+        app.navigation.pending = Some(Pending {
+            receiver,
+            context: app.navigation_context(),
+            closed: None,
+            intent: OpenIntent::Preview,
+        });
+        app.settings = crate::settings::Settings::from_values(
+            serde_json::from_value(json!({"workbench.editor.enablePreview":false})).unwrap(),
+            "test changed policy",
+        )
+        .unwrap();
+        // Equal bytes get a fresh retained identity; the original Arc remains
+        // alive in the loader proof, preventing allocator address reuse.
+        app.settings =
+            crate::settings::Settings::from_values(serde_json::Map::new(), "test restored policy")
+                .unwrap();
+        assert!(app.settings == settings);
+        sender
+            .send(Ok(Target::Loaded(Box::new(Document::open(&b).unwrap()))))
+            .unwrap();
+        app.poll_navigation();
+        assert!(app.navigation.pending.is_none());
+        assert_eq!(app.active_tab_membership(), Some(member));
+        assert_eq!(app.editor_groups, groups);
+        assert_eq!(app.documents.len(), 1);
+        assert_eq!(app.doc().text, original);
+        assert_eq!(std::fs::read(a).unwrap(), original.to_string().as_bytes());
+        assert_eq!(std::fs::read(b).unwrap(), b"B unchanged\r\n");
+    }
+}

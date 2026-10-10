@@ -259,6 +259,14 @@ impl Groups {
             ..Change::default()
         }
     }
+    #[cfg(test)]
+    pub(crate) fn fixture_exhaust_membership_generation(&mut self, id: GroupId) {
+        self.groups
+            .iter_mut()
+            .find(|group| group.id == id)
+            .unwrap()
+            .membership_generation = u64::MAX;
+    }
     pub fn can_open(&self, document: u64) -> Result<()> {
         self.can_open_mode(document, OpenMode::Committed, None)
     }

@@ -19,8 +19,9 @@ Native navigation includes [Back/Forward history](docs/NAVIGATION_HISTORY.md),
 [Outline](docs/OUTLINE.md) and [Breadcrumbs](docs/BREADCRUMBS.md). Breadcrumbs
 file trails work without Node or a language server; current native or extension
 symbols supply a guarded sibling picker.
-[Editor groups](docs/EDITOR_GROUPS.md) keep committed tabs, historical views and
-MRU close selection independently; delayed Save→Close targets the original tab.
+[Editor groups](docs/EDITOR_GROUPS.md) retain independent tabs, historical views
+and MRU closing. Native previews support Keep Editor and permanent edit promotion;
+delayed Save→Close targets the original tab.
 The Breadcrumbs toggle now saves its root setting through
 [native background settings persistence](docs/SETTINGS_PERSISTENCE.md), preserving
 comments and guarding unsaved settings buffers.

@@ -361,6 +361,7 @@ impl App {
         doc.apply_changes(staged.changes);
         run.proof.revision = doc.revision;
         run.proof.epoch = doc.text_epoch();
+        self.preview_edit_barrier();
         // The next family and same-poll formatter must see the owned edit. A
         // failed publication revokes this pipeline rather than saving it raw.
         if let Err(error) = self

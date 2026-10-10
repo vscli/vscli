@@ -853,7 +853,8 @@ Limits: 32 distinct clean files, four equal groups, 128 tabs per group and selec
 4 KiB per path, 32 MiB per file, and 128 MiB combined restored file data. Unsupported
 state produces a notice rather than silent truncation. Recovery that exceeds the
 available group-tab capacity retains all models in the legacy workbench with a
-layout-unavailable notice. Nested/resizable groups, preview/pinned tabs, terminal
+layout-unavailable notice. Clean preview memberships restore committed; transient
+preview modes are not persisted. Nested/resizable groups, sticky/pinned tabs, terminal
 reconnection, extension state, recent-workspace switching, and full VS Code session
 parity remain outside this slice.
 
@@ -902,3 +903,23 @@ A Details panel shows inert documentation beside the list on wide editors, under
 on medium layouts, and is omitted in small editor areas. Filtering ranks exact and
 prefix matches, then token-boundary abbreviations and other subsequences.
 See [completion contracts and limits](COMPLETIONS.md).
+
+
+## Preview tabs and Keep Editor
+
+Explorer left clicks open previews when `workbench.editor.enablePreview` is true
+(the default). Accepted Ctrl+P results are committed by default; enable previews
+there with `"workbench.editor.enablePreviewFromQuickOpen": true` in user or
+workspace settings. These are root workbench policies; language overrides are
+ignored with a compatibility notice. Explorer Enter/Right, Ctrl+O, CLI files,
+history, symbols, settings and Untitled documents open committed.
+
+Preview filenames are italic. Opening another eligible clean preview replaces the
+previous one in that group. Editing or original Ctrl+K then Enter (Cmd+K then
+Enter on macOS) keeps the tab permanently; F1 → **View: Keep Editor** does the
+same. Undo to clean text preserves commitment. Keep Editor does not sticky-pin a
+tab. Pending saves, Save As and close/file/settings operations retain protected
+models; rejected capacity/ownership never drops unsaved work or Redo. Disabling
+preview keeps existing tabs. Clean session restore commits historical previews.
+See [behavior and qualification](EDITOR_GROUPS.md#preview-callers-keep-editor-and-retained-work)
+for transient-mode, mouse and remaining sticky/layout limits.

@@ -346,6 +346,12 @@ impl App {
             generation: self.saving.close_generation,
         })
     }
+    pub(super) fn save_as_document_pending(&self, document: u64) -> bool {
+        self.saving
+            .save_as_origin
+            .as_ref()
+            .is_some_and(|(id, _, _)| *id == document)
+    }
     pub(super) fn capture_save_as_origin(&mut self) {
         self.saving.save_as_origin = self.active_document().map(|doc| {
             (
@@ -684,6 +690,7 @@ impl App {
                                 .find(|doc| doc.id == snapshot.document_id())
                                 .context("Saved model is no longer retained")
                                 .and_then(|doc| doc.publish_save(&snapshot, commit.path.clone()));
+                            self.preview_edit_barrier();
                             if let Err(error) = published {
                                 self.message = format!(
                                     "Saved {}; newer buffer metadata retained: {error:#}",

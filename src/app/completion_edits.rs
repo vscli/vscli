@@ -171,6 +171,7 @@ impl App {
                     })
                 }
             })?;
+        self.preview_edit_barrier();
         self.message = if self.doc().in_snippet() {
             "Completion applied · Tab next · Shift+Tab previous · Esc leave"
         } else {

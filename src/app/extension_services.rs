@@ -469,7 +469,9 @@ impl App {
             })
             .transpose()?;
         self.can_admit_editor(show.document)?;
-        if let Some(index) = self
+        if !self.group_fallback {
+            self.open_preview_model(show.document, crate::editor_groups::OpenMode::Committed)?;
+        } else if let Some(index) = self
             .hidden_documents
             .iter()
             .position(|d| d.id == show.document)

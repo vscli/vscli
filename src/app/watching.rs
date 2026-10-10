@@ -217,18 +217,20 @@ impl App {
                     false,
                 ),
             };
+            let document = doc.id;
+            changed |= self.preview_edit_barrier();
             if conflict && preserve_save_failure {
                 continue;
             }
             if self
                 .watch
                 .notices
-                .get(&doc.id)
+                .get(&document)
                 .map(|existing| &existing.text)
                 != Some(&notice)
             {
                 self.watch.notices.insert(
-                    doc.id,
+                    document,
                     Notice {
                         text: notice.clone(),
                         save_conflict: None,

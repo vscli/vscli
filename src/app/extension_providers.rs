@@ -469,6 +469,7 @@ impl App {
             Kind::Formatting => {
                 let changes = provider_edits(self.doc(), serde_json::from_value(value)?)?;
                 self.doc_mut().apply_changes(changes);
+                self.preview_edit_barrier();
                 self.message =
                     "Extension formatting applied; review and save (Undo available)".into();
                 self.cancel_extension_provider();

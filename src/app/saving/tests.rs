@@ -747,3 +747,92 @@ while True:
     );
     assert_eq!(std::fs::read(&fixture.b).unwrap(), ORIGINAL_B.as_bytes());
 }
+
+#[test]
+fn authorized_preview_save_retains_undo_clean_model_before_new_preview_admission() {
+    use crate::editor_groups::OpenMode;
+    let root = tempfile::tempdir().unwrap();
+    let a = root.path().join("preview-a.cpp");
+    let b = root.path().join("preview-b.cpp");
+    std::fs::write(&a, ORIGINAL_A).unwrap();
+    std::fs::write(&b, ORIGINAL_B).unwrap();
+    let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+    app.install_preview_document(Document::open(&a).unwrap(), OpenMode::Preview)
+        .unwrap();
+    let member = app.active_tab_membership().unwrap();
+    let (worker, entered, release) = Worker::fixture_gated(vec![GatePoint::BeforeCommit]);
+    app.saving.worker = worker;
+    // A direct model transaction deliberately isolates admission's pending-save
+    // guard from the normal input barrier that already commits dirty previews.
+    app.doc_mut().insert("captured λ ", false);
+    let captured = app.doc().text.to_string();
+    app.request_native_save(None).unwrap();
+    let deadline = Instant::now() + WAIT;
+    loop {
+        app.poll_native_saves();
+        match entered.try_recv() {
+            Ok(point) => {
+                assert_eq!(point, GatePoint::BeforeCommit);
+                break;
+            }
+            Err(TryRecvError::Disconnected) => {
+                panic!("Authorized preview save disconnected: {}", app.message)
+            }
+            Err(TryRecvError::Empty) => {}
+        }
+        assert!(Instant::now() < deadline, "{}", app.message);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(app.saving.active.as_ref().unwrap().authorized);
+    app.doc_mut().undo();
+    assert_eq!(app.doc().text.to_string(), ORIGINAL_A);
+    assert!(!app.doc().dirty());
+    assert!(app.document_save_pending(member.document));
+    assert!(app.active_editor_is_preview());
+    let epoch = app.doc().text_epoch();
+    app.install_preview_document(Document::open(&b).unwrap(), OpenMode::Preview)
+        .unwrap();
+    assert!(app.editor_groups.membership_current(member));
+    assert_eq!(app.documents.len(), 2);
+    assert_ne!(app.doc().id, member.document);
+    assert_eq!(std::fs::read(&a).unwrap(), ORIGINAL_A.as_bytes());
+    release.send(()).unwrap();
+    until(
+        &mut app,
+        "publish original authorized preview save",
+        |app| !app.saves_pending(),
+    );
+    assert_eq!(std::fs::read(&a).unwrap(), captured.as_bytes());
+    assert_eq!(std::fs::read(&b).unwrap(), ORIGINAL_B.as_bytes());
+    let retained = app
+        .documents
+        .iter()
+        .find(|doc| doc.id == member.document)
+        .unwrap();
+    assert_eq!(retained.text.to_string(), ORIGINAL_A);
+    assert_eq!(retained.text_epoch(), epoch);
+    assert_eq!(retained.save_generation(), 1);
+    assert!(retained.dirty());
+    assert_eq!(
+        app.editor_groups.group(member.group).unwrap().tabs().len(),
+        2
+    );
+    assert!(
+        app.editor_groups
+            .group(member.group)
+            .unwrap()
+            .tabs()
+            .iter()
+            .find(|tab| tab.id() == member.tab)
+            .is_some_and(|tab| !tab.is_preview())
+    );
+    app.focus_tab(member).unwrap();
+    app.execute("redo", Value::Null);
+    assert_eq!(app.doc().text.to_string(), captured);
+    assert!(!app.doc().dirty());
+    app.execute("undo", Value::Null);
+    assert_eq!(app.doc().text.to_string(), ORIGINAL_A);
+    assert!(app.doc().dirty());
+    assert_eq!(std::fs::read(&a).unwrap(), captured.as_bytes());
+    assert_eq!(std::fs::read(&b).unwrap(), ORIGINAL_B.as_bytes());
+}
