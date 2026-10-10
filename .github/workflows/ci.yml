@@ -101,6 +101,16 @@ jobs:
         run: node tests/vscode-reference/advanced-indentation-run.cjs target/vscode-reference/result/advanced
       - name: Compare advanced indentation with the pinned editor
         run: cargo run --locked --example advanced_indentation_contract -- target/vscode-reference/result/advanced/advanced-indentation.json > target/vscode-reference/result/advanced/advanced-indentation-vscli.json
+      - name: Observe installed language configurations (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 6
+        run: xvfb-run -a node tests/vscode-reference/language-configuration-run.cjs target/vscode-reference/result/language-configuration
+      - name: Observe installed language configurations (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 6
+        run: node tests/vscode-reference/language-configuration-run.cjs target/vscode-reference/result/language-configuration
+      - name: Compare native installed language configurations with the pinned editor
+        run: cargo run --locked --example language_configuration_contract -- target/vscode-reference/result/language-configuration/language-configuration.json --bundled > target/vscode-reference/result/language-configuration/language-configuration-vscli.json
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -124,6 +134,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/advanced_indentation_pty.py target/debug/vscli
+      - name: Run native installed language configuration workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/native_configuration_pty.py target/debug/vscli
       - name: Run automatic parameter hint workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

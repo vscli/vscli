@@ -1,0 +1,6252 @@
+[
+  {
+    "variant": "omitted",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 5,
+      "opening": "{",
+      "closing": "}",
+      "preparation": {
+        "before": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "{ /* } */ }",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-omitted",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "d717aa799cc88fd96e4cdb22797e4daf12e58b5d6497a5a1ea3a615755d5b9bf",
+        "configuration": {
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "omitted-brace-pair",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "{}",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "{}",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-builtin-surround",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "<élan😀>",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "<élan😀>",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-line-comment",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "//   α();\r\n//     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 24
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "//   α();\r\n//     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 24
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-block-comment",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "/* élan😀 */",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "/* élan😀 */",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-bracket-default-before-quote",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "\"",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "\"",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "\"",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "()\"",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "\"",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "()\"",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-quote-default-before-quote",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "'",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "'",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "'",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "\"'",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "'",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "\"'",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-add-common-indent",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.addCommentLine",
+            "text": "//   α();\r\n//     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 24
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "//   α();\r\n//     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 24
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-remove-uncommented",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.removeCommentLine",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-add-existing-comment",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  // α();\r\n    β();\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 19
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.addCommentLine",
+            "text": "//   // α();\r\n//     β();\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 25
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  // α();\r\n    β();\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 19
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "//   // α();\r\n//     β();\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 25
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-remove-existing-comment",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  // α();\r\n  //   β();\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 22
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.removeCommentLine",
+            "text": "  α();\r\n    β();\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 16
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  // α();\r\n  //   β();\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 22
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "  α();\r\n    β();\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 16
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-empty-caret-line",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n",
+            "selections": [
+              {
+                "anchor": 4,
+                "cursor": 4
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "//   α();\r\n",
+            "selections": [
+              {
+                "anchor": 7,
+                "cursor": 7
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n",
+            "selections": [
+              {
+                "anchor": 4,
+                "cursor": 4
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "//   α();\r\n",
+            "selections": [
+              {
+                "anchor": 7,
+                "cursor": 7
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-line-reversed",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n",
+            "selections": [
+              {
+                "anchor": 16,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "//   α();\r\n//     β();\r\n",
+            "selections": [
+              {
+                "anchor": 22,
+                "cursor": 3
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n",
+            "selections": [
+              {
+                "anchor": 16,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "//   α();\r\n//     β();\r\n",
+            "selections": [
+              {
+                "anchor": 22,
+                "cursor": 3
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-line-permuted",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "α();\r\nβ();\r\n",
+            "selections": [
+              {
+                "anchor": 7,
+                "cursor": 7
+              },
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "// α();\r\n// β();\r\n",
+            "selections": [
+              {
+                "anchor": 4,
+                "cursor": 4
+              },
+              {
+                "anchor": 13,
+                "cursor": 13
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "α();\r\nβ();\r\n",
+            "selections": [
+              {
+                "anchor": 7,
+                "cursor": 7
+              },
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "// α();\r\n// β();\r\n",
+            "selections": [
+              {
+                "anchor": 4,
+                "cursor": 4
+              },
+              {
+                "anchor": 13,
+                "cursor": 13
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-blank-caret-line",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  \r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 2
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "//   \r\n",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 5
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  \r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 2
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "//   \r\n",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 5
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-block-caret",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "α();\r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 2
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "α(/*  */);\r\n",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 5
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "α();\r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 2
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "α(/*  */);\r\n",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 5
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-block-multiline",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 16
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "/*   α();\r\n    β(); */\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 19
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 16
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "/*   α();\r\n    β(); */\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 19
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-block-remove",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "/* élan😀 */",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 5
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "/* élan😀 */",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 5
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-block-permuted",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "α(); β();",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 9
+              },
+              {
+                "anchor": 0,
+                "cursor": 4
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "/* α(); */ /* β(); */",
+            "selections": [
+              {
+                "anchor": 14,
+                "cursor": 18
+              },
+              {
+                "anchor": 3,
+                "cursor": 7
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "α(); β();",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 9
+              },
+              {
+                "anchor": 0,
+                "cursor": 4
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "/* α(); */ /* β(); */",
+            "selections": [
+              {
+                "anchor": 14,
+                "cursor": 18
+              },
+              {
+                "anchor": 3,
+                "cursor": 7
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-add-empty-caret",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.addCommentLine",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-add-whitespace-caret",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  \r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 2
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.addCommentLine",
+            "text": "  \r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 2
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  \r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 2
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "  \r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 2
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "omitted-add-all-blank-range",
+        "variant": "omitted",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  \r\n\t\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 7
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.addCommentLine",
+            "text": "  \r\n\t\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 7
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  \r\n\t\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 7
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "  \r\n\t\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 7
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "empty",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 5,
+      "opening": "{",
+      "closing": "}",
+      "preparation": {
+        "before": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "{ /* } */ }",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-empty",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fa1854a30ea7f14ed3074215d1866544e10f730aa062f10708f9e259349c57b4",
+        "configuration": {
+          "comments": {},
+          "brackets": [],
+          "autoClosingPairs": [],
+          "surroundingPairs": [],
+          "autoCloseBefore": "",
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "empty-brace-pair",
+        "variant": "empty",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "{}",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "{}",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "empty-builtin-surround",
+        "variant": "empty",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "<élan😀>",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "<élan😀>",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "empty-line-comment",
+        "variant": "empty",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "//   α();\r\n//     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 24
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "//   α();\r\n//     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 24
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "empty-block-comment",
+        "variant": "empty",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "/* élan😀 */",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "/* élan😀 */",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "line-only",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 5,
+      "opening": "{",
+      "closing": "}",
+      "preparation": {
+        "before": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "{ /* } */ }",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-line-only",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "0ebdc37d7e69cf374b58861fe4516ac5bbeb0d66c70ef164bba47c050771804c",
+        "configuration": {
+          "comments": {
+            "lineComment": "#"
+          },
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "line-only-line-comment",
+        "variant": "line-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "#   α();\r\n#     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 22
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "#   α();\r\n#     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 2,
+                "cursor": 22
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "line-only-block-comment",
+        "variant": "line-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "block-only",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 5,
+      "opening": "{",
+      "closing": "}",
+      "preparation": {
+        "before": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "{ /* } */ }",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-block-only",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "01adf53052102deda78d10a3d127fc5664215f9c45b4f2b6f0922a3e0a85b110",
+        "configuration": {
+          "comments": {
+            "blockComment": [
+              "(*",
+              "*)"
+            ]
+          },
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "block-only-line-comment",
+        "variant": "block-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "  (* α();\r\n    β(); *)\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 24
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "  (* α();\r\n    β(); *)\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 24
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "block-only-block-comment",
+        "variant": "block-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "(* élan😀 *)",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "(* élan😀 *)",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "auto-only",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 5,
+      "opening": "{",
+      "closing": "}",
+      "preparation": {
+        "before": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "{ /* } */ }",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-auto-only",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "69724a79a99ba93c2b48888cdf27c42959472e62d33750ab107f7bdbfb903183",
+        "configuration": {
+          "autoClosingPairs": [
+            [
+              "«",
+              "»"
+            ]
+          ],
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "auto-only-configured-pair",
+        "variant": "auto-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "«»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "«»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "auto-only-builtin-pair",
+        "variant": "auto-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "{",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "{",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "auto-only-configured-surround",
+        "variant": "auto-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "«",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "«",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "auto-only-builtin-surround",
+        "variant": "auto-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "(élan😀)",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "(élan😀)",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "surround-only",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 5,
+      "opening": "{",
+      "closing": "}",
+      "preparation": {
+        "before": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "{ /* } */ }",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-surround-only",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "7289e7d041696ec4daafea71ee49b2831c4fc52373f39e7f413ebda4a9e63668",
+        "configuration": {
+          "surroundingPairs": [
+            {
+              "open": "«",
+              "close": "»"
+            }
+          ],
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "surround-only-configured-pair",
+        "variant": "surround-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "«",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "«",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "surround-only-builtin-pair",
+        "variant": "surround-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "{}",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "{}",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "surround-only-configured-surround",
+        "variant": "surround-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "«élan😀»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "«élan😀»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "surround-only-builtin-surround",
+        "variant": "surround-only",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "(",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "(",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "before-at",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 6,
+      "opening": "{",
+      "closing": "}",
+      "preparation": {
+        "before": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "{ /* } */ }",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-before-at",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "7c78433d318db9c44890542c427b4379109258d76ae3a2041555126db60b93e3",
+        "configuration": {
+          "autoCloseBefore": "@",
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "before-at-pair-before-at",
+        "variant": "before-at",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "@",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "@",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "@",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "()@",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "@",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "()@",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "before-at-pair-before-space",
+        "variant": "before-at",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": " ",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": " ",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": " ",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "( ",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": " ",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "( ",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "before-at-pair-before-quote",
+        "variant": "before-at",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "\"",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "\"",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "\"",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "(\"",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "\"",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "(\"",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "all-invalid",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 6,
+      "opening": "{",
+      "closing": "}",
+      "preparation": {
+        "before": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "{ /* } */ }",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "{ /* } */ }",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-all-invalid",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "9078e9390960990f1c2b65809d7dc4d5087b6d8c11109abadefcbf7ec3603819",
+        "configuration": {
+          "comments": {
+            "lineComment": 42,
+            "blockComment": [
+              "only"
+            ]
+          },
+          "brackets": [
+            42,
+            [
+              "("
+            ],
+            {
+              "open": "a"
+            }
+          ],
+          "autoClosingPairs": [
+            42,
+            [
+              "("
+            ],
+            {
+              "open": "[",
+              "close": 3
+            }
+          ],
+          "surroundingPairs": [
+            null,
+            [
+              "("
+            ]
+          ],
+          "autoCloseBefore": 42,
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "all-invalid-brace-pair",
+        "variant": "all-invalid",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "{}",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "{}",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "all-invalid-builtin-surround",
+        "variant": "all-invalid",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "<élan😀>",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "<élan😀>",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "all-invalid-line-comment",
+        "variant": "all-invalid",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 1,
+            "eol": "CRLF"
+          },
+          {
+            "action": "editor.action.commentLine",
+            "text": "//   α();\r\n//     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 24
+              }
+            ],
+            "version": 2,
+            "eol": "CRLF"
+          },
+          {
+            "action": "undo",
+            "text": "  α();\r\n    β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 18
+              }
+            ],
+            "version": 3,
+            "eol": "CRLF"
+          },
+          {
+            "action": "redo",
+            "text": "//   α();\r\n//     β();\r\n\r\n",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 24
+              }
+            ],
+            "version": 4,
+            "eol": "CRLF"
+          }
+        ]
+      },
+      {
+        "name": "all-invalid-block-comment",
+        "variant": "all-invalid",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "/* élan😀 */",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "/* élan😀 */",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 8
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "valid-mixed",
+    "language": "cpp",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "lexical": {
+      "attempts": 6,
+      "opening": "«",
+      "closing": "»",
+      "preparation": {
+        "before": {
+          "text": "« /* » */ »",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        },
+        "after": {
+          "text": "« /* » */ »",
+          "selections": [
+            {
+              "anchor": 0,
+              "cursor": 0
+            }
+          ],
+          "version": 1,
+          "eol": "LF"
+        }
+      },
+      "observed": {
+        "text": "« /* » */ »",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ],
+        "version": 1,
+        "eol": "LF"
+      },
+      "scope": "Prepared public bracket jump skips a block-comment closer; independent of the autoClosingPairs.notIn behavior under observation"
+    },
+    "inventory": [
+      {
+        "extension": "vscode.cpp",
+        "version": "1.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+        "configuration": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "'",
+              "close": "'",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "\"",
+              "close": "\"",
+              "notIn": [
+                "string"
+              ]
+            },
+            {
+              "open": "/*",
+              "close": "*/",
+              "notIn": [
+                "string",
+                "comment"
+              ]
+            },
+            {
+              "open": "/**",
+              "close": " */",
+              "notIn": [
+                "string"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ],
+            [
+              "\"",
+              "\""
+            ],
+            [
+              "'",
+              "'"
+            ],
+            [
+              "<",
+              ">"
+            ]
+          ],
+          "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+          "folding": {
+            "markers": {
+              "start": "^\\s*#pragma\\s+region\\b",
+              "end": "^\\s*#pragma\\s+endregion\\b"
+            }
+          },
+          "onEnterRules": [
+            {
+              "previousLineText": "^\\s*(((else ?)?if|for|while)\\s*\\(.*\\)\\s*|else\\s*)$",
+              "beforeText": "^\\s+([^{i\\s]|i(?!f\\b))",
+              "action": {
+                "indent": "outdent"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "extension": "vscli-test.language-configuration-valid-mixed",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "36dbc45d400087ee118b87019874e646ae19a8c0f9de99b9ed19891447c2ecf6",
+        "configuration": {
+          "comments": {
+            "lineComment": "#",
+            "blockComment": [
+              "only"
+            ]
+          },
+          "brackets": [
+            42,
+            [
+              "«",
+              "»"
+            ]
+          ],
+          "autoClosingPairs": [
+            42,
+            [
+              "«",
+              "»"
+            ],
+            {
+              "open": "[",
+              "close": "]",
+              "notIn": [
+                "comment"
+              ]
+            }
+          ],
+          "surroundingPairs": [
+            42,
+            [
+              "«",
+              "»"
+            ]
+          ],
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "valid-mixed-pair-configured",
+        "variant": "valid-mixed",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "«»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "«»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "valid-mixed-pair-valid-conditional",
+        "variant": "valid-mixed",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "[]",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "[]",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "valid-mixed-pair-removed-builtin",
+        "variant": "valid-mixed",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "{",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "{",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "valid-mixed-notIn-comment",
+        "variant": "valid-mixed",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "// ",
+              "selections": [
+                {
+                  "anchor": 3,
+                  "cursor": 3
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "// ",
+              "selections": [
+                {
+                  "anchor": 3,
+                  "cursor": 3
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "// ",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 3
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "// [",
+            "selections": [
+              {
+                "anchor": 4,
+                "cursor": 4
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "// ",
+            "selections": [
+              {
+                "anchor": 3,
+                "cursor": 3
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "// [",
+            "selections": [
+              {
+                "anchor": 4,
+                "cursor": 4
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "valid-mixed-configured-surround",
+        "variant": "valid-mixed",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "«élan😀»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "«élan😀»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "valid-mixed-partial-invalid-comments",
+        "variant": "valid-mixed",
+        "language": "cpp",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 5
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "editor.action.blockComment",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 5
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 5
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 5
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "variant": "unknown-brackets",
+    "language": "vscli-config-fixture",
+    "declaration": {
+      "attempts": 1,
+      "preparation": {
+        "before": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "VSCLI_CONFIG_READY\r\n",
+          "selections": [
+            {
+              "anchor": 18,
+              "cursor": 18
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        }
+      },
+      "observed": {
+        "text": "VSCLI_CONFIG_READY\r\n!\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "scope": "Fixture-only onEnterRules sentinel proves installed JSON declaration loaded; excluded from native comparison; no native regex API qualification"
+    },
+    "inventory": [
+      {
+        "extension": "vscli-test.language-configuration-unknown-brackets",
+        "version": "0.0.0",
+        "license": "MIT",
+        "path": "./language-configuration.json",
+        "sha256": "53932b025d0618d5168fe4a25f92e3f9846d9703a4b23d993d9b8e227f454700",
+        "configuration": {
+          "brackets": [
+            [
+              "«",
+              "»"
+            ]
+          ],
+          "onEnterRules": [
+            {
+              "beforeText": "^VSCLI_CONFIG_READY$",
+              "action": {
+                "indent": "none",
+                "appendText": "!"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "traces": [
+      {
+        "name": "unknown-brackets-brackets-fallback-pair",
+        "variant": "unknown-brackets",
+        "language": "vscli-config-fixture",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "",
+              "selections": [
+                {
+                  "anchor": 0,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "«»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "",
+            "selections": [
+              {
+                "anchor": 0,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "«»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 1
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      },
+      {
+        "name": "unknown-brackets-brackets-fallback-surround",
+        "variant": "unknown-brackets",
+        "language": "vscli-config-fixture",
+        "settings": {
+          "autoIndent": "full",
+          "autoClosingBrackets": "languageDefined",
+          "autoClosingQuotes": "languageDefined",
+          "autoSurround": "languageDefined",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false
+        },
+        "preparation": [
+          {
+            "step": 0,
+            "before": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            },
+            "after": {
+              "text": "élan😀",
+              "selections": [
+                {
+                  "anchor": 5,
+                  "cursor": 0
+                }
+              ],
+              "version": 1,
+              "eol": "LF"
+            }
+          }
+        ],
+        "observations": [
+          {
+            "action": "initial",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 1,
+            "eol": "LF"
+          },
+          {
+            "action": "type",
+            "text": "«élan😀»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 2,
+            "eol": "LF"
+          },
+          {
+            "action": "undo",
+            "text": "élan😀",
+            "selections": [
+              {
+                "anchor": 5,
+                "cursor": 0
+              }
+            ],
+            "version": 3,
+            "eol": "LF"
+          },
+          {
+            "action": "redo",
+            "text": "«élan😀»",
+            "selections": [
+              {
+                "anchor": 1,
+                "cursor": 6
+              }
+            ],
+            "version": 4,
+            "eol": "LF"
+          }
+        ]
+      }
+    ]
+  }
+]

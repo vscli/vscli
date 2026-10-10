@@ -1,0 +1,666 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "fixtureCount": 52,
+  "traceSha256": "aaa27a7a36fba54697d718dc6e58ac5bb1ebffd053362a5b6e72e8a7e50a01f1",
+  "evidenceSha256": "29e4de9032b9abab35a1e51a1eca37bbd9095213b04305aa43947a62890cff0b",
+  "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+  "fixtures": [
+    {
+      "variant": "omitted",
+      "manifest": {
+        "name": "language-configuration-omitted",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "a600e9d52d945470ef46d22a6632472b308694930c14c79124eadb4c07f19712",
+      "configurationSha256": "d717aa799cc88fd96e4cdb22797e4daf12e58b5d6497a5a1ea3a615755d5b9bf"
+    },
+    {
+      "variant": "empty",
+      "manifest": {
+        "name": "language-configuration-empty",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "comments": {},
+        "brackets": [],
+        "autoClosingPairs": [],
+        "surroundingPairs": [],
+        "autoCloseBefore": "",
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "c09b62453dac635dec0a8f7e1697d473dd2a370c8613fec4eb727ebdafbcbfac",
+      "configurationSha256": "fa1854a30ea7f14ed3074215d1866544e10f730aa062f10708f9e259349c57b4"
+    },
+    {
+      "variant": "line-only",
+      "manifest": {
+        "name": "language-configuration-line-only",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "comments": {
+          "lineComment": "#"
+        },
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "d10ff782c392ee0d206e727e904130d490251d858b154dfcfb43855697ad3e64",
+      "configurationSha256": "0ebdc37d7e69cf374b58861fe4516ac5bbeb0d66c70ef164bba47c050771804c"
+    },
+    {
+      "variant": "block-only",
+      "manifest": {
+        "name": "language-configuration-block-only",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "comments": {
+          "blockComment": [
+            "(*",
+            "*)"
+          ]
+        },
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "5076a7c376a4a2bc84cb7a779d05cc9fc38e2f4b1fbbdde9f3f4c1d4d1d50dd9",
+      "configurationSha256": "01adf53052102deda78d10a3d127fc5664215f9c45b4f2b6f0922a3e0a85b110"
+    },
+    {
+      "variant": "auto-only",
+      "manifest": {
+        "name": "language-configuration-auto-only",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "autoClosingPairs": [
+          [
+            "«",
+            "»"
+          ]
+        ],
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "6cba82b35cbfb457b3583e515f9c2cf732bf5413bd28b538ddbc614189dc62b7",
+      "configurationSha256": "69724a79a99ba93c2b48888cdf27c42959472e62d33750ab107f7bdbfb903183"
+    },
+    {
+      "variant": "surround-only",
+      "manifest": {
+        "name": "language-configuration-surround-only",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "surroundingPairs": [
+          {
+            "open": "«",
+            "close": "»"
+          }
+        ],
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "eb0e9dbe5bc8c0dadb35dda1247a7e2e5ddccb39c1fe7f60643d5c2303ce3084",
+      "configurationSha256": "7289e7d041696ec4daafea71ee49b2831c4fc52373f39e7f413ebda4a9e63668"
+    },
+    {
+      "variant": "before-at",
+      "manifest": {
+        "name": "language-configuration-before-at",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "autoCloseBefore": "@",
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "98e4ce5a7500d98bffa5c8afd794ba29f7e31d35a6c219781cbce7caf616df45",
+      "configurationSha256": "7c78433d318db9c44890542c427b4379109258d76ae3a2041555126db60b93e3"
+    },
+    {
+      "variant": "all-invalid",
+      "manifest": {
+        "name": "language-configuration-all-invalid",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "comments": {
+          "lineComment": 42,
+          "blockComment": [
+            "only"
+          ]
+        },
+        "brackets": [
+          42,
+          [
+            "("
+          ],
+          {
+            "open": "a"
+          }
+        ],
+        "autoClosingPairs": [
+          42,
+          [
+            "("
+          ],
+          {
+            "open": "[",
+            "close": 3
+          }
+        ],
+        "surroundingPairs": [
+          null,
+          [
+            "("
+          ]
+        ],
+        "autoCloseBefore": 42,
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "f2178d3ade78043843ec57ccf10a70a22749455b87d6b4b839395b1a6ced24a2",
+      "configurationSha256": "9078e9390960990f1c2b65809d7dc4d5087b6d8c11109abadefcbf7ec3603819"
+    },
+    {
+      "variant": "valid-mixed",
+      "manifest": {
+        "name": "language-configuration-valid-mixed",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "cpp",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "comments": {
+          "lineComment": "#",
+          "blockComment": [
+            "only"
+          ]
+        },
+        "brackets": [
+          42,
+          [
+            "«",
+            "»"
+          ]
+        ],
+        "autoClosingPairs": [
+          42,
+          [
+            "«",
+            "»"
+          ],
+          {
+            "open": "[",
+            "close": "]",
+            "notIn": [
+              "comment"
+            ]
+          }
+        ],
+        "surroundingPairs": [
+          42,
+          [
+            "«",
+            "»"
+          ]
+        ],
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "09e0f4ca90f5495134ff9685ec4973be20d85474c370d1d3fdd2aab145abdb67",
+      "configurationSha256": "36dbc45d400087ee118b87019874e646ae19a8c0f9de99b9ed19891447c2ecf6"
+    },
+    {
+      "variant": "unknown-brackets",
+      "manifest": {
+        "name": "language-configuration-unknown-brackets",
+        "publisher": "vscli-test",
+        "version": "0.0.0",
+        "private": true,
+        "license": "MIT",
+        "engines": {
+          "vscode": "^1.95.0"
+        },
+        "contributes": {
+          "languages": [
+            {
+              "id": "vscli-config-fixture",
+              "configuration": "./language-configuration.json"
+            }
+          ]
+        }
+      },
+      "configuration": {
+        "brackets": [
+          [
+            "«",
+            "»"
+          ]
+        ],
+        "onEnterRules": [
+          {
+            "beforeText": "^VSCLI_CONFIG_READY$",
+            "action": {
+              "indent": "none",
+              "appendText": "!"
+            }
+          }
+        ]
+      },
+      "manifestSha256": "623ab303e9cbe7dfd08a9bcaffe85a3b922145ae8807bf44a5d534da965c90b4",
+      "configurationSha256": "53932b025d0618d5168fe4a25f92e3f9846d9703a4b23d993d9b8e227f454700"
+    }
+  ],
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:14:52.940Z",
+      "variant": "omitted",
+      "fixtureCount": 21,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "083e5f617a570b1ff1c457fea4091daff567225ff57719d4122cb222057f5adc",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:14:55.164Z",
+      "variant": "empty",
+      "fixtureCount": 4,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "eb8e4664248b66aea084f08434a4d9c1b8dc77855daae008a35c5a65871ce0ec",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:14:57.216Z",
+      "variant": "line-only",
+      "fixtureCount": 2,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "bc8baa8d54f712852ad0fbe350b4460d613f9e12caf64e2de7ee84217b243e8c",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:14:59.289Z",
+      "variant": "block-only",
+      "fixtureCount": 2,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "5cfa345ae0b486876f60159a237d5961c1bbbca1f4c0a0e5fd2f9cf019c15b02",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:15:01.516Z",
+      "variant": "auto-only",
+      "fixtureCount": 4,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "5a76abd3e79d5d8c0c8dd98c910423cd6d7e54345074fc5c2056d42827d6b389",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:15:03.746Z",
+      "variant": "surround-only",
+      "fixtureCount": 4,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "880200dd60879d83c42abf232b14f6f7a103abd2d4c9efed13a79de497c26831",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:15:06.547Z",
+      "variant": "before-at",
+      "fixtureCount": 3,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "0b37bf6584ee0e1e1502a2246675a5dee0521e5c077fb340063008944efd5937",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:15:09.415Z",
+      "variant": "all-invalid",
+      "fixtureCount": 4,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "88d5c4c5b41b74bb2309a25ac1703f162bf4b33f02bba275967dc0b13ed1b148",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:15:13.474Z",
+      "variant": "valid-mixed",
+      "fixtureCount": 6,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "bb2a4a7c436bb5b1daef8481e2a9b5406ce72c4de981ce0d5ad26b7052c017e8",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T02:15:15.343Z",
+      "variant": "unknown-brackets",
+      "fixtureCount": 2,
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "f57239de71ce68e49fcccd03d225a26f20ba50512ba7255ad0a4550458db972d",
+      "profileSettingsSha256": "647d9e729a6f79d29018d6e66a326d7ac1879e1e5179f70ed16ce6a49f5bfb22",
+      "observerSha256": "f044f1da63592a5a6164a36a9047e5d065c9fc3f3d3648abd9f1ba9d04fdadf7",
+      "casesSha256": "5b1fefa3dc6a40a176300b632f9f96ae4049b51d73d6b107192cb60e3c9c9b91",
+      "suiteSha256": "21b39413849c236a1467526a6b2d7422de97ca5a2cc1f3e6434db1ccc80cd87d",
+      "runnerSha256": "b95b2a1441fbacd6da49f29b2981fe1edde98c765b312ec25f9b616d73c1308a",
+      "workerSha256": "41a486f5ce50c8e650ca3fe044f3855c5ce50b9f9e424e0ddd36ea92bdf52044",
+      "supervisorSha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+      "testElectronLockSha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+      "projection": "Actual installed contributes.languages JSON configuration over built-in CPP or a declared fixture-only language. No setLanguageConfiguration API. Public type/surround/comment commands, Undo/Redo bytes and scalar selections. Independent fixture-only onEnterRules loader sentinel excluded from native comparison; arbitrary native regex is not qualified. Typed target tokens prepared with unchanged bytes/version/selections/EOL; no preparation between Undo/Redo and no target retry. Unknown language and malformed declarations remain raw reference observations until native scope is separately qualified. Cross-extension general priority and lifecycle are not qualified by one development fixture per process."
+    }
+  ],
+  "nativeQualification": {
+    "scope": "Derived comparison projection; not an additional executable observation",
+    "languageIds": [
+      "cpp"
+    ],
+    "cases": 50,
+    "snapshots": 200,
+    "excludedCases": [
+      "unknown-brackets-brackets-fallback-pair",
+      "unknown-brackets-brackets-fallback-surround"
+    ],
+    "reason": "Fixture-only unknown language has no native document language-id binding; two raw observations remain present in the complete 52-case trace."
+  }
+}

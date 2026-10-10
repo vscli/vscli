@@ -1,0 +1,33 @@
+{
+  "extension": "vscode.cpp",
+  "version": "1.0.0",
+  "license": "MIT",
+  "referenceVersion": "1.95.0",
+  "referenceCommit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "files": [
+    {
+      "file": "package.json",
+      "sha256": "6a2aae1ca30cb8d1dc75068f0e59d77ea378969d1288be4239922d6b614c3d16",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/vscode/912bb683695358a54ae0c670461738984cbb5b95/extensions/cpp/package.json",
+      "sourceSha256": "31ec3b722a34a9cdb7b1b0c9d9a7c332fe60feb28c9efae3afa2b81a3710a23c",
+      "sourceByteIdentical": false
+    },
+    {
+      "file": "language-configuration.json",
+      "sha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/vscode/912bb683695358a54ae0c670461738984cbb5b95/extensions/cpp/language-configuration.json",
+      "sourceSha256": "ccb1b20bfe8397e7fb4b323f5dc33b4135d7cecdee0222f1c8eb2483e7762f7c",
+      "sourceByteIdentical": false
+    },
+    {
+      "file": "LICENSE",
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/vscode/912bb683695358a54ae0c670461738984cbb5b95/LICENSE.txt",
+      "sourceSha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9",
+      "sourceByteIdentical": true
+    }
+  ],
+  "scope": "Exact unchanged installed bundled manifest and JSON configuration, with original pinned source MIT license; installed minified JSON is semantically identical to pinned JSON/JSONC source. Native public Catalog data-loading workflow only, no extension activation, grammar loading, arbitrary regex, multi-character pairs or full unchanged-extension qualification.",
+  "referenceInputInventorySha256": "fdfec89e6dc34707ec11352ade015be4128b6c10f88586465b2541e8fc7a3de7",
+  "comparisonCases": "The 21 omitted-variant CPP gesture traces from the separate actual installed configuration capture; its declaration fixture has only a scratch sentinel unused by these target gestures."
+}

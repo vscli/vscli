@@ -1,0 +1,2374 @@
+[
+  {
+    "name": "omitted-brace-pair",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{}",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{}",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-builtin-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "<élan😀>",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "<élan😀>",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-line-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "//   α();\r\n//     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "//   α();\r\n//     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-block-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "/* élan😀 */",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "/* élan😀 */",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "empty-brace-pair",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{}",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{}",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "empty-builtin-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "<élan😀>",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "<élan😀>",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "empty-line-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "//   α();\r\n//     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "//   α();\r\n//     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "empty-block-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "/* élan😀 */",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "/* élan😀 */",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "all-invalid-brace-pair",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{}",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{}",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "all-invalid-builtin-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "<élan😀>",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "<élan😀>",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "all-invalid-line-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "//   α();\r\n//     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "//   α();\r\n//     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "all-invalid-block-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "/* élan😀 */",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "/* élan😀 */",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "line-only-line-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "#   α();\r\n#     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "#   α();\r\n#     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "line-only-block-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "block-only-line-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "  (* α();\r\n    β(); *)\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  (* α();\r\n    β(); *)\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "block-only-block-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "(* élan😀 *)",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "(* élan😀 *)",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "auto-only-configured-pair",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "«»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "«»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "auto-only-builtin-pair",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "auto-only-configured-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "«",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "«",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "auto-only-builtin-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "(élan😀)",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "(élan😀)",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "surround-only-configured-pair",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "«",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "«",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "surround-only-builtin-pair",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{}",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{}",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "surround-only-configured-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "«élan😀»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "«élan😀»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "surround-only-builtin-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "(",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "(",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "before-at-pair-before-at",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "@",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "()@",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "@",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "()@",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "before-at-pair-before-space",
+    "observations": [
+      {
+        "action": "initial",
+        "text": " ",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "( ",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": " ",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "( ",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "before-at-pair-before-quote",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\"",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "(\"",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\"",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "(\"",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-bracket-default-before-quote",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\"",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "()\"",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\"",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "()\"",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-quote-default-before-quote",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "'",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\"'",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "'",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\"'",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "valid-mixed-pair-configured",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "«»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "«»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "valid-mixed-pair-valid-conditional",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "[]",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "[]",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "valid-mixed-pair-removed-builtin",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "valid-mixed-notIn-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "// ",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "// [",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "// ",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "// [",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "valid-mixed-configured-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "«élan😀»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "«élan😀»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "valid-mixed-partial-invalid-comments",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "unknown-brackets-brackets-fallback-pair",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "«»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "«»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "unknown-brackets-brackets-fallback-surround",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "«élan😀»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "«élan😀»",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 6
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-add-common-indent",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "editor.action.addCommentLine",
+        "text": "//   α();\r\n//     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "//   α();\r\n//     β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-remove-uncommented",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "editor.action.removeCommentLine",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  α();\r\n    β();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-add-existing-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  // α();\r\n    β();\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "editor.action.addCommentLine",
+        "text": "//   // α();\r\n//     β();\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 25
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  // α();\r\n    β();\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "//   // α();\r\n//     β();\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 25
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-remove-existing-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  // α();\r\n  //   β();\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "editor.action.removeCommentLine",
+        "text": "  α();\r\n    β();\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  // α();\r\n  //   β();\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  α();\r\n    β();\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 16
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-empty-caret-line",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "//   α();\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "//   α();\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-line-reversed",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "//   α();\r\n//     β();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "//   α();\r\n//     β();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-line-permuted",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "α();\r\nβ();\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "// α();\r\n// β();\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "α();\r\nβ();\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "// α();\r\n// β();\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-blank-caret-line",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  \r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "editor.action.commentLine",
+        "text": "//   \r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  \r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "//   \r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-block-caret",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "α();\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "α(/*  */);\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "α();\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "α(/*  */);\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-block-multiline",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  α();\r\n    β();\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "/*   α();\r\n    β(); */\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  α();\r\n    β();\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "/*   α();\r\n    β(); */\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-block-remove",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "/* élan😀 */",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "/* élan😀 */",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "élan😀",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-block-permuted",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "α(); β();",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 9
+          },
+          {
+            "anchor": 0,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "editor.action.blockComment",
+        "text": "/* α(); */ /* β(); */",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 18
+          },
+          {
+            "anchor": 3,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "α(); β();",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 9
+          },
+          {
+            "anchor": 0,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "/* α(); */ /* β(); */",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 18
+          },
+          {
+            "anchor": 3,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-add-empty-caret",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "editor.action.addCommentLine",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-add-whitespace-caret",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  \r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "editor.action.addCommentLine",
+        "text": "  \r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  \r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  \r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "omitted-add-all-blank-range",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  \r\n\t\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "editor.action.addCommentLine",
+        "text": "  \r\n\t\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  \r\n\t\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  \r\n\t\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  }
+]
