@@ -24,8 +24,11 @@ Preview tabs do not complete workspace continuity.
 The sticky-tab candidate implements original pin/unpin commands, membership-local
 markers and save-safe protected-close subsets. Local qualification passes 936
 Rust tests, all 31 ordinary Unix PTY scripts / 145 reports, and 71 optimized
-terminal reports; fresh protected platform CI is required before merge. Nested
-layouts remain prepared scratch work. See [the sticky contract](STICKY_TABS.md).
+terminal reports; fresh protected platform CI is required before merge.
+[Sticky PR #68](https://github.com/vscli/vscli/pull/68) is under review.
+The subsequent [nested layout foundation](EDITOR_LAYOUT.md) passes fifteen
+focused cases and 951 all-target tests; its App/UI integration remains scratch
+work. See [the sticky contract](STICKY_TABS.md).
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
