@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Original terminal Save keys with automatically configured native source actions.
 
-Five isolated Unix PTY journeys use an absolute stdlib Python LSP peer, an empty
+Seven isolated Unix PTY journeys use an absolute stdlib Python LSP peer, an empty
 PATH, and missing Node. Protocol barriers qualify actual callback settlement;
 committed Unicode/CRLF bytes qualify the model and filesystem save receipts.
+The final two journeys retain raw JSONC files while qualifying legacy false as a
+subtree exclusion under enabled parent policies.
 """
 from contextlib import contextmanager
 import json
@@ -107,11 +109,18 @@ def fixture_server(root, mode):
                 threading.Thread(target=held_reply, args=(ident, document), daemon=True).start()
                 continue
             result = []
-            if not (root / "null-participants").exists() and mode == "direct":
+            if not (root / "null-participants").exists() and mode in ("direct", "false-child", "false-family"):
                 if family == "source.fixAll":
+                    assert mode != "false-family", "Excluded fix-all family was queried"
                     result = [action(family, replace_line(document, "int value=1;", "int value=2;"))]
+                    if mode == "false-child":
+                        # Returning the excluded child first proves eligibility,
+                        # rather than relying on the provider to omit it.
+                        result.insert(0, action("source.fixAll.child", replace_line(document, "int value=1;", "int value=666;")))
+                        trace("excluded-child-offered", id=ident)
                 else:
-                    assert "int value=2;" in document["text"], "Organize discovery did not observe the preceding fix"
+                    expected = "int value=1;" if mode == "false-family" else "int value=2;"
+                    assert expected in document["text"], "Organize discovery did not observe eligible preceding edits"
                     assert not document["text"].startswith("#include")
                     edit = {"documentChanges": [{"textDocument": {"uri": document["uri"], "version": document["version"]},
                                                   "edits": [{"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}},
@@ -127,9 +136,9 @@ def fixture_server(root, mode):
             text = document["text"]
             trace("format-entered", id=ident, text=text)
             result = None
-            if mode in ("direct", "combined") and not (root / "null-participants").exists():
-                before = "int value=2;" if mode == "direct" else "int value=1;"
-                if mode == "direct":
+            if mode in ("direct", "combined", "false-child", "false-family") and not (root / "null-participants").exists():
+                before = "int value=2;" if mode in ("direct", "false-child") else "int value=1;"
+                if mode in ("direct", "false-child", "false-family"):
                     assert text.startswith("#include <vector>\r\n"), "Formatter ran before imports"
                 change = replace_line(document, before, before.replace("=", " = "))
                 result = change["documentChanges"][0]["edits"]
@@ -165,6 +174,8 @@ FIXED = RAW.replace(b"int value=1;", b"int value=2;")
 ORGANIZED = b"#include <vector>\r\n" + FIXED
 FORMATTED = ORGANIZED.replace(b"int value=2;", b"int value = 2;")
 COMBINED_FORMATTED = RAW.replace(b"int value=1;", b"int value = 1;")
+ORGANIZED_RAW = b"#include <vector>\r\n" + RAW
+FALSE_FAMILY_FORMATTED = ORGANIZED_RAW.replace(b"int value=1;", b"int value = 1;")
 
 
 def records(case):
@@ -210,7 +221,7 @@ def dirty(app, case, *, autosave=False):
 
 
 @contextmanager
-def editor(root, name, mode, *, autosave=False):
+def editor(root, name, mode, *, autosave=False, user_policy=None, workspace_policy=None):
     case = root / name
     case.mkdir()
     source = case / "main.cpp"
@@ -224,7 +235,21 @@ def editor(root, name, mode, *, autosave=False):
               "files.autoSave": "afterDelay" if autosave else "off", "files.autoSaveDelay": 200,
               "[cpp]": {"vscli.languageServer.program": str(Path(sys.executable).resolve()),
                         "vscli.languageServer.args": [str(Path(__file__).resolve()), "--server", str(case), mode]}}
-    (config / "settings.json").write_text(json.dumps(values), encoding="utf-8")
+    if user_policy is not None:
+        values["editor.codeActionsOnSave"] = user_policy
+    settings_path = config / "settings.json"
+    settings_bytes = ("// retained imported 猫🙂\r\n" + json.dumps(values, ensure_ascii=False, indent=2).replace("\n", "\r\n") + "\r\n").encode()
+    if user_policy is None:
+        settings_bytes = json.dumps(values).encode()
+    settings_path.write_bytes(settings_bytes)
+    policy_files = {settings_path: settings_bytes}
+    if workspace_policy is not None:
+        workspace = case / ".vscode"
+        workspace.mkdir()
+        workspace_path = workspace / "settings.json"
+        workspace_bytes = ("/* workspace λ🙂 preserved */\r\n" + json.dumps({"editor.codeActionsOnSave": workspace_policy}, ensure_ascii=False, indent=2).replace("\n", "\r\n") + "\r\n").encode()
+        workspace_path.write_bytes(workspace_bytes)
+        policy_files[workspace_path] = workspace_bytes
     app = Editor(case, "--config-dir", config, "--extension-node", case / "missing-node", "--no-session",
                  source, enhanced=True, auto_lsp=True, extra_env={"PATH": ""})
     completed = False
@@ -233,6 +258,8 @@ def editor(root, name, mode, *, autosave=False):
         acknowledged(app, case, "open", lambda event: event["text"].encode() == ORIGINAL)
         yield app, source, case
         assert not any(event["kind"] == "unexpected-action-followup" for event in records(case)), "Unsupported commands were executed"
+        for path, original in policy_files.items():
+            assert path.read_bytes() == original, "Executable policy normalization rewrote raw settings"
         app.finish()
         completed = True
     except BaseException:
@@ -343,6 +370,52 @@ def run():
             assert not any(event["kind"] in ("action-entered", "format-entered") for event in trace)
             caret(app, 1, 10)
         print("PASS: after-delay autosave skips even always-configured source actions and formatting, without Node or executable discovery, and restores terminal mode")
+
+        with editor(root, "f", "false-child",
+                    user_policy={"source.fixAll": True, "source.fixAll.child": True, "source.organizeImports": True},
+                    workspace_policy={"source.fixAll.child": False}) as (app, source, case):
+            dirty(app, case)
+            saved(app, source, case, FORMATTED)
+            caret(app, 2, 10)
+            trace = records(case)
+            callbacks = [event for event in trace if event["kind"] in ("action-entered", "format-entered")]
+            assert [event.get("family") for event in callbacks[:2]] == ["source.fixAll", "source.organizeImports"]
+            assert [event["kind"] for event in callbacks] == ["action-entered", "action-entered", "format-entered"]
+            assert [event["text"].encode() for event in callbacks] == [RAW, FIXED, ORGANIZED]
+            assert sum(event["kind"] == "excluded-child-offered" for event in trace) == 1
+            assert not any(b"666" in event.get("text", "").encode() for event in trace)
+            (case / "null-participants").touch()
+            for expected in (ORGANIZED, FIXED, RAW, ORIGINAL):
+                app.send(CTRL_Z)
+                saved(app, source, case, expected)
+                caret(app, 2 if expected.startswith(b"#include") else 1, 1 if expected == ORIGINAL else 10)
+            for expected in (RAW, FIXED, ORGANIZED, FORMATTED):
+                app.send(REDO)
+                saved(app, source, case, expected)
+                caret(app, 2 if expected.startswith(b"#include") else 1, 10)
+        print("PASS: workspace false excludes a returned child under true fix-all; root fix/imports/format retain exact Unicode/CRLF, four Undo/Redo stages and raw JSONC")
+
+        with editor(root, "g", "false-family", user_policy={"source": True},
+                    workspace_policy={"source.fixAll": False}) as (app, source, case):
+            dirty(app, case)
+            saved(app, source, case, FALSE_FAMILY_FORMATTED)
+            caret(app, 2, 10)
+            callbacks = [event for event in records(case) if event["kind"] in ("action-entered", "format-entered")]
+            assert [event["kind"] for event in callbacks] == ["action-entered", "format-entered"]
+            assert callbacks[0]["family"] == "source.organizeImports", "Excluded family must never be requested"
+            assert [event["text"].encode() for event in callbacks] == [RAW, ORGANIZED_RAW]
+            (case / "null-participants").touch()
+            for expected in (ORGANIZED_RAW, RAW, ORIGINAL):
+                app.send(CTRL_Z)
+                saved(app, source, case, expected)
+                caret(app, 2 if expected.startswith(b"#include") else 1, 1 if expected == ORIGINAL else 10)
+            for expected in (RAW, ORGANIZED_RAW, FALSE_FAMILY_FORMATTED):
+                app.send(REDO)
+                saved(app, source, case, expected)
+                caret(app, 2 if expected.startswith(b"#include") else 1, 10)
+            assert all(event.get("family") != "source.fixAll" for event in records(case))
+        print("PASS: workspace false excludes the fix-all family under true source; imports/format remain fresh with three independent Undo/Redo stages and unchanged JSONC")
+
 
 
 if __name__ == "__main__":

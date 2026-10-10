@@ -52,6 +52,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable action
         with:
           toolchain: '1.99.0'
@@ -162,18 +164,57 @@ jobs:
         env:
           VSCLI_SAVE_FORMATTING_REFERENCE_DIR: target/vscode-reference/result/save-formatting
         run: cargo test --locked --test save_formatting_reference
-      - name: Observe pinned code-actions-on-save contracts (Linux)
+      - name: Verify stable save producer identity before dependency setup
+        run: node -e "require('./tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.cjs').sourceIdentity(require('node:path').resolve('tests/vscode-reference-save-actions-stable-configuration-candidate'))"
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tests/vscode-reference-save-actions-stable-configuration-candidate
+      - name: Check bounded stable save setup and diagnostic contracts
+        run: node --test tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-readiness.test.cjs tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-diagnostics.test.cjs tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.test.cjs
+      - name: Check lossless stable reference staging
+        run: python3 -m unittest discover -s tests -p 'stage_save_actions_reference_test.py'
+      - name: Record independently trusted checked-out revision
+        env:
+          CANDIDATE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node -e "const fs=require('node:fs');const revision=process.env.CANDIDATE_REVISION;if(!/^[0-9a-f]{40}$/.test(revision)||require('node:child_process').execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()!==revision)throw Error('Checked-out revision differs from trusted workflow revision');fs.mkdirSync('target/vscode-reference',{recursive:true});fs.mkdirSync('target/save-actions-stable-configuration',{recursive:true});fs.writeFileSync('target/save-actions-stable-configuration/candidate-revision.txt',revision+'\n')"
+      - name: Observe stable code-actions-on-save contracts (Linux)
         if: runner.os == 'Linux'
-        timeout-minutes: 4
-        run: xvfb-run -a node tests/vscode-reference/save-code-actions-run.cjs target/vscode-reference/result/save-code-actions
-      - name: Observe pinned code-actions-on-save contracts (macOS and Windows)
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          set -o pipefail
+          xvfb-run -a node tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-run.cjs target/save-actions-stable-configuration/result 2>&1 | tee target/save-actions-stable-configuration/capture.log
+      - name: Observe stable code-actions-on-save contracts (macOS and Windows)
         if: runner.os != 'Linux'
-        timeout-minutes: 4
-        run: node tests/vscode-reference/save-code-actions-run.cjs target/vscode-reference/result/save-code-actions
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-run.cjs target/save-actions-stable-configuration/result 2>&1 | tee target/save-actions-stable-configuration/capture.log
+      - name: Stage every available stable save result and source
+        if: always()
+        run: python3 tests/stage_save_actions_reference.py tests/vscode-reference-save-actions-stable-configuration-candidate target/save-actions-stable-configuration target/save-actions-stable-reference-artifact
+      - name: Admit complete stable save source, revision and metadata
+        env:
+          VSCLI_SAVE_ACTIONS_STABLE_CURRENT_ARTIFACT_DIR: target/save-actions-stable-reference-artifact
+          VSCLI_SAVE_ACTIONS_STABLE_EXPECTED_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: cargo test --locked --test save_code_actions_reference stable_v2::current_capture::genuine_current_stable_v2_complete_artifact_metadata -- --exact --ignored --nocapture
       - name: Compare implemented native code-actions-on-save contracts
         env:
-          VSCLI_SAVE_CODE_ACTIONS_REFERENCE_DIR: target/vscode-reference/result/save-code-actions
+          VSCLI_SAVE_ACTIONS_STABLE_CURRENT_ARTIFACT_DIR: target/save-actions-stable-reference-artifact
+          VSCLI_SAVE_ACTIONS_STABLE_EXPECTED_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
         run: cargo test --locked --test save_code_actions_reference
+      - name: Preserve all stable save evidence on success or failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stable-save-reference-${{ matrix.os }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            target/save-actions-stable-configuration
+            tests/vscode-reference-save-actions-stable-configuration-candidate/*.cjs
+            tests/vscode-reference-save-actions-stable-configuration-candidate/*.json
+            tests/vscode-reference-save-actions-stable-configuration-candidate/*.md
       - name: Run terminal workflows
         if: runner.os != 'Windows'
         timeout-minutes: 5

@@ -65,7 +65,7 @@ pub struct SaveActionPlan {
     pub families: Vec<SaveActionFamily>,
     /// Original effective enabled kinds; a root query does not enable siblings.
     pub enabled: Vec<String>,
-    /// Only string `never` excludes a subtree. Deprecated false is distinct.
+    /// String `never` and executable-normalized legacy false exclude a subtree.
     pub excluded: Vec<String>,
     pub notices: Vec<String>,
 }
@@ -655,7 +655,8 @@ impl Settings {
                     }
                     match value {
                         Value::Bool(true) => enabled.push(kind),
-                        Value::Bool(false) => {},
+                        // Normalize legacy values only for execution; raw layers remain intact.
+                        Value::Bool(false) => excluded.push(kind),
                         Value::String(value) if matches!(value.as_str(), "explicit" | "always") => enabled.push(kind),
                         Value::String(value) if value == "never" => excluded.push(kind),
                         _ => notices.push(format!("Invalid editor.codeActionsOnSave value for {kind}; entry disabled")),
@@ -1027,7 +1028,7 @@ mod save_actions_tests {
         }
     }
     #[test]
-    fn all_fourteen_actual_pinned_save_action_settings_and_supported_filters_match() {
+    fn historical_fourteen_case_raw_merge_and_order_remain_unchanged() {
         let cases: Vec<Value> = serde_json::from_str(include_str!(
             "../tests/vscode-reference/save-code-actions-cases.json"
         ))
@@ -1060,6 +1061,24 @@ mod save_actions_tests {
                 fixture["name"]
             );
             assert_eq!(keys, actual["effectiveKeys"], "{}", fixture["name"]);
+        }
+    }
+    #[test]
+    fn current_supported_filters_match_all_fourteen_stable_133_observations() {
+        // The integration reader separately admits the exact producer hashes,
+        // readiness proof and receipts. This checks only the native policy projection.
+        let cases: Vec<Value> = serde_json::from_str(include_str!(
+            "../tests/vscode-reference/save-code-actions-cases.json"
+        ))
+        .unwrap();
+        let observed: Vec<Value> = serde_json::from_str(include_str!(
+            "../tests/vscode-reference/observations/1.95.0/save-configuration-stable/1338970/linux/target/save-actions-stable-configuration/result/save-code-actions.json"
+        )).unwrap();
+        assert_eq!(cases.len(), 14);
+        assert_eq!(observed.len(), 14);
+        for (fixture, actual) in cases.iter().zip(&observed) {
+            assert_eq!(fixture["name"], actual["name"]);
+            let settings = settings(vec![fixture["user"].clone(), fixture["workspace"].clone()]);
             let automatic = fixture["autosave"] == "afterDelay";
             let reason = if automatic {
                 SaveActionReason::AfterDelay
@@ -1121,6 +1140,134 @@ mod save_actions_tests {
             }
             assert_eq!(plan.families, expected, "{}", fixture["name"]);
         }
+    }
+    #[test]
+    fn legacy_booleans_equal_canonical_values_without_changing_raw_layers() {
+        fn canonical(value: &mut Value) {
+            match value {
+                Value::Object(entries) => {
+                    if let Some(Value::Object(actions)) =
+                        entries.get_mut("editor.codeActionsOnSave")
+                    {
+                        for entry in actions.values_mut() {
+                            if let Value::Bool(enabled) = entry {
+                                *entry = json!(if *enabled { "explicit" } else { "never" });
+                            }
+                        }
+                    }
+                    for (key, value) in entries.iter_mut() {
+                        if key.starts_with('[') {
+                            canonical(value);
+                        }
+                    }
+                }
+                _ => panic!("fixture layer must be an object"),
+            }
+        }
+        for layers in [
+            vec![
+                json!({"editor.codeActionsOnSave":{"source.fixAll":true,"source.fixAll.child":false,"source.organizeImports":true}}),
+            ],
+            vec![json!({"editor.codeActionsOnSave":{"source":true,"source.fixAll":false}})],
+            vec![
+                json!({"editor.codeActionsOnSave":{"source.fixAll":true}}),
+                json!({"editor.codeActionsOnSave":{"source.fixAll":false}}),
+            ],
+            vec![
+                json!({"editor.codeActionsOnSave":{"source.fixAll":false}}),
+                json!({"editor.codeActionsOnSave":{"source.fixAll":true}}),
+            ],
+            vec![
+                json!({"[cpp][rust]":{"editor.codeActionsOnSave":{"source":true}},"[cpp]":{"editor.codeActionsOnSave":{"source.fixAll":false}}}),
+                json!({"[cpp][rust]":{"editor.codeActionsOnSave":{"source.organizeImports":false}},"[cpp]":{"editor.codeActionsOnSave":{"source.organizeImports":true}}}),
+            ],
+            vec![
+                json!({"[cpp][rust]":{"editor.codeActionsOnSave":{"source.fixAll":false}},"[cpp]":{"editor.codeActionsOnSave":{"source.fixAll":true}}}),
+                json!({"[cpp][rust]":{"editor.codeActionsOnSave":{"source.fixAll":true}},"[cpp]":{"editor.codeActionsOnSave":{"source.fixAll":false}}}),
+            ],
+        ] {
+            let mut normalized = layers.clone();
+            normalized.iter_mut().for_each(canonical);
+            let original = settings(layers.clone());
+            let canonical = settings(normalized);
+            let bytes = original.serialized.clone();
+            for language in ["cpp", "rust", "plaintext"] {
+                assert_eq!(
+                    original.save_code_actions(language, SaveActionReason::Explicit),
+                    canonical.save_code_actions(language, SaveActionReason::Explicit)
+                );
+                assert_eq!(
+                    original.save_code_actions(language, SaveActionReason::AfterDelay),
+                    SaveActionPolicy::Off
+                );
+            }
+            assert_eq!(original.serialized, bytes);
+            assert_eq!(
+                original
+                    .extension_layers()
+                    .iter()
+                    .cloned()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>(),
+                layers
+            );
+        }
+    }
+    #[test]
+    fn false_excludes_only_dot_bounded_subtrees_and_empty_objects_keep_exclusions() {
+        let child = settings(vec![
+            json!({"editor.codeActionsOnSave":{"source.fixAll":true,"source.fixAll.child":false,"source.fixAllX":false}}),
+            json!({"editor.codeActionsOnSave":{}}),
+        ]);
+        let child = plan(child.save_code_actions("cpp", SaveActionReason::Explicit));
+        assert!(child.allows(SaveActionFamily::FixAll, "source.fixAll"));
+        assert!(child.allows(SaveActionFamily::FixAll, "source.fixAll.childish"));
+        assert!(!child.allows(SaveActionFamily::FixAll, "source.fixAll.child"));
+        assert!(!child.allows(SaveActionFamily::FixAll, "source.fixAll.child.nested"));
+        assert!(!child.allows(SaveActionFamily::FixAll, "source.fixAllX"));
+        let family = plan(
+            settings(vec![
+                json!({"editor.codeActionsOnSave":{"source":true,"source.fixAll":false}}),
+            ])
+            .save_code_actions("cpp", SaveActionReason::Explicit),
+        );
+        assert_eq!(family.families, vec![SaveActionFamily::OrganizeImports]);
+        assert!(!family.allows(SaveActionFamily::FixAll, "source.fixAll.child"));
+        assert!(family.allows(SaveActionFamily::OrganizeImports, "source.organizeImports"));
+        let array = settings(vec![
+            json!({"editor.codeActionsOnSave":{"source.fixAll":false}}),
+            json!({"editor.codeActionsOnSave":["source.organizeImports","source.fixAll"]}),
+        ]);
+        let array = plan(array.save_code_actions("cpp", SaveActionReason::Explicit));
+        assert_eq!(
+            array.families,
+            vec![SaveActionFamily::OrganizeImports, SaveActionFamily::FixAll]
+        );
+        assert!(array.allows(SaveActionFamily::FixAll, "source.fixAll.child"));
+    }
+    #[test]
+    fn read_only_jsonc_policy_normalization_preserves_source_bytes_and_raw_values() {
+        let directory = tempfile::tempdir().unwrap();
+        let user = directory.path().join("imported-vscode-settings.json");
+        let workspace = directory.path().join("workspace-settings.json");
+        let user_bytes = "// imported 猫🙂\r\n{\r\n  \"editor.codeActionsOnSave\": {\"source.fixAll\": true,},\r\n}\r\n".as_bytes();
+        let workspace_bytes = "/* retained λ */\r\n{\r\n  \"[cpp]\": {\"editor.codeActionsOnSave\": {\"source.fixAll.child\": false,}},\r\n}\r\n".as_bytes();
+        std::fs::write(&user, user_bytes).unwrap();
+        std::fs::write(&workspace, workspace_bytes).unwrap();
+        let loaded = Settings::load(&[user.clone(), workspace.clone()]).unwrap();
+        let policy = plan(loaded.save_code_actions("cpp", SaveActionReason::Explicit));
+        assert!(policy.allows(SaveActionFamily::FixAll, "source.fixAll"));
+        assert!(!policy.allows(SaveActionFamily::FixAll, "source.fixAll.child"));
+        assert_eq!(
+            loaded.extension_layers()[0]["editor.codeActionsOnSave"]["source.fixAll"],
+            json!(true)
+        );
+        assert_eq!(
+            loaded.extension_layers()[1]["[cpp]"]["editor.codeActionsOnSave"]["source.fixAll.child"],
+            json!(false)
+        );
+        assert_eq!(std::fs::read(user).unwrap(), user_bytes);
+        assert_eq!(std::fs::read(workspace).unwrap(), workspace_bytes);
     }
     #[test]
     fn scalar_array_and_object_replacement_preserve_raw_winning_policy() {

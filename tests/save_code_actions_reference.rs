@@ -1015,7 +1015,7 @@ fn validate_save_observer_metadata(raw: &Value, observer: &str) -> anyhow::Resul
     }
 }
 
-fn corpus() -> Vec<Value> {
+fn historical_corpus() -> Vec<Value> {
     let (directory, stem) = match std::env::var_os("VSCLI_SAVE_CODE_ACTIONS_REFERENCE_DIR") {
         Some(path) => (PathBuf::from(path), "save-code-actions"),
         None => (
@@ -1078,6 +1078,28 @@ fn corpus() -> Vec<Value> {
     }
     rows
 }
+fn corpus() -> Vec<Value> {
+    assert!(
+        std::env::var_os("VSCLI_SAVE_CODE_ACTIONS_REFERENCE_DIR").is_none(),
+        "Legacy save reference input cannot qualify current native policy; provide the stable artifact and independently trusted revision together"
+    );
+    stable_v2::current_corpus().expect("Current stable save artifact must fully qualify")
+}
+
+#[test]
+fn historical_fourteen_case_source_and_frame_contract_remains_accepted() {
+    // Historical observations remain evidence of their original producer. They
+    // do not decide current policy after settled legacy-boolean normalization.
+    let rows = historical_corpus();
+    assert_eq!(rows.len(), 14);
+    assert_eq!(
+        rows.iter()
+            .map(|row| row["observations"].as_array().unwrap().len())
+            .sum::<usize>(),
+        162
+    );
+}
+
 fn fixtures() -> Vec<Value> {
     serde_json::from_slice(&source("save-code-actions-cases.json")).unwrap()
 }
