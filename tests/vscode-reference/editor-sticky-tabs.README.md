@@ -3,7 +3,7 @@
 This standalone observer records unchanged VS Code 1.95.0, product commit
 `912bb683695358a54ae0c670461738984cbb5b95`. A complete unattended Linux run
 captures all 18 cases, 65 target snapshots and 91 setup observations. The full
-39-file baseline preserves actual evidence and provenance. Three observer event
+39-file baseline preserves actual evidence and provenance. Six observer path/event
 integrity tests pass. Native replay and App integration are qualified separately;
 this actual capture alone does not establish native or cross-platform parity.
 The existing eleven-case preview observer and its 86 snapshots remain separate
@@ -135,3 +135,24 @@ The selected Linux executable SHA256 is
 Its bounded streamed hash covers the selected launcher, not an entire VS Code
 installation. Actual macOS and Windows captures remain required for platform
 qualification.
+
+
+## Canonical file identity refresh
+
+The original baseline above remains unchanged. A separate complete unattended
+Linux capture from the corrected observer is stored under
+`baselines/1.95.0/editor-sticky-tabs-observer-corrected` and retained locally at
+`target/editor-sticky-tabs-observer-corrected-reference`. It has all 18 cases,
+65 target snapshots and 91 setup observations. Its target trace is byte-for-byte
+identical to the original. The observer classifies every bounded file document
+through the same strict canonical resource classifier used for tabs and views,
+avoiding raw canonical-path string equality. Unknown files remain errors;
+supplemental virtual events retain their existing bounds and scope. Three new
+pure tests check Windows drive/root case, separators and containment, plus strict
+POSIX inventory/case. These are path tests, not an actual Windows editor capture.
+
+The corrected suite SHA256 is
+`0821192a8135f054f054ec9eb766b50c5a27418b9fa68ffdc4ae770399f40a35`.
+The other seven executable inputs and all case/target definitions are unchanged.
+The full fresh native consumer uses this separate source-matched baseline;
+original observations are not rewritten to match corrected source.
