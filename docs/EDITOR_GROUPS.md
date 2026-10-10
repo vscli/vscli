@@ -324,3 +324,23 @@ sticky reports cover nine native-only sessions. The isolated paired
 passes 80 launches / 3,200 keys, including the retained small-file repeat.
 Results vary; no editor ranking or active-sticky performance is established.
 Fresh platform checks remain required before merge.
+
+## Same-group reorder engine candidate
+
+The `feat/native-tab-reordering` branch adds synchronous staged same-group
+reordering, before App/key/terminal integration. Exact ordered group proofs and
+Membership IDs are validated even for a clamped edge no-op. An actual move
+commits a preview; crossing the sticky prefix pins or unpins that membership.
+Tab/document/group IDs, active editor, activation MRU and historical document
+views stay intact. Checked interaction/membership generations and fallible result
+reservations precede bounded in-place rotation. No new tab/group/model is admitted.
+
+Eight focused native tests cover visual order, sticky transitions, preview versus
+edge no-op, stale order/inverse proofs, replaced membership, counter refusal, all
+512 legal memberships and shared Unicode/CRLF document views with pending Redo.
+The engine candidate passes 995 all-target Rust tests across 51 reports, formatting
+and strict locked all-target Clippy, with 20 optional cases ignored. App commands,
+original profile keys, accepted-save/batch-close integration and Unix terminal
+journeys are separate pending qualification. This does not implement cross-group
+transfer, drag or original Close Group merging, and claims no new actual upstream
+behavioral capture. Policy follows the pinned original source.
