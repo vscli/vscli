@@ -58,8 +58,15 @@ JSON/JSONC [smart typing](SMART_TYPING.md) adds guarded pairs, surrounding selec
 owned-close handling and bracket-aware Enter. Native [advanced indentation](ADVANCED_INDENTATION.md)
 adds distinct auto-indent modes, bundled C++ unbraced-body/JSON rules and guarded
 electric closers. Its prepared-token reference contract excludes the pinned
-editor's natural startup-token timing; extension language configurations and
-broader language-rule parity remain incomplete.
+editor's natural startup-token timing. Installed
+[native language configurations](NATIVE_LANGUAGE_CONFIGURATIONS.md) now load
+single-character pair tables, following-character rules and comment delimiters
+without a JavaScript runtime. The native comparison matches 50 recorded C++
+configuration workflows and 21 further workflows using the unchanged bundled
+C++ declaration; these are named data/command contracts, not whole-extension
+compatibility. Imported lexical grammars, arbitrary indentation/on-Enter regular
+expressions, runtime configuration registration and broader language-rule parity
+remain incomplete.
 
 Native LSP document/workspace symbol search supports bounded hierarchical and flat
 responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-file

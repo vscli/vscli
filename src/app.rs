@@ -247,6 +247,12 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Edit: Paste", "editor.action.clipboardPasteAction"),
     ("Edit: Select All", "editor.action.selectAll"),
     ("Edit: Toggle Line Comment", "editor.action.commentLine"),
+    ("Edit: Toggle Block Comment", "editor.action.blockComment"),
+    ("Edit: Add Line Comment", "editor.action.addCommentLine"),
+    (
+        "Edit: Remove Line Comment",
+        "editor.action.removeCommentLine",
+    ),
     ("Edit: Delete Line", "editor.action.deleteLines"),
     (
         "Edit: Add Next Occurrence",
@@ -723,6 +729,7 @@ impl App {
         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
             self.settings.apply(doc);
         }
+        self.refresh_document_language_configurations();
         if !self.settings.warnings.is_empty() {
             self.message = format!(
                 "{} settings notices · F1 → Settings: Compatibility Report",
@@ -791,7 +798,7 @@ impl App {
         Ok(())
     }
     fn install_open_document(&mut self, d: Document) {
-        let d = if let Some(index) = self
+        let mut d = if let Some(index) = self
             .hidden_documents
             .iter()
             .position(|doc| doc.path == d.path)
@@ -800,6 +807,7 @@ impl App {
         } else {
             d
         };
+        let configuration_error = self.configure_document_language(&mut d).err();
         if let Some(index) = self.documents.iter().position(|old| old.path == d.path) {
             self.active = index;
         } else if self.documents.len() == 1
@@ -815,6 +823,11 @@ impl App {
         }
         self.focus = Focus::Editor;
         self.message = format!("Opened {}", self.doc().name());
+        if let Some(error) = configuration_error {
+            self.message.push_str(&format!(
+                " · Native language configuration rejected: {error:#}"
+            ));
+        }
         self.sync_pane();
         self.remember_active_file();
     }
@@ -1479,6 +1492,9 @@ impl App {
                 self.cancel_navigation();
                 let mut doc = Document::default();
                 self.settings.apply(&mut doc);
+                if let Err(error) = self.configure_document_language(&mut doc) {
+                    self.message = format!("Native language configuration rejected: {error:#}");
+                }
                 self.documents.push(doc);
                 self.active = self.documents.len() - 1;
                 self.focus = Focus::Editor;
@@ -1623,11 +1639,22 @@ impl App {
                 self.doc_mut().jump_bracket();
             }
             "editor.action.deleteLines" => self.doc_mut().delete_line(),
-            "editor.action.commentLine" => self.doc_mut().transform_lines(false, Some(false)),
-            "editor.action.addCommentLine" => {
-                self.add_comments();
+            "editor.action.commentLine" | "editor.action.addCommentLine" | "editor.action.removeCommentLine" => {
+                use crate::document::CommentOperation;
+                let operation = match command {
+                    "editor.action.addCommentLine" => CommentOperation::Add,
+                    "editor.action.removeCommentLine" => CommentOperation::Remove,
+                    _ => CommentOperation::Toggle,
+                };
+                if let Err(error) = self.doc_mut().comment_lines(operation) {
+                    self.message = format!("Line comment failed: {error:#}");
+                }
             }
-            "editor.action.removeCommentLine" => self.doc_mut().transform_lines(false, Some(true)),
+            "editor.action.blockComment" => {
+                if let Err(error) = self.doc_mut().toggle_block_comment() {
+                    self.message = format!("Block comment failed: {error:#}");
+                }
+            }
             "editor.action.clipboardCopyAction" => self.copy(false),
             "editor.action.clipboardCutAction" => self.copy(true),
             "editor.action.clipboardPasteAction" => self.paste(),
@@ -1705,24 +1732,6 @@ impl App {
                     | "workbench.action.nextEditor"
                     | "workbench.action.previousEditor"
             )
-    }
-    fn add_comments(&mut self) {
-        // Force adding only where absent; toggle alone would remove existing comments.
-        let prefix = if matches!(self.language(), "python" | "toml" | "shellscript") {
-            "#"
-        } else {
-            "//"
-        };
-        let mut changes = Vec::new();
-        for row in self.doc().all_selected_rows() {
-            let line = self.doc().line(row);
-            let indent = line.chars().take_while(|c| matches!(c, ' ' | '\t')).count();
-            if !line.trim_start().starts_with(prefix) {
-                let pos = self.doc().line_start(row) + indent;
-                changes.push((pos..pos, format!("{prefix} ")));
-            }
-        }
-        self.doc_mut().apply_changes(changes);
     }
     fn save_as(&mut self) {
         let path = self
@@ -2347,6 +2356,7 @@ impl App {
                     Ok(()) => {
                         self.message = format!("Saved {}", self.doc().name());
                         self.settings.apply(&mut self.documents[self.active]);
+                        self.refresh_document_language_configurations();
                         self.remember_active_file();
                         if let Some(after) = self.pending.take() {
                             self.complete_close(after);

@@ -106,6 +106,15 @@ impl Keymap {
         ] {
             map.add(&format!("{p}+{key}"), command, Some("editorTextFocus"));
         }
+        map.add(
+            if profile == Profile::Linux {
+                "ctrl+shift+a"
+            } else {
+                "shift+alt+a"
+            },
+            "editor.action.blockComment",
+            Some("editorTextFocus && !editorReadonly"),
+        );
         for (key, command) in [
             ("d", "editor.action.addSelectionToNextFindMatch"),
             ("shift+l", "editor.action.selectHighlights"),
@@ -327,12 +336,12 @@ impl Keymap {
         map.add(
             &format!("{p}+k {p}+c"),
             "editor.action.addCommentLine",
-            Some("editorTextFocus"),
+            Some("editorTextFocus && !editorReadonly"),
         );
         map.add(
             &format!("{p}+k {p}+u"),
             "editor.action.removeCommentLine",
-            Some("editorTextFocus"),
+            Some("editorTextFocus && !editorReadonly"),
         );
         for (key, command) in [
             ("left", "cursorLeft"),

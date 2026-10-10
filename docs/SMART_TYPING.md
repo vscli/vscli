@@ -72,7 +72,14 @@ failed edits/persistence, and bounded large-document context. Unix
 `tests/smart_typing_pty.py` exercises native terminal keys, save/Undo/Redo and
 restored terminal modes with an empty executable PATH.
 
-Extension-contributed language configurations, Rust/Python/JavaScript context,
-multi-character automatic delimiters, additional language rules and full VS Code
-typing behavior remain outstanding. The reference
-cases qualify their named gestures, not all editor settings or language rules.
+Installed [native language configurations](NATIVE_LANGUAGE_CONFIGURATIONS.md)
+now contribute bounded single-character pairs, surrounding tables, following
+characters and comment delimiters. Stable source identity guards generated
+ownership across updates, disable, uninstall and shared views. These declarations
+reuse existing lexical proof; they do not import extension grammars.
+
+Rust/Python/JavaScript context, runtime configuration registration,
+multi-character automatic delimiters, imported regular-expression rules,
+additional language behavior and full VS Code typing parity remain outstanding.
+The reference cases qualify their named gestures, not all editor settings or
+language rules.

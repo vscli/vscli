@@ -13,6 +13,7 @@ pub mod files;
 pub mod git;
 pub mod jsonc;
 pub mod keys;
+pub mod language_configuration;
 pub mod language_services;
 pub mod languages;
 pub mod lsp;

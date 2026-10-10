@@ -1,5 +1,6 @@
 //! Native, declarative typing profiles. These are a qualified subset of the
-//! pinned language configurations, not an extension language-configuration API.
+//! pinned lexical profiles. Declarative extension tables are immutable document
+//! policy; they do not grant a new lexical proof or a JavaScript runtime.
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AutoClosing {

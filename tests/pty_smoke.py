@@ -216,6 +216,12 @@ class Editor:
         if "--config-dir" not in args:
             self.config_directory = tempfile.TemporaryDirectory(prefix="vscli-pty-config-")
             options += ["--config-dir", self.config_directory.name]
+        self.extensions_directory = None
+        if "--extensions-dir" not in args:
+            # Installed declarative data loads without a code grant. Keep the
+            # user's installed packages out of unrelated terminal fixtures.
+            self.extensions_directory = tempfile.TemporaryDirectory(prefix="vscli-pty-extensions-")
+            options += ["--extensions-dir", self.extensions_directory.name]
         if not enhanced:
             options += ["--legacy-keys"]
         if not recovery:
@@ -317,6 +323,8 @@ class Editor:
         self.process.close()
         if self.config_directory is not None:
             self.config_directory.cleanup()
+        if self.extensions_directory is not None:
+            self.extensions_directory.cleanup()
 
 
 def text(path):
@@ -469,9 +477,14 @@ def run():
         app.send(CTRL_Z)
         app.send(CTRL_S)
         eventually(lambda: app.read() and text(source) == expected)
-        # Exact chord: Ctrl+K Ctrl+C adds a line comment. Undo restores it.
+        # The pinned Add command skips blank lines. Select the nonblank
+        # document so this is an actual comment edit before checking Undo.
         app.send(b"\x1b")
+        app.send(CTRL_A)
         app.send(b"\x0b\x03")
+        app.send(CTRL_S)
+        commented = "// // Unicode: 猫🙂 e\u0301\n// fn main() {\n//     println!(\"hello\");\n// }\n"
+        eventually(lambda: app.read() and text(source) == commented)
         app.send(CTRL_Z)
         app.send(CTRL_S)
         eventually(lambda: app.read() and text(source) == expected)

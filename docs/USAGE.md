@@ -46,8 +46,16 @@ pairing, surrounding selections, generated-close skipping/deletion and bracket-a
 Enter. Native [advanced indentation](ADVANCED_INDENTATION.md) distinguishes all five
 `editor.autoIndent` modes, defaults to `full`, and adds bundled C++ unbraced-body
 and JSON indentation rules plus guarded closing-bracket alignment. Paste remains
-literal. Language overrides control pairing and indentation; extension language
-configurations, other profiles and full language-rule parity remain incomplete.
+literal. Language overrides control pairing and indentation. Installed
+[native language configurations](NATIVE_LANGUAGE_CONFIGURATIONS.md) now supply
+bounded single-character pairs, surrounding selections, following-character
+rules and comment delimiters without Node or a code-execution grant. Installed
+data is enabled by default; explicit extension disable preferences apply.
+Imported grammars, regular-expression indentation rules, other profiles and full
+language-rule parity remain incomplete. Original Add/Remove Line Comment chords
+are Ctrl+K Ctrl+C/U on Linux/Windows and Cmd+K Cmd+C/U on macOS; Toggle Block
+Comment is Ctrl+Shift+A on Linux and Shift+Alt+A on macOS/Windows. Terminal delivery
+still depends on the terminal's input protocol and shortcut interception.
 
 Quick open indexes up to 100,000 workspace files in a background worker. It respects ignore rules and skips `.git`, `target`, `node_modules`, `.venv`, and `__pycache__`. The explorer shows the current directory; Right opens a directory or file (Enter also opens in Linux/Windows profiles), Left/Backspace goes to its parent, and Escape returns focus to the editor. macOS uses Enter for rename. Native file notifications refresh the index after a short debounce; Refresh Explorer is available when notifications are unavailable. See [external file changes](#external-file-changes) for qualification limits.
 
