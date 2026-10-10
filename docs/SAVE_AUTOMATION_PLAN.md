@@ -2,8 +2,8 @@
 
 Native command Save and Save As now use a background worker. Native autosave
 implements `files.autoSave = "off" | "afterDelay"`, including language scopes.
-These are implemented runtime paths undergoing full integration, terminal and
-platform qualification; this document does not establish full VS Code save parity.
+Local integration, terminal and integrity checks pass; fresh platform CI is
+pending. This document does not establish full VS Code save parity.
 The original plan has been replaced with the implemented contract and remaining
 qualification work. Format-on-save and save-time code actions remain future work.
 
@@ -141,7 +141,9 @@ and optimized builds, three settings-persistence reports and three Breadcrumbs
 reports. Native Outline and Breadcrumbs consumers also pass against their existing
 frozen reference captures, including all eight source-validation tests; this is
 consumer regression evidence, not a new reference
-capture. Fresh Linux/macOS/Windows CI, save-participant comparisons and performance
+capture. A [reproducible routine-editing benchmark](PERFORMANCE.md#native-save-automation-core-baseline-2026-10-10)
+records 40 launches and 1,600 keys with mixed measurements and no speed ranking.
+Fresh Linux/macOS/Windows CI, save-participant comparisons and active-save latency
 qualification remain pending. These counts describe this save candidate and do
 not establish full VS Code parity.
 
