@@ -72,6 +72,40 @@ fn choose(app: &mut App, title: &str) {
     )));
 }
 #[test]
+fn repeated_requests_queue_the_latest_native_context_while_canceled_work_retains_capacity() {
+    let (root, mut app) = fixture(false);
+    let id = app.doc().id;
+    let selections = app.doc().selections();
+    // The peer ignores cancellation. No polling occurs between invocations,
+    // so the first actual protocol slot must stay occupied throughout.
+    for _ in 0..32 {
+        app.execute("editor.action.quickFix", Value::Null);
+        assert!(!app.lsp.as_ref().unwrap().action_available());
+        assert!(app.modal.is_none());
+        assert_eq!(app.doc().text.to_string(), "bad\r\n");
+        assert_eq!(app.doc().selections(), selections);
+    }
+    until(&mut app, |app| {
+        matches!(app.modal, Some(Modal::Language { .. }))
+    });
+    choose(&mut app, "Fix selected text");
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().text.to_string(), "fixed\r\n");
+    app.poll();
+    assert!(
+        app.message.starts_with("Applied code action"),
+        "{}",
+        app.message
+    );
+    app.execute("undo", Value::Null);
+    assert_eq!(app.doc().text.to_string(), "bad\r\n");
+    assert_eq!(
+        std::fs::read(root.path().join("main.rs")).unwrap(),
+        b"bad\r\n"
+    );
+}
+
+#[test]
 fn native_quick_fix_resolve_and_commands_preserve_crlf_shared_identity_and_undo() {
     let (root, mut app) = fixture(false);
     let id = app.doc().id;

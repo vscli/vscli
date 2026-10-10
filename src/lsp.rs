@@ -601,6 +601,9 @@ impl Client {
                 )
             })
     }
+    pub(crate) fn action_channel_closed(&self) -> bool {
+        !self.action_channel_valid
+    }
     fn ensure_action_available(&self) -> Result<()> {
         if !self.action_channel_valid {
             bail!(
