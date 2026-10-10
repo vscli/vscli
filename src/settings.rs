@@ -36,6 +36,55 @@ pub enum SaveFormatting {
     Unavailable(&'static str),
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SaveActionReason {
+    Explicit,
+    AfterDelay,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SaveActionFamily {
+    FixAll,
+    OrganizeImports,
+}
+impl SaveActionFamily {
+    pub fn kind(self) -> &'static str {
+        match self {
+            Self::FixAll => "source.fixAll",
+            Self::OrganizeImports => "source.organizeImports",
+        }
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SaveActionPolicy {
+    Off,
+    Unavailable(String),
+    Native(SaveActionPlan),
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SaveActionPlan {
+    /// At most two discovery families, after ancestor removal and ordering.
+    pub families: Vec<SaveActionFamily>,
+    /// Original effective enabled kinds; a root query does not enable siblings.
+    pub enabled: Vec<String>,
+    /// Only string `never` excludes a subtree. Deprecated false is distinct.
+    pub excluded: Vec<String>,
+    pub notices: Vec<String>,
+}
+impl SaveActionPlan {
+    pub fn allows(&self, family: SaveActionFamily, kind: &str) -> bool {
+        action_kind_valid(kind)
+            && self.families.contains(&family)
+            && action_kind_contains(family.kind(), kind)
+            && self
+                .enabled
+                .iter()
+                .any(|enabled| action_kind_contains(enabled, kind))
+            && !self
+                .excluded
+                .iter()
+                .any(|excluded| action_kind_contains(excluded, kind))
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Breadcrumbs {
     pub enabled: bool,
     pub file_path: BreadcrumbPath,
@@ -72,10 +121,119 @@ struct ScopedValue<'a> {
     layer: usize,
     selector: Option<&'a str>,
 }
+const ACTION_ENTRIES: usize = 32;
+const ACTION_KIND_BYTES: usize = 128;
+const ACTION_TEXT_BYTES: usize = 8 * 1024;
+const ACTION_GROUPS: usize = 64;
+const ACTION_SELECTOR_BYTES: usize = 16 * 1024;
+
+fn action_kind_valid(kind: &str) -> bool {
+    !kind.is_empty()
+        && kind.len() <= ACTION_KIND_BYTES
+        && !kind.contains(['\0', '\r', '\n'])
+        && kind.split('.').all(|part| !part.is_empty())
+}
+fn action_kind_contains(parent: &str, child: &str) -> bool {
+    parent == child
+        || child
+            .strip_prefix(parent)
+            .is_some_and(|suffix| suffix.starts_with('.'))
+}
+/// References into immutable Settings; merge never clones arbitrary JSON values.
+#[derive(Default)]
+enum ActionSetting<'a> {
+    #[default]
+    Missing,
+    Object(Vec<(&'a str, &'a Value)>),
+    Array(&'a [Value]),
+    Invalid,
+}
+impl<'a> ActionSetting<'a> {
+    fn merge(&mut self, value: &'a Value) -> std::result::Result<(), &'static str> {
+        match value {
+            Value::Object(object) => {
+                if object.len() > ACTION_ENTRIES {
+                    return Err("editor.codeActionsOnSave exceeds 32 entries");
+                }
+                if object.keys().any(|kind| kind.len() > ACTION_KIND_BYTES)
+                    || object.keys().map(String::len).sum::<usize>() > ACTION_TEXT_BYTES
+                {
+                    return Err("editor.codeActionsOnSave kind text exceeds native bounds");
+                }
+                if !matches!(self, Self::Object(_)) {
+                    *self = Self::Object(Vec::new());
+                }
+                let Self::Object(entries) = self else {
+                    unreachable!()
+                };
+                for (kind, value) in object {
+                    if let Some((_, old)) =
+                        entries.iter_mut().find(|(key, _)| *key == kind.as_str())
+                    {
+                        *old = value;
+                    } else {
+                        if entries.len() >= ACTION_ENTRIES {
+                            return Err("Merged editor.codeActionsOnSave exceeds 32 entries");
+                        }
+                        entries.push((kind, value));
+                    }
+                }
+                if entries.iter().map(|(kind, _)| kind.len()).sum::<usize>() > ACTION_TEXT_BYTES {
+                    return Err("Merged editor.codeActionsOnSave kind text exceeds 8 KiB");
+                }
+            }
+            Value::Array(array) => {
+                if array.len() > ACTION_ENTRIES {
+                    return Err("editor.codeActionsOnSave exceeds 32 array entries");
+                }
+                let mut bytes = 0;
+                for kind in array.iter().filter_map(Value::as_str) {
+                    if kind.len() > ACTION_KIND_BYTES {
+                        return Err("editor.codeActionsOnSave kind exceeds 128 bytes");
+                    }
+                    bytes += kind.len();
+                }
+                if bytes > ACTION_TEXT_BYTES {
+                    return Err("editor.codeActionsOnSave kind text exceeds 8 KiB");
+                }
+                *self = Self::Array(array);
+            }
+            _ => *self = Self::Invalid,
+        }
+        Ok(())
+    }
+    fn merge_setting(&mut self, other: &Self) -> std::result::Result<(), &'static str> {
+        match other {
+            Self::Missing => {}
+            Self::Invalid => *self = Self::Invalid,
+            Self::Array(array) => *self = Self::Array(array),
+            Self::Object(incoming) => {
+                if !matches!(self, Self::Object(_)) {
+                    *self = Self::Object(Vec::new());
+                }
+                let Self::Object(entries) = self else {
+                    unreachable!()
+                };
+                for &(kind, value) in incoming {
+                    if let Some((_, old)) = entries.iter_mut().find(|(key, _)| *key == kind) {
+                        *old = value;
+                    } else {
+                        if entries.len() >= ACTION_ENTRIES {
+                            return Err("Merged editor.codeActionsOnSave exceeds 32 entries");
+                        }
+                        entries.push((kind, value));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
 const SUPPORTED: &[&str] = &[
     "editor.formatOnSave",
     "editor.formatOnSaveMode",
     "editor.defaultFormatter",
+    "editor.codeActionsOnSave",
     "editor.tabSize",
     "editor.insertSpaces",
     "editor.lineNumbers",
@@ -427,6 +585,186 @@ impl Settings {
         }
         SaveFormatting::File
     }
+    /// Object-aware, language-scoped save policy. This does not alter the
+    /// existing scalar-setting resolver or authorize any asynchronous reply.
+    pub fn save_code_actions(&self, language: &str, reason: SaveActionReason) -> SaveActionPolicy {
+        if reason == SaveActionReason::AfterDelay {
+            return SaveActionPolicy::Off;
+        }
+        let effective = match self.save_action_setting(language) {
+            Ok(effective) => effective,
+            Err(notice) => return SaveActionPolicy::Unavailable(notice.into()),
+        };
+        let mut enabled = Vec::<&str>::new();
+        let mut excluded = Vec::<&str>::new();
+        let mut notices = Vec::<String>::new();
+        let array = matches!(effective, ActionSetting::Array(_));
+        match effective {
+            ActionSetting::Missing => return SaveActionPolicy::Off,
+            ActionSetting::Invalid => return SaveActionPolicy::Unavailable(
+                "editor.codeActionsOnSave must be an object or string array; native save actions disabled".into()
+            ),
+            ActionSetting::Object(entries) => {
+                for (kind, value) in entries {
+                    if !action_kind_valid(kind) {
+                        notices.push("Malformed code action kind ignored; native kind names require 1–128 bytes and nonempty dot components".into());
+                        continue;
+                    }
+                    match value {
+                        Value::Bool(true) => enabled.push(kind),
+                        Value::Bool(false) => {},
+                        Value::String(value) if matches!(value.as_str(), "explicit" | "always") => enabled.push(kind),
+                        Value::String(value) if value == "never" => excluded.push(kind),
+                        _ => notices.push(format!("Invalid editor.codeActionsOnSave value for {kind}; entry disabled")),
+                    }
+                }
+            }
+            ActionSetting::Array(entries) => {
+                for value in entries {
+                    match value.as_str().filter(|kind| action_kind_valid(kind)) {
+                        Some(kind) if !enabled.contains(&kind) => enabled.push(kind),
+                        Some(_) => {},
+                        None => notices.push("Malformed editor.codeActionsOnSave array entry ignored".into()),
+                    }
+                }
+            }
+        }
+        // Remove descendants before projecting to families: [child, imports,
+        // parent] must retain [imports, parent], not the removed child's order.
+        let mut canonical: Vec<_> = enabled
+            .iter()
+            .copied()
+            .filter(|kind| {
+                !enabled
+                    .iter()
+                    .any(|other| other != kind && action_kind_contains(other, kind))
+            })
+            .collect();
+        if !array {
+            canonical
+                .sort_by_key(|kind| !action_kind_contains(SaveActionFamily::FixAll.kind(), kind));
+        }
+        let mut families = Vec::new();
+        for kind in &canonical {
+            let mut supported = false;
+            for family in [SaveActionFamily::FixAll, SaveActionFamily::OrganizeImports] {
+                let root = family.kind();
+                if action_kind_contains(kind, root) || action_kind_contains(root, kind) {
+                    supported = true;
+                    // The intersection is the narrower of enabled kind/root.
+                    let intersection = if action_kind_contains(kind, root) {
+                        root
+                    } else {
+                        kind
+                    };
+                    if !excluded
+                        .iter()
+                        .any(|excluded| action_kind_contains(excluded, intersection))
+                        && !families.contains(&family)
+                    {
+                        families.push(family);
+                    }
+                }
+            }
+            if !supported {
+                notices.push(format!("Save action {kind} is not supported; only source.fixAll and source.organizeImports are native save families"));
+            } else if *kind == "source" {
+                notices.push("Save action source is limited to native fix-all and organize-imports families; other source actions are not run".into());
+            }
+        }
+        if !array {
+            families.sort_by_key(|family| *family != SaveActionFamily::FixAll);
+        }
+        if families.is_empty() {
+            return if notices.is_empty() {
+                SaveActionPolicy::Off
+            } else {
+                SaveActionPolicy::Unavailable(notices.join("; "))
+            };
+        }
+        SaveActionPolicy::Native(SaveActionPlan {
+            families,
+            enabled: canonical.into_iter().map(str::to_owned).collect(),
+            excluded: excluded.into_iter().map(str::to_owned).collect(),
+            notices,
+        })
+    }
+    fn save_action_setting(
+        &self,
+        language: &str,
+    ) -> std::result::Result<ActionSetting<'_>, &'static str> {
+        if language.is_empty() || language.len() > 128 || language.contains('\0') {
+            return Err("Save action language requires 1–128 bytes without NUL");
+        }
+        if self.layers.len() > 16 || self.layers.iter().any(|layer| layer.len() > 4096) {
+            return Err("Save action configuration exceeds 16 layers or 4096 settings per layer");
+        }
+        let mut result = ActionSetting::Missing;
+        for layer in self.layers.iter() {
+            if let Some(value) = layer.get("editor.codeActionsOnSave") {
+                result.merge(value)?;
+            }
+        }
+        let mut groups: Vec<(Vec<&str>, ActionSetting<'_>)> = Vec::new();
+        let mut selector_bytes = 0usize;
+        for layer in self.layers.iter() {
+            for (selector, value) in layer {
+                let Some(inner) = selector.strip_prefix('[').and_then(|s| s.strip_suffix(']'))
+                else {
+                    continue;
+                };
+                if selector.len() > 1024 {
+                    return Err("Save action language selector exceeds 1024 bytes");
+                }
+                let mut ids = Vec::new();
+                let mut valid_selector = true;
+                for id in inner.split("][") {
+                    if id.is_empty() || id.contains(['[', ']']) {
+                        valid_selector = false;
+                        break;
+                    }
+                    let id = id.trim();
+                    if !id.is_empty() && !ids.contains(&id) {
+                        if ids.len() >= 32 {
+                            return Err("Save action selector exceeds 32 language identifiers");
+                        }
+                        ids.push(id);
+                    }
+                }
+                if !valid_selector || !ids.contains(&language) {
+                    continue;
+                }
+                let Some(found) = value.get("editor.codeActionsOnSave") else {
+                    continue;
+                };
+                if let Some((_, merged)) = groups.iter_mut().find(|(existing, _)| *existing == ids)
+                {
+                    merged.merge(found)?;
+                } else {
+                    if groups.len() >= ACTION_GROUPS {
+                        return Err(
+                            "Save action configuration exceeds 64 matching language groups",
+                        );
+                    }
+                    selector_bytes += selector.len();
+                    if selector_bytes > ACTION_SELECTOR_BYTES {
+                        return Err("Save action selectors exceed 16 KiB");
+                    }
+                    let mut merged = ActionSetting::Missing;
+                    merged.merge(found)?;
+                    groups.push((ids, merged));
+                }
+            }
+        }
+        for single in [false, true] {
+            for (ids, merged) in &groups {
+                if (ids.len() == 1) == single {
+                    result.merge_setting(merged)?;
+                }
+            }
+        }
+        Ok(result)
+    }
     pub fn auto_save(&self, language: &str) -> crate::autosave::Policy {
         use crate::autosave::{DEFAULT_DELAY_MS, MAX_DELAY_MS, Policy};
         let raw = |key| {
@@ -529,6 +867,23 @@ pub struct LanguageServer {
 }
 fn valid(key: &str, value: &Value) -> bool {
     match key {
+        "editor.codeActionsOnSave" => match value {
+            Value::Object(object) => {
+                object.len() <= ACTION_ENTRIES
+                    && object.iter().all(|(kind, value)| {
+                        action_kind_valid(kind)
+                            && (value.is_boolean()
+                                || matches!(value.as_str(), Some("always" | "explicit" | "never")))
+                    })
+            }
+            Value::Array(array) => {
+                array.len() <= ACTION_ENTRIES
+                    && array
+                        .iter()
+                        .all(|value| value.as_str().is_some_and(action_kind_valid))
+            }
+            _ => false,
+        },
         "editor.formatOnSave" => value.is_boolean(),
         "editor.formatOnSaveMode" => matches!(
             value.as_str(),
@@ -601,6 +956,267 @@ fn valid(key: &str, value: &Value) -> bool {
             matches!(value.as_str(), Some("on" | "off" | "relative" | "interval"))
         }
         _ => false,
+    }
+}
+#[cfg(test)]
+mod save_actions_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn settings(layers: Vec<Value>) -> Settings {
+        let layers: Vec<_> = layers
+            .into_iter()
+            .map(|value| value.as_object().unwrap().clone())
+            .collect();
+        Settings {
+            serialized: serde_json::to_string(&layers).unwrap().into(),
+            layers: Arc::new(layers),
+            ..Settings::default()
+        }
+    }
+    fn plan(policy: SaveActionPolicy) -> SaveActionPlan {
+        match policy {
+            SaveActionPolicy::Native(plan) => plan,
+            other => panic!("Native plan expected: {other:?}"),
+        }
+    }
+    #[test]
+    fn all_fourteen_actual_pinned_save_action_settings_and_supported_filters_match() {
+        let cases: Vec<Value> = serde_json::from_str(include_str!(
+            "../tests/vscode-reference/save-code-actions-cases.json"
+        ))
+        .unwrap();
+        let observed: Vec<Value> = serde_json::from_str(include_str!(
+            "../tests/vscode-reference/baselines/1.95.0/save-code-actions/linux.json"
+        ))
+        .unwrap();
+        assert_eq!(cases.len(), 14);
+        assert_eq!(observed.len(), 14);
+        for (fixture, actual) in cases.iter().zip(&observed) {
+            assert_eq!(fixture["name"], actual["name"]);
+            let settings = settings(vec![fixture["user"].clone(), fixture["workspace"].clone()]);
+            let merged = settings.save_action_setting("plaintext").unwrap();
+            let (effective, keys) = match merged {
+                ActionSetting::Object(entries) => {
+                    let keys: Vec<_> = entries.iter().map(|(kind, _)| (*kind).to_owned()).collect();
+                    let object: Map<_, _> = entries
+                        .into_iter()
+                        .map(|(kind, value)| (kind.to_owned(), value.clone()))
+                        .collect();
+                    (Value::Object(object), json!(keys))
+                }
+                ActionSetting::Array(array) => (json!(array), Value::Null),
+                _ => panic!("Unexpected effective settings for {}", fixture["name"]),
+            };
+            assert_eq!(
+                effective, actual["effective"]["codeActionsOnSave"],
+                "{}",
+                fixture["name"]
+            );
+            assert_eq!(keys, actual["effectiveKeys"], "{}", fixture["name"]);
+            let automatic = fixture["autosave"] == "afterDelay";
+            let reason = if automatic {
+                SaveActionReason::AfterDelay
+            } else {
+                SaveActionReason::Explicit
+            };
+            let policy = settings.save_code_actions("plaintext", reason);
+            if automatic {
+                assert_eq!(policy, SaveActionPolicy::Off);
+                assert!(actual["callbacks"].as_array().unwrap().is_empty());
+                continue;
+            }
+            let plan = plan(policy);
+            let saved = actual["observations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["action"] == "workbench.action.files.save")
+                .unwrap();
+            let lines: Vec<_> = saved["text"].as_str().unwrap().lines().collect();
+            for (family, kind, row) in [
+                (SaveActionFamily::FixAll, "source.fixAll", 0),
+                (SaveActionFamily::FixAll, "source.fixAll.child", 2),
+                (
+                    SaveActionFamily::OrganizeImports,
+                    "source.organizeImports",
+                    1,
+                ),
+            ] {
+                assert_eq!(
+                    plan.allows(family, kind),
+                    lines[row].ends_with("=1"),
+                    "{} {kind}",
+                    fixture["name"]
+                );
+            }
+            assert!(!plan.allows(SaveActionFamily::FixAll, "source.fixAllX"));
+            // Broad source queries are an explicitly reported native subset;
+            // the actual provider's unrelated kind still remains in evidence.
+            if lines[3] == "other=1" {
+                assert!(
+                    plan.notices
+                        .iter()
+                        .any(|notice| notice.contains("other source actions are not run"))
+                );
+            }
+            let mut expected = Vec::new();
+            for callback in actual["callbacks"].as_array().unwrap() {
+                let only = callback["only"].as_str().unwrap();
+                for family in [SaveActionFamily::FixAll, SaveActionFamily::OrganizeImports] {
+                    if (action_kind_contains(only, family.kind())
+                        || action_kind_contains(family.kind(), only))
+                        && plan.families.contains(&family)
+                        && !expected.contains(&family)
+                    {
+                        expected.push(family);
+                    }
+                }
+            }
+            assert_eq!(plan.families, expected, "{}", fixture["name"]);
+        }
+    }
+    #[test]
+    fn scalar_array_and_object_replacement_preserve_raw_winning_policy() {
+        assert_eq!(
+            Settings::default().save_code_actions("cpp", SaveActionReason::Explicit),
+            SaveActionPolicy::Off
+        );
+        let lower = json!({"editor.codeActionsOnSave":{"source.fixAll":"explicit"}});
+        for higher in [Value::Null, json!(true), json!("source.fixAll"), json!(5)] {
+            assert!(matches!(
+                settings(vec![
+                    lower.clone(),
+                    json!({"editor.codeActionsOnSave":higher})
+                ])
+                .save_code_actions("cpp", SaveActionReason::Explicit),
+                SaveActionPolicy::Unavailable(_)
+            ));
+        }
+        let object_after_array = settings(vec![
+            json!({"editor.codeActionsOnSave":["source.fixAll"]}),
+            json!({"editor.codeActionsOnSave":{"source.organizeImports":"explicit"}}),
+        ]);
+        assert_eq!(
+            plan(object_after_array.save_code_actions("cpp", SaveActionReason::Explicit)).families,
+            vec![SaveActionFamily::OrganizeImports]
+        );
+        let empty_after_array = settings(vec![
+            json!({"editor.codeActionsOnSave":["source.fixAll"]}),
+            json!({"editor.codeActionsOnSave":{}}),
+        ]);
+        assert_eq!(
+            empty_after_array.save_code_actions("cpp", SaveActionReason::Explicit),
+            SaveActionPolicy::Off
+        );
+        // One malformed leaf cannot reactivate its inherited lower value.
+        let malformed = settings(vec![
+            lower,
+            json!({"editor.codeActionsOnSave":{
+            "source.fixAll":{},"source.organizeImports":"explicit"}}),
+        ]);
+        let native = plan(malformed.save_code_actions("cpp", SaveActionReason::Explicit));
+        assert_eq!(native.families, vec![SaveActionFamily::OrganizeImports]);
+        assert!(!native.notices.is_empty());
+    }
+    #[test]
+    fn equal_composite_groups_merge_before_single_language_groups_without_losing_members() {
+        let settings = settings(vec![
+            json!({
+                "[cpp][rust]":{"editor.codeActionsOnSave":{"source.fixAll":"explicit"}},
+                "[cpp]":{"editor.codeActionsOnSave":{"source.fixAll.child":"never"}}
+            }),
+            json!({
+                "[cpp][rust]":{"editor.codeActionsOnSave":{"source.organizeImports":"explicit"}},
+                "[cpp]":{"editor.codeActionsOnSave":{"source.organizeImports":false}}
+            }),
+        ]);
+        let cpp = plan(settings.save_code_actions("cpp", SaveActionReason::Explicit));
+        assert_eq!(cpp.families, vec![SaveActionFamily::FixAll]);
+        assert!(cpp.allows(SaveActionFamily::FixAll, "source.fixAll"));
+        assert!(!cpp.allows(SaveActionFamily::FixAll, "source.fixAll.child"));
+        let rust = plan(settings.save_code_actions("rust", SaveActionReason::Explicit));
+        assert_eq!(
+            rust.families,
+            vec![SaveActionFamily::FixAll, SaveActionFamily::OrganizeImports]
+        );
+        assert!(rust.allows(SaveActionFamily::FixAll, "source.fixAll.child"));
+    }
+    #[test]
+    fn ancestor_removal_precedes_array_family_order_and_filters_do_not_enable_siblings() {
+        let ordered = settings(vec![json!({"editor.codeActionsOnSave":[
+            "source.fixAll.child","source.organizeImports","source.fixAll"]})]);
+        assert_eq!(
+            plan(ordered.save_code_actions("cpp", SaveActionReason::Explicit)).families,
+            vec![SaveActionFamily::OrganizeImports, SaveActionFamily::FixAll]
+        );
+        let children = settings(vec![
+            json!({"editor.codeActionsOnSave":["source.fixAll.a","source.fixAll.b"]}),
+        ]);
+        let children = plan(children.save_code_actions("cpp", SaveActionReason::Explicit));
+        assert_eq!(children.families, vec![SaveActionFamily::FixAll]);
+        assert!(children.allows(SaveActionFamily::FixAll, "source.fixAll.a.nested"));
+        for kind in [
+            "source.fixAll",
+            "source.fixAll.ab",
+            "source.fixAllX.a",
+            "source.fixAll.c",
+            "source.fixAll.a..bad",
+        ] {
+            assert!(!children.allows(SaveActionFamily::FixAll, kind), "{kind}");
+        }
+        let excluded = settings(vec![json!({"editor.codeActionsOnSave":{
+            "source.fixAll.child":"explicit","source.fixAll":"never"}})]);
+        assert_eq!(
+            excluded.save_code_actions("cpp", SaveActionReason::Explicit),
+            SaveActionPolicy::Off
+        );
+    }
+    #[test]
+    fn malformed_large_contributions_and_group_budgets_fail_closed_without_cloning_values() {
+        let excessive: Map<_, _> = (0..33)
+            .map(|i| (format!("source.fixAll.k{i}"), json!(true)))
+            .collect();
+        let excessive_groups: Map<_, _> = (0..65)
+            .map(|i| {
+                (
+                    format!("[cpp][language{i}]"),
+                    json!({"editor.codeActionsOnSave":{"source.fixAll":true}}),
+                )
+            })
+            .collect();
+        for values in [
+            json!({"editor.codeActionsOnSave":excessive}),
+            json!({"editor.codeActionsOnSave":vec!["source.fixAll";33]}),
+            json!({"editor.codeActionsOnSave":{ "x".repeat(129):true}}),
+            Value::Object(excessive_groups),
+            json!({format!("[cpp][{}]","x".repeat(1024)):{"editor.codeActionsOnSave":{"source.fixAll":true}}}),
+        ] {
+            assert!(matches!(
+                settings(vec![values]).save_code_actions("cpp", SaveActionReason::Explicit),
+                SaveActionPolicy::Unavailable(_)
+            ));
+        }
+        let unsupported: Map<_, _> = (0..32)
+            .map(|i| (format!("source.{}.{i}", "x".repeat(100)), json!(true)))
+            .collect();
+        let policy = settings(vec![json!({"editor.codeActionsOnSave":unsupported})])
+            .save_code_actions("cpp", SaveActionReason::Explicit);
+        let SaveActionPolicy::Unavailable(notice) = policy else {
+            panic!("Unsupported-only policy should have a notice")
+        };
+        assert!(notice.len() <= 8192);
+        let array = settings(vec![
+            json!({"editor.codeActionsOnSave":[{},"source.fixAll"]}),
+        ]);
+        assert_eq!(
+            plan(array.save_code_actions("cpp", SaveActionReason::Explicit)).families,
+            vec![SaveActionFamily::FixAll]
+        );
+        assert_eq!(
+            array.save_code_actions("cpp", SaveActionReason::AfterDelay),
+            SaveActionPolicy::Off
+        );
     }
 }
 const LOADER_PERIOD: Duration = Duration::from_secs(2);
