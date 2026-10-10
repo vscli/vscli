@@ -168,3 +168,18 @@ Follow-ups include preview replacement, sticky/pinned tabs, tab movement and
 reordering, drag-and-drop, resizable or nested layouts, non-default opening and
 close policies, multi-workspace/hot-exit continuity and terminal persistence.
 This slice does not establish complete VS Code editor-group or workspace parity.
+
+
+## Preview engine preparation
+
+The native membership engine also supports explicit preview/committed admission,
+exact authorized replacement, Keep Editor and permanent promotion of every
+preview of an edited shared document. Admissions preflight capacities, fresh tab
+identity and checked counters before replacing or promoting a membership. A split
+keeps the source mode and creates a committed destination. This library slice
+does not yet enable preview callers or styling in the App; ordinary editor opens
+remain committed. Sticky ordering and preview session persistence remain pending.
+The new actual pinned reference contains11 cases and86 frames, including two
+sticky cases reserved for a later slice. The21 engine tests, formatting and strict all-target locked Clippy pass.
+Native replay and App/terminal qualification will be recorded separately when
+executed.
