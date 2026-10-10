@@ -358,25 +358,46 @@ impl App {
                 let offset = lsp::offset(doc, range.start)?;
                 let previous = self.suspend_navigation_observation();
                 self.cancel_navigation();
-                if let Some(index) = self
-                    .hidden_documents
-                    .iter()
-                    .position(|doc| doc.id == *document)
-                {
-                    self.documents.push(self.hidden_documents.remove(index));
-                }
-                self.active = self
-                    .documents
-                    .iter()
-                    .position(|doc| doc.id == *document)
-                    .unwrap();
-                self.focus = Focus::Editor;
-                self.sync_pane();
-                self.doc_mut().clear_secondary();
-                self.doc_mut().move_to(offset, false);
-                self.sync_pane();
-                self.remember_active_file();
-                self.resume_navigation_observation(previous, navigation_history::Reason::Jump);
+                let result = (|| -> Result<()> {
+                    if !self.group_fallback {
+                        self.open_preview_model(
+                            *document,
+                            crate::editor_groups::OpenMode::Committed,
+                        )?;
+                    } else {
+                        if let Some(index) = self
+                            .hidden_documents
+                            .iter()
+                            .position(|doc| doc.id == *document)
+                        {
+                            self.documents.try_reserve(1).map_err(|error| {
+                                anyhow::anyhow!("Cannot reserve Problems model storage: {error}")
+                            })?;
+                            self.documents.push(self.hidden_documents.remove(index));
+                        }
+                        self.active = self
+                            .documents
+                            .iter()
+                            .position(|doc| doc.id == *document)
+                            .unwrap();
+                        self.focus = Focus::Editor;
+                        self.sync_pane();
+                    }
+                    self.doc_mut().clear_secondary();
+                    self.doc_mut().move_to(offset, false);
+                    self.sync_pane();
+                    self.remember_active_file();
+                    Ok(())
+                })();
+                self.resume_navigation_observation(
+                    previous,
+                    if result.is_ok() {
+                        navigation_history::Reason::Jump
+                    } else {
+                        navigation_history::Reason::Ordinary
+                    },
+                );
+                result?;
             }
             LanguageAction::Completion { request, item } => {
                 self.request_current(request)?;
@@ -420,6 +441,39 @@ impl App {
             }
         }
         let count = staged.len();
+        let loaded = staged
+            .iter()
+            .filter(|(index, _, _)| index.is_none())
+            .count();
+        self.documents
+            .try_reserve(loaded)
+            .map_err(|error| anyhow::anyhow!("Cannot reserve renamed model storage: {error}"))?;
+        // Loaded workspace targets require actual, recoverable MRU admission.
+        // Stage all of them before changing even an already-open buffer.
+        let admitted = if loaded != 0 && !self.group_fallback {
+            let mut groups = self.editor_groups.clone();
+            let original = groups.active_membership();
+            let mut aggregate = crate::editor_groups::Change {
+                previous: original,
+                ..crate::editor_groups::Change::default()
+            };
+            for (_, doc, _) in &staged {
+                if let Some(doc) = doc {
+                    let change = groups.open(doc.id)?;
+                    aggregate.changed |= change.changed;
+                    aggregate.inserted.extend(change.inserted);
+                    aggregate.created_groups.extend(change.created_groups);
+                    aggregate.promoted.extend(change.promoted);
+                }
+            }
+            if let Some(original) = original {
+                groups.focus(original)?;
+            }
+            aggregate.active = groups.active_membership();
+            Some((groups, aggregate))
+        } else {
+            None
+        };
         for (index, doc, edits) in staged {
             let index = index.unwrap_or_else(|| {
                 self.documents.push(doc.unwrap());
@@ -427,9 +481,16 @@ impl App {
             });
             self.documents[index].apply_changes(edits);
         }
+        if let Some((groups, change)) = admitted {
+            self.editor_groups = groups;
+            self.apply_group_change(change);
+        }
         self.preview_edit_barrier();
-        self.message =
-            format!("Renamed across {count} buffers; review and save each file (Undo is per file)");
+        if !self.preview_admission_failed {
+            self.message = format!(
+                "Renamed across {count} buffers; review and save each file (Undo is per file)"
+            );
+        }
         Ok(())
     }
     pub fn current_diagnostics(&self) -> Diagnostics<'_> {
@@ -678,3 +739,6 @@ mod diagnostic_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod sticky_admission_tests;

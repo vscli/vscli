@@ -16,10 +16,11 @@ Merged source extends through [group tabs #66](https://github.com/vscli/vscli/pu
 including native source actions on save in #65. All six required checks passed
 on the reviewed group-tabs head in
 [CI run 38044018036](https://github.com/vscli/vscli/actions/runs/38044018036).
-Priority 6 continues with the main-based draft
-[preview tabs #67](https://github.com/vscli/vscli/pull/67), under separate corrected
-platform qualification. Preview source inclusion is not completed workspace
-continuity or a merged main-branch feature.
+Priority 6 includes merged
+[preview tabs #67](https://github.com/vscli/vscli/pull/67), after all six required
+checks passed on reviewed head `65207aea1c2db480a058315cb9cb519f0491e37b` in
+[CI run 38046439264](https://github.com/vscli/vscli/actions/runs/38046439264).
+Preview tabs do not complete workspace continuity.
 Sticky tabs and nested layouts follow these slices; their prepared sources and
 reference observations are not shipped editor behavior.
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
