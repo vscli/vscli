@@ -399,3 +399,47 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/pr56/vscli \
 
 Source-language typing, active IDE contention, matched VS Code workloads and
 fastest-editor claims remain separate performance qualification.
+
+
+## Native language configuration baseline: 2026-10-10
+
+[Raw observations](benchmarks/2026-10-10-native-language-configurations.json)
+compare the optimized native runtime from `ce6deaf` with the saved PR #57
+executable (merged main `8955395`). Candidate SHA-256:
+`d89313c42a0c06e0ca840bed2500a0bb3714c3e0c98b5775166dcfd4057fcb4f`;
+comparison SHA-256:
+`fdcfbf3ab16b9ee6b88335b30607e42f16a3a380203b7660105db343cfb0ee0e`.
+Both ran on the same Linux i9-13900H host, with five fresh launches and 200 serial
+keys per build/fixture. Order was interleaved, with no concurrent local builds,
+tests or reference-editor processes. A subsequent comparator-only validation
+fix does not change the measured runtime.
+
+| Fixture | Build | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | RSS median MiB |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB | Prior main | 7.569 | 0.434 | 0.840 | 1.067 | 12.10 |
+| 10 KiB | Native configurations | 7.850 | 0.621 | 0.806 | 1.182 | 12.36 |
+| 1 MiB | Prior main | 5.040 | 0.159 | 0.540 | 0.704 | 13.21 |
+| 1 MiB | Native configurations | 4.495 | 0.156 | 0.444 | 0.915 | 13.61 |
+
+All 20 trials passed. The candidate has a higher 10 KiB key median and both
+p99 observations, with a lower 1 MiB startup median and typing p95. These mixed
+results establish no general speedup, fastest-editor ranking or sustained
+regression. Host scheduling and CPU frequency were uncontrolled; five startup
+samples do not qualify startup tails. Sampled RSS is not peak memory. The
+0.3-second idle sample recorded zero ticks and does not establish sustained idle
+CPU behavior.
+
+This warm-cache ASCII plain-text workload uses isolated configuration/data
+paths, with no LSP, installed extensions or recovery. It observes ordinary
+native typing rather than configured pairing, comment commands or catalog
+loading under contention. Timings include the Python cell oracle and exclude
+physical input and graphical terminal painting. Source-language and matched
+VS Code workload qualification remain separate work.
+
+Reproduce with a saved PR #57 release executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr57/vscli \
+  --sizes 10240 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/native-language-configurations.json
+```
