@@ -5,3 +5,5 @@ vendor/crossterm/**/*.md whitespace=cr-at-eol,-blank-at-eol
 # Preserve published Unicode manifest and generated conformance data verbatim.
 vendor/unicode-segmentation/Cargo.toml.orig whitespace=-blank-at-eol,-blank-at-eof
 vendor/unicode-segmentation/tests/testdata/mod.rs whitespace=-blank-at-eof
+# Recorded upstream fixtures are verified by raw SHA-256 on every platform.
+tests/fixtures/vscode-cpp-configuration/** -text
