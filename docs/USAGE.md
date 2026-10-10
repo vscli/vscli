@@ -264,8 +264,10 @@ Very small editor areas project only the active group; the tree and shared model
 remain retained. Whole-screen tiny mode and covered frames grant no stale source
 hits. Recovery beyond group capacity shows its authoritative buffer for keyboard
 editing/navigation with pointer targets disabled; Save still requires at most 128
-retained models. Existing clean-session schema 2 restores a flat orientation, not
-mixed topology or resized ratios; schema 3 is pending. See [layout implementation,
+retained models. The schema-3 candidate preserves clean nested topology, resized
+ratios and sticky prefixes; older schema-1/2 slots remain readable without rewriting
+on load. Local integrity and restart checks pass; platform checks remain separate.
+See [layout implementation,
 evidence and remaining qualification](EDITOR_LAYOUT.md). Undo position changes are
 tracked across views; inactive viewport rows are not yet anchored to text across
 line insertions.
@@ -825,8 +827,9 @@ vscli --workspace ./project --no-session
 ```
 
 `--restore-session` reopens the previous inactive instance's clean file-backed tabs,
-ordered tabs in each group, active tab and group, a flat split direction, per-group tab
-recency, and each membership's independent cursor/selections and scroll positions,
+ordered tabs in each group, active tab and group, nested split axes/weights, sticky
+prefixes, per-group tab recency, and each membership's independent cursor/selections
+and scroll positions,
 including inactive historical tabs. Explicit
 file arguments take precedence and suppress startup restoration. F1 → **File:
 Restore Previous Clean Session** retries the previous session from an empty
@@ -862,23 +865,35 @@ publication. Failed writes preserve the previous complete snapshot. Shutdown wai
 up to five seconds; a blocked filesystem operation may outlive that wait while its
 worker retains the slot lease. Other instances cannot claim that live lease.
 
-Schema 2 stores a unique clean-file table and per-group membership views. Existing
-schema-1 layouts remain readable and are replaced only after successful atomic
-publication. No live model/group/tab identifiers are trusted from disk. Mixed nested
-topology and resized ratios are not stored by schema 2; their strict schema-3
-integration remains pending.
+The schema-3 candidate stores a unique clean-file table, per-group membership views,
+a bounded nested tree with integer weights and per-tab sticky flags. Capture omits
+dirty/untitled memberships and prunes only their empty leaves on a clone; surviving
+axes and weights remain. If every file is dirty, ordinary capture does not overwrite
+the previous clean session with empty state. An explicit final close can do so.
 
-Limits: 32 distinct clean files, four groups, 128 tabs per group and selections per view, 1 MiB metadata,
+Strict schema-1/2 slots remain readable using their original fields; injecting new
+tree/sticky/preview fields into those schemas is rejected. Loading or failed migration
+never rewrites the original metadata. New publication uses schema 3 after validating
+and byte-counting the complete envelope before atomic replacement. A bounded old slot
+can still be restored if its larger schema-3 encoding would exceed the write cap.
+No live model/group/tab/split identifiers are trusted from disk; fresh restore stages
+new identities, sticky prefixes, views and topology before publishing. Recovery keeps
+its existing topology/views/modes; appending clean files never applies the saved tree
+to authoritative retained buffers. Ratio-only changes retire an asynchronous restore
+just as other guarded interactions do.
+
+Limits: 32 distinct clean files, four groups, 32 saved tabs per group, 128 selections per view, 1 MiB metadata,
 4 KiB per path, 32 MiB per file, and 128 MiB combined restored file data. Unsupported
 state produces a notice rather than silent truncation. Recovery that exceeds the
 available group-tab capacity retains all models in the legacy workbench with a
 layout-unavailable notice and keyboard-editable active recovery view; source/tab
 pointer targets are disabled there. Native Save still refuses more than 128 retained
 models without dropping work or changing disk. Clean preview memberships restore
-committed; transient preview modes are not persisted. Nested/resized layout
-persistence, sticky/pinned mode persistence, terminal
-reconnection, extension state, recent-workspace switching, and full VS Code session
-parity remain outside this slice.
+committed; transient preview modes are not persisted. Nested weights and sticky
+prefixes are implemented in the schema-3 candidate, with fourteen new integrity tests
+and clean nested-restart terminal checks passing locally. Terminal reconnection, extension state, recent-workspace
+switching, dirty-content hot exit and full VS Code session parity remain outside this
+slice. See [layout evidence and session boundary](EDITOR_LAYOUT.md).
 
 Native integrity tests cover duplicate recovery paths, shared-view identity,
 Unicode/CRLF edits after restart, Save/Discard/Cancel/Save As, close-all, missing-file
@@ -968,7 +983,8 @@ Language overrides of this workbench policy are ignored with a notice.
 Close All Editors and Close Editors in Group select nonsticky memberships.
 Already accepted saves retain their exact destination and publish their receipt
 before any eligible close; later unrelated tabs are not swept into a batch.
-Session restoration commits historical tabs and does not restore sticky state.
-Mouse close gestures, graphical sticky-row layouts and sticky persistence are
-outside this candidate. The settings/key/UI patches are prepared; native execution
-and platform qualification remain pending. See [scope and evidence](STICKY_TABS.md).
+Session schema 3 restores clean historical tabs committed and preserves each group's
+saved sticky prefix; older schemas restore nonsticky. Dirty/untitled recovery remains
+independent. Mouse close gestures and graphical sticky-row layouts remain outside
+this candidate. Schema-3 integrity and session checks pass locally; platform
+qualification remains pending. See [scope and evidence](STICKY_TABS.md).

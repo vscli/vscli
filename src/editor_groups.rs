@@ -1100,6 +1100,10 @@ impl Groups {
         recent_groups
             .try_reserve(groups.len())
             .context("Cannot reserve group MRU storage")?;
+        #[cfg(test)]
+        if count != 0 && FAIL_NEXT_RECENT_RESERVATION.with(|fail| fail.replace(false)) {
+            anyhow::bail!("Cannot reserve editor MRU storage (injected allocation refusal)");
+        }
         recent_memberships
             .try_reserve(count)
             .context("Cannot reserve editor MRU storage")?;

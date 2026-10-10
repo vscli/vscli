@@ -91,35 +91,58 @@ order, exact leaves, counts, depth, weights and empty-tree rules before allocati
 runtime identities or reading files. Encoded metadata still requires caller byte
 bounds.
 
-**Session schema 3 is pending.** Current schema-1/2 readers and schema-2 publication
-retain existing clean-file group/tab/view restoration, but store one flat split
-orientation. They do not preserve this candidate's mixed topology or resized ratios;
-restoring schema 2 builds a flat native tree. Recovery and explicit files remain
-authoritative. Nested persistence needs its own strict DTO, complete byte accounting,
-clean-membership tree pruning, fresh IDs and atomic restore qualification before it
-can be advertised.
+The schema-3 candidate records mixed topology, positive integer split weights and
+per-tab sticky flags alongside clean group/tab/view metadata. Sticky flags must form
+an ordered prefix in each group; preview modes remain transient and restore committed.
+Native document, group, tab, split and revision identities are never read from disk:
+newly restored documents and staged Groups/Layout receive fresh runtime identities.
+
+Strict schema-1 and schema-2 DTOs remain readable with their original field sets;
+they do not accept tree, sticky or preview additions. Older flat orientations normalize
+to a bounded native tree with nonsticky committed tabs. Reading or failed migration
+never rewrites the original slot. A complete schema-3 snapshot is published only after
+successful bounded validation and atomic replacement. The 1 MiB write limit counts the
+whole new envelope, including workspace, tree and each sticky flag, before allocating
+serialized bytes or touching the slot. A legal near-budget legacy slot remains readable
+and recoverable even if its larger schema-3 replacement would exceed that limit.
+
+Capture omits dirty/untitled memberships and prunes their empty leaves on a bounded
+clone, collapsing removed branches while preserving surviving nested axes and weights.
+No live group/model/view or pending save is changed by capture. If no clean files remain,
+an incidental empty capture does not erase the prior session; an explicit final close
+can record an empty workbench. Existing recovery buffers, views, topology, tab modes
+and pending save receipts remain authoritative: appended clean files do not replace
+that live layout with the saved tree. A fresh workbench instead validates/configures the
+whole file batch and stages memberships, sticky prefixes, views and tree before publishing.
+Pending restore guards include exact immutable layout identity as well as document,
+selection, membership and interaction proofs, so ratio-only changes and equal-generation
+forks cannot authorize an old restore. The fourteen new integrity tests pass locally;
+platform qualification remains separate.
 
 ## Evidence and remaining qualification
 
 All fifteen pure-layout cases pass, covering mixed splits/collapse, exhaustive
 small/extreme rectangles, same-axis reset, resize limits, private geometry identity,
 foreign/equal-generation forks, ABA, malformed late whole-wire data, capacity and
-counter rollback. The integrated candidate passes 973 ordinary all-target Rust tests
+counter rollback. The integrated candidate passes 987 ordinary all-target Rust tests
 across 51 reports, with 20 optional integrations ignored. Formatting and strict
-locked all-target Clippy pass on the same source. The App/UI cohort adds 22 cases;
-terminal journeys and platform checks remain separately recorded qualification.
+locked all-target Clippy pass on the same source. The App/UI cohort adds 22 cases,
+and schema 3 adds fourteen integrity cases. The full session-module filter passes
+32 tests; platform checks remain separately recorded qualification.
 
 Actual App/TestBackend checks cover shared Unicode/CRLF carets and Undo, stale source
 geometry, sidebar/panel/Inspector and resize ABA, tiny projection, recovery, original
 palette resizing and authorized saves through ratio changes. The tab-width regression
 rejects stale pointer input through a 4→2→4 setting round trip without changing text,
-group ownership, history or disk. Three native-only nested terminal reports pass:
+group ownership, history or disk. Four native-only nested terminal reports pass:
 local mixed splits/collapse, shared Unicode/CRLF Save/Undo/Redo, and original
-palette resizing/reset. Tiny fallback also retains the tree and text, but the
-restart portion still fails at the documented schema-2 flattening boundary.
+palette resizing/reset, and tiny fallback followed by clean nested-ratio restart.
+These cover five sessions with empty PATH, missing Node and language services disabled.
 The crash/recovery extension-document workflow caught a missing startup group
 initialization; moving it to recovery admission passes both original restart
-reports. Broader terminal and platform qualification remain separate gates.
+reports. All 31 prior Unix scripts passed across 145 reports during App integration;
+after schema 3, eight relevant scripts pass across 40 reports on the final source.
+Optimized-build and platform qualification remain separate gates.
 
 A local raw Linux capture against VS Code 1.95.0 commit
 `912bb683695358a54ae0c670461738984cbb5b95` completed ten cases, 39 target commands,

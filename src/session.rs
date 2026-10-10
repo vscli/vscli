@@ -1,5 +1,6 @@
 //! Clean-file layout metadata. Each process owns a leased slot; all I/O runs on one worker.
 use crate::document::{Document, Selection};
+use crate::editor_layout::{Axis, SavedNode, validate_saved_layout};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -73,9 +74,25 @@ pub struct Layout {
     pub groups: Option<Vec<Group>>,
     #[serde(default)]
     pub active_group: usize,
+    /// Normalized metadata only; schema-1 and schema-2 DTOs never accept these fields.
+    #[serde(default)]
+    pub tree: Option<SavedNode>,
+    #[serde(default)]
+    pub sticky: Option<Vec<Vec<bool>>>,
 }
 impl Layout {
     pub fn validate(&self) -> Result<()> {
+        self.validate_structure()?;
+        if self.groups.is_some() {
+            // Future publication admission is distinct from legacy read
+            // admission: an already bounded old slot remains recoverable even
+            // if adding schema-3 mode/tree fields would exceed the write cap.
+            serde_json::to_writer(MetadataBudget(0), &NestedLayoutRef::new(self)?)
+                .context("Session metadata exceeds 1 MiB")?;
+        }
+        Ok(())
+    }
+    fn validate_structure(&self) -> Result<()> {
         if self.files.len() > MAX_DOCUMENTS || self.panes.len() > MAX_VIEWS {
             bail!("Session exceeds 32 files or four panes");
         }
@@ -121,33 +138,30 @@ impl Layout {
         } else if self.active_group != 0 {
             bail!("Legacy session has no active group");
         }
-        if let Some(groups) = &self.groups {
-            #[derive(Serialize)]
-            struct BorrowedLayout<'a> {
-                files: Vec<&'a Path>,
-                groups: &'a [Group],
-                active_group: usize,
-                horizontal: bool,
+        match &self.groups {
+            Some(groups) => {
+                if self.tree.is_some() {
+                    validate_saved_layout(self.tree.as_ref(), groups.len())?;
+                }
+                if let Some(sticky) = &self.sticky {
+                    validate_sticky(groups, sticky)?;
+                }
             }
-            serde_json::to_writer(
-                MetadataBudget(0),
-                &BorrowedLayout {
-                    files: self.files.iter().map(|file| file.path.as_path()).collect(),
-                    groups,
-                    active_group: self.active_group,
-                    horizontal: self.horizontal,
-                },
-            )
-            .context("Session metadata exceeds 1 MiB")?;
+            None if self.tree.is_some() || self.sticky.is_some() => {
+                bail!("Legacy session has unexpected layout mode metadata");
+            }
+            None => {}
         }
         Ok(())
     }
     /// Upgrade legacy inventory in memory. Reading never rewrites its source slot.
     pub fn normalized(&self) -> Result<Self> {
-        self.validate()?;
+        self.validate_structure()?;
         if self.groups.is_some() {
             let mut normalized = self.clone();
+            normalized.fill_layout_metadata();
             normalized.project_file_views();
+            normalized.validate_structure()?;
             return Ok(normalized);
         }
         let mut groups = Vec::new();
@@ -185,9 +199,31 @@ impl Layout {
         let mut normalized = self.clone();
         normalized.groups = Some(groups);
         normalized.active_group = self.active_pane;
+        normalized.fill_layout_metadata();
         normalized.project_file_views();
-        normalized.validate()?;
+        normalized.validate_structure()?;
         Ok(normalized)
+    }
+    fn fill_layout_metadata(&mut self) {
+        let groups = self.groups.as_ref().expect("normalized groups");
+        if self.tree.is_none() {
+            self.tree = flat_saved_layout(
+                groups.len(),
+                if self.horizontal {
+                    Axis::Rows
+                } else {
+                    Axis::Columns
+                },
+            );
+        }
+        if self.sticky.is_none() {
+            self.sticky = Some(
+                groups
+                    .iter()
+                    .map(|group| vec![false; group.tabs.len()])
+                    .collect(),
+            );
+        }
     }
     fn project_file_views(&mut self) {
         let mut assigned = [false; MAX_DOCUMENTS];
@@ -199,6 +235,94 @@ impl Layout {
                 }
             }
         }
+    }
+}
+// Direct wire indices avoid creating artificial runtime GroupIds while reading
+// old metadata. Equal same-axis leaves retain the legacy flat layout semantics.
+fn flat_saved_layout(count: usize, axis: Axis) -> Option<SavedNode> {
+    fn build(index: usize, count: usize, axis: Axis) -> SavedNode {
+        if count == 1 {
+            SavedNode::Leaf { group: index }
+        } else {
+            SavedNode::Split {
+                axis,
+                first_weight: 1,
+                second_weight: (count - 1) as u32,
+                first: Box::new(SavedNode::Leaf { group: index }),
+                second: Box::new(build(index + 1, count - 1, axis)),
+            }
+        }
+    }
+    (count > 0).then(|| build(0, count, axis))
+}
+fn validate_sticky(groups: &[Group], sticky: &[Vec<bool>]) -> Result<()> {
+    if sticky.len() != groups.len() {
+        bail!("Session sticky group inventory changed");
+    }
+    for (group, flags) in groups.iter().zip(sticky) {
+        if flags.len() != group.tabs.len() || flags.windows(2).any(|pair| !pair[0] && pair[1]) {
+            bail!("Invalid session sticky prefix");
+        }
+    }
+    Ok(())
+}
+#[derive(Serialize)]
+struct TabV3Ref<'a> {
+    file: usize,
+    view: &'a View,
+    sticky: bool,
+}
+#[derive(Serialize)]
+struct GroupV3Ref<'a> {
+    tabs: Vec<TabV3Ref<'a>>,
+    active: usize,
+    recent: &'a [usize],
+}
+#[derive(Serialize)]
+struct NestedLayoutRef<'a> {
+    files: Vec<&'a Path>,
+    groups: Vec<GroupV3Ref<'a>>,
+    active_group: usize,
+    horizontal: bool,
+    tree: Option<&'a SavedNode>,
+}
+impl<'a> NestedLayoutRef<'a> {
+    fn new(layout: &'a Layout) -> Result<Self> {
+        let groups = layout
+            .groups
+            .as_ref()
+            .context("Normalized session groups missing")?;
+        Ok(Self {
+            files: layout
+                .files
+                .iter()
+                .map(|file| file.path.as_path())
+                .collect(),
+            groups: groups
+                .iter()
+                .enumerate()
+                .map(|(index, group)| GroupV3Ref {
+                    tabs: group
+                        .tabs
+                        .iter()
+                        .enumerate()
+                        .map(|(tab, saved)| TabV3Ref {
+                            file: saved.file,
+                            view: &saved.view,
+                            sticky: layout
+                                .sticky
+                                .as_ref()
+                                .is_some_and(|flags| flags[index][tab]),
+                        })
+                        .collect(),
+                    active: group.active,
+                    recent: &group.recent,
+                })
+                .collect(),
+            active_group: layout.active_group,
+            horizontal: layout.horizontal,
+            tree: layout.tree.as_ref(),
+        })
     }
 }
 struct MetadataBudget(usize);
@@ -345,7 +469,119 @@ struct SavedV2 {
     stamp: u64,
     layout: GroupLayout,
 }
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TabV3 {
+    file: usize,
+    view: View,
+    sticky: bool,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GroupV3 {
+    tabs: Vec<TabV3>,
+    active: usize,
+    recent: Vec<usize>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NestedGroupLayoutV3 {
+    files: Vec<PathBuf>,
+    groups: Vec<GroupV3>,
+    active_group: usize,
+    horizontal: bool,
+    #[serde(deserialize_with = "deserialize_saved_tree")]
+    tree: Option<SavedNode>,
+}
+fn deserialize_saved_tree<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<SavedNode>, D::Error> {
+    Option::<SavedNode>::deserialize(deserializer)
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedV3 {
+    schema: u32,
+    workspace: PathBuf,
+    stamp: u64,
+    layout: NestedGroupLayoutV3,
+}
+impl NestedGroupLayoutV3 {
+    fn from_layout(layout: &Layout) -> Result<Self> {
+        let layout = layout.normalized()?;
+        let groups = layout.groups.expect("normalized groups");
+        let flags = layout.sticky.expect("normalized sticky flags");
+        Ok(Self {
+            files: layout.files.into_iter().map(|file| file.path).collect(),
+            groups: groups
+                .into_iter()
+                .zip(flags)
+                .map(|(group, flags)| GroupV3 {
+                    tabs: group
+                        .tabs
+                        .into_iter()
+                        .zip(flags)
+                        .map(|(tab, sticky)| TabV3 {
+                            file: tab.file,
+                            view: tab.view,
+                            sticky,
+                        })
+                        .collect(),
+                    active: group.active,
+                    recent: group.recent,
+                })
+                .collect(),
+            active_group: layout.active_group,
+            horizontal: layout.horizontal,
+            tree: layout.tree,
+        })
+    }
+    fn into_layout(self) -> Result<Layout> {
+        if self.files.len() > MAX_DOCUMENTS || self.groups.len() > MAX_VIEWS {
+            bail!("Session exceeds 32 files or four groups");
+        }
+        // Validate all tree/mode metadata before building compatibility state or
+        // opening/configuring any files. No lower-version parser is involved.
+        validate_saved_layout(self.tree.as_ref(), self.groups.len())?;
+        let mut sticky = Vec::with_capacity(self.groups.len());
+        let mut groups = Vec::with_capacity(self.groups.len());
+        for group in self.groups {
+            if group.tabs.is_empty() || group.tabs.len() > MAX_DOCUMENTS {
+                bail!("Invalid session group tabs, active tab or recent order");
+            }
+            let flags = group.tabs.iter().map(|tab| tab.sticky).collect::<Vec<_>>();
+            if flags.windows(2).any(|pair| !pair[0] && pair[1]) {
+                bail!("Invalid session sticky prefix");
+            }
+            sticky.push(flags);
+            groups.push(Group {
+                tabs: group
+                    .tabs
+                    .into_iter()
+                    .map(|tab| Tab {
+                        file: tab.file,
+                        view: tab.view,
+                    })
+                    .collect(),
+                active: group.active,
+                recent: group.recent,
+            });
+        }
+        let mut layout = GroupLayout {
+            files: self.files,
+            groups,
+            active_group: self.active_group,
+            horizontal: self.horizontal,
+        }
+        .into_layout()?;
+        layout.tree = self.tree;
+        layout.sticky = Some(sticky);
+        layout.validate()?;
+        Ok(layout)
+    }
+}
 impl GroupLayout {
+    #[cfg(test)]
     fn from_layout(layout: &Layout) -> Result<Self> {
         let layout = layout.normalized()?;
         Ok(Self {
@@ -387,6 +623,8 @@ impl GroupLayout {
             horizontal: self.horizontal,
             groups: Some(self.groups),
             active_group: self.active_group,
+            tree: None,
+            sticky: None,
         };
         let groups = layout.groups.as_ref().unwrap();
         let mut assigned = [false; MAX_DOCUMENTS];
@@ -407,8 +645,7 @@ impl GroupLayout {
             .panes
             .get(layout.active_pane)
             .map_or(0, |pane| pane.file);
-        layout.validate()?;
-        Ok(layout)
+        layout.normalized()
     }
 }
 fn regular_open(path: &Path, create: bool) -> Result<File> {
@@ -476,6 +713,8 @@ fn read(path: &Path, workspace: &Path) -> Result<Saved> {
                     horizontal: legacy.horizontal,
                     groups: None,
                     active_group: 0,
+                    tree: None,
+                    sticky: None,
                 }
                 .normalized()?,
             }
@@ -492,12 +731,24 @@ fn read(path: &Path, workspace: &Path) -> Result<Saved> {
                 layout: saved.layout.into_layout()?,
             }
         }
+        Some(3) => {
+            let saved: SavedV3 =
+                serde_json::from_slice(&bytes).context("Invalid schema-3 session")?;
+            if saved.schema != 3 {
+                bail!("Session schema mismatch");
+            }
+            Saved {
+                workspace: saved.workspace,
+                stamp: saved.stamp,
+                layout: saved.layout.into_layout()?,
+            }
+        }
         _ => bail!("Unknown session schema"),
     };
     if saved.workspace != workspace {
         bail!("Session schema/workspace mismatch");
     }
-    saved.layout.validate()?;
+    saved.layout.validate_structure()?;
     Ok(saved)
 }
 struct Store {
@@ -604,15 +855,19 @@ impl Store {
         before_publish: impl FnOnce() -> Result<()>,
     ) -> Result<()> {
         layout.validate()?;
-        let saved = SavedV2 {
-            schema: 2,
+        let saved = SavedV3 {
+            schema: 3,
             workspace: self.workspace.clone(),
             stamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)?
                 .as_micros()
                 .min(u64::MAX as u128) as u64,
-            layout: GroupLayout::from_layout(layout)?,
+            layout: NestedGroupLayoutV3::from_layout(layout)?,
         };
+        // Count the complete envelope including workspace, tree and per-tab
+        // sticky flags before allocating bytes or touching the published slot.
+        serde_json::to_writer(MetadataBudget(0), &saved)
+            .context("Session metadata exceeds 1 MiB")?;
         let bytes = serde_json::to_vec(&saved)?;
         if bytes.len() as u64 > MAX_BYTES {
             bail!("Session metadata exceeds 1 MiB");
@@ -681,7 +936,7 @@ fn restore_with_budget(layout: &Layout, skip: &[PathBuf], mut remaining: u64) ->
         file.path = doc.path.clone().context("Restored file has no path")?;
         documents.push(doc);
     }
-    layout.validate()?;
+    layout.validate_structure()?;
     Ok(Restored { layout, documents })
 }
 fn validate_skip(skip: &[PathBuf]) -> Result<()> {
@@ -1116,7 +1371,7 @@ mod tests {
         saved.normalized().unwrap()
     }
     #[test]
-    fn schema_two_worker_roundtrip_retains_inactive_views_shared_files_and_recent_order() {
+    fn schema_three_worker_roundtrip_retains_inactive_views_shared_files_and_recent_order() {
         let root = tempfile::tempdir().unwrap();
         let canonical = fs::canonicalize(root.path()).unwrap();
         let paths = [canonical.join("a.txt"), canonical.join("b.txt")];
@@ -1158,7 +1413,7 @@ mod tests {
         }
     }
     #[test]
-    fn schema_one_migration_retains_original_bytes_until_successful_schema_two_publish() {
+    fn schema_one_migration_retains_original_bytes_until_successful_schema_three_publish() {
         let root = tempfile::tempdir().unwrap();
         let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
         let mut legacy = layout(&root.path().join("a.txt"));
@@ -1210,7 +1465,7 @@ mod tests {
         store.publish(&migrated).unwrap();
         let wire: serde_json::Value =
             serde_json::from_slice(&fs::read(&store.path).unwrap()).unwrap();
-        assert_eq!(wire["schema"], 2);
+        assert_eq!(wire["schema"], 3);
         assert!(wire["layout"].get("panes").is_none());
         assert!(wire["layout"].get("active_file").is_none());
         assert!(wire["layout"]["files"][0].is_string());
@@ -1235,7 +1490,7 @@ mod tests {
                 2 => bad["layout"]["groups"][0]["tabs"][1]["file"] = serde_json::json!(0),
                 3 => bad["layout"]["groups"][1]["unexpected"] = serde_json::json!(true),
                 4 => bad["layout"]["panes"] = serde_json::json!([]),
-                _ => bad["schema"] = serde_json::json!(3),
+                _ => bad["schema"] = serde_json::json!(99),
             }
             let malformed = serde_json::to_vec(&bad).unwrap();
             fs::write(&store.path, &malformed).unwrap();
@@ -1293,7 +1548,9 @@ mod tests {
         huge.active_group = 0;
         huge.active_pane = 0;
         huge.panes = vec![Pane { file: 0, view }; MAX_VIEWS];
-        assert!(huge.validate().is_err());
+        huge.tree = flat_saved_layout(MAX_VIEWS, Axis::Rows);
+        huge.sticky = Some(vec![vec![false; MAX_DOCUMENTS]; MAX_VIEWS]);
+        assert!(huge.validate().unwrap_err().to_string().contains("1 MiB"));
         assert!(store.publish(&huge).is_err());
         assert_eq!(fs::read(&store.path).unwrap(), prior);
         let mut worker =
@@ -1362,5 +1619,393 @@ mod tests {
         assert_eq!(unsafe { libc::mkfifo(path.as_ptr(), 0o600) }, 0);
         assert!(regular_open(&fifo, false).is_err());
         assert!(restore(&layout(&fifo), &[]).is_err());
+    }
+    fn nested_v3_layout(paths: &[PathBuf; 3]) -> Layout {
+        let mut saved = groups_layout(&paths[..2]);
+        let view = saved.files[0].view.clone();
+        saved.files.push(SavedFile {
+            path: paths[2].clone(),
+            view: view.clone(),
+        });
+        saved.groups.as_mut().unwrap().push(Group {
+            tabs: vec![
+                Tab {
+                    file: 2,
+                    view: view.clone(),
+                },
+                Tab {
+                    file: 1,
+                    view: view.clone(),
+                },
+            ],
+            active: 0,
+            recent: vec![0, 1],
+        });
+        saved.panes.push(Pane { file: 2, view });
+        saved.active_group = 2;
+        saved.active_pane = 2;
+        saved.active_file = 2;
+        saved.tree = Some(SavedNode::Split {
+            axis: Axis::Columns,
+            first_weight: 3,
+            second_weight: 7,
+            first: Box::new(SavedNode::Leaf { group: 0 }),
+            second: Box::new(SavedNode::Split {
+                axis: Axis::Rows,
+                first_weight: 2,
+                second_weight: 5,
+                first: Box::new(SavedNode::Leaf { group: 1 }),
+                second: Box::new(SavedNode::Leaf { group: 2 }),
+            }),
+        });
+        saved.sticky = Some(vec![vec![true, false], vec![false], vec![true, false]]);
+        saved.normalized().unwrap()
+    }
+
+    #[test]
+    fn schema_three_worker_retains_nested_weights_sticky_prefixes_and_shared_views() {
+        let root = tempfile::tempdir().unwrap();
+        let workspace = fs::canonicalize(root.path()).unwrap();
+        let paths = [
+            workspace.join("a.txt"),
+            workspace.join("b.txt"),
+            workspace.join("c.txt"),
+        ];
+        let original = "猫🙂 alpha\r\nsecond\r\n";
+        for path in &paths {
+            fs::write(path, original).unwrap();
+        }
+        let saved = nested_v3_layout(&paths);
+        let config = root.path().join("config");
+        let mut worker = Worker::start(config.clone(), workspace.clone()).unwrap();
+        assert!(matches!(await_event(&mut worker), Event::Ready(false)));
+        worker.save(saved.clone()).unwrap();
+        assert!(matches!(await_event(&mut worker), Event::Saved));
+        worker.finish(None).unwrap();
+        let (store, prior) = Store::new(&config, &workspace).unwrap();
+        assert_eq!(prior, Some(saved.clone()));
+        let directory = store.directory.clone();
+        let wire = fs::read_dir(directory)
+            .unwrap()
+            .filter_map(|entry| {
+                let path = entry.unwrap().path();
+                (path.extension().is_some_and(|ext| ext == "json")).then_some(path)
+            })
+            .map(|path| fs::read(path).unwrap())
+            .next()
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&wire).unwrap();
+        assert_eq!(value["schema"], 3);
+        assert_eq!(
+            value["layout"]["tree"],
+            serde_json::to_value(saved.tree.as_ref().unwrap()).unwrap()
+        );
+        assert_eq!(value["layout"]["groups"][0]["tabs"][0]["sticky"], true);
+        assert!(
+            value["layout"]["groups"][0]["tabs"][0]
+                .get("preview")
+                .is_none()
+        );
+        store.finish().unwrap();
+        let mut worker = Worker::start(config, workspace).unwrap();
+        assert!(matches!(await_event(&mut worker), Event::Ready(true)));
+        worker.restore(Vec::new()).unwrap();
+        let Event::Restored(restored) = await_event(&mut worker) else {
+            panic!("restore failed")
+        };
+        assert_eq!(restored.layout, saved);
+        assert_eq!(restored.documents.len(), 3);
+        assert!(restored.documents.iter().all(|doc| !doc.dirty()));
+        worker.finish(None).unwrap();
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), original.as_bytes());
+        }
+    }
+
+    #[test]
+    fn strict_schema_two_migrates_without_rewriting_or_accepting_schema_three_fields() {
+        let root = tempfile::tempdir().unwrap();
+        let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
+        let saved = groups_layout(&[root.path().join("a.txt"), root.path().join("b.txt")]);
+        let old = SavedV2 {
+            schema: 2,
+            workspace: store.workspace.clone(),
+            stamp: 12,
+            layout: GroupLayout::from_layout(&saved).unwrap(),
+        };
+        let original = serde_json::to_vec(&old).unwrap();
+        fs::write(&store.path, &original).unwrap();
+        let migrated = read(&store.path, &store.workspace).unwrap().layout;
+        assert_eq!(migrated, saved);
+        assert_eq!(migrated.tree, flat_saved_layout(2, Axis::Rows));
+        assert_eq!(migrated.sticky, Some(vec![vec![false, false], vec![false]]));
+        assert_eq!(fs::read(&store.path).unwrap(), original);
+        for mode in 0..3 {
+            let mut bad: serde_json::Value = serde_json::from_slice(&original).unwrap();
+            match mode {
+                0 => {
+                    bad["layout"]["tree"] =
+                        serde_json::to_value(migrated.tree.as_ref().unwrap()).unwrap()
+                }
+                1 => bad["layout"]["groups"][0]["tabs"][0]["sticky"] = serde_json::json!(false),
+                _ => bad["layout"]["groups"][0]["tabs"][0]["preview"] = serde_json::json!(false),
+            }
+            let bytes = serde_json::to_vec(&bad).unwrap();
+            fs::write(&store.path, &bytes).unwrap();
+            assert_eq!(
+                read(&store.path, &store.workspace)
+                    .err()
+                    .unwrap()
+                    .to_string(),
+                "Invalid schema-2 session"
+            );
+            assert_eq!(fs::read(&store.path).unwrap(), bytes);
+        }
+        fs::write(&store.path, &original).unwrap();
+        assert!(
+            store
+                .publish_with(&migrated, || bail!(
+                    "injected schema-3 migration write failure"
+                ))
+                .is_err()
+        );
+        assert_eq!(fs::read(&store.path).unwrap(), original);
+        store.publish(&migrated).unwrap();
+        assert_eq!(
+            read(&store.path, &store.workspace).unwrap().layout,
+            migrated
+        );
+        let wire: serde_json::Value =
+            serde_json::from_slice(&fs::read(&store.path).unwrap()).unwrap();
+        assert_eq!(wire["schema"], 3);
+    }
+
+    #[test]
+    fn schema_three_rejects_late_tree_sticky_and_view_errors_before_any_file_load() {
+        let root = tempfile::tempdir().unwrap();
+        let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
+        let paths = [
+            root.path().join("missing-a"),
+            root.path().join("missing-b"),
+            root.path().join("missing-c"),
+        ];
+        let saved = nested_v3_layout(&paths);
+        // A positive metadata read succeeds without any referenced file existing.
+        store.publish(&saved).unwrap();
+        let original = fs::read(&store.path).unwrap();
+        assert_eq!(read(&store.path, &store.workspace).unwrap().layout, saved);
+        let wire: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        for mode in 0..8 {
+            let mut bad = wire.clone();
+            let expected = match mode {
+                0 => {
+                    bad["layout"]["tree"]["second"]["second"]["group"] = serde_json::json!(0);
+                    "Invalid or duplicate layout group index"
+                }
+                1 => {
+                    bad["layout"]["tree"]["second"]["second_weight"] = serde_json::json!(0);
+                    "Invalid editor layout weight"
+                }
+                2 => {
+                    bad["layout"]["groups"][2]["tabs"][0]["sticky"] = serde_json::json!(false);
+                    bad["layout"]["groups"][2]["tabs"][1]["sticky"] = serde_json::json!(true);
+                    "Invalid session sticky prefix"
+                }
+                3 => {
+                    bad["layout"]["groups"][2]["recent"] = serde_json::json!([0, 0]);
+                    "Invalid session recent-tab permutation"
+                }
+                4 => {
+                    bad["layout"]["groups"][2]["tabs"][1]["file"] = serde_json::json!(32);
+                    "Invalid or duplicate session group file"
+                }
+                5 => {
+                    bad["layout"]["groups"][2]["tabs"][0]["preview"] = serde_json::json!(false);
+                    "Invalid schema-3 session"
+                }
+                6 => {
+                    bad["layout"].as_object_mut().unwrap().remove("tree");
+                    "Invalid schema-3 session"
+                }
+                _ => {
+                    bad["layout"]["groups"][2]["tabs"][1]["view"]["selections"] =
+                        serde_json::json!([]);
+                    "Session view exceeds 128 selections or has no cursor"
+                }
+            };
+            let bytes = serde_json::to_vec(&bad).unwrap();
+            fs::write(&store.path, &bytes).unwrap();
+            assert_eq!(
+                read(&store.path, &store.workspace)
+                    .err()
+                    .unwrap()
+                    .to_string(),
+                expected,
+                "mode {mode}"
+            );
+            assert_eq!(fs::read(&store.path).unwrap(), bytes);
+            assert!(paths.iter().all(|path| !path.exists()));
+        }
+        fs::write(&store.path, &original).unwrap();
+        assert_eq!(read(&store.path, &store.workspace).unwrap().layout, saved);
+    }
+
+    #[test]
+    fn schema_three_empty_wire_is_explicit_and_failed_replace_preserves_lease_and_last_bytes() {
+        let root = tempfile::tempdir().unwrap();
+        let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
+        let empty = Layout::default().normalized().unwrap();
+        store.publish(&empty).unwrap();
+        let original = fs::read(&store.path).unwrap();
+        assert_eq!(read(&store.path, &store.workspace).unwrap().layout, empty);
+        let value: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        assert!(value["layout"]["tree"].is_null());
+        assert_eq!(value["layout"]["groups"], serde_json::json!([]));
+        let mut missing = value.clone();
+        missing["layout"].as_object_mut().unwrap().remove("tree");
+        fs::write(&store.path, serde_json::to_vec(&missing).unwrap()).unwrap();
+        assert_eq!(
+            read(&store.path, &store.workspace)
+                .err()
+                .unwrap()
+                .to_string(),
+            "Invalid schema-3 session"
+        );
+        fs::write(&store.path, &original).unwrap();
+        let next = nested_v3_layout(&[
+            root.path().join("a"),
+            root.path().join("b"),
+            root.path().join("c"),
+        ]);
+        assert!(
+            store
+                .publish_with(&next, || bail!("actual prepared-file publication denied"))
+                .is_err()
+        );
+        assert_eq!(fs::read(&store.path).unwrap(), original);
+        assert!(store.lease_path.exists());
+        let lease = regular_open(&store.lease_path, true).unwrap();
+        assert!(matches!(
+            lease.try_lock(),
+            Err(fs::TryLockError::WouldBlock)
+        ));
+        assert!(fs::read_dir(&store.directory).unwrap().all(|entry| {
+            let path = entry.unwrap().path();
+            path.extension()
+                .is_some_and(|extension| extension == "json" || extension == "lock")
+        }));
+    }
+    #[test]
+    fn bounded_near_budget_schema_two_remains_readable_when_schema_three_write_is_refused() {
+        let root = tempfile::tempdir().unwrap();
+        let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
+        let paths = (0..MAX_DOCUMENTS)
+            .map(|index| root.path().join(format!("legacy-{index}")))
+            .collect::<Vec<_>>();
+        for path in &paths {
+            fs::write(path, "猫🙂\r\n").unwrap();
+        }
+        let selection = SavedSelection {
+            cursor: Position {
+                line: usize::MAX,
+                character: usize::MAX,
+            },
+            anchor: Some(Position {
+                line: usize::MAX,
+                character: usize::MAX,
+            }),
+        };
+        let view = View {
+            selections: vec![selection.clone()],
+            top: usize::MAX,
+            left: usize::MAX,
+        };
+        let mut old = SavedV2 {
+            schema: 2,
+            workspace: store.workspace.clone(),
+            stamp: 12,
+            layout: GroupLayout {
+                files: paths.clone(),
+                groups: (0..MAX_VIEWS)
+                    .map(|_| Group {
+                        tabs: (0..MAX_DOCUMENTS)
+                            .map(|file| Tab {
+                                file,
+                                view: view.clone(),
+                            })
+                            .collect(),
+                        active: 0,
+                        recent: (0..MAX_DOCUMENTS).collect(),
+                    })
+                    .collect(),
+                active_group: 0,
+                horizontal: false,
+            },
+        };
+        // Find a valid old encoding just below the cap using a bounded binary
+        // search over legal selection counts, never padding unknown fields.
+        let members = MAX_VIEWS * MAX_DOCUMENTS;
+        let mut encode = |total: usize| {
+            for (index, tab) in old
+                .layout
+                .groups
+                .iter_mut()
+                .flat_map(|group| &mut group.tabs)
+                .enumerate()
+            {
+                let count = total / members + usize::from(index < total % members);
+                tab.view.selections = vec![selection.clone(); count];
+            }
+            serde_json::to_vec(&old).unwrap()
+        };
+        let mut low = members;
+        let mut high = members * MAX_SELECTIONS;
+        let limit = MAX_BYTES as usize - 512;
+        while low < high {
+            let middle = low + (high - low).div_ceil(2);
+            if encode(middle).len() <= limit {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
+        }
+        let original = encode(low);
+        assert!(original.len() <= limit);
+        assert!(original.len() > MAX_BYTES as usize - 1024);
+        fs::write(&store.path, &original).unwrap();
+        let saved = read(&store.path, &store.workspace).unwrap().layout;
+        assert_eq!(saved.files.len(), MAX_DOCUMENTS);
+        assert_eq!(saved.groups.as_ref().unwrap().len(), MAX_VIEWS);
+        assert!(
+            saved
+                .sticky
+                .as_ref()
+                .unwrap()
+                .iter()
+                .flatten()
+                .all(|flag| !flag)
+        );
+        let restored = restore(&saved, &[]).unwrap();
+        assert_eq!(restored.documents.len(), MAX_DOCUMENTS);
+        assert!(restored.documents.iter().all(|doc| !doc.dirty()));
+        assert_eq!(fs::read(&store.path).unwrap(), original);
+        assert_eq!(
+            store.publish(&saved).unwrap_err().to_string(),
+            "Session metadata exceeds 1 MiB"
+        );
+        assert_eq!(fs::read(&store.path).unwrap(), original);
+        let lease = regular_open(&store.lease_path, true).unwrap();
+        assert!(matches!(
+            lease.try_lock(),
+            Err(fs::TryLockError::WouldBlock)
+        ));
+        assert!(fs::read_dir(&store.directory).unwrap().all(|entry| {
+            let path = entry.unwrap().path();
+            path.extension()
+                .is_some_and(|extension| extension == "json" || extension == "lock")
+        }));
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂\r\n".as_bytes());
+        }
     }
 }
