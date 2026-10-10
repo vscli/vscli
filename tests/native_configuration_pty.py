@@ -184,6 +184,11 @@ def run():
             save(app, source, "«»[]\r\n".encode())
             command(app, "Extensions: Show Installed Extensions")
             wait_screen(app, "Installed Extensions")
+            # The command-palette query/result also contains "Installed
+            # Extensions". Require the actual versioned picker and controls
+            # before sending this single target Delete gesture.
+            wait_screen(app, "fixture.native@2.0.0", "Delete remove",
+                        absent=("Command Palette", "Extensions · Loading"))
             app.send(DELETE)
             wait_screen(app, "Uninstalled fixture.native;")
             wait_screen(app, READY)
