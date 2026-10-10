@@ -269,6 +269,8 @@ impl<'a> ActionSetting<'a> {
     }
 }
 const SUPPORTED: &[&str] = &[
+    "editor.folding",
+    "editor.foldingStrategy",
     "editor.formatOnSave",
     "editor.formatOnSaveMode",
     "editor.defaultFormatter",
@@ -869,6 +871,12 @@ impl Settings {
         }
     }
 
+    /// Native indentation fallback; syntax/provider folding is a later slice.
+    pub fn folding(&self, language: &str) -> bool {
+        self.value("editor.folding", language)
+            .and_then(Value::as_bool)
+            .unwrap_or(true)
+    }
     pub fn typing(&self, language: &str) -> crate::editing_profile::TypingOptions {
         use crate::editing_profile::{AutoClosing, AutoIndent, PairHandling, Surround};
         let closing = |key| match self.value(key, language).and_then(Value::as_str) {
@@ -951,6 +959,8 @@ pub struct LanguageServer {
 }
 fn valid(key: &str, value: &Value) -> bool {
     match key {
+        "editor.folding" => value.is_boolean(),
+        "editor.foldingStrategy" => matches!(value.as_str(), Some("auto" | "indentation")),
         "editor.codeActionsOnSave" => match value {
             Value::Object(object) => {
                 object.len() <= ACTION_ENTRIES
@@ -2595,5 +2605,46 @@ mod sticky_close_policy_tests {
                 invalid
             );
         }
+    }
+    #[test]
+    fn folding_enabled_defaults_true_and_uses_resource_language_precedence() {
+        assert!(Settings::default().folding("cpp"));
+        let dir = tempfile::tempdir().unwrap();
+        let user = dir.path().join("user.json");
+        let workspace = dir.path().join("workspace.json");
+        std::fs::write(
+            &user,
+            r#"{"editor.folding":false,"[cpp]":{"editor.folding":true}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &workspace,
+            r#"{"[cpp]":{"editor.folding":false},"editor.foldingStrategy":"indentation"}"#,
+        )
+        .unwrap();
+        let settings = Settings::load(&[user, workspace]).unwrap();
+        assert!(!settings.folding("cpp"));
+        assert!(!settings.folding("plaintext"));
+        assert_eq!(
+            settings
+                .value("editor.foldingStrategy", "cpp")
+                .and_then(Value::as_str),
+            Some("indentation")
+        );
+        assert!(settings.warnings.is_empty());
+    }
+    #[test]
+    fn malformed_folding_values_do_not_enable_invalid_or_provider_only_settings() {
+        assert!(!valid("editor.folding", &Value::String("true".into())));
+        for strategy in ["auto", "indentation"] {
+            assert!(valid(
+                "editor.foldingStrategy",
+                &Value::String(strategy.into())
+            ));
+        }
+        assert!(!valid(
+            "editor.foldingStrategy",
+            &Value::String("provider".into())
+        ));
     }
 }

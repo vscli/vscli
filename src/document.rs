@@ -353,6 +353,9 @@ impl Default for Document {
 }
 
 impl Document {
+    pub(crate) fn active_view_id(&self) -> u64 {
+        self.active_view
+    }
     /// Read a view without activating it or changing undo grouping.
     pub fn view_state(&self, id: Option<u64>) -> &ViewState {
         match id {

@@ -371,7 +371,30 @@ impl App {
         let mut groups = self.editor_groups.clone();
         let change = groups.split_active()?;
         let layout = self.prepare_group_layout(&groups, &change, Some(direction))?;
-        self.publish_group_layout(groups, layout);
+        let source = change.previous.context("Split folding source retired")?;
+        let target = change.active.context("Split folding target missing")?;
+        let index = self
+            .documents
+            .iter()
+            .position(|doc| doc.id == source.document)
+            .context("Split model retired")?;
+        let copy_folding = self.copy_split_folding_intent(source);
+        if copy_folding {
+            self.check_folding_view_copy_reservation(source)?;
+        }
+        let lease = if copy_folding {
+            self.documents[index]
+                .prepare_expanded_folding_view(target.group.value(), source.group.value())?
+        } else {
+            self.documents[index]
+                .prepare_expanded_editor_view(target.group.value(), source.group.value())?
+        };
+        // Every fallible group/layout/view operation has finished. Publication
+        // touches disjoint fields under the exclusive Document view lease.
+        self.editor_groups = groups;
+        self.editor_layout = layout;
+        lease.publish();
+        self.invalidate_editor_presentation();
         Ok(change)
     }
 

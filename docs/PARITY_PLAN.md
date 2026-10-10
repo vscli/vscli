@@ -132,17 +132,16 @@ on reviewed head `a0b7e8c8f41497c18463ad43569c12f44a43fc3d` in
 [CI run 38023849597](https://github.com/vscli/vscli/actions/runs/38023849597);
 full navigation and desktop UI parity remain incomplete.
 
-Folding is not shipped. The committed `feat/native-folding-foundation` contains
-bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
-App/Document/UI integration. The new `feat/native-display-rows-foundation` candidate
-ports the pure foundation and adds immutable grapheme-aware visible-row mapping.
-Its 17 focused mapping tests plus ten worker/controller tests and 1,014
-all-target Rust tests across 51 reports pass, with formatting and strict locked
-Clippy. The one-thread worker retains capacity through cancellation until actual
-exit; the controller requires exact current source/view proofs. Neither is wired
-to App yet. App integration, PTY journeys
-and platform qualification remain separate. [Display-row scope](DISPLAY_ROWS.md) records the limits and remaining
-work. Neither prototype is a qualified user feature. The bounded diagnostics/action subsets do not finish priority 2 or full extension compatibility; further API/context/resource and production-package qualification remains.
+Folding is not yet shipped on main. The display-row foundation in
+[PR #71](https://github.com/vscli/vscli/pull/71) merged after all six protected CI checks.
+The visible-folding candidate now integrates original no-argument commands and
+keys with native indentation discovery, painting, carets, hits, movement and
+independent per-view intent. Its final 1,122 Rust tests, 23 debug terminal reports and 15 optimized terminal
+reports pass after allocation/journal/split/inventory review corrections.
+Protected integration and cross-platform qualification remain pending. [Native folding](FOLDING.md) records concrete evidence and limits;
+wrapping, provider folding and complete cursor/command behavior remain gaps.
+The bounded diagnostics/action subsets do not finish priority 2 or full extension
+compatibility; further API/context/resource and production-package qualification remains.
 
 Linked PRs and feature documents record each implemented subset and its named
 review/test evidence.
@@ -408,11 +407,11 @@ Platform qualification remains a separate gate. See [layout scope
 and evidence](EDITOR_LAYOUT.md).
 
 Editor movement/reordering, spatial focus, distinct Close Group merge semantics,
-divider dragging and workspace transitions remain priority-6 gaps. Wrap/folding
-still needs a unified display-row mapping; neither prototype is a shipped feature.
+divider dragging and workspace transitions remain priority-6 gaps. Unified display-row mapping is qualified in the foundation; the integrated
+visible-folding candidate remains under review and wrapping remains outstanding.
 
 The folding foundation now includes checked per-Document view ownership and twelve
 passing integrity tests. Its full Rust suite passes 1,026 tests across 51 reports
 (20 optional cases ignored), plus formatting and strict locked Clippy. Fold/Unfold
-commands, complete render/hit/movement mapping and native terminal journeys remain
-outstanding; see [per-view ownership](FOLD_VIEW_STATE.md).
+commands and unified render/hit/movement mapping now have a separate candidate with
+native terminal evidence; final qualification is pending. See [per-view ownership](FOLD_VIEW_STATE.md) and [native folding](FOLDING.md).

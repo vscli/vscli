@@ -202,6 +202,14 @@ pub struct State {
     notice: Option<&'static str>,
 }
 impl State {
+    #[cfg(test)]
+    pub(crate) fn hold_worker(&mut self, gates: folding_worker::Gates) {
+        self.worker.hold(gates);
+    }
+    #[cfg(test)]
+    pub(crate) fn last_worker_token(&self) -> u64 {
+        self.worker.last_token()
+    }
     pub fn occupied(&self) -> bool {
         self.worker.occupied()
     }

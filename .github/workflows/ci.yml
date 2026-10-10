@@ -340,6 +340,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/editor_nested_layout_pty.py target/debug/vscli
+      - name: Run native folding and shared display ownership workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/native_folding_pty.py target/debug/vscli
       - name: Run native code-actions-on-save workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

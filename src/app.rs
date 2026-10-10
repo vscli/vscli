@@ -12,6 +12,7 @@ mod extension_services;
 pub mod extension_surfaces;
 mod extensions;
 mod files;
+mod folding;
 pub mod keyboard;
 mod language;
 mod language_services;
@@ -123,6 +124,10 @@ pub(crate) fn native_command_ids() -> Vec<String> {
 }
 
 pub const COMMANDS: &[(&str, &str)] = &[
+    ("Fold", "editor.fold"),
+    ("Unfold", "editor.unfold"),
+    ("Fold All", "editor.foldAll"),
+    ("Unfold All", "editor.unfoldAll"),
     ("View: Keep Editor", "workbench.action.keepEditor"),
     ("View: Pin Editor", "workbench.action.pinEditor"),
     ("View: Unpin Editor", "workbench.action.unpinEditor"),
@@ -604,6 +609,7 @@ pub struct App {
     settings_user: Option<PathBuf>,
     settings_writes: settings_persistence::State,
     saving: saving::State,
+    folding: folding::State,
     pub diagnostics: HashMap<PathBuf, crate::lsp::DiagnosticPublication>,
     pub editor_area: Rect,
     pub explorer_area: Rect,
@@ -716,6 +722,7 @@ impl App {
             settings_user: None,
             settings_writes: settings_persistence::State::default(),
             saving: saving::State::default(),
+            folding: folding::State::default(),
             diagnostics: HashMap::new(),
             editor_area: Rect::default(),
             explorer_area: Rect::default(),
@@ -733,6 +740,7 @@ impl App {
         }
     }
     pub fn poll(&mut self) -> bool {
+        let folding_changed = self.observe_folding();
         self.observe_editor_geometry();
         let actions_changed = self.poll_code_actions();
         let brand_changed = self.welcome_brand.poll();
@@ -741,7 +749,7 @@ impl App {
         let changed = self.poll_symbols() || invalidated;
         let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
-        let mut changed = actions_changed | brand_changed | changed;
+        let mut changed = folding_changed | actions_changed | brand_changed | changed;
         changed |= self.poll_settings_writes();
         if let Some(result) = self
             .settings_loader
@@ -838,6 +846,7 @@ impl App {
         changed |= self.poll_breadcrumbs();
         changed |= self.observe_editor_geometry();
         changed |= self.poll_editor_resize();
+        changed |= self.poll_folding();
         changed
     }
     pub fn recovery_documents(&self) -> Vec<&Document> {
@@ -1106,6 +1115,7 @@ impl App {
     pub fn context(&self) -> HashMap<String, Value> {
         let breadcrumbs = self.breadcrumbs_view();
         HashMap::from([
+            ("foldingEnabled".into(), json!(self.folding_enabled())),
             ("breadcrumbsPossible".into(), json!(breadcrumbs.possible)),
             ("breadcrumbsVisible".into(), json!(breadcrumbs.visible)),
             (
@@ -1250,6 +1260,13 @@ impl App {
     }
 
     pub fn event(&mut self, event: Event) {
+        self.observe_folding();
+        if matches!(&event, Event::Key(key) if key.kind != KeyEventKind::Release)
+            || matches!(&event, Event::Paste(_))
+            || matches!(&event, Event::Mouse(mouse) if !matches!(mouse.kind, MouseEventKind::Moved | MouseEventKind::Up(_)))
+        {
+            self.folding_input();
+        }
         self.observe_editor_geometry();
         self.breadcrumbs_ui_event(&event);
         self.observe_navigation(navigation_history::Reason::Ordinary);
@@ -1281,6 +1298,7 @@ impl App {
         self.observe_suggestion_edit(suggestion_edit);
         self.observe_signature_edit(signature_edit);
         self.refresh_signature();
+        self.observe_folding();
         self.observe_editor_geometry();
     }
     fn event_inner(&mut self, event: Event) {
@@ -1420,6 +1438,9 @@ impl App {
                     return;
                 }
                 if matches!(mouse.kind, MouseEventKind::Moved | MouseEventKind::Up(_)) {
+                    return;
+                }
+                if self.folding_mouse(mouse) {
                     return;
                 }
                 // A header/divider/gutter is never interpreted as source text.
@@ -1629,10 +1650,15 @@ impl App {
         self.execute_with_args(command, (!args.is_null()).then_some(args));
     }
     fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
+        self.observe_folding();
         self.observe_editor_geometry();
+        if self.execute_folding_command(command, args.as_ref()) {
+            return;
+        }
         if self.execute_editor_layout_command(command) {
             return;
         }
+        self.folding_input();
         self.breadcrumbs_ui_command(command);
         let history_travel = matches!(
             command,
@@ -1657,6 +1683,7 @@ impl App {
         self.invalidate_pending_extension_commands();
         self.observe_suggestion_edit(suggestion_edit);
         self.observe_signature_edit(signature_edit);
+        self.observe_folding();
         self.observe_editor_geometry();
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
@@ -1717,6 +1744,16 @@ impl App {
             let select = command.ends_with("Select");
             let name = command.strip_suffix("Select").unwrap_or(command);
             let page = self.editor_area.height.saturating_sub(1).max(1) as isize;
+            let amount = match name {
+                "cursorUp" => Some(-1),
+                "cursorDown" => Some(1),
+                "cursorPageUp" => Some(-page),
+                "cursorPageDown" => Some(page),
+                _ => None,
+            };
+            if amount.is_some_and(|amount| self.move_folded(amount, select, false)) {
+                return;
+            }
             if !self.doc_mut().navigate_cursors(name, select, page) {
                 self.message = format!("Command not implemented: {command}");
             }
@@ -2039,8 +2076,8 @@ impl App {
                         "No matching word, or selection exceeds the 10,000-cursor limit".into();
                 }
             }
-            "editor.action.insertCursorAbove" => self.doc_mut().add_cursor_vertical(false),
-            "editor.action.insertCursorBelow" => self.doc_mut().add_cursor_vertical(true),
+            "editor.action.insertCursorAbove" => { if !self.move_folded(-1, false, true) { self.doc_mut().add_cursor_vertical(false); } },
+            "editor.action.insertCursorBelow" => { if !self.move_folded(1, false, true) { self.doc_mut().add_cursor_vertical(true); } },
             "editor.action.insertCursorAtEndOfEachLineSelected" => {
                 self.doc_mut().cursors_at_line_ends()
             }

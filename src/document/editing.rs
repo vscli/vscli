@@ -27,7 +27,7 @@ impl Document {
         self.retire_outside_typing_pairs();
         self.observe_folding_selection();
     }
-    fn record_cursors(&mut self) {
+    pub(super) fn record_cursors(&mut self) {
         let selections = self.selections();
         self.cursor_history.push(selections);
         if self.cursor_history.len() > 100 {

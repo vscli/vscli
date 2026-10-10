@@ -50,13 +50,15 @@ impl View {
             self.desired = Arc::from([]);
         }
     }
-    fn fresh_copy(&self) -> Self {
+    fn fresh_copy(&self, copy_ready: bool) -> Self {
         Self {
             lifetime: Lifetime::default(),
             generation: 0,
             selection_generation: 0,
             blocked: false,
-            ..self.clone()
+            desired: self.desired.clone(),
+            desired_epoch: self.desired_epoch,
+            ready: if copy_ready { self.ready.clone() } else { None },
         }
     }
 }
@@ -110,6 +112,8 @@ pub enum FoldAction {
     Fold,
     Unfold,
     FoldAll,
+    /// Exact visible collapsed header from a sealed source window.
+    UnfoldHeader(usize),
 }
 
 /// A scan-free clear lease, including generation-exhaustion recovery. Clearing
@@ -207,6 +211,12 @@ impl FoldSnapshot {
                     && view.secondary == self.proof.secondary.as_slice()
             })
     }
+    pub(crate) fn allocated_payload(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self.proof.secondary.capacity() * std::mem::size_of::<Selection>()
+            + self.desired.len() * std::mem::size_of::<Region>()
+            + self.changes.capacity() * std::mem::size_of::<Change>()
+    }
     pub(crate) fn validate_worker(&self) -> Result<()> {
         ensure!(
             self.text.len_bytes() <= folding::MAX_BYTES
@@ -222,6 +232,10 @@ impl FoldSnapshot {
                 && self.desired.len() <= folding::MAX_REGIONS
                 && self.changes.len() <= MAX_JOURNAL,
             "Folding snapshot metadata exceeds worker limits"
+        );
+        ensure!(
+            self.allocated_payload() <= 1024 * 1024,
+            "Folding snapshot retained metadata exceeds 1 MiB"
         );
         Ok(())
     }
@@ -262,6 +276,28 @@ impl FoldSnapshot {
         }
         let mapped = self.map_desired(cancel, deadline)?;
         let existing = self.clone().finish(mapped, true, cancel, deadline)?;
+        if let FoldAction::UnfoldHeader(header) = action {
+            ensure!(
+                header < self.text.len_lines(),
+                "Folding header is outside source"
+            );
+            let start = self.text.line_to_char(header);
+            // A valid retained fold may be absent from a new indentation catalog.
+            // The sealed header names the currently collapsed outermost region,
+            // not an inferred new catalog position or a relocated selection.
+            let selected = existing
+                .desired
+                .iter()
+                .position(|region| region.characters().start == start);
+            let desired = existing
+                .desired
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| Some(*index) != selected)
+                .map(|(_, region)| region.clone())
+                .collect();
+            return self.finish(desired, false, cancel, deadline);
+        }
         let mut catalog = catalog.to_vec();
         catalog.sort_unstable_by_key(|r| {
             (r.characters().start, std::cmp::Reverse(r.characters().end))
@@ -281,6 +317,7 @@ impl FoldSnapshot {
                 mask[index] = true;
             }
         }
+        let unfolding = action == FoldAction::Unfold;
         let mut positions: Vec<_> = std::iter::once(&self.proof.primary)
             .chain(&self.proof.secondary)
             .map(|s| {
@@ -318,7 +355,7 @@ impl FoldSnapshot {
             }
             for &index in stack.iter().rev() {
                 guard(cancel, deadline)?;
-                if mask[index] == (action == FoldAction::Unfold) {
+                if mask[index] == unfolding {
                     changed[index] = true;
                     break;
                 }
@@ -423,17 +460,30 @@ impl FoldSnapshot {
         guard(cancel, deadline)?;
         let rows = DisplayRows::prepare_folded(self.text, self.proof.options, &accepted)?;
         guard(cancel, deadline)?;
-        Ok(FoldPrepared {
+        let prepared = FoldPrepared {
             proof: self.proof,
             skipped: proposed_count - accepted.len(),
             desired: accepted.into(),
             rows: Arc::new(rows),
             hidden: hidden.into(),
-        })
+        };
+        ensure!(
+            prepared.allocated_payload() <= 1024 * 1024,
+            "Folding result retained metadata exceeds 1 MiB"
+        );
+        Ok(prepared)
     }
 }
 
 impl FoldPrepared {
+    pub fn allocated_payload(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self.proof.secondary.capacity() * std::mem::size_of::<Selection>()
+            + self.desired.len() * std::mem::size_of::<Region>()
+            + self.hidden.len() * std::mem::size_of::<Range<usize>>()
+            + self.rows.allocated_payload()
+    }
+
     pub fn skipped_regions(&self) -> usize {
         self.skipped
     }
@@ -445,6 +495,77 @@ impl FoldPrepared {
     }
 }
 impl Document {
+    /// Bounded metadata only. No source scan or cloned selection cohort.
+    pub(crate) fn folding_resources(&self) -> (usize, usize, usize) {
+        std::iter::once(&self.view)
+            .chain(self.other_views.values())
+            .fold(
+                (
+                    0,
+                    0,
+                    self.folding_changes.capacity() * std::mem::size_of::<Change>(),
+                ),
+                |(anchors, maps, bytes), view| {
+                    (
+                        anchors + view.folding.desired.len(),
+                        maps + usize::from(view.folding.ready.is_some()),
+                        bytes
+                            + std::mem::size_of::<View>()
+                            + 2 * std::mem::size_of::<usize>()
+                            + view.folding.ready.as_ref().map_or(0, |ready| {
+                                ready.rows.allocated_payload()
+                                    + 4 * std::mem::size_of::<usize>()
+                                    + ready.hidden.len() * std::mem::size_of::<Range<usize>>()
+                            })
+                            + view.folding.desired.len() * std::mem::size_of::<Region>(),
+                    )
+                },
+            )
+    }
+    /// Conservative logical byte charge for each retained ready-map source.
+    /// Shared Rope nodes/allocator overhead are not measured by this number.
+    pub(crate) fn folding_source_bytes(&self) -> usize {
+        std::iter::once(&self.view)
+            .chain(self.other_views.values())
+            .filter_map(|view| view.folding.ready.as_ref())
+            .map(|ready| ready.rows.text().len_bytes())
+            .sum()
+    }
+    pub(crate) fn folding_viewport(&self, id: u64) -> Option<(usize, usize)> {
+        let view = self.exact_fold_view(id)?;
+        Some((view.top, view.left))
+    }
+    pub(crate) fn folding_primary(&self, id: u64) -> Option<(usize, Option<usize>)> {
+        let view = self.exact_fold_view(id)?;
+        Some((view.cursor, view.anchor))
+    }
+    pub(crate) fn folding_view_stamp(&self, id: u64) -> Option<(Lifetime, u64, u64)> {
+        let view = self.exact_fold_view(id)?;
+        Some((
+            view.folding.lifetime.clone(),
+            view.folding.generation,
+            view.folding.selection_generation,
+        ))
+    }
+    pub(crate) fn retain_visible_folding_rows(&mut self, ids: &[u64]) {
+        let active = self.active_view;
+        for (id, view) in std::iter::once((active, &mut self.view))
+            .chain(self.other_views.iter_mut().map(|(id, view)| (*id, view)))
+        {
+            if !ids.contains(&id) && view.folding.ready.is_some() {
+                view.folding.invalidate();
+            }
+        }
+    }
+    /// A complete prepared selection transaction; pair/session retirement runs
+    /// after the whole cohort, not once for each provisional primary caret.
+    pub(crate) fn apply_display_selections(&mut self, selections: Vec<Selection>) {
+        self.record_cursors();
+        self.assign_selections(selections);
+        self.normalize_selections();
+        self.retire_outside_typing_pairs();
+        self.observe_folding_selection();
+    }
     /// This validates model/view ownership, not live Groups membership. App
     /// validates Groups/UI before and after using this borrowed bridge.
     pub fn with_folding_current<T>(
@@ -615,14 +736,16 @@ impl Document {
             self.folding_changes.clear();
             return;
         }
+        // Drop the obsolete front BEFORE pushing: a full retained256-slot
+        // journal must not grow its capacity to512 just to discard one item.
+        if self.folding_changes.len() >= MAX_JOURNAL {
+            self.folding_changes.pop_front();
+        }
         self.folding_changes.push_back(Change {
             epoch: self.text_epoch,
             range,
             added,
         });
-        if self.folding_changes.len() > MAX_JOURNAL {
-            self.folding_changes.pop_front();
-        }
         if let Some(first) = self.folding_changes.front() {
             for view in std::iter::once(&mut self.view).chain(self.other_views.values_mut()) {
                 if !view.folding.desired.is_empty() && view.folding.desired_epoch < first.epoch - 1
@@ -764,10 +887,54 @@ impl Document {
             next_generation,
         })
     }
+    /// Read-only conservative payload estimate for an expanded intent copy.
+    /// App still validates membership and global budgets before the lease.
+    pub(crate) fn expanded_folding_copy_metadata(&self, source: u64) -> Result<(usize, usize)> {
+        let view = self
+            .exact_fold_view(source)
+            .ok_or_else(|| anyhow::anyhow!("Folding source view retired"))?;
+        ensure!(
+            view.folding.desired.len() <= folding::MAX_REGIONS
+                && view.secondary.len() < MAX_SELECTIONS,
+            "Folding source view exceeds copy bounds"
+        );
+        Ok((
+            view.folding.desired.len(),
+            std::mem::size_of::<View>()
+                + 2 * std::mem::size_of::<usize>()
+                + view.folding.desired.len() * std::mem::size_of::<Region>(),
+        ))
+    }
+    /// Copy explicit split intent, never a retained Ready projection/source.
+    pub(crate) fn prepare_expanded_folding_view(
+        &mut self,
+        target: u64,
+        source: u64,
+    ) -> Result<FoldViewInsertion<'_>> {
+        self.prepare_folding_view_inner(target, Some(source), true, false)
+    }
+    /// Copy a normal editor view without fold intent or prepared authority.
+    /// The exact source and core view/selection capacities remain validated.
+    pub(crate) fn prepare_expanded_editor_view(
+        &mut self,
+        target: u64,
+        source: u64,
+    ) -> Result<FoldViewInsertion<'_>> {
+        self.prepare_folding_view_inner(target, Some(source), false, false)
+    }
     pub fn prepare_folding_view(
         &mut self,
         target: u64,
         copy_from: Option<u64>,
+    ) -> Result<FoldViewInsertion<'_>> {
+        self.prepare_folding_view_inner(target, copy_from, true, true)
+    }
+    fn prepare_folding_view_inner(
+        &mut self,
+        target: u64,
+        copy_from: Option<u64>,
+        copy_intent: bool,
+        copy_ready: bool,
     ) -> Result<FoldViewInsertion<'_>> {
         ensure!(
             self.exact_fold_view(target).is_none(),
@@ -797,8 +964,8 @@ impl Document {
             snippet: None,
             snippet_generation: origin.snippet_generation,
             pairs: super::typing::Pairs::default(),
-            folding: if copy_from.is_some() {
-                origin.folding.fresh_copy()
+            folding: if copy_from.is_some() && copy_intent {
+                origin.folding.fresh_copy(copy_ready)
             } else {
                 View::default()
             },
@@ -1468,6 +1635,221 @@ mod tests {
         assert_eq!(
             bytes(&doc),
             "root\r\n child猫\r\n  body🙂\r\n tail\r\nafter\r\n".as_bytes()
+        );
+    }
+    #[test]
+    fn exact_visible_header_unfold_preserves_original_reversed_and_secondary_cohort() {
+        let mut doc = Document::from_text(SOURCE);
+        doc.activate_view(7);
+        publish(&mut doc, 7);
+        let tail = doc.text.line_to_char(4);
+        doc.set_selections(vec![
+            Selection {
+                cursor: 0,
+                anchor: Some(2),
+                desired_column: None,
+            },
+            Selection::caret(tail),
+        ]);
+        let selections = doc.selections();
+        let epoch = doc.text_epoch();
+        let revision = doc.revision;
+        let catalog = Arc::from([]);
+        let prepared = doc
+            .capture_folding(7, options(&doc))
+            .unwrap()
+            .prepare_action(
+                FoldAction::UnfoldHeader(1),
+                catalog,
+                &AtomicBool::new(false),
+                Instant::now() + Duration::from_secs(5),
+            )
+            .unwrap();
+        doc.prepare_fold_publication(prepared).unwrap().publish();
+        assert_eq!(doc.selections(), selections);
+        assert_eq!(doc.text_epoch(), epoch);
+        assert_eq!(doc.revision, revision);
+        assert_eq!(bytes(&doc), SOURCE.as_bytes());
+        assert_eq!(doc.folding_desired_count(7), Some(0));
+        assert_eq!(visible(&doc, 7), vec![0, 1, 2, 3, 4, 5]);
+    }
+    #[test]
+    fn empty_retained_journal_capacity_is_charged_once_across_historical_views() {
+        let mut doc = Document::from_text(SOURCE);
+        publish(&mut doc, 0);
+        for _ in 0..128 {
+            doc.move_to(0, false);
+            doc.insert("a", false);
+        }
+        let capacity = doc.folding_changes.capacity();
+        assert!(capacity >= 128);
+        let before = (
+            bytes(&doc),
+            doc.cursor,
+            doc.revision,
+            doc.text_epoch(),
+            doc.save_generation(),
+            doc.dirty(),
+        );
+        doc.retire_folding_policy();
+        assert!(doc.folding_changes.is_empty());
+        assert_eq!(doc.folding_changes.capacity(), capacity);
+        let view_bytes = std::mem::size_of::<View>() + 2 * std::mem::size_of::<usize>();
+        assert_eq!(
+            doc.folding_resources(),
+            (0, 0, view_bytes + capacity * std::mem::size_of::<Change>())
+        );
+        doc.activate_view(7);
+        assert_eq!(
+            doc.folding_resources(),
+            (
+                0,
+                0,
+                2 * view_bytes + capacity * std::mem::size_of::<Change>()
+            ),
+            "A journal belongs to the model, not each view"
+        );
+        assert_eq!(
+            (
+                bytes(&doc),
+                doc.cursor,
+                doc.revision,
+                doc.text_epoch(),
+                doc.save_generation(),
+                doc.dirty()
+            ),
+            before
+        );
+        for _ in 0..128 {
+            doc.undo();
+        }
+        assert_eq!(bytes(&doc), SOURCE.as_bytes());
+        assert!(!doc.dirty());
+        assert_eq!(doc.folding_changes.capacity(), capacity);
+        for _ in 0..128 {
+            doc.redo();
+        }
+        assert_eq!(bytes(&doc), before.0);
+        assert_eq!(doc.save_generation(), before.4);
+    }
+    #[test]
+    fn full_journal_rollover_never_reserves_a_discarded_257th_change() {
+        let mut doc = Document::from_text(SOURCE);
+        publish(&mut doc, 0);
+        for _ in 0..MAX_JOURNAL {
+            doc.move_to(0, false);
+            doc.insert("a", false);
+        }
+        assert_eq!(doc.folding_changes.len(), MAX_JOURNAL);
+        let capacity = doc.folding_changes.capacity();
+        let first = doc.folding_changes.front().unwrap().epoch;
+        doc.insert("b", false);
+        assert_eq!(doc.folding_changes.len(), MAX_JOURNAL);
+        assert_eq!(doc.folding_changes.capacity(), capacity);
+        assert_eq!(doc.folding_changes.front().unwrap().epoch, first + 1);
+        assert!(doc.view.folding.desired.is_empty());
+        for _ in 0..=MAX_JOURNAL {
+            doc.undo();
+        }
+        assert_eq!(bytes(&doc), SOURCE.as_bytes());
+        assert!(!doc.dirty());
+        assert_eq!(doc.save_generation(), 0);
+        assert_eq!(doc.folding_changes.capacity(), capacity);
+    }
+    #[test]
+    fn expanded_split_copy_preserves_intent_but_retains_no_ready_source() {
+        let mut doc = Document::from_text(SOURCE);
+        doc.activate_view(7);
+        publish(&mut doc, 7);
+        let before = (
+            bytes(&doc),
+            doc.cursor,
+            doc.revision,
+            doc.text_epoch(),
+            doc.save_generation(),
+            doc.dirty(),
+        );
+        let (anchors, payload) = doc.expanded_folding_copy_metadata(7).unwrap();
+        let prior = doc.folding_resources();
+        let source_stamp = doc.folding_view_stamp(7).unwrap();
+        let source_retention = doc.folding_source_bytes();
+        doc.prepare_expanded_folding_view(9, 7).unwrap().publish();
+        assert_eq!(
+            doc.folding_resources(),
+            (prior.0 + anchors, prior.1, prior.2 + payload)
+        );
+        assert_eq!(doc.folding_source_bytes(), source_retention);
+        assert_eq!(doc.folding_desired_count(9), Some(anchors));
+        assert!(doc.current_folding_rows(9).is_none());
+        assert_ne!(doc.folding_view_stamp(9).unwrap().0, source_stamp.0);
+        assert!(doc.current_folding_rows(7).is_some());
+        assert_eq!(
+            (
+                bytes(&doc),
+                doc.cursor,
+                doc.revision,
+                doc.text_epoch(),
+                doc.save_generation(),
+                doc.dirty()
+            ),
+            before
+        );
+    }
+    #[test]
+    fn ordinary_split_copies_exact_public_view_but_no_existing_fold_authority() {
+        let mut doc = Document::from_text(SOURCE);
+        doc.activate_view(7);
+        doc.insert("é", false);
+        doc.undo(); // leave meaningful Redo intact across the pure view operation
+        publish(&mut doc, 7);
+        let before = (
+            bytes(&doc),
+            doc.selections(),
+            doc.revision,
+            doc.text_epoch(),
+            doc.save_generation(),
+            doc.dirty(),
+        );
+        let original = doc.folding_view_stamp(7).unwrap();
+        let resources = doc.folding_resources();
+        doc.prepare_expanded_editor_view(9, 7).unwrap().publish();
+        assert_eq!(doc.folding_desired_count(7), Some(1));
+        assert_eq!(doc.folding_desired_count(9), Some(0));
+        assert!(doc.current_folding_rows(7).is_some());
+        assert!(doc.current_folding_rows(9).is_none());
+        assert_ne!(doc.folding_view_stamp(9).unwrap().0, original.0);
+        assert_eq!(doc.folding_resources().0, resources.0);
+        assert_eq!(doc.folding_resources().1, resources.1);
+        assert_eq!(
+            (
+                bytes(&doc),
+                doc.selections(),
+                doc.revision,
+                doc.text_epoch(),
+                doc.save_generation(),
+                doc.dirty()
+            ),
+            before
+        );
+        doc.activate_view(9);
+        assert_eq!(doc.selections(), before.1);
+        doc.redo();
+        assert_eq!(bytes(&doc), format!("é{SOURCE}").as_bytes());
+        doc.undo();
+        assert_eq!(bytes(&doc), SOURCE.as_bytes());
+        let prior = (
+            bytes(&doc),
+            doc.folding_resources(),
+            doc.folding_view_stamp(9),
+        );
+        assert!(doc.prepare_expanded_editor_view(10, 12345).is_err());
+        assert_eq!(
+            (
+                bytes(&doc),
+                doc.folding_resources(),
+                doc.folding_view_stamp(9)
+            ),
+            prior
         );
     }
 }
