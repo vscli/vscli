@@ -1,0 +1,1169 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "caseCount": 18,
+  "snapshotCount": 65,
+  "setupObservationCount": 91,
+  "traceSha256": "c059e6bdc0d2cba1bd5ae3db97c99d8f89d9d7d24872bd3d97ceb39697523873",
+  "evidenceSha256": "af2c57577fa93731bb914719b35b1d0aaa7715605f637b275338e2a67cfb3b77",
+  "casesSha256": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+  "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+  "files": [
+    {
+      "case": "multiple-historical-pins",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "multiple-historical-pins",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "multiple-historical-pins",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "multiple-historical-pins",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "multiple-historical-pins",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "multiple-historical-pins",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "multiple-historical-pins",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "multiple-historical-pins",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "first-sticky-unpin-and-right-open",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "first-sticky-unpin-and-right-open",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "first-sticky-unpin-and-right-open",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "first-sticky-unpin-and-right-open",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "first-sticky-unpin-and-right-open",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "first-sticky-unpin-and-right-open",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "first-sticky-unpin-and-right-open",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "first-sticky-unpin-and-right-open",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "middle-sticky-unpin-repin-and-repeat",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "middle-sticky-unpin-repin-and-repeat",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "middle-sticky-unpin-repin-and-repeat",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "middle-sticky-unpin-repin-and-repeat",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "middle-sticky-unpin-repin-and-repeat",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "middle-sticky-unpin-repin-and-repeat",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "middle-sticky-unpin-repin-and-repeat",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "middle-sticky-unpin-repin-and-repeat",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "last-sticky-unpin-repeat-and-preview-request",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "last-sticky-unpin-repeat-and-preview-request",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "last-sticky-unpin-repeat-and-preview-request",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "last-sticky-unpin-repeat-and-preview-request",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "last-sticky-unpin-repeat-and-preview-request",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "last-sticky-unpin-repeat-and-preview-request",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "last-sticky-unpin-repeat-and-preview-request",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "last-sticky-unpin-repeat-and-preview-request",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "open-from-first-sticky-clamps-beyond-prefix",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "open-from-first-sticky-clamps-beyond-prefix",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "open-from-first-sticky-clamps-beyond-prefix",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "open-from-first-sticky-clamps-beyond-prefix",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "open-from-first-sticky-clamps-beyond-prefix",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "open-from-first-sticky-clamps-beyond-prefix",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "open-from-first-sticky-clamps-beyond-prefix",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "open-from-first-sticky-clamps-beyond-prefix",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "preview-replacement-with-sticky-prefix",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "preview-replacement-with-sticky-prefix",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "preview-replacement-with-sticky-prefix",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "preview-replacement-with-sticky-prefix",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "preview-replacement-with-sticky-prefix",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "preview-replacement-with-sticky-prefix",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "preview-replacement-with-sticky-prefix",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "preview-replacement-with-sticky-prefix",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "sticky-source-split-and-independent-open",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "sticky-source-split-and-independent-open",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "sticky-source-split-and-independent-open",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "sticky-source-split-and-independent-open",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "sticky-source-split-and-independent-open",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "sticky-source-split-and-independent-open",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "sticky-source-split-and-independent-open",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "sticky-source-split-and-independent-open",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "shared-edit-undo-redo-retains-sticky-source",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "shared-edit-undo-redo-retains-sticky-source",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "shared-edit-undo-redo-retains-sticky-source",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "shared-edit-undo-redo-retains-sticky-source",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "shared-edit-undo-redo-retains-sticky-source",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "shared-edit-undo-redo-retains-sticky-source",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "shared-edit-undo-redo-retains-sticky-source",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "shared-edit-undo-redo-retains-sticky-source",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "protected-close-same-group-nonsticky-mru",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "protected-close-same-group-nonsticky-mru",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "protected-close-same-group-nonsticky-mru",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "protected-close-same-group-nonsticky-mru",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "protected-close-same-group-nonsticky-mru",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "protected-close-same-group-nonsticky-mru",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "protected-close-same-group-nonsticky-mru",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "protected-close-same-group-nonsticky-mru",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "protected-close-other-group-nonsticky-mru",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "protected-close-other-group-nonsticky-mru",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "protected-close-other-group-nonsticky-mru",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "protected-close-other-group-nonsticky-mru",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "protected-close-other-group-nonsticky-mru",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "protected-close-other-group-nonsticky-mru",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "protected-close-other-group-nonsticky-mru",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "protected-close-other-group-nonsticky-mru",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "protected-close-no-nonsticky-target",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "protected-close-no-nonsticky-target",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "protected-close-no-nonsticky-target",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "protected-close-no-nonsticky-target",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "protected-close-no-nonsticky-target",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "protected-close-no-nonsticky-target",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "protected-close-no-nonsticky-target",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "protected-close-no-nonsticky-target",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "forced-close-clean-sticky-default-policy",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "forced-close-clean-sticky-default-policy",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "forced-close-clean-sticky-default-policy",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "forced-close-clean-sticky-default-policy",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "forced-close-clean-sticky-default-policy",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "forced-close-clean-sticky-default-policy",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "forced-close-clean-sticky-default-policy",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "forced-close-clean-sticky-default-policy",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "never-policy-ordinary-close-sticky",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "never-policy-ordinary-close-sticky",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "never-policy-ordinary-close-sticky",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "never-policy-ordinary-close-sticky",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "never-policy-ordinary-close-sticky",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "never-policy-ordinary-close-sticky",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "never-policy-ordinary-close-sticky",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "never-policy-ordinary-close-sticky",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "mouse-policy-keyboard-close-sticky",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "mouse-policy-keyboard-close-sticky",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "mouse-policy-keyboard-close-sticky",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "mouse-policy-keyboard-close-sticky",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "mouse-policy-keyboard-close-sticky",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "mouse-policy-keyboard-close-sticky",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "mouse-policy-keyboard-close-sticky",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "mouse-policy-keyboard-close-sticky",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "keyboard-policy-protects-sticky-and-falls-back",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "keyboard-policy-protects-sticky-and-falls-back",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "keyboard-policy-protects-sticky-and-falls-back",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "keyboard-policy-protects-sticky-and-falls-back",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "keyboard-policy-protects-sticky-and-falls-back",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "keyboard-policy-protects-sticky-and-falls-back",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "keyboard-policy-protects-sticky-and-falls-back",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "keyboard-policy-protects-sticky-and-falls-back",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "close-editors-in-group-excludes-sticky",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "close-editors-in-group-excludes-sticky",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "close-editors-in-group-excludes-sticky",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "close-editors-in-group-excludes-sticky",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "close-editors-in-group-excludes-sticky",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "close-editors-in-group-excludes-sticky",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "close-editors-in-group-excludes-sticky",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "close-editors-in-group-excludes-sticky",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "close-all-editors-excludes-sticky-across-groups",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "close-all-editors-excludes-sticky-across-groups",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "close-all-editors-excludes-sticky-across-groups",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "close-all-editors-excludes-sticky-across-groups",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "close-all-editors-excludes-sticky-across-groups",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "close-all-editors-excludes-sticky-across-groups",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "close-all-editors-excludes-sticky-across-groups",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "close-all-editors-excludes-sticky-across-groups",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    },
+    {
+      "case": "close-all-clean-nonsticky-empty-group-boundary",
+      "resource": "a.txt",
+      "sha256": "279d5e538dff6ddf1c9e4fbe4ed3fc9914e01f3f7dd6422e2f9ce202d6dcfcab"
+    },
+    {
+      "case": "close-all-clean-nonsticky-empty-group-boundary",
+      "resource": "b.txt",
+      "sha256": "33320a8899b7572e4d7826bc05bc3cb96b3e6a4208f8cb855b8df44630a31df3"
+    },
+    {
+      "case": "close-all-clean-nonsticky-empty-group-boundary",
+      "resource": "c.txt",
+      "sha256": "43a8b2e6fd9abf7c66e76fed3147f779414448d746b31947ab9c581e2ba03cd5"
+    },
+    {
+      "case": "close-all-clean-nonsticky-empty-group-boundary",
+      "resource": "d.txt",
+      "sha256": "66bb619f8ee96ad8422e5befb0e101a654ea80c543ca378f297eedbf179a2b23"
+    },
+    {
+      "case": "close-all-clean-nonsticky-empty-group-boundary",
+      "resource": "e.txt",
+      "sha256": "a1722c63a401c1391e60965654bff0771f0d9a637912bd8b507928245e55628f"
+    },
+    {
+      "case": "close-all-clean-nonsticky-empty-group-boundary",
+      "resource": "f.txt",
+      "sha256": "ceef1e02fe51793ab6e3d3094120df419fbe410eb63f1e40c7d0f8c776d1690c"
+    },
+    {
+      "case": "close-all-clean-nonsticky-empty-group-boundary",
+      "resource": "g.txt",
+      "sha256": "3b10be3ff6c6bda233262c3a41e9e7e299a99d02574be0c5157b889860f7246f"
+    },
+    {
+      "case": "close-all-clean-nonsticky-empty-group-boundary",
+      "resource": "h.txt",
+      "sha256": "2e77acb33dd38eabe7db76244b0c73395e3decec98f7b950156a6b70ebeec1c8"
+    }
+  ],
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:11.523Z",
+      "name": "multiple-historical-pins",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "a78ca99b612bbabe9d1dbd62029a05be97ba5f2ae53a8e9b53b7e75a4f0a8065",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:17.117Z",
+      "name": "first-sticky-unpin-and-right-open",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "02c165b25da0e08d5cfb3a4153c90da3e8695d1d3f33f7c669ff2a556e2612ba",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:22.855Z",
+      "name": "middle-sticky-unpin-repin-and-repeat",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "ab496dd662f4db9ac33b73418fb4d8411c041219725c578a59d74881ed5a25b3",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:27.711Z",
+      "name": "last-sticky-unpin-repeat-and-preview-request",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "05917f0cb0a0cdd28366deeca0ac9797b48d6e7f80351a3ba7a06f7b37b84f79",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:32.429Z",
+      "name": "open-from-first-sticky-clamps-beyond-prefix",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "4d0fffc277270e6ecdab6bc21e15088f72a67629943db5039fef60b335cfacb7",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:37.184Z",
+      "name": "preview-replacement-with-sticky-prefix",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "0bcebb55dbe619a86ed290f6dc6c9e84273bd07e567f5e2c81a35a28e6e093bd",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:41.216Z",
+      "name": "sticky-source-split-and-independent-open",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "e5607ceb8587d3f2f08f61b72951e30add81b2e10497bb8a8d0458bcf3a42df7",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:45.783Z",
+      "name": "shared-edit-undo-redo-retains-sticky-source",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "4633ce703da928fc70e07a8e59da738d9401234fe4cbae3e3b7e448dd09e3b3f",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:49.956Z",
+      "name": "protected-close-same-group-nonsticky-mru",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "92a5538f9d669d2c3555a72ca29b10af8a81abcb51e674bad8d82b051448b400",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:54.216Z",
+      "name": "protected-close-other-group-nonsticky-mru",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "1a2ef916843a9932a83e62d7116a845e6da8bb9fb0e12b06f69ce18320d132d6",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:40:59.022Z",
+      "name": "protected-close-no-nonsticky-target",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "681e0f6ee35f0cfb9d4547ff3c7b2d928efb628cc4cd3abd178579b617d17176",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:41:03.350Z",
+      "name": "forced-close-clean-sticky-default-policy",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "b68c905b2681a7f5f49b421b925d115e2e605fba6fb203f33d6e136558756ebd",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:41:07.841Z",
+      "name": "never-policy-ordinary-close-sticky",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "6e13513c15d798bc3f926166d3bdb8c6c0b2cd75d17c8905729c2ca3ab98ced3",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "5591156be642395027870b6420ebeba34be283187da6d5e7ea8807d632ccf4b8",
+      "closePolicy": "never",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:41:12.596Z",
+      "name": "mouse-policy-keyboard-close-sticky",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "e0a6ab2a684516f1423b2ae5fdffff8aa64d405a170821c53df65df5b36ba67d",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "0c6393106af46be44625c32687c555d0d3b4582ff165763a11e44e02bc8cbf06",
+      "closePolicy": "mouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:41:17.495Z",
+      "name": "keyboard-policy-protects-sticky-and-falls-back",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "1282e2683e3beafe4c82bd41ac3a532fcb963cda58fbc0af1978ad5551386e8a",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "0f64a64bad60578bf29c2972703a194319db12fa4e3a6426956a1dfa7008a4cf",
+      "closePolicy": "keyboard",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:41:21.938Z",
+      "name": "close-editors-in-group-excludes-sticky",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "3b30bdaef490a134a5d29ce15af3279859aeabfb5cf0052ade05525bfc67a285",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:41:26.241Z",
+      "name": "close-all-editors-excludes-sticky-across-groups",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "2333c47cb81d11093ace374df60b5109ca6c36a4d84d5cc5d9ece54a5bdc2009",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T17:41:30.127Z",
+      "name": "close-all-clean-nonsticky-empty-group-boundary",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launchedExecutableSha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+      "evidenceSha256": "71f08b75cd69ac0dfcc5f450758e6fd9e5e9340d520ef68c1663adbdc92e9a77",
+      "sources": {
+        "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+        "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+        "editor-sticky-tabs-suite.cjs": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8",
+        "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+      "closePolicy": "keyboardAndMouse",
+      "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+    }
+  ]
+}

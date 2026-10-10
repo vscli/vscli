@@ -57,6 +57,17 @@ const SOURCES: [(&str, &str); 8] = [
 ];
 const MONOTONIC_ROOT: &str = "tests/vscode-reference-sticky-monotonic-candidate";
 const MONOTONIC_SUITE: &str = "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8";
+const MONOTONIC_ARCHIVE: &str =
+    "tests/vscode-reference/observations/1.95.0/sticky-monotonic/3e81350";
+
+fn current_baseline() -> Result<Inputs> {
+    load_with_contract(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(MONOTONIC_ARCHIVE)
+            .join("linux/target/vscode-reference/result/editor-sticky-tabs"),
+        SourceContract::Monotonic,
+    )
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SourceContract {
@@ -882,7 +893,9 @@ fn main() -> Result<()> {
         println!("Verified all eight frozen monotonic sticky inputs");
         return Ok(());
     }
-    let inputs = if args.first().is_some_and(|arg| arg == "--monotonic") {
+    let inputs = if args.is_empty() {
+        current_baseline()?
+    } else if args.first().is_some_and(|arg| arg == "--monotonic") {
         ensure!(
             args.len() == 2,
             "Monotonic capture requires its explicit full directory"
@@ -890,18 +903,13 @@ fn main() -> Result<()> {
         load_with_contract(&PathBuf::from(&args[1]), SourceContract::Monotonic)?
     } else {
         ensure!(
-            args.len() <= 1
+            args.len() == 1
                 && args
                     .first()
                     .is_none_or(|arg| !arg.to_string_lossy().starts_with("--")),
-            "Expected optional full historical directory or --monotonic <full current directory>"
+            "Expected no arguments, a full historical directory or --monotonic <full current directory>"
         );
-        let directory = args.first().map(PathBuf::from).unwrap_or_else(|| {
-            Path::new(env!("CARGO_MANIFEST_DIR")).join(
-                "tests/vscode-reference/baselines/1.95.0/editor-sticky-tabs-observer-corrected",
-            )
-        });
-        load(&directory)?
+        load(&PathBuf::from(&args[0]))?
     };
     // Preflight ALL artifacts and late fields before temporary fixture writes.
     let corpus = validate(&inputs)?;
@@ -1621,6 +1629,85 @@ impl Replay {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn genuine_three_platform_archives_preserve_complete_inputs_and_outputs() {
+        let archives = [
+            (
+                "linux",
+                11677123920u64,
+                "67269dabcfc88b0c69917a464b9c83349348068854f2c5118be1b976e1436d41",
+            ),
+            (
+                "darwin",
+                11677184243,
+                "40001d94a54321e76a9fd379c5e999eccfdc7ce71b36305cbf4cab43b64f0984",
+            ),
+            (
+                "win32",
+                11677436283,
+                "9c711b9263472047fde9b8b376db27747e8cfe01ed053c4fd42dd9e4ab2f38b0",
+            ),
+        ];
+        for (platform, artifact, inventory_hash) in archives {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(MONOTONIC_ARCHIVE)
+                .join(platform);
+            let mut total = 0;
+            let bytes = read(&root.join("inventory.json"), &mut total).unwrap();
+            assert_eq!(hash(&bytes), inventory_hash);
+            let inventory = parsed(&bytes).unwrap();
+            assert_eq!(inventory["run"], 38071676391u64);
+            assert_eq!(
+                inventory["head"],
+                "3e813500114f6c30d9e00fb15d54d5b85e1fb69b"
+            );
+            assert_eq!(inventory["artifact"], artifact);
+            assert_eq!(inventory["platform"], platform);
+            assert_eq!(inventory["fileCount"], 49);
+            let files = inventory["files"].as_array().unwrap();
+            assert_eq!(files.len(), 49);
+            let mut original_bytes = 0u64;
+            for file in files {
+                let path = Path::new(file["path"].as_str().unwrap());
+                assert!(!path.is_absolute());
+                assert!(
+                    path.components()
+                        .all(|c| matches!(c, std::path::Component::Normal(_)))
+                );
+                let bytes = read(&root.join(path), &mut total).unwrap();
+                assert_eq!(file["bytes"], bytes.len());
+                assert_eq!(file["sha256"], hash(&bytes));
+                original_bytes += bytes.len() as u64;
+            }
+            assert_eq!(inventory["bytes"], original_bytes);
+            for (name, expected) in SourceContract::Monotonic.sources() {
+                let path = root.join(MONOTONIC_ROOT).join(name);
+                assert_eq!(hash(&read(&path, &mut total).unwrap()), expected);
+            }
+            // These byte/source checks do not bypass the pinned launcher guard
+            // needed for full Mac/Windows artifact admission and native replay.
+        }
+    }
+    #[test]
+    fn genuine_monotonic_linux_baseline_admits_and_replays_every_original_frame() {
+        let inputs = current_baseline().unwrap();
+        let corpus = validate(&inputs).unwrap();
+        let actual = compare(&corpus).unwrap();
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(MONOTONIC_ARCHIVE)
+            .join("linux/target/vscode-reference/result/editor-sticky-tabs/native-comparison.json");
+        let expected = parsed(&read(&path, &mut 0).unwrap()).unwrap();
+        assert_eq!(actual, expected);
+        assert_eq!(actual["caseCount"], 18);
+        assert_eq!(actual["targetSnapshotCount"], 65);
+        assert_eq!(actual["setupSnapshotCount"], 91);
+        assert_eq!(actual["emptyGroupBoundaries"].as_array().unwrap().len(), 4);
+
+        // A genuine current receipt never selects its own source contract.
+        let mut historical = inputs;
+        historical.contract = SourceContract::Historical;
+        assert!(validate(&historical).is_err());
+    }
     fn baseline() -> Inputs {
         load(
             &Path::new(env!("CARGO_MANIFEST_DIR")).join(

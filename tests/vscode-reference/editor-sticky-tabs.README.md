@@ -178,3 +178,12 @@ still checks the original baseline and sources. A historical capture cannot
 select the new contract by reporting a different hash, and corrected elapsed
 metadata must be strictly below 3000 ms. Fresh remote capture and complete native
 replay remain qualification gates; no old observations were rewritten.
+
+
+The successful corrected three-platform cohort from run 38071676391 is now
+[permanently preserved](observations/1.95.0/sticky-monotonic/3e81350/README.md).
+No-argument native comparison uses its actual Linux capture with the compiled
+monotonic source contract. Explicit historical directory comparison continues
+to use this original source and timing contract; this package and its original
+artifacts are unchanged. See the corrected producer README for current commands
+and exact qualification scope.
