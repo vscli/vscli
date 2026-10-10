@@ -14,6 +14,16 @@ pub const MAX_STATE_BYTES: usize = 256 * 1024;
 pub const MAX_VALUE_BYTES: usize = 64 * 1024;
 const MAX_KEYS: usize = 1024;
 
+struct StateLock<'a>(&'a File);
+impl Drop for StateLock<'_> {
+    fn drop(&mut self) {
+        // Closing this descriptor alone can leave a Unix lock alive in a child
+        // forked before exec. Explicitly release the shared open-description
+        // lock on every return/unwind while this worker still owns its file.
+        let _ = self.0.unlock();
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum Scope {
@@ -236,6 +246,7 @@ impl Store {
                 Err(error) => bail!("Extension state lock unavailable: {error}"),
             }
         }
+        let _lock = StateLock(&lock);
         let mut values = Self::read_path(&path)?;
         if let Some(value) = value {
             values.insert(key.to_owned(), value);
@@ -466,6 +477,101 @@ mod tests {
         store
             .update("sample.one", Scope::Global, "retry", Some(json!(9)))
             .unwrap();
+    }
+    #[cfg(unix)]
+    #[test]
+    fn update_releases_inherited_lock_before_child_exit_on_success_and_failure() {
+        use std::os::fd::{FromRawFd, OwnedFd};
+
+        // A child forked while an update holds the lock retains the same open
+        // file description until exec/exit. Keep it alive past the update using
+        // only async-signal-safe operations after fork, like a delayed pre_exec.
+        struct ForkGate {
+            release: File,
+            child: libc::pid_t,
+        }
+        impl ForkGate {
+            fn new() -> Result<Self> {
+                let mut pipe = [-1; 2];
+                if unsafe { libc::pipe(pipe.as_mut_ptr()) } != 0 {
+                    return Err(std::io::Error::last_os_error().into());
+                }
+                // SAFETY: pipe returned two newly owned descriptors.
+                let read = unsafe { OwnedFd::from_raw_fd(pipe[0]) };
+                let write = unsafe { OwnedFd::from_raw_fd(pipe[1]) };
+                let child = unsafe { libc::fork() };
+                if child == -1 {
+                    return Err(std::io::Error::last_os_error().into());
+                }
+                if child == 0 {
+                    // Do not invoke Rust destructors, allocation, or test APIs
+                    // in the child of the multithreaded test runner.
+                    unsafe {
+                        libc::close(pipe[1]);
+                        let mut byte = 0u8;
+                        let mut result;
+                        loop {
+                            result = libc::read(pipe[0], (&mut byte as *mut u8).cast(), 1);
+                            if result >= 0 {
+                                break;
+                            }
+                        }
+                        libc::_exit(if result == 1 { 0 } else { 1 });
+                    }
+                }
+                drop(read);
+                Ok(Self {
+                    release: write.into(),
+                    child,
+                })
+            }
+        }
+        impl Drop for ForkGate {
+            fn drop(&mut self) {
+                // Release and reap even if an assertion unwinds.
+                let _ = self.release.write_all(&[1]);
+                loop {
+                    let result = unsafe { libc::waitpid(self.child, std::ptr::null_mut(), 0) };
+                    if result >= 0
+                        || std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+        for fail in [false, true] {
+            let (_directory, store) = fixture();
+            store
+                .update("sample.one", Scope::Global, "old", Some(json!(1)))
+                .unwrap();
+            let path = store.path("sample.one", Scope::Global).unwrap();
+            let before = fs::read(&path).unwrap();
+            let mut child = None;
+            let result =
+                store.update_with("sample.one", Scope::Global, "new", Some(json!(2)), || {
+                    child = Some(ForkGate::new()?);
+                    if fail {
+                        bail!("injected before atomic commit");
+                    }
+                    Ok(())
+                });
+            assert_eq!(result.is_err(), fail);
+            assert!(child.is_some(), "the update must reach its locked callback");
+            let lock = open_regular(&path.with_extension("lock"), true).unwrap();
+            assert!(
+                lock.try_lock().is_ok(),
+                "update must release its lock before the gated child exits (failure={fail})"
+            );
+            lock.unlock().unwrap();
+            if fail {
+                assert_eq!(fs::read(&path).unwrap(), before);
+            } else {
+                assert_eq!(store.read("sample.one", Scope::Global).unwrap()["new"], 2);
+            }
+            drop(child);
+        }
     }
     #[cfg(unix)]
     #[test]
