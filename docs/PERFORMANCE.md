@@ -815,3 +815,64 @@ python3 scripts/bench_editor.py --vscli /path/to/group-tabs/vscli \
   --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
   --output target/benchmarks/native-editor-group-tabs-single-line.json
 ```
+
+
+## Native preview tabs core baseline (2026-10-10)
+
+The [ordinary-file report](benchmarks/2026-10-10-native-editor-preview-tabs.json)
+and [single-line report](benchmarks/2026-10-10-native-editor-preview-tabs-single-line.json)
+compare the preview executable's native source tree
+`ac7188bf99161cdb6e513020cd2ebaf375582784` with the preserved group-tabs build
+from `247fa0029207d62b50a656522d00f245ec4c8e00`. The candidate was built at
+`734c124e00005b0aa42a244c2a7a870ec72d0aef`; its native source tree is unchanged
+at the recorded qualification revision `8b61df4240c13389768cf3832290d88ae760b941`.
+Subsequent observer, test and documentation changes do not alter the executable.
+Five interleaved launches and 200 serial keys per executable/workload yield
+40 successful launches, 1,600 observed keys and zero failures. No local builds,
+test suites or reference editors ran during either measurement.
+
+| File / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS median MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / group tabs | 5.159 | 0.273 | 0.653 | 0.770 | 12.96 |
+| 10 KiB multiline / preview tabs | 5.098 | 0.283 | 0.688 | 0.984 | 13.01 |
+| 1 MiB multiline / group tabs | 9.078 | 0.295 | 0.664 | 0.921 | 14.15 |
+| 1 MiB multiline / preview tabs | 7.333 | 0.304 | 0.678 | 0.811 | 14.26 |
+| 10 MiB multiline / group tabs | 17.916 | 0.296 | 0.805 | 0.981 | 24.55 |
+| 10 MiB multiline / preview tabs | 19.013 | 0.311 | 0.784 | 1.056 | 24.40 |
+| 1 MiB single line / group tabs | 7.961 | 0.203 | 0.743 | 0.828 | 14.18 |
+| 1 MiB single line / preview tabs | 7.607 | 0.200 | 0.689 | 0.911 | 14.22 |
+
+Candidate key medians were higher for the three multiline workloads and lower
+for the single-line workload; startup, tails and sampled RSS are mixed. This run establishes no overall speedup, causal regression
+or editor ranking. Five startup samples do not qualify startup tails; pooled keys
+are not independent launches and sampled RSS is not peak memory. Host frequency,
+temperature and scheduling were uncontrolled on the Linux x86_64 i9-13900H machine.
+
+Both binaries edit warm-cache ASCII plaintext at 120 × 40 cells with isolated
+settings/data, recovery disabled, no language server/extensions, and autosave,
+formatting and source actions off. Default file Breadcrumbs are enabled; each
+renders one committed group tab. These trials exercise core editing with preview
+support present; they do not open or replace preview tabs. The Python PTY-cell
+oracle is included; physical input and graphical painting are excluded. Active
+preview churn, multiple groups, save contention, project indexing and extension
+workloads need separate performance qualification. Correctness of the preview
+lifecycle is recorded in [the group contract](EDITOR_GROUPS.md).
+
+Candidate executable SHA256:
+`d9015c5b95388c9098f1e538cdea562b954e6bf3cae00514bda1d69052e27e7e`.
+Baseline executable SHA256:
+`f71b398da2dc6f7cba0f183f8f6f3321dc3d95115da4e29caa453eb9c66a7a3e`.
+The baseline predates the adjacent-Escape parser fix; these measurements send
+ASCII insertion keys and exercise no Escape sequence. Raw reports retain every
+trial, executable/fixture hashes and the qualification revision.
+
+```sh
+python3 scripts/bench_editor.py --vscli /path/to/preview-tabs/vscli \
+  --compare-vscli /path/to/group-tabs/vscli \
+  --sizes 10240 1048576 10485760 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-editor-preview-tabs.json
+python3 scripts/bench_editor.py --vscli /path/to/preview-tabs/vscli \
+  --compare-vscli /path/to/group-tabs/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-editor-preview-tabs-single-line.json
+```

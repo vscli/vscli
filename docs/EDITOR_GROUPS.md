@@ -157,8 +157,9 @@ regressions cover full-group Recent/reopen loads and clean-session admission int
 129 documents distributed across two groups. The isolated
 [core comparison](PERFORMANCE.md#native-editor-group-tabs-core-baseline-2026-10-10)
 records 40 successful launches/1,600 keys with mixed observations and no speed ranking.
-Fresh platform checks remain pending. Windows ConPTY, graphical input and every upstream tab policy are not
-qualified by these Unix terminal checks.
+The group-tab PR passed all six protected checks on its reviewed head and is
+merged on main. Windows ConPTY, graphical input and every upstream tab policy are
+not qualified by these Unix terminal checks.
 
 The final upstream close retains one empty active group. VSCLI's welcome
 workbench has zero engine groups and no document. This is an explicit internal
@@ -184,7 +185,7 @@ remain pending.
 The new actual pinned reference contains 11 cases and 86 frames. The strict
 consumer verifies every raw frame and compares all 68 frames of the nine supported
 preview/committed cases. The two sticky cases (18 frames) remain verified raw
-evidence and are excluded explicitly by name. All 21 engine tests, seven consumer
+evidence and are excluded explicitly by name. All 21 engine tests, nine consumer
 integrity/replay tests, formatting and strict all-target locked Clippy pass.
 Both unchanged frozen and fresh Linux captures pass native replay. Public version
 and object allocation remain raw evidence outside the native comparison. The
@@ -234,16 +235,32 @@ previous previews. Preview mode is transient in this slice; sticky/tab-mode
 persistence, complete settings/open policies and full workspace parity remain
 pending.
 
-Local qualification: 864 ordinary Rust tests across 42 reports, 20 optional
-integrations ignored; seven separate preview integrity/replay tests; formatting
-and strict all-target locked Clippy pass. Eleven initial helper tests plus the
-promotion-failure fence, original-profile chord/style tests, settings ABA,
-Untitled API lifecycle and an actual authorized save gate cover the native
-ownership boundaries. Six new PTY journeys across eight sessions pass on the
-reviewed debug executable with original keys, empty PATH and missing Node. The
-27 remaining ordinary Unix PTY scripts pass with 126 reports; the existing six
-group-tab and six preview reports bring this qualification to 29 scripts and
-138 reports. All 133 extension-host and 25 Python tooling tests pass. Fresh
-platform and optimized qualification are recorded separately when complete.
-Native Explorer click is implemented; this keyboard corpus does not
-qualify graphical single/double-click parity.
+Local qualification on the main-based preview branch: 890 all-target Rust tests
+across 50 reports pass, with 20 optional integrations ignored. This includes nine
+preview integrity/replay tests. Formatting, strict all-target locked Clippy and
+seven observer path/event tests pass. The refreshed actual Linux observer records
+all 11 cases and 86 frames, exactly matching the original trace; its separate
+source-matched baseline preserves the original evidence unchanged.
+
+Helper, promotion-failure fence, original-profile chord/style, settings ABA,
+Untitled API lifecycle and actual authorized-save tests cover native ownership
+boundaries. All 30 ordinary Unix PTY scripts pass with 140 reports, including six
+new preview journeys across eight sessions. These use original keys, empty PATH
+and missing Node for the preview journeys. All 133 extension-host and 25 Python
+tooling tests passed earlier on unchanged component source. The optimized executable passes all 66 reports across seven scripts: preview,
+group tabs, saving, format-on-save, source actions, adjacent Escape and the full
+35-report smoke suite. Its native source tree exactly matches this reviewed
+branch; later changes only affect qualification, documentation and observers.
+The [isolated paired benchmark](PERFORMANCE.md#native-preview-tabs-core-baseline-2026-10-10)
+passes 40 launches and 1,600 keys with mixed measurements; it does not establish
+an editor ranking or active-preview performance. Fresh protected platform checks
+are required before merging the preview PR.
+
+The previous Windows run failed in the observer's canonical-path equality, and
+the macOS smoke test edited before positively observing Quick Open publication.
+The observer now classifies known files through canonical containment, retains
+bounded supplemental callback evidence and propagates callback failures. The
+smoke test waits for the exact result and loaded document before editing. These
+changes require a fresh platform run; a local Linux pass alone does not qualify
+Windows or macOS. Native Explorer click is implemented; this keyboard corpus
+does not qualify graphical single/double-click parity.
