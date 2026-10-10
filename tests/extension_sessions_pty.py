@@ -90,6 +90,7 @@ def wait(app, expected):
 
 def command(app, query):
     app.send(b"\x1bOP")
+    wait(app, "Command Palette")
     app.send(query + "\r")
 
 

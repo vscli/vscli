@@ -22,6 +22,22 @@ It keeps the existing parser-batch size and does not alter the shared descriptor
 blocking flags, key decoding, Windows input, or the alternative `use-dev-tty`
 backend. The input API's single-reader assumption remains in force.
 
+The Unix parsers also preserve the second prefix when Escape followed by an
+SS3/CSI shortcut arrives in one read. Upstream consumed both adjacent Escape
+bytes as one event, turning an original Escape followed by F1 into Escape and
+literal `OP`. This was observed in the macOS extension-provider workflow. The
+patch emits the first Escape and parses the second as a fresh prefix, with no
+new timeout. Both Mio and `use-dev-tty` share this rule. Two plain Escapes remain
+two events; legacy Alt-prefixed function keys can have the same bytes as Escape
+followed by that function key, so this rule does not claim to distinguish them.
+Enhanced explicit modifier reporting remains separate.
+
+`tests/adjacent_escape_pty.py` deliberately sends Escape and original F1 in one
+write, from both Inspector and editor focus, in legacy and enhanced sessions.
+It verifies palette/Inspector transitions and exact saved Unicode/CRLF bytes.
+The same unchanged regression fails on the unpatched executable. Extension
+workflow command submission also waits for the actual palette before typing.
+
 An unnecessary pair of closure parentheses in `src/terminal/sys/unix.rs` is also
 removed to avoid an upstream compiler warning when building this path dependency.
 
