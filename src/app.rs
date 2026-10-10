@@ -18,6 +18,7 @@ mod navigation;
 mod navigation_history;
 mod outline;
 mod panes;
+mod save_code_actions;
 mod save_formatting;
 mod saving;
 mod settings_persistence;
@@ -678,6 +679,7 @@ impl App {
                         self.cancel_suggestions();
                         self.cancel_code_actions();
                         self.clear_signature();
+                        self.retire_save_code_actions("settings changed during code actions");
                         self.retire_save_formatting("settings changed during formatting");
                         let previous = std::mem::replace(&mut self.settings, settings);
                         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
@@ -712,6 +714,7 @@ impl App {
         }
         changed |= self.poll_language_services();
         changed |= self.poll_language();
+        changed |= self.poll_save_code_actions(std::time::Instant::now());
         changed |= self.poll_save_formatting(std::time::Instant::now());
         changed |= self.poll_native_saves();
         changed |= self.poll_git();
@@ -1309,6 +1312,9 @@ impl App {
     fn key(&mut self, key: KeyEvent) {
         let token = keys::token(key);
         self.last_key = Some(key);
+        if key.code == KeyCode::Esc && self.escape_save_code_actions() {
+            return;
+        }
         if key.code == KeyCode::Esc && self.escape_save_formatting() {
             return;
         }

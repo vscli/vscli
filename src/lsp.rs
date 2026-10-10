@@ -935,7 +935,6 @@ impl Client {
     pub(crate) fn action_channel_closed(&self) -> bool {
         self.action_slot.as_ref().is_some_and(|slot| slot.timed_out)
     }
-    #[cfg(test)]
     pub(crate) fn action_request_current(&self, token: u64) -> bool {
         self.action_slot
             .as_ref()
