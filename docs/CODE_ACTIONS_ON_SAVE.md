@@ -30,9 +30,17 @@ Object policy runs fix-all first; legacy arrays retain the configured family ord
 autosave skips source actions, including always and array policies. Focus/window
 autosave and focus-triggered actions are not implemented by this participant.
 
-The pinned 1.95 runtime treats false and never differently under an enabled
-ancestor: false does not exclude that ancestor's descendants; never does. The
-native policy preserves that observed distinction. Kinds match dot boundaries,
+The original Linux reference captured a transitional startup distinction under
+an enabled ancestor: false did not exclude its descendants, while never did.
+The current native policy retains that observed behavior. Pinned VS Code also
+runs an asynchronous settings migration that converts legacy object booleans
+to stable strings (true→explicit, false→never). Independent remote Linux/macOS/
+Windows [configuration timelines](../tests/vscode-reference/observations/1.95.0/save-configuration-diagnostics/67ab795/README.md)
+retain false during provider/didSave callbacks and a later event converting it
+to never. The transitional comparison therefore does not establish stable
+legacy-boolean compatibility. A separately qualified stable setup, native
+in-memory policy correction and source-matched baseline adoption remain pending;
+settings files and the original evidence have not been rewritten. Kinds match dot boundaries,
 so `source.fixAllX` is outside fix-all. A broad `source` entry projects to the two
 supported families with a notice about other unavailable source actions.
 Malformed effective values fail closed with a notice; native limits include
