@@ -367,5 +367,20 @@ consumer explicitly preserves the upstream one-empty-group versus native
 zero-group welcome boundary. Shared native identity and dirty recovery remain
 authoritative. Delayed Save→Close retains the exact original tab identity through
 focus changes and rejects close/reopen ABA. See [implementation and qualification](EDITOR_GROUPS.md).
-Preview/pinned tabs, editor movement, resizing/nested layouts and workspace
-transitions remain next within priority 6 before moving to wrap/folding.
+Preview tabs are merged in PR #67. Sticky tabs are in PR #68; its fresh Linux
+and Windows checks pass, while macOS exposed an earlier save-action reference
+readiness mismatch that remains under investigation before merge.
+
+The nested-layout candidate implements local Right/Down splits, original
+width/height/reset commands in terminal cells, sealed exact-group pointer maps,
+and strict schema-3 clean continuity for tree weights, sticky prefixes and shared
+historical views. Legacy schemas remain readable without rewriting on load;
+recovery and held save ownership remain authoritative. It passes 987 all-target
+Rust tests across 51 reports, formatting and strict locked Clippy. Eight relevant
+Unix scripts pass 40 reports, including four new nested reports over five sessions.
+Optimized and platform qualification remain separate gates. See [layout scope
+and evidence](EDITOR_LAYOUT.md).
+
+Editor movement/reordering, spatial focus, distinct Close Group merge semantics,
+divider dragging and workspace transitions remain priority-6 gaps. Wrap/folding
+still needs a unified display-row mapping; neither prototype is a shipped feature.
