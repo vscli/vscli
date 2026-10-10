@@ -1054,7 +1054,7 @@ impl MirrorState {
             }
             mirror.save_generation = doc.save_generation();
             let mut snapshot = json!({"savedGeneration": mirror.save_generation, "id":doc.id, "uri":uri, "version":mirror.version,
-                "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.dirty()});
+                "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.api_dirty()});
             if needs_text {
                 snapshot["text"] = doc.text.to_string().into();
             }
@@ -1131,6 +1131,26 @@ mod tests {
         let (_, undone) = third.next(&docs, 1).unwrap();
         assert_eq!(undone["documents"][1]["version"], 3);
         assert_eq!(undone["documents"][1]["text"], "other");
+    }
+    #[test]
+    fn untitled_mirror_dirty_state_survives_undo_without_changing_tab_cleanliness() {
+        let mut docs = vec![Document::from_text("")];
+        let (first, initial) = MirrorState::default().next(&docs, 0).unwrap();
+        assert_eq!(initial["documents"][0]["isDirty"], false);
+        docs[0].insert("猫🙂\r\n", false);
+        let (second, edited) = first.next(&docs, 0).unwrap();
+        assert_eq!(edited["documents"][0]["isDirty"], true);
+        docs[0].undo();
+        let (third, undone) = second.next(&docs, 0).unwrap();
+        assert_eq!(undone["documents"][0]["isDirty"], true);
+        assert_eq!(undone["documents"][0]["text"], "");
+        assert_eq!(undone["documents"][0]["version"], 3);
+        assert!(!docs[0].dirty());
+        docs[0].redo();
+        let (_, redone) = third.next(&docs, 0).unwrap();
+        assert_eq!(redone["documents"][0]["text"], "猫🙂\r\n");
+        assert_eq!(redone["documents"][0]["isDirty"], true);
+        assert_eq!(redone["documents"][0]["version"], 4);
     }
     #[test]
     fn path_dirty_and_lifecycle_updates_preserve_content_identity() {

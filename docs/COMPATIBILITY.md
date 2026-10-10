@@ -408,3 +408,11 @@ remain immutable. Commands, insert/replace pairs, item defaults and full Intelli
 parity remain outstanding. See [contracts and qualification](COMPLETIONS.md).
 
 Extension code actions combine every matching ready provider (up to eight) with native LSP in a source-labelled picker. Textual WorkspaceEdits and lazy resolution preserve captured visible/hidden/untitled identity, EOL and per-file Undo. Unsupported commands/resource operations have individual disabled rows. Native diagnostics in extension contexts, closed-file edits and full code-action parity remain outstanding. See [scope and evidence](CODE_ACTIONS.md).
+
+
+The public document dirty state for an edited Untitled resource remains true
+when Undo restores its initial empty text. The native tab and close decision
+continue to use revision cleanliness, so that same tab has no modified marker.
+The pinned preview corpus observes both flags separately. Optional-host document
+snapshots now preserve this distinction without changing text, Undo/Redo or
+version ownership. Initial untouched empty Untitled documents remain clean.
