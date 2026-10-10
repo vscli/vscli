@@ -1,0 +1,41 @@
+# Native display-row foundation
+
+This candidate adds pure folding and display-row modules. It does not expose
+Fold/Unfold commands or word wrapping in the editor. App view ownership, workers,
+rendering, navigation, reveal paths, popup anchors and source clicks still need
+combined integration and terminal qualification.
+
+`DisplayRows` owns an immutable Rope snapshot, options and private preparation
+identity. A clone preserves identity; a fresh equal preparation does not revive
+old authority. Future callers also need exact document, text-epoch and view
+lifetime guards. Visible anchors, ordinals, clamped movement, grapheme-aware cell
+hits and logical-offset projection share one mapping. Hidden logical positions
+identify their visible header and require a reveal before editing. Hidden rows
+cannot produce source hits. CRLF source offsets and configured tab stops are
+preserved; inside-cluster projection has explicit before/after affinity.
+
+The ordinary unwrapped identity path accepts the native 32 MiB source limit and
+uses Rope line metadata without discovering folds or building a line inventory.
+Prepared folding separately admits at most 2 MiB, 100,000 lines, 5,000 regions and
+256 nesting levels. Validation rejects stale, crossing and duplicate ranges as a
+whole. Discovery accepts cancellation and a deadline. No worker or queue is
+allocated by these pure APIs. Word wrapping is explicitly refused. Width zero
+permits row traversal but no actionable cell projection.
+
+Cell mapping scans graphemes up to the requested line prefix, using the existing
+chunked native helper; a cross-chunk cluster can allocate. This foundation is not
+a cached long-line projection or a typing-latency claim. Per-view display state
+must remain separate from document Undo. Edits must retire folded projections
+before a new normal frame; pending preparation cannot hide new source text.
+
+Qualification includes eight retained folding tests and nine new display-row
+tests. Independent visibility intervals and contiguous Unicode/tab cell oracles
+cover nested folds, EOF, CRLF, combining sequences, wide characters, control
+characters, cross-chunk clusters, zero/narrow widths, extreme movement, malformed
+late input, private preparation identity and the distinct source admission limits.
+These are native foundation tests, not upstream command or desktop parity.
+
+The candidate passes 1,004 all-target Rust tests across 51 reports (20 optional
+cases ignored), formatting and strict locked all-target Clippy. The display-row
+tests are repeated after the test-only Clippy correction. No terminal gesture
+changes in this pure slice require a new PTY claim; the later App feature does.
