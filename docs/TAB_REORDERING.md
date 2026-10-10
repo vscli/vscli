@@ -52,3 +52,23 @@ independently of its shell-skip list. This slice retains native terminal routing
 terminal-child chord/configuration equivalence is outstanding. Editor input
 qualification does not establish that equivalence or physical shortcut delivery
 through every host terminal.
+
+
+## Rebased save/layout qualification
+
+The two reordering commits are rebased onto nested-layout parent
+`c9682f5a1a879370803c86715fc6ebf623a303f0`, including merged stable save policy
+and the corrected sticky source/deadline observer. Current local qualification
+passes 1,038 locked all-target Rust tests across 51 reports, with 23 optional
+integrations ignored, formatting and strict locked all-target Clippy. Four debug
+terminal scripts pass 20 reports covering reordering, nested layouts, sticky tabs
+and source actions on save. Reordering and sticky terminal scripts pass nine
+reports on the optimized executable. No local reference-editor instance was
+launched. Earlier counts and all-green CI describe the original feature head.
+
+A scoped read-only source review found no actionable blocker in staged rotation,
+sticky/preview transitions, document/view identity, accepted Save-to-Close
+ownership, source-hit retirement or original platform bindings. These tests and
+review do not establish cross-group transfer, physical keyboard delivery on all
+terminals or full workbench parity. Fresh protected exact-head checks and parent
+integration remain required before merge.
