@@ -1,0 +1,61 @@
+name: Save participant readiness candidate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/save-actions-readiness.yml'
+      - 'tests/vscode-reference-save-actions-readiness-candidate/**'
+permissions:
+  contents: read
+concurrency:
+  group: save-readiness-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  observe:
+    name: Observe readiness (${{ matrix.os }})
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Check controlled readiness behavior
+        run: node --test tests/vscode-reference-save-actions-readiness-candidate/save-code-actions-readiness.test.cjs
+      - name: Install pinned harness dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tests/vscode-reference-save-actions-readiness-candidate
+      - name: Capture exact input hashes and candidate revision
+        shell: bash
+        run: |
+          mkdir -p target/save-actions-readiness
+          git rev-parse HEAD > target/save-actions-readiness/candidate-revision.txt
+          node -e 'const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");const root="tests/vscode-reference-save-actions-readiness-candidate";const expected=JSON.parse(fs.readFileSync(path.join(root,"source-sha256.json")));for(const [name,wanted]of Object.entries(expected)){const actual=crypto.createHash("sha256").update(fs.readFileSync(path.join(root,name))).digest("hex");if(actual!==wanted)throw Error("Source hash differs: "+name);}fs.writeFileSync("target/save-actions-readiness/verified-source-sha256.json",JSON.stringify(expected,null,2)+"\n");'
+      - name: Observe pinned original save targets (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -o pipefail
+          xvfb-run -a node tests/vscode-reference-save-actions-readiness-candidate/save-code-actions-run.cjs target/save-actions-readiness/result 2>&1 | tee target/save-actions-readiness/capture.log
+      - name: Observe pinned original save targets (macOS and Windows)
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/vscode-reference-save-actions-readiness-candidate/save-code-actions-run.cjs target/save-actions-readiness/result 2>&1 | tee target/save-actions-readiness/capture.log
+      - name: Archive observations, failures and immutable source inputs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: save-actions-readiness-${{ matrix.os }}
+          path: |
+            target/save-actions-readiness
+            tests/vscode-reference-save-actions-readiness-candidate/*.cjs
+            tests/vscode-reference-save-actions-readiness-candidate/*.json
+            tests/vscode-reference-save-actions-readiness-candidate/README.md
+          if-no-files-found: error
