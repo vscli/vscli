@@ -230,6 +230,18 @@ jobs:
         env:
           VSCLI_EDITOR_GROUP_TABS_REFERENCE_DIR: ${{ github.workspace }}/target/vscode-reference/result/editor-group-tabs
         run: cargo test --locked --test editor_group_tabs_reference
+      - name: Observe preview and sticky tab lifecycle (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 4
+        run: xvfb-run -a node tests/vscode-reference/editor-preview-tabs-run.cjs target/vscode-reference/result/editor-preview-tabs
+      - name: Observe preview and sticky tab lifecycle (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 4
+        run: node tests/vscode-reference/editor-preview-tabs-run.cjs target/vscode-reference/result/editor-preview-tabs
+      - name: Check preview reference integrity and replay tests
+        run: cargo test --locked --example editor_preview_tabs_contract
+      - name: Compare native preview lifecycle with fresh complete observations
+        run: cargo run --locked --example editor_preview_tabs_contract -- target/vscode-reference/result/editor-preview-tabs > target/vscode-reference/result/editor-preview-tabs/native-comparison.json
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -241,6 +253,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/editor_group_tabs_pty.py target/debug/vscli
+      - name: Run native preview tab ownership workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/editor_preview_tabs_pty.py target/debug/vscli
       - name: Run native code-actions-on-save workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
