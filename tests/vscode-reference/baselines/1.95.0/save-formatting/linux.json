@@ -1,0 +1,246 @@
+[
+  {
+    "name": "explicit-file-unicode-crlf",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 22,
+          "cursor": 22
+        },
+        "disk": "猫🙂\r\nlet value = 1;\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value = 1;\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 22,
+          "cursor": 22
+        },
+        "disk": "猫🙂\r\nlet value = 1;\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "kind": "format",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "result": "edit"
+      }
+    ]
+  },
+  {
+    "name": "explicit-null-no-extra-undo",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "kind": "format",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "result": "null"
+      }
+    ]
+  },
+  {
+    "name": "after-delay-skips-formatter",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "files.autoSave.afterDelay",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      }
+    ],
+    "callbacks": []
+  },
+  {
+    "name": "source-action-before-file-format",
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 31,
+          "cursor": 31
+        },
+        "disk": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "imported 猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 29,
+          "cursor": 29
+        },
+        "disk": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 31,
+          "cursor": 31
+        },
+        "disk": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "kind": "sourceAction",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      },
+      {
+        "kind": "format",
+        "text": "imported 猫🙂\r\nlet value=1;\r\nλ🙂",
+        "result": "edit"
+      }
+    ]
+  }
+]

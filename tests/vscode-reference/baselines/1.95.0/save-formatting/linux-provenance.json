@@ -1,0 +1,105 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "caseCount": 4,
+  "snapshotCount": 18,
+  "traceSha256": "c73214599b36ff19ca3668a9878ec6d9a430dbf3ace004443c03a75dd4024346",
+  "evidenceSha256": "6302870577407d375f542f2cbbad73056b457e9ec310df62283cce5fec7406dd",
+  "casesSha256": "51a3d994143d01dc2dd1003ee8993a196b8891c8281b1b47ad2bdc21105531e6",
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T05:59:14.111Z",
+      "name": "explicit-file-unicode-crlf",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "a055c9e7d0a8d89058af2c4b7b45941cc53512d6199832f6df7ae26e3c51c94a",
+      "sources": {
+        "save-formatting.cjs": "124fee481cbfa58daed3694f577b05b9e0fe392bc13a089e8ffbcff92c3c748a",
+        "save-formatting-cases.json": "51a3d994143d01dc2dd1003ee8993a196b8891c8281b1b47ad2bdc21105531e6",
+        "save-formatting-suite.cjs": "8e1225525e6fc152ce44afbcd79e876458440411923b82ab516708dda6b4ed6f",
+        "save-formatting-run.cjs": "06bc0ab6969944ea1a79260d7ace228bba90aff08aa402b1d16d62ab0b5c5116",
+        "save-formatting-worker.cjs": "f5c3c31c54102893a4dc29dec86311318189a6ac8ed55fa8b5709afc1b3a1a26",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "e15454d346a9b05cec9079b0cf131d8539947c267fd1d4cdd7e5613d3062efa1",
+      "scope": "Named synthetic formatter/source-action APIs, original commands, exact text/disk/selection/dirty projection; file mode only. Not unchanged formatter extension, native save-participant parity, timeout behavior or entire undo ecosystem qualification"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T05:59:16.274Z",
+      "name": "explicit-null-no-extra-undo",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "3a5afd28775ceba1a3d29da7d81878c4177fe9ead7ffb385b2d2b60cd9665376",
+      "sources": {
+        "save-formatting.cjs": "124fee481cbfa58daed3694f577b05b9e0fe392bc13a089e8ffbcff92c3c748a",
+        "save-formatting-cases.json": "51a3d994143d01dc2dd1003ee8993a196b8891c8281b1b47ad2bdc21105531e6",
+        "save-formatting-suite.cjs": "8e1225525e6fc152ce44afbcd79e876458440411923b82ab516708dda6b4ed6f",
+        "save-formatting-run.cjs": "06bc0ab6969944ea1a79260d7ace228bba90aff08aa402b1d16d62ab0b5c5116",
+        "save-formatting-worker.cjs": "f5c3c31c54102893a4dc29dec86311318189a6ac8ed55fa8b5709afc1b3a1a26",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "e15454d346a9b05cec9079b0cf131d8539947c267fd1d4cdd7e5613d3062efa1",
+      "scope": "Named synthetic formatter/source-action APIs, original commands, exact text/disk/selection/dirty projection; file mode only. Not unchanged formatter extension, native save-participant parity, timeout behavior or entire undo ecosystem qualification"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T05:59:19.217Z",
+      "name": "after-delay-skips-formatter",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "8fadc73439616b1a09b1dfdd213b3e29608b9bf6a8d52eea22e9dae5a2f936af",
+      "sources": {
+        "save-formatting.cjs": "124fee481cbfa58daed3694f577b05b9e0fe392bc13a089e8ffbcff92c3c748a",
+        "save-formatting-cases.json": "51a3d994143d01dc2dd1003ee8993a196b8891c8281b1b47ad2bdc21105531e6",
+        "save-formatting-suite.cjs": "8e1225525e6fc152ce44afbcd79e876458440411923b82ab516708dda6b4ed6f",
+        "save-formatting-run.cjs": "06bc0ab6969944ea1a79260d7ace228bba90aff08aa402b1d16d62ab0b5c5116",
+        "save-formatting-worker.cjs": "f5c3c31c54102893a4dc29dec86311318189a6ac8ed55fa8b5709afc1b3a1a26",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "e21619cb50698d4cd9dfc2f72d5780d93d5d20557c94471eeb2ad246670095f2",
+      "scope": "Named synthetic formatter/source-action APIs, original commands, exact text/disk/selection/dirty projection; file mode only. Not unchanged formatter extension, native save-participant parity, timeout behavior or entire undo ecosystem qualification"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T05:59:22.362Z",
+      "name": "source-action-before-file-format",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "1f1bba7dab7f177fb840a73a42fa7bc372792480aaad5a5d1ae5736fe9eda45c",
+      "sources": {
+        "save-formatting.cjs": "124fee481cbfa58daed3694f577b05b9e0fe392bc13a089e8ffbcff92c3c748a",
+        "save-formatting-cases.json": "51a3d994143d01dc2dd1003ee8993a196b8891c8281b1b47ad2bdc21105531e6",
+        "save-formatting-suite.cjs": "8e1225525e6fc152ce44afbcd79e876458440411923b82ab516708dda6b4ed6f",
+        "save-formatting-run.cjs": "06bc0ab6969944ea1a79260d7ace228bba90aff08aa402b1d16d62ab0b5c5116",
+        "save-formatting-worker.cjs": "f5c3c31c54102893a4dc29dec86311318189a6ac8ed55fa8b5709afc1b3a1a26",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "7e46617b3ba2bf31c9f6c32874d89860dfe355f6636886285919e37dd9450a8e",
+      "scope": "Named synthetic formatter/source-action APIs, original commands, exact text/disk/selection/dirty projection; file mode only. Not unchanged formatter extension, native save-participant parity, timeout behavior or entire undo ecosystem qualification"
+    }
+  ]
+}
