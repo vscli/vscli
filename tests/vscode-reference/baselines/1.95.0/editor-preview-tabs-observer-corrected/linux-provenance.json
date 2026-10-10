@@ -1,0 +1,488 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "caseCount": 11,
+  "snapshotCount": 86,
+  "traceSha256": "71a9c9bf91fd10ad7af3394d68c7c14ecda1fff13cd56654002124bccf976526",
+  "evidenceSha256": "03c76ac75f4953c9fcba895b81a7ce7ac1cb8aecf448876825388f08438402e1",
+  "casesSha256": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+  "files": [
+    {
+      "case": "clean-preview-replacement",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "clean-preview-replacement",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "clean-preview-replacement",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "clean-preview-replacement",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "repeated-preview-open-and-keep-editor",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "repeated-preview-open-and-keep-editor",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "repeated-preview-open-and-keep-editor",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "repeated-preview-open-and-keep-editor",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "dirty-promotion-and-undo-retention",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "dirty-promotion-and-undo-retention",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "dirty-promotion-and-undo-retention",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "dirty-promotion-and-undo-retention",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "untitled-retention-after-undo",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "untitled-retention-after-undo",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "untitled-retention-after-undo",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "untitled-retention-after-undo",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "sticky-pin-unpin-and-committed-distinction",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "sticky-pin-unpin-and-committed-distinction",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "sticky-pin-unpin-and-committed-distinction",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "sticky-pin-unpin-and-committed-distinction",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "per-group-preview-and-split",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "per-group-preview-and-split",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "per-group-preview-and-split",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "per-group-preview-and-split",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "committed-resource-elsewhere-prefers-active-group",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "committed-resource-elsewhere-prefers-active-group",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "committed-resource-elsewhere-prefers-active-group",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "committed-resource-elsewhere-prefers-active-group",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "dirty-split-and-undo",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "dirty-split-and-undo",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "dirty-split-and-undo",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "dirty-split-and-undo",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "explicit-committed-open-preserves-other-preview",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "explicit-committed-open-preserves-other-preview",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "explicit-committed-open-preserves-other-preview",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "explicit-committed-open-preserves-other-preview",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "shared-edit-through-committed-split-promotes-preview",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "shared-edit-through-committed-split-promotes-preview",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "shared-edit-through-committed-split-promotes-preview",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "shared-edit-through-committed-split-promotes-preview",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    },
+    {
+      "case": "historical-sticky-prefix-and-unpin-placement",
+      "resource": "a.txt",
+      "sha256": "8f7902ca8bb93c90e496ccd6c49c2a223e7d1c47bf70fbb432fd3aeab13111d4"
+    },
+    {
+      "case": "historical-sticky-prefix-and-unpin-placement",
+      "resource": "b.txt",
+      "sha256": "be9bfc86b7f39d74795a2b91027ad1a99df48f25c10a76186e5fc76ac1db5458"
+    },
+    {
+      "case": "historical-sticky-prefix-and-unpin-placement",
+      "resource": "c.txt",
+      "sha256": "64876948eab75588a4c2b4169110db31ed78230c7ec0fdc44fab374fef9b14b9"
+    },
+    {
+      "case": "historical-sticky-prefix-and-unpin-placement",
+      "resource": "d.txt",
+      "sha256": "9f56877c1fcf4779597cb2f95f9332cca860cb4407239b8b6c7c69d01798aa19"
+    }
+  ],
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:22.989Z",
+      "name": "clean-preview-replacement",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "ed5b7695fb3179abd1349f553449f33c3b22d47056129c5a91a89ee76c9f9a45",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:25.739Z",
+      "name": "repeated-preview-open-and-keep-editor",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "ed77e7496f256f7b7a3814eb74fec4748668bdca143eb4e0052b1136e0bfe6de",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:28.243Z",
+      "name": "dirty-promotion-and-undo-retention",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "0c5f4beebaf82733c138da07975dc3bb1687381f73e805c133eb263c732fdc6e",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:31.602Z",
+      "name": "untitled-retention-after-undo",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "3cbf8fe6a6d708993f392a4fe58ca3120a50dc5fb335997401a402b664e21781",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:34.577Z",
+      "name": "sticky-pin-unpin-and-committed-distinction",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "78536014ff7b653d3645c89f88bb87dc3edbcff87b9624e8b285a791ebeffe5d",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:37.367Z",
+      "name": "per-group-preview-and-split",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "bde13f1ae39f1a916e749ac2e97521e001db97e6f63dc159300e312cae3e3cd6",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:40.805Z",
+      "name": "committed-resource-elsewhere-prefers-active-group",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "4880f61a0d94c061c1cfb4128b165707394bb19c61c30d674f263b47f8ce1609",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:43.509Z",
+      "name": "dirty-split-and-undo",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "b1a940aa7799b9310d09dd0de07e7f9cef5a1cccac010793ea30f6f4d3f227e6",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:46.064Z",
+      "name": "explicit-committed-open-preserves-other-preview",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "7924ed73e71749063700ba9ee082abaf3c8bd165c9099e4509c6a4135912b744",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:48.723Z",
+      "name": "shared-edit-through-committed-split-promotes-preview",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "19fa5ce869479ab43bd957796d392999181cd4b133dc210e669ac6113b7262a4",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T10:21:51.613Z",
+      "name": "historical-sticky-prefix-and-unpin-placement",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "b27edf2871aed92e07498ebd378e99492db4cb514b6ac52db36403e2b645ea7f",
+      "sources": {
+        "editor-preview-tabs.cjs": "a75bc36daca120044e0a4458222de3b14a81423000097384d077e33cd0beb97d",
+        "editor-preview-tabs-cases.json": "ea81c47589df0e9e31f161c2a0db2cd368e0c3062ba43796581097e99b01d307",
+        "editor-preview-tabs-suite.cjs": "701ddd9a30888dd3081ded2d6a767f84df1c03bbd718e41041c04c0102e2e938",
+        "editor-preview-tabs-run.cjs": "cd6bd8ea37fa16612f0002d921b6a2217cdbd64a8c2037dbf9eaf51ed6be510e",
+        "editor-preview-tabs-worker.cjs": "f090a136e676ce3c28ea8aa0725c0881f55f46e9467a01081faae88a71122dcf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "d447a059432c2277a612c46fb5a0520463ba4d1d238d7fdfa472b4397b01e0e5",
+      "scope": "Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access"
+    }
+  ]
+}

@@ -230,6 +230,8 @@ jobs:
         env:
           VSCLI_EDITOR_GROUP_TABS_REFERENCE_DIR: ${{ github.workspace }}/target/vscode-reference/result/editor-group-tabs
         run: cargo test --locked --test editor_group_tabs_reference
+      - name: Check preview observer resource identity and listener evidence
+        run: node --test tests/vscode-reference/editor-preview-tabs-paths.test.cjs
       - name: Observe preview and sticky tab lifecycle (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 4

@@ -43,6 +43,8 @@ const SCOPE: &str = "Preview and sticky text-file/Untitled tabs, explicit defaul
 const SETUP_SCOPE: &str = "Initial file API setup only; every following tab/group/navigation/edit target uses its original public command once";
 const SETTLEMENT_SCOPE: &str = "Awaited command completion then 100ms unchanged public state; no target retry or expected-output predicate";
 const MAX_BYTES: u64 = 16 * 1024 * 1024;
+const SUPPLEMENTAL_SCOPE: &str = "Bounded non-file document change/close evidence and readiness-only non-file views; target editors and all file resources remain strict";
+const JS_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
 fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
@@ -281,6 +283,244 @@ struct Corpus {
     rows: Vec<Value>,
     platform: String,
 }
+fn supplemental_document(document: &Value) -> Result<bool> {
+    let uri = document["uri"]
+        .as_str()
+        .context("Supplemental URI missing")?;
+    let scheme = document["scheme"]
+        .as_str()
+        .context("Supplemental scheme missing")?;
+    ensure!(
+        !uri.is_empty()
+            && uri.len() <= 4096
+            && !scheme.is_empty()
+            && scheme.len() <= 64
+            && uri
+                .split_once(':')
+                .is_some_and(|(prefix, _)| prefix == scheme)
+            && document["languageId"]
+                .as_str()
+                .is_some_and(|language| language.len() <= 128)
+            && document["documentObject"]
+                .as_u64()
+                .is_some_and(|id| (1..=128).contains(&id))
+            && document["dirty"].is_boolean()
+            && document["version"]
+                .as_u64()
+                .is_some_and(|version| (1..=JS_SAFE_INTEGER).contains(&version)),
+        "Supplemental document metadata invalid"
+    );
+    let non_file = !matches!(scheme, "file" | "untitled");
+    ensure!(
+        document
+            .as_object()
+            .is_some_and(|object| object.len() == if non_file { 6 } else { 7 }),
+        "Supplemental document field inventory invalid"
+    );
+    if non_file {
+        ensure!(
+            document.get("resource").is_none(),
+            "Supplemental non-file resource forged"
+        );
+    } else {
+        let resource = document["resource"]
+            .as_str()
+            .context("Supplemental fixture resource missing")?;
+        ensure!(
+            (scheme == "file" && FILES.iter().any(|(name, _)| resource == *name))
+                || (scheme == "untitled" && resource == "untitled-1"),
+            "Supplemental fixture resource invalid"
+        );
+    }
+    Ok(non_file)
+}
+fn supplemental_view_column(value: Option<&Value>) -> bool {
+    value.is_some_and(|value| {
+        value.is_null()
+            || value
+                .as_u64()
+                .is_some_and(|column| (1..=4).contains(&column))
+    })
+}
+fn validate_supplemental(raw: &Value, steps: &[Value]) -> Result<()> {
+    ensure!(
+        raw["supplementalScope"] == SUPPLEMENTAL_SCOPE,
+        "Supplemental scope differs"
+    );
+    let events = raw["supplementalEvents"]
+        .as_array()
+        .context("Supplemental events missing")?;
+    ensure!(
+        events.len() <= 256,
+        "Supplemental event count budget exceeded"
+    );
+    let strict = raw["events"].as_array().context("Strict events missing")?;
+    ensure!(strict.len() <= 512, "Actual event budget invalid");
+    let details = raw["details"]
+        .as_array()
+        .context("Gesture evidence missing")?;
+    ensure!(
+        details.len() == steps.len(),
+        "Gesture/snapshot inventory differs"
+    );
+    let mut bytes = 0usize;
+    let mut previous_count = 0usize;
+    let mut previous_target = None;
+    for event in events {
+        let size = serde_json::to_vec(event)?.len();
+        bytes += size;
+        ensure!(
+            size <= 72 * 1024 && bytes <= 512 * 1024,
+            "Supplemental event byte budget exceeded"
+        );
+        let count = usize::try_from(
+            event["fixtureEventCount"]
+                .as_u64()
+                .context("Supplemental event position missing")?,
+        )?;
+        ensure!(
+            count >= previous_count && count <= strict.len(),
+            "Supplemental event position invalid"
+        );
+        previous_count = count;
+        let phase = event["phase"]
+            .as_object()
+            .context("Supplemental phase missing")?;
+        let readiness = match event["phase"]["kind"].as_str() {
+            Some("readiness") => {
+                ensure!(
+                    phase.len() == 1 && previous_target.is_none(),
+                    "Supplemental readiness phase invalid"
+                );
+                true
+            }
+            Some("target") => {
+                let index = usize::try_from(
+                    event["phase"]["index"]
+                        .as_u64()
+                        .context("Supplemental target index missing")?,
+                )?;
+                ensure!(
+                    phase.len() == 2
+                        && index < steps.len()
+                        && previous_target.is_none_or(|previous| index >= previous),
+                    "Supplemental target phase invalid"
+                );
+                previous_target = Some(index);
+                false
+            }
+            _ => bail!("Supplemental phase invalid"),
+        };
+        let fields = event
+            .as_object()
+            .context("Supplemental event is not an object")?
+            .len();
+        match event["kind"].as_str() {
+            Some("document-change" | "document-close") => {
+                ensure!(
+                    supplemental_document(&event["document"])?,
+                    "Supplemental document event is a fixture file"
+                );
+                if event["kind"] == "document-change" {
+                    ensure!(fields == 5, "Supplemental event field inventory invalid");
+                    let changes = event["changes"]
+                        .as_array()
+                        .context("Supplemental changes missing")?;
+                    ensure!(
+                        changes.len() <= 128,
+                        "Supplemental change count budget exceeded"
+                    );
+                    let mut text_bytes = 0usize;
+                    for change in changes {
+                        ensure!(
+                            change.as_object().is_some_and(|object| object.len() == 3),
+                            "Supplemental change field inventory invalid"
+                        );
+                        text_bytes += change["text"]
+                            .as_str()
+                            .context("Supplemental change text missing")?
+                            .len();
+                        ensure!(
+                            text_bytes <= 64 * 1024,
+                            "Supplemental change text budget exceeded"
+                        );
+                        ensure!(
+                            ["rangeOffset", "rangeLength"].iter().all(|key| change[*key]
+                                .as_u64()
+                                .is_some_and(|value| value <= JS_SAFE_INTEGER)),
+                            "Supplemental change range invalid"
+                        );
+                    }
+                } else {
+                    ensure!(
+                        fields == 4 && event.get("changes").is_none(),
+                        "Supplemental close contains changes"
+                    );
+                }
+            }
+            Some("active" | "selection") => {
+                ensure!(readiness, "Supplemental view is outside readiness");
+                ensure!(
+                    supplemental_document(&event["document"])?
+                        && supplemental_view_column(event.get("viewColumn")),
+                    "Supplemental view metadata invalid"
+                );
+                if event["kind"] == "selection" {
+                    ensure!(
+                        fields == 6
+                            && event.get("selectionKind").is_some_and(|kind| kind.is_null()
+                                || kind.as_u64().is_some_and(|kind| (1..=3).contains(&kind))),
+                        "Supplemental selection kind invalid"
+                    );
+                } else {
+                    ensure!(fields == 5, "Supplemental event field inventory invalid");
+                }
+            }
+            Some("visible") => {
+                ensure!(readiness, "Supplemental view is outside readiness");
+                ensure!(fields == 4, "Supplemental event field inventory invalid");
+                let editors = event["editors"]
+                    .as_array()
+                    .context("Supplemental visible editors missing")?;
+                ensure!(
+                    !editors.is_empty() && editors.len() <= 4,
+                    "Supplemental visible editor budget invalid"
+                );
+                let mut non_file = false;
+                for editor in editors {
+                    ensure!(
+                        editor.as_object().is_some_and(|object| object.len() == 2),
+                        "Supplemental visible editor fields invalid"
+                    );
+                    non_file |= supplemental_document(&editor["document"])?;
+                    ensure!(
+                        supplemental_view_column(editor.get("viewColumn")),
+                        "Supplemental view column invalid"
+                    );
+                }
+                ensure!(
+                    non_file,
+                    "Supplemental visible event has only fixture files"
+                );
+            }
+            _ => bail!("Supplemental event kind invalid"),
+        }
+    }
+    for (index, detail) in details.iter().enumerate() {
+        let actual = detail["supplementalEvents"]
+            .as_array()
+            .context("Supplemental target detail missing")?;
+        let expected: Vec<_> = events
+            .iter()
+            .filter(|event| event["phase"]["kind"] == "target" && event["phase"]["index"] == index)
+            .collect();
+        ensure!(
+            actual.iter().eq(expected),
+            "Supplemental target detail slice differs"
+        );
+    }
+    Ok(())
+}
 fn validate(trace: &[u8], evidence: &[u8], proof: &Value) -> Result<Corpus> {
     let case_bytes = source("editor-preview-tabs-cases.json")?;
     let cases: Vec<Value> = serde_json::from_slice(&case_bytes)?;
@@ -388,6 +628,7 @@ fn validate(trace: &[u8], evidence: &[u8], proof: &Value) -> Result<Corpus> {
         );
         let steps = case["steps"].as_array().context("Case steps missing")?;
         ensure!(steps.len() <= 8, "Case gesture budget exceeded");
+        validate_supplemental(raw, steps)?;
         let mut inventory = vec![json!("vscode.open")];
         for step in steps {
             if let Some(command) = step.get("command")
@@ -821,7 +1062,7 @@ fn main() -> Result<()> {
             (
                 Path::new(env!("CARGO_MANIFEST_DIR"))
                     .join(ROOT)
-                    .join("baselines/1.95.0/editor-preview-tabs"),
+                    .join("baselines/1.95.0/editor-preview-tabs-observer-corrected"),
                 "linux",
             )
         },
@@ -835,7 +1076,7 @@ fn main() -> Result<()> {
     let corpus = validate(&trace, &evidence, &proof)?;
     println!("{}", serde_json::to_string_pretty(&compare(&corpus)?)?);
     eprintln!(
-        "Compared 9 native preview/committed cases / 68 complete snapshots; verified 2 deferred sticky cases / 18 raw snapshots. App/save/loader/UI and public version/cache allocation are outside this projection; product.json hash is recorded, executable hash is absent."
+        "Compared 9 native preview/committed cases / 68 complete snapshots; verified 2 deferred sticky cases / 18 raw snapshots. Supplemental virtual/setup callback evidence was checked but is outside native callback equality. App/save/loader/UI and public version/cache allocation are outside this projection; product.json hash is recorded, executable hash is absent."
     );
     Ok(())
 }
@@ -846,7 +1087,7 @@ mod tests {
     fn baseline() -> (Vec<u8>, Vec<u8>, Value) {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join(ROOT)
-            .join("baselines/1.95.0/editor-preview-tabs");
+            .join("baselines/1.95.0/editor-preview-tabs-observer-corrected");
         (
             read(&root.join("linux.json")).unwrap(),
             read(&root.join("linux-evidence.json")).unwrap(),
@@ -924,6 +1165,48 @@ mod tests {
                 .unwrap()
                 .to_string(),
             "Pinned product identity differs"
+        );
+    }
+    fn virtual_document() -> Value {
+        json!({"uri":"output:extension-host", "scheme":"output", "documentObject":1,
+            "languageId":"Log", "dirty":false, "version":1})
+    }
+    fn replace_supplemental(raw: &mut Value, event: Value, retain_detail: bool) {
+        raw[0]["supplementalEvents"] = json!([event]);
+        for detail in raw[0]["details"].as_array_mut().unwrap() {
+            detail["supplementalEvents"] = json!([]);
+        }
+        if retain_detail {
+            raw[0]["details"][0]["supplementalEvents"] = raw[0]["supplementalEvents"].clone();
+        }
+    }
+    #[test]
+    fn coherent_digest_rewrite_cannot_hide_nonfile_target_view() {
+        assert_eq!(
+            tampered(|_, raw| {
+                replace_supplemental(
+                    raw,
+                    json!({"kind":"visible", "phase":{"kind":"target", "index":0},
+                "fixtureEventCount":0, "editors":[{"document":virtual_document(), "viewColumn":1}]}),
+                    true,
+                );
+            }),
+            "Supplemental view is outside readiness"
+        );
+    }
+    #[test]
+    fn coherent_digest_rewrite_cannot_drop_supplemental_target_detail() {
+        assert_eq!(
+            tampered(|_, raw| {
+                replace_supplemental(
+                    raw,
+                    json!({"kind":"document-change", "phase":{"kind":"target", "index":0},
+                "fixtureEventCount":0, "document":virtual_document(),
+                "changes":[{"text":"猫🙂\r\n", "rangeOffset":0, "rangeLength":0}]}),
+                    false,
+                );
+            }),
+            "Supplemental target detail slice differs"
         );
     }
     #[test]

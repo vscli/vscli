@@ -18,7 +18,40 @@ const policy = {
 };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function editorPreviewTabsTrace(vscode, name, workspace) {
+// Both arguments are real filesystem paths. Windows path.relative compares
+// drive/root casing and separator variants without weakening fixture containment.
+function fixtureFileResource(workspace, filename, paths = path) {
+  const relative = paths.relative(workspace, filename).split(paths.sep).join('/');
+  assert.ok(Object.hasOwn(files, relative), `Editor escaped fixture resource: ${relative}`);
+  return relative;
+}
+
+
+// VS Code catches exceptions thrown by listeners. Retain the first one and
+// explicitly fail the next snapshot/return so a capture cannot silently pass.
+function eventGuard() {
+  let failed = false, failure;
+  return {
+    listen: handler => (...args) => {
+      if (failed) return;
+      try { handler(...args); } catch (error) { failed = true; failure = error; }
+    },
+    check: () => { if (failed) throw failure; },
+  };
+}
+function supplementalRecorder() {
+  const events = [];
+  let bytes = 0;
+  return { events, record: event => {
+    assert.ok(events.length < 256, 'Supplemental event count budget exceeded');
+    const size = Buffer.byteLength(JSON.stringify(event));
+    assert.ok(size <= 72 * 1024 && bytes + size <= 512 * 1024,
+      'Supplemental event byte budget exceeded');
+    events.push(event); bytes += size;
+  } };
+}
+
+async function editorPreviewTabsTrace(vscode, name, workspace, onFailure = () => {}) {
   const fixture = cases.find(item => item.name === name);
   assert.ok(fixture, 'Unknown editor-preview-tabs case');
   assert.ok(fixture.steps.length <= 8);
@@ -41,14 +74,17 @@ async function editorPreviewTabsTrace(vscode, name, workspace) {
       return untitledResources.get(key);
     }
     assert.equal(uri.scheme, 'file', 'Unsupported editor escaped the fixture');
-    const relative = path.relative(canonicalWorkspace, fs.realpathSync(uri.fsPath)).split(path.sep).join('/');
-    assert.ok(Object.hasOwn(files, relative), `Editor escaped fixture resource: ${relative}`);
-    return relative;
+    return fixtureFileResource(canonicalWorkspace, fs.realpathSync(uri.fsPath));
   };
   const documentIds = new WeakMap();
   let nextDocument = 1;
+  const guard = eventGuard(), supplemental = supplementalRecorder();
+  let phase = { kind: 'readiness' };
   const publicDocument = document => {
-    if (!documentIds.has(document)) documentIds.set(document, nextDocument++);
+    if (!documentIds.has(document)) {
+      assert.ok(nextDocument <= 128, 'Public document identity budget exceeded');
+      documentIds.set(document, nextDocument++);
+    }
     return documentIds.get(document);
   };
   const editorState = editor => {
@@ -68,6 +104,7 @@ async function editorPreviewTabsTrace(vscode, name, workspace) {
       pinned: tab.isPinned, preview: tab.isPreview };
   };
   const snapshot = () => {
+    guard.check();
     const all = vscode.window.tabGroups.all;
     assert.ok(all.length <= 4);
     assert.ok(all.every(group => group.tabs.length <= 8));
@@ -79,7 +116,7 @@ async function editorPreviewTabsTrace(vscode, name, workspace) {
     const active = vscode.window.activeTextEditor ? editorState(vscode.window.activeTextEditor) : null;
     const documents = Object.keys(files).map(name => {
       const document = vscode.workspace.textDocuments.find(doc => doc.uri.scheme === 'file'
-        && fs.realpathSync(doc.uri.fsPath) === path.join(canonicalWorkspace, name));
+        && resource(doc.uri) === name);
       return { resource: name, loaded: Boolean(document), documentObject: document ? publicDocument(document) : null,
         text: document ? document.getText() : fs.readFileSync(path.join(canonicalWorkspace, name), 'utf8'),
         dirty: document?.isDirty ?? false, version: document?.version ?? null,
@@ -94,23 +131,61 @@ async function editorPreviewTabsTrace(vscode, name, workspace) {
   };
   const events = [];
   const record = event => { assert.ok(events.length < 512); events.push(event); };
+  const nonFixtureDocument = document => !['file', 'untitled'].includes(document.uri.scheme);
+  const supplementalDocument = document => {
+    const uri = document.uri.toString(true), languageId = document.languageId;
+    assert.ok(Buffer.byteLength(uri) <= 4096, 'Supplemental URI budget exceeded');
+    assert.ok(typeof languageId === 'string' && Buffer.byteLength(languageId) <= 128);
+    assert.ok(Buffer.byteLength(document.uri.scheme) <= 64);
+    return { uri, scheme: document.uri.scheme, documentObject: publicDocument(document),
+      ...(!nonFixtureDocument(document) ? { resource: resource(document.uri) } : {}),
+      languageId, dirty: document.isDirty, version: document.version };
+  };
+  const supplement = (kind, fields) => supplemental.record({ kind, phase: { ...phase },
+    fixtureEventCount: events.length, ...fields });
   const listeners = [
-    vscode.window.tabGroups.onDidChangeTabs(event => record({ kind: 'tabs',
-      opened: event.opened.map(tabState), closed: event.closed.map(tabState), changed: event.changed.map(tabState) })),
-    vscode.window.tabGroups.onDidChangeTabGroups(event => record({ kind: 'groups',
+    vscode.window.tabGroups.onDidChangeTabs(guard.listen(event => record({ kind: 'tabs',
+      opened: event.opened.map(tabState), closed: event.closed.map(tabState), changed: event.changed.map(tabState) }))),
+    vscode.window.tabGroups.onDidChangeTabGroups(guard.listen(event => record({ kind: 'groups',
       opened: event.opened.map(group => group.viewColumn), closed: event.closed.map(group => group.viewColumn),
-      changed: event.changed.map(group => group.viewColumn) })),
-    vscode.window.onDidChangeActiveTextEditor(editor => record({ kind: 'active', editor: editor ? editorState(editor) : null })),
-    vscode.window.onDidChangeVisibleTextEditors(editors => record({ kind: 'visible', editors: editors.map(editorState) })),
-    vscode.window.onDidChangeTextEditorSelection(event => record({ kind: 'selection',
-      selectionKind: event.kind ?? null, editor: editorState(event.textEditor) })),
-    vscode.workspace.onDidChangeTextDocument(event => record({ kind: 'document-change',
-      resource: resource(event.document.uri), documentObject: publicDocument(event.document),
-      dirty: event.document.isDirty, version: event.document.version,
-      changes: event.contentChanges.map(change => ({ text: change.text,
-        rangeOffset: change.rangeOffset, rangeLength: change.rangeLength })) })),
-    vscode.workspace.onDidCloseTextDocument(document => record({ kind: 'document-close',
-      resource: resource(document.uri), documentObject: publicDocument(document) })),
+      changed: event.changed.map(group => group.viewColumn) }))),
+    vscode.window.onDidChangeActiveTextEditor(guard.listen(editor => {
+      if (editor && nonFixtureDocument(editor.document) && phase.kind === 'readiness') {
+        supplement('active', { document: supplementalDocument(editor.document), viewColumn: editor.viewColumn ?? null });
+      } else record({ kind: 'active', editor: editor ? editorState(editor) : null });
+    })),
+    vscode.window.onDidChangeVisibleTextEditors(guard.listen(editors => {
+      assert.ok(editors.length <= 4);
+      if (phase.kind === 'readiness' && editors.some(editor => nonFixtureDocument(editor.document))) {
+        supplement('visible', { editors: editors.map(editor => ({ document: supplementalDocument(editor.document),
+          viewColumn: editor.viewColumn ?? null })) });
+      } else record({ kind: 'visible', editors: editors.map(editorState) });
+    })),
+    vscode.window.onDidChangeTextEditorSelection(guard.listen(event => {
+      if (phase.kind === 'readiness' && nonFixtureDocument(event.textEditor.document)) {
+        supplement('selection', { document: supplementalDocument(event.textEditor.document),
+          viewColumn: event.textEditor.viewColumn ?? null, selectionKind: event.kind ?? null });
+      } else record({ kind: 'selection', selectionKind: event.kind ?? null, editor: editorState(event.textEditor) });
+    })),
+    vscode.workspace.onDidChangeTextDocument(guard.listen(event => {
+      if (nonFixtureDocument(event.document)) {
+        assert.ok(event.contentChanges.length <= 128, 'Supplemental change count budget exceeded');
+        let textBytes = 0;
+        const changes = event.contentChanges.map(change => {
+          textBytes += Buffer.byteLength(change.text);
+          assert.ok(textBytes <= 64 * 1024, 'Supplemental change text budget exceeded');
+          return { text: change.text, rangeOffset: change.rangeOffset, rangeLength: change.rangeLength };
+        });
+        supplement('document-change', { document: supplementalDocument(event.document), changes });
+      } else record({ kind: 'document-change', resource: resource(event.document.uri),
+        documentObject: publicDocument(event.document), dirty: event.document.isDirty, version: event.document.version,
+        changes: event.contentChanges.map(change => ({ text: change.text,
+          rangeOffset: change.rangeOffset, rangeLength: change.rangeLength })) });
+    })),
+    vscode.workspace.onDidCloseTextDocument(guard.listen(document => {
+      if (nonFixtureDocument(document)) supplement('document-close', { document: supplementalDocument(document) });
+      else record({ kind: 'document-close', resource: resource(document.uri), documentObject: publicDocument(document) });
+    })),
   ];
   const settle = async () => {
     const start = Date.now(), deadline = start + 3000;
@@ -124,16 +199,20 @@ async function editorPreviewTabsTrace(vscode, name, workspace) {
       await delay(20);
     }
   };
+  let setup;
+  const observations = [], settlements = [], details = [];
   try {
     const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(canonicalWorkspace, 'a.txt')));
     await vscode.window.showTextDocument(document, { preview: true, viewColumn: vscode.ViewColumn.One });
     const prepared = await settle();
-    const setup = { commandInventory: required, effectiveConfiguration: effective,
+    setup = { commandInventory: required, effectiveConfiguration: effective,
       action: 'api.openTextDocument/showTextDocument', resource: 'a.txt', settlement: prepared,
       scope: 'Initial file API setup only; every following tab/group/navigation/edit target uses its original public command once' };
-    const observations = [{ action: 'initial', ...prepared.observed }], settlements = [prepared], details = [];
+    observations.push({ action: 'initial', ...prepared.observed });
+    settlements.push(prepared);
     for (const [index, step] of fixture.steps.entries()) {
-      const eventStart = events.length;
+      phase = { kind: 'target', index };
+      const eventStart = events.length, supplementalStart = supplemental.events.length;
       if (step.requireSharedDirty) {
         const before = snapshot();
         assert.ok(before.active?.dirty, 'Shared-dirty-close precondition missing');
@@ -157,12 +236,19 @@ async function editorPreviewTabsTrace(vscode, name, workspace) {
       const settled = await settle();
       observations.push({ action, ...(step.open ? { opened: step.open, requestedPreview: step.preview ?? true } : {}), ...settled.observed });
       settlements.push(settled);
-      details.push({ step: index, gesture: step, events: events.slice(eventStart) });
+      details.push({ step: index, gesture: step, events: events.slice(eventStart),
+        supplementalEvents: supplemental.events.slice(supplementalStart) });
     }
+    guard.check();
     for (const [name, text] of Object.entries(files)) assert.equal(fs.readFileSync(path.join(canonicalWorkspace, name), 'utf8'), text,
       'Tab/group/navigation/type/Undo capture wrote fixture disk');
-    return { name, setup, observations, settlements, details, events,
+    return { name, setup, observations, settlements, details, events, supplementalEvents: supplemental.events,
+      supplementalScope: 'Bounded non-file document change/close evidence and readiness-only non-file views; target editors and all file resources remain strict',
       scope: 'Preview and sticky text-file/Untitled tabs, explicit default positioning/revealIfOpen/MRU policy, public groups and visible selections; no graphical double-click or private stack access' };
+  } catch (error) {
+    onFailure({ name, phase: { ...phase }, setup: setup ?? null, observations, settlements, details,
+      events, supplementalEvents: supplemental.events });
+    throw error;
   } finally { for (const listener of listeners) listener.dispose(); }
 }
-module.exports = { editorPreviewTabsTrace, files, policy };
+module.exports = { editorPreviewTabsTrace, files, policy, fixtureFileResource, eventGuard, supplementalRecorder };
