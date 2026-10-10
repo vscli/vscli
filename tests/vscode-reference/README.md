@@ -95,8 +95,9 @@ target editing gestures are observed once, without retrying for a desired result
 The [provenance](baselines/1.95.0/advanced-indentation/linux-provenance.json)
 records actual product commit, platform, installed language configurations, and
 case/observer/runner/evidence/trace SHA-256 hashes. This committed capture is
-Linux-only. CI is configured to capture and compare all three platforms, but
-qualification of this new contract in fresh CI runs remains pending.
+Linux-only. [PR #57's CI run](https://github.com/vscli/vscli/actions/runs/38014367174)
+captured and compared this contract afresh on Linux, macOS and Windows; all six
+required checks passed on reviewed head `2ffe989` before the rebase merge.
 
 Natural tokenization startup timing is outside this contract. The separate
 [archived fixed-mode experiment](../../docs/reference/2026-10-10-cpp-token-readiness/README.md)

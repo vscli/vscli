@@ -73,8 +73,10 @@ generated-closer precedence, native operation with an empty PATH, and exact
 Undo/Redo. The full native suite passes 496 tests (18 opt-in tests remain ignored),
 alongside formatting and strict all-target Clippy. All ten new terminal sessions
 pass, as do the existing 35 terminal smoke workflows, seven smart-typing terminal
-workflows and 18-case typing reference comparison. Fresh platform CI qualification
-is still pending for this branch.
+workflows and 18-case typing reference comparison. [PR #57](https://github.com/vscli/vscli/pull/57)
+is merged after all six required checks passed, including fresh prepared-token
+comparisons on Linux, macOS and Windows. Physical terminal workflows run on Unix;
+the Windows document comparison does not qualify Windows terminal delivery.
 
 The fresh optimized build also passes all ten new terminal sessions and seven
 existing smart-typing workflows. An interleaved [plain-text performance check](PERFORMANCE.md#advanced-indentation-baseline-2026-10-10)
