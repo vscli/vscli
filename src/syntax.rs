@@ -313,11 +313,17 @@ enum Response {
         result: Result<Vec<Span>, String>,
     },
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Cancellation {
+    Superseded,
+    Deadline,
+}
 struct InFlight {
     key: Key,
     cancel: Arc<AtomicUsize>,
     started: Instant,
     parsing: Option<Instant>,
+    cancellation: Option<Cancellation>,
 }
 struct Failure {
     key: Key,
@@ -424,8 +430,19 @@ impl Engine {
                     {
                         continue;
                     }
-                    self.pending = None;
+                    let pending = self.pending.take().unwrap();
                     if !keys.contains(&key) {
+                        continue;
+                    }
+                    if pending.cancel.load(Ordering::Relaxed) != 0 {
+                        // Cancellation is terminal acknowledgement of retired work,
+                        // not an owned syntax error. Never publish even an Ok result.
+                        // Current budget failures still consume the existing bounded
+                        // retry policy; visibility supersession does not poison it.
+                        if pending.cancellation == Some(Cancellation::Deadline) {
+                            self.record_failure(key);
+                        }
+                        changed = true;
                         continue;
                     }
                     match result {
@@ -443,15 +460,7 @@ impl Engine {
                             );
                         }
                         Err(reason) => {
-                            let attempts = self.failures.get(&key.id).map_or(1, |f| f.attempts + 1);
-                            self.failures.insert(
-                                key.id,
-                                Failure {
-                                    key,
-                                    attempts,
-                                    retry: Instant::now() + Duration::from_secs(1),
-                                },
-                            );
+                            self.record_failure(key);
                             error = Some(format!(
                                 "Syntax refresh unavailable; retaining mapped colors where possible: {reason}"
                             ));
@@ -461,14 +470,18 @@ impl Engine {
                 }
             }
         }
-        if let Some(pending) = &self.pending
-            && (!keys.contains(&pending.key)
-                || pending.parsing.map_or_else(
-                    || pending.started.elapsed() > Duration::from_secs(5),
-                    |started| started.elapsed() > Duration::from_millis(500),
-                ))
-        {
-            pending.cancel.store(1, Ordering::Relaxed);
+        if let Some(pending) = &mut self.pending {
+            if !keys.contains(&pending.key) {
+                pending.cancellation = Some(Cancellation::Superseded);
+                pending.cancel.store(1, Ordering::Relaxed);
+            } else if pending.parsing.map_or_else(
+                || pending.started.elapsed() > Duration::from_secs(5),
+                |started| started.elapsed() > Duration::from_millis(500),
+            ) {
+                // Once superseded, becoming visible again cannot revive authority.
+                pending.cancellation.get_or_insert(Cancellation::Deadline);
+                pending.cancel.store(1, Ordering::Relaxed);
+            }
         }
         if self.pending.is_none()
             && let Some(key) = keys.into_iter().find(|k| {
@@ -495,10 +508,22 @@ impl Engine {
                     cancel,
                     started: Instant::now(),
                     parsing: None,
+                    cancellation: None,
                 });
             }
         }
         (changed, error)
+    }
+    fn record_failure(&mut self, key: Key) {
+        let attempts = self.failures.get(&key.id).map_or(1, |f| f.attempts + 1);
+        self.failures.insert(
+            key.id,
+            Failure {
+                key,
+                attempts,
+                retry: Instant::now() + Duration::from_secs(1),
+            },
+        );
     }
 }
 impl Drop for Engine {
@@ -936,5 +961,188 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         assert_eq!(engine.get(&doc).unwrap().style_at(3), Some(0));
+    }
+
+    #[test]
+    fn superseded_setup_completion_cannot_publish_error_or_success_after_visibility_aba() {
+        for successful in [false, true] {
+            let mut doc = Document::from_text("// 猫🙂 retained\r\nint value = 42;\r\n");
+            doc.path = Some("superseded.cpp".into());
+            doc.move_to(doc.len(), false);
+            doc.insert("undo pending λ", false);
+            let changed_text = doc.text.to_string();
+            doc.undo();
+            let original = doc.text.to_string();
+            let id = doc.id;
+            let epoch = doc.text_epoch();
+            let revision = doc.revision;
+            let cursor = doc.cursor;
+            let generation = doc.save_generation();
+            let (mut engine, requests, responses) = controlled(&doc);
+            let spans = engine.cache[&doc.id].spans.clone();
+            engine.cache.get_mut(&doc.id).unwrap().complete = false;
+            engine.poll(&[&doc]);
+            let old = requests.try_recv().unwrap();
+            assert!(requests.try_recv().is_err());
+            assert_eq!(engine.poll(&[]).1, None);
+            assert_eq!(old.cancel.load(Ordering::Relaxed), 1);
+            assert!(engine.pending.is_some());
+            assert_eq!(engine.poll(&[&doc]).1, None);
+            assert!(requests.try_recv().is_err()); // old actual slot still held
+            responses
+                .send(Response::Finished {
+                    key: old.key,
+                    result: if successful {
+                        Ok(spans.clone())
+                    } else {
+                        Err("Syntax request cancelled during setup".into())
+                    },
+                })
+                .unwrap();
+            assert_eq!(engine.poll(&[&doc]).1, None);
+            assert!(engine.get(&doc).is_none()); // canceled Ok is also unauthorized
+            assert!(!engine.failures.contains_key(&doc.id));
+            let fresh = requests.try_recv().unwrap();
+            assert!(!Arc::ptr_eq(&old.cancel, &fresh.cancel));
+            assert_eq!(fresh.cancel.load(Ordering::Relaxed), 0);
+            assert!(requests.try_recv().is_err());
+            responses
+                .send(Response::Finished {
+                    key: fresh.key,
+                    result: Ok(spans),
+                })
+                .unwrap();
+            assert_eq!(engine.poll(&[&doc]).1, None);
+            assert_token(&engine, &doc, "retained", "comment");
+            assert_eq!(
+                (
+                    doc.id,
+                    doc.text_epoch(),
+                    doc.revision,
+                    doc.cursor,
+                    doc.save_generation()
+                ),
+                (id, epoch, revision, cursor, generation)
+            );
+            assert_eq!(doc.text.to_string(), original);
+            doc.redo();
+            assert_eq!(doc.text.to_string(), changed_text);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), original);
+        }
+    }
+
+    #[test]
+    fn canceled_budget_completion_is_quiet_but_retains_three_attempt_backoff() {
+        let mut doc = Document::from_text("// 猫🙂 retained\r\nint main() { return 42; }\r\n");
+        doc.path = Some("budget.cpp".into());
+        let (mut engine, requests, responses) = controlled(&doc);
+        doc.insert(" ", false);
+        engine.poll(&[&doc]);
+        for attempt in 1..=3 {
+            let request = requests.try_recv().unwrap();
+            engine.pending.as_mut().unwrap().started = Instant::now() - Duration::from_secs(6);
+            assert_eq!(engine.poll(&[&doc]).1, None);
+            assert_eq!(request.cancel.load(Ordering::Relaxed), 1);
+            assert!(requests.try_recv().is_err());
+            responses
+                .send(Response::Finished {
+                    key: request.key,
+                    result: Err("Syntax request cancelled during setup".into()),
+                })
+                .unwrap();
+            assert_eq!(engine.poll(&[&doc]).1, None);
+            assert_eq!(engine.failures[&doc.id].attempts, attempt);
+            assert_token(&engine, &doc, "retained", "comment");
+            assert!(requests.try_recv().is_err());
+            engine.failures.get_mut(&doc.id).unwrap().retry = Instant::now();
+            engine.poll(&[&doc]);
+        }
+        assert!(engine.pending.is_none());
+        assert!(requests.try_recv().is_err());
+        doc.insert(" ", false);
+        engine.poll(&[&doc]);
+        assert!(requests.try_recv().is_ok()); // next document version requalifies
+    }
+
+    #[test]
+    fn canceled_syntax_setup_keeps_saved_command_notice_but_current_error_still_reports() {
+        use crate::{app::App, keys::Profile};
+        use serde_json::json;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("notice.cpp");
+        let disk = "// 猫🙂 saved\r\nint main() { return 42; }\r\n";
+        std::fs::write(&path, disk).unwrap();
+        let mut app = App::new(directory.path().into(), Profile::Linux);
+        app.settings = crate::settings::Settings::from_values(
+            json!({
+                "vscli.languageServer.enabled":false, "breadcrumbs.enabled":false,
+                "files.autoSave":"off", "editor.formatOnSave":false,
+                "editor.codeActionsOnSave":{}, "editor.quickSuggestions":false,
+                "editor.parameterHints.enabled":false,
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+            "syntax cancellation status fixture",
+        )
+        .unwrap();
+        app.extension_node = "vscli-syntax-fixture-node-missing".into();
+        app.open(&path).unwrap();
+        let (engine, requests, responses) = controlled(app.doc());
+        app.syntax = engine;
+        app.doc_mut().insert(" ", false);
+        let before = app.doc().text.to_string();
+        let epoch = app.doc().text_epoch();
+        let id = app.doc().id;
+        let cursor = app.doc().cursor;
+        let generation = app.doc().save_generation();
+        app.poll();
+        let old = requests.try_recv().unwrap();
+        app.syntax.pending.as_mut().unwrap().started = Instant::now() - Duration::from_secs(6);
+        app.poll();
+        assert_eq!(old.cancel.load(Ordering::Relaxed), 1);
+        let notice = "Saved; command-bearing save action skipped in full";
+        app.message = notice.into();
+        responses
+            .send(Response::Finished {
+                key: old.key,
+                result: Err("Syntax request cancelled during setup".into()),
+            })
+            .unwrap();
+        app.poll();
+        assert_eq!(app.message, notice);
+        assert_eq!(app.doc().text.to_string(), before);
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().text_epoch(),
+                app.doc().cursor,
+                app.doc().save_generation()
+            ),
+            (id, epoch, cursor, generation)
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), disk.as_bytes());
+        app.syntax.failures.get_mut(&id).unwrap().retry = Instant::now();
+        app.poll();
+        let current = requests.try_recv().unwrap();
+        assert_eq!(current.cancel.load(Ordering::Relaxed), 0);
+        responses
+            .send(Response::Finished {
+                key: current.key,
+                result: Err("actual current grammar configuration failure".into()),
+            })
+            .unwrap();
+        app.poll();
+        assert!(
+            app.message
+                .contains("actual current grammar configuration failure")
+        );
+        assert_eq!(app.syntax.failures[&id].attempts, 2);
+        assert_eq!(std::fs::read(&path).unwrap(), disk.as_bytes());
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), disk);
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), before);
     }
 }
