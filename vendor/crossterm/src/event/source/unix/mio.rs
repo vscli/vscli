@@ -179,7 +179,7 @@ impl EventSource for UnixInternalEventSource {
 //  * move the advancing, parsing, ... stuff out of the `try_read` method
 //
 #[derive(Debug)]
-struct Parser {
+pub(super) struct Parser {
     buffer: Vec<u8>,
     internal_events: VecDeque<InternalEvent>,
 }
@@ -209,10 +209,13 @@ impl Default for Parser {
 }
 
 impl Parser {
-    fn advance(&mut self, buffer: &[u8], more: bool) {
+    pub(super) fn advance(&mut self, buffer: &[u8], more: bool) {
         for (idx, byte) in buffer.iter().enumerate() {
             let more = idx + 1 < buffer.len() || more;
 
+            if let Some(escape) = super::take_pending_escape(&mut self.buffer, *byte) {
+                self.internal_events.push_back(escape);
+            }
             self.buffer.push(*byte);
 
             match parse_event(&self.buffer, more) {
