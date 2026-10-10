@@ -95,10 +95,14 @@ grant, preference precedence, confined/bounded reads, source composition,
 background publication, source retirement, and Unicode/CRLF persistence and
 history. Local qualification passed 533 ordinary Rust tests across 35 suites; 18 opt-in
 integration tests remained ignored. Formatting and strict all-target Clippy
-checks passed. `tests/native_configuration_pty.py` passed five terminal sessions
+checks passed. Four comparator integrity tests reject malformed source sets before
+any fixture writes. `tests/native_configuration_pty.py` passed five terminal sessions
 (four reports), covering original terminal commands and physical input with an
 empty executable PATH and a missing Node executable. Fresh platform CI
-qualification remains pending for this slice.
+qualification remains pending for this slice. The optimized build also passes
+these five sessions and the seven smart-typing terminal workflows. The
+[published benchmark](PERFORMANCE.md#native-language-configuration-baseline-2026-10-10)
+has mixed ordinary-typing results and establishes no overall speed ranking.
 
 The separate pinned VS Code 1.95.0 installed-configuration observer has captured
 52 cases and 208 snapshots across ten isolated fixture profiles. Local native
