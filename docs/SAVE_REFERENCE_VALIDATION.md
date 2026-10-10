@@ -44,9 +44,25 @@ initial compilation; no producer, observation or protocol assertion changed.
 The earlier 2c readiness and 67ab diagnostics archives retain all 284 original
 Git blobs byte-for-byte. Native policy, the default runtime comparison and
 ordinary CI still use their previous behavior in this validation change.
-Trusted current-head admission, native legacy-boolean normalization and explicit
-stable default/CI adoption remain subsequent qualification steps. These results
+Native legacy-boolean normalization and explicit stable default/CI adoption
+remain subsequent qualification steps. These results
 do not establish full native save or extension parity.
+
+CurrentCapture admission now takes an independently supplied exact lowercase
+40-hex checkout revision. Both explicit environment inputs are required; a
+receipt never selects its own expected revision. Archived133 remains pinned to
+its original revision. Both contexts share the same complete envelope, frozen
+source and metadata guards; repository roots, partial captures and extra inputs
+do not qualify. The admitted trace is returned only after every frame validates.
+
+Four additional context integrity tests pass; all thirty ordinary historical and
+stable reader tests pass together with three optional tests ignored. The explicit
+current metadata check additionally passes on all three genuine second-cohort
+artifacts at revision `fe8e67040c2fe0b09fbfbb885dfd95e6d0a20bd4`, whose revision
+was independently checked against GitHub run 38064322838. Each staged snapshot
+retains the exact original 90 files. Synthetic revision/receipt mutation fixtures
+remain clearly separate from these genuine captures. Formatting and strict
+all-target locked Clippy pass for the context extension.
 
 The offline `tests/stage_save_actions_reference.py` helper creates a fresh,
 disjoint source/output snapshot for current CI admission. Generated Node
