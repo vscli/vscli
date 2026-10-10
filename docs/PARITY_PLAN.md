@@ -96,7 +96,9 @@ Outline workflows passed. Published core benchmarks with Outline disabled show
 mixed latency observations; active-provider performance is unqualified. All six
 required checks passed in
 [CI run 38021276828](https://github.com/vscli/vscli/actions/runs/38021276828)
-before merge. Breadcrumbs is implemented with fresh qualification underway;
+before merge. Breadcrumbs merged in PR #61 after all six required checks passed
+on reviewed head `a0b7e8c8f41497c18463ad43569c12f44a43fc3d` in
+[CI run 38023849597](https://github.com/vscli/vscli/actions/runs/38023849597);
 full navigation and desktop UI parity remain incomplete.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
@@ -117,7 +119,7 @@ physical terminal or ConPTY interaction. Original imported files remain separate
 from native copied profiles. Branch checks do not prove a combined application
 works; every integration still needs combined review and CI.
 
-The next priority-4 slice adds [native Breadcrumbs](BREADCRUMBS.md): a file trail,
+The merged priority-4 slice adds [native Breadcrumbs](BREADCRUMBS.md): a file trail,
 true enclosing-symbol ancestry and guarded sibling/root picker reveals sharing
 Outline's producer. Four actual pinned fixture cases retain 31 snapshots and
 confirm three collapsed picker reveals. Direct command no-ops, file/folder
@@ -128,8 +130,11 @@ strict all-target Clippy. Native comparison passes four provider geometries and
 three confirmed picker reveals, with four reference integrity tests. Five public
 journeys and two optional-host Breadcrumbs publication checks are included in
 those totals. One actual clangd workflow, three new debug terminal sessions and
-the existing 35 terminal workflows passed locally. Optimized terminal and fresh
-platform checks remain pending.
+the existing 35 terminal workflows passed locally. All three optimized terminal
+workflows passed, and all six fresh required checks qualified Linux, macOS and
+Windows before PR #61 merged. Priority 5 starts with lossless native settings
+persistence; save automation and the remaining navigation boundaries still need
+implementation and qualification.
 
 ## What is still missing
 
@@ -139,7 +144,7 @@ The [usage guide](USAGE.md), [extension report](EXTENSIONS.md) and
 
 | Area | Existing foundation | Remaining work |
 | --- | --- | --- |
-| Welcome and navigation | Explorer, quick open, palette, graphical empty welcome/actions, persistent recent files/reopen, bounded Back/Forward history, document/workspace symbol pickers, merged qualified Outline and implemented Breadcrumbs undergoing fresh qualification | Recent workspaces; Breadcrumbs folder/filter/reveal-aside/persistence/full UI; broader Outline compatibility; discoverable settings and consistent focus |
+| Welcome and navigation | Explorer, quick open, palette, graphical empty welcome/actions, persistent recent files/reopen, bounded Back/Forward history, document/workspace symbol pickers, merged qualified Outline and Breadcrumbs | Recent workspaces; Breadcrumbs folder/filter/reveal-aside/persistence/full UI; broader Outline compatibility; discoverable settings and consistent focus |
 | Tabs and layout | Shared-document split views, four equal groups and opt-in clean-session visible-layout restore | Per-group tabs, resizing/nested splits, preview/pinned tabs, move editors between groups and complete layout restoration |
 | Session continuity | Dirty-buffer crash recovery plus opt-in clean-file tabs, active tab, cursor/selection and visible-group restoration | Full hot exit, hidden historical tab/view state, workspace history/transitions, terminal restoration and broader failure/durability qualification |
 | Editing | Multi-cursor, selections, undo, line commands, literal find/replace and native C/C++/JSON smart-typing subset | Wrapping, folding, broader/extension language rules, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |

@@ -111,8 +111,10 @@ public journeys, two optional-host publication checks, one actual clangd
 workflow, three debug terminal workflows and the existing 35 terminal checks
 passed locally. The full candidate passes 603 ordinary Rust tests across 38
 suites (20 ignored), 133 Node tests, 25 Python checks, formatting and strict
-Clippy; focused subsets are included in these totals. Optimized terminal
-qualification and fresh platform CI are pending. This evidence does not
+Clippy; focused subsets are included in these totals. All three optimized
+terminal workflows passed. [PR #61](https://github.com/vscli/vscli/pull/61)
+merged after [all six fresh required checks](https://github.com/vscli/vscli/actions/runs/38023849597)
+passed, including Linux, macOS and Windows pinned provider comparisons. This evidence does not
 establish full Breadcrumbs UI or unchanged-extension compatibility.
 
 Optional selected extensions dispatch completion, hover, definitions, references, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers; aggregation/fallback for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).

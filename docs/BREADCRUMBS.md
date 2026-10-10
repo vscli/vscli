@@ -82,7 +82,16 @@ also passed. All three Breadcrumbs terminal workflows also passed with the
 optimized executable. The [published core measurements](PERFORMANCE.md#native-breadcrumbs-core-baseline-2026-10-10)
 record 30 successful trials and mixed latency observations with file breadcrumbs
 enabled and no symbol provider; they establish no fastest-editor ranking or
-active-provider latency claim. Fresh platform CI remains pending.
+active-provider latency claim.
+
+[PR #61](https://github.com/vscli/vscli/pull/61) merged after all six required
+checks passed on reviewed head `a0b7e8c8f41497c18463ad43569c12f44a43fc3d`.
+[The fresh CI run](https://github.com/vscli/vscli/actions/runs/38023849597)
+qualified Linux, macOS and Windows tests and pinned provider comparisons, Unix
+terminal workflows, quality, commit style and actual protocol servers. The
+temporary-workspace fixtures now canonicalize their roots as CLI startup does,
+covering macOS `/var` aliases and Windows extended-length prefixes without
+relaxing the file-trail or data-integrity assertions.
 
 For a new capture and its narrow native comparison:
 
