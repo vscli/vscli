@@ -21,8 +21,11 @@ Priority 6 includes merged
 checks passed on reviewed head `65207aea1c2db480a058315cb9cb519f0491e37b` in
 [CI run 38046439264](https://github.com/vscli/vscli/actions/runs/38046439264).
 Preview tabs do not complete workspace continuity.
-Sticky tabs and nested layouts follow these slices; their prepared sources and
-reference observations are not shipped editor behavior.
+The sticky-tab candidate implements original pin/unpin commands, membership-local
+markers and save-safe protected-close subsets. Local qualification passes 936
+Rust tests, all 31 ordinary Unix PTY scripts / 145 reports, and 71 optimized
+terminal reports; fresh protected platform CI is required before merge. Nested
+layouts remain prepared scratch work. See [the sticky contract](STICKY_TABS.md).
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.

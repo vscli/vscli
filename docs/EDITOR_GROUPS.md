@@ -262,9 +262,9 @@ The previous Windows run failed in the observer's canonical-path equality, and
 the macOS smoke test edited before positively observing Quick Open publication.
 The observer now classifies known files through canonical containment, retains
 bounded supplemental callback evidence and propagates callback failures. The
-smoke test waits for the exact result and loaded document before editing. These
-changes require a fresh platform run; a local Linux pass alone does not qualify
-Windows or macOS. Native Explorer click is implemented; this keyboard corpus
+smoke test waits for the exact result and loaded document before editing.
+The reviewed preview CI run passed afresh on all three platforms; a local Linux
+pass alone would not qualify Windows or macOS. Native Explorer click is implemented; this keyboard corpus
 does not qualify graphical single/double-click parity.
 
 
@@ -296,10 +296,15 @@ Versions/object allocation and callback scheduling remain raw evidence outside
 native equality. The observer hashes the selected executable, not an entire
 installation. See the [reference contract](../tests/vscode-reference/editor-sticky-tabs.README.md).
 
-Local foundation qualification passes 916 all-target Rust tests across 51
-reports, including 36 engine tests and seven consumer integrity/replay tests;
-20 optional tests are ignored. Formatting, strict all-target locked Clippy and
-six observer path/event tests pass. A fresh complete unattended Linux capture
-has the exact original target trace. Navigation history, welcome and the full
-smoke suite pass 41 terminal reports. App sticky behavior, fresh macOS/Windows
-sticky comparisons and optimized qualification remain subsequent gates.
+The integrated candidate passes 936 all-target Rust tests across 51 reports,
+including 36 engine tests, seven consumer integrity/replay tests, five admission
+refusal tests and fourteen real save-worker ownership tests; 20 optional tests
+are ignored. Formatting, strict all-target locked Clippy and six observer
+path/event tests pass. A fresh complete unattended Linux capture has the exact
+original target trace. All 31 ordinary Unix PTY scripts pass with 145 reports;
+the optimized executable passes 71 reports across eight scripts. Five new
+sticky reports cover nine native-only sessions. The isolated paired
+[core benchmark](PERFORMANCE.md#native-sticky-tabs-core-baseline-2026-10-10)
+passes 80 launches / 3,200 keys, including the retained small-file repeat.
+Results vary; no editor ranking or active-sticky performance is established.
+Fresh platform checks remain required before merge.
