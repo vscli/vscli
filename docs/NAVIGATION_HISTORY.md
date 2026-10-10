@@ -87,7 +87,8 @@ Local qualification also passed the existing 35 terminal workflows and seven
 smart-typing workflows against the fresh debug binary. The full Rust run passed
 555 ordinary tests across 36 suites; 18 opt-in integration tests remained ignored.
 The four new terminal workflows also passed against the optimized binary.
-Fresh platform CI qualification remains pending.
+Fresh Linux, macOS and Windows CI qualification passed with all six required
+checks in [PR #59](https://github.com/vscli/vscli/pull/59), merged on 2026-10-10.
 
 The [published optimized benchmarks](PERFORMANCE.md#native-navigation-history-baseline-2026-10-10)
 preserve ordinary-file and 1 MiB single-line typing comparisons. All 30 trials
