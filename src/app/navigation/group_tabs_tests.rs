@@ -99,6 +99,101 @@ fn rejected_recent_and_reopen_admission_restore_history_observation() {
 }
 
 #[test]
+fn rejected_actual_loaded_recent_and_reopen_restore_history_observation() {
+    for recent in [true, false] {
+        let root = tempfile::tempdir().unwrap();
+        let source_text = "猫🙂 body\r\n".repeat(24);
+        let source = file(root.path(), "source.cpp", &source_text);
+        let target = file(root.path(), "loaded-target.cpp", "loaded 猫🙂\r\n");
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.open(&source).unwrap();
+        let source_id = app.doc().id;
+        app.doc_mut().insert("source redo ", false);
+        app.doc_mut().undo();
+        for _ in 1..crate::editor_groups::MAX_TABS_PER_GROUP {
+            app.documents.push(Document::default());
+        }
+        app.sync_pane();
+        let proof = app.editor_groups().proof();
+        assert_eq!(app.editor_groups().groups()[0].tabs().len(), 128);
+        assert!(!app.group_fallback);
+        if recent {
+            app.recent_files.touch(target.clone());
+            app.accept_recent("loaded-target.cpp", 0);
+        } else {
+            app.navigation.closed.push(Closed {
+                id: 1,
+                path: target.clone(),
+                row: 0,
+                column: 0,
+            });
+            app.reopen_closed();
+            assert_eq!(app.navigation.closed.len(), 1);
+        }
+        assert!(
+            app.navigation.pending.is_some(),
+            "actual new-file worker was not dispatched"
+        );
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while app.navigation.pending.is_some() {
+            app.poll_navigation();
+            assert!(std::time::Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            app.message.contains("File could not be opened"),
+            "{}",
+            app.message
+        );
+        assert!(app.message.contains("128 tabs"), "{}", app.message);
+        assert_eq!(app.documents.len(), 128);
+        if !recent {
+            assert_eq!(app.navigation.closed.len(), 1);
+        }
+        assert_eq!(app.doc().id, source_id);
+        assert_eq!(app.doc().cursor, 0);
+        assert_eq!(app.doc().text.to_string(), source_text);
+        assert_eq!(app.editor_groups().proof(), proof);
+        assert!(app.hidden_documents.is_empty());
+        // This public helper's returned state checks the failed path restored
+        // observation, rather than accepting unrelated old history entries.
+        let suppressed = app.suspend_navigation_observation();
+        assert!(!suppressed, "admission failure left history suspended");
+        app.resume_navigation_observation(suppressed, Reason::Ordinary);
+
+        let position = crate::lsp::Position {
+            line: 20,
+            character: 1,
+        };
+        app.language_action(&LanguageAction::Location {
+            path: source.clone(),
+            range: crate::lsp::Range {
+                start: position,
+                end: position,
+            },
+        })
+        .unwrap();
+        assert_eq!(app.doc().row(), 20);
+        assert_eq!(app.doc().column(), 1);
+        app.execute("workbench.action.navigateBack", Value::Null);
+        assert_eq!(app.doc().id, source_id);
+        assert_eq!(app.doc().cursor, 0);
+        assert!(app.can_navigate_forward());
+        app.execute("workbench.action.navigateForward", Value::Null);
+        assert_eq!(app.doc().row(), 20);
+        assert_eq!(app.doc().column(), 1);
+        assert_eq!(app.doc().text.to_string(), source_text);
+        app.doc_mut().redo();
+        assert_eq!(
+            app.doc().text.to_string(),
+            format!("source redo {source_text}")
+        );
+        assert_eq!(std::fs::read(source).unwrap(), source_text.as_bytes());
+        assert_eq!(std::fs::read(target).unwrap(), "loaded 猫🙂\r\n".as_bytes());
+    }
+}
+
+#[test]
 fn actual_alias_response_rejects_public_shared_group_focus_aba() {
     let root = tempfile::tempdir().unwrap();
     let source_text = "猫🙂 source\r\nsecond\r\n";

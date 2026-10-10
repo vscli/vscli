@@ -708,7 +708,13 @@ impl App {
                                 doc.move_to(doc.position_at(closed.row, closed.column), false);
                             }
                             let suspended = self.suspend_navigation_observation();
-                            self.install_open_document(*doc)?;
+                            if let Err(error) = self.install_open_document(*doc) {
+                                self.resume_navigation_observation(
+                                    suspended,
+                                    super::navigation_history::Reason::Ordinary,
+                                );
+                                return Err(error);
+                            }
                             pending.intent.apply(self);
                             self.resume_navigation_observation(
                                 suspended,
