@@ -138,6 +138,9 @@ pub struct ReadRequest {
     pub id: u64,
     pub revision: u64,
     pub saved_revision: u64,
+    pub text_epoch: u64,
+    pub save_generation: u64,
+    pub publication_epoch: u64,
     pub path: PathBuf,
     pub baseline: Option<ropey::Rope>,
 }
@@ -145,30 +148,48 @@ pub struct Snapshot {
     pub id: u64,
     pub revision: u64,
     pub saved_revision: u64,
+    pub text_epoch: u64,
+    pub save_generation: u64,
+    pub publication_epoch: u64,
     pub path: PathBuf,
     pub content: Result<DiskChange, String>,
 }
 pub struct DiskJob {
     receiver: Receiver<Snapshot>,
+    worker: Option<std::thread::JoinHandle<()>>,
 }
 impl DiskJob {
     pub fn start(documents: Vec<ReadRequest>) -> Self {
-        let (sender, receiver) = mpsc::sync_channel(1);
-        std::thread::spawn(move || {
+        Self::start_inner(documents, read_change)
+    }
+    fn start_inner(
+        documents: Vec<ReadRequest>,
+        mut read: impl FnMut(&std::path::Path, Option<&ropey::Rope>) -> anyhow::Result<DiskChange>
+        + Send
+        + 'static,
+    ) -> Self {
+        let (sender, receiver) = mpsc::sync_channel(8);
+        let worker = std::thread::spawn(move || {
             for ReadRequest {
                 id,
                 revision,
                 saved_revision,
+                text_epoch,
+                save_generation,
+                publication_epoch,
                 path,
                 baseline,
             } in documents
             {
-                let content = read_change(&path, baseline.as_ref()).map_err(|e| e.to_string());
+                let content = read(&path, baseline.as_ref()).map_err(|e| e.to_string());
                 if sender
                     .send(Snapshot {
                         id,
                         revision,
                         saved_revision,
+                        text_epoch,
+                        save_generation,
+                        publication_epoch,
                         path,
                         content,
                     })
@@ -178,13 +199,39 @@ impl DiskJob {
                 }
             }
         });
-        Self { receiver }
+        Self {
+            receiver,
+            worker: Some(worker),
+        }
     }
-    pub fn poll(&self) -> Result<Option<Snapshot>, mpsc::TryRecvError> {
+    #[cfg(test)]
+    pub(crate) fn start_with_read(
+        documents: Vec<ReadRequest>,
+        read: impl FnMut(&std::path::Path, Option<&ropey::Rope>) -> anyhow::Result<DiskChange>
+        + Send
+        + 'static,
+    ) -> Self {
+        Self::start_inner(documents, read)
+    }
+    pub fn poll(&mut self) -> Result<Option<Snapshot>, mpsc::TryRecvError> {
         match self.receiver.try_recv() {
             Ok(snapshot) => Ok(Some(snapshot)),
             Err(mpsc::TryRecvError::Empty) => Ok(None),
-            Err(e) => Err(e),
+            Err(mpsc::TryRecvError::Disconnected) => {
+                // Sender closure is not sufficient proof that actual work has
+                // exited. Retain its slot until the thread positively settles.
+                if self
+                    .worker
+                    .as_ref()
+                    .is_some_and(|worker| !worker.is_finished())
+                {
+                    return Ok(None);
+                }
+                if let Some(worker) = self.worker.take() {
+                    let _ = worker.join();
+                }
+                Err(mpsc::TryRecvError::Disconnected)
+            }
         }
     }
 }
@@ -207,6 +254,8 @@ pub struct State {
     pub last_refresh: Instant,
     pub last_read: Instant,
     pub disk: Option<DiskJob>,
+    pub publication_epoch: u64,
+    pub publication_disabled: bool,
     pub notices: std::collections::HashMap<u64, String>,
 }
 impl State {
@@ -219,6 +268,8 @@ impl State {
             last_refresh: Instant::now(),
             last_read: Instant::now(),
             disk: None,
+            publication_epoch: 1,
+            publication_disabled: false,
             notices: std::collections::HashMap::new(),
         }
     }

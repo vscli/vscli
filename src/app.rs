@@ -18,6 +18,7 @@ mod navigation;
 mod navigation_history;
 mod outline;
 mod panes;
+mod settings_persistence;
 mod signature_help;
 mod suggestions;
 mod workspace_edits;
@@ -532,6 +533,7 @@ pub struct App {
     settings_loader: Option<crate::settings::Loader>,
     settings_error: Option<String>,
     settings_user: Option<PathBuf>,
+    settings_writes: settings_persistence::State,
     pub diagnostics: HashMap<PathBuf, crate::lsp::DiagnosticPublication>,
     pub editor_area: Rect,
     pub explorer_area: Rect,
@@ -630,6 +632,7 @@ impl App {
             settings_loader: None,
             settings_error: None,
             settings_user: None,
+            settings_writes: settings_persistence::State::default(),
             diagnostics: HashMap::new(),
             editor_area: Rect::default(),
             explorer_area: Rect::default(),
@@ -655,6 +658,7 @@ impl App {
         let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
         let mut changed = actions_changed | brand_changed | changed;
+        changed |= self.poll_settings_writes();
         if let Some(result) = self
             .settings_loader
             .as_mut()
@@ -663,6 +667,7 @@ impl App {
             match result {
                 Ok(settings) => {
                     self.settings_error = None;
+                    self.settings_profile_loaded();
                     if settings != self.settings {
                         // Even a later reload back to the original settings
                         // cannot revive a completion from an earlier context.
@@ -686,14 +691,18 @@ impl App {
                         );
                         changed = true;
                     }
+                    changed |= self.settings_reload_settled();
                 }
-                Err(error) if self.settings_error.as_ref() != Some(&error) => {
-                    self.message =
-                        format!("Settings reload failed; previous settings retained: {error}");
-                    self.settings_error = Some(error);
-                    changed = true;
+                Err(error) => {
+                    self.settings_profile_load_failed();
+                    if self.settings_error.as_ref() != Some(&error) {
+                        self.message =
+                            format!("Settings reload failed; previous settings retained: {error}");
+                        self.settings_error = Some(error);
+                        changed = true;
+                    }
+                    changed |= self.settings_reload_settled();
                 }
-                _ => {}
             }
         }
         changed |= self.poll_language_services();
@@ -750,10 +759,15 @@ impl App {
             .or_else(|| crate::recovery::config_path().map(|p| p.with_file_name("settings.json")))
     }
     pub fn configure_settings(&mut self, user: Option<PathBuf>) -> Result<()> {
+        self.invalidate_settings_profile()?;
         self.settings_user = user.clone();
         let mut paths: Vec<_> = user.into_iter().collect();
         paths.push(self.workspace.root.join(".vscode/settings.json"));
-        self.settings_loader = Some(crate::settings::Loader::new(paths.clone()));
+        if let Some(loader) = &mut self.settings_loader {
+            loader.reconfigure(paths.clone())?;
+        } else {
+            self.settings_loader = Some(crate::settings::Loader::new(paths.clone())?);
+        }
         self.settings = match crate::settings::Settings::load_editor(&paths) {
             Ok(settings) => settings,
             Err(error) => {
@@ -761,6 +775,7 @@ impl App {
                 return Err(error);
             }
         };
+        self.settings_profile_loaded();
         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
             self.settings.apply(doc);
         }

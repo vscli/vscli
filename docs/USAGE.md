@@ -124,8 +124,8 @@ Closed file destinations load in the background. Shortcut availability reflects
 the committed location; unsuccessful or stale loads cannot consume history.
 See [recording rules, asynchronous bounds and qualification](NAVIGATION_HISTORY.md).
 The native [Outline section](OUTLINE.md) merged after local and platform
-qualification. [Breadcrumbs](BREADCRUMBS.md) is implemented and undergoing fresh
-qualification; folder dropdowns, filtering, reveal-aside, persistent toggle state
+qualification. [Breadcrumbs](BREADCRUMBS.md) merged after its platform checks;
+folder dropdowns, filtering, reveal-aside
 and complete navigation/UI parity remain incomplete.
 
 ## Snippets
@@ -376,7 +376,13 @@ See [import guarantees, theme mappings and limits](IMPORT_AND_THEMES.md).
 
 ## Settings
 
-Use `--settings /path/to/settings.json` to import user settings. By default, VSCLI reads `settings.json` beside its user keybindings file. An activated import supplies the user settings/keybindings/snippet directory unless explicit CLI paths override it. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.
+Use `--settings /path/to/settings.json` to select a user settings file for reading and native settings writes. By default, VSCLI reads `settings.json` beside its user keybindings file. An activated import supplies the native copy's user settings/keybindings/snippet directory unless explicit CLI paths override it. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.
+
+F1 → **View: Toggle Breadcrumbs** persists its root setting in the effective
+user/workspace file, preserving JSONC comments and unrelated bytes. Dirty
+settings buffers and winning language overrides refuse the write with a notice.
+Background persistence and forced reloads keep filesystem work out of the
+toggle's input handler. See [scope, bounds and evidence](SETTINGS_PERSISTENCE.md).
 
 The current supported subset includes the native language-server controls above, `editor.tabSize` (1–16), `editor.insertSpaces`, and `editor.lineNumbers` (`on`, `off`, `relative`, `interval`). Indentation width applies to editing, cursor/mouse coordinates, rendering, and LSP formatting options. Language blocks such as `[python]` and `[javascript][typescript]` override general values; a single-language block takes priority over a multi-language block. Workspace values override user values within the same identifier group. Combined-language groups retain their first occurrence order across scopes; changing that order can change precedence. This follows the pinned [configuration model](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/configuration/common/configurationModels.ts).
 
@@ -642,7 +648,7 @@ symbols requiring `workspaceSymbol/resolve`, non-file URIs, malformed ranges and
 oversized responses produce explicit errors. Range-less resolve, symbol previews,
 grouping modes and complete VS Code navigation behavior remain incomplete.
 The separate [Outline section](OUTLINE.md) merged after its named local and
-platform checks; [Breadcrumbs](BREADCRUMBS.md) is undergoing fresh qualification.
+platform checks; [Breadcrumbs](BREADCRUMBS.md) also merged after all required checks.
 
 Before navigation, the picker checks the workspace, active buffer, all captured
 open-buffer identities/revisions, selections, pane and focus. New input contexts,
@@ -714,12 +720,14 @@ Folder/file dropdowns remain explicitly unsupported.
 
 `breadcrumbs.enabled` defaults to `true`; `breadcrumbs.filePath` and
 `breadcrumbs.symbolPath` accept `"on"`, `"off"` and `"last"`. **View: Toggle
-Breadcrumbs** changes this session only. Four pinned synthetic-provider cases
+Breadcrumbs** persists the configured profile's effective root setting through
+[bounded native settings writes](SETTINGS_PERSISTENCE.md). Four pinned synthetic-provider cases
 retain 31 snapshots and confirm three picker reveals; direct focus/reveal no-ops
 remain raw qualification gaps. The narrow native comparison, five public
 journeys, one actual clangd workflow, three new debug terminal workflows and the
-existing 35 terminal checks passed locally. Optimized and fresh platform checks
-remain pending. See [scope and evidence](BREADCRUMBS.md).
+existing 35 terminal checks passed locally. All three optimized workflows and
+all six required platform checks passed before PR #61 merged. See
+[scope and evidence](BREADCRUMBS.md); new settings-write qualification is underway.
 
 ## Clean-file session restoration
 

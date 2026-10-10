@@ -5,10 +5,7 @@ use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
-    sync::{
-        Arc,
-        mpsc::{self, Receiver},
-    },
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -26,6 +23,11 @@ pub enum BreadcrumbPath {
     On,
     Off,
     Last,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RootWriteScope {
+    User,
+    Workspace,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Breadcrumbs {
@@ -57,6 +59,12 @@ impl PartialEq for Settings {
             && self.warnings == other.warnings
             && self.workspace_layer == other.workspace_layer
     }
+}
+#[derive(Clone, Copy)]
+struct ScopedValue<'a> {
+    value: &'a Value,
+    layer: usize,
+    selector: Option<&'a str>,
 }
 const SUPPORTED: &[&str] = &[
     "editor.tabSize",
@@ -170,16 +178,53 @@ impl Settings {
         self.value_scoped(key, language, self.layers.len())
     }
     fn value_scoped(&self, key: &str, language: &str, limit: usize) -> Option<&Value> {
+        self.value_scoped_source(key, language, limit)
+            .map(|source| source.value)
+    }
+    /// Select an existing valid root setting's scope, defaulting to user scope.
+    /// The pinned VS Code Breadcrumbs toggle writes a global root setting. Native
+    /// language-scoped reads can shadow that setting, so this bounded root-only
+    /// writer refuses such a target rather than silently changing another scope.
+    /// Restoring a default writes an explicit scalar; upstream default-removal is
+    /// a separate behavior and is not inferred by this helper.
+    pub fn root_write_target(&self, key: &str, language: &str) -> Result<RootWriteScope> {
+        if !SUPPORTED.contains(&key) {
+            bail!("Root writes require a supported native setting");
+        }
+        let Some(source) = self.value_scoped_source(key, language, self.layers.len()) else {
+            return Ok(RootWriteScope::User);
+        };
+        if let Some(selector) = source.selector {
+            bail!(
+                "{key} is overridden by {selector}; edit that language block before writing a root setting"
+            );
+        }
+        Ok(if self.workspace_layer == Some(source.layer) {
+            RootWriteScope::Workspace
+        } else {
+            RootWriteScope::User
+        })
+    }
+    fn value_scoped_source(
+        &self,
+        key: &str,
+        language: &str,
+        limit: usize,
+    ) -> Option<ScopedValue<'_>> {
         let mut result = None;
-        for layer in self.layers.iter().take(limit) {
+        for (index, layer) in self.layers.iter().take(limit).enumerate() {
             if let Some(value) = layer.get(key).filter(|v| valid(key, v)) {
-                result = Some(value);
+                result = Some(ScopedValue {
+                    value,
+                    layer: index,
+                    selector: None,
+                });
             }
         }
         // Merge equal identifier groups in their first-seen position, then apply
         // single-language groups last, as in the pinned configuration model.
-        let mut groups: Vec<(Vec<&str>, Option<&Value>)> = Vec::new();
-        for layer in self.layers.iter().take(limit) {
+        let mut groups: Vec<(Vec<&str>, Option<ScopedValue<'_>>)> = Vec::new();
+        for (index, layer) in self.layers.iter().take(limit).enumerate() {
             for (selector, value) in layer {
                 let Some(inner) = selector.strip_prefix('[').and_then(|s| s.strip_suffix(']'))
                 else {
@@ -200,7 +245,14 @@ impl Settings {
                 if !valid_selector || !ids.contains(&language) {
                     continue;
                 }
-                let found = value.get(key).filter(|v| valid(key, v));
+                let found = value
+                    .get(key)
+                    .filter(|v| valid(key, v))
+                    .map(|value| ScopedValue {
+                        value,
+                        layer: index,
+                        selector: Some(selector),
+                    });
                 if let Some((_, previous)) =
                     groups.iter_mut().find(|(existing, _)| *existing == ids)
                 {
@@ -454,48 +506,436 @@ fn valid(key: &str, value: &Value) -> bool {
         _ => false,
     }
 }
+const LOADER_PERIOD: Duration = Duration::from_secs(2);
+const LOADER_PATH_BYTES: usize = 4096;
+
+struct PendingLoad {
+    generation: u64,
+    worker: std::thread::JoinHandle<std::result::Result<Settings, String>>,
+}
+
+/// One actual settings read and one coalesced desired reload. Invalidating a read
+/// discards its publication authority, but retains its worker until it exits.
 pub struct Loader {
     paths: Vec<PathBuf>,
+    generation: u64,
     last: Instant,
-    pending: Option<Receiver<Result<Settings, String>>>,
+    wanted: bool,
+    pending: Option<PendingLoad>,
+    #[cfg(test)]
+    load: TestLoad,
 }
+#[cfg(test)]
+type TestLoad = Arc<dyn Fn(&[PathBuf]) -> std::result::Result<Settings, String> + Send + Sync>;
 impl Loader {
-    pub fn new(paths: Vec<PathBuf>) -> Self {
-        Self {
+    pub fn new(paths: Vec<PathBuf>) -> Result<Self> {
+        Self::validate_paths(&paths)?;
+        Ok(Self {
             paths,
+            generation: 1,
             last: Instant::now(),
+            wanted: false,
             pending: None,
-        }
+            #[cfg(test)]
+            load: Arc::new(|paths| Settings::load_editor(paths).map_err(|e| format!("{e:#}"))),
+        })
     }
-    pub fn poll(&mut self) -> Option<Result<Settings, String>> {
-        if let Some(receiver) = &self.pending {
-            match receiver.try_recv() {
-                Ok(result) => {
-                    self.pending = None;
-                    return Some(result);
-                }
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    self.pending = None;
-                    return Some(Err("Settings worker stopped".into()));
-                }
-                _ => {}
+    fn validate_paths(paths: &[PathBuf]) -> Result<()> {
+        if paths.len() > 2 {
+            bail!("Settings loader supports at most two paths");
+        }
+        if paths.iter().any(|path| {
+            path.as_os_str().is_empty()
+                || path.as_os_str().as_encoded_bytes().len() > LOADER_PATH_BYTES
+        }) {
+            bail!("Settings loader paths must contain 1–4096 bytes");
+        }
+        Ok(())
+    }
+    /// Fence every earlier result, even when the configured paths are unchanged.
+    /// Scheduling and reading remain in `poll`; this call performs no I/O.
+    pub fn force_reload(&mut self) -> Result<()> {
+        let generation = self
+            .generation
+            .checked_add(1)
+            .context("Settings reload generation exhausted")?;
+        self.generation = generation;
+        self.wanted = true;
+        Ok(())
+    }
+    /// Retain an in-flight read while changing the latest desired profile paths.
+    /// A→B→A still advances the generation and cannot authorize the first A read.
+    pub fn reconfigure(&mut self, paths: Vec<PathBuf>) -> Result<()> {
+        Self::validate_paths(&paths)?;
+        self.force_reload()?;
+        self.paths = paths;
+        Ok(())
+    }
+    pub fn poll(&mut self) -> Option<std::result::Result<Settings, String>> {
+        if self
+            .pending
+            .as_ref()
+            .is_some_and(|pending| pending.worker.is_finished())
+        {
+            // is_finished proves the actual callback has returned; joining here
+            // never waits for filesystem work or a canceled callback to finish.
+            let pending = self.pending.take().expect("finished settings worker");
+            let result = pending
+                .worker
+                .join()
+                .unwrap_or_else(|_| Err("Settings worker stopped".into()));
+            if pending.generation == self.generation {
+                return Some(result);
             }
-        } else if self.last.elapsed() >= Duration::from_secs(2) {
+        }
+        if self.pending.is_none() && (self.wanted || self.last.elapsed() >= LOADER_PERIOD) {
             let paths = self.paths.clone();
-            let (sender, receiver) = mpsc::sync_channel(1);
-            std::thread::spawn(move || {
-                let _ = sender.send(Settings::load_editor(&paths).map_err(|e| format!("{e:#}")));
-            });
-            self.pending = Some(receiver);
+            #[cfg(test)]
+            let load = self.load.clone();
             self.last = Instant::now();
+            self.wanted = false;
+            let worker = std::thread::Builder::new()
+                .name("vscli-settings".into())
+                .spawn(move || {
+                    #[cfg(test)]
+                    {
+                        load(&paths)
+                    }
+                    #[cfg(not(test))]
+                    {
+                        Settings::load_editor(&paths).map_err(|e| format!("{e:#}"))
+                    }
+                });
+            match worker {
+                Ok(worker) => {
+                    self.pending = Some(PendingLoad {
+                        generation: self.generation,
+                        worker,
+                    });
+                }
+                Err(error) => {
+                    return Some(Err(format!("Could not start settings worker: {error}")));
+                }
+            }
         }
         None
     }
 }
 
 #[cfg(test)]
+mod loader_tests {
+    use super::*;
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicUsize, Ordering},
+        mpsc::{self, Receiver, Sender},
+    };
+
+    const WAIT: Duration = Duration::from_secs(3);
+
+    struct HeldLoader {
+        loader: Loader,
+        started: Receiver<Vec<PathBuf>>,
+        release: Sender<()>,
+        active: Arc<AtomicUsize>,
+        maximum: Arc<AtomicUsize>,
+    }
+    impl HeldLoader {
+        fn new(paths: Vec<PathBuf>) -> Self {
+            let mut loader = Loader::new(paths).unwrap();
+            let (started_tx, started) = mpsc::sync_channel(1);
+            let (release, release_rx) = mpsc::channel();
+            let release_rx = Arc::new(Mutex::new(release_rx));
+            let active = Arc::new(AtomicUsize::new(0));
+            let maximum = Arc::new(AtomicUsize::new(0));
+            let active_worker = active.clone();
+            let maximum_worker = maximum.clone();
+            loader.load = Arc::new(move |paths| {
+                let current = active_worker.fetch_add(1, Ordering::SeqCst) + 1;
+                maximum_worker.fetch_max(current, Ordering::SeqCst);
+                // Read before the explicit gate: the held result is genuinely
+                // stale when the test changes the file and invalidates it.
+                let result = Settings::load_editor(paths).map_err(|e| format!("{e:#}"));
+                started_tx.send(paths.to_vec()).unwrap();
+                let released = release_rx.lock().unwrap().recv_timeout(WAIT);
+                active_worker.fetch_sub(1, Ordering::SeqCst);
+                released.expect("test must release held settings callback");
+                result
+            });
+            Self {
+                loader,
+                started,
+                release,
+                active,
+                maximum,
+            }
+        }
+        fn start(&mut self) -> Vec<PathBuf> {
+            assert!(self.loader.poll().is_none());
+            self.started.recv_timeout(WAIT).unwrap()
+        }
+        fn next_started_without_publication(&mut self) -> Vec<PathBuf> {
+            let deadline = Instant::now() + WAIT;
+            loop {
+                assert!(self.loader.poll().is_none(), "superseded result published");
+                if let Ok(paths) = self.started.try_recv() {
+                    return paths;
+                }
+                assert!(Instant::now() < deadline, "latest reload never started");
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+        fn finish(&mut self) -> std::result::Result<Settings, String> {
+            self.release.send(()).unwrap();
+            let deadline = Instant::now() + WAIT;
+            loop {
+                if let Some(result) = self.loader.poll() {
+                    return result;
+                }
+                assert!(Instant::now() < deadline, "settings result never published");
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+        fn assert_held_alone(&mut self) {
+            for _ in 0..256 {
+                assert!(self.loader.poll().is_none());
+            }
+            assert_eq!(self.active.load(Ordering::SeqCst), 1);
+            assert_eq!(self.maximum.load(Ordering::SeqCst), 1);
+            assert!(matches!(
+                self.started.try_recv(),
+                Err(mpsc::TryRecvError::Empty)
+            ));
+        }
+    }
+
+    #[test]
+    fn initial_period_is_preserved_and_force_reload_starts_immediately() {
+        let mut held = HeldLoader::new(Vec::new());
+        assert!(held.loader.poll().is_none());
+        assert!(matches!(
+            held.started.try_recv(),
+            Err(mpsc::TryRecvError::Empty)
+        ));
+        held.loader.force_reload().unwrap();
+        assert!(held.start().is_empty());
+        held.assert_held_alone();
+        assert!(held.finish().is_ok());
+        assert!(held.loader.poll().is_none());
+    }
+
+    #[test]
+    fn forced_reload_discards_held_failure_and_coalesces_latest_disk_read() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("settings.json");
+        std::fs::write(&path, "malformed").unwrap();
+        let mut held = HeldLoader::new(vec![path.clone()]);
+        held.loader.force_reload().unwrap();
+        assert_eq!(held.start(), vec![path.clone()]);
+        std::fs::write(&path, r#"{"breadcrumbs.enabled":false}"#).unwrap();
+        for _ in 0..256 {
+            held.loader.force_reload().unwrap();
+        }
+        held.assert_held_alone();
+        held.release.send(()).unwrap();
+        assert_eq!(held.next_started_without_publication(), vec![path]);
+        assert!(!held.finish().unwrap().breadcrumbs("cpp").enabled);
+        assert_eq!(held.maximum.load(Ordering::SeqCst), 1);
+        assert!(held.loader.poll().is_none());
+    }
+
+    #[test]
+    fn profile_a_b_a_cannot_revive_first_a_or_start_overlapping_reads() {
+        let directory = tempfile::tempdir().unwrap();
+        let first = directory.path().join("a.json");
+        let second = directory.path().join("b.json");
+        std::fs::write(&first, r#"{"breadcrumbs.enabled":true}"#).unwrap();
+        std::fs::write(&second, r#"{"breadcrumbs.enabled":true}"#).unwrap();
+        let mut held = HeldLoader::new(vec![first.clone()]);
+        held.loader.force_reload().unwrap();
+        assert_eq!(held.start(), vec![first.clone()]);
+        held.loader.reconfigure(vec![second]).unwrap();
+        std::fs::write(&first, r#"{"breadcrumbs.enabled":false}"#).unwrap();
+        held.loader.reconfigure(vec![first.clone()]).unwrap();
+        held.assert_held_alone();
+        held.release.send(()).unwrap();
+        assert_eq!(held.next_started_without_publication(), vec![first]);
+        assert!(!held.finish().unwrap().breadcrumbs("cpp").enabled);
+        assert_eq!(held.maximum.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn invalid_paths_and_generation_exhaustion_preserve_current_profile() {
+        assert!(Loader::new(vec![PathBuf::new()]).is_err());
+        assert!(Loader::new(vec![PathBuf::from("x"); 3]).is_err());
+        assert!(Loader::new(vec![PathBuf::from("x".repeat(4097))]).is_err());
+        let mut loader = Loader::new(vec![PathBuf::from("original")]).unwrap();
+        let original_generation = loader.generation;
+        assert!(loader.reconfigure(vec![PathBuf::new()]).is_err());
+        assert_eq!(loader.generation, original_generation);
+        assert_eq!(loader.paths, vec![PathBuf::from("original")]);
+        assert!(!loader.wanted);
+        loader.generation = u64::MAX;
+        assert!(loader.force_reload().is_err());
+        assert!(
+            loader
+                .reconfigure(vec![PathBuf::from("replacement")])
+                .is_err()
+        );
+        assert_eq!(loader.generation, u64::MAX);
+        assert_eq!(loader.paths, vec![PathBuf::from("original")]);
+        assert!(!loader.wanted);
+        assert!(loader.pending.is_none());
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn root_write_scope_defaults_to_user_and_uses_the_recorded_workspace_index() {
+        assert_eq!(
+            Settings::default()
+                .root_write_target("breadcrumbs.enabled", "cpp")
+                .unwrap(),
+            RootWriteScope::User
+        );
+        assert!(
+            Settings::default()
+                .root_write_target("extension.unknown", "cpp")
+                .is_err()
+        );
+        let root = tempfile::tempdir().unwrap();
+        let first = root.path().join("workspace-looking-name.json");
+        let second = root.path().join("user-looking-name.json");
+        std::fs::write(
+            &first,
+            r#"{"breadcrumbs.enabled":false,"breadcrumbs.filePath":"last"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &second,
+            r#"{"breadcrumbs.enabled":true,"breadcrumbs.filePath":false}"#,
+        )
+        .unwrap();
+        let settings = Settings::load_editor(&[first.clone(), second.clone()]).unwrap();
+        assert_eq!(
+            settings
+                .root_write_target("breadcrumbs.enabled", "cpp")
+                .unwrap(),
+            RootWriteScope::Workspace
+        );
+        assert_eq!(
+            settings
+                .root_write_target("breadcrumbs.filePath", "cpp")
+                .unwrap(),
+            RootWriteScope::User
+        );
+        assert_eq!(
+            settings
+                .root_write_target("breadcrumbs.symbolPath", "cpp")
+                .unwrap(),
+            RootWriteScope::User
+        );
+        assert_eq!(
+            Settings::load(std::slice::from_ref(&second))
+                .unwrap()
+                .root_write_target("breadcrumbs.enabled", "cpp")
+                .unwrap(),
+            RootWriteScope::User
+        );
+        assert_eq!(
+            Settings::load_editor(&[second])
+                .unwrap()
+                .root_write_target("breadcrumbs.enabled", "cpp")
+                .unwrap(),
+            RootWriteScope::Workspace
+        );
+    }
+    #[test]
+    fn malformed_higher_root_and_language_values_do_not_control_the_write_scope() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(
+            &user,
+            r#"{"breadcrumbs.enabled":false,"breadcrumbs.filePath":"last"}"#,
+        )
+        .unwrap();
+        std::fs::write(&workspace,r#"{"breadcrumbs.enabled":"true","breadcrumbs.filePath":null,"[cpp]":{"breadcrumbs.enabled":"false"},"[cpp][rust]":{"breadcrumbs.filePath":false},"[python]":{"breadcrumbs.enabled":true}}"#).unwrap();
+        let settings = Settings::load_editor(&[user, workspace]).unwrap();
+        for key in ["breadcrumbs.enabled", "breadcrumbs.filePath"] {
+            assert_eq!(
+                settings.root_write_target(key, "cpp").unwrap(),
+                RootWriteScope::User
+            );
+        }
+        assert!(!settings.breadcrumbs("cpp").enabled);
+        assert_eq!(settings.breadcrumbs("cpp").file_path, BreadcrumbPath::Last);
+        assert!(
+            settings
+                .root_write_target("breadcrumbs.enabled", "python")
+                .is_err()
+        );
+    }
+    #[test]
+    fn root_writes_refuse_the_exact_composite_or_single_language_winner_even_when_equal_to_root() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(&user,r#"{"breadcrumbs.enabled":false,"[cpp][rust]":{"breadcrumbs.enabled":true},"[rust][cpp]":{"breadcrumbs.enabled":false},"[cpp]":{"breadcrumbs.enabled":false}}"#).unwrap();
+        std::fs::write(&workspace,r#"{"breadcrumbs.enabled":false,"[cpp][rust]":{"breadcrumbs.enabled":true},"[cpp]":{"breadcrumbs.enabled":"bad"}}"#).unwrap();
+        let paths = [user, workspace.clone()];
+        let settings = Settings::load_editor(&paths).unwrap();
+        assert!(!settings.breadcrumbs("cpp").enabled);
+        assert!(!settings.breadcrumbs("rust").enabled);
+        let cpp = settings
+            .value_scoped_source("breadcrumbs.enabled", "cpp", 2)
+            .unwrap();
+        assert_eq!(cpp.selector, Some("[cpp]"));
+        assert_eq!(cpp.layer, 0);
+        let rust = settings
+            .value_scoped_source("breadcrumbs.enabled", "rust", 2)
+            .unwrap();
+        assert_eq!(rust.selector, Some("[rust][cpp]"));
+        assert_eq!(rust.layer, 0);
+        assert!(
+            settings
+                .root_write_target("breadcrumbs.enabled", "cpp")
+                .unwrap_err()
+                .to_string()
+                .contains("[cpp]")
+        );
+        assert!(
+            settings
+                .root_write_target("breadcrumbs.enabled", "rust")
+                .unwrap_err()
+                .to_string()
+                .contains("[rust][cpp]")
+        );
+        assert_eq!(
+            settings
+                .root_write_target("breadcrumbs.enabled", "plaintext")
+                .unwrap(),
+            RootWriteScope::Workspace
+        );
+        std::fs::write(
+            workspace,
+            r#"{"breadcrumbs.enabled":false,"[cpp]":{"breadcrumbs.enabled":false}}"#,
+        )
+        .unwrap();
+        let settings = Settings::load_editor(&paths).unwrap();
+        let cpp = settings
+            .value_scoped_source("breadcrumbs.enabled", "cpp", 2)
+            .unwrap();
+        assert_eq!(cpp.layer, 1);
+        assert_eq!(cpp.selector, Some("[cpp]"));
+        assert!(
+            settings
+                .root_write_target("breadcrumbs.enabled", "cpp")
+                .is_err()
+        );
+    }
     #[test]
     fn breadcrumb_defaults_are_enabled_with_both_paths() {
         assert_eq!(
