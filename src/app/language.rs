@@ -92,6 +92,9 @@ impl App {
                             let result = request
                                 .context("Unsolicited workspace edit; invoke a code action first")
                                 .and_then(|request| {
+                                    if !self.native_action_pending_owned(&request) {
+                                        bail!("Workspace edit has no current interactive command owner");
+                                    }
                                     self.code_action_current(&request)?;
                                     self.apply_action_edit(&request, edit)
                                 });
@@ -108,6 +111,11 @@ impl App {
                         Event::Message(message) => self.message = message,
                         Event::SignatureFailure(request, error) => {
                             self.signature_failure(&request, &error);
+                        }
+                        Event::ActionResult(request, result) => {
+                            if let Err(error) = self.native_action_result(request, result) {
+                                self.message = format!("Native code action response: {error:#}");
+                            }
                         }
                         Event::FormattingResult(request, result) => {
                             if self.save_formatting_owned(&request) {

@@ -78,6 +78,7 @@ pub enum Event {
     SignatureFailure(Request, String),
     SymbolFailure(Request, String),
     FormattingResult(Request, Result<Value, String>),
+    ActionResult(Request, Result<Value, String>),
     Diagnostics(DiagnosticPublication),
     Message(String),
 }
@@ -98,6 +99,113 @@ struct FormattingSlot {
     canceled: bool,
     timed_out: bool,
 }
+struct ActionSlot {
+    token: u64,
+    canceled: bool,
+    timed_out: bool,
+    resolve_original: Option<Value>,
+}
+
+const ACTION_BYTES: usize = 2 * 1024 * 1024;
+
+/// Validate unknown resolve data before copying it or recursively serializing it.
+fn action_budget(value: &Value) -> Result<()> {
+    const NODES: usize = 131_072;
+    let mut stack = vec![(value, 0usize)];
+    let mut nodes = 0usize;
+    let mut string_bytes = 0usize;
+    while let Some((value, depth)) = stack.pop() {
+        nodes += 1;
+        if nodes > NODES || depth > 64 {
+            bail!("Code action exceeds its node or nesting budget");
+        }
+        match value {
+            Value::String(text) => string_bytes = string_bytes.saturating_add(text.len()),
+            Value::Array(items) => {
+                if items.len() > NODES.saturating_sub(nodes + stack.len()) {
+                    bail!("Code action exceeds its node budget");
+                }
+                stack.extend(items.iter().map(|item| (item, depth + 1)));
+            }
+            Value::Object(items) => {
+                if items.len() > NODES.saturating_sub(nodes + stack.len()) {
+                    bail!("Code action exceeds its node budget");
+                }
+                for (key, item) in items {
+                    string_bytes = string_bytes.saturating_add(key.len());
+                    stack.push((item, depth + 1));
+                }
+            }
+            _ => {}
+        }
+        if string_bytes > ACTION_BYTES {
+            bail!("Code action exceeds 2 MiB");
+        }
+    }
+    struct Counter(usize);
+    impl std::io::Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if bytes.len() > ACTION_BYTES.saturating_sub(self.0) {
+                return Err(std::io::Error::other("Code action exceeds 2 MiB"));
+            }
+            self.0 += bytes.len();
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    serde_json::to_writer(Counter(0), value)?;
+    Ok(())
+}
+
+fn validate_action_item(item: &Value) -> Result<()> {
+    let object = item.as_object().context("Invalid code action object")?;
+    let title = object
+        .get("title")
+        .and_then(Value::as_str)
+        .context("Invalid code action title")?;
+    if title.len() > 8192 {
+        bail!("Code action title exceeds 8 KiB");
+    }
+    Ok(())
+}
+
+fn validate_action_result(method: &str, value: &Value, original: Option<&Value>) -> Result<()> {
+    if method == "textDocument/codeAction" {
+        if !value.is_null() {
+            let items = value.as_array().context("Invalid code action list")?;
+            if items.len() > 300 {
+                bail!("Code action source exceeds 300 items");
+            }
+            action_budget(value)?;
+            for item in items {
+                validate_action_item(item)?;
+            }
+        }
+    } else if method == "codeAction/resolve" {
+        action_budget(value)?;
+        validate_action_item(value)?;
+        let original = original.context("Missing original code action")?;
+        for key in [
+            "title",
+            "kind",
+            "diagnostics",
+            "isPreferred",
+            "disabled",
+            "command",
+            "data",
+        ] {
+            if original.get(key) != value.get(key) {
+                bail!("Code action resolution changed immutable field {key}");
+            }
+        }
+    } else {
+        action_budget(value)?;
+    }
+    Ok(())
+}
+
 pub struct Client {
     identity: Arc<()>,
     transport: crate::transport::Process,
@@ -110,8 +218,7 @@ pub struct Client {
     formatting_slot: Option<FormattingSlot>,
     synced: HashMap<String, Synced>,
     next_id: u64,
-    command_channel_valid: bool,
-    action_channel_valid: bool,
+    action_slot: Option<ActionSlot>,
     next_document_version: i64,
     root_uri: String,
     pub language: String,
@@ -301,8 +408,7 @@ impl Client {
             formatting_slot: None,
             synced: HashMap::new(),
             next_id: 1,
-            command_channel_valid: true,
-            action_channel_valid: true,
+            action_slot: None,
             next_document_version: 1,
             root_uri,
             language,
@@ -528,6 +634,9 @@ impl Client {
         extra: Value,
         view: Option<u64>,
     ) -> Result<()> {
+        if matches!(method, "codeAction/resolve" | "workspace/executeCommand") {
+            bail!("Action follow-ups require an original source-owned action request");
+        }
         if !self.ready {
             bail!("Language server is still initializing");
         }
@@ -574,15 +683,13 @@ impl Client {
             .synced
             .get(&uri)
             .context("This language server does not handle this file type")?;
-        if formatting
+        if (formatting || method == "textDocument/codeAction")
             && (synced.id != doc.id
                 || synced.path != path
                 || synced.revision != doc.revision
                 || synced.text_epoch != doc.text_epoch())
         {
-            bail!(
-                "Document has not been synchronized for formatting; retry after language synchronization"
-            );
+            bail!("Document has not been synchronized; retry after language synchronization");
         }
         let sync_version = synced.version;
         if self.pending.len() >= 32 {
@@ -594,12 +701,32 @@ impl Client {
         }
         if is_action {
             self.ensure_action_available()?;
+            action_budget(&extra)?;
+            let object = extra
+                .as_object()
+                .context("Invalid code action parameters")?;
+            if object.contains_key("textDocument") || object.contains_key("position") {
+                bail!("Code action parameters cannot replace the captured document");
+            }
+            if doc.secondary.len() >= 10_000 {
+                bail!("Code actions support at most 10000 selections");
+            }
         }
         if method == "textDocument/documentSymbol" {
             self.ensure_symbol_available()?;
         }
         if is_action && self.synced.len() > 128 {
             bail!("Code actions support at most 128 synchronized buffers");
+        }
+        if is_action {
+            let mut paths = 0usize;
+            for synced in self.synced.values() {
+                let bytes = synced.path.as_os_str().len();
+                paths = paths.saturating_add(bytes);
+                if bytes > 8192 || paths > 512 * 1024 {
+                    bail!("Code action workspace path budget exceeded");
+                }
+            }
         }
         let workspace = if is_action {
             self.synced
@@ -659,6 +786,14 @@ impl Client {
                 token: id,
                 canceled: false,
                 timed_out: false,
+            });
+        }
+        if is_action {
+            self.action_slot = Some(ActionSlot {
+                token: id,
+                canceled: false,
+                timed_out: false,
+                resolve_original: None,
             });
         }
         if formatting {
@@ -795,66 +930,106 @@ impl Client {
         Ok(id)
     }
     pub fn action_available(&self) -> bool {
-        self.action_channel_valid
-            && !self.pending.values().any(|request| {
-                matches!(
-                    request.method.as_str(),
-                    "textDocument/codeAction" | "codeAction/resolve" | "workspace/executeCommand"
-                )
-            })
+        self.ready && self.action_slot.is_none() && self.pending.len() < 32
     }
     pub(crate) fn action_channel_closed(&self) -> bool {
-        !self.action_channel_valid
+        self.action_slot.as_ref().is_some_and(|slot| slot.timed_out)
+    }
+    #[cfg(test)]
+    pub(crate) fn action_request_current(&self, token: u64) -> bool {
+        self.action_slot
+            .as_ref()
+            .is_some_and(|slot| slot.token == token && !slot.canceled && !slot.timed_out)
+            && self
+                .pending
+                .get(&token)
+                .is_some_and(|request| self.request_current(request))
     }
     fn ensure_action_available(&self) -> Result<()> {
-        if !self.action_channel_valid {
-            bail!(
-                "A language server code action timed out; restart the language server before requesting actions again"
-            );
+        if self.action_channel_closed() {
+            bail!("A code action timed out; awaiting actual response or language server restart");
         }
         if !self.action_available() {
             bail!("A code action request is already running; retry shortly");
         }
         Ok(())
     }
+    pub(crate) fn cancel_action_request(&mut self, token: u64) -> Result<()> {
+        if let Some(slot) = &mut self.action_slot
+            && slot.token == token
+            && !slot.canceled
+        {
+            slot.canceled = true;
+            self.notify("$/cancelRequest", json!({"id":token}))?;
+        }
+        Ok(())
+    }
+    #[cfg(test)]
     pub(crate) fn cancel_code_actions(&mut self) -> Result<()> {
-        let ids: Vec<_> = self
-            .pending
-            .iter()
-            .filter(|(_, request)| {
-                matches!(
-                    request.method.as_str(),
-                    "textDocument/codeAction" | "codeAction/resolve" | "workspace/executeCommand"
-                )
-            })
-            .map(|(id, _)| *id)
-            .collect();
-        for id in ids {
-            // Advisory cancellation cannot establish that server work has ended.
-            // Keep both the original provenance and the actual occupied slot.
-            self.notify("$/cancelRequest", json!({"id":id}))?;
+        if let Some(token) = self.action_slot.as_ref().map(|slot| slot.token) {
+            self.cancel_action_request(token)?;
         }
         Ok(())
     }
     pub fn ensure_command_available(&self) -> Result<()> {
-        if !self.command_channel_valid {
-            bail!(
-                "A language server command timed out; restart the language server before running commands again"
-            );
+        self.ensure_action_available()
+    }
+    pub(crate) fn resolve_code_action(&mut self, original: &Request, item: Value) -> Result<u64> {
+        if self.capabilities["codeActionProvider"]["resolveProvider"] != true {
+            bail!("Language server does not support code action resolution");
         }
-        if self.pending.len() >= 32 {
-            bail!("Too many pending language requests");
+        action_budget(&item)?;
+        validate_action_item(&item)?;
+        self.action_follow_up(original, "codeAction/resolve", item)
+    }
+    pub(crate) fn execute_action_command(
+        &mut self,
+        original: &Request,
+        params: Value,
+    ) -> Result<u64> {
+        action_budget(&params)?;
+        let object = params
+            .as_object()
+            .context("Invalid action command parameters")?;
+        let command = object
+            .get("command")
+            .and_then(Value::as_str)
+            .context("Invalid action command")?;
+        if command.len() > 8192 || object.get("arguments").is_some_and(|args| !args.is_array()) {
+            bail!("Invalid or oversized action command");
         }
-        if self
-            .pending
-            .values()
-            .any(|r| r.method == "workspace/executeCommand")
+        self.action_follow_up(original, "workspace/executeCommand", params)
+    }
+    fn action_follow_up(&mut self, original: &Request, method: &str, params: Value) -> Result<u64> {
+        self.ensure_action_available()?;
+        if !matches!(
+            original.method.as_str(),
+            "textDocument/codeAction" | "codeAction/resolve"
+        ) || !self.request_current(original)
         {
-            bail!("A language server command is already running");
+            bail!("Original code action source or document changed");
         }
-        Ok(())
+        let (id, next_id) = self.request_identity()?;
+        let retained = (method == "codeAction/resolve").then(|| params.clone());
+        self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
+        self.next_id = next_id;
+        let mut request = original.clone();
+        request.token = id;
+        request.method = method.into();
+        request.started = Instant::now();
+        self.pending.insert(id, request);
+        self.action_slot = Some(ActionSlot {
+            token: id,
+            canceled: false,
+            timed_out: false,
+            resolve_original: retained,
+        });
+        Ok(id)
     }
     pub fn follow_up(&mut self, original: &Request, method: &str, params: Value) -> Result<()> {
+        if method == "textDocument/codeAction" {
+            bail!("Code action discovery requires a synchronized document request");
+        }
         if method == "textDocument/formatting" {
             bail!("Formatting requires a synchronized document formatting request");
         }
@@ -862,10 +1037,12 @@ impl Client {
             bail!("Too many pending language requests");
         }
         if method == "workspace/executeCommand" {
-            self.ensure_command_available()?;
+            self.execute_action_command(original, params)?;
+            return Ok(());
         }
         if method == "codeAction/resolve" {
-            self.ensure_action_available()?;
+            self.resolve_code_action(original, params)?;
+            return Ok(());
         }
         let (id, next_id) = self.request_identity()?;
         self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
@@ -998,6 +1175,10 @@ impl Client {
                         .symbol_slot
                         .as_ref()
                         .is_some_and(|slot| slot.token == **id && slot.timed_out)
+                    && !self
+                        .action_slot
+                        .as_ref()
+                        .is_some_and(|slot| slot.token == **id && slot.timed_out)
             })
             .map(|(id, _)| *id)
             .collect::<Vec<_>>()
@@ -1030,6 +1211,26 @@ impl Client {
                 self.notify("$/cancelRequest", json!({"id":id}))?;
                 continue;
             }
+            if let Some(slot) = &mut self.action_slot
+                && slot.token == id
+            {
+                if slot.timed_out {
+                    continue;
+                }
+                slot.timed_out = true;
+                let notify = !slot.canceled;
+                let deliver = !slot.canceled;
+                slot.canceled = true;
+                if deliver {
+                    events.push(Event::ActionResult(self.pending.get(&id).unwrap().clone(), Err(
+                        "Code action request timed out; awaiting actual response or language server restart".into()
+                    )));
+                }
+                if notify {
+                    self.notify("$/cancelRequest", json!({"id":id}))?;
+                }
+                continue;
+            }
             let request = self.pending.remove(&id).unwrap();
             if request.method == "textDocument/signatureHelp" {
                 // Retain the actual occupied token after the response deadline.
@@ -1041,20 +1242,10 @@ impl Client {
                         .into(),
                 ));
             }
-            if matches!(
-                request.method.as_str(),
-                "textDocument/codeAction" | "codeAction/resolve"
-            ) {
-                self.action_channel_valid = false;
-            }
             if self.completion_resolve == Some(id) {
                 self.completion_resolve = None;
                 // A timeout cannot prove that the canceled callback has finished.
                 self.completion_resolve_valid = false;
-            }
-            if request.method == "workspace/executeCommand" {
-                // Cancellation cannot establish that all server callbacks have stopped.
-                self.command_channel_valid = false;
             }
             self.notify("$/cancelRequest", json!({"id":id}))?;
             events.push(Event::Message(format!(
@@ -1063,7 +1254,7 @@ impl Client {
             )));
         }
         for _ in 0..32 {
-            let Some(message) = self.transport.receive()? else {
+            let Some(mut message) = self.transport.receive()? else {
                 break;
             };
             if let Some(method) = message["method"].as_str() {
@@ -1074,7 +1265,10 @@ impl Client {
                             .pending
                             .values()
                             .find(|r| {
-                                self.command_channel_valid && r.method == "workspace/executeCommand"
+                                r.method == "workspace/executeCommand"
+                                    && self.action_slot.as_ref().is_some_and(|slot| {
+                                        slot.token == r.token && !slot.canceled && !slot.timed_out
+                                    })
                             })
                             .cloned();
                         events.push(Event::ApplyEdit(
@@ -1135,6 +1329,43 @@ impl Client {
                     events.push(Event::Message(text.chars().take(2000).collect()));
                 }
             } else if let Some(id) = message["id"].as_u64() {
+                if self
+                    .action_slot
+                    .as_ref()
+                    .is_some_and(|slot| slot.token == id)
+                {
+                    let result = message.get("result");
+                    let error = message.get("error");
+                    let completed = message["jsonrpc"] == "2.0"
+                        && (matches!((result, error), (Some(_), None))
+                            || matches!((result,error),(None,Some(error)) if error["code"].as_i64().is_some_and(|code| i32::try_from(code).is_ok()) && error["message"].as_str().is_some()));
+                    if !completed {
+                        continue;
+                    }
+                    let slot = self.action_slot.take().unwrap();
+                    let request = self.pending.remove(&id).unwrap();
+                    if !slot.canceled && !slot.timed_out {
+                        let response = if let Some(error) = error {
+                            let text = error["message"].as_str().unwrap();
+                            let mut end = text.len().min(4000);
+                            while !text.is_char_boundary(end) {
+                                end -= 1;
+                            }
+                            Err(format!("{} ({})", &text[..end], error["code"]))
+                        } else {
+                            let value = message.as_object_mut().unwrap().remove("result").unwrap();
+                            validate_action_result(
+                                &request.method,
+                                &value,
+                                slot.resolve_original.as_ref(),
+                            )
+                            .map(|()| value)
+                            .map_err(|error| format!("{error:#}"))
+                        };
+                        events.push(Event::ActionResult(request, response));
+                    }
+                    continue;
+                }
                 if self
                     .formatting_slot
                     .as_ref()
@@ -2218,7 +2449,7 @@ while True:
     }
 
     #[test]
-    fn ignored_action_cancellation_retains_slots_and_timeout_blocks_further_action_work() {
+    fn ignored_action_cancellation_retains_slots_until_exact_late_release() {
         // A real framed peer confirms receipt and explicitly ignores cancellation.
         // Only the client's private timer is advanced; there is no deadline sleep.
         const PEER: &str = r#"
@@ -2296,7 +2527,7 @@ while True:
                             .unwrap()
                             .into_iter()
                             .find_map(|event| match event {
-                                Event::Response(request, _) if request.token == first => {
+                                Event::ActionResult(request, Ok(_)) if request.token == first => {
                                     Some(request)
                                 }
                                 _ => None,
@@ -2311,7 +2542,7 @@ while True:
             let token = if let Some(original) = &original {
                 let token = client.next_id;
                 client
-                    .follow_up(original, method, json!({"hold":true}))
+                    .follow_up(original, method, json!({"title":"Lazy action","data":{},"hold":true,"command":"fixture.hold"}))
                     .unwrap();
                 token
             } else {
@@ -2323,7 +2554,7 @@ while True:
                 }
                 loop {
                     let events = client.poll().unwrap();
-                    assert!(!events.iter().any(|event| matches!(event, Event::Response(request, _) if request.token == token)));
+                    assert!(!events.iter().any(|event| matches!(event, Event::ActionResult(request, _) if request.token == token)));
                     if events.iter().any(
                         |event| matches!(event, Event::Message(message) if message == &expected),
                     ) {
@@ -2339,7 +2570,7 @@ while True:
                     if let Some(original) = &original {
                         assert!(
                             client
-                                .follow_up(original, method, json!({"hold":true}))
+                                .follow_up(original, method, json!({"title":"Lazy action","data":{},"hold":true,"command":"fixture.hold"}))
                                 .is_err()
                         );
                     }
@@ -2352,15 +2583,20 @@ while True:
             }
             client.pending.get_mut(&token).unwrap().started =
                 Instant::now() - Duration::from_secs(16);
-            assert!(client.poll().unwrap().iter().any(
-                |event| matches!(event, Event::Message(message) if message.contains("timed out"))
-            ));
-            assert!(client.pending.is_empty());
+            assert!(
+                !client
+                    .poll()
+                    .unwrap()
+                    .iter()
+                    .any(|event| matches!(event, Event::ActionResult(_, _)))
+            );
+            assert_eq!(client.pending.len(), 1);
+            assert!(client.action_channel_closed());
             let before = client.next_id;
             for _ in 0..32 {
                 let error = if method == "workspace/executeCommand" {
                     client
-                        .follow_up(original.as_ref().unwrap(), method, json!({"hold":true}))
+                        .follow_up(original.as_ref().unwrap(), method, json!({"title":"Lazy action","data":{},"hold":true,"command":"fixture.hold"}))
                         .unwrap_err()
                 } else {
                     let error = client
@@ -2369,7 +2605,7 @@ while True:
                     if let Some(original) = &original {
                         assert!(
                             client
-                                .follow_up(original, method, json!({"hold":true}))
+                                .follow_up(original, method, json!({"title":"Lazy action","data":{},"hold":true,"command":"fixture.hold"}))
                                 .unwrap_err()
                                 .to_string()
                                 .contains("restart")
@@ -2390,13 +2626,29 @@ while True:
             loop {
                 let events = client.poll().unwrap();
                 assert!(!events.iter().any(
-                    |event| matches!(event, Event::Response(request, _) if request.token == token)
+                    |event| matches!(event, Event::ActionResult(request, _) if request.token == token)
                 ));
                 if events.iter().any(|event| matches!(event, Event::Message(message) if message == &format!("released-{token}"))) { break; }
                 assert!(Instant::now() < deadline);
                 std::thread::sleep(Duration::from_millis(2));
             }
-            // The closed channel is source-specific: unrelated language reads work.
+            assert!(
+                client.action_available(),
+                "Exact late reply releases actual capacity"
+            );
+            assert!(client.pending.is_empty());
+            let fresh = client.request_code_actions(&doc, json!({}), None).unwrap();
+            loop {
+                if client.poll().unwrap().iter().any(|event| {
+                    matches!(event,
+                    Event::ActionResult(request, Ok(_)) if request.token == fresh)
+                }) {
+                    break;
+                }
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            // Unrelated language reads remain available throughout the action lane lifetime.
             client
                 .request("textDocument/hover", &doc, json!({}))
                 .unwrap();
@@ -2478,7 +2730,7 @@ while True:
         assert!(client.completion_resolve_closed());
     }
     #[test]
-    fn timed_out_command_disables_new_commands_and_late_callbacks_until_restart() {
+    fn timed_out_command_blocks_all_action_work_and_rejects_late_edit_authorization() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("main.rs");
         std::fs::write(&path, "bad").unwrap();
@@ -2507,7 +2759,7 @@ while True:
                 .unwrap()
                 .into_iter()
                 .find_map(|event| match event {
-                    Event::Response(request, _) => Some(request),
+                    Event::ActionResult(request, Ok(_)) => Some(request),
                     _ => None,
                 });
             if let Some(request) = response {
@@ -2523,7 +2775,7 @@ while True:
         client.pending.values_mut().next().unwrap().started =
             Instant::now() - Duration::from_secs(16);
         assert!(client.poll().unwrap().iter().any(
-            |event| matches!(event, Event::Message(message) if message.contains("timed out"))
+            |event| matches!(event, Event::ActionResult(_, Err(message)) if message.contains("timed out"))
         ));
         doc.insert("new", false);
         client.sync(std::slice::from_ref(&doc)).unwrap();
@@ -2532,7 +2784,7 @@ while True:
         let error = client
             .follow_up(&newer, "workspace/executeCommand", command)
             .unwrap_err();
-        assert!(error.to_string().contains("restart the language server"));
+        assert!(error.to_string().contains("restart"));
         loop {
             let callback = client
                 .poll()
@@ -2643,3 +2895,7 @@ while True:
         );
     }
 }
+
+#[cfg(test)]
+#[path = "lsp/action_lane_tests.rs"]
+mod action_lane_tests;

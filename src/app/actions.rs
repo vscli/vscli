@@ -49,8 +49,11 @@ impl App {
     }
     pub(super) fn cancel_code_actions(&mut self) {
         if let Some(cohort) = self.actions.cohort.take() {
-            if let Some(client) = &mut self.lsp {
-                let _ = client.cancel_code_actions();
+            if let Some((token, server)) = &cohort.native
+                && let Some(client) = &mut self.lsp
+                && Arc::ptr_eq(server, &client.identity())
+            {
+                let _ = client.cancel_action_request(*token);
             }
             if cohort.shown
                 && matches!(&self.modal, Some(Modal::Language { title, .. }) if title == TITLE)
@@ -298,6 +301,43 @@ impl App {
             )
         };
     }
+    pub(super) fn native_action_pending_owned(&self, request: &Request) -> bool {
+        self.action_context_current()
+            && self.actions.cohort.as_ref().is_some_and(|cohort| {
+                cohort.native.as_ref().is_some_and(|(token, server)| {
+                    *token == request.token && Arc::ptr_eq(server, &request.server)
+                })
+            })
+    }
+    pub(super) fn track_native_action(&mut self, request: &Request, token: u64) {
+        if let Some(cohort) = &mut self.actions.cohort {
+            cohort.native = Some((token, request.server.clone()));
+        }
+    }
+    pub(super) fn native_action_result(
+        &mut self,
+        request: Request,
+        result: Result<Value, String>,
+    ) -> Result<()> {
+        if !self.native_action_pending_owned(&request) {
+            return Ok(());
+        }
+        match result {
+            Ok(value) if request.method != "workspace/executeCommand" => {
+                self.native_action_reply(request, value)
+            }
+            Ok(_) => {
+                self.actions.cohort.as_mut().unwrap().native = None;
+                self.finish_code_actions();
+                Ok(())
+            }
+            Err(error) => {
+                self.actions.cohort.as_mut().unwrap().native = None;
+                self.message = format!("Native code action source: {error}");
+                Ok(())
+            }
+        }
+    }
     pub(super) fn native_action_context_current(&self, request: &Request) -> Result<()> {
         let current = self.action_context_current()
             && self.actions.cohort.as_ref().is_some_and(|cohort| {
@@ -345,13 +385,10 @@ impl App {
         if cohort.selected {
             return Ok(());
         }
-        let mut items = if value.is_null() {
-            Vec::new()
-        } else {
-            value
-                .as_array()
-                .context("Invalid native code action response")?
-                .clone()
+        let mut items = match value {
+            Value::Null => Vec::new(),
+            Value::Array(items) => items,
+            _ => bail!("Invalid native code action response"),
         };
         if items.len() > 300 {
             bail!("Native code action source exceeds 300 items");

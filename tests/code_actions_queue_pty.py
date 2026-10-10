@@ -138,10 +138,17 @@ def run(root):
         # actual occupied callback. None may reach the peer before its gate.
         app.send(b''.join(HOME + RIGHT * (index % 10) + SHIFT_RIGHT + QUICK_FIX + ESCAPE
                           for index in range(30)))
-        # Each consumed cancellation targets the same held actual request. This
-        # barrier prevents the filesystem gate from overtaking batched input.
-        eventually(lambda: app.read() and sum(entry['kind'] == 'cancel'
-                    and entry['id'] == first['id'] for entry in trace(root)) >= 31, timeout=8)
+        # Cancellation is exact-owner and idempotent: queued intents do not
+        # own the first actual callback. An original palette command after the
+        # burst positively proves all thirty preceding intents were consumed
+        # without requiring unrelated repeated cancellation packets.
+        app.send(b'\x1b[112;6u')  # Original Linux Ctrl+Shift+P.
+        wait_screen(app, 'Command Palette', absent=('Code Actions ·',), timeout=8)
+        app.send(ESCAPE)
+        wait_screen(app, 'main.cpp', 'Ln 1, Col 11',
+                    absent=('Command Palette', 'Code Actions ·'), timeout=8)
+        assert sum(entry['kind'] == 'cancel' and entry['id'] == first['id']
+                   for entry in trace(root)) == 1, 'One actual owner must cancel exactly once'
         assert len(requests(root)) == 1, 'Intermediate intent overlapped actual held work'
         app.send(HOME + RIGHT * 5 + SHIFT_RIGHT * 5 + QUICK_FIX)
         deadline = time.monotonic() + .25
@@ -169,6 +176,7 @@ def run(root):
         assert app.process.restored, 'Terminal mode leaked after native-only action workflow'
         print('PASS: empty-PATH native-only Ctrl+. coalesces 32 user intents behind one actual callback, ignores canceled earlier response, applies latest selection and preserves Unicode/CRLF save/Undo and terminal restoration')
     except BaseException:
+        print(f'Native action queue failure:\n{app.screen.text()}\nProtocol: {trace(root)!r}', file=sys.stderr)
         stop_surface_process(app)
         assert app.process.restored, 'Terminal mode leaked after regression failure'
         app.close_fds()
