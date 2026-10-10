@@ -1,0 +1,21 @@
+# Source-action API setup diagnostics candidate
+
+This independent observer version investigates the preserved macOS failure on run38076975970, exact2aa40ca5ac181ad701d089e68c12b689a393a820. It does not modify the normal stable reference gate, historical sources/baselines/readers, native execution policy, or the original fourteen cases.
+
+`stable-save-source-api-diagnostics-v1` adds `sourceApiReadinessDiagnostics` (`source-api-readiness-diagnostics-v1`) to successful and failed raw evidence. The receipt records the original single setup API invocation, public result type/count/bounded title-kind-disabled summaries, public cancellation token state at callback entry/API completion and subsequent cancellation events, and unchanged/current public model proof. Result diagnostics are captured at actual promise settlement before the same strict four-action assertion. A combined-budget interruption is separately labelled with unobserved API settlement; it is never misreported as an actual API rejection, and late settlement cannot mutate the sealed failure receipt. They do not authorize targets or explain a previous failure's cause. Recording errors remain explicit, preserve the original API/assertion error, and block new target authorization.
+
+No public setup API is retried. The original target commands remain once-only with identical arguments and projection. The two existing setup barriers retain their original deadlines, sample cadence and receipts; combined setup15000ms, provider count4, per-target deadlines, whole worker300000ms and capture step6minutes remain unchanged. Tokens are retained only for the setup call, with bounded subscriptions and cleanup on success/error/outer cancellation. No private service, registry probe, extra target gesture, timing override, sleep or preferred target predicate is added.
+
+The ten executable inputs retain the original immutable filenames, exact corpus/package/dependencies and bounded identity-before-import guard. The candidate manifest identifies this separately versioned source; new protocols must never be silently accepted by old readers. Only the observer, candidate default output path and suite/aggregate diagnostic protocol markers differ among those ten inputs. Test-only doubles now implement the actual public token subscription API.
+
+Remote execution is explicit only via `.github/workflows/save-actions-warm-api-diagnostics-reference.yml` workflow_dispatch. It captures fresh isolated pinned1.95.0 profiles on Linux/macOS/Windows, records the exact workflow SHA, retains sources plus every failed/successful prefix and launcher/config/disk receipt, and does not retry a failed capture. No local VS Code instance is authorized by this package. A green later capture cannot retroactively establish the original Mac cause or replace its evidence.
+
+The normal CI matrix runs these pure Node contract tests without launching an editor. Actual reference capture remains separate and requires an intentional dispatch of the diagnostic workflow. The workflow verifies the checked-out commit against the trusted full workflow SHA before recording provenance.
+
+Root qualification command:
+
+```sh
+node --test tests/vscode-reference-save-actions-warm-api-diagnostics-candidate/save-source-api-diagnostics.test.cjs tests/vscode-reference-save-actions-warm-api-diagnostics-candidate/save-code-actions-readiness.test.cjs tests/vscode-reference-save-actions-warm-api-diagnostics-candidate/save-code-actions-diagnostics.test.cjs tests/vscode-reference-save-actions-warm-api-diagnostics-candidate/save-configuration-ready.test.cjs
+```
+
+The dedicated new tests use controlled public API doubles; they are not upstream observations. They cover successful unchanged API receipts, real short/non-array/throwing setup outcomes, cancellation occurring after callback entry, exact cleanup, callback/event/action bounds, preservation of original errors and failed target prefixes, and zero targets after failed positive proof. Root executed all 77 pure tests successfully in both the frozen scratch package and the adopted branch, including 17 new cases. The ten-input source preflight, formatting and strict locked all-target Clippy also pass. Native production code is unchanged. No genuine new upstream capture has been obtained; protected platform integration and remote observation remain pending.

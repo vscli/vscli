@@ -70,6 +70,8 @@ jobs:
       - run: node --test extension-host/code-actions.test.cjs extension-host/fixture-evidence.test.cjs
       - run: node --test extension-host/signatures.test.cjs
       - run: node --test extension-host/symbols.test.cjs
+      - name: Test isolated source-action API diagnostics without launching an editor
+        run: node --test tests/vscode-reference-save-actions-warm-api-diagnostics-candidate/save-source-api-diagnostics.test.cjs tests/vscode-reference-save-actions-warm-api-diagnostics-candidate/save-code-actions-readiness.test.cjs tests/vscode-reference-save-actions-warm-api-diagnostics-candidate/save-code-actions-diagnostics.test.cjs tests/vscode-reference-save-actions-warm-api-diagnostics-candidate/save-configuration-ready.test.cjs
       - run: cargo test --locked
       - run: cargo build --locked
       - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs tests/vscode-reference/diagnostics-compare.test.cjs tests/vscode-reference/outline-settlement.test.cjs
