@@ -2,6 +2,7 @@ pub mod app;
 pub mod brand;
 pub mod debug;
 pub mod document;
+pub mod editing_profile;
 pub mod extension_activation;
 pub mod extension_providers;
 pub mod extension_registry;
