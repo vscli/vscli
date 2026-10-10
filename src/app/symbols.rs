@@ -13,6 +13,7 @@ struct Context {
     documents: Vec<(u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
+    groups: crate::editor_groups::UiProof,
     focus: Focus,
 }
 impl Context {
@@ -30,6 +31,7 @@ impl Context {
                 .active_document()
                 .map_or_else(Vec::new, Document::selections),
             pane: app.panes.get(app.active_pane).map(|p| p.id),
+            groups: app.editor_groups.proof(),
             focus: app.focus.clone(),
         }
     }
@@ -360,8 +362,9 @@ impl App {
             .position(|d| d.path.as_deref() == Some(path))
         {
             symbol_offset(&self.hidden_documents[index], range)?;
+            self.can_admit_editor(self.hidden_documents[index].id)?;
             let doc = self.hidden_documents.remove(index);
-            self.install_open_document(doc);
+            self.install_open_document(doc)?;
         }
         Ok(())
     }
@@ -376,16 +379,10 @@ impl App {
     fn focus_symbol(&mut self, index: usize, range: &lsp::Range) -> Result<()> {
         let offset = symbol_offset(&self.documents[index], range)?;
         let previous = self.suspend_navigation_observation();
-        let id = self.documents[index].id;
-        if self.active_document().is_some_and(|doc| doc.id == id) {
-            self.focus = Focus::Editor;
-        } else if let Some(pane) = self.panes.iter().position(|p| p.document == id) {
-            self.focus_pane(pane);
-        } else {
-            self.active = index;
-            self.focus = Focus::Editor;
-            self.sync_pane();
-        }
+        self.can_admit_editor(self.documents[index].id)?;
+        self.active = index;
+        self.focus = Focus::Editor;
+        self.sync_pane();
         self.doc_mut().clear_secondary();
         self.doc_mut().move_to(offset, false);
         self.sync_pane();
@@ -433,7 +430,7 @@ impl App {
                                     let offset = symbol_offset(&doc, &loader.symbol.range)?;
                                     self.settings.apply(&mut doc);
                                     doc.move_to(offset, false);
-                                    self.install_open_document(*doc);
+                                    self.install_open_document(*doc)?;
                                     Ok(())
                                 }
                             });
@@ -511,6 +508,41 @@ mod tests {
         app.lsp = Some(crate::lsp::outline_tests::start(root.path(), app.doc()));
         (root, app)
     }
+    #[test]
+    fn group_focus_round_trip_cannot_revive_identical_editor_context() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("猫🙂 dirty", false);
+        app.execute("workbench.action.splitEditor", Value::Null);
+        app.focus_pane(0);
+        let before = Context::capture(&app);
+        let model = (
+            app.doc().id,
+            app.doc().revision,
+            app.doc().text_epoch(),
+            app.doc().selections(),
+        );
+        app.focus_pane(1);
+        app.focus_pane(0);
+        assert_eq!(
+            model,
+            (
+                app.doc().id,
+                app.doc().revision,
+                app.doc().text_epoch(),
+                app.doc().selections()
+            )
+        );
+        assert!(!before.valid(&app));
+        assert!(Context::capture(&app).valid(&app));
+        assert_eq!(app.doc().text.to_string(), "猫🙂 dirty");
+        app.doc_mut().undo();
+        assert!(app.doc().is_empty());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "猫🙂 dirty");
+    }
+
     #[test]
     fn picker_cancellation_cannot_cancel_an_unowned_outline_token() {
         let (_root, mut app) = native_fixture();

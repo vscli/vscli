@@ -66,12 +66,36 @@ impl Fixture {
         Gates { entered, release }
     }
     fn two_panes(&mut self) -> (u64, u64) {
+        // These persistence cases need one sole membership per original
+        // model. Committed tabs now retain historical membership, so explicitly
+        // close B's first-group tab before constructing the second group.
+        let b = self
+            .app
+            .editor_groups
+            .memberships(self.b_id)
+            .next()
+            .unwrap();
+        self.app.focus_tab(b).unwrap();
+        self.app
+            .execute("workbench.action.closeActiveEditor", Value::Null);
         self.app
             .execute("workbench.action.splitEditor", Value::Null);
         self.app.open(&self.b).unwrap();
         until(&mut self.app, "B in second pane", |app| {
-            app.doc().id == self.b_id
+            app.doc().path.as_ref() == Some(&self.b)
         });
+        self.b_id = self.app.doc().id;
+        let shared_a = self
+            .app
+            .editor_groups
+            .memberships(self.a_id)
+            .find(|member| Some(member.group) == self.app.editor_groups.active_group())
+            .unwrap();
+        self.app.focus_tab(shared_a).unwrap();
+        self.app
+            .execute("workbench.action.closeActiveEditor", Value::Null);
+        assert_eq!(self.app.editor_groups.memberships(self.a_id).count(), 1);
+        assert_eq!(self.app.editor_groups.memberships(self.b_id).count(), 1);
         let b_pane = self.app.panes[self.app.active_pane].id;
         let a_pane = self
             .app
@@ -454,4 +478,191 @@ fn pending_close_does_not_replace_existing_quit_continuation() {
         captured.to_string().as_bytes()
     );
     assert_eq!(std::fs::read(&fixture.b).unwrap(), ORIGINAL_B.as_bytes());
+}
+
+#[test]
+fn pending_save_closes_original_inactive_tab_without_closing_its_group() {
+    let mut fixture = Fixture::new();
+    let origin = fixture.app.active_tab_membership().unwrap();
+    fixture.app.doc_mut().insert("owned 猫🙂 ", false);
+    let captured = fixture.app.doc().text.clone();
+    let gates = fixture.gate(vec![GatePoint::BeforeCommit]);
+    fixture
+        .app
+        .execute("workbench.action.files.save", Value::Null);
+    gates.reach(&mut fixture.app, GatePoint::BeforeCommit);
+    fixture.close();
+    assert!(fixture.app.modal.is_none());
+    let other = fixture
+        .app
+        .editor_groups
+        .memberships(fixture.b_id)
+        .next()
+        .unwrap();
+    assert_eq!(origin.group, other.group);
+    fixture.app.focus_tab(other).unwrap();
+    let selection = fixture.app.doc().selections();
+    gates.release();
+    until(&mut fixture.app, "inactive original tab receipt", |app| {
+        !app.saves_pending()
+    });
+    assert!(!fixture.app.editor_groups.membership_current(origin));
+    assert!(fixture.app.editor_groups.membership_current(other));
+    assert_eq!(fixture.app.active_tab_membership(), Some(other));
+    assert_eq!(fixture.app.editor_groups.groups().len(), 1);
+    assert_eq!(fixture.app.doc().selections(), selection);
+    assert_eq!(
+        std::fs::read(&fixture.a).unwrap(),
+        captured.to_string().as_bytes()
+    );
+    assert_eq!(std::fs::read(&fixture.b).unwrap(), ORIGINAL_B.as_bytes());
+}
+
+#[test]
+fn pending_save_cannot_close_reopened_membership_of_same_shared_model() {
+    let mut fixture = Fixture::new();
+    let original = fixture.app.active_tab_membership().unwrap();
+    fixture.app.doc_mut().insert("owned ", false);
+    let captured = fixture.app.doc().text.clone();
+    let gates = fixture.gate(vec![GatePoint::BeforeCommit]);
+    fixture
+        .app
+        .execute("workbench.action.files.save", Value::Null);
+    gates.reach(&mut fixture.app, GatePoint::BeforeCommit);
+    fixture.close();
+    fixture
+        .app
+        .execute("workbench.action.splitEditor", Value::Null);
+    let shared = fixture.app.active_tab_membership().unwrap();
+    fixture.app.focus_tab(original).unwrap();
+    fixture.close(); // Shared dirty close removes this view without discard.
+    assert!(!fixture.app.editor_groups.membership_current(original));
+    assert!(fixture.app.editor_groups.membership_current(shared));
+    fixture.app.open(&fixture.a).unwrap();
+    let reopened = fixture.app.active_tab_membership().unwrap();
+    assert_eq!(reopened.group, original.group);
+    assert_eq!(reopened.document, original.document);
+    assert_ne!(reopened.tab, original.tab);
+    gates.release();
+    until(&mut fixture.app, "retired original tab receipt", |app| {
+        !app.saves_pending()
+    });
+    assert!(fixture.app.editor_groups.membership_current(reopened));
+    assert!(fixture.app.editor_groups.membership_current(shared));
+    assert_eq!(fixture.app.active_tab_membership(), Some(reopened));
+    assert_eq!(fixture.app.doc().text, captured);
+    assert!(!fixture.app.doc().dirty());
+    fixture.app.doc_mut().undo();
+    assert_eq!(fixture.app.doc().text.to_string(), ORIGINAL_A);
+    assert!(fixture.app.doc().dirty());
+    fixture.app.doc_mut().redo();
+    assert_eq!(fixture.app.doc().text, captured);
+    assert_eq!(
+        std::fs::read(&fixture.a).unwrap(),
+        captured.to_string().as_bytes()
+    );
+}
+
+#[test]
+fn changed_group_membership_retires_batch_after_owned_save_without_sweeping_new_tabs() {
+    let mut fixture = Fixture::new();
+    let original = fixture.app.active_tab_membership().unwrap();
+    fixture.app.doc_mut().insert("owned ", false);
+    let captured = fixture.app.doc().text.clone();
+    let gates = fixture.gate(vec![GatePoint::BeforeCommit]);
+    fixture
+        .app
+        .execute("workbench.action.closeEditorsInGroup", Value::Null);
+    assert!(matches!(
+        fixture.app.modal,
+        Some(Modal::Confirm(AfterSave::Close))
+    ));
+    fixture.app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('s'),
+        KeyModifiers::NONE,
+    )));
+    gates.reach(&mut fixture.app, GatePoint::BeforeCommit);
+    fixture
+        .app
+        .execute("workbench.action.files.newUntitledFile", Value::Null);
+    fixture.app.doc_mut().insert("new unsaved Ω", false);
+    let newcomer = fixture.app.active_tab_membership().unwrap();
+    gates.release();
+    until(&mut fixture.app, "retired group batch receipt", |app| {
+        !app.saves_pending()
+    });
+    assert!(fixture.app.closing_group.is_none());
+    assert!(fixture.app.modal.is_none());
+    assert!(!fixture.app.editor_groups.membership_current(original));
+    assert!(fixture.app.editor_groups.membership_current(newcomer));
+    assert!(
+        fixture
+            .app
+            .editor_groups
+            .memberships(fixture.b_id)
+            .next()
+            .is_some()
+    );
+    assert_eq!(fixture.app.active_tab_membership(), Some(newcomer));
+    assert_eq!(fixture.app.doc().text.to_string(), "new unsaved Ω");
+    assert!(fixture.app.doc().dirty());
+    assert_eq!(
+        std::fs::read(&fixture.a).unwrap(),
+        captured.to_string().as_bytes()
+    );
+    assert_eq!(std::fs::read(&fixture.b).unwrap(), ORIGINAL_B.as_bytes());
+}
+
+#[test]
+fn close_group_waits_for_authorized_save_even_after_undo_makes_origin_clean() {
+    let mut fixture = Fixture::new();
+    let original = fixture.app.active_tab_membership().unwrap();
+    fixture.app.doc_mut().insert("captured dirty λ ", false);
+    let captured = fixture.app.doc().text.clone();
+    let gates = fixture.gate(vec![GatePoint::BeforeCommit]);
+    fixture
+        .app
+        .execute("workbench.action.files.save", Value::Null);
+    gates.reach(&mut fixture.app, GatePoint::BeforeCommit);
+    fixture.app.doc_mut().undo();
+    assert!(!fixture.app.doc().dirty());
+    assert_eq!(fixture.app.doc().text.to_string(), ORIGINAL_A);
+    fixture
+        .app
+        .execute("workbench.action.closeEditorsInGroup", Value::Null);
+    assert!(fixture.app.modal.is_none());
+    assert!(fixture.app.editor_groups.membership_current(original));
+    assert!(
+        fixture
+            .app
+            .documents
+            .iter()
+            .any(|doc| doc.id == fixture.a_id)
+    );
+    assert_eq!(std::fs::read(&fixture.a).unwrap(), ORIGINAL_A.as_bytes());
+    gates.release();
+    until(
+        &mut fixture.app,
+        "close-group pending original baseline receipt",
+        |app| !app.saves_pending(),
+    );
+    assert!(fixture.app.editor_groups.membership_current(original));
+    assert_eq!(fixture.app.doc().text.to_string(), ORIGINAL_A);
+    assert!(fixture.app.doc().dirty());
+    assert_eq!(fixture.app.doc().save_generation(), 1);
+    assert!(fixture.app.message.contains("newer unsaved edits"));
+    assert!(fixture.app.closing_group.is_none());
+    assert!(fixture.app.close_membership.is_none());
+    assert_eq!(
+        std::fs::read(&fixture.a).unwrap(),
+        captured.to_string().as_bytes()
+    );
+    assert_eq!(std::fs::read(&fixture.b).unwrap(), ORIGINAL_B.as_bytes());
+    fixture.app.doc_mut().redo();
+    assert_eq!(fixture.app.doc().text, captured);
+    assert!(!fixture.app.doc().dirty());
+    fixture.app.doc_mut().undo();
+    assert_eq!(fixture.app.doc().text.to_string(), ORIGINAL_A);
+    assert!(fixture.app.doc().dirty());
+    fixture.app.cancel_save_continuations();
 }

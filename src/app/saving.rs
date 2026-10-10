@@ -13,6 +13,7 @@ const PATH_BYTES: usize = 512 * 1024;
 struct Continuation {
     action: AfterSave,
     pane: Option<u64>,
+    membership: Option<crate::editor_groups::Membership>,
     generation: u64,
 }
 
@@ -91,7 +92,7 @@ pub(super) struct State {
     next_id: u64,
     next_intent: u64,
     close_generation: u64,
-    save_as_origin: Option<(u64, Option<u64>)>,
+    save_as_origin: Option<(u64, Option<u64>, Option<crate::editor_groups::Membership>)>,
     closing: Option<AfterSave>,
     shutting_down: bool,
     autosave: crate::autosave::Scheduler,
@@ -297,6 +298,11 @@ impl App {
     }
     pub(super) fn document_save_pending(&self, id: u64) -> bool {
         self.saving.actions.document_pending(id)
+            || self
+                .saving
+                .latest
+                .as_ref()
+                .is_some_and(|intent| intent.document == id)
             || self.saving.formatting.document_pending(id)
             || self
                 .saving
@@ -308,17 +314,23 @@ impl App {
         &self,
         action: Option<AfterSave>,
         pane: Option<u64>,
+        membership: Option<crate::editor_groups::Membership>,
     ) -> Option<Continuation> {
         action.map(|action| Continuation {
             action,
             pane,
+            membership,
             generation: self.saving.close_generation,
         })
     }
     pub(super) fn capture_save_as_origin(&mut self) {
-        self.saving.save_as_origin = self
-            .active_document()
-            .map(|doc| (doc.id, self.panes.get(self.active_pane).map(|pane| pane.id)));
+        self.saving.save_as_origin = self.active_document().map(|doc| {
+            (
+                doc.id,
+                self.panes.get(self.active_pane).map(|pane| pane.id),
+                self.active_tab_membership(),
+            )
+        });
     }
     pub(super) fn request_native_save(&mut self, after: Option<AfterSave>) -> Result<()> {
         ensure!(
@@ -337,8 +349,11 @@ impl App {
             id: 0,
             document: doc.id,
             destination: None,
-            continuation: self
-                .save_continuation(after, self.panes.get(self.active_pane).map(|pane| pane.id)),
+            continuation: self.save_continuation(
+                after,
+                self.panes.get(self.active_pane).map(|pane| pane.id),
+                self.active_tab_membership(),
+            ),
             automatic: None,
             stage: Stage::Actions,
             notice: None,
@@ -346,7 +361,7 @@ impl App {
         self.enqueue_native_save(intent)
     }
     pub(super) fn request_native_save_as(&mut self, destination: PathBuf) -> Result<()> {
-        let (document, pane) = self
+        let (document, pane, membership) = self
             .saving
             .save_as_origin
             .take()
@@ -356,7 +371,7 @@ impl App {
             id: 0,
             document,
             destination: Some(destination),
-            continuation: self.save_continuation(after, pane),
+            continuation: self.save_continuation(after, pane, membership),
             automatic: None,
             stage: Stage::Actions,
             notice: None,
@@ -736,24 +751,37 @@ impl App {
             .find(|doc| doc.id == document)
             .is_none_or(Document::dirty)
         {
+            if matches!(continuation.action, AfterSave::Close) {
+                if self.close_membership == continuation.membership {
+                    self.close_membership = None;
+                }
+                if continuation.membership.is_some_and(|member| {
+                    self.closing_group
+                        .as_ref()
+                        .is_some_and(|closing| closing.proof.group() == member.group)
+                }) {
+                    self.closing_group = None;
+                }
+            }
             self.message =
                 "Snapshot saved; newer unsaved edits retained. Close again to review them.".into();
             return;
         }
         match continuation.action {
             AfterSave::Close => {
-                let Some(index) = self.panes.iter().position(|pane| {
-                    Some(pane.id) == continuation.pane && pane.document == document
-                }) else {
-                    return;
-                };
-                let focused = self.panes.get(self.active_pane).map(|pane| pane.id);
-                let focus = self.focus.clone();
-                self.focus_pane(index);
-                self.close_pane();
-                if let Some(index) = self.panes.iter().position(|pane| Some(pane.id) == focused) {
+                if let Some(member) = continuation.membership {
+                    if member.document == document && self.editor_groups.membership_current(member)
+                    {
+                        self.finish_tab_close(member);
+                    }
+                } else if self.group_fallback {
+                    let Some(index) = self.panes.iter().position(|pane| {
+                        Some(pane.id) == continuation.pane && pane.document == document
+                    }) else {
+                        return;
+                    };
                     self.focus_pane(index);
-                    self.focus = focus;
+                    self.remove_active();
                 }
             }
             action @ (AfterSave::Quit | AfterSave::CloseAll) => self.request_close(action),
@@ -767,6 +795,7 @@ impl App {
             && let Some(document) = self.active_document().map(|doc| doc.id)
         {
             let pane = self.panes.get(self.active_pane).map(|pane| pane.id);
+            let membership = self.active_tab_membership();
             let generation = self.saving.close_generation;
             let target = if let Some(intent) = self
                 .saving
@@ -797,6 +826,7 @@ impl App {
                     *target = Some(Continuation {
                         action: AfterSave::Close,
                         pane,
+                        membership,
                         generation,
                     });
                 }
@@ -843,6 +873,8 @@ impl App {
     }
     pub(super) fn cancel_save_continuations(&mut self) {
         self.pending = None;
+        self.close_membership = None;
+        self.closing_group = None;
         self.saving.save_as_origin = None;
         self.saving.closing = None;
         if let Some(active) = self.saving.active.as_mut() {

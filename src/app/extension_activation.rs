@@ -61,6 +61,7 @@ struct CommandContext {
     document: Option<(u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
+    groups: crate::editor_groups::UiProof,
     focus: Focus,
 }
 impl CommandContext {
@@ -80,6 +81,7 @@ impl CommandContext {
                 .active_document()
                 .map_or_else(Vec::new, Document::selections),
             pane: app.panes.get(app.active_pane).map(|pane| pane.id),
+            groups: app.editor_groups.proof(),
             focus: app.focus.clone(),
         })
     }
@@ -956,6 +958,40 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn group_focus_round_trip_cannot_revive_identical_editor_context() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("猫🙂 dirty", false);
+        app.execute("workbench.action.splitEditor", Value::Null);
+        app.focus_pane(0);
+        let before = CommandContext::capture(&app).unwrap();
+        let model = (
+            app.doc().id,
+            app.doc().revision,
+            app.doc().text_epoch(),
+            app.doc().selections(),
+        );
+        app.focus_pane(1);
+        app.focus_pane(0);
+        assert_eq!(
+            model,
+            (
+                app.doc().id,
+                app.doc().revision,
+                app.doc().text_epoch(),
+                app.doc().selections()
+            )
+        );
+        assert!(before != CommandContext::capture(&app).unwrap());
+        assert_eq!(app.doc().text.to_string(), "猫🙂 dirty");
+        app.doc_mut().undo();
+        assert!(app.doc().is_empty());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "猫🙂 dirty");
+    }
+
     #[test]
     fn hidden_language_activation_preloads_state_and_preserves_mirrored_identity() {
         use crate::extension_state::{Scope, Store};

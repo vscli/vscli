@@ -327,6 +327,8 @@ pub(super) struct Context {
     workspace: PathBuf,
     focus: Focus,
     pane: Option<u64>,
+    groups: crate::editor_groups::UiProof,
+    fallback: bool,
     document: Option<(u64, u64, u64, u64, usize, Option<usize>)>,
     generation: u64,
     interaction: u64,
@@ -355,6 +357,8 @@ impl App {
             workspace: self.workspace.root.clone(),
             focus: self.focus.clone(),
             pane: self.panes.get(self.active_pane).map(|pane| pane.id),
+            groups: self.editor_groups.proof(),
+            fallback: self.group_fallback,
             document: self.active_document().map(|doc| {
                 (
                     doc.id,
@@ -418,10 +422,37 @@ impl App {
             && let Some(path) = &doc.path
         {
             let (path, row, column) = (path.clone(), doc.row(), doc.visual_column());
-            self.navigation.sequence = self.navigation.sequence.wrapping_add(1);
+            let Some(next) = self.navigation.sequence.checked_add(1) else {
+                return;
+            };
+            self.navigation.sequence = next;
             self.navigation.closed.push(Closed {
                 id: self.navigation.sequence,
                 path,
+                row,
+                column,
+            });
+            if self.navigation.closed.len() > crate::recent::LIMIT {
+                self.navigation.closed.remove(0);
+            }
+        }
+        self.cancel_navigation();
+    }
+    pub(super) fn record_closed_tab(&mut self, member: crate::editor_groups::Membership) {
+        if let Some(doc) = self.documents.iter().find(|doc| doc.id == member.document)
+            && let Some(path) = &doc.path
+        {
+            let cursor = doc.view_state(Some(member.group.value())).cursor;
+            let row = doc.text.char_to_line(cursor);
+            let column =
+                doc.display_width_slice(doc.text.slice(doc.text.line_to_char(row)..cursor));
+            let Some(next) = self.navigation.sequence.checked_add(1) else {
+                return;
+            };
+            self.navigation.sequence = next;
+            self.navigation.closed.push(Closed {
+                id: next,
+                path: path.clone(),
                 row,
                 column,
             });
@@ -460,34 +491,31 @@ impl App {
             self.message = "No closed file-backed editors in this session".into();
         }
     }
-    fn focus_existing_navigation(&mut self, path: &Path) -> bool {
+    fn focus_existing_navigation(&mut self, path: &Path) -> Result<bool> {
         if let Some(index) = self
             .hidden_documents
             .iter()
             .position(|doc| doc.path.as_deref() == Some(path))
         {
+            self.can_admit_editor(self.hidden_documents[index].id)?;
             let doc = self.hidden_documents.remove(index);
-            self.install_open_document(doc);
-            return true;
+            self.install_open_document(doc)?;
+            return Ok(true);
         }
         let Some(index) = self
             .documents
             .iter()
             .position(|doc| doc.path.as_deref() == Some(path))
         else {
-            return false;
+            return Ok(false);
         };
-        let id = self.documents[index].id;
-        if let Some(pane) = self.panes.iter().position(|pane| pane.document == id) {
-            self.focus_pane(pane);
-        } else {
-            self.active = index;
-            self.focus = Focus::Editor;
-            self.sync_pane();
-        }
+        self.can_admit_editor(self.documents[index].id)?;
+        self.active = index;
+        self.focus = Focus::Editor;
+        self.sync_pane();
         self.remember_active_file();
         self.message = format!("Focused {}", self.doc().name());
-        true
+        Ok(true)
     }
     fn focus_existing_intent(&mut self, path: &Path, intent: &OpenIntent) -> Result<bool> {
         let Some(doc) = self
@@ -505,13 +533,30 @@ impl App {
             return Ok(true);
         }
         let suspended = self.suspend_navigation_observation();
-        if self.focus_existing_navigation(path) {
-            intent.apply(self);
-            self.resume_navigation_observation(suspended, super::navigation_history::Reason::Jump);
-            return Ok(true);
+        match self.focus_existing_navigation(path) {
+            Ok(true) => {
+                intent.apply(self);
+                self.resume_navigation_observation(
+                    suspended,
+                    super::navigation_history::Reason::Jump,
+                );
+                Ok(true)
+            }
+            Ok(false) => {
+                self.resume_navigation_observation(
+                    suspended,
+                    super::navigation_history::Reason::Ordinary,
+                );
+                Ok(false)
+            }
+            Err(error) => {
+                self.resume_navigation_observation(
+                    suspended,
+                    super::navigation_history::Reason::Ordinary,
+                );
+                Err(error)
+            }
         }
-        self.resume_navigation_observation(suspended, super::navigation_history::Reason::Ordinary);
-        Ok(false)
     }
     pub(super) fn open_hidden_aware(&mut self, path: PathBuf, intent: OpenIntent) {
         self.open_navigation_mode(path, None, true, intent);
@@ -663,7 +708,7 @@ impl App {
                                 doc.move_to(doc.position_at(closed.row, closed.column), false);
                             }
                             let suspended = self.suspend_navigation_observation();
-                            self.install_open_document(*doc);
+                            self.install_open_document(*doc)?;
                             pending.intent.apply(self);
                             self.resume_navigation_observation(
                                 suspended,
@@ -1024,3 +1069,6 @@ mod tests {
         assert!(!profile.join("state").exists());
     }
 }
+
+#[cfg(test)]
+mod group_tabs_tests;

@@ -249,6 +249,14 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("View: Explorer", "workbench.view.explorer"),
     ("View: Next Editor", "workbench.action.nextEditor"),
     ("View: Previous Editor", "workbench.action.previousEditor"),
+    (
+        "View: Next Editor in Group",
+        "workbench.action.nextEditorInGroup",
+    ),
+    (
+        "View: Previous Editor in Group",
+        "workbench.action.previousEditorInGroup",
+    ),
     ("Edit: Undo", "undo"),
     ("Edit: Redo", "redo"),
     ("Edit: Copy", "editor.action.clipboardCopyAction"),
@@ -462,12 +470,28 @@ pub struct Pane {
     pub document: u64,
 }
 
+#[derive(Clone)]
+pub struct TabHit {
+    pub area: Rect,
+    pub membership: crate::editor_groups::Membership,
+    pub proof: crate::editor_groups::UiProof,
+}
+
+struct ClosingGroup {
+    proof: crate::editor_groups::GroupProof,
+}
+
 pub struct App {
     pub panes: Vec<Pane>,
     pub active_pane: usize,
     pub pane_areas: Vec<Rect>,
     pub horizontal_split: bool,
     next_pane_id: u64,
+    editor_groups: crate::editor_groups::Groups,
+    group_fallback: bool,
+    closing_group: Option<ClosingGroup>,
+    close_membership: Option<crate::editor_groups::Membership>,
+    pub tab_hits: Vec<TabHit>,
     pub documents: Vec<Document>,
     pub(crate) hidden_documents: Vec<Document>,
     extension_services: extension_services::State,
@@ -568,6 +592,11 @@ impl App {
             pane_areas: Vec::new(),
             horizontal_split: false,
             next_pane_id: 2,
+            editor_groups: crate::editor_groups::Groups::default(),
+            group_fallback: false,
+            closing_group: None,
+            close_membership: None,
+            tab_hits: Vec::new(),
             documents: Vec::new(),
             hidden_documents: Vec::new(),
             extension_services: extension_services::State::default(),
@@ -850,6 +879,7 @@ impl App {
             .position(|doc| doc.path.as_ref() == Some(&path))
         {
             intent.validate(&self.documents[index])?;
+            self.can_admit_editor(self.documents[index].id)?;
             self.cancel_navigation();
             self.active = index;
             self.focus = Focus::Editor;
@@ -865,9 +895,10 @@ impl App {
             .position(|doc| doc.path.as_ref() == Some(&path))
         {
             intent.validate(&self.hidden_documents[index])?;
+            self.can_admit_editor(self.hidden_documents[index].id)?;
             self.cancel_navigation();
             let doc = self.hidden_documents.remove(index);
-            self.install_open_document(doc);
+            self.install_open_document(doc)?;
             intent.apply(self);
             return Ok(());
         }
@@ -885,11 +916,18 @@ impl App {
             .unwrap_or(&d);
         intent.validate(target)?;
         self.settings.apply(&mut d);
-        self.install_open_document(d);
+        self.install_open_document(d)?;
         intent.apply(self);
         Ok(())
     }
-    fn install_open_document(&mut self, d: Document) {
+    fn install_open_document(&mut self, d: Document) -> Result<()> {
+        let id = self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .find(|old| old.path == d.path)
+            .map_or(d.id, |old| old.id);
+        self.can_admit_editor(id)?;
         let mut d = if let Some(index) = self
             .hidden_documents
             .iter()
@@ -902,13 +940,6 @@ impl App {
         let configuration_error = self.configure_document_language(&mut d).err();
         if let Some(index) = self.documents.iter().position(|old| old.path == d.path) {
             self.active = index;
-        } else if self.documents.len() == 1
-            && self.doc().path.is_none()
-            && self.doc().is_empty()
-            && !self.doc().dirty()
-        {
-            self.documents[0] = d;
-            self.active = 0;
         } else {
             self.documents.push(d);
             self.active = self.documents.len() - 1;
@@ -923,6 +954,7 @@ impl App {
         self.sync_pane();
         self.remember_active_file();
         self.observe_navigation(navigation_history::Reason::EditorChange);
+        Ok(())
     }
     pub fn start_prompt(&mut self, kind: PromptKind, text: String) {
         if self
@@ -1152,6 +1184,7 @@ impl App {
     fn event_inner(&mut self, event: Event) {
         match event {
             Event::Resize(_, _) => {
+                self.tab_hits.clear();
                 self.welcome_actions.clear();
                 self.welcome_brand.resize();
                 self.breadcrumbs_area = Rect::default();
@@ -1195,6 +1228,22 @@ impl App {
                     return;
                 }
                 let p = ratatui::layout::Position::new(mouse.column, mouse.row);
+                if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+                    && let Some(hit) = self
+                        .tab_hits
+                        .iter()
+                        .find(|hit| hit.area.contains(p))
+                        .cloned()
+                {
+                    if !self.editor_groups.proof_current(&hit.proof)
+                        || !self.editor_groups.membership_current(hit.membership)
+                    {
+                        self.message = "Editor tabs changed; choose the current tab".into();
+                    } else if let Err(error) = self.focus_tab(hit.membership) {
+                        self.message = format!("Tab focus rejected: {error:#}");
+                    }
+                    return;
+                }
                 if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
                     && (self.breadcrumbs_area.contains(p)
                         || self.breadcrumbs_picker_area.contains(p))
@@ -1711,6 +1760,10 @@ impl App {
             "workbench.action.files.newUntitledFile" => {
                 self.cancel_navigation();
                 let mut doc = Document::default();
+                if let Err(error) = self.can_admit_editor(doc.id) {
+                    self.message = format!("New tab rejected; existing buffers retained: {error:#}");
+                    return;
+                }
                 self.settings.apply(&mut doc);
                 if let Err(error) = self.configure_document_language(&mut doc) {
                     self.message = format!("Native language configuration rejected: {error:#}");
@@ -1731,17 +1784,7 @@ impl App {
                 self.save_as();
             }
             "workbench.action.closeActiveEditor" => {
-                if self
-                    .panes
-                    .iter()
-                    .filter(|p| p.document == self.doc().id)
-                    .count()
-                    > 1
-                {
-                    self.close_pane();
-                } else {
-                    self.request_close(AfterSave::Close);
-                }
+                self.request_close(AfterSave::Close);
             }
             "workbench.action.closeWindow" | "workbench.action.quit" => {
                 self.request_close(AfterSave::Quit)
@@ -1766,13 +1809,13 @@ impl App {
                 self.entries = directory_entries(&self.explorer_dir);
             }
             "workbench.action.nextEditor" => {
-                self.active = (self.active + 1) % self.documents.len();
-                self.focus = Focus::Editor;
+                self.navigate_editor_tabs(crate::editor_groups::Navigate::Next);
             }
             "workbench.action.previousEditor" => {
-                self.active = (self.active + self.documents.len() - 1) % self.documents.len();
-                self.focus = Focus::Editor;
+                self.navigate_editor_tabs(crate::editor_groups::Navigate::Previous);
             }
+            "workbench.action.nextEditorInGroup" => self.navigate_editor_tabs(crate::editor_groups::Navigate::NextInGroup),
+            "workbench.action.previousEditorInGroup" => self.navigate_editor_tabs(crate::editor_groups::Navigate::PreviousInGroup),
             "workbench.action.openGlobalKeybindings" => self.modal = Some(Modal::Keys),
             "vscli.keyboardInspector" => self.open_keyboard_inspector(),
             "vscli.help" => self.modal = Some(Modal::Help),
@@ -1960,6 +2003,8 @@ impl App {
                     | "workbench.action.closeActiveEditor"
                     | "workbench.action.nextEditor"
                     | "workbench.action.previousEditor"
+                    | "workbench.action.nextEditorInGroup"
+                    | "workbench.action.previousEditorInGroup"
             )
     }
     fn save_as(&mut self) {
@@ -1977,6 +2022,19 @@ impl App {
         }
     }
     fn request_close(&mut self, action: AfterSave) {
+        self.sync_pane();
+        if matches!(action, AfterSave::Close) && !self.group_fallback {
+            let Some(member) = self.active_tab_membership() else {
+                return;
+            };
+            self.close_membership = Some(member);
+            // Shared text belongs to its remaining tabs. Closing this view
+            // requires neither discarding nor persisting the shared model.
+            if self.editor_groups.memberships(member.document).count() > 1 {
+                self.complete_close(action);
+                return;
+            }
+        }
         if self.defer_close_for_persistence(action.clone()) {
             return;
         }
@@ -2005,17 +2063,65 @@ impl App {
         }
     }
     fn remove_active(&mut self) {
-        self.record_closed();
-        self.documents.remove(self.active);
+        if let Some(document) = self.active_document().map(|doc| doc.id) {
+            if self.group_fallback {
+                self.record_closed();
+                self.documents.remove(self.active);
+                self.active = self.active.min(self.documents.len().saturating_sub(1));
+                self.sync_pane();
+            } else {
+                let members: Vec<_> = self.editor_groups.memberships(document).collect();
+                for member in members {
+                    if let Err(error) = self.close_tab_membership(member) {
+                        self.message = format!("Close rejected; buffers retained: {error:#}");
+                        return;
+                    }
+                }
+                // Public fixtures and newly promoted hidden models may not
+                // have an installed membership yet.
+                self.documents.retain(|doc| doc.id != document);
+                self.project_editor_groups();
+            }
+        }
         if self.documents.is_empty() {
             self.session_closed_all();
         }
-        self.active = self.active.min(self.documents.len().saturating_sub(1));
-        self.sync_pane();
+    }
+    pub(super) fn finish_tab_close(&mut self, member: crate::editor_groups::Membership) {
+        let owned_group = self.closing_group.as_ref().is_some_and(|closing| {
+            closing.proof.group() == member.group
+                && self.editor_groups.group_proof_current(&closing.proof)
+        });
+        if self.closing_group.is_some() && !owned_group {
+            self.closing_group = None;
+            self.message = "Close group retired: its tabs changed; buffers retained".into();
+        }
+        self.close_membership = None;
+        match self.close_tab_membership(member) {
+            Ok(()) => {
+                if owned_group {
+                    self.refresh_closing_group();
+                }
+            }
+            Err(error) => {
+                self.closing_group = None;
+                self.message = format!("Close retired; buffers retained: {error:#}");
+            }
+        }
     }
     fn complete_close(&mut self, action: AfterSave) {
         match action {
-            AfterSave::Close => self.remove_active(),
+            AfterSave::Close => {
+                if self.group_fallback {
+                    self.remove_active();
+                } else if let Some(member) = self
+                    .close_membership
+                    .take()
+                    .or_else(|| self.active_tab_membership())
+                {
+                    self.finish_tab_close(member);
+                }
+            }
             AfterSave::Quit => {
                 if self.documents.iter().any(Document::dirty) {
                     self.request_close(AfterSave::Quit);
@@ -2299,8 +2405,10 @@ impl App {
             Modal::Confirm(action) => match key.code {
                 KeyCode::Enter | KeyCode::Char('s' | 'S') => self.save(Some(action)),
                 KeyCode::Char('d' | 'D') => {
-                    self.remove_active();
-                    if !matches!(action, AfterSave::Close) {
+                    if matches!(action, AfterSave::Close) {
+                        self.complete_close(action);
+                    } else {
+                        self.remove_active();
                         self.complete_close(action);
                     }
                 }

@@ -561,7 +561,6 @@ impl Client {
     }
     /// Invalidate UI ownership without canceling actual requests or model-owned saves.
     /// Exhaustion permanently retires view ownership until this client is replaced.
-    #[cfg(test)]
     pub(crate) fn invalidate_editor_views(&mut self) -> Result<()> {
         let epoch = self
             .editor_view_epoch

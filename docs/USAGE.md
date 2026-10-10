@@ -237,6 +237,20 @@ Line move/copy commands preserve disjoint selections and undo together. Cursor c
 
 Ctrl+\ / Cmd+\ splits the editor to the right. F1 → View: Split Editor Down creates a vertical layout. Ctrl+1 through Ctrl+4 (Cmd on macOS) focus existing groups; clicking an editor area focuses it. Each group has independent cursor/selection and scroll state, while edits, undo history, save state, and language synchronization belong to the shared document. Closing one of several views of a dirty document retains the buffer; closing its last view still asks about saving.
 
+Each group now has its own ordered committed tabs. Opening a file adds it directly
+right of the current tab in the current group, or focuses its existing membership
+there. Splitting copies only the selected tab and its current view. Ordinary opens
+in another group start a fresh view; revisiting a tab restores that group's cursor,
+selection and scroll. Click a displayed tab to focus its exact membership.
+Ctrl+PageDown/PageUp (Cmd+Alt+Right/Left on macOS) traverse tabs across groups;
+F1 → View: Next/Previous Editor in Group wraps inside the selected group.
+Closing selects that group's most recently active surviving tab. Close Editors in
+Group reviews last-owned dirty documents one at a time; Cancel preserves remaining
+tabs, and a changed tab list retires the batch. A delayed Save→Close closes its
+original tab even if it became inactive, and cannot close a reopened replacement.
+See [editor-group bounds, restoration and remaining scope](EDITOR_GROUPS.md).
+
+
 This first implementation supports up to four equal-sized groups in one horizontal or vertical layout. Nested/resizable groups, separate tab stacks per group, and restoring pane layout after restart remain incomplete. Undo position changes are tracked across views; inactive viewport rows are not yet anchored to text across line insertions.
 
 ## Workspace search
@@ -794,8 +808,9 @@ vscli --workspace ./project --no-session
 ```
 
 `--restore-session` reopens the previous inactive instance's clean file-backed tabs,
-active tab and group, split direction, each tab's last cursor/selections, and the
-independent cursor/selections and scroll positions of visible groups. Explicit
+ordered tabs in each group, active tab and group, split direction, per-group tab
+recency, and each membership's independent cursor/selections and scroll positions,
+including inactive historical tabs. Explicit
 file arguments take precedence and suppress startup restoration. F1 → **File:
 Restore Previous Clean Session** retries the previous session from an empty
 workbench. This native command has no default shortcut. `--no-session` disables
@@ -830,12 +845,17 @@ publication. Failed writes preserve the previous complete snapshot. Shutdown wai
 up to five seconds; a blocked filesystem operation may outlive that wait while its
 worker retains the slot lease. Other instances cannot claim that live lease.
 
-Limits: 32 clean tabs, four equal groups, 128 selections per view, 1 MiB metadata,
+Schema 2 stores a unique clean-file table and per-group membership views. Existing
+schema-1 layouts remain readable and are replaced only after successful atomic
+publication. No live model/group/tab identifiers are trusted from disk.
+
+Limits: 32 distinct clean files, four equal groups, 128 tabs per group and selections per view, 1 MiB metadata,
 4 KiB per path, 32 MiB per file, and 128 MiB combined restored file data. Unsupported
-state produces a notice rather than silent truncation. Independent per-group tab
-lists, hidden historical tab/group cursor combinations, nested/resizable groups,
-terminal reconnection, extension state, recent-workspace switching, and full VS Code
-session parity remain outside this slice.
+state produces a notice rather than silent truncation. Recovery that exceeds the
+available group-tab capacity retains all models in the legacy workbench with a
+layout-unavailable notice. Nested/resizable groups, preview/pinned tabs, terminal
+reconnection, extension state, recent-workspace switching, and full VS Code session
+parity remain outside this slice.
 
 Native integrity tests cover duplicate recovery paths, shared-view identity,
 Unicode/CRLF edits after restart, Save/Discard/Cancel/Save As, close-all, missing-file
