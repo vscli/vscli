@@ -2,7 +2,11 @@
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, path::Path, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+    sync::Arc,
+};
 use vscli::{
     document::{CommentOperation, Document, Selection},
     extension_activation::Preferences,
@@ -36,12 +40,11 @@ fn captured_bytes(value: &Value, expected: &Value) -> Result<Vec<u8>> {
 fn configurations(
     provenance: &Value,
     directory: &Path,
+    corpus: &Value,
 ) -> Result<BTreeMap<String, Arc<Configuration>>> {
     let mut configurations = BTreeMap::new();
-    for fixture in provenance["fixtures"]
-        .as_array()
-        .context("Missing packages")?
-    {
+    // Validate the entire source set before creating even the first package.
+    for fixture in validate_fixtures(provenance, corpus)? {
         let variant = fixture["variant"].as_str().context("Missing variant")?;
         let manifest = &fixture["manifest"];
         let root = directory.join(variant);
@@ -91,6 +94,84 @@ fn configurations(
         );
     }
     Ok(configurations)
+}
+
+fn validate_fixtures<'a>(provenance: &'a Value, corpus: &Value) -> Result<&'a [Value]> {
+    let mut expected = BTreeMap::new();
+    for variant in corpus["variants"]
+        .as_array()
+        .context("Missing compiled variants")?
+    {
+        let name = variant["id"]
+            .as_str()
+            .context("Missing compiled variant name")?;
+        ensure!(
+            !name.is_empty()
+                && name.len() <= 64
+                && name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-'),
+            "Compiled variant must be a safe single directory component"
+        );
+        let language = variant["language"]
+            .as_str()
+            .context("Missing compiled language")?;
+        let mut configuration = variant["configuration"].clone();
+        configuration
+            .as_object_mut()
+            .context("Missing compiled configuration object")?
+            .insert(
+                "onEnterRules".into(),
+                json!([{
+                    "beforeText":"^VSCLI_CONFIG_READY$",
+                    "action":{"indent":"none","appendText":"!"},
+                }]),
+            );
+        ensure!(
+            expected.insert(name, (language, configuration)).is_none(),
+            "Duplicate compiled variant"
+        );
+    }
+    ensure!(
+        expected.len() == 10,
+        "Compiled declaration variants disappeared"
+    );
+    let fixtures = provenance["fixtures"]
+        .as_array()
+        .context("Missing packages")?;
+    ensure!(
+        fixtures.len() == expected.len(),
+        "Captured source variants disappeared"
+    );
+    let mut seen = BTreeSet::new();
+    for fixture in fixtures {
+        let variant = fixture["variant"].as_str().context("Missing variant")?;
+        let (language, configuration) = expected
+            .get(variant)
+            .context("Unknown captured variant; absolute and traversal paths are forbidden")?;
+        ensure!(seen.insert(variant), "Duplicate captured variant");
+        let manifest = json!({
+            "name":format!("language-configuration-{variant}"),
+            "publisher":"vscli-test","version":"0.0.0","private":true,
+            "license":"MIT","engines":{"vscode":"^1.95.0"},
+            "contributes":{"languages":[{"id":language,"configuration":"./language-configuration.json"}]},
+        });
+        ensure!(
+            fixture["manifest"] == manifest,
+            "Captured manifest shape/language differs for {variant}"
+        );
+        ensure!(
+            fixture["configuration"] == *configuration,
+            "Captured configuration differs for {variant}"
+        );
+        captured_bytes(&fixture["manifest"], &fixture["manifestSha256"])?;
+        captured_bytes(&fixture["configuration"], &fixture["configurationSha256"])?;
+    }
+    ensure!(
+        seen.len() == expected.len(),
+        "Captured source set is incomplete"
+    );
+    Ok(fixtures)
 }
 
 fn snapshot(document: &Document, action: &str) -> Value {
@@ -284,7 +365,7 @@ fn main() -> Result<()> {
         "Captured cases disappeared"
     );
     let directory = tempfile::tempdir()?;
-    let configurations = configurations(&provenance, directory.path())?;
+    let configurations = configurations(&provenance, directory.path(), &corpus)?;
     let settings = directory.path().join("settings.json");
     std::fs::write(&settings, br#"{"editor.autoIndent":"full","editor.tabSize":4,"editor.insertSpaces":true,"editor.autoClosingQuotes":"languageDefined","editor.autoClosingBrackets":"languageDefined","editor.autoSurround":"languageDefined"}"#)?;
     let settings = vscli::settings::Settings::load(&[settings])?;
@@ -357,4 +438,69 @@ fn main() -> Result<()> {
     };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn provenance() -> Value {
+        serde_json::from_str(include_str!(
+            "../tests/vscode-reference/baselines/1.95.0/language-configuration/linux-provenance.json"
+        )).unwrap()
+    }
+
+    fn rejects_before_writes(provenance: &Value, scratch: &Path) {
+        let corpus = serde_json::from_str(CASES).unwrap();
+        assert!(configurations(provenance, scratch, &corpus).is_err());
+        assert_eq!(std::fs::read_dir(scratch).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn hostile_absolute_and_traversal_variants_cannot_write_outside_scratch() {
+        let parent = tempfile::tempdir().unwrap();
+        let scratch = parent.path().join("scratch");
+        std::fs::create_dir(&scratch).unwrap();
+        let outside = parent.path().join("outside");
+        for name in [outside.to_str().unwrap(), "../outside"] {
+            let mut provenance = provenance();
+            provenance["fixtures"][0]["variant"] = json!(name);
+            rejects_before_writes(&provenance, &scratch);
+            assert!(!outside.exists());
+        }
+    }
+
+    #[test]
+    fn duplicate_variant_rejects_entire_source_set_before_writes() {
+        let scratch = tempfile::tempdir().unwrap();
+        let mut provenance = provenance();
+        let duplicate = provenance["fixtures"][0].clone();
+        provenance["fixtures"][9] = duplicate;
+        rejects_before_writes(&provenance, scratch.path());
+    }
+
+    #[test]
+    fn missing_raw_only_fixture_rejects_before_writes() {
+        let scratch = tempfile::tempdir().unwrap();
+        let mut provenance = provenance();
+        let removed = provenance["fixtures"]
+            .as_array_mut()
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(removed["variant"], "unknown-brackets");
+        rejects_before_writes(&provenance, scratch.path());
+    }
+
+    #[test]
+    fn wrong_declared_language_rejects_before_writes_even_with_matching_hash() {
+        let scratch = tempfile::tempdir().unwrap();
+        let mut provenance = provenance();
+        provenance["fixtures"][0]["manifest"]["contributes"]["languages"][0]["id"] =
+            json!("plaintext");
+        let mut bytes = serde_json::to_vec_pretty(&provenance["fixtures"][0]["manifest"]).unwrap();
+        bytes.push(b'\n');
+        provenance["fixtures"][0]["manifestSha256"] = json!(hash(&bytes));
+        rejects_before_writes(&provenance, scratch.path());
+    }
 }
