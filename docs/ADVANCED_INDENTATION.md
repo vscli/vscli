@@ -76,6 +76,11 @@ pass, as do the existing 35 terminal smoke workflows, seven smart-typing termina
 workflows and 18-case typing reference comparison. Fresh platform CI qualification
 is still pending for this branch.
 
+The fresh optimized build also passes all ten new terminal sessions and seven
+existing smart-typing workflows. An interleaved [plain-text performance check](PERFORMANCE.md#advanced-indentation-baseline-2026-10-10)
+preserves all 20 successful trials and mixed latency results; it establishes
+neither an overall speed ranking nor indentation-rule performance.
+
 Extension language configurations, other language profiles, arbitrary Enter
 actions/regular expressions, broader C++/JSON syntax, multi-character pairs and
 all VS Code typing behavior remain outstanding. Source inclusion, a successful
