@@ -260,3 +260,20 @@ jobs:
           VSCLI_WRITE_GOOD: ${{ github.workspace }}/target/write-good-upstream
       - name: Verify unchanged linter source and dependencies after qualification
         run: python3 tests/prepare_write_good.py --verify-only
+      - name: Prepare pinned unchanged official code action sample
+        run: python3 tests/prepare_code_actions_sample.py
+      - name: Qualify official code action sample against native buffers
+        run: cargo test --locked --test code_actions_sample -- --ignored
+        env:
+          VSCLI_CODE_ACTIONS_SAMPLE: ${{ github.workspace }}/target/code-actions-sample-upstream/code-actions-sample
+      - name: Qualify official code action sample in the terminal
+        timeout-minutes: 2
+        run: python3 -u tests/code_actions_sample_pty.py target/debug/vscli
+        env:
+          VSCLI_CODE_ACTIONS_SAMPLE: ${{ github.workspace }}/target/code-actions-sample-upstream/code-actions-sample
+      - name: Qualify actual clangd alongside extension code action providers
+        run: cargo test --locked --test extension_code_actions -- --ignored
+        env:
+          VSCLI_CLANGD: clangd
+      - name: Verify unchanged official sample after qualification
+        run: python3 tests/prepare_code_actions_sample.py --verify-only

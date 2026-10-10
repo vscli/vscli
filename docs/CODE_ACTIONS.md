@@ -63,5 +63,23 @@ edit→Undo, normalized byte limits and no-op history preservation.
 isolation, lazy resolution, hidden/untitled edits and an opt-in actual clangd
 coexistence workflow. Existing native action tests retain strict integrity checks.
 
-Official unchanged sample conformance is qualified separately from these synthetic
-contracts. No production extension or complete API compatibility is claimed.
+The unchanged MIT official **vscode-samples.code-actions-sample 0.0.2** is pinned
+to Microsoft/vscode-extension-samples commit
+`73e249b3c1ba8422aa5713f1a5db23ed0eab4f7a`. Preparation verifies source, license,
+committed lockfile, compiled output and installed compiler hashes. Two native
+and two PTY workflows cover its original two providers, three emoji edits,
+individual disabled commands, empty newer-provider results, Unicode/CRLF,
+shared dirty history and explicit save/Undo. This is official sample conformance,
+not qualification of a published production extension or ecosystem parity.
+
+Run `python3 tests/prepare_code_actions_sample.py`, set
+`VSCLI_CODE_ACTIONS_SAMPLE` to the absolute
+`target/code-actions-sample-upstream/code-actions-sample` directory, then run
+`cargo test --locked --test code_actions_sample -- --ignored` and
+`python3 tests/code_actions_sample_pty.py target/debug/vscli`. Set `VSCLI_CLANGD`
+to an installed clangd and run
+`cargo test --locked --test extension_code_actions -- --ignored` separately.
+CI runs synthetic contracts on its platform matrix and official-sample/actual
+clangd workflows in Linux's real-protocol job. Platform checks, optimized builds
+and test results must pass before merging; this document describes the scope,
+without claiming full parity or project completion.
