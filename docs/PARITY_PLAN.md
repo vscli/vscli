@@ -12,9 +12,13 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-Merged source extends through [PR #64](https://github.com/vscli/vscli/pull/64),
-which passed all six required platform checks. Native source actions on save are
-under separate qualification.
+Merged source extends through [PR #65](https://github.com/vscli/vscli/pull/65),
+including native source actions on save after all six required platform checks.
+Priority 6 is under separate qualification: [group tabs #66](https://github.com/vscli/vscli/pull/66)
+and the stacked draft [preview tabs #67](https://github.com/vscli/vscli/pull/67).
+Neither pending PR is a main-branch feature or completed workspace continuity.
+Sticky tabs and nested layouts follow these slices; their prepared sources and
+reference observations are not shipped editor behavior.
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
