@@ -93,6 +93,14 @@ continued access through the old reader, and success/error cleanup. The repair
 awaits fresh Windows CI qualification; unsupported replacement semantics fail
 without releasing the baseline identity proof early.
 
+The repaired head passed Windows and Linux CI. Its macOS Rust/reference checks
+passed, but the dirty-settings PTY expected only the immediate refusal wording.
+An aliased macOS temporary parent correctly reached the later native-identity
+guard, which displayed `Settings write refused` and retained every file byte.
+The PTY now accepts either explicit refusal route while keeping the exact
+unchanged header, source/settings bytes and Undo/Redo assertions. Fresh complete
+platform qualification remains pending for this oracle correction.
+
 This feature does not implement
 autosave, format-on-save, save-time code actions or full settings parity.
 
