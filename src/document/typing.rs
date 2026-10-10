@@ -200,6 +200,145 @@ struct Plan {
     marks: Vec<Mark>,
 }
 impl Document {
+    /// Current editing policy is deliberately outside Undo snapshots. A real
+    /// source/configuration transition retires ownership in every shared view.
+    pub fn set_language_configuration(
+        &mut self,
+        configuration: Option<Arc<crate::language_configuration::Configuration>>,
+    ) -> Result<()> {
+        if let Some(configuration) = configuration.as_ref() {
+            validate_configuration(configuration)?;
+        }
+        if self.language_configuration.as_deref() == configuration.as_deref() {
+            return Ok(());
+        }
+        self.retire_typing_pairs();
+        self.typing_context = ContextCache::default();
+        self.language_configuration = configuration;
+        Ok(())
+    }
+    pub fn language_configuration(&self) -> Option<&crate::language_configuration::Configuration> {
+        self.language_configuration.as_deref()
+    }
+    fn typing_pair(&self, profile: ProfileId, open: char) -> Option<crate::editing_profile::Pair> {
+        if let Some(pairs) = self
+            .language_configuration
+            .as_ref()
+            .and_then(|c| c.auto_closing_pairs.as_ref())
+        {
+            return pairs.iter().find(|pair| pair.open == open).map(|pair| {
+                crate::editing_profile::Pair {
+                    open: pair.open,
+                    close: pair.close,
+                    not_string: pair.not_string,
+                    not_comment: pair.not_comment,
+                }
+            });
+        }
+        // C++ and JSON inherit explicit bundled auto-closing tables. Languages
+        // without such a table derive unguarded auto pairs from their brackets.
+        if matches!(profile, ProfileId::Plaintext | ProfileId::Unsupported)
+            && let Some(brackets) = self
+                .language_configuration
+                .as_ref()
+                .and_then(|c| c.brackets.as_ref())
+        {
+            return brackets.iter().find(|pair| pair.open == open).map(|pair| {
+                crate::editing_profile::Pair {
+                    open: pair.open,
+                    close: pair.close,
+                    not_string: false,
+                    not_comment: false,
+                }
+            });
+        }
+        profile.pair(open)
+    }
+    fn typing_surround(&self, profile: ProfileId, open: char) -> Option<char> {
+        if let Some(configuration) = self.language_configuration.as_ref() {
+            if let Some(pairs) = configuration.surrounding_pairs.as_ref() {
+                return pairs
+                    .iter()
+                    .find(|pair| pair.open == open)
+                    .map(|pair| pair.close);
+            }
+            // C++ has an explicit bundled surrounding table, which remains a
+            // lower field contribution when an installed override omits it.
+            if profile == ProfileId::Cpp {
+                return profile.surround(open);
+            }
+            if let Some(pairs) = configuration.auto_closing_pairs.as_ref() {
+                return pairs
+                    .iter()
+                    .find(|pair| pair.open == open)
+                    .map(|pair| pair.close);
+            }
+            if matches!(profile, ProfileId::Plaintext | ProfileId::Unsupported)
+                && let Some(pairs) = configuration.brackets.as_ref()
+            {
+                return pairs
+                    .iter()
+                    .find(|pair| pair.open == open)
+                    .map(|pair| pair.close);
+            }
+        }
+        profile.surround(open)
+    }
+    fn typing_closing(&self, profile: ProfileId, close: char) -> bool {
+        if let Some(pairs) = self
+            .language_configuration
+            .as_ref()
+            .and_then(|c| c.auto_closing_pairs.as_ref())
+        {
+            return pairs.iter().any(|pair| pair.close == close);
+        }
+        if matches!(profile, ProfileId::Plaintext | ProfileId::Unsupported)
+            && let Some(pairs) = self
+                .language_configuration
+                .as_ref()
+                .and_then(|c| c.brackets.as_ref())
+        {
+            return pairs.iter().any(|pair| pair.close == close);
+        }
+        profile.closing(close)
+    }
+    fn typing_before(&self, ch: char, policy: AutoClosing, for_quotes: bool) -> bool {
+        // A physical line ending is not a following content character. The
+        // declarative set may exclude whitespace without disabling EOL pairs.
+        if matches!(ch, '\r' | '\n') && policy != AutoClosing::Never {
+            return true;
+        }
+        if policy == AutoClosing::LanguageDefined
+            && let Some(before) = self
+                .language_configuration
+                .as_ref()
+                .and_then(|c| c.auto_close_before.as_ref())
+        {
+            return before.contains(ch);
+        }
+        if policy == AutoClosing::LanguageDefined && !for_quotes && quote(ch) {
+            return true;
+        }
+        before(ch, policy)
+    }
+    pub(super) fn typing_indent_pair(
+        &self,
+        profile: ProfileId,
+        open: char,
+        close: Option<char>,
+    ) -> bool {
+        self.language_configuration
+            .as_ref()
+            .and_then(|c| c.brackets.as_ref())
+            .map_or_else(
+                || profile.indent_pair(open, close),
+                |pairs| {
+                    pairs.iter().any(|pair| {
+                        pair.open == open && close.is_none_or(|close| pair.close == close)
+                    })
+                },
+            )
+    }
     // Prefix checkpoints certify exact current-Rope state, independently of
     // asynchronous syntax highlighting. Both planners share this invalidation.
     fn take_typing_cache(&mut self, profile: ProfileId) -> ContextCache {
@@ -354,7 +493,7 @@ impl Document {
             self.view.pairs.generation = self.view.pairs.generation.wrapping_add(1);
         }
     }
-    fn smart_selections(&self) -> Result<Vec<Selection>> {
+    pub(super) fn smart_selections(&self) -> Result<Vec<Selection>> {
         // The public secondary list may be malformed; enforce the bound before
         // cloning it, rather than allocating an arbitrarily large staging list.
         if self.secondary.len() >= CURSORS {
@@ -443,7 +582,7 @@ impl Document {
                     && self.text.char(cursor) == ch
                     && (self.live_mark(cursor, ch, options).is_some()
                         || (options.overtype == PairHandling::Always
-                            && options.profile.closing(ch)))
+                            && self.typing_closing(options.profile, ch)))
                     && !(quote(ch) && cursor > 0 && self.text.char(cursor - 1) == '\\')
             })
         {
@@ -464,7 +603,7 @@ impl Document {
             self.break_group();
             return Ok(());
         }
-        if let Some(close) = options.profile.surround(ch)
+        if let Some(close) = self.typing_surround(options.profile, ch)
             && options.surround != Surround::Never
             && (options.surround != Surround::Quotes || quote(ch))
             && (options.surround != Surround::Brackets || !quote(ch))
@@ -492,7 +631,7 @@ impl Document {
                 return self.surround_typing(selections, ch, close, options);
             }
         }
-        if let Some(pair) = options.profile.pair(ch) {
+        if let Some(pair) = self.typing_pair(options.profile, ch) {
             let policy = if quote(ch) {
                 options.quotes
             } else {
@@ -503,9 +642,9 @@ impl Document {
                     let cursor = selection.cursor;
                     selection.range().is_empty()
                         && (cursor == self.len()
-                            || before(self.text.char(cursor), policy)
+                            || self.typing_before(self.text.char(cursor), policy, quote(ch))
                             || (!quote(self.text.char(cursor))
-                                && options.profile.closing(self.text.char(cursor))))
+                                && self.typing_closing(options.profile, self.text.char(cursor))))
                         && (!quote(ch)
                             || policy == AutoClosing::Always
                             || cursor == 0
@@ -632,7 +771,7 @@ impl Document {
             options,
         )
     }
-    fn validate_typing_size(&self, changes: &[(Range<usize>, String)]) -> Result<()> {
+    pub(super) fn validate_typing_size(&self, changes: &[(Range<usize>, String)]) -> Result<()> {
         let mut bytes = 0usize;
         let mut resulting = self.text.len_bytes();
         let mut previous = None;
@@ -744,9 +883,8 @@ impl Document {
             selection.range().is_empty()
                 && cursor > 0
                 && cursor < self.len()
-                && options
-                    .profile
-                    .pair(self.text.char(cursor - 1))
+                && self
+                    .typing_pair(options.profile, self.text.char(cursor - 1))
                     .is_some_and(|pair| pair.close == self.text.char(cursor))
                 && (options.delete == PairHandling::Always
                     || self
@@ -789,6 +927,72 @@ impl Document {
 }
 
 // Preserve caller order while computing independent replacement endpoints.
+fn validate_configuration(
+    configuration: &crate::language_configuration::Configuration,
+) -> Result<()> {
+    let text = |value: &str, max: usize, allow_empty: bool| {
+        (allow_empty || !value.is_empty()) && value.len() <= max && !value.contains('\0')
+    };
+    if !text(&configuration.language, 128, false)
+        || !text(&configuration.identity.owner, 256, false)
+        || !text(&configuration.identity.version, 256, false)
+        || !text(&configuration.identity.archive_sha256, 256, true)
+        || !text(&configuration.identity.content_sha256, 64, false)
+        || !text(&configuration.identity.composition_sha256, 64, false)
+        || configuration.identity.package_path.as_os_str().len() > 8192
+        || configuration.identity.configuration_path.as_os_str().len() > 1024
+    {
+        bail!("Language configuration identity exceeds native limits");
+    }
+    let delimiter = |ch: char| !matches!(ch, '\0' | '\n' | '\r');
+    if configuration
+        .auto_closing_pairs
+        .as_ref()
+        .is_some_and(|pairs| {
+            pairs.len() > 64
+                || pairs
+                    .iter()
+                    .any(|pair| !delimiter(pair.open) || !delimiter(pair.close))
+        })
+        || [&configuration.surrounding_pairs, &configuration.brackets]
+            .into_iter()
+            .any(|pairs| {
+                pairs.as_ref().is_some_and(|pairs| {
+                    pairs.len() > 64
+                        || pairs
+                            .iter()
+                            .any(|pair| !delimiter(pair.open) || !delimiter(pair.close))
+                })
+            })
+    {
+        bail!("Language configuration pairs require at most 64 non-line-break scalar delimiters");
+    }
+    if configuration
+        .auto_close_before
+        .as_ref()
+        .is_some_and(|value| !text(value, 256, true) || value.chars().count() > 64)
+    {
+        bail!("Language configuration autoCloseBefore exceeds native limits");
+    }
+    if let Some(comments) = configuration.comments.as_ref() {
+        let valid = |value: &str| text(value, 256, false) && !value.contains(['\r', '\n']);
+        if comments
+            .line_comment
+            .as_ref()
+            .is_some_and(|value| !valid(value))
+            || comments
+                .block_comment
+                .as_ref()
+                .is_some_and(|(open, close)| !valid(open) || !valid(close))
+        {
+            bail!(
+                "Language configuration comment delimiters require nonempty single-line text up to 256 bytes"
+            );
+        }
+    }
+    Ok(())
+}
+
 fn shifts(selections: &[Selection], added: impl Fn(usize) -> usize) -> Vec<isize> {
     let mut order = (0..selections.len()).collect::<Vec<_>>();
     order.sort_by_key(|index| selections[*index].range().start);

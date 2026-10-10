@@ -433,6 +433,7 @@ impl App {
                     bail!("Hidden document or mirror budget changed; retry");
                 }
                 self.settings.apply(&mut doc);
+                self.configure_document_language(&mut doc)?;
                 let id = doc.id;
                 self.hidden_documents.push(*doc);
                 Ok(serde_json::json!({"document":id}))

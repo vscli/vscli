@@ -1277,6 +1277,7 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
                 1,
                 Line::raw("S stop selected · H restart session · R rollback · Delete remove"),
             );
+            session_lines.insert(1, Line::raw(app.language_configuration_catalog_status()));
             let height = (inner.height as usize).saturating_sub(session_lines.len());
             let offset = selected.saturating_sub(height.saturating_sub(1));
             let lines: Vec<_> = if items.is_empty() {
@@ -1296,7 +1297,7 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
                                 clean(&item.id),
                                 clean(&item.version),
                                 clean(&app.extension_status(&item.id)),
-                                clean(&app.extension_activation_status(&item.id)),
+                                clean(&app.installed_extension_activation_status(item)),
                                 clean(&item.compatibility)
                             ),
                             Style::default()

@@ -10,7 +10,9 @@ use std::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+mod comments;
 mod editing;
+pub use comments::CommentOperation;
 pub(crate) mod graphemes;
 mod indentation;
 mod snippets;
@@ -236,6 +238,7 @@ pub struct Document {
     byte_changes: std::collections::VecDeque<(u64, ByteChange)>,
     typing: Option<(Instant, usize)>,
     typing_context: typing::ContextCache,
+    language_configuration: Option<std::sync::Arc<crate::language_configuration::Configuration>>,
 }
 
 impl std::ops::Deref for Document {
@@ -409,6 +412,7 @@ impl Document {
             byte_changes: std::collections::VecDeque::new(),
             typing: None,
             typing_context: typing::ContextCache::default(),
+            language_configuration: None,
         }
     }
 

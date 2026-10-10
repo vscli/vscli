@@ -58,10 +58,15 @@ Fresh pinned-editor comparisons also pass on Linux, macOS and Windows in all six
 required checks. The [30-target token-readiness capture](reference/2026-10-10-cpp-token-readiness/README.md)
 records an actual pinned-editor startup distinction independently of native
 comparison; prepared and natural behavior remain separate qualification scopes.
-Extension language configuration, additional native profiles and broader
-signature-extension qualification remain follow-up scope. The next branch is
-implementing installed native language configurations, pair/comment commands and
-disable/update ownership retirement; this source is not yet qualified or merged.
+Additional native profiles and broader signature-extension qualification remain
+follow-up scope. The current branch implements
+[installed native language configurations](NATIVE_LANGUAGE_CONFIGURATIONS.md),
+pair/comment commands and disable/update ownership retirement. Local comparisons
+match 50 recorded C++ workflows / 200 snapshots plus 21 workflows / 84 snapshots
+with the unchanged bundled C++ declaration. Local qualification passes 533 ordinary Rust tests, five new terminal sessions,
+formatting and strict all-target Clippy; fresh platform CI qualification remains
+in progress. This branch is not yet merged and
+does not finish installed language configuration or extension parity.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished

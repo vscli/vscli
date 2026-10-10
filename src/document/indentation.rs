@@ -190,14 +190,14 @@ impl Session {
             text = format!("{}{}", doc.eol, unshift(doc, &base));
             offset = text.chars().count();
         } else if let Some(open) = before.trim_end_matches(js_whitespace).chars().last()
-            && options.profile.indent_pair(open, None)
+            && doc.typing_indent_pair(options.profile, open, None)
         {
             text = format!("{}{}", doc.eol, shift(doc, &base));
             offset = text.chars().count();
             if after
                 .as_ref()
                 .and_then(|after| after.trim_start_matches(js_whitespace).chars().next())
-                .is_some_and(|close| options.profile.indent_pair(open, Some(close)))
+                .is_some_and(|close| doc.typing_indent_pair(options.profile, open, Some(close)))
             {
                 text.push_str(&doc.eol);
                 text.push_str(&base);
@@ -345,7 +345,7 @@ impl Session {
         profile: ProfileId,
     ) -> Option<Edit> {
         let open = matching(close)?;
-        if !profile.indent_pair(open, Some(close)) {
+        if !doc.typing_indent_pair(profile, open, Some(close)) {
             return None;
         }
         let row = doc.text.char_to_line(cursor);
@@ -367,8 +367,9 @@ impl Session {
             }
             for (column, ch) in line.chars[..limit].iter().enumerate() {
                 if line.code[column]
-                    && (profile.indent_pair(*ch, None)
-                        || matching(*ch).is_some_and(|open| profile.indent_pair(open, Some(*ch))))
+                    && (doc.typing_indent_pair(profile, *ch, None)
+                        || matching(*ch)
+                            .is_some_and(|open| doc.typing_indent_pair(profile, open, Some(*ch))))
                 {
                     if tokens.len() == TOKENS {
                         return None;

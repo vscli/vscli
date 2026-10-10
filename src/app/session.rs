@@ -201,6 +201,7 @@ impl App {
         let crate::session::Restored { layout, documents } = restored;
         for mut doc in documents {
             self.settings.apply(&mut doc);
+            self.configure_document_language(&mut doc)?;
             // Existing and recovered documents never receive persisted selections.
             if !self
                 .documents

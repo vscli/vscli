@@ -15,6 +15,8 @@ use std::{
     },
 };
 const MAX_COMMANDS: usize = 8;
+#[cfg(test)]
+mod configuration_tests;
 #[derive(Default)]
 pub(super) struct State {
     configured: bool,
@@ -27,6 +29,7 @@ pub(super) struct State {
     global: Preferences,
     workspace: Preferences,
     catalog: Arc<BTreeMap<String, Metadata>>,
+    language_configurations: Arc<crate::language_configuration::Catalog>,
     commands: Vec<(String, String)>,
     notices: Vec<String>,
     host_bindings: Vec<(String, Value)>,
@@ -100,6 +103,7 @@ struct Snapshot {
     catalog: BTreeMap<String, Metadata>,
     matched: BTreeSet<String>,
     notices: Vec<String>,
+    language_configurations: crate::language_configuration::Catalog,
 }
 enum Output {
     Loaded(Box<Snapshot>, Option<(String, bool)>),
@@ -121,30 +125,38 @@ fn load(
     let enabled = Preferences::effective(&global, &local);
     let mut catalog = BTreeMap::new();
     let mut notices = Vec::new();
-    if let Some(directory) = directory {
-        for installed in Store::new(directory.into()).list()? {
-            if catalog.len() >= lifecycle::MAX_ENABLED {
-                anyhow::bail!("Extension activation catalog exceeds 128 installed packages");
-            }
-            match Metadata::installed(&installed) {
-                Ok(metadata) => {
-                    if enabled.contains(&installed.id) {
-                        if let Some(reason) = &metadata.blocked {
-                            notices.push(format!("{}: {reason}", installed.id));
-                        }
-                        if let Some(event) = metadata.unsupported_events.first() {
-                            notices.push(format!(
-                                "{}: unsupported activation event {event}",
-                                installed.id
-                            ));
-                        }
+    let installed = directory
+        .map(|directory| Store::new(directory.into()).list())
+        .transpose()?
+        .unwrap_or_default();
+    if installed.len() > lifecycle::MAX_ENABLED {
+        anyhow::bail!("Extension activation catalog exceeds 128 installed packages");
+    }
+    let language_configurations =
+        crate::language_configuration::Catalog::load(&installed, &global, &local);
+    notices.extend(language_configurations.warnings.iter().cloned());
+    for installed in installed {
+        if catalog.len() >= lifecycle::MAX_ENABLED {
+            anyhow::bail!("Extension activation catalog exceeds 128 installed packages");
+        }
+        match Metadata::installed(&installed) {
+            Ok(metadata) => {
+                if enabled.contains(&installed.id) {
+                    if let Some(reason) = &metadata.blocked {
+                        notices.push(format!("{}: {reason}", installed.id));
                     }
-                    catalog.insert(installed.id, metadata);
+                    if let Some(event) = metadata.unsupported_events.first() {
+                        notices.push(format!(
+                            "{}: unsupported activation event {event}",
+                            installed.id
+                        ));
+                    }
                 }
-                Err(error) => {
-                    if notices.len() < 128 {
-                        notices.push(format!("{}: {error:#}", installed.id));
-                    }
+                catalog.insert(installed.id, metadata);
+            }
+            Err(error) => {
+                if notices.len() < 128 {
+                    notices.push(format!("{}: {error:#}", installed.id));
                 }
             }
         }
@@ -167,6 +179,7 @@ fn load(
         catalog,
         matched: matches.owners,
         notices,
+        language_configurations,
     })
 }
 impl App {
@@ -187,6 +200,37 @@ impl App {
     pub fn extension_activation_notices(&self) -> &[String] {
         &self.activation.notices
     }
+    pub fn language_configuration(
+        &self,
+        language: &str,
+    ) -> Option<Arc<crate::language_configuration::Configuration>> {
+        self.activation
+            .language_configurations
+            .for_language(language)
+    }
+    fn clear_language_configurations(&mut self) {
+        self.activation.language_configurations = Arc::default();
+        self.refresh_document_language_configurations();
+    }
+    pub(super) fn configure_document_language(&self, doc: &mut Document) -> Result<()> {
+        let language = doc
+            .path
+            .as_deref()
+            .map_or("plaintext", crate::languages::language);
+        doc.set_language_configuration(self.language_configuration(language))
+    }
+    pub(super) fn refresh_document_language_configurations(&mut self) {
+        let catalog = Arc::clone(&self.activation.language_configurations);
+        for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
+            let language = doc
+                .path
+                .as_deref()
+                .map_or("plaintext", crate::languages::language);
+            if let Err(error) = doc.set_language_configuration(catalog.for_language(language)) {
+                self.message = format!("Native language configuration rejected: {error:#}");
+            }
+        }
+    }
     pub fn extension_activation_status(&self, id: &str) -> String {
         if let Some(state) = self
             .extension_host
@@ -202,6 +246,49 @@ impl App {
             "enabled; waiting for a supported event".into()
         } else {
             "disabled".into()
+        }
+    }
+    pub fn language_configuration_catalog_status(&self) -> &'static str {
+        if self.activation.refresh
+            || self.activation.change.is_some()
+            || self
+                .activation
+                .job
+                .as_ref()
+                .is_some_and(|job| job.extension_epoch.is_none())
+        {
+            "language configuration loading"
+        } else if self.activation.loaded {
+            "language configuration ready"
+        } else {
+            "language configuration unavailable"
+        }
+    }
+    pub fn installed_extension_activation_status(
+        &self,
+        installed: &crate::extension_store::Installed,
+    ) -> String {
+        let code = self.extension_activation_status(&installed.id);
+        if self
+            .activation
+            .language_configurations
+            .has_installed_configuration(installed)
+        {
+            if code == "disabled" {
+                "language configuration loaded; code disabled".into()
+            } else {
+                format!("language configuration loaded; {code}")
+            }
+        } else if self
+            .activation
+            .language_configurations
+            .profiles
+            .values()
+            .any(|configuration| configuration.identity.owner == installed.id)
+        {
+            "language configuration loading".into()
+        } else {
+            code
         }
     }
     pub fn refresh_extension_catalog(&mut self) {
@@ -397,6 +484,8 @@ impl App {
         self.activation.global = snapshot.global;
         self.activation.workspace = snapshot.workspace;
         self.activation.catalog = Arc::new(snapshot.catalog);
+        self.activation.language_configurations = Arc::new(snapshot.language_configurations);
+        self.refresh_document_language_configurations();
         self.activation.loaded = true;
         self.activation.automatic = snapshot.matched;
         self.activation.attempted.clear();
@@ -554,6 +643,7 @@ impl App {
                                 if job.extension_epoch.is_none() {
                                     self.activation.loaded = false;
                                     self.activation.pending.clear();
+                                    self.clear_language_configurations();
                                 } else if job.command.as_ref().is_some_and(|id| {
                                     self.activation
                                         .pending
@@ -566,6 +656,15 @@ impl App {
                                 self.activation.waiting = None;
                             }
                             Ok(Output::Loaded(snapshot, grant)) => {
+                                // A newer queued enablement intent supersedes
+                                // this snapshot. Stopping code alone still
+                                // permits published consent/declarative data.
+                                if job.control != self.activation.control
+                                    && self.activation.change.is_some()
+                                {
+                                    self.activation.refresh = true;
+                                    return true;
+                                }
                                 self.publish_activation_catalog(*snapshot);
                                 if let Some((id, enabled)) = grant {
                                     let resume = job.control == self.activation.control;
@@ -1045,6 +1144,7 @@ mod tests {
             catalog: BTreeMap::from([("test.a".into(), metadata("test.a"))]),
             matched: BTreeSet::from(["test.a".into()]),
             notices: Vec::new(),
+            language_configurations: Default::default(),
         };
         let (sender, receiver) = sync_channel(1);
         app.activation.job = Some(Job {
