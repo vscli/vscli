@@ -649,3 +649,59 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/settings/vscli \
   --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
   --output target/benchmarks/native-save-automation-single-line.json
 ```
+
+## Native format-on-save core baseline: 2026-10-10
+
+The [ordinary-file run](benchmarks/2026-10-10-native-format-on-save.json) and
+[single-line run](benchmarks/2026-10-10-native-format-on-save-single-line.json)
+compare the native formatter executable built from clean source
+`a6a205f922f62c210542dc1a694a53c0dc476854` with the preserved save-automation
+executable. There are five interleaved launches and 200 serial keys per row:
+40 successful trials, 1,600 observed keys and zero failures. No build, test suite
+or reference editor ran concurrently. The Linux x86_64 i9-13900H host has 20
+logical CPUs; terminal geometry is 120 × 40. Frequency, scheduling and thermal
+conditions were uncontrolled.
+
+| File / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS median MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / save automation | 6.057 | 0.395 | 0.741 | 0.918 | 12.74 |
+| 10 KiB multiline / format-on-save | 7.133 | 0.337 | 0.974 | 1.184 | 12.89 |
+| 1 MiB multiline / save automation | 6.283 | 0.311 | 0.670 | 0.834 | 14.02 |
+| 1 MiB multiline / format-on-save | 7.124 | 0.307 | 0.492 | 0.786 | 13.97 |
+| 10 MiB multiline / save automation | 20.147 | 0.328 | 0.678 | 0.912 | 24.41 |
+| 10 MiB multiline / format-on-save | 18.858 | 0.331 | 0.814 | 0.921 | 24.38 |
+| 1 MiB single line / save automation | 8.230 | 0.221 | 0.740 | 0.922 | 13.83 |
+| 1 MiB single line / format-on-save | 7.797 | 0.214 | 0.610 | 0.784 | 13.97 |
+
+The candidate's key medians are lower in three workloads, while the 10 KiB and
+10 MiB key tails are higher. Startup and sampled RSS are mixed. These observations
+establish no overall improvement, causal regression or editor speed ranking.
+Five startup samples do not establish startup tails; pooled key samples are not
+independent launches. Sampled RSS is not peak memory, and one-second idle windows
+do not qualify sustained CPU use.
+
+This is warm-cache ASCII plain-text editing with isolated configuration/data,
+no LSP, extensions or recovery, and autosave/format-on-save off. Default file
+Breadcrumbs are enabled and Outline has no provider in both executables. It
+qualifies routine editing after formatter integration, excluding active formatting,
+save/fsync contention, project indexing, extension-heavy workloads and physical
+input-to-display latency. The Python PTY-cell oracle is included; graphical
+terminal painting and physical input are excluded. Actual formatted Save/Undo
+and stale-reply integrity have separate protocol/controller/terminal evidence in
+the [format-on-save contract](FORMAT_ON_SAVE.md).
+
+The reports retain executable and fixture hashes. Candidate SHA256 is
+`fae7cd681d41a3eb73a91604a4e98af28b0bc08d427826e1789a530380f15214`;
+baseline SHA256 is
+`d6f4c771a98f33bcc97a9f69d2bf64170326df78c7ccc05e8ef12456ab69740f`.
+
+Reproduce with a saved save-automation release executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/save-automation/vscli \
+  --sizes 10240 1048576 10485760 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-format-on-save.json
+python3 scripts/bench_editor.py --compare-vscli /path/to/save-automation/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-format-on-save-single-line.json
+```
