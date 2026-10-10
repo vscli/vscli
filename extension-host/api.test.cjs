@@ -4,6 +4,25 @@ const assert = require('node:assert/strict');
 const { createApi } = require('./api.cjs');
 const initial = () => ({ generation: 1, documents: [{ id: 1, uri: 'untitled:test', text: 'b\na\n', version: 1, languageId: 'plaintext', isDirty: true }], active: 1, selections: [{ anchor: { line: 0, character: 0 }, active: { line: 2, character: 0 } }] });
 
+test('public symbol constructors expose hierarchy, both standard location overloads and geometry validation', () => {
+  const api = createApi(() => {}, () => {}).api;
+  const range = new api.Range(0,0,0,4), selection = new api.Range(0,1,0,3), uri = api.Uri.parse('untitled:test');
+  const parent = new api.DocumentSymbol('猫 class','detail',api.SymbolKind.Class,range,selection);
+  const child = new api.DocumentSymbol('🙂 method','',api.SymbolKind.Method,selection,selection);
+  parent.children.push(child); api.DocumentSymbol.validate(parent);
+  assert.equal(parent.children[0],child); assert.equal(parent.range,range); assert.equal(parent.selectionRange,selection);
+  assert.equal(api.SymbolKind.Class,4); assert.equal(api.SymbolKind.Function,11); assert.equal(api.SymbolTag.Deprecated,1);
+  const location = new api.Location(uri,selection);
+  const flat = new api.SymbolInformation('flat',api.SymbolKind.Function,'container',location);
+  const old = new api.SymbolInformation('flat',api.SymbolKind.Function,selection,uri,'container');
+  assert.equal(flat.location,location); assert.equal(old.location.uri,uri); assert.equal(old.location.range,selection);
+  assert.equal(flat.containerName,'container'); assert.equal(old.containerName,'container');
+  assert.throws(()=>new api.DocumentSymbol('bad','',api.SymbolKind.Class,selection,range),/contained/);
+  assert.throws(()=>new api.DocumentSymbol('','',api.SymbolKind.Class,range,selection),/nonempty/);
+  assert.throws(()=>new api.SymbolInformation('',api.SymbolKind.Class,'container',location),/nonempty/);
+  parent.children.push(parent); assert.throws(()=>api.DocumentSymbol.validate(parent),/depth/);
+});
+
 test('coalesced edit and undo notifies a fresh version even with unchanged bytes', () => {
   const runtime = createApi(() => {}, () => {});
   runtime.sync(initial());

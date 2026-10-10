@@ -4,6 +4,7 @@ const { Position, Range, Disposable, EventEmitter } = require('./api-types.cjs')
 function enumeration(names) { return Object.freeze(Object.fromEntries(names.map((name, index) => [name, index]))); }
 const CompletionItemKind = enumeration(['Text','Method','Function','Constructor','Field','Variable','Class','Interface','Module','Property','Unit','Value','Enum','Keyword','Snippet','Color','File','Reference','Folder','EnumMember','Constant','Struct','Event','Operator','TypeParameter']);
 const SymbolKind = enumeration(['File','Module','Namespace','Package','Class','Method','Property','Field','Constructor','Enum','Interface','Function','Variable','Constant','String','Number','Boolean','Array','Object','Key','Null','EnumMember','Struct','Event','Operator','TypeParameter']);
+const SymbolTag = Object.freeze({ Deprecated: 1 });
 class MarkdownString {
   constructor(value = '', supportThemeIcons = false) { this.value = value; this.supportThemeIcons = supportThemeIcons; this.isTrusted = false; this.supportHtml = false; }
   appendText(value) { this.value += String(value).replace(/[\\`*_{}\[\]()<>#+.!-]/g, '\\$&'); return this; }
@@ -30,11 +31,46 @@ class TextEdit {
   static delete(range) { return new TextEdit(range, ''); }
 }
 class DocumentSymbol {
-  constructor(name, detail, kind, range, selectionRange) { Object.assign(this, { name, detail, kind, range, selectionRange, children: [] }); }
+  constructor(name, detail, kind, range, selectionRange) {
+    Object.assign(this, { name, detail, kind, range, selectionRange, children: [] });
+    DocumentSymbol.validate(this);
+  }
+  static validate(candidate) {
+    let count = 0;
+    function visit(value, depth) {
+      if (++count > 512 || depth > 16) throw new Error('DocumentSymbol count or depth limit exceeded');
+      const name = value?.name;
+      if (typeof name !== 'string' || !name || Buffer.byteLength(name) > 4096) throw new Error('DocumentSymbol requires a nonempty name of at most 4 KiB');
+      const range = value.range, selection = value.selectionRange;
+      if (!(range instanceof Range) || !(selection instanceof Range) || !range.contains(selection)) throw new Error('selectionRange must be contained in fullRange');
+      const children = value.children;
+      if (children === undefined) return;
+      if (!Array.isArray(children)) throw new Error('DocumentSymbol children must be an array');
+      const length = children.length;
+      if (!Number.isSafeInteger(length) || length < 0 || length > 512) throw new Error('DocumentSymbol child count exceeded');
+      for (let index = 0; index < length; index++) visit(children[index], depth + 1);
+      if (children.length !== length) throw new Error('DocumentSymbol children changed during validation');
+    }
+    visit(candidate, 0);
+  }
 }
 class SymbolInformation {
-  constructor(name, kind, containerName, locationOrRange, uri) {
-    Object.assign(this, { name, kind, containerName, location: uri ? new Location(uri, locationOrRange) : locationOrRange });
+  constructor(name, kind, rangeOrContainer, locationOrUri, containerName) {
+    this.name = name; this.kind = kind; this.containerName = undefined;
+    if (rangeOrContainer instanceof Range) {
+      this.location = new Location(locationOrUri, rangeOrContainer);
+      this.containerName = containerName;
+    } else {
+      this.containerName = rangeOrContainer;
+      // Preserve the early compatibility overload while supporting the public
+      // Location overload and the standard Range/Uri overload above.
+      this.location = containerName && locationOrUri instanceof Range ? new Location(containerName, locationOrUri) : locationOrUri;
+    }
+    SymbolInformation.validate(this);
+  }
+  static validate(candidate) {
+    const name = candidate?.name;
+    if (typeof name !== 'string' || !name || Buffer.byteLength(name) > 4096) throw new Error('SymbolInformation requires a nonempty name of at most 4 KiB');
   }
 }
 class ParameterInformation { constructor(label, documentation) { this.label = label; if (documentation !== undefined) this.documentation = documentation; } }
@@ -62,4 +98,4 @@ const CompletionTriggerKind = Object.freeze({ Invoke: 0, TriggerCharacter: 1, Tr
 const SignatureHelpTriggerKind = Object.freeze({ Invoke: 1, TriggerCharacter: 2, ContentChange: 3 });
 
 const { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit } = require('./code-action-types.cjs');
-module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };
+module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, SymbolTag, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };
