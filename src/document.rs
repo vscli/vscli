@@ -565,6 +565,11 @@ impl Document {
     pub fn dirty(&self) -> bool {
         self.revision != self.saved_revision
     }
+    /// Public document state differs from a clean Untitled tab after Undo:
+    /// once edited, its content has still never been persisted to a resource.
+    pub fn api_dirty(&self) -> bool {
+        self.dirty() || (self.path.is_none() && self.text_epoch != 0)
+    }
     pub fn len(&self) -> usize {
         self.text.len_chars()
     }
@@ -1708,6 +1713,38 @@ mod save_snapshot_tests {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn untitled_api_dirty_survives_undo_while_tab_cleanliness_and_history_remain_exact() {
+        let mut doc = super::Document::from_text("");
+        let id = doc.id;
+        assert!(!doc.dirty());
+        assert!(!doc.api_dirty());
+        doc.insert("猫🙂\r\n", false);
+        assert!(doc.dirty());
+        assert!(doc.api_dirty());
+        doc.undo();
+        assert!(doc.is_empty());
+        assert!(!doc.dirty());
+        assert!(doc.api_dirty());
+        assert_eq!(doc.id, id);
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "猫🙂\r\n");
+        assert!(doc.dirty());
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("saved.txt");
+        doc.save_to(&path, false).unwrap();
+        assert!(!doc.api_dirty());
+        assert!(!doc.dirty());
+        assert_eq!(std::fs::read(&path).unwrap(), "猫🙂\r\n".as_bytes());
+        doc.undo();
+        assert!(doc.api_dirty());
+        assert!(doc.dirty());
+        doc.redo();
+        assert!(!doc.api_dirty());
+        assert_eq!(doc.id, id);
+        assert_eq!(std::fs::read(&path).unwrap(), "猫🙂\r\n".as_bytes());
+    }
+
     use super::*;
     #[test]
     fn foreign_creation_after_save_check_preserves_save_as_and_newborn_model_history() {
