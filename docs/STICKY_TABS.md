@@ -156,21 +156,21 @@ and fixed input hashes. This adoption changes reference validation, not editor
 behavior, physical key qualification or the scope of product parity.
 
 
-The archive-adoption candidate passes 975 locked all-target Rust tests across
-51 reports (23 optional integrations ignored), all 14 sticky reader tests,
-formatting and strict locked all-target Clippy. Both the new default genuine
-Linux replay and explicit historical directory replay pass. The native Linux
-result equals the complete remote native output; fixed inventory checks retain
-all 147 original files and all three eight-input source contracts. Fresh
-protected checks for this adoption commit remain separate qualification.
+The current archive-adoption candidate is qualified on merged native reliability
+main `ba024b1d98b3cbcab3d47739bd92c04844b3e492`: all 1,089 locked all-target
+Rust tests across 51 reports (23 opt-in integrations ignored), all 14 sticky
+reader tests, formatting, strict locked all-target Clippy, default genuine Linux
+replay and explicit historical directory replay pass. Fixed inventories retain
+all 147 original files and all three eight-input source contracts; the archived
+files, inventories and reader code remain byte-identical across the parent update.
+No capture is regenerated locally.
 
-The adoption is rebased onto nested-layout main `fb36053`. Its 147 captured
-files, inventories, reader and corrected runtime inputs remain byte-identical
-to adoption head `7814949`, which passed all six required checks in
-[run 38074319204](https://github.com/vscli/vscli/actions/runs/38074319204).
-The integrated main-based candidate passes 1,026 locked all-target Rust tests
-across 51 reports (23 opt-in cases ignored), all 14 reader tests, formatting,
-strict locked all-target Clippy, default genuine replay and explicit historical
-replay. Fresh exact-head protected CI remains required for this rebase.
-
-The corrected-capture adoption is also requalified on merged display-foundation main `3cc75ab9f59f7f95ce2621b020f39364e42c4f05`: all 1,086 locked all-target Rust tests/51 reports (23 opt-in ignored), all 14 reader tests, formatting, strict Clippy, default corrected Linux replay and explicit historical replay pass. Archived files, inventories and reader code are byte-identical to adoption head `6a974d257cf5315d8b461027ef8a8a2a473f6dd5`, which passed all six checks in run38076300620. Fresh checks on the rebased adoption remain required; no capture is regenerated locally.
+The preceding adoption head `1f6b2c026315dc3ed01fe642d05d82a74f652830`
+passed all six protected checks in
+[run 38078584029](https://github.com/vscli/vscli/actions/runs/38078584029).
+Earlier adoption qualification also passed all six checks at `7814949`
+([run 38074319204](https://github.com/vscli/vscli/actions/runs/38074319204))
+and `6a974d2`
+([run 38076300620](https://github.com/vscli/vscli/actions/runs/38076300620)).
+Those runs do not replace fresh exact-head checks on the current parent;
+protected integration remains pending.
