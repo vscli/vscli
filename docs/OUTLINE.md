@@ -32,7 +32,8 @@ Follow Cursor starts enabled. The deepest enclosing symbol is highlighted;
 following it expands its ancestors and selects it in the tree. Turning following
 off preserves the user's tree selection while the enclosing-symbol highlight
 continues to track the editor. Escape leaves the section enabled. Hiding the
-sidebar suspends its work. There is one current tree, with no cross-document
+sidebar suspends Outline demand; enabled Breadcrumbs can still request shared
+symbols. There is one current tree, with no cross-document
 cache or persisted Outline state.
 
 ## Sources, states and bounds
@@ -125,8 +126,10 @@ does not establish whole-sidebar trace equality, cold-start focus equivalence or
 full Outline parity. The synthetic provider is not an unchanged extension-package
 qualification. Actual clangd is a separate named workflow.
 
-Breadcrumbs, symbol filtering/sorting menus, provider-group aggregation,
-workbench decorations and full persisted view behavior remain outstanding.
+The separate [Breadcrumbs slice](BREADCRUMBS.md) is implemented with fresh
+qualification underway. Symbol filtering/sorting menus, provider-group
+aggregation, workbench decorations and full persisted view behavior remain
+outstanding.
 The completed [navigation-history slice](NAVIGATION_HISTORY.md) was merged in
 [PR #59](https://github.com/vscli/vscli/pull/59) after all six required platform
 checks; that evidence does not automatically qualify Outline integration.

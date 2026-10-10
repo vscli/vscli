@@ -123,8 +123,10 @@ ranges; secondary cursors are not retained in history entries.
 Closed file destinations load in the background. Shortcut availability reflects
 the committed location; unsuccessful or stale loads cannot consume history.
 See [recording rules, asynchronous bounds and qualification](NAVIGATION_HISTORY.md).
-The native [Outline section](OUTLINE.md) is a separate implemented slice awaiting
-local qualification; breadcrumbs remain outstanding.
+The native [Outline section](OUTLINE.md) merged after local and platform
+qualification. [Breadcrumbs](BREADCRUMBS.md) is implemented and undergoing fresh
+qualification; folder dropdowns, filtering, reveal-aside, persistent toggle state
+and complete navigation/UI parity remain incomplete.
 
 ## Snippets
 
@@ -639,7 +641,8 @@ range-bearing `WorkspaceSymbol` use their location range. Range-less workspace
 symbols requiring `workspaceSymbol/resolve`, non-file URIs, malformed ranges and
 oversized responses produce explicit errors. Range-less resolve, symbol previews,
 grouping modes and complete VS Code navigation behavior remain incomplete.
-The separate [Outline section](OUTLINE.md) is implemented with qualification pending.
+The separate [Outline section](OUTLINE.md) merged after its named local and
+platform checks; [Breadcrumbs](BREADCRUMBS.md) is undergoing fresh qualification.
 
 Before navigation, the picker checks the workspace, active buffer, all captured
 open-buffer identities/revisions, selections, pane and focus. New input contexts,
@@ -695,8 +698,28 @@ extension can provide document symbols through the optional host. Loading,
 updating and unsupported trees cannot navigate; stale replies cannot revive after
 edit/Undo. Focused native and extension publication checks, the named actual
 clangd workflow, the narrow pinned provider/reveal comparison and three debug
-terminal workflows passed locally. Fresh platform CI and optimized terminal
-qualification remain pending. See [bounds and scoped evidence](OUTLINE.md).
+terminal workflows passed locally. Optimized terminal workflows and all six
+required platform checks also passed before merge. See
+[bounds and scoped evidence](OUTLINE.md).
+
+## Breadcrumbs
+
+The active editor displays a native file trail and current enclosing symbols.
+Use F1 → **Focus Breadcrumbs**, or Ctrl+Shift+Semicolon (Cmd+Shift+Semicolon on
+macOS). Ctrl+Shift+Period (Cmd+Shift+Period) focuses the last crumb and opens its
+symbol picker. Left/Right choose crumbs, Enter/Down opens symbol siblings, and
+picker Enter reveals the identifier start. Escape returns to the editor. File
+trails require no LSP or Node; symbol trails share Outline's guarded producer.
+Folder/file dropdowns remain explicitly unsupported.
+
+`breadcrumbs.enabled` defaults to `true`; `breadcrumbs.filePath` and
+`breadcrumbs.symbolPath` accept `"on"`, `"off"` and `"last"`. **View: Toggle
+Breadcrumbs** changes this session only. Four pinned synthetic-provider cases
+retain 31 snapshots and confirm three picker reveals; direct focus/reveal no-ops
+remain raw qualification gaps. The narrow native comparison, five public
+journeys, one actual clangd workflow, three new debug terminal workflows and the
+existing 35 terminal checks passed locally. Optimized and fresh platform checks
+remain pending. See [scope and evidence](BREADCRUMBS.md).
 
 ## Clean-file session restoration
 

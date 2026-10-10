@@ -33,6 +33,10 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     app.extension_surfaces.status_hits.clear();
     app.extension_surfaces.presented_tree = None;
     app.outline_area = Rect::default();
+    app.breadcrumbs_area = Rect::default();
+    app.breadcrumbs_picker_area = Rect::default();
+    app.breadcrumbs_hits.clear();
+    app.breadcrumbs_presented = None;
     let colors = app.theme.colors;
     let area = frame.area();
     frame.render_widget(
@@ -179,6 +183,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     draw_extension_status(frame, app, rows[3]);
     draw_signature(frame, app);
     draw_suggestions(frame, app);
+    if app.prompt.is_none() && app.modal.is_none() {
+        draw_breadcrumbs_picker(frame, app);
+    }
     if app.prompt.is_some() {
         draw_prompt(frame, app);
     }
@@ -481,12 +488,165 @@ fn draw_editors(frame: &mut Frame, app: &mut App, area: Rect) {
             frame.render_widget(block, *pane_area);
             inner
         };
-        draw_editor(frame, app, inner, focused);
+        let editor = if focused && inner.height >= 2 && app.breadcrumbs_view().visible {
+            let rows = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(inner);
+            draw_breadcrumbs(frame, app, rows[0]);
+            rows[1]
+        } else {
+            inner
+        };
+        draw_editor(frame, app, editor, focused);
         app.pane_areas.push(app.editor_area);
     }
     app.active = active_document;
     app.doc_mut().display_view(active_view);
     app.editor_area = app.pane_areas[app.active_pane];
+}
+
+// Clip before allocating presentation text. Metadata remains cached by the controller.
+fn breadcrumb_label(label: &str, width: usize) -> String {
+    let mut text = String::new();
+    let mut used = 0;
+    for glyph in label.graphemes(true) {
+        let glyph = if glyph.chars().any(char::is_control) {
+            "�"
+        } else {
+            glyph
+        };
+        let cells = grapheme_width(glyph, used);
+        if used + cells > width {
+            break;
+        }
+        text.push_str(glyph);
+        used += cells;
+    }
+    text
+}
+
+fn draw_breadcrumbs(frame: &mut Frame, app: &mut App, area: Rect) {
+    let colors = app.theme.colors;
+    let view = app.breadcrumbs_view();
+    if area.width == 0 || view.elements.is_empty() {
+        return;
+    }
+    let generation = view.generation;
+    let focus = view.focused;
+    // Keep the focused segment in view; otherwise show the end of a long trail.
+    let end = focus.unwrap_or(view.elements.len() - 1);
+    let budget = area.width.saturating_sub(2) as usize;
+    let mut start = end;
+    let mut used = display_width(&view.elements[end].label).min(budget);
+    while start > 0 {
+        let next = display_width(&view.elements[start - 1].label) + 3;
+        if used + next > budget {
+            break;
+        }
+        used += next;
+        start -= 1;
+    }
+    let mut spans = vec![Span::raw(" ")];
+    let mut hits = Vec::new();
+    let mut column = 1;
+    for (index, element) in view.elements.iter().enumerate().skip(start) {
+        if column >= area.width as usize {
+            break;
+        }
+        if index > start {
+            spans.push(Span::styled(" › ", Style::default().fg(colors.muted)));
+            column += 3;
+        }
+        let label = breadcrumb_label(&element.label, (area.width as usize).saturating_sub(column));
+        let width = display_width(&label);
+        if width == 0 {
+            break;
+        }
+        let style = if focus == Some(index) {
+            Style::default().fg(colors.accent).bg(colors.selection)
+        } else {
+            Style::default().fg(colors.muted)
+        };
+        hits.push((
+            Rect::new(area.x + column as u16, area.y, width as u16, 1),
+            index,
+        ));
+        spans.push(Span::styled(label, style));
+        column += width;
+    }
+    if view.updating && column + 2 <= area.width as usize {
+        spans.push(Span::styled(" …", Style::default().fg(colors.muted)));
+    }
+    frame.render_widget(
+        Paragraph::new(Line::from(spans)).style(Style::default().bg(colors.panel)),
+        area,
+    );
+    app.breadcrumbs_area = area;
+    app.breadcrumbs_hits = hits;
+    app.breadcrumbs_presented = Some(generation);
+}
+
+fn draw_breadcrumbs_picker(frame: &mut Frame, app: &mut App) {
+    if app.focus != Focus::Breadcrumbs || app.breadcrumbs_presented.is_none() {
+        return;
+    }
+    let view = app.breadcrumbs_view();
+    let Some(picker) = view.picker else { return };
+    if app.breadcrumbs_presented != Some(view.generation) {
+        return;
+    }
+    let available = frame
+        .area()
+        .bottom()
+        .saturating_sub(app.breadcrumbs_area.bottom() + 2);
+    if available < 3 {
+        return;
+    }
+    let width = app.breadcrumbs_area.width.min(60);
+    let height = ((picker.rows.len() + 2).min(14) as u16)
+        .max(3)
+        .min(available);
+    let area = Rect::new(
+        app.breadcrumbs_area.x,
+        app.breadcrumbs_area.bottom(),
+        width,
+        height,
+    );
+    let colors = app.theme.colors;
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Symbols ")
+        .border_style(Style::default().fg(colors.accent))
+        .style(Style::default().bg(colors.panel));
+    let inner = block.inner(area);
+    let offset = picker
+        .selected
+        .saturating_sub(inner.height.saturating_sub(1) as usize);
+    let lines: Vec<Line> = picker
+        .rows
+        .iter()
+        .enumerate()
+        .skip(offset)
+        .take(inner.height as usize)
+        .map(|(index, row)| {
+            Line::styled(
+                format!(
+                    " {}",
+                    breadcrumb_label(&row.label, inner.width.saturating_sub(1) as usize)
+                ),
+                if index == picker.selected {
+                    Style::default().fg(colors.foreground).bg(colors.selection)
+                } else {
+                    Style::default().fg(colors.foreground)
+                },
+            )
+        })
+        .collect();
+    frame.render_widget(Clear, area);
+    frame.render_widget(block, area);
+    frame.render_widget(
+        Paragraph::new(lines).style(Style::default().bg(colors.panel)),
+        inner,
+    );
+    app.breadcrumbs_picker_area = inner;
 }
 
 fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
@@ -2265,6 +2425,53 @@ mod tests {
         app.modal = Some(Modal::Inspector);
         terminal.draw(|frame| draw(frame, &mut app)).unwrap();
         assert_eq!(app.outline_area, Rect::default());
+    }
+
+    #[test]
+    fn breadcrumb_presentation_is_retired_on_resize_modal_and_undrawn_context_changes() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("猫🙂.txt");
+        std::fs::write(&file, "one\r\ntwo\r\n").unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        app.open(&file).unwrap();
+        let identity = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        let mut terminal = Terminal::new(TestBackend::new(110, 32)).unwrap();
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        assert!(app.breadcrumbs_area.height == 1);
+        assert!(!app.breadcrumbs_hits.is_empty());
+        assert!(app.editor_area.y > app.breadcrumbs_area.y);
+        let hit = app.breadcrumbs_hits.last().unwrap().0;
+        app.execute("breadcrumbs.focus", serde_json::Value::Null);
+        // A click from the old drawing cannot admit the changed focused presentation.
+        app.event(crossterm::event::Event::Mouse(
+            crossterm::event::MouseEvent {
+                kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+                column: hit.x,
+                row: hit.y,
+                modifiers: crossterm::event::KeyModifiers::NONE,
+            },
+        ));
+        assert!(app.message.contains("Breadcrumbs changed"));
+        assert_eq!(app.doc().id, identity);
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert_eq!(app.doc().text.to_string(), "one\r\ntwo\r\n");
+        app.event(crossterm::event::Event::Resize(80, 24));
+        assert!(app.breadcrumbs_hits.is_empty());
+        assert!(app.breadcrumbs_presented.is_none());
+        app.modal = Some(Modal::Inspector);
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        assert_eq!(app.breadcrumbs_area, Rect::default());
+        assert_eq!(app.breadcrumbs_picker_area, Rect::default());
+        assert!(app.breadcrumbs_hits.is_empty());
+        assert!(app.breadcrumbs_presented.is_none());
+        app.modal = None;
+        let mut tiny = Terminal::new(TestBackend::new(1, 1)).unwrap();
+        tiny.draw(|frame| draw(frame, &mut app)).unwrap();
+        assert!(app.breadcrumbs_presented.is_none());
+        app.execute("breadcrumbs.toggle", serde_json::Value::Null);
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        assert_eq!(app.breadcrumbs_area, Rect::default());
     }
 
     #[test]

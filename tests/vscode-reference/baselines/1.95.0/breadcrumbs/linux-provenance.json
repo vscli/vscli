@@ -1,0 +1,105 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "caseCount": 4,
+  "snapshotCount": 31,
+  "traceSha256": "2e574c3dee35f3f4f6f08e7d9138562a136b2d393329210ac772be7eeed3f5c5",
+  "evidenceSha256": "da5e19e3c1149dff20eca543725b80e6ee6d80e86ba3710d850c73040ffa0230",
+  "casesSha256": "bfcbad73d02be80f25093405983dfa7a4112ab2995edb0db4cc5d997114eefaf",
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T03:49:58.624Z",
+      "name": "hierarchical-cpp-focused-reveals",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "4e3d335e1ab4f0cc36da74d881f85ef3476c6503f189960a331db8d303956c23",
+      "sources": {
+        "breadcrumbs.cjs": "022cbdf28cc83dc6397801977de54704d6c3ef83ce1b394da99d6456f5558aa7",
+        "breadcrumbs-cases.json": "bfcbad73d02be80f25093405983dfa7a4112ab2995edb0db4cc5d997114eefaf",
+        "breadcrumbs-suite.cjs": "71e1f9f4f6235cc8f6feaf12056af67176dd4dfa3dddbbcd274a9620ecaafb8f",
+        "breadcrumbs-run.cjs": "9114a649e4a2289ff69115ec6084488920dd1cd5af1a9cf0452e7f0d291d7a69",
+        "breadcrumbs-worker.cjs": "e15dc768bbef4514c57ea4cf51f91dfbff2363383678dadb8df7687bb9de0b5d",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "58bb754c4a45811a9dda5fe3c3a09ecde2d5cca442e5de05b5dd286ebb47e581",
+      "scope": "Named synthetic DocumentSymbolProvider public API and original command/editor projection; not unchanged extension qualification or private Breadcrumbs trail/focus/picker differential"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T03:50:04.412Z",
+      "name": "hierarchical-cpp-sibling-picker",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "fcbd87bf7f90189d1f45c84e0ecdbdf42df198c2748bc2e9f689bd43e922bcff",
+      "sources": {
+        "breadcrumbs.cjs": "022cbdf28cc83dc6397801977de54704d6c3ef83ce1b394da99d6456f5558aa7",
+        "breadcrumbs-cases.json": "bfcbad73d02be80f25093405983dfa7a4112ab2995edb0db4cc5d997114eefaf",
+        "breadcrumbs-suite.cjs": "71e1f9f4f6235cc8f6feaf12056af67176dd4dfa3dddbbcd274a9620ecaafb8f",
+        "breadcrumbs-run.cjs": "9114a649e4a2289ff69115ec6084488920dd1cd5af1a9cf0452e7f0d291d7a69",
+        "breadcrumbs-worker.cjs": "e15dc768bbef4514c57ea4cf51f91dfbff2363383678dadb8df7687bb9de0b5d",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "58bb754c4a45811a9dda5fe3c3a09ecde2d5cca442e5de05b5dd286ebb47e581",
+      "scope": "Named synthetic DocumentSymbolProvider public API and original command/editor projection; not unchanged extension qualification or private Breadcrumbs trail/focus/picker differential"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T03:50:10.588Z",
+      "name": "hierarchical-cpp-outside-root-picker",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "a9e9429f049b5ab39c77db4665d7f1ce6b8d7ee5abb51b88994077452d64ddee",
+      "sources": {
+        "breadcrumbs.cjs": "022cbdf28cc83dc6397801977de54704d6c3ef83ce1b394da99d6456f5558aa7",
+        "breadcrumbs-cases.json": "bfcbad73d02be80f25093405983dfa7a4112ab2995edb0db4cc5d997114eefaf",
+        "breadcrumbs-suite.cjs": "71e1f9f4f6235cc8f6feaf12056af67176dd4dfa3dddbbcd274a9620ecaafb8f",
+        "breadcrumbs-run.cjs": "9114a649e4a2289ff69115ec6084488920dd1cd5af1a9cf0452e7f0d291d7a69",
+        "breadcrumbs-worker.cjs": "e15dc768bbef4514c57ea4cf51f91dfbff2363383678dadb8df7687bb9de0b5d",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "58bb754c4a45811a9dda5fe3c3a09ecde2d5cca442e5de05b5dd286ebb47e581",
+      "scope": "Named synthetic DocumentSymbolProvider public API and original command/editor projection; not unchanged extension qualification or private Breadcrumbs trail/focus/picker differential"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T03:50:16.610Z",
+      "name": "flat-cpp-symbol-picker",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "5c3ea7a8e02a65c3490383aadec788eef1167197838ae13bb1e1c3dd484271d2",
+      "sources": {
+        "breadcrumbs.cjs": "022cbdf28cc83dc6397801977de54704d6c3ef83ce1b394da99d6456f5558aa7",
+        "breadcrumbs-cases.json": "bfcbad73d02be80f25093405983dfa7a4112ab2995edb0db4cc5d997114eefaf",
+        "breadcrumbs-suite.cjs": "71e1f9f4f6235cc8f6feaf12056af67176dd4dfa3dddbbcd274a9620ecaafb8f",
+        "breadcrumbs-run.cjs": "9114a649e4a2289ff69115ec6084488920dd1cd5af1a9cf0452e7f0d291d7a69",
+        "breadcrumbs-worker.cjs": "e15dc768bbef4514c57ea4cf51f91dfbff2363383678dadb8df7687bb9de0b5d",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "58bb754c4a45811a9dda5fe3c3a09ecde2d5cca442e5de05b5dd286ebb47e581",
+      "scope": "Named synthetic DocumentSymbolProvider public API and original command/editor projection; not unchanged extension qualification or private Breadcrumbs trail/focus/picker differential"
+    }
+  ]
+}

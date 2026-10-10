@@ -1,4 +1,5 @@
 mod actions;
+mod breadcrumbs;
 mod code_actions;
 mod completion_edits;
 mod debugger;
@@ -37,6 +38,7 @@ use crate::{
     workspace::{Entry, Workspace, directory_entries, score},
 };
 use anyhow::Result;
+pub use breadcrumbs::{BreadcrumbPickerView, BreadcrumbsView};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
 };
@@ -292,6 +294,9 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Outline: Collapse All", "outline.collapse"),
     ("Outline: Expand All", "outline.expand"),
     ("Outline: Toggle Follow Cursor", "outline.followCursor"),
+    ("View: Toggle Breadcrumbs", "breadcrumbs.toggle"),
+    ("Focus Breadcrumbs", "breadcrumbs.focus"),
+    ("Focus Breadcrumbs and Select", "breadcrumbs.focusAndSelect"),
     (
         "Language: Parameter Hints",
         "editor.action.triggerParameterHints",
@@ -330,6 +335,7 @@ pub enum Focus {
     Editor,
     Explorer,
     Outline,
+    Breadcrumbs,
     Terminal,
     Output,
 }
@@ -518,6 +524,7 @@ pub struct App {
     navigation: navigation::State,
     navigation_history: navigation_history::State,
     outline: outline::State,
+    breadcrumbs: breadcrumbs::State,
     symbols: symbols::State,
     theme_state: themes::State,
     pub settings: crate::settings::Settings,
@@ -529,6 +536,10 @@ pub struct App {
     pub editor_area: Rect,
     pub explorer_area: Rect,
     pub outline_area: Rect,
+    pub breadcrumbs_area: Rect,
+    pub breadcrumbs_picker_area: Rect,
+    pub(crate) breadcrumbs_hits: Vec<(Rect, usize)>,
+    pub(crate) breadcrumbs_presented: Option<u64>,
     pub tab_area: Rect,
     pub pending: Option<AfterSave>,
     snippet_pending: Option<snippets::Pending>,
@@ -611,6 +622,7 @@ impl App {
             navigation: navigation::State::default(),
             navigation_history: navigation_history::State::default(),
             outline: outline::State::default(),
+            breadcrumbs: breadcrumbs::State::default(),
             symbols: symbols::State::default(),
             theme_state: themes::State::default(),
             settings: crate::settings::Settings::default(),
@@ -622,6 +634,10 @@ impl App {
             editor_area: Rect::default(),
             explorer_area: Rect::default(),
             outline_area: Rect::default(),
+            breadcrumbs_area: Rect::default(),
+            breadcrumbs_picker_area: Rect::default(),
+            breadcrumbs_hits: Vec::new(),
+            breadcrumbs_presented: None,
             tab_area: Rect::default(),
             pending: None,
             snippet_pending: None,
@@ -713,6 +729,7 @@ impl App {
         }
         self.observe_navigation(navigation_history::Reason::Ordinary);
         changed |= self.poll_outline();
+        changed |= self.poll_breadcrumbs();
         changed
     }
     pub fn recovery_documents(&self) -> Vec<&Document> {
@@ -788,6 +805,7 @@ impl App {
             },
         );
         self.observe_outline();
+        self.observe_breadcrumbs();
         result
     }
     fn open_with_intent_inner(
@@ -933,7 +951,23 @@ impl App {
             .collect()
     }
     pub fn context(&self) -> HashMap<String, Value> {
+        let breadcrumbs = self.breadcrumbs_view();
         HashMap::from([
+            ("breadcrumbsPossible".into(), json!(breadcrumbs.possible)),
+            ("breadcrumbsVisible".into(), json!(breadcrumbs.visible)),
+            (
+                "breadcrumbsActive".into(),
+                json!(self.focus == Focus::Breadcrumbs),
+            ),
+            (
+                "config.breadcrumbs.enabled".into(),
+                json!(self.breadcrumbs_enabled()),
+            ),
+            (
+                "listFocus".into(),
+                json!(self.focus == Focus::Breadcrumbs && breadcrumbs.picker.is_some()),
+            ),
+            ("treestickyScrollFocused".into(), json!(false)),
             ("canNavigateBack".into(), json!(self.can_navigate_back())),
             (
                 "canNavigateForward".into(),
@@ -1051,6 +1085,7 @@ impl App {
     }
 
     pub fn event(&mut self, event: Event) {
+        self.breadcrumbs_ui_event(&event);
         self.observe_navigation(navigation_history::Reason::Ordinary);
         if matches!(&event, Event::Paste(_))
             || matches!(&event, Event::Mouse(mouse) if mouse.kind != MouseEventKind::Moved)
@@ -1074,6 +1109,7 @@ impl App {
         self.observe_navigation(navigation_history::Reason::Ordinary);
         self.invalidate_symbol_context();
         self.observe_outline();
+        self.observe_breadcrumbs();
         self.invalidate_pending_extension_commands();
         self.observe_suggestion_edit(suggestion_edit);
         self.observe_signature_edit(signature_edit);
@@ -1084,6 +1120,10 @@ impl App {
             Event::Resize(_, _) => {
                 self.welcome_actions.clear();
                 self.welcome_brand.resize();
+                self.breadcrumbs_area = Rect::default();
+                self.breadcrumbs_picker_area = Rect::default();
+                self.breadcrumbs_hits.clear();
+                self.breadcrumbs_presented = None;
             }
             Event::Key(key) if key.kind != KeyEventKind::Release => self.key(key),
             Event::Key(key) if matches!(self.modal, Some(Modal::Inspector)) => {
@@ -1121,6 +1161,33 @@ impl App {
                     return;
                 }
                 let p = ratatui::layout::Position::new(mouse.column, mouse.row);
+                if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+                    && (self.breadcrumbs_area.contains(p)
+                        || self.breadcrumbs_picker_area.contains(p))
+                {
+                    if self.breadcrumbs_presented != Some(self.breadcrumbs_view().generation) {
+                        self.message = "Breadcrumbs changed; choose the current item".into();
+                        return;
+                    }
+                    if self.breadcrumbs_picker_area.contains(p) {
+                        let picker = self.breadcrumbs_view().picker;
+                        if let Some(picker) = picker {
+                            let offset = picker.selected.saturating_sub(
+                                self.breadcrumbs_picker_area.height.saturating_sub(1) as usize,
+                            );
+                            self.breadcrumbs_picker_click(
+                                offset + (mouse.row - self.breadcrumbs_picker_area.y) as usize,
+                            );
+                        }
+                    } else if let Some((_, index)) = self
+                        .breadcrumbs_hits
+                        .iter()
+                        .find(|(area, _)| area.contains(p))
+                    {
+                        self.breadcrumbs_click(*index);
+                    }
+                    return;
+                }
                 if self.documents.is_empty()
                     && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
                     && let Some((_, action)) = self
@@ -1310,6 +1377,10 @@ impl App {
             self.outline_key(key);
             return;
         }
+        if self.focus == Focus::Breadcrumbs {
+            self.breadcrumbs_key(key);
+            return;
+        }
         if self.focus == Focus::Explorer {
             self.explorer_key(key);
             return;
@@ -1335,6 +1406,7 @@ impl App {
         self.execute_with_args(command, (!args.is_null()).then_some(args));
     }
     fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
+        self.breadcrumbs_ui_command(command);
         let history_travel = matches!(
             command,
             "workbench.action.navigateBack" | "workbench.action.navigateForward"
@@ -1349,6 +1421,8 @@ impl App {
         let signature_edit = self.signature_edit_command(command, args.as_ref());
         self.execute_inner(command, args);
         self.sync_pane();
+        self.observe_outline();
+        self.observe_breadcrumbs();
         if !history_travel {
             self.observe_navigation(navigation_history::Reason::Ordinary);
         }
@@ -1383,6 +1457,9 @@ impl App {
         }
         let args = command_args.clone().unwrap_or(Value::Null);
         if command.is_empty() {
+            return;
+        }
+        if self.execute_breadcrumbs_command(command) {
             return;
         }
         if self.focus == Focus::Output && Self::requires_editor(command) {

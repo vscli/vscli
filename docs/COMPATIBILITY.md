@@ -40,7 +40,9 @@ models and panes, with the original platform shortcuts and conditional
 identity, Undo and disk bytes; stale background file loads cannot commit travel.
 The recorded single-group comparison matches 10 pinned VS Code 1.95.0 cases and
 85 visible snapshots. It does not qualify every navigation integration, pending
-shortcut context, cross-launch persistence or Outline/breadcrumbs.
+shortcut context or cross-launch persistence. That history-only capture did not
+exercise Outline/Breadcrumbs; their separate implementation and qualification
+are described below.
 [PR #59](https://github.com/vscli/vscli/pull/59) merged after all six required
 platform checks. See
 [native history behavior and evidence](NAVIGATION_HISTORY.md).
@@ -97,6 +99,21 @@ macOS, Windows and real protocol servers, passed in
 [CI run 38021276828](https://github.com/vscli/vscli/actions/runs/38021276828).
 This evidence does not establish complete sidebar or unchanged-package compatibility.
 See [symbol-navigation behavior and evidence](USAGE.md#native-document-and-workspace-symbols).
+
+[Native Breadcrumbs](BREADCRUMBS.md) implements file trails without Node and
+hierarchical/flat symbol trails from the shared Outline publication. Original
+focus and selection command IDs drive a bounded sibling/root picker. File/folder
+dropdowns and persistent toggle state remain unsupported. Four actual pinned
+synthetic-provider cases retain 31 snapshots and confirm three collapsed picker
+reveals; direct focus/reveal no-ops remain documented gaps. The narrow native
+comparison passes four geometries/three reveals; four integrity tests, five
+public journeys, two optional-host publication checks, one actual clangd
+workflow, three debug terminal workflows and the existing 35 terminal checks
+passed locally. The full candidate passes 603 ordinary Rust tests across 38
+suites (20 ignored), 133 Node tests, 25 Python checks, formatting and strict
+Clippy; focused subsets are included in these totals. Optimized terminal
+qualification and fresh platform CI are pending. This evidence does not
+establish full Breadcrumbs UI or unchanged-extension compatibility.
 
 Optional selected extensions dispatch completion, hover, definitions, references, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers; aggregation/fallback for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).
 
