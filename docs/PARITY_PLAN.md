@@ -12,7 +12,7 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-Merged source extends through [PR #56](https://github.com/vscli/vscli/pull/56).
+Merged source extends through [PR #57](https://github.com/vscli/vscli/pull/57).
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
@@ -50,15 +50,18 @@ traces, 35 terminal smoke workflows and named release native/extension/clangd PT
 The [two published benchmark runs](PERFORMANCE.md#smart-typing-and-idle-hint-work-2026-10-10)
 have mixed results and establish no overall speed ranking.
 
-The current branch adds language-specific advanced/full indentation and closing
+The follow-up slice merged in [PR #57](https://github.com/vscli/vscli/pull/57) adds language-specific advanced/full indentation and closing
 alignment. Its [prepared-token contract](ADVANCED_INDENTATION.md) matches 132 actual
 Linux reference cases and 530 snapshots; 496 native tests, strict quality checks,
 ten new terminal sessions and the existing 35-workflow terminal suite pass.
-Fresh platform CI qualification is still in progress. The [30-target token-readiness capture](reference/2026-10-10-cpp-token-readiness/README.md)
+Fresh pinned-editor comparisons also pass on Linux, macOS and Windows in all six
+required checks. The [30-target token-readiness capture](reference/2026-10-10-cpp-token-readiness/README.md)
 records an actual pinned-editor startup distinction independently of native
 comparison; prepared and natural behavior remain separate qualification scopes.
 Extension language configuration, additional native profiles and broader
-signature-extension qualification remain follow-up scope.
+signature-extension qualification remain follow-up scope. The next branch is
+implementing installed native language configurations, pair/comment commands and
+disable/update ownership retirement; this source is not yet qualified or merged.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
