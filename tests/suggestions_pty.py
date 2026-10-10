@@ -8,8 +8,15 @@ import signal
 import subprocess
 import sys
 import tempfile
-from extension_sessions_pty import Editor, LIVE, wait, save
-from pty_smoke import CTRL_S, CTRL_Z, eventually
+from extension_sessions_pty import Editor, LIVE, wait, save as save_disk_bytes
+from pty_smoke import CTRL_S, CTRL_Z, eventually, wait_screen
+
+
+def save(app, file, expected):
+    # Disk visibility precedes the editor's asynchronous save receipt. Dependent
+    # Undo/completion gestures need the published saved baseline as well.
+    save_disk_bytes(app, file, expected)
+    wait_screen(app, 'Saved', absent=(f'{file.name} *',))
 
 
 def fixture(root):
