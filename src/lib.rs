@@ -4,6 +4,7 @@ pub mod brand;
 pub mod breadcrumbs;
 pub mod debug;
 pub mod display_rows;
+pub mod display_window;
 pub mod document;
 pub mod editing_profile;
 pub mod editor_groups;
