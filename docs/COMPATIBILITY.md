@@ -347,6 +347,9 @@ Start with native syntax and an approximate theme importer. Evaluate a compatibl
 
 Native typing now retains provisional colors for unchanged text through bounded byte-edit mapping while awaiting a current grammar result. Inserted/replaced bytes never reuse stale absolute token offsets; syntax changes can temporarily leave unchanged text with its previous classification. Deterministic tests hold the worker across multicursor Unicode/CRLF edits, undo/redo, failures and cancellation; a PTY oracle observes individual painted multiline C++ token cells, including transient repaint colors. This establishes continuity for those workflows, not semantic-token fidelity or uninterrupted colors after the documented history/mapping budgets are exceeded.
 
+Canceled syntax setup or parsing retires quietly: it cannot replace a save/action notice or publish a result, even when its document becomes visible again. The actual worker slot stays occupied until its terminal reply. Current-version deadline cancellations retain the existing three-attempt retry limit and one-second backoff; genuine current grammar/parser errors still report a failure. Deterministic status, visibility-ABA, retry and history regressions qualify these rules; broader background-status prioritization remains outstanding.
+
+
 ## Distribution and package policy
 
 Use Open VSX and author-distributed VSIX files where their licenses permit use. Microsoft states that alternative products may not access the Visual Studio Marketplace and describes restrictions on Microsoft/affiliate extensions acquired there. The project must not depend on impersonating VS Code to acquire restricted packages. [Microsoft FAQ](https://code.visualstudio.com/docs/supporting/faq).
