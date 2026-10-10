@@ -17,6 +17,8 @@ pub(crate) mod graphemes;
 mod indentation;
 mod snippets;
 mod typing;
+mod view_transfer;
+pub use view_transfer::ViewTransfer;
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;

@@ -1,6 +1,16 @@
 //! Bounded editor-group membership. Documents and dirty-close decisions belong to App.
 use anyhow::{Context, Result, ensure};
 use std::collections::HashSet;
+use std::sync::Arc;
+
+#[derive(Clone, Debug)]
+struct Lineage(Arc<()>);
+impl PartialEq for Lineage {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+impl Eq for Lineage {}
 
 #[cfg(test)]
 std::thread_local! {
@@ -159,6 +169,7 @@ pub struct Change {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Groups {
+    lineage: Lineage,
     groups: Vec<Group>,
     active: Option<GroupId>,
     generation: u64,
@@ -170,6 +181,7 @@ pub struct Groups {
 impl Default for Groups {
     fn default() -> Self {
         Self {
+            lineage: Lineage(Arc::new(())),
             groups: Vec::new(),
             active: None,
             generation: 0,
@@ -180,6 +192,382 @@ impl Default for Groups {
         }
     }
 }
+/// A destination is either an exact existing group or one fresh group directly
+/// after the source in appearance order. Missing directional creation is not
+/// implied by this API.
+#[derive(Clone, Debug)]
+pub enum TransferDestination {
+    Existing(GroupProof),
+    NewAfterSource,
+}
+
+/// A bounded, unpublished membership transaction. App stages its Layout and
+/// view projection before calling commit_transfer; preparation changes no live
+/// identity, counter, membership or MRU.
+#[derive(Debug)]
+pub struct TransferPlan {
+    lineage: Lineage,
+    ui: UiProof,
+    next_group: u64,
+    next_tab: u64,
+    source: GroupProof,
+    member: Membership,
+    destination: Option<GroupProof>,
+    original: Option<Groups>,
+    projected: Option<Groups>,
+    change: Change,
+}
+impl TransferPlan {
+    fn current(&self, groups: &Groups) -> bool {
+        self.lineage == groups.lineage
+            && groups.proof_current(&self.ui)
+            && groups.next_group == self.next_group
+            && groups.next_tab == self.next_tab
+            && groups.group_proof_current(&self.source)
+            && groups.active_membership() == Some(self.member)
+            && self
+                .destination
+                .as_ref()
+                .is_none_or(|proof| groups.group_proof_current(proof))
+            && self
+                .original
+                .as_ref()
+                .is_none_or(|original| original == groups)
+    }
+    /// Unchanged plans borrow the validated caller state without cloning it.
+    pub fn projected<'a>(&'a self, current: &'a Groups) -> Result<&'a Groups> {
+        ensure!(
+            self.current(current),
+            "Editor groups changed before transfer publication"
+        );
+        Ok(self.projected.as_ref().unwrap_or(current))
+    }
+    pub fn change(&self) -> &Change {
+        &self.change
+    }
+}
+
+impl Groups {
+    /// Captures owned proofs so a validated same-group no-op requires no stage
+    /// allocation. The original command's source must still be the active tab.
+    pub fn prepare_transfer(
+        &self,
+        ui: UiProof,
+        source: GroupProof,
+        member: Membership,
+        destination: TransferDestination,
+    ) -> Result<TransferPlan> {
+        ensure!(
+            self.proof_current(&ui),
+            "Editor focus changed before tab transfer"
+        );
+        ensure!(
+            source.group == member.group && self.group_proof_current(&source),
+            "Source editor group changed before tab transfer"
+        );
+        ensure!(
+            self.active_membership() == Some(member),
+            "Transfer source is not the active editor"
+        );
+        let (source_index, source_position) = self.locate(member)?;
+        let destination = match destination {
+            TransferDestination::Existing(proof) => {
+                ensure!(
+                    self.group_proof_current(&proof),
+                    "Destination editor group changed before tab transfer"
+                );
+                Some(proof)
+            }
+            TransferDestination::NewAfterSource => None,
+        };
+        let mut plan = TransferPlan {
+            lineage: self.lineage.clone(),
+            ui,
+            next_group: self.next_group,
+            next_tab: self.next_tab,
+            source,
+            member,
+            destination,
+            original: None,
+            projected: None,
+            change: self.unchanged(),
+        };
+        if plan
+            .destination
+            .as_ref()
+            .is_some_and(|proof| proof.group == member.group)
+        {
+            return Ok(plan);
+        }
+        let source_tab = &self.groups[source_index].tabs[source_position];
+        let source_sticky = source_tab.sticky;
+        let destination_index = plan.destination.as_ref().map(|proof| {
+            self.groups
+                .iter()
+                .position(|group| group.id == proof.group)
+                .unwrap()
+        });
+        let existing = destination_index.and_then(|index| {
+            self.groups[index]
+                .tabs
+                .iter()
+                .position(|tab| tab.document == member.document)
+        });
+        if let Some(index) = destination_index {
+            ensure!(
+                existing.is_some() || self.groups[index].tabs.len() < MAX_TABS_PER_GROUP,
+                "Editor group tab limit reached (128)"
+            );
+        } else {
+            ensure!(
+                self.groups.len() < MAX_GROUPS,
+                "Editor group limit reached (4)"
+            );
+        }
+        let generation = increment(self.generation, "interaction generation")?;
+        let source_generation = if self.groups[source_index].tabs.len() > 1 {
+            Some(increment(
+                self.groups[source_index].membership_generation,
+                "source membership generation",
+            )?)
+        } else {
+            None
+        };
+        let mode_changed = destination_index
+            .zip(existing)
+            .is_some_and(|(index, position)| {
+                let tab = &self.groups[index].tabs[position];
+                tab.preview || (source_sticky && !tab.sticky)
+            });
+        let destination_generation = destination_index
+            .map(|index| {
+                if existing.is_none() || mode_changed {
+                    increment(
+                        self.groups[index].membership_generation,
+                        "destination membership generation",
+                    )
+                } else {
+                    Ok(self.groups[index].membership_generation)
+                }
+            })
+            .transpose()?;
+        let next_tab = if existing.is_none() {
+            increment(self.next_tab, "tab identities")?
+        } else {
+            self.next_tab
+        };
+        let next_group = if destination_index.is_none() {
+            increment(self.next_group, "group identities")?
+        } else {
+            self.next_group
+        };
+
+        let original = self.try_clone_transfer()?;
+        let mut next = self.try_clone_transfer()?;
+        let mut change = Change {
+            changed: true,
+            previous: Some(member),
+            ..Change::default()
+        };
+        // Result and staging storage are bounded and reserved before publication.
+        for values in [
+            &mut change.inserted,
+            &mut change.removed,
+            &mut change.promoted,
+            &mut change.sticky_changed,
+        ] {
+            values
+                .try_reserve(1)
+                .context("Cannot reserve transfer membership result")?;
+        }
+        change
+            .created_groups
+            .try_reserve(1)
+            .context("Cannot reserve created transfer group")?;
+        change
+            .removed_groups
+            .try_reserve(1)
+            .context("Cannot reserve removed transfer group")?;
+        change.removed.push(member);
+        next.recent_memberships.retain(|current| *current != member);
+        let target_group =
+            destination_index.map_or(GroupId(self.next_group), |index| self.groups[index].id);
+        let target_tab = existing.map_or(TabId(self.next_tab), |position| {
+            self.groups[destination_index.unwrap()].tabs[position].id
+        });
+        let target = Membership {
+            group: target_group,
+            tab: target_tab,
+            document: member.document,
+        };
+        next.reserve_recent(
+            usize::from(existing.is_none()),
+            usize::from(destination_index.is_none()),
+        )?;
+        if let Some(index) = destination_index {
+            let group = &mut next.groups[index];
+            if let Some(position) = existing {
+                if group.tabs[position].preview {
+                    group.tabs[position].preview = false;
+                    group.preview = None;
+                    change.promoted.push(target);
+                }
+                if source_sticky && !group.tabs[position].sticky {
+                    let mut tab = group.tabs.remove(position);
+                    tab.sticky = true;
+                    group.tabs.insert(group.sticky_count, tab);
+                    group.sticky_count += 1;
+                    change.sticky_changed.push(target);
+                }
+            } else {
+                group
+                    .tabs
+                    .try_reserve(1)
+                    .context("Cannot reserve destination transfer tab")?;
+                group
+                    .recent
+                    .try_reserve(1)
+                    .context("Cannot reserve destination transfer MRU")?;
+                let position = if source_sticky {
+                    group.sticky_count
+                } else {
+                    (group
+                        .tabs
+                        .iter()
+                        .position(|tab| tab.id == group.active)
+                        .unwrap()
+                        + 1)
+                    .max(group.sticky_count)
+                };
+                group.tabs.insert(
+                    position,
+                    Tab {
+                        id: target_tab,
+                        document: member.document,
+                        preview: false,
+                        sticky: source_sticky,
+                    },
+                );
+                group.sticky_count += usize::from(source_sticky);
+                change.inserted.push(target);
+            }
+            group.active = target_tab;
+            group.recent.retain(|tab| *tab != target_tab);
+            group.recent.insert(0, target_tab);
+            group.membership_generation = destination_generation.unwrap();
+        } else {
+            next.groups
+                .try_reserve(1)
+                .context("Cannot reserve new transfer group")?;
+            let mut tabs = Vec::new();
+            tabs.try_reserve(1)
+                .context("Cannot reserve new transfer tab")?;
+            tabs.push(Tab {
+                id: target_tab,
+                document: member.document,
+                preview: false,
+                sticky: source_sticky,
+            });
+            let mut recent = Vec::new();
+            recent
+                .try_reserve(1)
+                .context("Cannot reserve new transfer group MRU")?;
+            recent.push(target_tab);
+            next.groups.insert(
+                source_index + 1,
+                Group {
+                    id: target_group,
+                    tabs,
+                    active: target_tab,
+                    recent,
+                    membership_generation: 1,
+                    preview: None,
+                    sticky_count: usize::from(source_sticky),
+                },
+            );
+            change.created_groups.push(target_group);
+            change.inserted.push(target);
+        }
+        // Staged destination owns the document before source retirement. No
+        // externally visible empty group or zero-membership interval exists.
+        if let Some(source_generation) = source_generation {
+            let group = &mut next.groups[source_index];
+            let removed = group.tabs.remove(source_position);
+            group.sticky_count -= usize::from(removed.sticky);
+            if group.preview == Some(removed.id) {
+                group.preview = None;
+            }
+            group.recent.retain(|tab| *tab != member.tab);
+            if group.active == member.tab {
+                group.active = group.recent[0];
+            }
+            group.membership_generation = source_generation;
+        } else {
+            next.remove_group(source_index);
+            change.removed_groups.push(member.group);
+        }
+        next.active = Some(target_group);
+        next.generation = generation;
+        next.next_tab = next_tab;
+        next.next_group = next_group;
+        next.touch_active();
+        change.active = Some(target);
+        plan.original = Some(original);
+        plan.projected = Some(next);
+        plan.change = change;
+        Ok(plan)
+    }
+
+    /// All late failure precedes the only live assignment. Exact retired source
+    /// Membership never authorizes closing the admitted/reused destination.
+    pub fn commit_transfer(&mut self, mut plan: TransferPlan) -> Result<Change> {
+        ensure!(
+            plan.current(self),
+            "Editor groups changed before transfer publication"
+        );
+        if let Some(projected) = plan.projected.take() {
+            *self = projected;
+        }
+        Ok(plan.change)
+    }
+
+    fn try_clone_transfer(&self) -> Result<Self> {
+        fn copy<T: Clone>(values: &[T]) -> Result<Vec<T>> {
+            let mut copied = Vec::new();
+            copied
+                .try_reserve(values.len())
+                .context("Cannot reserve transfer stage storage")?;
+            copied.extend_from_slice(values);
+            Ok(copied)
+        }
+        let mut groups = Vec::new();
+        groups
+            .try_reserve(self.groups.len())
+            .context("Cannot reserve transfer group stage")?;
+        for group in &self.groups {
+            groups.push(Group {
+                id: group.id,
+                tabs: copy(&group.tabs)?,
+                active: group.active,
+                recent: copy(&group.recent)?,
+                membership_generation: group.membership_generation,
+                preview: group.preview,
+                sticky_count: group.sticky_count,
+            });
+        }
+        Ok(Self {
+            lineage: self.lineage.clone(),
+            groups,
+            active: self.active,
+            generation: self.generation,
+            next_group: self.next_group,
+            next_tab: self.next_tab,
+            recent_groups: copy(&self.recent_groups)?,
+            recent_memberships: copy(&self.recent_memberships)?,
+        })
+    }
+}
+
 struct Admission {
     group: usize,
     existing: Option<usize>,
@@ -2940,5 +3328,591 @@ mod tests {
         assert_eq!(view(&doc, left.group), left_view);
         assert!(groups.membership_current(left) && groups.membership_current(right));
         invariant(&groups);
+    }
+    fn transfer_existing(groups: &Groups, destination: GroupId) -> Result<TransferPlan> {
+        let member = groups.active_membership().unwrap();
+        groups.prepare_transfer(
+            groups.proof(),
+            groups.group_proof(member.group)?,
+            member,
+            TransferDestination::Existing(groups.group_proof(destination)?),
+        )
+    }
+    fn transfer_new(groups: &Groups) -> Result<TransferPlan> {
+        let member = groups.active_membership().unwrap();
+        groups.prepare_transfer(
+            groups.proof(),
+            groups.group_proof(member.group)?,
+            member,
+            TransferDestination::NewAfterSource,
+        )
+    }
+
+    #[test]
+    fn transfer_stage_is_unpublished_and_inserts_right_of_active_without_replacing_preview() {
+        let mut groups = Groups::default();
+        groups
+            .import(
+                &[
+                    restored(&[1, 2, 3], 1),
+                    restored(&[8, 9], 0),
+                    restored(&[99], 0),
+                ],
+                0,
+            )
+            .unwrap();
+        let source = groups.active_membership().unwrap();
+        let destination = groups.groups()[1].id();
+        let preview_change = groups
+            .open_in_group_mode(destination, 10, OpenMode::Preview, None)
+            .unwrap();
+        let preview = preview_change.active.unwrap();
+        groups.focus(source).unwrap();
+        let untouched = groups.groups()[2].clone();
+        let before = groups.clone();
+        let plan = transfer_existing(&groups, destination).unwrap();
+        let projected = plan.projected(&groups).unwrap();
+        assert_eq!(groups, before);
+        assert_eq!(documents(projected, 1), [8, 10, 2, 9]);
+        assert_eq!(
+            projected.group(destination).unwrap().preview(),
+            Some(preview)
+        );
+        assert_eq!(projected.groups()[2], untouched);
+        let target = plan.change().active.unwrap();
+        assert_ne!(target.tab, source.tab);
+        assert_eq!(target.document, source.document);
+        assert_eq!(plan.change().inserted, [target]);
+        assert_eq!(plan.change().removed, [source]);
+        assert_eq!(plan.change().previous, Some(source));
+        let change = groups.commit_transfer(plan).unwrap();
+        assert_eq!(documents(&groups, 0), [1, 3]);
+        assert_eq!(
+            groups
+                .group(source.group)
+                .unwrap()
+                .active()
+                .unwrap()
+                .document(),
+            1
+        );
+        assert!(!groups.membership_current(source));
+        assert!(groups.membership_current(target));
+        assert_eq!(groups.membership_mru().first(), Some(&target));
+        assert_eq!(groups.group_mru().first(), Some(&destination));
+        assert!(change.created_groups.is_empty() && change.removed_groups.is_empty());
+        invariant(&groups);
+    }
+
+    #[test]
+    fn transfer_preview_becomes_committed_and_sticky_insertion_preserves_other_modes() {
+        for sticky in [false, true] {
+            let mut groups = Groups::default();
+            groups
+                .import(&[restored(&[1], 0), restored(&[8, 9, 10], 0)], 0)
+                .unwrap();
+            let destination = groups.groups()[1].id();
+            groups.set_sticky(member(&groups, 1, 8), true).unwrap();
+            groups.set_sticky(member(&groups, 1, 9), true).unwrap();
+            let source = groups
+                .open_mode(2, OpenMode::Preview, None)
+                .unwrap()
+                .active
+                .unwrap();
+            if sticky {
+                groups.set_sticky(source, true).unwrap();
+            }
+            let plan = transfer_existing(&groups, destination).unwrap();
+            let target = plan.change().active.unwrap();
+            groups.commit_transfer(plan).unwrap();
+            assert_eq!(documents(&groups, 1), [8, 9, 2, 10]);
+            let tab = groups
+                .group(destination)
+                .unwrap()
+                .tabs()
+                .iter()
+                .find(|tab| tab.id() == target.tab)
+                .unwrap();
+            assert!(!tab.is_preview());
+            assert_eq!(tab.is_sticky(), sticky);
+            assert_eq!(
+                groups.group(destination).unwrap().sticky_count(),
+                2 + usize::from(sticky)
+            );
+            assert!(!groups.membership_current(source));
+            invariant(&groups);
+        }
+    }
+
+    #[test]
+    fn transfer_duplicate_reuses_target_identity_promotes_preview_and_unions_sticky_state() {
+        for (source_sticky, target_sticky) in
+            [(false, false), (false, true), (true, false), (true, true)]
+        {
+            let mut groups = Groups::default();
+            groups
+                .import(&[restored(&[1, 2], 1), restored(&[8], 0)], 0)
+                .unwrap();
+            let source = groups.active_membership().unwrap();
+            let destination = groups.groups()[1].id();
+            let target = groups
+                .open_in_group_mode(destination, 2, OpenMode::Preview, None)
+                .unwrap()
+                .active
+                .unwrap();
+            if target_sticky {
+                groups.set_sticky(target, true).unwrap();
+            }
+            if source_sticky {
+                groups.set_sticky(source, true).unwrap();
+            }
+            groups.focus(source).unwrap();
+            let counters = (groups.next_tab, groups.next_group);
+            let plan = transfer_existing(&groups, destination).unwrap();
+            assert_eq!(plan.change().active, Some(target));
+            assert!(plan.change().inserted.is_empty());
+            assert_eq!(plan.change().promoted.is_empty(), target_sticky);
+            assert_eq!(
+                !plan.change().sticky_changed.is_empty(),
+                source_sticky && !target_sticky
+            );
+            groups.commit_transfer(plan).unwrap();
+            let tab = groups
+                .group(destination)
+                .unwrap()
+                .tabs()
+                .iter()
+                .find(|tab| tab.id() == target.tab)
+                .unwrap();
+            assert!(!tab.is_preview());
+            assert_eq!(tab.is_sticky(), source_sticky || target_sticky);
+            assert_eq!((groups.next_tab, groups.next_group), counters);
+            assert_eq!(groups.memberships(2).collect::<Vec<_>>(), [target]);
+            invariant(&groups);
+        }
+    }
+
+    #[test]
+    fn transfer_new_after_source_handles_last_membership_collapse_and_retains_other_groups() {
+        for source_documents in [&[1][..], &[1, 2][..]] {
+            let mut groups = Groups::default();
+            groups
+                .import(
+                    &[
+                        restored(&[8], 0),
+                        restored(source_documents, 0),
+                        restored(&[9], 0),
+                    ],
+                    1,
+                )
+                .unwrap();
+            let source = groups.active_membership().unwrap();
+            groups.set_sticky(source, true).unwrap();
+            let before = groups.clone();
+            let plan = transfer_new(&groups).unwrap();
+            assert_eq!(groups, before);
+            let projected = plan.projected(&groups).unwrap();
+            let target = plan.change().active.unwrap();
+            assert_ne!(target.group, source.group);
+            assert_ne!(target.tab, source.tab);
+            assert_eq!(plan.change().created_groups, [target.group]);
+            assert_eq!(projected.groups()[0], before.groups()[0]);
+            assert_eq!(projected.groups().last(), before.groups().last());
+            assert_eq!(
+                projected.groups()[1 + usize::from(source_documents.len() > 1)].id(),
+                target.group
+            );
+            assert_eq!(
+                plan.change().removed_groups.is_empty(),
+                source_documents.len() > 1
+            );
+            groups.commit_transfer(plan).unwrap();
+            assert_eq!(groups.memberships(1).collect::<Vec<_>>(), [target]);
+            assert!(
+                groups
+                    .group(target.group)
+                    .unwrap()
+                    .active()
+                    .unwrap()
+                    .is_sticky()
+            );
+            assert_eq!(
+                groups.groups().len(),
+                3 + usize::from(source_documents.len() > 1)
+            );
+            assert_eq!(groups.next_group, before.next_group + 1);
+            assert_eq!(groups.next_tab, before.next_tab + 1);
+            invariant(&groups);
+        }
+    }
+
+    #[test]
+    fn transfer_last_source_to_existing_collapses_only_source_and_keeps_target_mru() {
+        let mut groups = Groups::default();
+        groups
+            .import(
+                &[
+                    restored(&[1], 0),
+                    restored(&[2, 3], 1),
+                    restored(&[8, 9], 0),
+                ],
+                0,
+            )
+            .unwrap();
+        let source = groups.active_membership().unwrap();
+        let destination = groups.groups()[1].id();
+        let untouched = groups.groups()[2].clone();
+        let plan = transfer_existing(&groups, destination).unwrap();
+        let target = plan.change().active.unwrap();
+        assert_eq!(plan.change().removed_groups, [source.group]);
+        groups.commit_transfer(plan).unwrap();
+        assert!(groups.group(source.group).is_none());
+        assert_eq!(documents(&groups, 0), [2, 3, 1]);
+        assert_eq!(groups.groups()[1], untouched);
+        assert_eq!(groups.active_membership(), Some(target));
+        assert_eq!(
+            groups.group(destination).unwrap().recent()[1],
+            member(&groups, 0, 3).tab
+        );
+        invariant(&groups);
+    }
+
+    #[test]
+    fn transfer_capacity_refusals_are_atomic_but_full_destination_dedup_succeeds() {
+        let mut groups = Groups::default();
+        let full: Vec<u64> = (1..=MAX_TABS_PER_GROUP as u64).collect();
+        groups
+            .import(&[restored(&[999, 1], 0), restored(&full, 0)], 0)
+            .unwrap();
+        let destination = groups.groups()[1].id();
+        let before = groups.clone();
+        assert!(transfer_existing(&groups, destination).is_err());
+        assert_eq!(groups, before);
+        groups.focus(member(&groups, 0, 1)).unwrap();
+        let original_target = member(&groups, 1, 1);
+        let plan = transfer_existing(&groups, destination).unwrap();
+        assert_eq!(plan.change().active, Some(original_target));
+        groups.commit_transfer(plan).unwrap();
+        assert_eq!(
+            groups.group(destination).unwrap().tabs().len(),
+            MAX_TABS_PER_GROUP
+        );
+        invariant(&groups);
+        groups
+            .import(
+                &[
+                    restored(&[1], 0),
+                    restored(&[2], 0),
+                    restored(&[3], 0),
+                    restored(&[4], 0),
+                ],
+                0,
+            )
+            .unwrap();
+        let before = groups.clone();
+        assert!(transfer_new(&groups).is_err());
+        assert_eq!(groups, before);
+    }
+
+    #[test]
+    fn transfer_full_membership_capacity_reuses_global_mru_space_without_false_refusal() {
+        let sources: Vec<_> = (0..MAX_GROUPS)
+            .map(|index| {
+                restored(
+                    &((index * MAX_TABS_PER_GROUP + 1) as u64
+                        ..=((index + 1) * MAX_TABS_PER_GROUP) as u64)
+                        .collect::<Vec<_>>(),
+                    0,
+                )
+            })
+            .collect();
+        let mut groups = Groups::default();
+        groups.import(&sources, 0).unwrap();
+        let source = groups.active_membership().unwrap();
+        let destination = groups.groups()[1].id();
+        let discard = member(&groups, 1, MAX_TABS_PER_GROUP as u64 + 1);
+        groups.close(discard).unwrap();
+        groups.focus(source).unwrap();
+        let plan = transfer_existing(&groups, destination).unwrap();
+        groups.commit_transfer(plan).unwrap();
+        assert_eq!(groups.membership_mru().len(), MAX_MEMBERSHIPS - 1);
+        assert_eq!(
+            groups.group(destination).unwrap().tabs().len(),
+            MAX_TABS_PER_GROUP
+        );
+        invariant(&groups);
+    }
+
+    #[test]
+    fn transfer_stale_proofs_memberships_and_nonactive_source_refuse_before_allocation() {
+        let mut groups = Groups::default();
+        groups
+            .import(&[restored(&[1, 2], 0), restored(&[8, 9], 0)], 0)
+            .unwrap();
+        let source = groups.active_membership().unwrap();
+        let source_proof = groups.group_proof(source.group).unwrap();
+        let destination = groups.groups()[1].id();
+        let destination_proof = groups.group_proof(destination).unwrap();
+        let ui = groups.proof();
+        groups.reorder(&source_proof, source, 1).unwrap();
+        let reordered = groups.group_proof(source.group).unwrap();
+        groups.reorder(&reordered, source, 0).unwrap();
+        let before = groups.clone();
+        assert!(
+            groups
+                .prepare_transfer(
+                    ui,
+                    source_proof.clone(),
+                    source,
+                    TransferDestination::Existing(destination_proof.clone())
+                )
+                .is_err()
+        );
+        assert!(
+            groups
+                .prepare_transfer(
+                    groups.proof(),
+                    source_proof,
+                    source,
+                    TransferDestination::Existing(destination_proof.clone())
+                )
+                .is_err()
+        );
+        assert!(
+            groups
+                .prepare_transfer(
+                    groups.proof(),
+                    groups.group_proof(destination).unwrap(),
+                    source,
+                    TransferDestination::Existing(destination_proof.clone())
+                )
+                .is_err()
+        );
+        let inactive = member(&groups, 0, 2);
+        assert!(
+            groups
+                .prepare_transfer(
+                    groups.proof(),
+                    groups.group_proof(source.group).unwrap(),
+                    inactive,
+                    TransferDestination::Existing(destination_proof.clone())
+                )
+                .is_err()
+        );
+        let wrong_document = Membership {
+            document: 99,
+            ..source
+        };
+        assert!(
+            groups
+                .prepare_transfer(
+                    groups.proof(),
+                    groups.group_proof(source.group).unwrap(),
+                    wrong_document,
+                    TransferDestination::Existing(destination_proof)
+                )
+                .is_err()
+        );
+        assert_eq!(groups, before);
+        let target = member(&groups, 1, 8);
+        let old_target = groups.group_proof(destination).unwrap();
+        groups.reorder(&old_target, target, 1).unwrap();
+        let current = groups.group_proof(destination).unwrap();
+        groups.reorder(&current, target, 0).unwrap();
+        let before = groups.clone();
+        assert!(
+            groups
+                .prepare_transfer(
+                    groups.proof(),
+                    groups.group_proof(source.group).unwrap(),
+                    source,
+                    TransferDestination::Existing(old_target)
+                )
+                .is_err()
+        );
+        assert_eq!(groups, before);
+    }
+
+    #[test]
+    fn transfer_commit_rejects_foreign_lineage_and_equal_counter_divergent_clone() {
+        let mut groups = Groups::default();
+        groups
+            .import(
+                &[restored(&[1, 2], 0), restored(&[8], 0), restored(&[99], 0)],
+                0,
+            )
+            .unwrap();
+        let destination = groups.groups()[1].id();
+        let mut foreign = Groups::default();
+        foreign
+            .import(
+                &[restored(&[1, 2], 0), restored(&[8], 0), restored(&[99], 0)],
+                0,
+            )
+            .unwrap();
+        assert_eq!(groups.proof(), foreign.proof());
+        let before = foreign.clone();
+        let plan = transfer_existing(&groups, destination).unwrap();
+        assert!(plan.projected(&foreign).is_err());
+        assert!(foreign.commit_transfer(plan).is_err());
+        assert_eq!(foreign, before);
+        let source = groups.active_membership().unwrap();
+        let third = groups.groups()[2].id();
+        let mut fork = groups.clone();
+        groups.open_in_group(third, 100).unwrap();
+        fork.open_in_group(third, 101).unwrap();
+        groups.focus(source).unwrap();
+        fork.focus(source).unwrap();
+        assert_eq!(groups.proof(), fork.proof());
+        assert_eq!(
+            (groups.next_tab, groups.next_group),
+            (fork.next_tab, fork.next_group)
+        );
+        assert!(fork.group_proof_current(&groups.group_proof(source.group).unwrap()));
+        assert!(fork.group_proof_current(&groups.group_proof(destination).unwrap()));
+        let before = fork.clone();
+        let plan = transfer_existing(&groups, destination).unwrap();
+        assert!(fork.commit_transfer(plan).is_err());
+        assert_eq!(fork, before);
+        invariant(&fork);
+    }
+
+    #[test]
+    fn transfer_late_commit_and_dropped_stage_do_not_publish_or_consume_identities() {
+        let mut groups = Groups::default();
+        groups
+            .import(&[restored(&[1, 2], 0), restored(&[8], 0)], 0)
+            .unwrap();
+        let before = groups.clone();
+        let plan = transfer_new(&groups).unwrap();
+        assert_eq!(plan.projected(&groups).unwrap().groups().len(), 3);
+        drop(plan); // App may refuse its independent Layout/view preflight.
+        assert_eq!(groups, before);
+        let destination = groups.groups()[1].id();
+        let plan = transfer_existing(&groups, destination).unwrap();
+        let source = groups.active_membership().unwrap();
+        groups.set_sticky(source, true).unwrap();
+        let changed = groups.clone();
+        assert!(groups.commit_transfer(plan).is_err());
+        assert_eq!(groups, changed);
+        invariant(&groups);
+    }
+
+    #[test]
+    fn transfer_duplicate_needs_no_identity_or_unchanged_destination_counter_increment() {
+        let mut groups = Groups::default();
+        groups
+            .import(&[restored(&[1, 2], 0), restored(&[1, 8], 1)], 0)
+            .unwrap();
+        let source = groups.active_membership().unwrap();
+        let destination = groups.groups()[1].id();
+        let target = member(&groups, 1, 1);
+        groups.next_tab = u64::MAX;
+        groups.next_group = u64::MAX;
+        groups.groups[1].membership_generation = u64::MAX;
+        let proof = groups.group_proof(destination).unwrap();
+        let plan = transfer_existing(&groups, destination).unwrap();
+        assert_eq!(plan.change().active, Some(target));
+        groups.commit_transfer(plan).unwrap();
+        assert!(groups.group_proof_current(&proof));
+        assert!(!groups.membership_current(source));
+        assert_eq!((groups.next_tab, groups.next_group), (u64::MAX, u64::MAX));
+        invariant(&groups);
+    }
+
+    #[test]
+    fn transfer_counter_and_actual_reservation_refusal_leave_exact_original_state() {
+        for field in 0..5 {
+            let mut groups = Groups::default();
+            groups
+                .import(&[restored(&[1, 2], 0), restored(&[8], 0)], 0)
+                .unwrap();
+            let destination = groups.groups()[1].id();
+            match field {
+                0 => groups.generation = u64::MAX,
+                1 => groups.groups[0].membership_generation = u64::MAX,
+                2 => groups.groups[1].membership_generation = u64::MAX,
+                3 => groups.next_tab = u64::MAX,
+                _ => groups.next_group = u64::MAX,
+            }
+            let before = groups.clone();
+            let result = if field == 4 {
+                transfer_new(&groups)
+            } else {
+                transfer_existing(&groups, destination)
+            };
+            assert!(result.is_err());
+            assert_eq!(groups, before);
+        }
+        for create in [false, true] {
+            let mut groups = Groups::default();
+            groups
+                .import(&[restored(&[1, 2], 0), restored(&[8], 0)], 0)
+                .unwrap();
+            let destination = groups.groups()[1].id();
+            let before = groups.clone();
+            groups.fail_next_recent_reservation();
+            assert!(
+                if create {
+                    transfer_new(&groups)
+                } else {
+                    transfer_existing(&groups, destination)
+                }
+                .is_err()
+            );
+            assert_eq!(groups, before);
+            assert!(
+                if create {
+                    transfer_new(&groups)
+                } else {
+                    transfer_existing(&groups, destination)
+                }
+                .is_ok()
+            );
+        }
+    }
+
+    #[test]
+    fn transfer_same_group_noop_validates_publication_without_stage_or_counter_increment() {
+        let mut groups = Groups::default();
+        groups.open_mode(1, OpenMode::Preview, None).unwrap();
+        groups.generation = u64::MAX;
+        groups.next_tab = u64::MAX;
+        groups.next_group = u64::MAX;
+        groups.groups[0].membership_generation = u64::MAX;
+        let source = groups.active_membership().unwrap();
+        let before = groups.clone();
+        let plan = transfer_existing(&groups, source.group).unwrap();
+        assert!(plan.original.is_none() && plan.projected.is_none());
+        assert!(!plan.change().changed);
+        assert!(std::ptr::eq(plan.projected(&groups).unwrap(), &groups));
+        groups.commit_transfer(plan).unwrap();
+        assert_eq!(groups, before);
+        assert!(
+            groups
+                .group(source.group)
+                .unwrap()
+                .active()
+                .unwrap()
+                .is_preview()
+        );
+        let mut foreign = Groups::default();
+        foreign.open_mode(1, OpenMode::Preview, None).unwrap();
+        foreign.generation = u64::MAX;
+        foreign.next_tab = u64::MAX;
+        foreign.next_group = u64::MAX;
+        foreign.groups[0].membership_generation = u64::MAX;
+        let foreign_before = foreign.clone();
+        assert_eq!(groups.proof(), foreign.proof());
+        let foreign_plan = transfer_existing(&groups, source.group).unwrap();
+        assert!(foreign.commit_transfer(foreign_plan).is_err());
+        assert_eq!(foreign, foreign_before);
+        groups.generation = 1;
+        groups.groups[0].membership_generation = 1;
+        let plan = transfer_existing(&groups, source.group).unwrap();
+        groups.keep(source).unwrap();
+        let before = groups.clone();
+        assert!(groups.commit_transfer(plan).is_err());
+        assert_eq!(groups, before);
     }
 }
