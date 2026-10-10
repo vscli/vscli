@@ -4,8 +4,9 @@ This standalone observer captures unchanged VS Code **1.95.0**, product commit
 `912bb683695358a54ae0c670461738984cbb5b95`. The actual Linux run passed **11 cases /
 86 public snapshots** in 37.929 seconds. The native membership engine and strict consumer now compare nine supported
 preview/committed cases (68 frames); seven integrity/replay tests and frozen/fresh
-Linux comparisons pass. App/terminal integration and fresh platform qualification
-remain separate. Sticky behavior is pending; its two actual cases (18 frames)
+Linux comparisons pass. App integration and six terminal preview journeys across
+eight native-only sessions pass locally; fresh three-platform qualification
+remains separate. Sticky behavior is pending; its two actual cases (18 frames)
 remain fully verified raw evidence.
 
 ```sh
@@ -137,3 +138,10 @@ is clean. Production `Document::api_dirty` and optional-host snapshots preserve
 this state independently from revision-based native tab/close cleanliness.
 This is engine/document evidence, separate from App save/loader ownership and
 terminal workflows.
+
+CI observes the complete eleven-case corpus on Linux, macOS and Windows, then
+runs the native integrity tests and consumes the fresh complete observation.
+The native comparison artifact reports the nine compared cases and two named
+deferred sticky cases. Unix also runs the six App preview journeys. The reference
+upload runs after all observation and comparison steps, including on failure;
+an interrupted capture remains diagnostic evidence, not complete qualification.
