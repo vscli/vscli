@@ -705,3 +705,57 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/save-automation/vscli \
   --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
   --output target/benchmarks/native-format-on-save-single-line.json
 ```
+
+## Native code-actions-on-save core baseline: 2026-10-10
+
+The [ordinary-file report](benchmarks/2026-10-10-native-code-actions-on-save.json)
+and [single-line report](benchmarks/2026-10-10-native-code-actions-on-save-single-line.json)
+compare native Rust source `b69c30f038a580edb1cbd92f764457651e705e15`
+with the preserved formatter build described above. That baseline predates the
+workspace-relative save-notice fix; these workloads issue no Save. Five launches
+and 200 serial keys per row yield 40 interleaved successful trials, 1,600 keys and
+zero failures. No build, test suite or reference editor ran concurrently.
+
+| File / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS median MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / format-on-save | 6.715 | 0.405 | 0.711 | 0.910 | 12.92 |
+| 10 KiB multiline / source actions | 8.037 | 0.321 | 0.862 | 1.091 | 12.95 |
+| 1 MiB multiline / format-on-save | 6.928 | 0.304 | 0.816 | 0.999 | 14.03 |
+| 1 MiB multiline / source actions | 7.182 | 0.307 | 0.676 | 0.904 | 13.97 |
+| 10 MiB multiline / format-on-save | 18.374 | 0.328 | 0.879 | 0.945 | 24.34 |
+| 10 MiB multiline / source actions | 18.584 | 0.316 | 0.694 | 0.876 | 24.38 |
+| 1 MiB single line / format-on-save | 9.960 | 0.223 | 0.738 | 0.969 | 14.11 |
+| 1 MiB single line / source actions | 7.700 | 0.316 | 0.668 | 0.966 | 13.94 |
+
+Startup, key latency and sampled RSS are mixed; these measurements establish
+neither a causal regression nor an overall improvement or editor ranking.
+Five startup samples cannot qualify startup tails. Pooled key samples are not
+independent launches, sampled RSS is not peak memory, and one-second idle samples
+do not qualify sustained CPU behavior. Host frequency, temperature and scheduling
+were uncontrolled on the Linux x86_64 i9-13900H/20-logical-CPU machine.
+
+Both binaries edit warm-cache ASCII plaintext at 120 × 40 cells with isolated
+configuration/data, no recovery, language server or extensions, and autosave,
+formatting and source actions off. Default file Breadcrumbs are enabled and
+Outline has no provider. The Python PTY-cell oracle is included; physical input
+and graphical painting are excluded. Active source actions/formatting, persistence
+contention, project indexing and extension-heavy workloads need separate latency
+qualification. Actual saved-byte/history/late-reply correctness is qualified in
+[the participant contract](CODE_ACTIONS_ON_SAVE.md).
+
+Candidate executable SHA256:
+`9854399937ff375a57fe7c4952afa67a958b2287477a9f5ae7f4fdd7b278e2a0`.
+Baseline executable SHA256:
+`fae7cd681d41a3eb73a91604a4e98af28b0bc08d427826e1789a530380f15214`.
+The raw reports retain executable/fixture hashes, every trial and the source revision.
+
+Reproduce after building the candidate and preserving the formatter executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/formatter/vscli \
+  --sizes 10240 1048576 10485760 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-code-actions-on-save.json
+python3 scripts/bench_editor.py --compare-vscli /path/to/formatter/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-code-actions-on-save-single-line.json
+```
