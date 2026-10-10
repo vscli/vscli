@@ -5,8 +5,17 @@
 Native Save As and first-save creation refuse a destination created after the
 preflight check through atomic no-clobber persistence. Injected filesystem-race
 tests preserve foreign bytes, document identity, selections and Undo/Redo. This
-qualifies create-only persistence; existing-file replacement races, background
-saves and autosave remain separate work.
+qualifies create-only persistence. Background native Save/Save As and
+language-scoped `off`/`afterDelay` autosave are now implemented. Local Rust,
+debug/release terminal and integrity checks pass; fresh platform qualification
+is pending. One actual
+worker and one latest metadata intent preserve original model ownership;
+successful captured snapshots update the baseline while newer edits remain
+dirty. Closing during a matching pending save waits for its actual receipt,
+preserves the originating pane and allows Escape to cancel closing while the
+save continues. Existing-file replacement races against uncooperative external writers,
+complete metadata preservation and save-participant parity remain explicit
+limits. See [save automation contract and qualification](SAVE_AUTOMATION_PLAN.md).
 
 Compatibility must describe observed behavior against a pinned reference version. An extension being downloadable, installable, or activatable does not establish that its workflows work.
 
@@ -68,9 +77,12 @@ Native LSP save notifications honor static server options and can carry an exact
 committed Rope independently of newer live text. Serialization runs on the bounded
 transport writer; oversize escaping cannot publish a partial frame. Four framed
 subprocess tests qualify capability forms, snapshot ownership, lifecycle guards
-and overflow recovery. This is a notification foundation, not evidence that native
-application saves are asynchronous or that save participants/dynamic registration
-have parity. See [native language-server behavior](USAGE.md#language-servers).
+and overflow recovery. Native asynchronous Save/Save As now routes receipts
+through this snapshot-aware notification path. Save participants, dynamic
+registration and one extension save event per disk commit remain unqualified;
+the current mirror can coalesce multiple commits. See
+[native language-server behavior](USAGE.md#language-servers) and the
+[save automation boundary](SAVE_AUTOMATION_PLAN.md).
 
 Native LSP Quick Fix/Refactor now supports bounded action discovery, lazy edit
 resolution, and validated edits across synchronized open buffers. C++ qualification

@@ -403,6 +403,17 @@ fn upstream_sort_lines_inferred_command_activates_only_after_cli_enable_and_pres
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
     use std::time::{Duration, Instant};
     use vscli::{app::App, keys::Profile};
+    fn settle_save(app: &mut App) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            app.poll();
+            if !app.saves_pending() {
+                return;
+            }
+            assert!(Instant::now() < deadline, "Save receipt: {}", app.message);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
     let source = std::path::PathBuf::from(
         std::env::var_os("VSCLI_TEST_SORT_LINES").expect("Set VSCLI_TEST_SORT_LINES"),
     );
@@ -466,10 +477,12 @@ fn upstream_sort_lines_inferred_command_activates_only_after_cli_enable_and_pres
     assert_eq!(app.doc().id, identity);
     assert_eq!(fs::read_to_string(&file).unwrap(), original);
     app.execute("workbench.action.files.save", serde_json::Value::Null);
+    settle_save(&mut app);
     assert_eq!(fs::read_to_string(&file).unwrap(), "apple\npear\nzebra");
     app.doc_mut().undo();
     assert_eq!(app.doc().text.to_string(), original);
     app.execute("workbench.action.files.save", serde_json::Value::Null);
+    settle_save(&mut app);
     assert_eq!(fs::read_to_string(&file).unwrap(), original);
     for (name, bytes) in original_sources {
         assert_eq!(fs::read(source.join(name)).unwrap(), bytes);

@@ -94,6 +94,7 @@ fn output_focus_read_only_status_opaque_action_shared_undo_and_save_integrity() 
     app.doc_mut().undo();
     assert_eq!(app.doc().text.to_string(), before);
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
     assert_eq!(std::fs::read_to_string(path).unwrap(), before);
 }
 #[test]

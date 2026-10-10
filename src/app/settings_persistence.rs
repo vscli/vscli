@@ -34,6 +34,32 @@ pub(super) struct State {
     latest: Option<Request>,
 }
 impl App {
+    #[cfg(test)]
+    pub(super) fn fixture_take_settings_prepared(
+        &mut self,
+    ) -> Option<crate::settings_writer::PreparedInfo> {
+        self.settings_writes.writer.poll().map(|event| match event {
+            WriteEvent::Prepared(info) => info,
+            other => panic!("Expected actual settings preparation, received {other:?}"),
+        })
+    }
+    #[cfg(test)]
+    pub(super) fn fixture_authorize_settings_prepared(
+        &mut self,
+        info: &crate::settings_writer::PreparedInfo,
+    ) -> Result<()> {
+        self.authorize_settings_write(info)?;
+        self.invalidate_disk_watch_publications()?;
+        self.settings_writes.writer.authorize(info.id)
+    }
+    pub(super) fn settings_writes_busy(&self) -> bool {
+        self.settings_writes.writer.busy()
+    }
+    pub(super) fn retire_unapproved_settings_write(&mut self) {
+        if let Some(request) = self.settings_writes.latest.as_ref() {
+            self.settings_writes.writer.cancel(request.id);
+        }
+    }
     pub(super) fn settings_persistence_configured(&self) -> bool {
         self.settings_writes.configured
     }
@@ -47,6 +73,7 @@ impl App {
             self.settings_writes.writer.cancel(request.id);
         }
         self.settings_writes.profile = next;
+        self.retire_autosave_interest();
         self.settings_writes.configured = true;
         self.settings_writes.ready = false;
         self.set_breadcrumbs_override(None);
@@ -57,6 +84,7 @@ impl App {
     }
     pub(super) fn settings_profile_load_failed(&mut self) {
         self.settings_writes.ready = false;
+        self.retire_autosave_interest();
     }
     pub(super) fn request_persistent_breadcrumbs(&mut self, enabled: bool) -> Result<()> {
         ensure!(

@@ -160,6 +160,7 @@ fn automatic_original_character_overloads_and_retrigger_preserve_dirty_unicode_c
     app.execute("closeParameterHints", Value::Null);
     assert!(app.signature_help().is_none());
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, "save receipt", |app| !app.saves_pending());
     assert_eq!(
         std::fs::read(root.path().join("main.cpp")).unwrap(),
         edited.as_bytes()
@@ -340,6 +341,7 @@ fn saving_and_unrelated_retained_buffer_edits_keep_readonly_hint_without_new_cal
         "unrelated retained models do not authorize signature edits"
     );
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, "save receipt", |app| !app.saves_pending());
     settle(&mut app, Duration::from_millis(160));
     assert!(
         app.signature_help().is_some(),

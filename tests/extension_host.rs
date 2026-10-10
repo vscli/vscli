@@ -145,6 +145,7 @@ fn held_extension_edit_rejects_edit_undo_revision_reuse_without_losing_native_re
     app.doc_mut().undo();
     assert_eq!(app.doc().text.to_string(), original);
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
     assert_eq!(std::fs::read(&path).unwrap(), original.as_bytes());
 }
 #[test]

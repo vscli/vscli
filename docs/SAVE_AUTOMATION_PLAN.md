@@ -1,188 +1,161 @@
-# Native save automation plan
+# Native save automation: implementation and follow-up plan
 
-This document specifies the next implementation and qualification work. It is
-not evidence that asynchronous saves, autosave, format-on-save or save-time code
-actions already work. The settings-persistence candidate is a separate feature;
-its reviewed worker and publication guards provide patterns to reuse.
+Native command Save and Save As now use a background worker. Native autosave
+implements `files.autoSave = "off" | "afterDelay"`, including language scopes.
+These are implemented runtime paths undergoing full integration, terminal and
+platform qualification; this document does not establish full VS Code save parity.
+The original plan has been replaced with the implemented contract and remaining
+qualification work. Format-on-save and save-time code actions remain future work.
 
-The native document foundation now exposes immutable `SaveSnapshot` capture,
-preauthorization checking and successful-receipt publication without filesystem
-I/O. Five native integrity tests pass for edit→Undo fencing, newer postauthorization
-edits, shared reversed selections and existing Redo through Save As, stale or
-duplicate receipts, and size/path/generation bounds. Formatting and strict
-all-target Clippy also pass for this foundation. The current App save path remains
-synchronous until the worker and ownership integration below are qualified.
+## Implemented integration
 
-## Current integration points
+| Source | Implemented behavior |
+| --- | --- |
+| [App save ownership](../src/app/saving.rs), [command and prompt routing](../src/app.rs) | Original Save/Save As commands retain model identity and route persistence through one actual worker and one latest desired intent. Queued work recaptures text after the previous receipt. |
+| [Document snapshot](../src/document.rs) | Cheap immutable Rope capture, exact preauthorization proof and successful-receipt publication perform no filesystem I/O. Explicit low-level synchronous document save APIs remain available. |
+| [Save worker](../src/save_worker.rs), [persistence backend](../src/persistence.rs) | Worker resolves destination/aliases, stages bytes, waits for authorization, rechecks disk/lock/parent identity and commits. Capacity remains occupied until the actual thread exits, even after its terminal reply. |
+| [Close/quit and panes](../src/app.rs), [pane ownership](../src/app/panes.rs) | Close-after-save targets its original pane/model. Quit and Close All defer while persistence is pending, then recompute dirty models. Escape cancels deferred closing while saves continue. |
+| [File operations](../src/app/files.rs), [disk watching](../src/app/watching.rs) | File operations and pending saves cannot acquire conflicting ownership. Watch publication is fenced before authorization and at commit receipt; pending-save targets do not reload through the watcher. |
+| [Language notifications](../src/app/language.rs), [LSP writer](../src/lsp.rs) | Successful Save and Save As notify the original saved URI with the exact persisted Rope, independently of newer text or active-editor changes. |
+| [Settings loading](../src/settings.rs), [settings persistence](../src/app/settings_persistence.rs) | Every successful native receipt requests a fenced asynchronous settings reload. Native document writes and scalar settings patches use separate actual lanes and the same destination lock protocol. |
+| [Extension mirrors](../src/extensions.rs), [host events](../extension-host/api.cjs) | Successful save generations feed existing document-save notifications. Change precedes save when published together; multiple commits before one mirror sync can coalesce. One extension event per commit is not claimed. |
+| [Autosave scheduler](../src/autosave.rs) | Bounded per-model metadata and round-robin due selection include dirty hidden named models; shared panes schedule a model once. |
 
-| Source | Current behavior | Required integration |
+## Save transitions and data ownership
+
+| Transition | Contract | Failure or supersession |
 | --- | --- | --- |
-| [`App::save`](../src/app.rs) | Calls `Document::save` synchronously; follows successful save with active-editor language notification and optional close. | Route by retained document ID through `app/saving.rs`; publish a receipt before running a continuation. |
-| [Save As prompt](../src/app.rs) | Calls `save_to` synchronously, checks only literal visible-tab destination paths, reapplies settings and completes the pending action. | Capture the originating model before the prompt; resolve aliases and visible/hidden destination conflicts on the worker; add the same successful-save notifications as ordinary Save. |
-| [`Document::save_to`](../src/document.rs) | Streams a Rope to an adjacent temporary, checks baseline bytes, preserves permissions, syncs and replaces; updates path, baseline, saved revision and save generation immediately. | Separate immutable capture, worker persistence and UI receipt application. Keep the synchronous API for explicit low-level callers until migration is complete. |
-| [Close/quit confirmation](../src/app.rs), [panes](../src/app/panes.rs) | Dirty hidden models are promoted for quit/close-all; save completion currently removes the active document. Closing one shared pane retains the dirty model. | Continuations retain original pane/model identity; a delayed receipt must never close whichever editor became active later. |
-| [File operations](../src/app/files.rs), [worker](../src/files.rs) | Rename moves retained document paths; trash detaches models. Save currently refuses while a file job runs. | Keep this guard and refuse conflicting rename/trash dispatch while an authorized save owns a destination. Do not drop a running save to make capacity. |
-| [`language_saved`](../src/app/language.rs), [`Client::saved`](../src/lsp.rs) | Synchronizes visible models and sends `didSave` for the active one, including its current text. Save As does not invoke this hook. | Route successful receipts to the exact persisted URI/text and appropriate retained server. A newer active buffer is not the saved snapshot. |
-| [Workspace edits](../src/app/workspace_edits.rs) | Stage buffer edits atomically; leave them dirty for review and do not persist. | Preserve this boundary. A save-time edit pipeline needs separate authorization and qualification. |
-| [Extension mirror](../src/extensions.rs), [host events](../extension-host/api.cjs) | Actual successful `save_generation` changes produce save notifications; text change precedes save when published together. Multiple saves before one mirror sync can coalesce into one event. | Preserve owner/document identity and change-before-save ordering. Explicitly qualify save-event coalescing or add a bounded receipt-event route; do not claim one event per commit from the existing mirror alone. |
+| Capture → prepare | Capture model/path/revision/text epoch/save generation, shared text and baseline, request identity and optional continuation. Resolve filesystem identity and stage the captured bytes on the worker. | Validate 32 MiB text/baseline, 4 KiB paths, 128 distinct retained models and 512 KiB aggregate model paths before admission. One latest intent carries metadata, not a reusable old text snapshot. |
+| Prepared → authorize | Check exact live snapshot and retained alias-model proofs; automatic work also checks policy/workspace generation. Fence watch publication before authorization. | Edit→Undo still changes the epoch and rejects old preparation. Dirty matching aliases, changed paths/models or retired policies cannot authorize. Rejected work retains actual capacity until cleanup and thread exit. |
+| Authorized → commit | Recheck exact baseline bytes, file/parent/alias/lock identities and atomically persist. Missing destinations use no-clobber creation. | Authorized work can complete after subsequent typing or a profile switch. Failure leaves text, selections, Undo/Redo, saved generation and buffer path unchanged. |
+| Commit → receipt | Return original captured text and canonical destination after lock/tempfile cleanup. Deliver the receipt only after actual worker settlement. | Successful disk facts are published even when the requested action is no longer latest. |
+| Receipt → publish | Update only the originating retained model's captured baseline/revision and monotonic save generation. Preserve newer text, shared selections and history, then notify the persisted URI and recapture queued work. | Newer edits remain dirty. A close continuation requires its original pane/model and a clean target. A moved/replaced model receives an explicit persisted-destination notice instead of unsafe reassignment. |
 
-No `save_and_refresh` helper exists in the audited tree. Implement one receipt
-publication path rather than giving this name to an active-editor shortcut.
-Save All is not currently implemented by the native command dispatcher.
+Persistence adds no text edit or Undo entry. Postauthorization edits remain
+editable and are not falsely marked saved. A later Undo back to the captured
+saved revision can legitimately become clean. Successful-save generations are
+reserved without wrapping, and stale or duplicate receipt publication is refused.
 
-## Save state transitions
+Save As retains the initiating model while the prompt is open, including editor
+and pane switches. A different existing destination is refused; this slice has
+no overwrite-confirmation flow. Saving to the same source retains ordinary
+baseline protection. Missing parent directories fail rather than being created.
 
-| Transition | Work and proofs | Failure or supersession |
-| --- | --- | --- |
-| Capture → prepare | On the UI thread, capture model ID, path, revision, monotonic text epoch/save generation, shared Rope, disk baseline, request ID, profile/workspace identity, effective save policy and optional pane continuation. The worker resolves paths, acquires the destination lock, validates native identity/permissions and streams the captured Rope into an adjacent temporary. | Validate size/path/model budgets first. Retain one actual save worker and one latest desired intent. Queued intent stores identity/reason/destination, not a reusable stale Rope. |
-| Prepared → authorize | Worker returns canonical destination, baseline/file/parent/lock identity and matching retained model IDs. UI checks the exact current model/path/epoch/save generation, all relevant alias models, profile/policy and continuation. Fence disk-watch publications immediately before authorization. | Any preauthorization edit, edit→Undo, successful save, source replacement, conflicting dirty alias or destination change retires preparation. Keep the worker slot until cleanup completes. Recapture current state only when a new request can dispatch. |
-| Authorized → commit | Worker rechecks exact baseline bytes and identities, parent alias/identity, matching-model alias membership and owned lock, then atomically persists. Existing target replacement and missing-target no-clobber are distinct operations. | Authorization cannot truthfully cancel a commit already in progress. Later typing is allowed and must remain in memory. A failed commit keeps bytes, selections, Undo/Redo, path and saved generation unchanged. |
-| Commit → receipt | Worker returns a successful receipt containing exact persisted Rope/revision, canonical destination, model/request identity, captured path proof and durability result. Capacity remains occupied until temporary cleanup and lock release positively settle. | A success belongs to its original file even if the editor/profile changed. Never discard successful disk facts merely because an optimistic UI request is no longer latest. |
-| Receipt → publish/continue | Fence disk-watch publications again, update only the matching retained model's baseline and successful-save counter, remember the saved file, notify exact language/extension ownership and request asynchronous index/settings refresh. Apply a captured close continuation only after proving its target remains safe. | Never assign `saved_revision = live.revision` unconditionally. The saved baseline is the captured Rope/revision; a newer revision stays dirty. A later edit→Undo returning exactly to that saved revision can legitimately become clean. A moved/replaced model needs an explicit saved-snapshot notice, not path reassignment or data loss. |
+A Close issued while a matching Save/Save As is pending attaches to the latest
+matching intent, otherwise to that model's actual save. Disk visibility alone
+does not acknowledge completion. The continuation keeps the original pane/model
+and generation and cannot replace a broader current Quit/Close All continuation.
+Escape cancels the deferred close while actual persistence continues.
 
-One worker means one actual document-save callback, not merely one visible
-pending request. Retain its `JoinHandle` until finished, including cancellation,
-timeout and terminal reply. A finite response channel and one latest desired
-intent cannot license overlapping workers after an early reply. The existing
-settings-write lane is separate; it can coexist, but both must cooperate through
-the same canonical destination's `.vscli-write.lock` sidecar and lock-identity
-checks. Do not advertise a global one-worker bound across these two lanes.
+A delayed Close targets the original pane, preserving the current editor's
+focus when possible. If newer edits remain, the pane stays open and a notice
+asks the user to close again to review them. Canceling close retires destructive
+continuations; authorized persistence still settles. Quit and Close All await
+native saves and settings writes before revisiting dirty visible/hidden models.
+Interrupt/error shutdown retires unapproved work and queued intentions, waits
+for authorized receipts, and only then writes final recovery/session state.
+This is actual-settlement waiting, not a promise of a fixed shutdown deadline
+for a blocked filesystem operation.
 
-Receipt application preserves model ID, shared views, selection directions,
-snippet state and Undo/Redo. Persistence itself adds no text edit. Check and reserve
-a nonwrapping successful-save generation before authorization. Postauthorization
-edits do not invalidate the successful disk receipt; they invalidate only its
-ability to declare the *current* buffer saved or perform a destructive continuation.
-If a receipt cannot update the model safely, retain unsaved work and report the
-actual persisted destination explicitly.
+## Autosave settings
 
-## Close, pane and exit ownership
+Defaults are `files.autoSave: "off"` and `files.autoSaveDelay: 1000` ms. Native
+`afterDelay` accepts integer delays from 0 through 86,400,000 ms (24 hours).
+Zero means eligible on a subsequent poll; input handling performs no disk write.
+The effective winning mode or delay is authoritative: malformed values,
+unsupported `onFocusChange`/`onWindowChange` modes, or out-of-range delays disable
+native automation with a compatibility notice rather than inheriting a lower
+value that might enable writes.
 
-A Save As prompt retains its initiating model and continuation generation.
-Typing a path or switching editors must not cause the prompt to save another
-model. Closing an ordinary shared pane still needs no save if another view owns
-the same model; a delayed close-after-save targets the captured pane/model, never
-an array index or the then-active pane.
+User/workspace and supported composite/single-language precedence applies. For
+example, enable autosave only for C++:
 
-For Close, remove the captured model only when the successful receipt leaves it
-clean and it still satisfies the original close ownership proof. If the user
-typed after authorization, show the existing Save/Discard/Cancel confirmation
-for the remaining changes. If the target pane already closed, retire the
-continuation without removing its remaining shared document.
+```jsonc
+{
+  "files.autoSave": "off",
+  "[cpp]": {
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000
+  }
+}
+```
 
-Quit and Close All use a bounded continuation generation and recompute dirty
-visible/hidden models after every receipt. Canceling quit cancels its
-continuations and unapproved intentions; authorized workers still settle and
-publish success. Discard cannot terminate the process while an authorized save
-is running. Keep `running = true` until actual save workers finish and the
-existing recovery/session shutdown work settles. A canceled or failed save does
-not count as completion of quit. Terminal restoration occurs after that safe
-termination boundary; it must have PTY coverage.
+The pinned VS Code 1.95 settings declaration specifies off/1000 ms defaults and
+language-overridable values; it also includes focus/window modes outside this
+native slice. See [pinned settings source](https://raw.githubusercontent.com/microsoft/vscode/912bb683695358a54ae0c670461738984cbb5b95/src/vs/workbench/contrib/files/browser/files.contribution.ts)
+and [official autosave documentation](https://code.visualstudio.com/docs/editing/codebasics#_save-auto-save).
+Native delay limits and malformed-value refusal are explicit product boundaries,
+not a claim that every upstream settings edge case matches.
 
-## Initial autosave policy
+Only dirty named files qualify; untitled buffers still require Save As. Accepted
+text changes, including Undo/Redo epoch advancement, restart a model's delay.
+Cursor motion, an older snapshot's successful receipt and activity in another
+model do not restart that text's deadline. Due-model rotation prevents a hot
+active file from starving a dirty hidden file. A newer edit during an authorized
+save keeps its own debounce deadline and may receive a later fresh autosave.
 
-The initial native setting scope is `files.autoSave = "off" | "afterDelay"`,
-with default off, and `files.autoSaveDelay` default 1000 ms. VS Code desktop 1.95
-uses these defaults and language-overridable settings. It also supports
-focus/window-change modes; those are explicitly outside this first native slice.
-See the [pinned settings declaration](https://raw.githubusercontent.com/microsoft/vscode/912bb683695358a54ae0c670461738984cbb5b95/src/vs/workbench/contrib/files/browser/files.contribution.ts)
-and [official save documentation](https://code.visualstudio.com/docs/editing/codebasics#_save-auto-save).
+Manual Save has priority over unapproved automatic work. A failed automatic or
+manual snapshot suppresses retries for that exact live model/path/epoch/save
+baseline/policy proof; explicit Save remains available, and changed text or
+qualifying baseline/policy evidence can requalify automation. Policy/profile
+changes retire unapproved interest, including A→B→A changes. Failed settings
+reloads pause automation until valid settings arrive. Save As prompts, close
+confirmation and deferred closing pause automatic dispatch.
 
-Use a documented native delay budget of 0–60,000 ms, validated without wrapping.
-Zero means eligible on a later poll, not an immediate filesystem operation in
-input handling. Larger values and unsupported modes receive compatibility
-notices rather than silently enabling another policy. A winning valid language
-scope participates through the same settings precedence rules as other editor
-settings; malformed values retain the existing lower valid value.
+The scheduler retains at most 128 distinct models, with no copied document text.
+Common save admission also enforces the model/path budgets: exceeding them can
+refuse explicit Save as well as automation; native editing retains unsaved work.
+Settings-source identity caching avoids reparsing every effective policy for
+unchanged models on every frame.
 
-Track at most 128 authoritative model IDs across visible and hidden documents,
-with one deadline/epoch/policy stamp per model and no copied text in the scheduler.
-Shared panes schedule their model once. Only dirty, named native files are
-autosave-eligible; untitled buffers continue to require Save As. Delay resets on
-accepted text changes, including version advancement through Undo/Redo, not
-cursor movement, save acknowledgments or unrelated document activity. Retiring
-or disabling a policy removes unapproved interest; it cannot undo authorized
-persistence.
+## Filesystem and extension boundaries
 
-At dispatch, choose a due model fairly, then recapture its current Rope and disk
-baseline. Keep a round-robin cursor over due model IDs so editing one hot file
-cannot permanently exclude a second dirty hidden file. Manual Save has immediate
-priority over autosave, but replaces only unapproved desired work. Other due
-models retain their bounded metadata and get subsequent turns. A failed external
-conflict does not retry every frame: suppress that same epoch/path/baseline until
-an edit, explicit retry or qualifying disk/policy change supplies new evidence.
-Overflow of the model budget stops automation with a visible notice; manual
-editing and explicit save remain usable.
+Regular-file, read-only, symlink/reparse, parent, alias and lock checks occur on
+the persistence worker. Payload symlinks are refused. Dirty hidden/recovered or
+hardlinked aliases identifying the target refuse preauthorization. Atomic
+replacement affects one directory entry, not every hardlink; other retained
+alias models keep their own baselines for subsequent conflict detection. Unix
+mode/read-only preservation is implemented; complete ACL/xattr/metadata parity
+remains unqualified. Directory-sync failures after successful persistence are
+reported as durability warnings. Advisory locking cannot exclude an
+uncooperative writer racing the final filesystem check and rename.
 
-## Filesystem boundary
+Settings patches and ordinary native saves cooperate via the same canonical
+`.vscli-write.lock` protocol, but each has its own one-worker lane. There is no
+global one-worker claim across the two. Successful document commits force a
+fresh settings-loader read, including after a profile change.
 
-Reuse the settings writer's platform-qualified regular-file, read-only,
-reparse/symlink, parent and lock identity checks rather than adding UI `stat`,
-canonicalization, directory creation or hashing. Existing canonical documents
-remain resolvable. A payload that becomes a symlink is refused for persistence;
-reading a symlink and writing one are separate compatibility behaviors. Save As
-does not overwrite an existing destination in this initial slice. Missing parent
-directories receive an explicit failure unless a separately qualified operation
-creates them; do not make autosave create arbitrary directory trees.
+Format-on-save, source code actions on save, extension `onWillSave`/wait-until
+participants, recursive save arbitration, Save All, save reasons and dynamic
+LSP save-registration parity remain outstanding. Ordinary formatting and
+workspace edits stay reviewable dirty edits; they do not implicitly save.
+Extension mirrors retain existing save-event coalescing semantics.
 
-Hardlink and recovered raw-parent aliases require native worker identity checks.
-Other dirty retained models identifying the same file must refuse authorization.
-An atomic replacement affects the named directory entry, not every hardlink:
-receipt publication updates only the saved model, and other alias models retain
-their own baselines for asynchronous conflict detection. Preserve Unix mode bits
-and read-only flags; ACL/xattr/complete metadata parity remains unqualified.
-Report directory-sync failures as durability warnings after an actual successful
-replacement. An advisory lock cannot eliminate races with an uncooperative
-external writer between the last check and rename.
+## Qualification status and follow-up
 
-Settings files can be ordinary native save targets. Their successful receipt must
-force a fenced settings-loader read and disk-watch refresh, even after a profile
-change. This must cooperate with the root-scalar settings-persistence worker,
-without rewriting unrelated JSONC bytes or treating a stale loader read as the
-new saved profile.
+The current candidate passes 726 ordinary Rust tests across 39 suites (20
+optional integration tests ignored), formatting and strict all-target Clippy,
+133 extension-host tests and 25 Python tooling tests. The actual CLI passes all
+35 baseline PTY reports, seven new native save/autosave journeys on both debug
+and optimized builds, three settings-persistence reports and three Breadcrumbs
+reports. Native Outline and Breadcrumbs consumers also pass against their existing
+frozen reference captures, including all eight source-validation tests; this is
+consumer regression evidence, not a new reference
+capture. Fresh Linux/macOS/Windows CI, save-participant comparisons and performance
+qualification remain pending. These counts describe this save candidate and do
+not establish full VS Code parity.
 
-## Save participants and qualification
-
-First ship background native Save/Save As plus off/afterDelay autosave. Do not
-run asynchronous formatting, extension commands or source code actions as an
-implicit save participant in this stage. Ordinary extension workspace edits
-remain reviewable dirty buffers. A future safe participant pipeline needs
-bounded selected providers, retained actual capacity through cancellation,
-original object ownership, exact text/policy proofs, validated atomic edits,
-explicit save reasons and a defined participant-failure decision.
-
-Pinned VS Code describes `editor.formatOnSave` as explicit-save-only when
-`files.autoSave` uses `afterDelay`. This distinction must be qualified before
-adding format-on-save, alongside wait-until listeners, recursive save attempts,
-unsupported commands and extension event order. Source registration alone is
-not behavioral qualification.
-
-Required integrity tests use real held workers, explicit gates and unchanged
-preauthorization bytes, not timing sleeps or mock success flags:
-
-- Unicode/CRLF, reversed multicursor/shared-view edits; successful save adds no
-  Undo, subsequent Undo/Redo retains exact text and disk bytes.
-- Edit→Undo before authorization rejects; typing after authorization persists
-  the captured snapshot and leaves newer text dirty, with a later fresh save.
-- Save A held while active editor switches to B; receipt, `didSave`, file history
-  and close target A. Save As prompts retain the origin through pane changes.
-- Same-file hidden/recovered/hardlink aliases, malformed historical paths,
-  read-only/symlink targets, parent/lock retarget, exact external byte and
-  same-byte native-identity conflicts; missing-file no-clobber race.
-- Repeated requests retain one actual worker and one latest intent; canceled
-  work holds capacity until cleanup; queued captures happen after publication.
-- Delay reset, off/on and profile A→B→A, multiple dirty hidden/visible models,
-  fairness and failed-conflict suppression, with a controlled scheduler clock.
-- Settings-save/patch lock cooperation, forced-loader fence and held precommit
-  watch reply rejection; saved generations advance only for successful commits.
-- Close/Close All/Quit/Cancel while saving; failures and postauthorization edits
-  keep the correct buffer and prevent premature process exit.
-
-Public App tests and native-only PTYs must exercise original Save/Save As/close
-commands, delayed typing, restart bytes and terminal restoration with Node absent
-from PATH. Optional-host tests separately qualify exact document ownership and
-save-event order. Pinned actual VS Code captures should isolate setup from target
-gestures and preserve unsupported/no-op outcomes; no desired-output retries.
-Run the repository's relevant integrity suites, formatting and strict all-target
-Clippy before reporting implementation evidence. Fresh Linux/macOS/Windows CI,
-optimized PTYs and matched performance measurements remain separate gates.
+The current suites exercise real staging/authorization/commit/thread-exit
+boundaries, original commands, exact Unicode/CRLF bytes, edit→Undo fencing,
+newer dirty text, shared views/Redo, original URI notifications, hidden aliases,
+latest-intent recapture, policy/profile changes and final recovery baselines.
+Two additional actual-worker tests qualify shared destination locking, dirty
+settings refusal, simultaneous authorized native/settings shutdown and recovery
+baseline integrity. Five held-worker tests qualify Close before a Save/Save As
+receipt, original pane ownership across a switch, newer edits, Escape, latest
+intent ownership and preservation of a broader Quit continuation. Further named
+qualification should cover deferred Close All and prompt-policy transitions.
+Reference save-participant and event-order captures need explicit setup/target
+separation and must retain unsupported/no-op outcomes without desired-output
+retries. Adding participants requires a separate bounded provider/edit pipeline
+and reviewed failure policy; it is not part of this implementation.

@@ -1,7 +1,11 @@
 //! Navigation history uses native models without a language server or JavaScript.
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde_json::Value;
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::Path,
+    time::{Duration, Instant},
+};
 use vscli::{app::App, keys::Profile};
 
 const BACK: &str = "workbench.action.navigateBack";
@@ -9,6 +13,17 @@ const FORWARD: &str = "workbench.action.navigateForward";
 
 fn execute(app: &mut App, command: &str) {
     app.execute(command, Value::Null);
+}
+fn settle_save(app: &mut App) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        app.poll();
+        if !app.saves_pending() {
+            return;
+        }
+        assert!(Instant::now() < deadline, "Save receipt: {}", app.message);
+        std::thread::sleep(Duration::from_millis(2));
+    }
 }
 fn key(app: &mut App, code: KeyCode) {
     app.event(Event::Key(KeyEvent::new(code, KeyModifiers::NONE)));
@@ -73,6 +88,7 @@ fn back_forward_reuses_dirty_unicode_crlf_models_and_preserves_undo_and_disk() {
     assert_eq!(app.doc().text.to_string(), dirty);
     assert_eq!(app.doc().id, first_id);
     execute(&mut app, "workbench.action.files.save");
+    settle_save(&mut app);
     assert_eq!(fs::read(&first).unwrap(), dirty.as_bytes());
     assert_eq!(fs::read(&second).unwrap(), original);
     assert!(app.extension_host.is_none());
@@ -163,6 +179,7 @@ fn history_follows_save_as_identity_and_reuses_a_dirty_deleted_backing_model() {
     execute(&mut app, "workbench.action.files.saveAs");
     app.prompt.as_mut().unwrap().text = destination.to_string_lossy().into_owned();
     key(&mut app, KeyCode::Enter);
+    settle_save(&mut app);
     assert_eq!(app.doc().id, id);
     assert_eq!(app.doc().path.as_ref(), Some(&destination));
     let saved = fs::read(&destination).unwrap();
@@ -184,6 +201,7 @@ fn history_follows_save_as_identity_and_reuses_a_dirty_deleted_backing_model() {
     let saved_revision = app.doc().saved_revision;
     let disk_baseline = app.doc().disk_content.clone();
     execute(&mut app, "workbench.action.files.save");
+    settle_save(&mut app);
     assert!(app.message.contains("File changed on disk"));
     assert!(!destination.exists());
     assert_eq!(app.doc().id, id);
@@ -198,6 +216,7 @@ fn history_follows_save_as_identity_and_reuses_a_dirty_deleted_backing_model() {
     execute(&mut app, "workbench.action.files.saveAs");
     app.prompt.as_mut().unwrap().text = recovered.to_string_lossy().into_owned();
     key(&mut app, KeyCode::Enter);
+    settle_save(&mut app);
     assert_eq!(app.doc().id, id);
     assert_eq!(app.doc().path.as_ref(), Some(&recovered));
     assert_eq!(fs::read(&recovered).unwrap(), dirty.as_bytes());
@@ -210,6 +229,7 @@ fn history_follows_save_as_identity_and_reuses_a_dirty_deleted_backing_model() {
     execute(&mut app, "redo");
     assert_eq!(app.doc().text.to_string(), dirty);
     execute(&mut app, "workbench.action.files.save");
+    settle_save(&mut app);
     assert_eq!(fs::read(&recovered).unwrap(), dirty.as_bytes());
     assert!(!destination.exists());
     assert!(!first.exists());

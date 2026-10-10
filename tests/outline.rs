@@ -148,15 +148,15 @@ fn hierarchy_keyboard_reveal_follow_cursor_and_history_preserve_unicode_crlf_und
     let byte = edited.char_indices().nth(render).unwrap().0;
     edited.insert(byte, '猫');
     app.execute("workbench.action.files.save", Value::Null);
-    until(&mut app, "explicit Unicode CRLF save", |_| {
-        std::fs::read(&source).unwrap() == edited.as_bytes()
+    until(&mut app, "explicit Unicode CRLF save", |app| {
+        !app.saves_pending() && std::fs::read(&source).unwrap() == edited.as_bytes()
     });
     app.execute("undo", Value::Null);
     assert_eq!(app.doc().text.to_string(), original());
     assert_eq!(app.doc().id, identity);
     app.execute("workbench.action.files.save", Value::Null);
-    until(&mut app, "Undo explicit save", |_| {
-        std::fs::read(&source).unwrap() == original().as_bytes()
+    until(&mut app, "Undo explicit save", |app| {
+        !app.saves_pending() && std::fs::read(&source).unwrap() == original().as_bytes()
     });
     app.execute("redo", Value::Null);
     assert_eq!(app.doc().text.to_string(), edited);

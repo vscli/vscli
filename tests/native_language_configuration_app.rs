@@ -108,6 +108,7 @@ fn installed_code_package_data_applies_before_and_after_open_without_node_or_exe
     assert_eq!(app.doc().id, id);
     assert_eq!(fs::read(&first).unwrap(), original.as_bytes());
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, "save receipt", |app| !app.saves_pending());
     assert_eq!(fs::read(&first).unwrap(), "猫🙂 <>\r\n".as_bytes());
     app.execute("undo", Value::Null);
     assert_eq!(app.doc().text.to_string(), original);
@@ -165,6 +166,7 @@ fn remembered_disable_workspace_override_and_a_b_a_do_not_resurrect_generated_ow
     });
     assert_eq!(fs::read(&source).unwrap(), "猫🙂 \r\n".as_bytes());
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, "save receipt", |app| !app.saves_pending());
     assert_eq!(fs::read(&source).unwrap(), "猫🙂 <>>\r\n".as_bytes());
     let mut restarted = configured(root.path(), &store);
     until(&mut restarted, "remembered disabled registry", |app| {
@@ -264,6 +266,7 @@ fn save_as_cpp_to_json_rebinds_native_configuration_preserving_identity_crlf_and
     app.execute("workbench.action.files.saveAs", Value::Null);
     app.prompt.as_mut().unwrap().text = destination.to_string_lossy().into_owned();
     key(&mut app, KeyCode::Enter);
+    until(&mut app, "save receipt", |app| !app.saves_pending());
     assert_eq!(app.language(), "json");
     assert_eq!(app.doc().id, id);
     assert_eq!(fs::read(&destination).unwrap(), "猫🙂 <>\r\n".as_bytes());
@@ -282,6 +285,7 @@ fn save_as_cpp_to_json_rebinds_native_configuration_preserving_identity_crlf_and
     assert_eq!(app.doc().text.to_string(), "猫🙂 <>>()\r\n");
     assert_eq!(app.doc().id, id);
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, "save receipt", |app| !app.saves_pending());
     assert_eq!(fs::read(&destination).unwrap(), "猫🙂 <>>()\r\n".as_bytes());
     assert!(app.lsp.is_none());
 }

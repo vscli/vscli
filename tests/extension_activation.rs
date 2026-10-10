@@ -680,6 +680,7 @@ exports.activate=ctx=>{
     let identity = app.doc().id;
     app.doc_mut().insert("🙂", false);
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
     assert_eq!(
         std::fs::read_to_string(root.path().join("hidden.txt")).unwrap(),
         "🙂hidden猫\r\nretained"

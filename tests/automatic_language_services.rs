@@ -91,9 +91,11 @@ fn automatic_start_language_transitions_crash_retry_and_disable_preserve_shared_
     assert!(app.lsp.is_none());
     settle(&mut app);
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
     assert_eq!(std::fs::read(&cpp).unwrap(), b"//sum(1, 2)\r\n");
     app.execute("undo", Value::Null);
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
     assert_eq!(std::fs::read(&cpp).unwrap(), b"sum(1, 2)\r\n");
     app.execute("vscli.languageServer.enable", Value::Null);
     until(&mut app, |a| a.lsp.as_ref().is_some_and(|c| c.ready));

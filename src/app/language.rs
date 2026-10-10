@@ -182,11 +182,11 @@ impl App {
             Err(error) => self.message = format!("Language request failed: {error:#}"),
         }
     }
-    pub(super) fn language_saved(&mut self) {
+    pub(super) fn language_saved_snapshot(&mut self, path: &Path, committed: &ropey::Rope) {
         if let Some(client) = self.lsp.as_mut()
             && let Err(error) = client
                 .sync(&self.documents)
-                .and_then(|_| client.saved(&self.documents[self.active]))
+                .and_then(|_| client.saved_snapshot(path, committed))
         {
             self.message = format!("File saved; language server notification failed: {error:#}");
         }

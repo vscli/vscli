@@ -542,6 +542,12 @@ mod tests {
             KeyCode::Enter,
             KeyModifiers::NONE,
         )));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while app.saves_pending() {
+            app.poll();
+            assert!(Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(Duration::from_millis(1));
+        }
         assert_eq!(app.doc().path.as_ref(), Some(&moved));
         assert_eq!(app.capture_session().unwrap().files[0].path, moved);
         app.execute("workbench.action.closeAllEditors", Value::Null);

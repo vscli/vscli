@@ -85,11 +85,13 @@ fn configured_indent_modes_drive_physical_enter_and_preserve_crlf_save_undo() {
         let source = root.path().join("main.cpp");
         assert_eq!(std::fs::read(&source).unwrap(), original.as_bytes());
         app.execute("workbench.action.files.save", Value::Null);
+        until(&mut app, "save receipt", |app| !app.saves_pending());
         assert_eq!(std::fs::read(&source).unwrap(), expected.as_bytes());
         app.execute("undo", Value::Null);
         assert_eq!(app.doc().text.to_string(), original);
         assert_eq!(app.doc().cursor, 19);
         app.execute("workbench.action.files.save", Value::Null);
+        until(&mut app, "save receipt", |app| !app.saves_pending());
         assert_eq!(std::fs::read(&source).unwrap(), original.as_bytes());
         app.execute("redo", Value::Null);
         assert_eq!(app.doc().text.to_string(), expected);
@@ -136,6 +138,7 @@ fn actual_reload_a_b_a_and_undo_redo_never_revive_retired_generated_delimiters()
         original.as_bytes()
     );
     app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, "save receipt", |app| !app.saves_pending());
     assert_eq!(
         std::fs::read(root.path().join("main.cpp")).unwrap(),
         edited.as_bytes()
@@ -286,6 +289,7 @@ fn shared_view_ownership_and_save_as_profile_change_preserve_identity_history_an
     app.execute("workbench.action.files.saveAs", Value::Null);
     app.prompt.as_mut().unwrap().text = destination.to_string_lossy().into_owned();
     key(&mut app, KeyCode::Enter);
+    until(&mut app, "save receipt", |app| !app.saves_pending());
     assert_eq!(app.language(), "json");
     assert_eq!(app.doc().id, id);
     assert_eq!(app.doc().text.to_string(), paired);
