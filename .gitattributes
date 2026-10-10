@@ -11,3 +11,5 @@ tests/fixtures/vscode-cpp-configuration/** -text
 tests/vscode-reference/** -text
 # Isolated readiness captures verify the same exact input bytes on every runner.
 tests/vscode-reference-save-actions-readiness-candidate/** -text
+# Preserve immutable remote terminal logs, including Windows CRLF blank lines.
+tests/vscode-reference/observations/**/capture.log whitespace=cr-at-eol

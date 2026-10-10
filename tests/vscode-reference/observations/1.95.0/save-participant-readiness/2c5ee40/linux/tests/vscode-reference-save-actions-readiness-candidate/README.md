@@ -25,12 +25,3 @@ strict native auxiliary-evidence preflight qualify it. Preserve differing target
 observations and diagnose them; do not retry a target to obtain preferred output.
 The source-supported lifecycle race remains a hypothesis until remote evidence
 supports the new setup. This is reference-harness work, not new editor parity.
-
-The remote candidate completed on all three platforms in run 38053830713.
-Strict Rust preflight and exact-source artifact tests pass on each genuine
-archive; all 13 ordinary consumer tests pass against the untouched default
-baseline, and the controlled observer tests still pass. This qualifies the
-auxiliary setup metadata rather than every target outcome. Linux/macOS match the
-original target projection; Windows retains one differing deprecated boolean
-setting case. Adoption remains held pending save-time configuration evidence.
-The complete captures are preserved under the reference observations directory.
