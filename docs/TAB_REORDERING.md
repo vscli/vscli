@@ -54,17 +54,26 @@ qualification does not establish that equivalence or physical shortcut delivery
 through every host terminal.
 
 
-## Rebased save/layout qualification
+## Qualification on merged native reliability repairs
 
-The two reordering commits are rebased onto nested-layout parent
-`c9682f5a1a879370803c86715fc6ebf623a303f0`, including merged stable save policy
-and the corrected sticky source/deadline observer. Current local qualification
-passes 1,038 locked all-target Rust tests across 51 reports, with 23 optional
-integrations ignored, formatting and strict locked all-target Clippy. Four debug
-terminal scripts pass 20 reports covering reordering, nested layouts, sticky tabs
-and source actions on save. Reordering and sticky terminal scripts pass nine
-reports on the optimized executable. No local reference-editor instance was
-launched. Earlier counts and all-green CI describe the original feature head.
+The reordering implementation is rebased onto main
+`ba024b1d98b3cbcab3d47739bd92c04844b3e492`, including merged display
+foundations and the fixture-publication and syntax-cancellation repairs in PR
+#79. The feature implementation and terminal fixtures remain byte-identical to
+preceding head `2c5b0ab`; inherited native repairs change the integrated source.
+Current local qualification passes 1,101 locked all-target Rust tests across 51
+reports, with 23 optional integrations ignored, formatting and strict locked
+all-target Clippy. Five debug terminal scripts pass 21 reports covering
+reordering, nested layouts, sticky tabs, source actions on save and syntax color
+stability. Reordering and sticky terminal scripts pass nine reports on the
+optimized executable. No local reference-editor instance was launched.
+
+The first full run on this parent timed out in the existing relative-theme
+fixture. The unchanged focused test passed. Test-only timeout diagnostics now
+retain the actual call site, pending-receiver state, theme and notice; the
+original five-second deadline and assertion remain. The full integrated run
+above passed, but the original timeout's cause is unproven. Its failure log is
+retained; these diagnostics do not claim to repair theme loading.
 
 A scoped read-only source review found no actionable blocker in staged rotation,
 sticky/preview transitions, document/view identity, accepted Save-to-Close
@@ -73,12 +82,7 @@ review do not establish cross-group transfer, physical keyboard delivery on all
 terminals or full workbench parity. Fresh protected exact-head checks and parent
 integration remain required before merge.
 
-The candidate is now based on merged nested layouts in main
-`fb360539a060f118db4a10239e9d5181410e0a2e`. Layout PR #69 passed all six
-required checks on reviewed head `8664ba9` in
-[run 38073389609](https://github.com/vscli/vscli/actions/runs/38073389609).
-Reordering's previous head `7370e03` also passed all six checks in
+Reordering's earlier head `7370e03` passed all six checks in
 [run 38072995481](https://github.com/vscli/vscli/actions/runs/38072995481).
-Only inherited documentation changed in this main rebase; native source,
-tests, workflows and reference inputs remain byte-identical to that qualified
-reordering head. Fresh exact-head CI is required before this candidate merges.
+That historical result does not qualify the new integrated head. Fresh exact-head
+CI is required before this candidate merges.
