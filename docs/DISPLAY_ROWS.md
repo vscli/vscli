@@ -1,7 +1,7 @@
 # Native display-row foundation
 
 This candidate adds pure folding and display-row modules. It does not expose
-Fold/Unfold commands or word wrapping in the editor. App view ownership, workers,
+Fold/Unfold commands or word wrapping in the editor. App view ownership,
 rendering, navigation, reveal paths, popup anchors and source clicks still need
 combined integration and terminal qualification.
 
@@ -19,7 +19,7 @@ uses Rope line metadata without discovering folds or building a line inventory.
 Prepared folding separately admits at most 2 MiB, 100,000 lines, 5,000 regions and
 256 nesting levels. Validation rejects stale, crossing and duplicate ranges as a
 whole. Discovery accepts cancellation and a deadline. No worker or queue is
-allocated by these pure APIs. Word wrapping is explicitly refused. Width zero
+allocated by these display-row APIs. Word wrapping is explicitly refused. Width zero
 permits row traversal but no actionable cell projection.
 
 Cell mapping scans graphemes up to the requested line prefix, using the existing
@@ -35,7 +35,30 @@ characters, cross-chunk clusters, zero/narrow widths, extreme movement, malforme
 late input, private preparation identity and the distinct source admission limits.
 These are native foundation tests, not upstream command or desktop parity.
 
-The candidate passes 1,004 all-target Rust tests across 51 reports (20 optional
-cases ignored), formatting and strict locked all-target Clippy. The display-row
-tests are repeated after the test-only Clippy correction. No terminal gesture
-changes in this pure slice require a new PTY claim; the later App feature does.
+The additional native worker and controller remain separate from App. One actual
+thread and a one-result channel serve one latest metadata intent; queued work
+retains no Rope. Cancellation retires interest without freeing capacity. Poll
+joins the finished thread before releasing its slot, including a result sent
+before thread exit. Private view/options lifetimes, exact membership, text epoch,
+selection and interaction proofs guard publication. Ordinary polling borrows
+selections; explicit preparation admits at most 10,000 protected selections.
+No result itself changes a document or view. The caller must capture source from
+the exact retained model and recheck the outcome immediately before publication.
+
+If the last model closes, retire its interest and use `poll_retired` to drain the
+actual worker without fabricating a current model. Runtime disable must retain
+the same canceled worker until actual exit. Explicit bounded shutdown stops
+admission; a timeout keeps that occupied stopped instance. Final Drop cancels
+without blocking, and a detached thread owns its immutable source until exit.
+The six-second deadline is checked around bounded preparation phases and does
+not provide a hard wall-clock execution guarantee.
+
+Four real-worker tests and six controller tests cover held cancellation, replies
+before exit, selection protection, bounded malformed admission, expiration,
+edit/Undo epochs, options/view lifetime changes, latest/coalesced demand,
+shutdown timeout and closing the last model while a canceled worker remains
+occupied. These tests qualify controller contracts, not Document/App integration.
+
+The candidate passes 1,014 all-target Rust tests across 51 reports (20 optional
+cases ignored), formatting and strict locked all-target Clippy. No terminal
+gesture changes in this foundation require a new PTY claim; the App feature does.
