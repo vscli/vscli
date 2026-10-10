@@ -293,6 +293,29 @@ impl App {
     pub fn saves_pending(&self) -> bool {
         self.saving.worker.busy() || self.saving.latest.is_some()
     }
+    /// A timeout diagnostic, not a synchronization or authorization predicate.
+    #[cfg(test)]
+    pub(super) fn save_fixture_status(&self) -> String {
+        let latest = self
+            .saving
+            .latest
+            .as_ref()
+            .map(|intent| (intent.id, intent.document, intent.stage));
+        let active = self
+            .saving
+            .active
+            .as_ref()
+            .map(|active| (active.id, active.authorized));
+        format!(
+            "{}; latest(id, document, stage)={latest:?}; active(id, authorized)={active:?}; actions={}; formatting={}; file_job={}; participant_dispatch={}; shutting_down={}",
+            self.saving.worker.fixture_status(),
+            self.saving.actions.pending(),
+            self.saving.formatting.pending(),
+            self.file_job.is_some(),
+            self.saving.participant_dispatch,
+            self.saving.shutting_down,
+        )
+    }
     pub(super) fn native_save_worker_busy(&self) -> bool {
         self.saving.worker.busy()
     }

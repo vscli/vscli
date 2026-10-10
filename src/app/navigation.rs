@@ -750,11 +750,18 @@ mod tests {
     fn command(app: &mut App, id: &str) {
         app.execute(id, Value::Null);
     }
-    fn settle_saves(app: &mut App) {
+    fn settle_saves(app: &mut App, phase: &str) {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while app.saves_pending() {
             app.poll();
-            assert!(std::time::Instant::now() < deadline, "{}", app.message);
+            if !app.saves_pending() {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "{phase}: {}",
+                app.save_fixture_status(),
+            );
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
     }
@@ -949,7 +956,7 @@ mod tests {
         app.doc_mut().insert("!", false);
         command(&mut app, "workbench.action.closeActiveEditor");
         app.modal_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
-        settle_saves(&mut app);
+        settle_saves(&mut app, "existing-file close-save");
         assert!(app.active_document().is_none());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "changed!");
         std::fs::write(&path, "x").unwrap();
@@ -970,7 +977,7 @@ mod tests {
         let saved = root.path().join("saved-as.txt");
         app.prompt.as_mut().unwrap().text = saved.to_string_lossy().into_owned();
         app.accept_prompt();
-        settle_saves(&mut app);
+        settle_saves(&mut app, "untitled SaveAs close-save");
         let saved = std::fs::canonicalize(saved).unwrap();
         assert_eq!(app.navigation.closed.last().unwrap().path, saved);
         command(&mut app, "workbench.action.reopenClosedEditor");
