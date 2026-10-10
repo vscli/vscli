@@ -18,6 +18,12 @@ Text Undo/Redo and shared document identity remain native. Source snippet/auto-p
 
 Directional `moveEditorToLeft/Right/Above/BelowGroup` wrappers remain unregistered: original missing-neighbor behavior creates groups and needs a complete creation/order transaction rather than an existing-only alias. Copy wrappers, drag-and-drop, multi-selected editors, arbitrary `moveActiveEditor` arguments, auxiliary windows, editor-specific vetoes, retained empty groups and nondefault insertion policy remain outside this slice.
 
+The historical Windows CI save wait remains undiagnosed. Bounded
+[test-only save-worker progress diagnostics](SAVE_WORKER_DIAGNOSTICS.md) now
+distinguish actual authorization receipt, persistence calls, cleanup, terminal
+send and thread completion without changing production behavior or deadlines.
+An isolated local pass does not qualify the Windows full-workload failure.
+
 Local qualification passes nine App integrity cases, two settings cases, one original platform-key case and a real symbol-provider Breadcrumbs endpoint regression. The locked all-target Rust suite passes 1,047 tests across 51 reports with four test threads; 20 opt-in tests are ignored. Formatting and strict all-target locked Clippy pass. Four new native PTY reports run across six isolated sessions, checking original keys/palette commands, exact Unicode/CRLF Save/Undo/Redo, clean session restart, sticky deduplication, unrelated preview ownership, right/down topology and inert policy/capacity refusal. Eight relevant Unix PTY scripts pass 39 reports in total: transfer, group tabs, nested layout, sticky tabs, reordering, directional focus, preview tabs and smart typing. The separately tested foundation includes 57 editor-group tests (thirteen transfer cases) and six Document integrity tests. Fresh platform CI remains a separate gate. No new local VS Code instance/capture was used; original command semantics are sourced from pinned 1.95.0 code/inventories, rather than a newly observed transfer trace.
 
 Primary source: [original target/creation commands](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/browser/parts/editor/editorCommands.ts#L224), [move view/sticky/preview handling](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/browser/parts/editor/editorGroupView.ts#L1454), [original wrapper keys](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/browser/parts/editor/editorActions.ts#L2021).

@@ -12,6 +12,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(test)]
+pub(crate) mod diagnostics;
+#[cfg(test)]
+mod progress_tests;
+
 const AUTHORIZATION: Duration = Duration::from_secs(6);
 
 #[derive(Debug)]
@@ -63,6 +68,8 @@ struct Pending {
     phase: Phase,
     deadline: Option<Instant>,
     finished: Option<std::result::Result<Outcome, String>>,
+    #[cfg(test)]
+    progress: std::sync::Arc<diagnostics::Trace>,
 }
 #[derive(Default)]
 pub struct Worker {
@@ -98,8 +105,13 @@ impl Worker {
             pending.id,
             pending.thread.is_finished(),
             pending.finished.is_some(),
-        )
+        ) + &format!("; {}", pending.progress.status())
     }
+    #[cfg(test)]
+    fn fixture_progress(&self) -> Option<&std::sync::Arc<diagnostics::Trace>> {
+        self.pending.as_ref().map(|pending| &pending.progress)
+    }
+
     pub fn awaiting_authorization(&self, id: u64) -> bool {
         self.pending.as_ref().is_some_and(|pending| {
             pending.id == id
@@ -145,10 +157,16 @@ impl Worker {
         let (control, decisions) = mpsc::sync_channel(1);
         let captured = snapshot.clone();
         #[cfg(test)]
+        let progress = std::sync::Arc::new(diagnostics::Trace::default());
+        #[cfg(test)]
+        let worker_progress = progress.clone();
+        #[cfg(test)]
         let gate = self.gate.take();
         let thread = thread::Builder::new()
             .name("vscli-native-save".into())
             .spawn(move || {
+                #[cfg(test)]
+                let _progress_scope = diagnostics::Scope::enter(worker_progress);
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     work(
                         id,
@@ -163,6 +181,13 @@ impl Worker {
                 }))
                 .map_err(|_| "Native save worker panicked".to_owned())
                 .and_then(|result| result.map_err(persistence::message));
+                #[cfg(test)]
+                diagnostics::mark(match &result {
+                    Ok(Outcome::Committed(_)) => diagnostics::Stage::WorkCommitted,
+                    Ok(Outcome::Rejected) => diagnostics::Stage::WorkRejected,
+                    Ok(Outcome::Expired) => diagnostics::Stage::WorkExpired,
+                    Err(_) => diagnostics::Stage::WorkError,
+                });
                 // All destination handles, tempfiles and lock guards are gone before
                 // terminal notification. Actual capacity still waits for thread join.
                 #[cfg(test)]
@@ -172,7 +197,11 @@ impl Worker {
                         return;
                     }
                 }
+                #[cfg(test)]
+                diagnostics::mark(diagnostics::Stage::TerminalSending);
                 let _ = sender.send(WorkerEvent::Finished(result));
+                #[cfg(test)]
+                diagnostics::mark(diagnostics::Stage::TerminalSent);
                 #[cfg(test)]
                 if let Some(gate) = &gate {
                     let _ = gate.pause(GatePoint::AfterFinishReply);
@@ -188,6 +217,8 @@ impl Worker {
             phase: Phase::Preparing,
             deadline: None,
             finished: None,
+            #[cfg(test)]
+            progress,
         });
         Ok(())
     }
@@ -601,6 +632,8 @@ fn work(
     }
     let info = prepared.info();
     let expires_at = Instant::now() + authorization;
+    #[cfg(test)]
+    diagnostics::mark(diagnostics::Stage::PreparedSending);
     if sender
         .send(WorkerEvent::Prepared(PreparedInfo {
             id,
@@ -614,20 +647,39 @@ fn work(
     {
         return Ok(Outcome::Rejected);
     }
+    #[cfg(test)]
+    diagnostics::mark(diagnostics::Stage::PreparedSent);
+    #[cfg(test)]
+    diagnostics::mark(diagnostics::Stage::AuthorizationReceiving);
     match decisions.recv_timeout(authorization) {
         Ok(Decision::Reject) | Err(mpsc::RecvTimeoutError::Disconnected) => {
+            #[cfg(test)]
+            diagnostics::mark(diagnostics::Stage::AuthorizationRejected);
             return Ok(Outcome::Rejected);
         }
-        Err(mpsc::RecvTimeoutError::Timeout) => return Ok(Outcome::Expired),
-        Ok(Decision::Authorize) => ensure!(
-            Instant::now() < expires_at,
-            "Native save authorization expired"
-        ),
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            #[cfg(test)]
+            diagnostics::mark(diagnostics::Stage::AuthorizationExpired);
+            return Ok(Outcome::Expired);
+        }
+        Ok(Decision::Authorize) => {
+            #[cfg(test)]
+            diagnostics::mark(diagnostics::Stage::AuthorizationReceived);
+            ensure!(
+                Instant::now() < expires_at,
+                "Native save authorization expired"
+            );
+        }
     }
     #[cfg(test)]
     if let Some(gate) = gate {
         gate.pause(GatePoint::BeforeCommit)?;
     }
+    #[cfg(test)]
+    let _commit_span = diagnostics::Span::enter(
+        diagnostics::Stage::CommitCalling,
+        diagnostics::Stage::CommitCallReturned,
+    );
     Ok(Outcome::Committed(prepared.commit()?))
 }
 
