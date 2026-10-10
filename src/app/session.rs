@@ -379,21 +379,38 @@ impl App {
                 "Session restore exceeds the retained model proof limit; recovery retained"
             );
         }
+        let unassigned = self
+            .documents
+            .iter()
+            .filter(|doc| self.editor_groups.memberships(doc.id).next().is_none())
+            .map(|doc| doc.id)
+            .collect::<Vec<_>>();
+        let occupied = self
+            .editor_groups
+            .active_group()
+            .and_then(|id| self.editor_groups.group(id))
+            .map_or(0, |group| group.tabs().len());
+        // Existing memberships may legitimately span all four groups. Only
+        // models that still need admission consume the active group's slots.
         if had_existing
             && (self.group_fallback
-                || self.documents.len() + staged.len() > crate::editor_groups::MAX_TABS_PER_GROUP)
+                || unassigned.len() + staged.len()
+                    > crate::editor_groups::MAX_TABS_PER_GROUP.saturating_sub(occupied))
         {
             self.documents.extend(staged);
             self.group_fallback = true;
             self.sync_pane();
             self.session.protected = false;
             self.session.explicit_empty = self.documents.is_empty();
-            self.message = "Clean session files appended; editor-group layout unavailable beyond 128 recovered buffers; all recovery retained".into();
+            self.message = "Clean session files appended; editor-group layout unavailable beyond the active group's 128-tab limit; all recovery retained".into();
             return Ok(());
         }
         let mut engine = self.editor_groups.clone();
         if had_existing {
             let active = engine.active_membership();
+            for id in unassigned {
+                engine.open(id)?;
+            }
             for doc in &staged {
                 engine.open(doc.id)?;
             }
@@ -996,6 +1013,125 @@ mod tests {
         assert!(app.session_context() != before);
         assert_eq!(app.session_context().panes, before.panes);
         assert_eq!(app.session_context().documents, before.documents);
+    }
+    #[test]
+    fn distributed_existing_models_retain_groups_when_clean_session_files_fit() {
+        for new_files in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let mut restored = grouped_fixture(root.path());
+            let mut app = App::new(root.path().into(), Profile::Linux);
+            app.documents = (0..129)
+                .map(|index| Document::from_text(&format!("retained {index} 猫🙂\r\n")))
+                .collect();
+            if !new_files {
+                for (index, doc) in restored.documents.drain(..).enumerate() {
+                    app.documents[index] = doc;
+                }
+            }
+            app.documents[0].insert("dirty", false);
+            app.documents[0].undo();
+            let ids = app.documents.iter().map(|doc| doc.id).collect::<Vec<_>>();
+            app.editor_groups
+                .import(
+                    &[
+                        RestoreGroup {
+                            documents: ids[..128].to_vec(),
+                            active: 0,
+                            recent: (0..128).collect(),
+                        },
+                        RestoreGroup {
+                            documents: vec![ids[0], ids[128]],
+                            active: 1,
+                            recent: vec![1, 0],
+                        },
+                    ],
+                    1,
+                )
+                .unwrap();
+            let left = app.editor_groups.groups()[0].id().value();
+            let right = app.editor_groups.groups()[1].id().value();
+            app.documents[0].activate_view(left);
+            app.documents[0].move_to(1, false);
+            app.documents[0].move_to(3, true);
+            app.documents[0].top = 7;
+            app.documents[0].activate_view(right);
+            app.documents[0].move_to(4, false);
+            app.documents[0].move_to(2, true);
+            app.documents[0].left = 9;
+            app.project_editor_groups();
+            let engine = app.editor_groups.clone();
+            let panes = app
+                .panes
+                .iter()
+                .map(|pane| (pane.id, pane.document))
+                .collect::<Vec<_>>();
+            let left_view =
+                View::capture(&app.documents[0], app.documents[0].view_state(Some(left))).unwrap();
+            let right_view =
+                View::capture(&app.documents[0], app.documents[0].view_state(Some(right))).unwrap();
+            let epoch = app.documents[0].text_epoch();
+            let generation = app.documents[0].save_generation();
+            let original = app.documents[0].text.clone();
+
+            app.install_session(restored).unwrap();
+
+            assert!(!app.group_fallback);
+            assert_eq!(app.editor_groups.groups().len(), 2);
+            assert_eq!(app.documents.len(), if new_files { 131 } else { 129 });
+            assert_eq!(
+                app.panes
+                    .iter()
+                    .map(|pane| (pane.id, pane.document))
+                    .collect::<Vec<_>>(),
+                panes
+            );
+            assert_eq!(app.doc().id, ids[128]);
+            assert_eq!(app.editor_groups.groups()[0], engine.groups()[0]);
+            assert_eq!(
+                app.editor_groups.active_membership(),
+                engine.active_membership()
+            );
+            if new_files {
+                assert_eq!(app.editor_groups.groups()[1].tabs().len(), 4);
+                assert_eq!(
+                    &app.editor_groups.groups()[1].tabs()[..2],
+                    engine.groups()[1].tabs()
+                );
+            } else {
+                assert_eq!(app.editor_groups, engine);
+            }
+            assert_eq!(
+                app.documents[..129]
+                    .iter()
+                    .map(|doc| doc.id)
+                    .collect::<Vec<_>>(),
+                ids
+            );
+            assert_eq!(
+                View::capture(&app.documents[0], app.documents[0].view_state(Some(left))).unwrap(),
+                left_view
+            );
+            assert_eq!(
+                View::capture(&app.documents[0], app.documents[0].view_state(Some(right))).unwrap(),
+                right_view
+            );
+            assert_eq!(app.documents[0].text, original);
+            assert_eq!(app.documents[0].text_epoch(), epoch);
+            assert_eq!(app.documents[0].save_generation(), generation);
+            app.documents[0].redo();
+            assert_eq!(
+                app.documents[0].text.to_string(),
+                format!("dirty{original}")
+            );
+            app.documents[0].undo();
+            assert_eq!(app.documents[0].text, original);
+            for name in ["a.cpp", "b.cpp"] {
+                assert_eq!(
+                    fs::read_to_string(root.path().join(name)).unwrap(),
+                    "猫🙂 value\r\nnext\r\n"
+                );
+            }
+        }
     }
     #[test]
     fn over_cap_recovery_retains_every_variant_and_history_while_appending_clean_files() {

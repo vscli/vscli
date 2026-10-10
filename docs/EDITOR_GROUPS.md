@@ -103,6 +103,9 @@ view and 1 MiB of serialized metadata; restore reads at most 128 MiB of file
 content in aggregate. Dirty and Untitled text and Undo history belong to the
 separate recovery mechanism, rather than this clean-file layout. Existing
 recovered models and their selections take precedence during session restore.
+Already grouped recovered models can span all four groups. Appending clean
+files counts only new or unassigned models against the active group's free
+slots; a valid distributed layout is retained beyond 128 total documents.
 
 Malformed references, duplicate memberships, unsupported schemas, missing files,
 stale App context and budget failures reject publication without replacing the
