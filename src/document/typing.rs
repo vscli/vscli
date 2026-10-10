@@ -1,8 +1,8 @@
 //! Bounded native typing decisions and one transaction per compound gesture.
 use super::*;
 use crate::editing_profile::{
-    AutoClosing, AutoIndent, ContextProof, LexicalContext, PairHandling, ProfileId, Surround,
-    TypingOptions, before, quote, word,
+    AutoClosing, ContextProof, LexicalContext, PairHandling, ProfileId, Surround, TypingOptions,
+    before, quote, word,
 };
 use std::sync::Arc;
 
@@ -200,19 +200,15 @@ struct Plan {
     marks: Vec<Mark>,
 }
 impl Document {
-    pub fn typing_contexts(
-        &mut self,
-        positions: &[usize],
-        profile: ProfileId,
-    ) -> Vec<ContextProof> {
+    // Prefix checkpoints certify exact current-Rope state, independently of
+    // asynchronous syntax highlighting. Both planners share this invalidation.
+    fn take_typing_cache(&mut self, profile: ProfileId) -> ContextCache {
         let mut cache = std::mem::take(&mut self.typing_context);
         if cache.profile != Some(profile) {
             cache.reset(profile, self.text_epoch);
         } else if cache.epoch != self.text_epoch {
             if let Some(changes) = self.byte_changes_since(cache.epoch) {
                 if let Some(first) = changes.map(|change| change.range.start).min() {
-                    // A checkpoint at the changed boundary holds the state
-                    // before that byte and is also safe to retain.
                     cache.checkpoints.retain(|point| point.byte <= first);
                 }
                 cache.epoch = self.text_epoch;
@@ -220,6 +216,59 @@ impl Document {
                 cache.reset(profile, self.text_epoch);
             }
         }
+        cache
+    }
+    pub(super) fn scan_typing_line(
+        &mut self,
+        row: usize,
+        profile: ProfileId,
+        budget: &mut usize,
+    ) -> Option<super::indentation::Line> {
+        if !matches!(profile, ProfileId::Cpp | ProfileId::Json) || row >= self.line_count() {
+            return None;
+        }
+        let mut cache = self.take_typing_cache(profile);
+        let start = self.line_start(row);
+        let target = self.text.char_to_byte(start);
+        let point = cache.checkpoints[cache.checkpoints.partition_point(|p| p.byte <= target) - 1];
+        let mut state = point.state;
+        let mut byte = point.byte;
+        let mut position = self.text.byte_to_char(byte);
+        let mut chars = Vec::new();
+        let mut code = Vec::new();
+        let end = self.line_end(row);
+        for ch in self.text.chars_at(position) {
+            if position == end || ch.len_utf8() > *budget {
+                break;
+            }
+            *budget -= ch.len_utf8();
+            if position >= start {
+                chars.push(ch);
+                code.push(state.context() == LexicalContext::Code);
+            }
+            state = state.next(ch, profile);
+            byte += ch.len_utf8();
+            position += 1;
+            if position == start {
+                cache.checkpoint(Checkpoint { byte, state });
+            }
+        }
+        cache.checkpoint(Checkpoint { byte, state });
+        self.typing_context = cache;
+        (position == end && state.context() != LexicalContext::Unknown).then_some(
+            super::indentation::Line {
+                chars,
+                code,
+                end_context: state.context(),
+            },
+        )
+    }
+    pub fn typing_contexts(
+        &mut self,
+        positions: &[usize],
+        profile: ProfileId,
+    ) -> Vec<ContextProof> {
+        let mut cache = self.take_typing_cache(profile);
         let mut order = positions
             .iter()
             .enumerate()
@@ -513,6 +562,26 @@ impl Document {
                 }
             }
         }
+        if let Some(edits) =
+            super::indentation::Session::new().closing(self, &selections, ch, options)
+        {
+            let group = grouped
+                && self.view.pairs.options == Some(options)
+                && self.typing.is_some_and(|(time, end)| {
+                    time.elapsed() < Duration::from_millis(700) && end == self.cursor
+                });
+            self.commit_indentation(edits, options)?;
+            if group && let Some(last) = self.undo.pop() {
+                if let Some(previous) = self.undo.last_mut() {
+                    previous.changes.extend(last.changes);
+                    previous.after_selections = None;
+                } else {
+                    self.undo.push(last);
+                }
+            }
+            self.break_group();
+            return Ok(());
+        }
         let inserted = ch.to_string();
         self.validate_typing_size(
             &selections
@@ -613,105 +682,55 @@ impl Document {
     pub fn line_break_with_options(&mut self, options: TypingOptions) -> Result<()> {
         self.typing_newline(options, true)
     }
-    fn typing_newline(&mut self, options: TypingOptions, keep_position: bool) -> Result<()> {
-        let selections = self.smart_selections()?;
-        let bracket_indent = options.indent == AutoIndent::Brackets && !self.in_snippet();
-        let proofs = if bracket_indent {
-            self.typing_contexts(
-                &selections
-                    .iter()
-                    .map(|selection| selection.range().start)
-                    .collect::<Vec<_>>(),
-                options.profile,
-            )
-        } else {
-            Vec::new()
-        };
-        let mut additions = Vec::new();
-        let mut caret_offsets = Vec::new();
-        let mut budget = SCAN_BYTES;
-        for (index, selection) in selections.iter().enumerate() {
-            let range = selection.range();
-            let row = self.text.char_to_line(range.start);
-            let line_start = self.line_start(row);
-            let mut indent = String::new();
-            if options.indent != AutoIndent::None {
-                for ch in self.text.slice(line_start..range.start).chars() {
-                    if !matches!(ch, ' ' | '\t') {
-                        break;
-                    }
-                    if ch.len_utf8() > budget {
-                        bail!("Typing indentation inspection exceeds 64 KiB");
-                    }
-                    budget -= ch.len_utf8();
-                    indent.push(ch);
-                }
-            }
-            let mut text = format!("{}{}", self.eol, indent);
-            let mut offset = text.chars().count();
-            if bracket_indent && proofs[index].context == LexicalContext::Code {
-                let mut left = range.start;
-                while left > line_start && matches!(self.text.char(left - 1), ' ' | '\t') {
-                    if budget == 0 {
-                        break;
-                    }
-                    budget -= 1;
-                    left -= 1;
-                }
-                if left > line_start && options.profile.indent_pair(self.text.char(left - 1), None)
-                {
-                    text.push_str(&self.indentation());
-                    offset = text.chars().count();
-                    let mut right = range.end;
-                    while right < self.len() && matches!(self.text.char(right), ' ' | '\t') {
-                        if budget == 0 {
-                            break;
-                        }
-                        budget -= 1;
-                        right += 1;
-                    }
-                    if right < self.len()
-                        && options
-                            .profile
-                            .indent_pair(self.text.char(left - 1), Some(self.text.char(right)))
-                    {
-                        text.push_str(&self.eol);
-                        text.push_str(&indent);
-                    }
-                }
-            }
-            additions.push(text);
-            caret_offsets.push(offset);
+    fn commit_indentation(
+        &mut self,
+        edits: Vec<super::indentation::Edit>,
+        options: TypingOptions,
+    ) -> Result<()> {
+        let mut order = (0..edits.len()).collect::<Vec<_>>();
+        order.sort_by_key(|index| edits[*index].range.start);
+        let mut selections = vec![Selection::caret(0); edits.len()];
+        let mut shift = 0isize;
+        for index in order {
+            let edit = &edits[index];
+            selections[index] =
+                Selection::caret(edit.range.start.saturating_add_signed(shift) + edit.offset);
+            shift += edit.text.chars().count() as isize - edit.range.len() as isize;
         }
-        let shifts = shifts(&selections, |index| additions[index].chars().count());
-        let final_selections = selections
-            .iter()
-            .enumerate()
-            .map(|(index, selection)| {
-                let start = selection.range().start.saturating_add_signed(shifts[index]);
-                if keep_position {
-                    Selection {
-                        cursor: start,
-                        anchor: None,
-                        desired_column: None,
-                    }
-                } else {
-                    Selection::caret(start + caret_offsets[index])
-                }
-            })
-            .collect();
         self.commit_typing(
             Plan {
-                changes: selections
-                    .iter()
-                    .zip(additions)
-                    .map(|(selection, text)| (selection.range(), text))
+                changes: edits
+                    .into_iter()
+                    .map(|edit| (edit.range, edit.text))
                     .collect(),
-                selections: final_selections,
+                selections,
                 marks: Vec::new(),
             },
             options,
         )
+    }
+    fn typing_newline(&mut self, options: TypingOptions, keep_position: bool) -> Result<()> {
+        let selections = self.smart_selections()?;
+        let mut session = super::indentation::Session::new();
+        // Reserve ordinary leading-indent work before optional lexical scans.
+        // Exhausting optional work must never turn a later caret into an error.
+        let bases = selections
+            .iter()
+            .map(|selection| session.base(self, &selection.range(), options.indent))
+            .collect::<Result<Vec<_>>>()?;
+        let snippet = self.in_snippet();
+        let edits = selections
+            .iter()
+            .zip(bases)
+            .map(|(selection, base)| {
+                session.enter(self, selection, options, base, keep_position, snippet)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.commit_indentation(edits, options)?;
+        if !keep_position {
+            self.typing = Some((Instant::now(), self.cursor));
+        }
+        Ok(())
     }
     pub fn backspace_with_options(&mut self, options: TypingOptions, word: bool) -> Result<()> {
         let selections = self.smart_selections()?;

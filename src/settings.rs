@@ -138,12 +138,6 @@ impl Settings {
             } else if !valid(key, value) {
                 self.warnings
                     .push(format!("{source}: invalid value for {key}"));
-            } else if key == "editor.autoIndent"
-                && matches!(value.as_str(), Some("advanced" | "full"))
-            {
-                self.warnings.push(format!(
-                    "{source}: {key} supports bracket indentation; advanced/full language rules remain incomplete"
-                ));
             }
         }
     }
@@ -316,7 +310,9 @@ impl Settings {
             {
                 Some("none") => AutoIndent::None,
                 Some("keep") => AutoIndent::Keep,
-                _ => AutoIndent::Brackets,
+                Some("brackets") => AutoIndent::Brackets,
+                Some("advanced") => AutoIndent::Advanced,
+                _ => AutoIndent::Full,
             },
         }
     }
@@ -653,7 +649,7 @@ mod tests {
         assert_eq!(cpp.delete, PairHandling::Always);
         assert_eq!(cpp.overtype, PairHandling::Never);
         assert_eq!(cpp.surround, Surround::Quotes);
-        assert_eq!(cpp.indent, AutoIndent::Brackets);
+        assert_eq!(cpp.indent, AutoIndent::Full);
         assert!(settings.parameter_hints("cpp").enabled);
         assert!(!settings.parameter_hints("cpp").cycle);
         assert!(!settings.parameter_hints("json").enabled);
@@ -661,8 +657,7 @@ mod tests {
             settings.typing("json").brackets,
             AutoClosing::BeforeWhitespace
         );
-        assert_eq!(settings.warnings.len(), 1);
-        assert!(settings.warnings[0].contains("advanced/full"));
+        assert!(settings.warnings.is_empty());
     }
 
     #[test]

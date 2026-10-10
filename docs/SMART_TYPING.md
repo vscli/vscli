@@ -1,7 +1,7 @@
 # Native smart typing
 
 This slice adds generated bracket/quote pairs, surrounding selections, generated
-closer overtyping/deletion, and bracket-aware Enter to the Rust document engine.
+closer overtyping/deletion, and language-aware Enter to the Rust document engine.
 It works without Node, an extension host, syntax highlighting, or a language server.
 C/C++ and JSON/JSONC have bundled, explicitly scoped editing profiles.
 
@@ -20,10 +20,17 @@ The existing user/workspace/language override precedence applies to these keys:
 | `editor.autoClosingBrackets` / `editor.autoClosingQuotes` | `always`, `languageDefined`, `beforeWhitespace`, `never` | `languageDefined` |
 | `editor.autoClosingDelete` / `editor.autoClosingOvertype` | `always`, `auto`, `never` | `auto` |
 | `editor.autoSurround` | `languageDefined`, `quotes`, `brackets`, `never` | `languageDefined` |
-| `editor.autoIndent` | `none`, `keep`, `brackets`, `advanced`, `full` | `brackets` |
+| `editor.autoIndent` | `none`, `keep`, `brackets`, `advanced`, `full` | `full` |
 
-`advanced` and `full` currently apply bracket indentation and report a compatibility
-notice. Language-specific advanced indentation and Enter rules remain incomplete.
+The five modes are distinct. `none` adds no Enter indentation; `keep` retains the
+current indentation; `brackets` adds bracket Enter rules. `advanced` also applies
+the bundled C++ unbraced-control-body Enter rule; `full` adds JSON indentation
+inheritance and closing-line rules. Indentation uses visual tab stops and the
+configured spaces/tabs. Single-cursor electric closing alignment operates in
+every mode, as separately observed in the pinned editor. JSON full indentation
+can also adjust a complete multi-cursor cohort; mixed unsupported cohorts fall
+back together. See [advanced indentation](ADVANCED_INDENTATION.md) for scope.
+
 Unsupported language profiles retain ordinary literal typing/basic indentation;
 bundled highlighting alone does not imply a smart-typing profile.
 
@@ -66,6 +73,6 @@ failed edits/persistence, and bounded large-document context. Unix
 restored terminal modes with an empty executable PATH.
 
 Extension-contributed language configurations, Rust/Python/JavaScript context,
-multi-character automatic delimiters, advanced dedent/Enter rules, electric
-characters, and full VS Code typing behavior remain outstanding. The reference
+multi-character automatic delimiters, additional language rules and full VS Code
+typing behavior remain outstanding. The reference
 cases qualify their named gestures, not all editor settings or language rules.

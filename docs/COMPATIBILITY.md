@@ -55,8 +55,11 @@ retrigger contexts and local overload navigation alongside completion. Dedicated
 actual-work lanes and active-editor/source/settings guards reject stale replies.
 See [contracts and remaining qualification](PARAMETER_HINTS.md). Native C/C++ and
 JSON/JSONC [smart typing](SMART_TYPING.md) adds guarded pairs, surrounding selections,
-owned-close handling and bracket-aware Enter; advanced indentation and broader
-language configuration remain incomplete.
+owned-close handling and bracket-aware Enter. Native [advanced indentation](ADVANCED_INDENTATION.md)
+adds distinct auto-indent modes, bundled C++ unbraced-body/JSON rules and guarded
+electric closers. Its prepared-token reference contract excludes the pinned
+editor's natural startup-token timing; extension language configurations and
+broader language-rule parity remain incomplete.
 
 Native LSP document/workspace symbol search supports bounded hierarchical and flat
 responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-file

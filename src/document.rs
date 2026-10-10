@@ -12,6 +12,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 mod editing;
 pub(crate) mod graphemes;
+mod indentation;
 mod snippets;
 mod typing;
 

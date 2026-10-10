@@ -456,7 +456,7 @@ fn multi_cursor_pairs_and_indentation_preserve_caller_order_with_one_undo() {
     doc.newline_with_options(typing).unwrap();
     assert_eq!(
         doc.text.to_string(),
-        "{\r\n    \r\n}\r\n  {\r\n      \r\n  }\r\n"
+        "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n"
     );
     doc.undo();
     assert_eq!(doc.text.to_string(), "{}\r\n  {}\r\n");
