@@ -5,6 +5,14 @@ not evidence that asynchronous saves, autosave, format-on-save or save-time code
 actions already work. The settings-persistence candidate is a separate feature;
 its reviewed worker and publication guards provide patterns to reuse.
 
+The native document foundation now exposes immutable `SaveSnapshot` capture,
+preauthorization checking and successful-receipt publication without filesystem
+I/O. Five native integrity tests pass for edit→Undo fencing, newer postauthorization
+edits, shared reversed selections and existing Redo through Save As, stale or
+duplicate receipts, and size/path/generation bounds. Formatting and strict
+all-target Clippy also pass for this foundation. The current App save path remains
+synchronous until the worker and ownership integration below are qualified.
+
 ## Current integration points
 
 | Source | Current behavior | Required integration |
