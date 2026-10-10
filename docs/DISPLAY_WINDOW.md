@@ -35,3 +35,21 @@ windows, capacity accounting, maximal admitted scans and refusal of an oversized
 visible line while retaining prior authority. A large document with an off-window
 long line demonstrates that preparation does not inspect unrelated rows.
 These tests qualify this immutable API, not terminal gestures or upstream parity.
+
+
+## Rebased foundation qualification
+
+The five foundation commits are rebased onto nested-layout head
+`c9682f5a1a879370803c86715fc6ebf623a303f0`, retaining merged stable save policy
+and the separately bound corrected sticky observer. The rebased source passes
+1,084 locked all-target Rust tests across 51 reports, with 23 optional
+integrations ignored, formatting and strict locked all-target Clippy. Three
+native debug terminal scripts pass 16 reports covering nested layouts, sticky
+tabs and source actions on save. No local reference-editor instance was launched.
+
+These checks establish foundation and existing-workflow regression evidence.
+They do not establish visible folding: App command dispatch, shared frame/input
+authority and aggregate reservations are being integrated in the separate
+user-visible slice. Fresh exact-head protected CI and parent integration remain
+required before this foundation merges. Earlier all-green CI results apply to
+their original heads, not this rebase.
