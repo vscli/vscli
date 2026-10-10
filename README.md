@@ -19,6 +19,9 @@ Native navigation includes [Back/Forward history](docs/NAVIGATION_HISTORY.md),
 [Outline](docs/OUTLINE.md) and [Breadcrumbs](docs/BREADCRUMBS.md). Breadcrumbs
 file trails work without Node or a language server; current native or extension
 symbols supply a guarded sibling picker.
+The Breadcrumbs toggle now saves its root setting through
+[native background settings persistence](docs/SETTINGS_PERSISTENCE.md), preserving
+comments and guarding unsaved settings buffers.
 
 This alpha implements a **subset** of VS Code commands and bindings. Native language features include diagnostics, completion, explicit parameter hints, symbols, navigation, formatting and limited rename/refactoring. One native language server is active per window; manual configuration and disable controls remain available. Clean-file session restoration is opt-in and separate from dirty-buffer crash recovery. Native debugging supports breakpoints, stepping, stack/variables and expression evaluation through an explicitly configured stdio adapter; Python/debugpy is tested.
 

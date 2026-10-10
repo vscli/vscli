@@ -3,6 +3,26 @@ use crate::watch::{CONTENT, DiskChange, DiskJob, INDEX, ReadRequest};
 use std::time::{Duration, Instant};
 
 impl App {
+    /// Fence earlier disk snapshots without abandoning their actual worker.
+    /// The next read uses the latest model proofs after that worker settles.
+    pub(super) fn invalidate_disk_watch_publications(&mut self) -> Result<()> {
+        if self.watch.publication_disabled {
+            anyhow::bail!(
+                "Disk refresh is disabled after publication generation exhaustion; restart the editor"
+            );
+        }
+        let Some(next) = self.watch.publication_epoch.checked_add(1) else {
+            self.watch.publication_disabled = true;
+            self.message = "Disk refresh disabled: publication generation exhausted; buffers retained, restart the editor".into();
+            anyhow::bail!("Disk refresh publication generation exhausted; restart the editor");
+        };
+        self.watch.publication_epoch = next;
+        self.watch.pending |= CONTENT;
+        // An explicit persistence boundary requests refresh immediately; native
+        // notification debounce remains unchanged for unrelated changes.
+        self.watch.last_event = Instant::now() - Duration::from_millis(300);
+        Ok(())
+    }
     pub(super) fn poll_watching(&mut self) -> bool {
         let paths: Vec<_> = self
             .documents
@@ -45,7 +65,8 @@ impl App {
             self.watch.last_refresh = Instant::now();
             changed = true;
         }
-        if self.file_job.is_none()
+        if !self.watch.publication_disabled
+            && self.file_job.is_none()
             && self.watch.disk.is_none()
             && ((self.watch.pending & CONTENT != 0 && settled)
                 || self.watch.last_read.elapsed() >= Duration::from_secs(2))
@@ -59,6 +80,9 @@ impl App {
                         id: d.id,
                         revision: d.revision,
                         saved_revision: d.saved_revision,
+                        text_epoch: d.text_epoch(),
+                        save_generation: d.save_generation(),
+                        publication_epoch: self.watch.publication_epoch,
                         path,
                         baseline: d.disk_content.clone(),
                     })
@@ -72,7 +96,7 @@ impl App {
             return changed;
         }
         for _ in 0..4 {
-            let result = match self.watch.disk.as_ref().map(DiskJob::poll) {
+            let result = match self.watch.disk.as_mut().map(DiskJob::poll) {
                 Some(Ok(Some(snapshot))) => snapshot,
                 Some(Err(_)) => {
                     self.watch.disk = None;
@@ -80,6 +104,12 @@ impl App {
                 }
                 _ => break,
             };
+            if self.watch.publication_disabled
+                || result.publication_epoch != self.watch.publication_epoch
+            {
+                self.watch.pending |= CONTENT;
+                continue;
+            }
             let Some(doc) = self
                 .documents
                 .iter_mut()
@@ -88,7 +118,11 @@ impl App {
             else {
                 continue;
             };
-            if doc.revision != result.revision || doc.saved_revision != result.saved_revision {
+            if doc.revision != result.revision
+                || doc.saved_revision != result.saved_revision
+                || doc.text_epoch() != result.text_epoch
+                || doc.save_generation() != result.save_generation
+            {
                 self.watch.pending |= CONTENT;
                 continue;
             }
@@ -205,5 +239,192 @@ mod tests {
         app.doc_mut().undo();
         assert_eq!(app.doc().text.to_string(), "preserve me");
         assert!(app.doc().dirty());
+    }
+    fn clean_fixture(text: &str) -> (tempfile::TempDir, App, PathBuf) {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let path = root.join("settings.json");
+        std::fs::write(&path, text).unwrap();
+        let mut app = App::new(root, Profile::Linux);
+        app.documents.push(Document::open(&path).unwrap());
+        (directory, app, path)
+    }
+    fn hold_sampled_disk_reply(app: &mut App) -> std::sync::mpsc::Sender<()> {
+        let doc = app.doc();
+        let request = ReadRequest {
+            id: doc.id,
+            revision: doc.revision,
+            saved_revision: doc.saved_revision,
+            text_epoch: doc.text_epoch(),
+            save_generation: doc.save_generation(),
+            publication_epoch: app.watch.publication_epoch,
+            path: doc.path.clone().unwrap(),
+            baseline: doc.disk_content.clone(),
+        };
+        let (sampled_tx, sampled) = std::sync::mpsc::sync_channel(1);
+        let (release, gate) = std::sync::mpsc::channel();
+        app.watch.disk = Some(DiskJob::start_with_read(vec![request], move |path, _| {
+            let content = crate::document::read_disk(path)?;
+            sampled_tx.send(()).unwrap();
+            gate.recv_timeout(Duration::from_secs(10)).unwrap();
+            Ok(DiskChange::Changed(content))
+        }));
+        app.watch.last_read = Instant::now();
+        sampled.recv_timeout(Duration::from_secs(10)).unwrap();
+        release
+    }
+    fn drain_retained_job(app: &mut App) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while app.watch.disk.is_some() {
+            app.poll_watching();
+            assert!(
+                Instant::now() < deadline,
+                "retained disk job did not settle"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    #[test]
+    fn held_disk_reply_cannot_revive_revision_after_edit_undo_or_destroy_redo() {
+        let original = "original 猫\r\n";
+        let (_directory, mut app, path) = clean_fixture(original);
+        let id = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        let revision = app.doc().revision;
+        let save_generation = app.doc().save_generation();
+        let selections = app.doc().selections();
+        std::fs::write(&path, "external λ\r\n").unwrap();
+        let release = hold_sampled_disk_reply(&mut app);
+        app.doc_mut().insert("X", false);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().revision, revision);
+        assert!(app.doc().text_epoch() > epoch);
+        assert_eq!(app.doc().save_generation(), save_generation);
+        assert!(!app.doc().dirty());
+        release.send(()).unwrap();
+        drain_retained_job(&mut app);
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), original);
+        assert_eq!(app.doc().selections(), selections);
+        assert!(!app.doc().dirty());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), format!("X{original}"));
+        app.doc_mut().undo();
+        assert_eq!(std::fs::read_to_string(path).unwrap(), "external λ\r\n");
+        assert_ne!(app.watch.pending & CONTENT, 0);
+    }
+
+    #[test]
+    fn held_disk_reply_cannot_publish_after_successful_byte_equal_save() {
+        let original = "original 猫\r\n";
+        let (_directory, mut app, path) = clean_fixture(original);
+        let epoch = app.doc().text_epoch();
+        let save_generation = app.doc().save_generation();
+        std::fs::write(&path, "external before save\r\n").unwrap();
+        let release = hold_sampled_disk_reply(&mut app);
+        std::fs::write(&path, original).unwrap();
+        app.doc_mut().save().unwrap();
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert!(app.doc().save_generation() > save_generation);
+        release.send(()).unwrap();
+        drain_retained_job(&mut app);
+        assert_eq!(app.doc().text.to_string(), original);
+        assert!(!app.doc().dirty());
+        assert_eq!(std::fs::read_to_string(path).unwrap(), original);
+        app.doc_mut().undo();
+        assert_eq!(
+            app.doc().text.to_string(),
+            original,
+            "stale reload must not add Undo"
+        );
+    }
+
+    #[test]
+    fn real_settings_commit_fences_held_precommit_snapshot_and_refreshes_once() {
+        let original = "{\r\n  \"breadcrumbs.enabled\": true\r\n}\r\n";
+        let (_directory, mut app, path) = clean_fixture(original);
+        app.configure_settings(Some(path.clone())).unwrap();
+        let id = app.doc().id;
+        let initial_epoch = app.doc().text_epoch();
+        let initial_save = app.doc().save_generation();
+        let external = "{ // precommit 猫\r\n  \"breadcrumbs.enabled\": true\r\n}\r\n";
+        std::fs::write(&path, external).unwrap();
+        let release = hold_sampled_disk_reply(&mut app);
+        let old_publication = app.watch.publication_epoch;
+        for _ in 0..128 {
+            app.invalidate_disk_watch_publications().unwrap();
+            app.poll_watching();
+        }
+        assert!(
+            app.watch.disk.is_some(),
+            "held actual reader must retain capacity"
+        );
+        assert_eq!(app.doc().text.to_string(), original);
+        app.request_persistent_breadcrumbs(false).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            app.poll_settings_writes();
+            if app.message == "Breadcrumbs setting saved" {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "real settings write did not commit: {}",
+                app.message
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(app.watch.publication_epoch > old_publication + 128);
+        let persisted = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(persisted, external.replace("true", "false"));
+        assert_eq!(app.doc().text.to_string(), original);
+        assert_eq!(app.doc().text_epoch(), initial_epoch);
+        assert_eq!(app.doc().save_generation(), initial_save);
+        release.send(()).unwrap();
+        drain_retained_job(&mut app);
+        assert_eq!(
+            app.doc().text.to_string(),
+            original,
+            "precommit snapshot was applied"
+        );
+        app.doc_mut().undo();
+        assert_eq!(
+            app.doc().text.to_string(),
+            original,
+            "precommit snapshot added Undo"
+        );
+        until(&mut app, |app| app.doc().text == persisted);
+        assert_eq!(app.doc().id, id);
+        assert!(!app.doc().dirty());
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), original);
+        assert!(app.doc().dirty());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), persisted);
+        assert!(!app.doc().dirty());
+        assert_eq!(std::fs::read_to_string(path).unwrap(), persisted);
+    }
+
+    #[test]
+    fn exhausted_publication_epoch_retires_held_reply_and_disables_future_refresh() {
+        let original = "original 猫\r\n";
+        let (_directory, mut app, path) = clean_fixture(original);
+        std::fs::write(&path, "external λ\r\n").unwrap();
+        let release = hold_sampled_disk_reply(&mut app);
+        app.watch.publication_epoch = u64::MAX;
+        assert!(app.invalidate_disk_watch_publications().is_err());
+        assert!(app.watch.publication_disabled);
+        assert!(app.message.contains("generation exhausted"));
+        assert!(app.watch.disk.is_some());
+        release.send(()).unwrap();
+        drain_retained_job(&mut app);
+        assert_eq!(app.doc().text.to_string(), original);
+        app.watch.last_read = Instant::now() - Duration::from_secs(3);
+        app.poll_watching();
+        assert!(app.watch.disk.is_none());
+        assert!(app.invalidate_disk_watch_publications().is_err());
+        assert_eq!(app.watch.publication_epoch, u64::MAX);
+        assert_eq!(std::fs::read_to_string(path).unwrap(), "external λ\r\n");
     }
 }

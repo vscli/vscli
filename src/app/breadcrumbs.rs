@@ -138,6 +138,11 @@ impl State {
     }
 }
 impl App {
+    pub(super) fn set_breadcrumbs_override(&mut self, enabled: Option<bool>) {
+        self.breadcrumbs.enabled_override = enabled;
+        self.observe_outline();
+        self.observe_breadcrumbs();
+    }
     fn breadcrumbs_options(&self) -> Options {
         let mut options = self
             .settings
@@ -525,13 +530,27 @@ impl App {
         }
         match command {
             "breadcrumbs.toggle" => {
-                self.breadcrumbs.enabled_override = Some(!self.breadcrumbs_enabled());
+                let enabled = !self.breadcrumbs_enabled();
+                if self.settings_persistence_configured() {
+                    if let Err(error) = self.request_persistent_breadcrumbs(enabled) {
+                        self.message = format!("Breadcrumbs setting unchanged: {error:#}");
+                    }
+                } else {
+                    self.set_breadcrumbs_override(Some(enabled));
+                }
                 self.dismiss_breadcrumbs(true);
                 self.observe_outline();
                 self.observe_breadcrumbs();
             }
             "breadcrumbs.toggleToOn" => {
-                self.breadcrumbs.enabled_override = Some(true);
+                if self.settings_persistence_configured() {
+                    if let Err(error) = self.request_persistent_breadcrumbs(true) {
+                        self.message = format!("Breadcrumbs setting unchanged: {error:#}");
+                        return true;
+                    }
+                } else {
+                    self.set_breadcrumbs_override(Some(true));
+                }
                 self.observe_outline();
                 self.observe_breadcrumbs();
                 self.focus_breadcrumbs(true);

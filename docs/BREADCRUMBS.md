@@ -20,8 +20,11 @@ Escape returns to the editor without editing. Original IDs include
 Native `breadcrumbs.enabled` defaults to `true`; `breadcrumbs.filePath` and
 `breadcrumbs.symbolPath` accept `"on"`, `"off"` and `"last"`, defaulting to
 `"on"`. User, workspace and language overrides apply. **View: Toggle Breadcrumbs**
-(`breadcrumbs.toggle`) is a session override. VS Code writes its configuration
-when toggled; native cross-launch toggle persistence is not implemented.
+(`breadcrumbs.toggle`) now persists the effective user/workspace root setting
+in the configured native profile. Dirty settings buffers and winning language
+overrides refuse the write with a notice. The header updates while the bounded
+background write runs; failure removes that temporary override. See
+[settings persistence and its qualification boundaries](SETTINGS_PERSISTENCE.md).
 
 Only saved local files have a file trail. Folder/file dropdowns, directory
 navigation, reveal-aside, remote resources, broader symbol filtering/sorting and

@@ -103,13 +103,16 @@ See [symbol-navigation behavior and evidence](USAGE.md#native-document-and-works
 [Native Breadcrumbs](BREADCRUMBS.md) implements file trails without Node and
 hierarchical/flat symbol trails from the shared Outline publication. Original
 focus and selection command IDs drive a bounded sibling/root picker. File/folder
-dropdowns and persistent toggle state remain unsupported. Four actual pinned
+dropdowns remain unsupported. Root toggle state now persists through
+[native background settings writes](SETTINGS_PERSISTENCE.md), with explicit
+language-override and dirty-buffer refusal; its fresh qualification is underway.
+Four actual pinned
 synthetic-provider cases retain 31 snapshots and confirm three collapsed picker
 reveals; direct focus/reveal no-ops remain documented gaps. The narrow native
 comparison passes four geometries/three reveals; four integrity tests, five
 public journeys, two optional-host publication checks, one actual clangd
 workflow, three debug terminal workflows and the existing 35 terminal checks
-passed locally. The full candidate passes 603 ordinary Rust tests across 38
+passed locally. The merged Breadcrumbs candidate passed 603 ordinary Rust tests across 38
 suites (20 ignored), 133 Node tests, 25 Python checks, formatting and strict
 Clippy; focused subsets are included in these totals. All three optimized
 terminal workflows passed. [PR #61](https://github.com/vscli/vscli/pull/61)
