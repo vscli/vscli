@@ -37,3 +37,27 @@ The first platform run passed Linux but failed the five-document fixture on macO
 Original IDs, key contexts and strategy fallback are source-grounded in the [pinned VS Code 1.95.0 folding implementation](https://github.com/microsoft/vscode/blob/912bb683695358a54ae0c670461738984cbb5b95/src/vs/editor/contrib/folding/browser/folding.ts). Native conservative selection protection, source-window bounds, indentation discovery and rejection policy have not been differentially qualified as exact VS Code behavior.
 
 Wrapping, LSP/extension folding providers, language marker/import folding, folding levels/recursive arguments, automatic collapse, session fold mementos and full cursor-relocation parity remain unsupported or unqualified. No folding latency/performance claim is established by this source package.
+## Explorer rename fixture qualification
+
+Linux run 38079955587 on head `23e0ee65` passed Rust and reference checks but
+timed out in the existing Explorer rename terminal journey. Its log lacks the
+final screen and separate filesystem/status predicates; the actual timeout's
+cause remains unproven. The original exact-head smoke journey passed locally
+with unchanged assertions, deadlines and gestures (35 reports).
+
+Source review establishes a missing setup precondition: bytes can reach disk
+before the save worker's Finished receipt and thread acknowledgement. Rename
+correctly refuses while that save remains pending. A deterministic real
+BeforeFinish worker test proves that interval, then proves receipt acceptance
+permits a separately requested rename while retaining Unicode/CRLF bytes,
+membership, document identity, successful save baseline and Undo/Redo.
+
+The terminal fixture now requires `Saved source.txt` alongside its original
+byte assertion before requesting rename. Its original rename condition and
+four-second deadline remain; bounded failure diagnostics retain screen, disk
+predicates, queued input, process state and raw terminal tail. Native rename
+behavior is unchanged. Qualification passes the new held-worker regression,
+1,126 locked all-target Rust tests across 51 reports (23 opt-in ignored),
+formatting, strict Clippy, build and all 35 native smoke reports. Fresh exact-head
+CI remains required, and this setup correction does not retrospectively establish
+the original CI failure's cause.
