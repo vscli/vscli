@@ -78,8 +78,11 @@ The native comparison passed all four provider geometries and three confirmed
 picker reveals. The named actual `/usr/bin/clangd` workflow passed separately
 in 0.23 seconds. All three new debug terminal workflows passed with Node absent
 from PATH, including one no-LSP file workflow. The existing 35 terminal workflows
-also passed. Optimized terminal qualification and fresh platform CI remain
-pending. No performance claim is established for active Breadcrumbs yet.
+also passed. All three Breadcrumbs terminal workflows also passed with the
+optimized executable. The [published core measurements](PERFORMANCE.md#native-breadcrumbs-core-baseline-2026-10-10)
+record 30 successful trials and mixed latency observations with file breadcrumbs
+enabled and no symbol provider; they establish no fastest-editor ranking or
+active-provider latency claim. Fresh platform CI remains pending.
 
 For a new capture and its narrow native comparison:
 

@@ -15,6 +15,11 @@ Press **F1** for commands, **Ctrl+P** for quick open, **Ctrl+S** to save, and **
 
 Read the [usage and testing guide](docs/USAGE.md) for the full implemented feature list, shortcuts, recovery behavior, and limitations. `vscli --doctor` prints local environment diagnostics and keybinding/recovery paths; the welcome screen shows the active settings path.
 
+Native navigation includes [Back/Forward history](docs/NAVIGATION_HISTORY.md),
+[Outline](docs/OUTLINE.md) and [Breadcrumbs](docs/BREADCRUMBS.md). Breadcrumbs
+file trails work without Node or a language server; current native or extension
+symbols supply a guarded sibling picker.
+
 This alpha implements a **subset** of VS Code commands and bindings. Native language features include diagnostics, completion, explicit parameter hints, symbols, navigation, formatting and limited rename/refactoring. One native language server is active per window; manual configuration and disable controls remain available. Clean-file session restoration is opt-in and separate from dirty-buffer crash recovery. Native debugging supports breakpoints, stepping, stack/variables and expression evaluation through an explicitly configured stdio adapter; Python/debugpy is tested.
 
 An optional Node.js **CommonJS compatibility host** runs up to eight authorized packages with supported lazy activation. Its bounded subset includes shared documents/edits, configuration/Mementos, seven language-provider routes, diagnostic collections, native prompts and output/status/tree surfaces. Native Open VSX installation, themes and snippet catalogs work without code activation. See [extension compatibility](docs/EXTENSIONS.md), [diagnostic scope](docs/DIAGNOSTICS.md) and [named provider workflows](docs/EXTENSION_PROVIDERS.md): installing or activating an extension does not establish that all its features work.
