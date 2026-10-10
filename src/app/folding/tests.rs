@@ -550,9 +550,22 @@ fn five_previously_folded_documents_retire_offscreen_maps_but_keep_bounded_inten
     let mut ids = vec![first];
     f.folds();
     draw(&mut f.app);
+    // Real aliased input reproduces canonical temporary roots on Unix.
+    #[cfg(unix)]
+    let alias_owner = tempfile::tempdir().unwrap();
+    #[cfg(unix)]
+    let input_root = {
+        let alias = alias_owner.path().join("workspace");
+        std::os::unix::fs::symlink(f.path.parent().unwrap(), &alias).unwrap();
+        alias
+    };
+    #[cfg(not(unix))]
+    let input_root = f._root.path().to_path_buf();
     for index in 1..5 {
-        let path = f._root.path().join(format!("fold{index}.txt"));
+        let path = input_root.join(format!("fold{index}.txt"));
         fs::write(&path, SOURCE).unwrap();
+        // Opening publishes canonical document identity, including temp aliases.
+        let path = fs::canonicalize(&path).unwrap();
         f.app.open(&path).unwrap();
         until(&mut f.app, "switch", |a| {
             a.doc().path.as_ref() == Some(&path)
