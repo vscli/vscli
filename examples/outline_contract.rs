@@ -15,7 +15,8 @@ use vscli::{
 };
 
 const CASES: &str = include_str!("../tests/vscode-reference/outline-cases.json");
-const DEFAULT_REFERENCE: &str = "tests/vscode-reference/baselines/1.95.0/outline/linux.json";
+const DEFAULT_REFERENCE: &str =
+    "tests/vscode-reference/baselines/1.95.0/outline/settlement-1000ms/linux.json";
 fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
@@ -544,12 +545,15 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const TRACE: &[u8] =
-        include_bytes!("../tests/vscode-reference/baselines/1.95.0/outline/linux.json");
-    const EVIDENCE: &[u8] =
-        include_bytes!("../tests/vscode-reference/baselines/1.95.0/outline/linux-evidence.json");
-    const PROVENANCE: &str =
-        include_str!("../tests/vscode-reference/baselines/1.95.0/outline/linux-provenance.json");
+    const TRACE: &[u8] = include_bytes!(
+        "../tests/vscode-reference/baselines/1.95.0/outline/settlement-1000ms/linux.json"
+    );
+    const EVIDENCE: &[u8] = include_bytes!(
+        "../tests/vscode-reference/baselines/1.95.0/outline/settlement-1000ms/linux-evidence.json"
+    );
+    const PROVENANCE: &str = include_str!(
+        "../tests/vscode-reference/baselines/1.95.0/outline/settlement-1000ms/linux-provenance.json"
+    );
     fn baseline() -> Value {
         serde_json::from_str(PROVENANCE).unwrap()
     }

@@ -13,6 +13,29 @@ function encodeSymbol(value) {
   else Object.assign(result, { location: { range: range(value.location.range) }, containerName: value.containerName });
   return result;
 }
+// Command acknowledgment and unchanged editor state do not prove that the
+// separate Outline tree/focus/reveal work has completed. Pace every observation
+// independently of its value, retaining a bounded deadline and quiet window.
+async function settleOutline(action, { snapshot, activeCallbacks, now = Date.now, wait = pause }) {
+  const started = now(); let changed = started, previous, wasActive = false;
+  for (;;) {
+    const observed = snapshot(action), key = JSON.stringify(observed), current = now();
+    assert.ok(current - started < 3000, 'Independent Outline fixture settlement exceeded3seconds');
+    const active = !!activeCallbacks();
+    if (key !== previous || active || wasActive) { previous = key; changed = current; }
+    wasActive = active;
+    if (current - started >= 1000 && current - changed >= 100) return { observed,
+      elapsedMs: current - started,
+      scope: 'Original command acknowledged then minimum1000ms plus100ms unchanged public editor/document state; no expected-output predicate or target retry; tree focus is not independently observed' };
+    await wait(20);
+  }
+}
+async function observeOutlineCommand(command, { execute, ...settlement }) {
+  await execute(command);
+  return settleOutline(command, settlement);
+}
+exports.settleOutline = settleOutline;
+exports.observeOutlineCommand = observeOutlineCommand;
 exports.outlineTrace = async (vscode, name, workspace) => {
   const fixture = cases.find(value => value.name === name);
   assert.ok(fixture, 'Unknown Outline fixture');
@@ -60,18 +83,7 @@ exports.outlineTrace = async (vscode, name, workspace) => {
       cursor: scalar(event.selections[0].active) } });
     assert.ok(selectionEvents.length <= 512, 'Unbounded fixture selection events');
   });
-  async function settle(action) {
-    const started = Date.now(); let changed = started, previous;
-    for (;;) {
-      const observed = snapshot(action), key = JSON.stringify(observed);
-      if (key !== previous || activeCallbacks) { previous = key; changed = Date.now(); }
-      if (Date.now() - started >= 300 && Date.now() - changed >= 100) return { observed,
-        elapsedMs: Date.now() - started,
-        scope: 'Original command acknowledged then minimum300ms plus100ms unchanged public editor/document state; no expected-output predicate or target retry' };
-      assert.ok(Date.now() - started < 3000, 'Independent Outline fixture settlement exceeded3seconds');
-      await pause(20);
-    }
-  }
+  const settlementOptions = { snapshot, activeCallbacks: () => activeCallbacks };
   try {
     const readinessStarted = Date.now();
     if (fixture.setupOutlineFocus) {
@@ -85,7 +97,7 @@ exports.outlineTrace = async (vscode, name, workspace) => {
       }
     }
     const setup = { action: 'api.openTextDocument/showTextDocument/registerDocumentSymbolProvider',
-      settlement: await settle('initial'), shape: fixture.shape, outlineFocusBeforeRegistration: !!fixture.setupOutlineFocus,
+      settlement: await settleOutline('initial', settlementOptions), shape: fixture.shape, outlineFocusBeforeRegistration: !!fixture.setupOutlineFocus,
       providerReadinessMs: Date.now() - readinessStarted, callbacksBeforeApiOrTargets: requests.length };
     const supplied = await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri);
     assert.ok(Array.isArray(supplied), 'Actual provider command did not return symbols');
@@ -93,8 +105,9 @@ exports.outlineTrace = async (vscode, name, workspace) => {
     const observations = [snapshot('initial')], steps = [];
     for (const command of fixture.commands) {
       const eventStart = selectionEvents.length, requestStart = requests.length;
-      await vscode.commands.executeCommand(command);
-      const settlement = await settle(command);
+      const settlement = await observeOutlineCommand(command, {
+        ...settlementOptions, execute: command => vscode.commands.executeCommand(command),
+      });
       observations.push(settlement.observed);
       steps.push({ command, settlement, selectionEvents: selectionEvents.slice(eventStart),
         callbacks: requests.slice(requestStart) });
