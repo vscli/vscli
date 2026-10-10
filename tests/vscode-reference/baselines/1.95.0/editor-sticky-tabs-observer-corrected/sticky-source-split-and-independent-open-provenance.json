@@ -1,0 +1,24 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "observedAt": "2026-10-10T11:06:02.069Z",
+  "name": "sticky-source-split-and-independent-open",
+  "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+  "launchedExecutableSha256": "31a0d92e34790ab32a143d8e68a5886b5680a31e0683b17bdb3dcfeba1a1fd78",
+  "evidenceSha256": "19b9a69fb1f6ad9f35ece8d20705a6f92e13e4b2e027caee742b9bf478676d83",
+  "sources": {
+    "editor-sticky-tabs-cases.json": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9",
+    "editor-sticky-tabs-run.cjs": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda",
+    "editor-sticky-tabs-suite.cjs": "0821192a8135f054f054ec9eb766b50c5a27418b9fa68ffdc4ae770399f40a35",
+    "editor-sticky-tabs-worker.cjs": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c",
+    "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+    "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+    "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+    "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+  },
+  "profileSettingsSha256": "338981201e480b59b0246660bc1386d22c89f15650478580c91a80375c18239f",
+  "closePolicy": "keyboardAndMouse",
+  "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+}
