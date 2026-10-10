@@ -150,6 +150,18 @@ jobs:
         run: cargo run --locked --example breadcrumbs_contract -- target/vscode-reference/result/breadcrumbs/breadcrumbs.json > target/vscode-reference/result/breadcrumbs/breadcrumbs-vscli.json
       - name: Check Breadcrumbs reference source validation
         run: cargo test --locked --example breadcrumbs_contract
+      - name: Observe pinned save-formatting contracts (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        run: xvfb-run -a node tests/vscode-reference/save-formatting-run.cjs target/vscode-reference/result/save-formatting
+      - name: Observe pinned save-formatting contracts (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 3
+        run: node tests/vscode-reference/save-formatting-run.cjs target/vscode-reference/result/save-formatting
+      - name: Compare implemented native save-formatting contracts
+        env:
+          VSCLI_SAVE_FORMATTING_REFERENCE_DIR: target/vscode-reference/result/save-formatting
+        run: cargo test --locked --test save_formatting_reference
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -197,6 +209,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/save_automation_pty.py target/debug/vscli
+      - name: Run native format-on-save workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/native_format_on_save_pty.py target/debug/vscli
       - name: Run automatic parameter hint workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
