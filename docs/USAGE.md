@@ -244,6 +244,12 @@ in another group start a fresh view; revisiting a tab restores that group's curs
 selection and scroll. Click a displayed tab to focus its exact membership.
 Ctrl+PageDown/PageUp (Cmd+Alt+Right/Left on macOS) traverse tabs across groups;
 F1 → View: Next/Previous Editor in Group wraps inside the selected group.
+Ctrl+K followed by Ctrl+Left/Right/Up/Down focuses an existing directional
+neighbor, wrapping at the outer edge (macOS: Cmd instead of Ctrl). F1 exposes
+Focus Left/Right Editor Group and Focus Editor Group Above/Below. Shared views
+retain their own caret; MRU chooses between neighbors that share an edge. Tiny
+mode navigates the retained tree. The native logical weight geometry differs
+from pixel/terminal rounding; see [spatial focus scope and qualification](SPATIAL_FOCUS.md).
 Ctrl+Shift+PageUp/PageDown moves the active tab left/right inside its current
 group (macOS: Cmd+K, Cmd+Shift+Left/Right); F1 exposes View: Move Editor Left/Right.
 An actual move commits a preview and pins/unpins it when crossing the sticky
@@ -261,7 +267,7 @@ Current View Width changes the selected group by four terminal columns; the Heig
 commands use two rows, bounded by available space. View: Reset Editor Group Sizes
 resets sibling ratios. These original command IDs have no invented resize shortcuts.
 A palette resize may wait once for the next editor repaint. Mouse divider dragging,
-left/up splits, presets, merge/maximize and full spatial focus remain unsupported.
+left/up splits, presets and merge/maximize remain unsupported.
 The legacy View: Close Editor Group label runs Close Editors in Group; the distinct
 upstream Close Group command is not implemented.
 

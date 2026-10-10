@@ -245,6 +245,14 @@ impl Keymap {
             };
             map.add(&key, command, None);
         }
+        for (key, command) in [
+            ("left", "workbench.action.focusLeftGroup"),
+            ("right", "workbench.action.focusRightGroup"),
+            ("up", "workbench.action.focusAboveGroup"),
+            ("down", "workbench.action.focusBelowGroup"),
+        ] {
+            map.add(&format!("{p}+k {p}+{key}"), command, None);
+        }
         map.add(&format!("{p}+k enter"), "workbench.action.keepEditor", None);
         map.add(
             &format!("{p}+k shift+enter"),
@@ -1882,6 +1890,32 @@ mod tests {
                     map.resolve("cmd+k", &HashMap::new()),
                     Resolution::Chord
                 ));
+            }
+        }
+    }
+    #[test]
+    fn spatial_focus_original_chords_are_context_free_in_each_platform_profile() {
+        for profile in [Profile::Linux, Profile::Windows, Profile::Macos] {
+            let map = Keymap::new(profile);
+            let modifier = profile.primary();
+            assert!(matches!(
+                map.resolve(&format!("{modifier}+k"), &HashMap::new()),
+                Resolution::Chord
+            ));
+            for (direction, command) in [
+                ("left", "focusLeftGroup"),
+                ("right", "focusRightGroup"),
+                ("up", "focusAboveGroup"),
+                ("down", "focusBelowGroup"),
+            ] {
+                let key = format!("{modifier}+k {modifier}+{direction}");
+                let command = format!("workbench.action.{command}");
+                assert!(
+                    matches!(map.resolve(&key,&HashMap::new()),Resolution::Command(actual,None) if actual==command)
+                );
+                assert!(map.bindings.iter().any(|binding| binding.key == key
+                    && binding.command == command
+                    && binding.when.is_none()));
             }
         }
     }
