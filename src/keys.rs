@@ -232,6 +232,16 @@ impl Keymap {
         map.add("ctrl+shift+g", "workbench.view.scm", None);
         map.add(&format!("{p}+\\"), "workbench.action.splitEditor", None);
         map.add(&format!("{p}+k enter"), "workbench.action.keepEditor", None);
+        map.add(
+            &format!("{p}+k shift+enter"),
+            "workbench.action.pinEditor",
+            Some("!activeEditorIsPinned"),
+        );
+        map.add(
+            &format!("{p}+k shift+enter"),
+            "workbench.action.unpinEditor",
+            Some("activeEditorIsPinned"),
+        );
         for (key, command) in [
             ("1", "workbench.action.focusFirstEditorGroup"),
             ("2", "workbench.action.focusSecondEditorGroup"),
@@ -1134,6 +1144,52 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+    #[test]
+    fn original_sticky_chord_routes_by_membership_context_and_keep_stays_distinct() {
+        for profile in [Profile::Linux, Profile::Windows, Profile::Macos] {
+            let map = Keymap::new(profile);
+            let primary = profile.primary();
+            for sticky in [false, true] {
+                let context = HashMap::from([("activeEditorIsPinned".into(), Value::Bool(sticky))]);
+                assert!(matches!(
+                    map.resolve(&format!("{primary}+k"), &context),
+                    Resolution::Chord
+                ));
+                assert!(
+                    matches!(map.resolve(&format!("{primary}+k shift+enter"), &context),
+                    Resolution::Command(id, None) if id == if sticky { "workbench.action.unpinEditor" } else { "workbench.action.pinEditor" })
+                );
+                assert!(
+                    matches!(map.resolve(&format!("{primary}+k enter"), &context),
+                    Resolution::Command(id, None) if id == "workbench.action.keepEditor")
+                );
+            }
+            let rules: Vec<_> = map
+                .bindings
+                .iter()
+                .filter(|binding| {
+                    matches!(
+                        binding.command.as_str(),
+                        "workbench.action.pinEditor" | "workbench.action.unpinEditor"
+                    )
+                })
+                .collect();
+            assert_eq!(rules.len(), 2);
+            assert!(
+                rules
+                    .iter()
+                    .all(|binding| binding.key == format!("{primary}+k shift+enter")
+                        && binding.args.is_none())
+            );
+            assert_eq!(rules[0].when.as_deref(), Some("!activeEditorIsPinned"));
+            assert_eq!(rules[1].when.as_deref(), Some("activeEditorIsPinned"));
+            let wrong_primary = if primary == "cmd" { "ctrl" } else { "cmd" };
+            assert_eq!(
+                map.resolve(&format!("{wrong_primary}+k shift+enter"), &HashMap::new()),
+                Resolution::None
+            );
         }
     }
     #[test]

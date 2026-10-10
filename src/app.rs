@@ -24,6 +24,7 @@ mod save_formatting;
 mod saving;
 mod settings_persistence;
 mod signature_help;
+mod sticky_tabs;
 mod suggestions;
 mod workspace_edits;
 
@@ -122,6 +123,12 @@ pub(crate) fn native_command_ids() -> Vec<String> {
 
 pub const COMMANDS: &[(&str, &str)] = &[
     ("View: Keep Editor", "workbench.action.keepEditor"),
+    ("View: Pin Editor", "workbench.action.pinEditor"),
+    ("View: Unpin Editor", "workbench.action.unpinEditor"),
+    (
+        "View: Close Pinned Editor",
+        "workbench.action.closeActivePinnedEditor",
+    ),
     ("Language: Restart Server", "vscli.languageServer.restart"),
     ("Language: Disable Services", "vscli.languageServer.disable"),
     ("Language: Enable Services", "vscli.languageServer.enable"),
@@ -481,6 +488,11 @@ pub struct TabHit {
 
 struct ClosingGroup {
     proof: crate::editor_groups::GroupProof,
+    others: Vec<crate::editor_groups::GroupProof>,
+    remaining: Vec<crate::editor_groups::Membership>,
+    settings: std::sync::Arc<Vec<serde_json::Map<String, Value>>>,
+    workspace: PathBuf,
+    profile: u64,
 }
 
 pub struct App {
@@ -495,6 +507,7 @@ pub struct App {
     preview_admission_failed: bool,
     closing_group: Option<ClosingGroup>,
     close_membership: Option<crate::editor_groups::Membership>,
+    close_eligibility: sticky_tabs::CloseEligibility,
     pub tab_hits: Vec<TabHit>,
     pub documents: Vec<Document>,
     pub(crate) hidden_documents: Vec<Document>,
@@ -602,6 +615,7 @@ impl App {
             preview_admission_failed: false,
             closing_group: None,
             close_membership: None,
+            close_eligibility: sticky_tabs::CloseEligibility::AnyMode,
             tab_hits: Vec::new(),
             documents: Vec::new(),
             hidden_documents: Vec::new(),
@@ -1165,7 +1179,10 @@ impl App {
                 "activeEditorIsNotPreview".into(),
                 json!(self.active_tab_membership().is_some() && !self.active_editor_is_preview()),
             ),
-            ("activeEditorIsPinned".into(), json!(false)),
+            (
+                "activeEditorIsPinned".into(),
+                json!(self.active_editor_is_sticky()),
+            ),
             (
                 "config.workbench.editor.enablePreview".into(),
                 json!(self.settings.editor_preview().enabled),
@@ -1706,6 +1723,9 @@ impl App {
             "workbench.action.focusNextGroup" => {
                 if !self.panes.is_empty() { self.focus_pane((self.active_pane + 1) % self.panes.len()); }
             }
+            "workbench.action.pinEditor" => self.set_active_editor_sticky(true),
+            "workbench.action.unpinEditor" => self.set_active_editor_sticky(false),
+            "workbench.action.closeActivePinnedEditor" => self.close_active_editor(true),
             "workbench.action.closeEditorsInGroup" => self.close_pane(),
             "workbench.view.scm" | "git.refresh" => {
                 self.modal = Some(Modal::Git);
@@ -1841,13 +1861,11 @@ impl App {
                 self.pending = None;
                 self.save_as();
             }
-            "workbench.action.closeActiveEditor" => {
-                self.request_close(AfterSave::Close);
-            }
+            "workbench.action.closeActiveEditor" => self.close_active_editor(false),
             "workbench.action.closeWindow" | "workbench.action.quit" => {
                 self.request_close(AfterSave::Quit)
             }
-            "workbench.action.closeAllEditors" => self.request_close(AfterSave::CloseAll),
+            "workbench.action.closeAllEditors" => self.begin_close_editor_batch(true),
             "workbench.action.files.revert" => self.modal = Some(Modal::Revert),
             "workbench.action.openRecent" => self.start_prompt(PromptKind::RecentFiles, String::new()),
             "workbench.action.reopenClosedEditor" => self.reopen_closed(),
@@ -2085,6 +2103,9 @@ impl App {
             let Some(member) = self.active_tab_membership() else {
                 return;
             };
+            if self.close_membership != Some(member) {
+                self.close_eligibility = sticky_tabs::CloseEligibility::AnyMode;
+            }
             self.close_membership = Some(member);
             // Shared text belongs to its remaining tabs. Closing this view
             // requires neither discarding nor persisting the shared model.
@@ -2146,10 +2167,27 @@ impl App {
         }
     }
     pub(super) fn finish_tab_close(&mut self, member: crate::editor_groups::Membership) {
-        let owned_group = self.closing_group.as_ref().is_some_and(|closing| {
-            closing.proof.group() == member.group
-                && self.editor_groups.group_proof_current(&closing.proof)
-        });
+        self.finish_tab_close_eligible(member, self.captured_close_eligibility(Some(member)));
+    }
+    fn finish_tab_close_eligible(
+        &mut self,
+        member: crate::editor_groups::Membership,
+        eligibility: sticky_tabs::CloseEligibility,
+    ) {
+        if !self.editor_groups.membership_current(member) {
+            self.closing_group = None;
+            if self.close_membership == Some(member) {
+                self.close_membership = None;
+            }
+            self.message =
+                "Close retired: the original editor was closed; no other tab removed".into();
+            return;
+        }
+        if !self.close_target_eligible(member, eligibility) {
+            self.reject_protected_close(member, false);
+            return;
+        }
+        let owned_group = self.close_batch_owns(member);
         if self.closing_group.is_some() && !owned_group {
             self.closing_group = None;
             self.message = "Close group retired: its tabs changed; buffers retained".into();
@@ -2174,7 +2212,6 @@ impl App {
                     self.remove_active();
                 } else if let Some(member) = self
                     .close_membership
-                    .take()
                     .or_else(|| self.active_tab_membership())
                 {
                     self.finish_tab_close(member);

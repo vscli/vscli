@@ -922,4 +922,31 @@ tab. Pending saves, Save As and close/file/settings operations retain protected
 models; rejected capacity/ownership never drops unsaved work or Redo. Disabling
 preview keeps existing tabs. Clean session restore commits historical previews.
 See [behavior and qualification](EDITOR_GROUPS.md#preview-callers-keep-editor-and-retained-work)
-for transient-mode, mouse and remaining sticky/layout limits.
+for transient-mode, mouse and remaining layout limits.
+
+
+## Sticky tabs and protected close (candidate)
+
+F1 → **View: Pin Editor** keeps the current tab in its group's leading sticky
+section. **View: Unpin Editor** returns it to the ordinary section. The original
+Ctrl+K then Shift+Enter chord toggles those actions (Cmd+K then Shift+Enter on
+macOS). Ctrl+K then Enter remains **Keep Editor**: it commits a preview without
+making it sticky. Sticky tabs show **◆**; the modified **●** indicator remains
+independent. Pinning belongs to one group membership, so another group showing
+the same document can remain unpinned.
+
+The root user/workspace setting `workbench.editor.preventPinnedEditorClose`
+defaults to `"keyboardAndMouse"`. `"keyboard"` also protects original keyboard
+Close; `"never"` and `"mouse"` allow it. A protected Close focuses a nonsticky
+recent editor in the current group, then another group, and leaves every tab
+open; if none exists it does nothing. F1 → **View: Close Pinned Editor** deliberately
+closes the current tab through the normal dirty Save/Discard/Cancel flow.
+Language overrides of this workbench policy are ignored with a notice.
+
+Close All Editors and Close Editors in Group select nonsticky memberships.
+Already accepted saves retain their exact destination and publish their receipt
+before any eligible close; later unrelated tabs are not swept into a batch.
+Session restoration commits historical tabs and does not restore sticky state.
+Mouse close gestures, graphical sticky-row layouts and sticky persistence are
+outside this candidate. The settings/key/UI patches are prepared; native execution
+and platform qualification remain pending. See [scope and evidence](STICKY_TABS.md).
