@@ -134,7 +134,12 @@ full navigation and desktop UI parity remain incomplete.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
-App/Document/UI integration. Neither is a qualified user feature. The bounded diagnostics/action subsets do not finish priority 2 or full extension compatibility; further API/context/resource and production-package qualification remains.
+App/Document/UI integration. The new `feat/native-display-rows-foundation` candidate
+ports the pure foundation and adds immutable grapheme-aware visible-row mapping.
+Its 17 focused native tests and 1,004 all-target Rust tests across 51 reports
+pass, with formatting and strict locked Clippy. App integration, PTY journeys
+and platform qualification remain separate. [Display-row scope](DISPLAY_ROWS.md) records the limits and remaining
+work. Neither prototype is a qualified user feature. The bounded diagnostics/action subsets do not finish priority 2 or full extension compatibility; further API/context/resource and production-package qualification remains.
 
 Linked PRs and feature documents record each implemented subset and its named
 review/test evidence.
