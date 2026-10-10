@@ -625,6 +625,83 @@ impl Groups {
             ..Change::default()
         })
     }
+    /// Move an exact tab within its current group, without focusing or changing MRU.
+    /// The destination is a final index, clamped like the original Left/Right actions.
+    /// Crossing the sticky prefix changes this tab's sticky mode; an actual move
+    /// commits its preview. An unchanged final index preserves both modes/proofs.
+    /// App must independently guard any asynchronous or cross-engine lifetime.
+    pub fn reorder(
+        &mut self,
+        proof: &GroupProof,
+        member: Membership,
+        destination: usize,
+    ) -> Result<Change> {
+        ensure!(
+            proof.group == member.group,
+            "Tab reorder proof belongs to another group"
+        );
+        ensure!(
+            self.group_proof_current(proof),
+            "Editor group changed before tab reorder"
+        );
+        let (index, position) = self.locate(member)?;
+        let destination = destination.min(self.groups[index].tabs.len() - 1);
+        if position == destination {
+            return Ok(self.unchanged());
+        }
+        let generation = increment(self.generation, "interaction generation")?;
+        let membership_generation = increment(
+            self.groups[index].membership_generation,
+            "membership generation",
+        )?;
+        let group = &self.groups[index];
+        let was_sticky = group.tabs[position].sticky;
+        let is_sticky = destination < group.sticky_count;
+        let was_preview = group.tabs[position].preview;
+        let mut promoted = Vec::new();
+        if was_preview {
+            promoted
+                .try_reserve(1)
+                .context("Cannot reserve tab reorder promotion")?;
+            promoted.push(member);
+        }
+        let mut sticky_changed = Vec::new();
+        if was_sticky != is_sticky {
+            sticky_changed
+                .try_reserve(1)
+                .context("Cannot reserve tab reorder sticky change")?;
+            sticky_changed.push(member);
+        }
+        let previous = self.active_membership();
+        // All validation, checked counters and result allocation precede mutation.
+        // Rotating this bounded slice neither allocates nor replaces membership IDs.
+        let group = &mut self.groups[index];
+        if was_preview {
+            group.tabs[position].preview = false;
+            group.preview = None;
+        }
+        group.tabs[position].sticky = is_sticky;
+        match (was_sticky, is_sticky) {
+            (true, false) => group.sticky_count -= 1,
+            (false, true) => group.sticky_count += 1,
+            _ => {}
+        }
+        if position < destination {
+            group.tabs[position..=destination].rotate_left(1);
+        } else {
+            group.tabs[destination..=position].rotate_right(1);
+        }
+        group.membership_generation = membership_generation;
+        self.generation = generation;
+        Ok(Change {
+            changed: true,
+            previous,
+            active: self.active_membership(),
+            promoted,
+            sticky_changed,
+            ..Change::default()
+        })
+    }
     /// Sticky mode is membership-local and always committed. Reordering does
     /// not focus an inactive target, edit its document or change either MRU.
     pub fn set_sticky(&mut self, member: Membership, sticky: bool) -> Result<Change> {
@@ -2517,6 +2594,351 @@ mod tests {
         groups.open(10000).unwrap();
         assert_eq!(groups.membership_mru().len(), MAX_MEMBERSHIPS);
         assert_eq!(groups.membership_mru()[0].document, 10000);
+        invariant(&groups);
+    }
+
+    #[test]
+    fn reorder_changes_visual_order_without_identity_focus_or_mru_changes() {
+        let mut groups = Groups::default();
+        groups
+            .import(&[restored(&[1, 2, 3, 4], 2), restored(&[9], 0)], 1)
+            .unwrap();
+        let target = member(&groups, 0, 2);
+        let other = groups.group_proof(groups.groups()[1].id()).unwrap();
+        let active = groups.active_membership();
+        let recent = groups.membership_mru().to_vec();
+        let group_recent = groups.group(target.group).unwrap().recent().to_vec();
+        let group_mru = groups.group_mru().to_vec();
+        let identities = groups.groups()[0]
+            .tabs()
+            .iter()
+            .map(|tab| (tab.id(), tab.document()))
+            .collect::<HashSet<_>>();
+        let counters = (groups.next_tab, groups.next_group);
+        for (destination, expected) in [
+            (0, [2, 1, 3, 4]),
+            (2, [1, 3, 2, 4]),
+            (usize::MAX, [1, 3, 4, 2]),
+        ] {
+            let proof = groups.group_proof(target.group).unwrap();
+            let ui = groups.proof();
+            let change = groups.reorder(&proof, target, destination).unwrap();
+            assert!(change.changed);
+            assert_eq!(documents(&groups, 0), expected);
+            assert_eq!(change.previous, active);
+            assert_eq!(change.active, active);
+            assert!(change.promoted.is_empty() && change.sticky_changed.is_empty());
+            assert!(change.inserted.is_empty() && change.removed.is_empty());
+            assert!(change.created_groups.is_empty() && change.removed_groups.is_empty());
+            assert_eq!(groups.active_membership(), active);
+            assert_eq!(groups.membership_mru(), recent);
+            assert_eq!(groups.group(target.group).unwrap().recent(), group_recent);
+            assert_eq!(groups.group_mru(), group_mru);
+            assert_eq!((groups.next_tab, groups.next_group), counters);
+            assert!(groups.membership_current(target));
+            assert!(groups.group_proof_current(&other));
+            assert!(!groups.group_proof_current(&proof) && !groups.proof_current(&ui));
+            assert_eq!(
+                groups.groups()[0]
+                    .tabs()
+                    .iter()
+                    .map(|tab| (tab.id(), tab.document()))
+                    .collect::<HashSet<_>>(),
+                identities
+            );
+            invariant(&groups);
+        }
+    }
+
+    #[test]
+    fn reorder_sticky_crossing_matches_original_prefix_policy() {
+        for (document, destination, expected, sticky_count, changed_sticky) in [
+            (1, 1, [2, 1, 3, 4], 2, false),
+            (2, 2, [1, 3, 2, 4], 1, true),
+            (1, 3, [2, 3, 4, 1], 1, true),
+            (3, 1, [1, 3, 2, 4], 3, true),
+            (4, 0, [4, 1, 2, 3], 3, true),
+            (3, 3, [1, 2, 4, 3], 2, false),
+        ] {
+            let mut groups = Groups::default();
+            groups.import(&[restored(&[1, 2, 3, 4], 3)], 0).unwrap();
+            for value in [1, 2] {
+                groups.set_sticky(member(&groups, 0, value), true).unwrap();
+            }
+            let target = member(&groups, 0, document);
+            let active = groups.active_membership();
+            let recent = groups.membership_mru().to_vec();
+            let proof = groups.group_proof(target.group).unwrap();
+            let change = groups.reorder(&proof, target, destination).unwrap();
+            assert_eq!(documents(&groups, 0), expected);
+            assert_eq!(groups.groups()[0].sticky_count(), sticky_count);
+            assert_eq!(
+                change.sticky_changed,
+                if changed_sticky {
+                    vec![target]
+                } else {
+                    Vec::new()
+                }
+            );
+            assert!(change.promoted.is_empty());
+            assert_eq!(groups.active_membership(), active);
+            assert_eq!(groups.membership_mru(), recent);
+            invariant(&groups);
+        }
+    }
+
+    #[test]
+    fn reorder_preview_promotes_only_on_actual_index_change_including_sticky_crossing() {
+        for cross_sticky in [false, true] {
+            let mut groups = Groups::default();
+            let kept = groups.open(1).unwrap().active.unwrap();
+            if cross_sticky {
+                groups.set_sticky(kept, true).unwrap();
+            }
+            let target = groups
+                .open_mode(2, OpenMode::Preview, None)
+                .unwrap()
+                .active
+                .unwrap();
+            let proof = groups.group_proof(target.group).unwrap();
+            let before = groups.clone();
+            assert!(!groups.reorder(&proof, target, usize::MAX).unwrap().changed);
+            assert_eq!(groups, before);
+            assert!(is_preview(&groups, target));
+            assert!(groups.group_proof_current(&proof));
+            let change = groups.reorder(&proof, target, 0).unwrap();
+            assert_eq!(documents(&groups, 0), [2, 1]);
+            assert_eq!(change.promoted, [target]);
+            assert_eq!(
+                change.sticky_changed,
+                if cross_sticky {
+                    vec![target]
+                } else {
+                    Vec::new()
+                }
+            );
+            assert!(!is_preview(&groups, target));
+            assert_eq!(groups.group(target.group).unwrap().preview(), None);
+            assert_eq!(sticky(&groups, target), cross_sticky);
+            assert!(groups.membership_current(target));
+            invariant(&groups);
+        }
+        let mut groups = Groups::default();
+        let first = groups
+            .open_mode(1, OpenMode::Preview, None)
+            .unwrap()
+            .active
+            .unwrap();
+        groups.open(2).unwrap();
+        let first_proof = groups.group_proof(first.group).unwrap();
+        let before = groups.clone();
+        assert!(!groups.reorder(&first_proof, first, 0).unwrap().changed);
+        assert_eq!(groups, before);
+        assert!(is_preview(&groups, first));
+        let mut groups = Groups::default();
+        let only = groups
+            .open_mode(1, OpenMode::Preview, None)
+            .unwrap()
+            .active
+            .unwrap();
+        let proof = groups.group_proof(only.group).unwrap();
+        let before = groups.clone();
+        for destination in [0, 1, usize::MAX] {
+            assert!(!groups.reorder(&proof, only, destination).unwrap().changed);
+            assert_eq!(groups, before);
+            assert!(is_preview(&groups, only));
+        }
+    }
+
+    #[test]
+    fn reorder_order_inverse_rejects_stale_proof_even_for_a_noop() {
+        let mut groups = Groups::default();
+        groups.import(&[restored(&[1, 2, 3], 1)], 0).unwrap();
+        let target = member(&groups, 0, 2);
+        let original = groups.group_proof(target.group).unwrap();
+        let ui = groups.proof();
+        groups.reorder(&original, target, 0).unwrap();
+        let current = groups.group_proof(target.group).unwrap();
+        groups.reorder(&current, target, 1).unwrap();
+        assert_eq!(documents(&groups, 0), [1, 2, 3]);
+        assert_eq!(groups.active_membership(), Some(target));
+        assert_eq!(
+            groups.group_proof(target.group).unwrap().members(),
+            original.members()
+        );
+        assert!(!groups.group_proof_current(&original) && !groups.proof_current(&ui));
+        let before = groups.clone();
+        for destination in [0, 1, usize::MAX] {
+            assert!(groups.reorder(&original, target, destination).is_err());
+            assert_eq!(groups, before);
+        }
+        let current = groups.group_proof(target.group).unwrap();
+        assert!(!groups.reorder(&current, target, 1).unwrap().changed);
+        assert_eq!(groups, before);
+        invariant(&groups);
+    }
+
+    #[test]
+    fn reorder_rejects_wrong_group_document_and_retired_membership_without_mutation() {
+        let mut groups = Groups::default();
+        groups
+            .import(&[restored(&[1, 2], 1), restored(&[9], 0)], 0)
+            .unwrap();
+        let target = member(&groups, 0, 2);
+        let proof = groups.group_proof(target.group).unwrap();
+        let other = groups.group_proof(groups.groups()[1].id()).unwrap();
+        let before = groups.clone();
+        assert!(groups.reorder(&other, target, 0).is_err());
+        assert_eq!(groups, before);
+        assert!(
+            groups
+                .reorder(
+                    &proof,
+                    Membership {
+                        document: 99,
+                        ..target
+                    },
+                    0
+                )
+                .is_err()
+        );
+        assert_eq!(groups, before);
+        groups.close(target).unwrap();
+        let new = groups
+            .open_in_group(target.group, 2)
+            .unwrap()
+            .active
+            .unwrap();
+        assert_ne!(new.tab, target.tab);
+        let current = groups.group_proof(target.group).unwrap();
+        let before = groups.clone();
+        assert!(groups.reorder(&current, target, 0).is_err());
+        assert_eq!(groups, before);
+        assert!(groups.reorder(&proof, new, 0).is_err());
+        assert_eq!(groups, before);
+        invariant(&groups);
+    }
+
+    #[test]
+    fn reorder_counter_refusal_is_atomic_but_original_edge_noop_needs_no_increment() {
+        for exhausted in 0..2 {
+            let mut groups = Groups::default();
+            let kept = groups.open(1).unwrap().active.unwrap();
+            groups.set_sticky(kept, true).unwrap();
+            let target = groups
+                .open_mode(2, OpenMode::Preview, None)
+                .unwrap()
+                .active
+                .unwrap();
+            if exhausted == 0 {
+                groups.generation = u64::MAX;
+            } else {
+                groups.groups[0].membership_generation = u64::MAX;
+            }
+            let proof = groups.group_proof(target.group).unwrap();
+            let before = groups.clone();
+            assert!(groups.reorder(&proof, target, 0).is_err());
+            assert_eq!(groups, before);
+            assert!(is_preview(&groups, target) && !sticky(&groups, target));
+            assert!(!groups.reorder(&proof, target, usize::MAX).unwrap().changed);
+            assert_eq!(groups, before);
+            invariant(&groups);
+        }
+        let mut groups = Groups::default();
+        groups.import(&[restored(&[1, 2], 1)], 0).unwrap();
+        groups.next_tab = u64::MAX;
+        groups.next_group = u64::MAX;
+        let target = member(&groups, 0, 2);
+        let proof = groups.group_proof(target.group).unwrap();
+        assert!(groups.reorder(&proof, target, 0).unwrap().changed);
+        assert_eq!(documents(&groups, 0), [2, 1]);
+        assert_eq!((groups.next_tab, groups.next_group), (u64::MAX, u64::MAX));
+        invariant(&groups);
+    }
+
+    #[test]
+    fn reorder_full_capacity_keeps_exact_membership_count_and_other_groups() {
+        let mut groups = Groups::default();
+        let inputs = (0..MAX_GROUPS)
+            .map(|group| {
+                let first = group * MAX_TABS_PER_GROUP + 1;
+                let documents = (first..first + MAX_TABS_PER_GROUP)
+                    .map(|id| id as u64)
+                    .collect::<Vec<_>>();
+                restored(&documents, MAX_TABS_PER_GROUP - 1)
+            })
+            .collect::<Vec<_>>();
+        groups.import(&inputs, MAX_GROUPS - 1).unwrap();
+        let target = groups.active_membership().unwrap();
+        let unaffected = groups.groups()[..MAX_GROUPS - 1].to_vec();
+        let proof = groups.group_proof(target.group).unwrap();
+        let counters = (groups.next_tab, groups.next_group);
+        assert!(groups.reorder(&proof, target, 0).unwrap().changed);
+        assert_eq!(groups.groups()[MAX_GROUPS - 1].tabs()[0].id(), target.tab);
+        assert_eq!(&groups.groups()[..MAX_GROUPS - 1], unaffected);
+        assert_eq!(groups.membership_mru().len(), MAX_MEMBERSHIPS);
+        assert_eq!((groups.next_tab, groups.next_group), counters);
+        assert!(groups.membership_current(target));
+        invariant(&groups);
+    }
+
+    #[test]
+    fn reorder_shared_document_views_and_pending_redo_stay_authoritative() {
+        use crate::document::{Document, Selection};
+        let original = "猫🙂 first\r\nsecond λ\r\n";
+        let mut doc = Document::from_text(original);
+        let mut groups = Groups::default();
+        let left = groups.open(doc.id).unwrap().active.unwrap();
+        let right = groups.split_active().unwrap().active.unwrap();
+        groups.open(doc.id + 1000).unwrap();
+        doc.activate_view(left.group.value());
+        doc.move_to(2, false);
+        doc.anchor = Some(1);
+        doc.secondary = vec![Selection::caret(7)];
+        doc.top = 1;
+        doc.left = 2;
+        doc.activate_view(right.group.value());
+        doc.move_to(doc.len(), false);
+        doc.insert("dirty🙂", false);
+        let edited = doc.text.to_string();
+        doc.undo();
+        assert_eq!(doc.text.to_string(), original);
+        let proof = groups.group_proof(right.group).unwrap();
+        let view = |doc: &Document, group: GroupId| {
+            let view = doc.view_state(Some(group.value()));
+            (
+                view.cursor,
+                view.anchor,
+                view.secondary.clone(),
+                view.top,
+                view.left,
+            )
+        };
+        let left_view = view(&doc, left.group);
+        let right_view = view(&doc, right.group);
+        let id = doc.id;
+        let epoch = doc.text_epoch();
+        let revision = doc.revision;
+        let generation = doc.save_generation();
+        let change = groups.reorder(&proof, right, 1).unwrap();
+        assert!(change.changed);
+        assert!(change.inserted.is_empty() && change.removed.is_empty());
+        assert!(change.created_groups.is_empty() && change.removed_groups.is_empty());
+        assert_eq!(groups.memberships(id).collect::<Vec<_>>(), [left, right]);
+        assert_eq!(doc.id, id);
+        assert_eq!(
+            (doc.text_epoch(), doc.revision, doc.save_generation()),
+            (epoch, revision, generation)
+        );
+        assert_eq!(doc.text.to_string(), original);
+        assert_eq!(view(&doc, left.group), left_view);
+        assert_eq!(view(&doc, right.group), right_view);
+        doc.redo();
+        assert_eq!(doc.text.to_string(), edited);
+        doc.undo();
+        assert_eq!(doc.text.to_string(), original);
+        assert_eq!(view(&doc, left.group), left_view);
+        assert!(groups.membership_current(left) && groups.membership_current(right));
         invariant(&groups);
     }
 }
