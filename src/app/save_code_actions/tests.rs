@@ -25,12 +25,12 @@ while True:
   uri=p['textDocument']['uri'];documents[uri]=p.get('text',p.get('contentChanges',[{}])[0].get('text',''))
  elif method in ('textDocument/codeAction','codeAction/resolve','textDocument/formatting'):
   text=documents.get(p.get('textDocument',{}).get('uri'),'')
-  with (root/'requests.jsonl').open('a') as f:f.write(json.dumps({'id':ident,'method':method,'params':p,'text':text[:4096],'length':len(text)})+'\n')
+  with (root/'requests.jsonl').open('a',encoding='utf-8') as f:f.write(json.dumps({'id':ident,'method':method,'params':p,'text':text[:4096],'length':len(text)})+'\n')
  elif method=='fixture/release':send({'id':p['id'],'result':p['result']})
  elif method=='$/cancelRequest':
-  with (root/'cancels.jsonl').open('a') as f:f.write(json.dumps(p)+'\n')
+  with (root/'cancels.jsonl').open('a',encoding='utf-8') as f:f.write(json.dumps(p)+'\n')
  elif method=='textDocument/didSave':
-  with (root/'saved.jsonl').open('a') as f:f.write(json.dumps(p,ensure_ascii=False)+'\n')
+  with (root/'saved.jsonl').open('a',encoding='utf-8') as f:f.write(json.dumps(p,ensure_ascii=False)+'\n')
  elif method=='shutdown':send({'id':ident,'result':None})
  elif method=='exit':break
 "#;
