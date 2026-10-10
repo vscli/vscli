@@ -10,7 +10,7 @@ impl Document {
         selections.extend(self.secondary.clone());
         selections
     }
-    fn assign_selections(&mut self, mut selections: Vec<Selection>) {
+    pub(super) fn assign_selections(&mut self, mut selections: Vec<Selection>) {
         if selections.is_empty() {
             selections.push(Selection::caret(0));
         }
@@ -24,6 +24,7 @@ impl Document {
         self.break_group();
         self.assign_selections(selections);
         self.normalize_selections();
+        self.retire_outside_typing_pairs();
     }
     fn record_cursors(&mut self) {
         let selections = self.selections();
@@ -182,18 +183,18 @@ impl Document {
             self.anchor = selection.anchor;
             self.desired_column = selection.desired_column;
             match command {
-                "cursorLeft" => self.horizontal(false, select, false),
-                "cursorRight" => self.horizontal(true, select, false),
-                "cursorWordLeft" => self.horizontal(false, select, true),
-                "cursorWordRight" => self.horizontal(true, select, true),
-                "cursorUp" => self.vertical(-1, select),
-                "cursorDown" => self.vertical(1, select),
-                "cursorPageUp" => self.vertical(-page, select),
-                "cursorPageDown" => self.vertical(page, select),
-                "cursorHome" => self.home(select),
-                "cursorEnd" => self.move_to(self.line_end(self.row()), select),
-                "cursorTop" => self.move_to(0, select),
-                "cursorBottom" => self.move_to(self.len(), select),
+                "cursorLeft" => self.horizontal_inner(false, select, false),
+                "cursorRight" => self.horizontal_inner(true, select, false),
+                "cursorWordLeft" => self.horizontal_inner(false, select, true),
+                "cursorWordRight" => self.horizontal_inner(true, select, true),
+                "cursorUp" => self.vertical_inner(-1, select),
+                "cursorDown" => self.vertical_inner(1, select),
+                "cursorPageUp" => self.vertical_inner(-page, select),
+                "cursorPageDown" => self.vertical_inner(page, select),
+                "cursorHome" => self.home_inner(select),
+                "cursorEnd" => self.move_to_inner(self.line_end(self.row()), select),
+                "cursorTop" => self.move_to_inner(0, select),
+                "cursorBottom" => self.move_to_inner(self.len(), select),
                 _ => return false,
             }
             moved.push(Selection {
@@ -204,6 +205,9 @@ impl Document {
         }
         self.assign_selections(moved);
         self.normalize_selections();
+        // Intermediate primary positions are not the completed multi-cursor
+        // movement. Retire ownership only after every caret has been moved.
+        self.retire_outside_typing_pairs();
         true
     }
     pub fn add_cursor(&mut self, pos: usize) {

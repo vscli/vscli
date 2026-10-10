@@ -13,6 +13,7 @@ use unicode_width::UnicodeWidthStr;
 mod editing;
 pub(crate) mod graphemes;
 mod snippets;
+mod typing;
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
@@ -147,6 +148,7 @@ struct Snapshot {
     changes: Vec<PositionChange>,
     snippet: Option<snippets::Session>,
     snippet_generation: u64,
+    pairs: typing::Pairs,
     // Snippet navigation occurs after the edit. Preserve the edit's endpoint
     // selections instead of turning that later navigation into redo state.
     after_selections: Option<Vec<Selection>>,
@@ -163,6 +165,7 @@ pub struct ViewState {
     cursor_history: Vec<Vec<Selection>>,
     snippet: Option<snippets::Session>,
     snippet_generation: u64,
+    pairs: typing::Pairs,
 }
 #[derive(Clone)]
 pub(crate) struct ByteChange {
@@ -193,6 +196,7 @@ impl PositionChange {
     }
     fn map(&self, view: &mut ViewState) {
         view.map_snippet(&self.range, self.added);
+        view.pairs.map(&self.range, self.added);
         view.cursor = map_position(view.cursor, &self.range, self.added);
         view.anchor = view
             .anchor
@@ -230,6 +234,7 @@ pub struct Document {
     save_generation: u64,
     byte_changes: std::collections::VecDeque<(u64, ByteChange)>,
     typing: Option<(Instant, usize)>,
+    typing_context: typing::ContextCache,
 }
 
 impl std::ops::Deref for Document {
@@ -303,6 +308,7 @@ impl Document {
             let mut view = self.view.clone();
             view.cursor_history.clear();
             view.snippet = None;
+            view.pairs = typing::Pairs::default();
             view
         });
         let previous = std::mem::replace(&mut self.view, next);
@@ -350,6 +356,7 @@ impl Document {
     }
     fn record_change(&mut self, range: Range<usize>, added: usize, added_bytes: usize) {
         self.view.map_snippet(&range, added);
+        self.view.pairs.map(&range, added);
         let bytes = ByteChange {
             range: self.text.char_to_byte(range.start)..self.text.char_to_byte(range.end),
             added: added_bytes,
@@ -400,6 +407,7 @@ impl Document {
             save_generation: 0,
             byte_changes: std::collections::VecDeque::new(),
             typing: None,
+            typing_context: typing::ContextCache::default(),
         }
     }
 
@@ -587,6 +595,7 @@ impl Document {
             changes: Vec::new(),
             snippet: self.snippet.clone(),
             snippet_generation: self.snippet_generation,
+            pairs: self.pairs.clone(),
             after_selections: None,
         }
     }
@@ -713,6 +722,7 @@ impl Document {
                 .collect(),
             snippet: view.snippet.clone(),
             snippet_generation: view.snippet_generation,
+            pairs: view.pairs.clone(),
             after_selections: after.map(|_| {
                 let mut selections = vec![Selection {
                     cursor: target.cursor,
@@ -739,6 +749,9 @@ impl Document {
             self.other_views.get_mut(&s.view_id)
         };
         if let Some(view) = view {
+            if view.pairs.generation == s.pairs.generation {
+                view.pairs = s.pairs;
+            }
             if view.snippet_generation == s.snippet_generation {
                 if let (Some(previous), Some(current)) = (&mut s.snippet, &view.snippet) {
                     previous.retain_removed_from(current);
@@ -754,6 +767,10 @@ impl Document {
         self.revision = s.revision;
     }
     pub fn move_to(&mut self, pos: usize, select: bool) {
+        self.move_to_inner(pos, select);
+        self.retire_outside_typing_pairs();
+    }
+    fn move_to_inner(&mut self, pos: usize, select: bool) {
         self.break_group();
         if select {
             if self.anchor.is_none() {
@@ -828,6 +845,10 @@ impl Document {
         p
     }
     pub fn horizontal(&mut self, right: bool, select: bool, word: bool) {
+        self.horizontal_inner(right, select, word);
+        self.retire_outside_typing_pairs();
+    }
+    fn horizontal_inner(&mut self, right: bool, select: bool, word: bool) {
         let pos = if !select && !word && self.selection().is_some() {
             let r = self.selection().unwrap();
             if right { r.end } else { r.start }
@@ -842,18 +863,26 @@ impl Document {
         } else {
             self.previous(self.cursor)
         };
-        self.move_to(pos, select);
+        self.move_to_inner(pos, select);
     }
     pub fn vertical(&mut self, amount: isize, select: bool) {
+        self.vertical_inner(amount, select);
+        self.retire_outside_typing_pairs();
+    }
+    fn vertical_inner(&mut self, amount: isize, select: bool) {
         let col = self.desired_column.unwrap_or_else(|| self.visual_column());
         let row = self
             .row()
             .saturating_add_signed(amount)
             .min(self.line_count() - 1);
-        self.move_to(self.position_at(row, col), select);
+        self.move_to_inner(self.position_at(row, col), select);
         self.desired_column = Some(col);
     }
     pub fn home(&mut self, select: bool) {
+        self.home_inner(select);
+        self.retire_outside_typing_pairs();
+    }
+    fn home_inner(&mut self, select: bool) {
         let start = self.line_start(self.row());
         let first = start
             + self
@@ -861,7 +890,7 @@ impl Document {
                 .chars()
                 .take_while(|c| c.is_whitespace())
                 .count();
-        self.move_to(if self.cursor == first { start } else { first }, select);
+        self.move_to_inner(if self.cursor == first { start } else { first }, select);
     }
     pub fn backspace(&mut self, word: bool) {
         if !self.secondary.is_empty() {
@@ -1157,6 +1186,11 @@ impl Document {
         temp.persist(&path)
             .map_err(|e| e.error)
             .context("Could not replace the destination file")?;
+        if !same_path {
+            // Save As changes document semantics independently of Undo. A later
+            // return to the old path cannot revive delimiter ownership.
+            self.retire_typing_pairs();
+        }
         self.path = Some(path);
         self.disk_content = Some(self.text.clone());
         self.saved_revision = self.revision;
