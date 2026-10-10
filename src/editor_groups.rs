@@ -3916,3 +3916,810 @@ mod tests {
         assert_eq!(groups, before);
     }
 }
+
+/// A retired source membership and its exact admitted/reused destination. App
+/// must stage all historical document views before publishing this engine plan.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GroupMergeMove {
+    pub source: Membership,
+    pub target: Membership,
+    /// Only the original active editor of an originally active source activates.
+    pub active: bool,
+}
+
+/// Default-right, nonempty Close Group merge; no document close/save/discard.
+/// Exact private lineage/full-state checks precede the only live assignment.
+#[derive(Debug)]
+pub struct CloseGroupMergePlan {
+    lineage: Lineage,
+    ui: UiProof,
+    source: GroupProof,
+    next_group: u64,
+    next_tab: u64,
+    original: Option<Groups>,
+    projected: Option<Groups>,
+    destination: Option<GroupId>,
+    moves: Vec<GroupMergeMove>,
+    change: Change,
+}
+impl CloseGroupMergePlan {
+    fn current(&self, groups: &Groups) -> bool {
+        self.lineage == groups.lineage
+            && groups.proof_current(&self.ui)
+            && groups.group_proof_current(&self.source)
+            && groups.next_group == self.next_group
+            && groups.next_tab == self.next_tab
+            && self
+                .original
+                .as_ref()
+                .is_none_or(|original| original == groups)
+    }
+    pub fn projected<'a>(&'a self, current: &'a Groups) -> Result<&'a Groups> {
+        ensure!(
+            self.current(current),
+            "Editor groups changed before merge publication"
+        );
+        Ok(self.projected.as_ref().unwrap_or(current))
+    }
+    pub fn destination(&self) -> Option<GroupId> {
+        self.destination
+    }
+    pub fn moves(&self) -> &[GroupMergeMove] {
+        &self.moves
+    }
+    pub fn change(&self) -> &Change {
+        &self.change
+    }
+}
+impl Groups {
+    /// Pinned Close Group chooses the most recently active OTHER group, never a
+    /// geometric neighbor. The sole group is an exact proof-validated no-op.
+    /// Source can be inactive; unrelated currently active group stays active.
+    pub fn prepare_close_group_merge(
+        &self,
+        ui: UiProof,
+        source: GroupProof,
+    ) -> Result<CloseGroupMergePlan> {
+        ensure!(
+            self.proof_current(&ui),
+            "Editor focus changed before group merge"
+        );
+        ensure!(
+            self.group_proof_current(&source),
+            "Source editor group changed before merge"
+        );
+        let source_index = self
+            .groups
+            .iter()
+            .position(|group| group.id == source.group)
+            .context("Unknown merge source")?;
+        let target_id = self
+            .recent_groups
+            .iter()
+            .copied()
+            .find(|id| *id != source.group);
+        let mut plan = CloseGroupMergePlan {
+            lineage: self.lineage.clone(),
+            ui,
+            source,
+            next_group: self.next_group,
+            next_tab: self.next_tab,
+            original: None,
+            projected: None,
+            destination: target_id,
+            moves: Vec::new(),
+            change: self.unchanged(),
+        };
+        let Some(target_id) = target_id else {
+            ensure!(
+                self.groups.len() == 1,
+                "Editor group MRU lacks merge destination"
+            );
+            return Ok(plan);
+        };
+        let target_index = self
+            .groups
+            .iter()
+            .position(|group| group.id == target_id)
+            .context("Unknown merge destination")?;
+        let source_group = &self.groups[source_index];
+        let target_group = &self.groups[target_index];
+        let fresh = source_group
+            .tabs
+            .iter()
+            .filter(|tab| {
+                !target_group
+                    .tabs
+                    .iter()
+                    .any(|existing| existing.document == tab.document)
+            })
+            .count();
+        ensure!(
+            target_group
+                .tabs
+                .len()
+                .checked_add(fresh)
+                .is_some_and(|count| count <= MAX_TABS_PER_GROUP),
+            "Merged editor group exceeds 128 tabs"
+        );
+        let generation = increment(self.generation, "interaction generation")?;
+        let next_tab = self
+            .next_tab
+            .checked_add(u64::try_from(fresh)?)
+            .context("Editor-group tab identities exhausted")?;
+        let original = self.try_clone_transfer()?;
+        let mut next = self.try_clone_transfer()?;
+        let mut change = Change {
+            changed: true,
+            previous: self.active_membership(),
+            ..Change::default()
+        };
+        for values in [
+            &mut change.inserted,
+            &mut change.removed,
+            &mut change.promoted,
+            &mut change.sticky_changed,
+        ] {
+            values
+                .try_reserve(source_group.tabs.len())
+                .context("Cannot reserve group merge results")?;
+        }
+        change
+            .removed_groups
+            .try_reserve(1)
+            .context("Cannot reserve removed merge group")?;
+        plan.moves
+            .try_reserve(source_group.tabs.len())
+            .context("Cannot reserve group merge mappings")?;
+        // Source history retires only in the unpublished stage. This admission
+        // also uses the existing genuine allocator-refusal oracle.
+        next.recent_memberships
+            .retain(|member| member.group != source_group.id);
+        next.reserve_recent(fresh, 0)?;
+        let target = &mut next.groups[target_index];
+        target
+            .tabs
+            .try_reserve(fresh)
+            .context("Cannot reserve merged tabs")?;
+        target
+            .recent
+            .try_reserve(fresh)
+            .context("Cannot reserve merged tab MRU")?;
+        let mut tab_counter = self.next_tab;
+        let source_active = self.active == Some(source_group.id);
+        for source_tab in &source_group.tabs {
+            let source_member = source_group.membership(source_tab);
+            let active = source_active && source_tab.id == source_group.active;
+            let existing = target
+                .tabs
+                .iter()
+                .position(|tab| tab.document == source_tab.document);
+            let target_tab = if let Some(position) = existing {
+                let id = target.tabs[position].id;
+                // Moving always commits previews; unrelated target preview stays.
+                if target.tabs[position].preview {
+                    target.tabs[position].preview = false;
+                    target.preview = None;
+                    change.promoted.push(Membership {
+                        group: target_id,
+                        tab: id,
+                        document: source_tab.document,
+                    });
+                }
+                if source_tab.sticky {
+                    if !target.tabs[position].sticky {
+                        let mut tab = target.tabs.remove(position);
+                        tab.sticky = true;
+                        target.tabs.insert(target.sticky_count, tab);
+                        target.sticky_count += 1;
+                    }
+                } else {
+                    // The pinned merge supplies initial target count + source
+                    // ordinal. That always clamps to the current LAST position
+                    // for duplicates, after prior insertions/deduplication.
+                    let last = target.tabs.len() - 1;
+                    if position != last {
+                        let mut tab = target.tabs.remove(position);
+                        if tab.sticky && last >= target.sticky_count {
+                            tab.sticky = false;
+                            target.sticky_count -= 1;
+                        }
+                        target.tabs.push(tab);
+                    }
+                }
+                id
+            } else {
+                let id = TabId(tab_counter);
+                tab_counter = increment(tab_counter, "tab identities")?;
+                let position = if source_tab.sticky {
+                    // Installed default RIGHT placement followed by pinned new
+                    // sticky adjustment. Active sticky can insert WITHIN prefix.
+                    let after_active = target
+                        .tabs
+                        .iter()
+                        .position(|tab| tab.id == target.active)
+                        .unwrap()
+                        + 1;
+                    after_active.min(target.sticky_count)
+                } else {
+                    target.tabs.len()
+                };
+                target.tabs.insert(
+                    position,
+                    Tab {
+                        id,
+                        document: source_tab.document,
+                        preview: false,
+                        sticky: source_tab.sticky,
+                    },
+                );
+                target.sticky_count += usize::from(source_tab.sticky);
+                // Native group MRU matches pinned inactive-open insertion.
+                target.recent.insert(1, id);
+                change.inserted.push(Membership {
+                    group: target_id,
+                    tab: id,
+                    document: source_tab.document,
+                });
+                id
+            };
+            let target_member = Membership {
+                group: target_id,
+                tab: target_tab,
+                document: source_tab.document,
+            };
+            if active {
+                target.active = target_tab;
+                target.recent.retain(|id| *id != target_tab);
+                target.recent.insert(0, target_tab);
+            }
+            change.removed.push(source_member);
+            plan.moves.push(GroupMergeMove {
+                source: source_member,
+                target: target_member,
+                active,
+            });
+        }
+        for tab in &target.tabs {
+            if let Some(old) = target_group.tabs.iter().find(|old| old.id == tab.id)
+                && old.sticky != tab.sticky
+            {
+                change.sticky_changed.push(target.membership(tab));
+            }
+        }
+        if target.tabs != target_group.tabs || target.preview != target_group.preview {
+            target.membership_generation = increment(
+                target_group.membership_generation,
+                "destination membership generation",
+            )?;
+        }
+        // Preserve native historical membership rank by mapping fresh targets
+        // in-place; duplicate source ranks retire in favor of existing targets.
+        // This global history policy is NOT an upstream global-MRU parity claim.
+        next.recent_memberships.clear();
+        for member in &self.recent_memberships {
+            if member.group != source_group.id {
+                next.recent_memberships.push(*member);
+            } else if let Some(moved) = plan.moves.iter().find(|moved| moved.source == *member)
+                && change.inserted.contains(&moved.target)
+            {
+                next.recent_memberships.push(moved.target);
+            }
+        }
+        next.remove_group(source_index);
+        if source_active {
+            next.active = Some(target_id);
+        }
+        next.generation = generation;
+        next.next_tab = next_tab;
+        next.touch_active();
+        change.removed_groups.push(source_group.id);
+        change.active = next.active_membership();
+        plan.original = Some(original);
+        plan.projected = Some(next);
+        plan.change = change;
+        Ok(plan)
+    }
+    pub fn commit_close_group_merge(&mut self, mut plan: CloseGroupMergePlan) -> Result<Change> {
+        ensure!(
+            plan.current(self),
+            "Editor groups changed before merge publication"
+        );
+        if let Some(projected) = plan.projected.take() {
+            *self = projected;
+        }
+        Ok(plan.change)
+    }
+}
+
+#[cfg(test)]
+mod close_group_merge_tests {
+    use super::*;
+    fn restored(documents: &[u64], active: usize) -> RestoreGroup {
+        RestoreGroup {
+            documents: documents.to_vec(),
+            active,
+            recent: std::iter::once(active)
+                .chain((0..documents.len()).filter(|i| *i != active))
+                .collect(),
+        }
+    }
+    fn fixture(rows: &[&[u64]], active: usize) -> Groups {
+        let mut groups = Groups::default();
+        groups
+            .import(
+                &rows.iter().map(|row| restored(row, 0)).collect::<Vec<_>>(),
+                active,
+            )
+            .unwrap();
+        groups
+    }
+    fn member(groups: &Groups, group: GroupId, document: u64) -> Membership {
+        let group = groups.group(group).unwrap();
+        group.membership(
+            group
+                .tabs
+                .iter()
+                .find(|tab| tab.document == document)
+                .unwrap(),
+        )
+    }
+    fn docs(groups: &Groups, group: GroupId) -> Vec<u64> {
+        groups
+            .group(group)
+            .unwrap()
+            .tabs
+            .iter()
+            .map(|tab| tab.document)
+            .collect()
+    }
+    fn recent(groups: &Groups, group: GroupId) -> Vec<u64> {
+        let g = groups.group(group).unwrap();
+        g.recent
+            .iter()
+            .map(|id| g.tabs.iter().find(|tab| tab.id == *id).unwrap().document)
+            .collect()
+    }
+    fn prepare(groups: &Groups, source: GroupId) -> CloseGroupMergePlan {
+        groups
+            .prepare_close_group_merge(groups.proof(), groups.group_proof(source).unwrap())
+            .unwrap()
+    }
+    fn integrity(groups: &Groups) {
+        let total = groups
+            .groups
+            .iter()
+            .map(|group| group.tabs.len())
+            .sum::<usize>();
+        assert_eq!(total, groups.recent_memberships.len());
+        let ids = groups
+            .recent_memberships
+            .iter()
+            .map(|member| member.tab)
+            .collect::<HashSet<_>>();
+        assert_eq!(ids.len(), total);
+        assert!(
+            groups
+                .recent_memberships
+                .iter()
+                .all(|member| groups.membership_current(*member))
+        );
+        assert_eq!(
+            groups.recent_memberships.first().copied(),
+            groups.active_membership()
+        );
+        assert_eq!(groups.recent_groups.first().copied(), groups.active);
+        assert_eq!(groups.recent_groups.len(), groups.groups.len());
+        for group in &groups.groups {
+            assert_eq!(group.tabs.len(), group.recent.len());
+            assert_eq!(group.recent.first(), Some(&group.active));
+            let recent = group.recent.iter().copied().collect::<HashSet<_>>();
+            assert_eq!(recent.len(), group.tabs.len());
+            assert!(group.tabs.iter().all(|tab| recent.contains(&tab.id)));
+            for (position, tab) in group.tabs.iter().enumerate() {
+                assert_eq!(tab.sticky, position < group.sticky_count);
+            }
+            assert_eq!(
+                group.tabs.iter().find(|tab| tab.preview).map(|tab| tab.id),
+                group.preview
+            );
+        }
+    }
+
+    #[test]
+    fn active_source_uses_other_group_mru_not_appearance_neighbor_and_keeps_original_active() {
+        let mut groups = fixture(&[&[1, 2, 3], &[10, 11], &[20]], 0);
+        let source = groups.groups[0].id;
+        let neighbor = groups.groups[1].id;
+        let target = groups.groups[2].id;
+        groups.focus(member(&groups, target, 20)).unwrap();
+        groups.focus(member(&groups, source, 2)).unwrap();
+        let old_neighbor = groups.group(neighbor).unwrap().clone();
+        let origin = member(&groups, source, 2);
+        let before = groups.clone();
+        let plan = prepare(&groups, source);
+        assert_eq!(groups, before);
+        assert_eq!(plan.destination(), Some(target));
+        assert_eq!(
+            docs(plan.projected(&groups).unwrap(), target),
+            [20, 1, 2, 3]
+        );
+        assert_eq!(
+            recent(plan.projected(&groups).unwrap(), target),
+            [2, 3, 20, 1]
+        );
+        assert_eq!(
+            plan.moves()
+                .iter()
+                .filter(|m| m.active)
+                .map(|m| m.source)
+                .collect::<Vec<_>>(),
+            [origin]
+        );
+        let change = groups.commit_close_group_merge(plan).unwrap();
+        assert_eq!(change.removed_groups, [source]);
+        assert_eq!(change.removed.len(), 3);
+        assert_eq!(groups.active_membership().unwrap().document, 2);
+        assert_eq!(groups.group(neighbor), Some(&old_neighbor));
+        assert!(!groups.membership_current(origin));
+        integrity(&groups);
+    }
+
+    #[test]
+    fn inactive_source_does_not_steal_active_editor_and_inactive_new_mru_is_reversed() {
+        let mut groups = fixture(&[&[1, 2, 3], &[10, 11]], 1);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        let active = groups.active_membership();
+        let plan = prepare(&groups, source);
+        assert!(plan.moves().iter().all(|m| !m.active));
+        groups.commit_close_group_merge(plan).unwrap();
+        assert_eq!(groups.active_membership(), active);
+        assert_eq!(docs(&groups, target), [10, 11, 1, 2, 3]);
+        assert_eq!(recent(&groups, target), [10, 3, 2, 1, 11]);
+        integrity(&groups);
+    }
+
+    #[test]
+    fn duplicate_target_keeps_tab_identity_but_nonsticky_indexed_append_can_unstick_it() {
+        let mut groups = fixture(&[&[1], &[1, 10]], 0);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        let target_one = member(&groups, target, 1);
+        groups.set_sticky(target_one, true).unwrap();
+        let plan = prepare(&groups, source);
+        assert_eq!(plan.moves()[0].target, target_one);
+        assert!(plan.change().inserted.is_empty());
+        assert_eq!(plan.change().sticky_changed, [target_one]);
+        groups.commit_close_group_merge(plan).unwrap();
+        assert_eq!(docs(&groups, target), [10, 1]);
+        assert_eq!(groups.group(target).unwrap().sticky_count, 0);
+        assert_eq!(groups.active_membership(), Some(target_one));
+        integrity(&groups);
+        // No boundary crossing if the only target tab was already sticky.
+        let mut groups = fixture(&[&[1], &[1]], 0);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        groups.set_sticky(member(&groups, target, 1), true).unwrap();
+        groups
+            .commit_close_group_merge(prepare(&groups, source))
+            .unwrap();
+        assert_eq!(groups.group(target).unwrap().sticky_count, 1);
+        integrity(&groups);
+    }
+
+    #[test]
+    fn incoming_sticky_default_right_uses_active_prefix_position_and_inactive_order() {
+        let mut groups = fixture(&[&[1, 2, 3], &[10, 11, 12]], 1);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        for doc in [1, 2] {
+            groups
+                .set_sticky(member(&groups, source, doc), true)
+                .unwrap();
+        }
+        for doc in [10, 11] {
+            groups
+                .set_sticky(member(&groups, target, doc), true)
+                .unwrap();
+        }
+        // Both incoming sticky opens are inactive, so active10 remains before
+        // the insertion point and the second incoming open precedes the first.
+        groups
+            .commit_close_group_merge(prepare(&groups, source))
+            .unwrap();
+        assert_eq!(docs(&groups, target), [10, 2, 1, 11, 12, 3]);
+        assert_eq!(groups.group(target).unwrap().sticky_count, 4);
+        assert_eq!(groups.active_membership().unwrap().document, 10);
+        integrity(&groups);
+    }
+
+    #[test]
+    fn moved_previews_commit_unrelated_target_preview_survives_and_duplicate_preview_commits() {
+        let mut groups = fixture(&[&[1], &[10]], 0);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        let incoming = groups
+            .open_in_group_mode(source, 2, OpenMode::Preview, None)
+            .unwrap()
+            .active
+            .unwrap();
+        let untouched = groups
+            .open_in_group_mode(target, 11, OpenMode::Preview, None)
+            .unwrap()
+            .active
+            .unwrap();
+        groups.focus(incoming).unwrap();
+        let plan = prepare(&groups, source);
+        let moved = plan
+            .moves()
+            .iter()
+            .find(|m| m.source == incoming)
+            .unwrap()
+            .target;
+        groups.commit_close_group_merge(plan).unwrap();
+        assert_eq!(groups.group(target).unwrap().preview(), Some(untouched));
+        assert!(
+            !groups
+                .group(target)
+                .unwrap()
+                .tabs
+                .iter()
+                .find(|tab| tab.id == moved.tab)
+                .unwrap()
+                .preview
+        );
+        assert_eq!(groups.active_membership(), Some(moved));
+        integrity(&groups);
+        let mut groups = fixture(&[&[1], &[10]], 0);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        let duplicate = groups
+            .open_in_group_mode(target, 1, OpenMode::Preview, None)
+            .unwrap()
+            .active
+            .unwrap();
+        groups.focus(member(&groups, source, 1)).unwrap();
+        let plan = prepare(&groups, source);
+        assert_eq!(plan.change().promoted, [duplicate]);
+        groups.commit_close_group_merge(plan).unwrap();
+        assert!(groups.group(target).unwrap().preview().is_none());
+        integrity(&groups);
+    }
+
+    #[test]
+    fn full_destination_accepts_complete_dedup_but_union_overflow_preserves_all_live_state() {
+        let full = (1..=MAX_TABS_PER_GROUP as u64).collect::<Vec<_>>();
+        let mut groups = fixture(&[&[1, 2], &full], 0);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        let identity = member(&groups, target, 1);
+        let next_tab = groups.next_tab;
+        groups
+            .commit_close_group_merge(prepare(&groups, source))
+            .unwrap();
+        assert_eq!(groups.next_tab, next_tab);
+        assert!(groups.membership_current(identity));
+        assert_eq!(groups.group(target).unwrap().tabs.len(), MAX_TABS_PER_GROUP);
+        integrity(&groups);
+        let groups = fixture(&[&[1, 500], &full], 0);
+        let source = groups.groups[0].id;
+        let before = groups.clone();
+        assert!(
+            groups
+                .prepare_close_group_merge(groups.proof(), groups.group_proof(source).unwrap())
+                .is_err()
+        );
+        assert_eq!(groups, before);
+        integrity(&groups);
+    }
+
+    #[test]
+    fn sole_group_noop_validates_proof_lineage_and_counters_without_stage_or_promotion() {
+        let mut groups = Groups::default();
+        let preview = groups
+            .open_mode(1, OpenMode::Preview, None)
+            .unwrap()
+            .active
+            .unwrap();
+        groups.generation = u64::MAX;
+        groups.next_tab = u64::MAX;
+        groups.next_group = u64::MAX;
+        let before = groups.clone();
+        let plan = prepare(&groups, preview.group);
+        assert!(plan.original.is_none() && plan.projected.is_none());
+        assert!(plan.moves.is_empty());
+        assert!(!plan.change.changed);
+        assert_eq!(plan.projected(&groups).unwrap(), &before);
+        assert!(!groups.commit_close_group_merge(plan).unwrap().changed);
+        assert_eq!(groups, before);
+        let mut foreign = Groups::default();
+        foreign.open_mode(1, OpenMode::Preview, None).unwrap();
+        foreign.generation = groups.generation;
+        foreign.next_tab = groups.next_tab;
+        foreign.next_group = groups.next_group;
+        assert!(
+            foreign
+                .commit_close_group_merge(prepare(&groups, preview.group))
+                .is_err()
+        );
+        let mut stale = groups.proof();
+        stale.generation -= 1;
+        assert!(
+            groups
+                .prepare_close_group_merge(stale, groups.group_proof(preview.group).unwrap())
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn stale_order_mode_focus_and_same_counter_divergent_fork_reject_commit_atomically() {
+        let base = fixture(&[&[1, 2], &[10, 11]], 0);
+        let source = base.groups[0].id;
+        for mutation in 0..4 {
+            let mut changed = base.clone();
+            let plan = prepare(&changed, source);
+            match mutation {
+                0 => {
+                    changed.focus(member(&changed, source, 2)).unwrap();
+                    changed.focus(member(&changed, source, 1)).unwrap();
+                }
+                1 => {
+                    let target = changed.groups[1].id;
+                    changed
+                        .set_sticky(member(&changed, target, 11), true)
+                        .unwrap();
+                    changed
+                        .set_sticky(member(&changed, target, 11), false)
+                        .unwrap();
+                }
+                2 => {
+                    let member = member(&changed, source, 1);
+                    changed
+                        .reorder(&changed.group_proof(source).unwrap(), member, 1)
+                        .unwrap();
+                    changed
+                        .reorder(&changed.group_proof(source).unwrap(), member, 0)
+                        .unwrap();
+                    assert_eq!(docs(&changed, source), [1, 2]);
+                }
+                _ => {
+                    let target = changed.groups[1].id;
+                    changed.groups[1].tabs.swap(0, 1);
+                    changed.groups[1].membership_generation += 1;
+                    assert_eq!(changed.groups[1].id, target);
+                }
+            }
+            let before = changed.clone();
+            assert!(plan.projected(&changed).is_err());
+            assert!(changed.commit_close_group_merge(plan).is_err());
+            assert_eq!(changed, before);
+        }
+        let plan = prepare(&base, source);
+        let mut fork = base.clone();
+        // Same IDs/proofs/counters except inactive target MRU: full original
+        // state revalidation prevents borrowing a divergent prepared branch.
+        fork.groups[1].recent.swap(0, 1);
+        fork.groups[1].active = fork.groups[1].recent[0];
+        let before = fork.clone();
+        assert!(fork.commit_close_group_merge(plan).is_err());
+        assert_eq!(fork, before);
+    }
+
+    #[test]
+    fn counter_and_admission_allocation_refusal_leave_groups_tabs_modes_history_intact() {
+        for counter in 0..3 {
+            let mut groups = fixture(&[&[1, 2], &[10]], 0);
+            let source = groups.groups[0].id;
+            match counter {
+                0 => groups.generation = u64::MAX,
+                1 => groups.next_tab = u64::MAX - 1,
+                _ => groups.groups[1].membership_generation = u64::MAX,
+            }
+            let before = groups.clone();
+            assert!(
+                groups
+                    .prepare_close_group_merge(groups.proof(), groups.group_proof(source).unwrap())
+                    .is_err()
+            );
+            assert_eq!(groups, before);
+            integrity(&groups);
+        }
+        let groups = fixture(&[&[1, 2], &[10]], 0);
+        let source = groups.groups[0].id;
+        let before = groups.clone();
+        groups.fail_next_recent_reservation();
+        assert!(
+            groups
+                .prepare_close_group_merge(groups.proof(), groups.group_proof(source).unwrap())
+                .is_err()
+        );
+        assert_eq!(groups, before);
+        integrity(&groups);
+    }
+
+    #[test]
+    fn dropping_prepared_merge_and_late_layout_refusal_never_publish_partial_memberships() {
+        let mut groups = fixture(&[&[1, 2], &[10, 1]], 0);
+        let source = groups.groups[0].id;
+        let before = groups.clone();
+        let plan = prepare(&groups, source);
+        assert_eq!(plan.moves().len(), 2);
+        assert!(plan.change().changed);
+        // Caller can inspect the projected destination then abandon the plan
+        // on ANY independent Layout/view refusal without touching live Groups.
+        assert_eq!(plan.projected(&groups).unwrap().groups.len(), 1);
+        drop(plan);
+        assert_eq!(groups, before);
+        let plan = prepare(&groups, source);
+        groups.open_in_group(groups.groups[1].id, 20).unwrap();
+        let changed = groups.clone();
+        assert!(groups.commit_close_group_merge(plan).is_err());
+        assert_eq!(groups, changed);
+        integrity(&groups);
+    }
+    #[test]
+    fn fully_occupied_four_group_history_dedups_without_tab_or_destination_generation_increment() {
+        let full = (1..=MAX_TABS_PER_GROUP as u64).collect::<Vec<_>>();
+        let third = (1000..1000 + MAX_TABS_PER_GROUP as u64).collect::<Vec<_>>();
+        let fourth = (2000..2000 + MAX_TABS_PER_GROUP as u64).collect::<Vec<_>>();
+        let mut groups = fixture(&[&full, &full, &third, &fourth], 0);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        let unchanged_third = groups.groups[2].clone();
+        let unchanged_fourth = groups.groups[3].clone();
+        groups.next_tab = u64::MAX;
+        groups.groups[1].membership_generation = u64::MAX;
+        let source_proof = groups.group_proof(source).unwrap();
+        let target_proof = groups.group_proof(target).unwrap();
+        let plan = prepare(&groups, source);
+        assert!(plan.change().inserted.is_empty());
+        assert_eq!(plan.moves().len(), MAX_TABS_PER_GROUP);
+        groups.commit_close_group_merge(plan).unwrap();
+        assert_eq!(groups.next_tab, u64::MAX);
+        assert!(groups.group_proof_current(&target_proof));
+        assert!(!groups.group_proof_current(&source_proof));
+        assert_eq!(docs(&groups, target), full);
+        assert_eq!(groups.groups.len(), 3);
+        assert_eq!(groups.groups[1], unchanged_third);
+        assert_eq!(groups.groups[2], unchanged_fourth);
+        integrity(&groups);
+    }
+
+    #[test]
+    fn new_target_memberships_preserve_native_history_rank_and_reused_target_identity() {
+        let mut groups = fixture(&[&[1, 2], &[10, 1]], 0);
+        let source = groups.groups[0].id;
+        let target = groups.groups[1].id;
+        let reused = member(&groups, target, 1);
+        let old_counter = groups.next_tab;
+        let old_source = member(&groups, source, 2);
+        let group_counter = groups.next_group;
+        let plan = prepare(&groups, source);
+        let new_two = plan
+            .moves()
+            .iter()
+            .find(|m| m.source == old_source)
+            .unwrap()
+            .target;
+        assert_eq!(new_two.tab.value(), old_counter);
+        assert_eq!(plan.moves()[0].target, reused);
+        groups.commit_close_group_merge(plan).unwrap();
+        assert_eq!(groups.next_tab, old_counter + 1);
+        assert_eq!(groups.next_group, group_counter);
+        assert_eq!(
+            groups
+                .membership_mru()
+                .iter()
+                .map(|m| m.document)
+                .collect::<Vec<_>>(),
+            [1, 2, 10]
+        );
+        assert_eq!(recent(&groups, target), [1, 2, 10]);
+        assert_eq!(docs(&groups, target), [10, 1, 2]);
+        assert!(groups.membership_current(reused));
+        assert!(groups.membership_current(new_two));
+        assert!(!groups.membership_current(old_source));
+        integrity(&groups);
+    }
+}
