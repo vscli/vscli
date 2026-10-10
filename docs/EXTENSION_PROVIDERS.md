@@ -4,6 +4,13 @@ The optional extension host supplies completion, hover, definitions, references,
 
 The registry implements owner-scoped registrations and result conversion for completion, hover, definitions, references, document formatting, document symbols and signature help. The compatibility values include completion and symbol kinds, MarkdownString, SnippetString, CompletionItem/List, Hover, Location, TextEdit, DocumentSymbol/SymbolInformation, signature values and CancellationTokenSource. Deprecated completion `textEdit` retains its replacement range and takes precedence over `insertText`/`range`, as in the pinned adapter. API numeric kinds are converted from VS Code's zero-based values into the native UI's LSP representation.
 
+Symbol values support both public `SymbolInformation` location and range/URI
+constructor forms. `DocumentSymbol` validates its name and selection containment;
+hierarchy validation is bounded to 512 nodes and 16 levels. The exported
+`SymbolTag.Deprecated` retains the pinned value `1`. A facade-level Node test
+checks constructors, containment, tags and cyclic child rejection; this does not
+establish complete symbol-provider or extension-package compatibility.
+
 The shared native file-language mapping recognizes `.sql` for provider matching; this does not add a SQL syntax grammar or automatically install a SQL server.
 
 Selectors support strings and arrays of language/scheme filters, including `*`, capped at 32 entries. Glob patterns, notebook filters and other selector fields reject explicitly. Completion dispatch supports explicit invocation, debounced identifier typing and registered trigger characters. Trigger contexts translate the LSP invocation/character/incomplete enum into the pinned VS Code API enum; positions and callback ownership retain the same guards. [Signature help](PARAMETER_HINTS.md) supports manual invocation, automatic trigger/retrigger characters, content-change contexts, original help-object revival and local overload cycling. Trigger/retrigger sets remain distinct and bounded at 16 single characters each. Completion commands, insert/replace range pairs, range/on-type formatting, workspace symbols and semantic-token providers remain outstanding. [Code actions](CODE_ACTIONS.md) use a separate multi-source picker and atomic multi-document edit route. Owner-scoped [diagnostic collections](DIAGNOSTICS.md) supply the native gutter and Problems separately from request/response providers. Trusted Markdown and HTML reject; presentation uses the terminal's existing text views.
