@@ -60,6 +60,9 @@ impl App {
             self.settings_writes.writer.cancel(request.id);
         }
     }
+    pub(super) fn settings_profile_generation(&self) -> u64 {
+        self.settings_writes.profile
+    }
     pub(super) fn settings_persistence_configured(&self) -> bool {
         self.settings_writes.configured
     }
@@ -73,6 +76,7 @@ impl App {
             self.settings_writes.writer.cancel(request.id);
         }
         self.settings_writes.profile = next;
+        self.retire_save_code_actions("settings ownership changed during code actions");
         self.retire_save_formatting("settings ownership changed during formatting");
         self.retire_autosave_interest();
         self.settings_writes.configured = true;
@@ -85,6 +89,7 @@ impl App {
     }
     pub(super) fn settings_profile_load_failed(&mut self) {
         self.settings_writes.ready = false;
+        self.retire_save_code_actions("settings ownership changed during code actions");
         self.retire_save_formatting("settings ownership changed during formatting");
         self.retire_autosave_interest();
     }

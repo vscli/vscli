@@ -113,7 +113,9 @@ impl App {
                             self.signature_failure(&request, &error);
                         }
                         Event::ActionResult(request, result) => {
-                            if let Err(error) = self.native_action_result(request, result) {
+                            if self.save_code_actions_owned(&request) {
+                                self.save_code_actions_result(request, result);
+                            } else if let Err(error) = self.native_action_result(request, result) {
                                 self.message = format!("Native code action response: {error:#}");
                             }
                         }

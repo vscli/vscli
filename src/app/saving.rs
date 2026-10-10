@@ -26,14 +26,38 @@ mod settings_lane_tests;
 mod shutdown_tests;
 #[cfg(test)]
 mod tests;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Stage {
+    Actions,
+    Formatting,
+    Capture,
+}
 #[derive(Clone)]
 pub(super) struct Intent {
+    pub(super) id: u64,
     pub(super) document: u64,
     pub(super) destination: Option<PathBuf>,
     continuation: Option<Continuation>,
     pub(super) automatic: Option<Automatic>,
-    pub(super) formatting_done: bool,
+    pub(super) stage: Stage,
     pub(super) notice: Option<String>,
+}
+impl Intent {
+    pub(super) fn add_notice(&mut self, notice: impl Into<String>) {
+        let mut combined = self.notice.take().unwrap_or_default();
+        if !combined.is_empty() {
+            combined.push_str(" · ");
+        }
+        combined.push_str(&notice.into());
+        if combined.len() > 1024 {
+            let mut end = 1024;
+            while !combined.is_char_boundary(end) {
+                end -= 1;
+            }
+            combined.truncate(end);
+        }
+        self.notice = Some(combined);
+    }
 }
 #[derive(Clone)]
 pub(super) struct Automatic {
@@ -62,8 +86,10 @@ pub(super) struct State {
     active: Option<Active>,
     pub(super) latest: Option<Intent>,
     pub(super) formatting: super::save_formatting::State,
-    formatting_dispatch: bool,
+    pub(super) actions: super::save_code_actions::State,
+    participant_dispatch: bool,
     next_id: u64,
+    next_intent: u64,
     close_generation: u64,
     save_as_origin: Option<(u64, Option<u64>)>,
     closing: Option<AfterSave>,
@@ -168,11 +194,12 @@ impl App {
             proof: proof.clone(),
         };
         if let Err(error) = self.enqueue_native_save(Intent {
+            id: 0,
             document: proof.id,
             destination: None,
             continuation: None,
             automatic: Some(automatic),
-            formatting_done: false,
+            stage: Stage::Actions,
             notice: None,
         }) {
             self.saving.autosave.failed(&proof);
@@ -265,8 +292,12 @@ impl App {
     pub fn saves_pending(&self) -> bool {
         self.saving.worker.busy() || self.saving.latest.is_some()
     }
+    pub(super) fn native_save_worker_busy(&self) -> bool {
+        self.saving.worker.busy()
+    }
     pub(super) fn document_save_pending(&self, id: u64) -> bool {
-        self.saving.formatting.document_pending(id)
+        self.saving.actions.document_pending(id)
+            || self.saving.formatting.document_pending(id)
             || self
                 .saving
                 .active
@@ -303,12 +334,13 @@ impl App {
             return Ok(());
         }
         let intent = Intent {
+            id: 0,
             document: doc.id,
             destination: None,
             continuation: self
                 .save_continuation(after, self.panes.get(self.active_pane).map(|pane| pane.id)),
             automatic: None,
-            formatting_done: false,
+            stage: Stage::Actions,
             notice: None,
         };
         self.enqueue_native_save(intent)
@@ -321,15 +353,16 @@ impl App {
             .context("Save As origin retired; invoke Save As again")?;
         let after = self.pending.take();
         self.enqueue_native_save(Intent {
+            id: 0,
             document,
             destination: Some(destination),
             continuation: self.save_continuation(after, pane),
             automatic: None,
-            formatting_done: false,
+            stage: Stage::Actions,
             notice: None,
         })
     }
-    fn enqueue_native_save(&mut self, intent: Intent) -> Result<()> {
+    fn enqueue_native_save(&mut self, mut intent: Intent) -> Result<()> {
         ensure!(
             !self.saving.shutting_down,
             "Editor shutdown is settling saves"
@@ -377,6 +410,13 @@ impl App {
                 ensure!(bytes <= PATH_BYTES, "Save model paths exceed 512 KiB");
             }
         }
+        let next_intent = self
+            .saving
+            .next_intent
+            .checked_add(1)
+            .context("Save intent identity exhausted; restart the editor")?;
+        intent.id = next_intent;
+        self.saving.next_intent = next_intent;
         // One latest desired action carries no Rope. It will be recaptured only
         // after any earlier actual worker and its receipt have settled.
         if let Some(active) = &self.saving.active
@@ -384,6 +424,7 @@ impl App {
         {
             self.saving.worker.reject(active.id);
         }
+        self.cancel_save_code_actions();
         self.cancel_save_formatting();
         self.saving.latest = Some(intent);
         self.message = "Saving…".into();
@@ -393,13 +434,15 @@ impl App {
         if self.saving.worker.busy() || self.saving.shutting_down || self.file_job.is_some() {
             return Ok(());
         }
-        if self.saving.formatting.pending() {
+        if self.saving.actions.pending() || self.saving.formatting.pending() {
             return Ok(());
         }
         let Some(intent) = self.saving.latest.as_ref().cloned() else {
             return Ok(());
         };
-        if !intent.formatting_done && intent.automatic.is_none() && !self.saving.formatting_dispatch
+        if intent.stage != Stage::Capture
+            && intent.automatic.is_none()
+            && !self.saving.participant_dispatch
         {
             let language = self
                 .documents
@@ -408,12 +451,32 @@ impl App {
                 .find(|doc| doc.id == intent.document)
                 .and_then(|doc| doc.path.as_deref())
                 .map_or("plaintext", crate::languages::language);
-            if self.settings.save_formatting(language) != crate::settings::SaveFormatting::Off {
+            if self.settings.save_formatting(language) != crate::settings::SaveFormatting::Off
+                || (intent.stage == Stage::Actions
+                    && self
+                        .settings
+                        .save_code_actions(language, crate::settings::SaveActionReason::Explicit)
+                        != crate::settings::SaveActionPolicy::Off)
+            {
                 return Ok(());
             }
         }
-        if !intent.formatting_done && self.begin_save_formatting(&intent)? {
+        if intent.stage == Stage::Actions && self.begin_save_code_actions(&intent)? {
             return Ok(());
+        }
+        let intent = self
+            .saving
+            .latest
+            .as_ref()
+            .cloned()
+            .context("Save intent retired")?;
+        if intent.stage == Stage::Formatting {
+            if self.begin_save_formatting(&intent)? {
+                return Ok(());
+            }
+            if let Some(latest) = &mut self.saving.latest {
+                latest.stage = Stage::Capture;
+            }
         }
         let intent = self.saving.latest.take().context("Save intent retired")?;
         let doc = self
@@ -646,9 +709,9 @@ impl App {
                 }
             }
         }
-        self.saving.formatting_dispatch = true;
+        self.saving.participant_dispatch = true;
         let dispatched = self.dispatch_native_save();
-        self.saving.formatting_dispatch = false;
+        self.saving.participant_dispatch = false;
         if let Err(error) = dispatched {
             self.message = format!("Save failed; unsaved work retained: {error:#}");
             changed = true;
@@ -802,6 +865,7 @@ impl App {
     pub fn settle_persistence(&mut self) {
         self.saving.shutting_down = true;
         self.saving.latest = None;
+        self.cancel_save_code_actions();
         self.cancel_save_formatting();
         self.cancel_save_continuations();
         if let Some(active) = &self.saving.active

@@ -11,6 +11,8 @@ const DEADLINE: Duration = Duration::from_millis(1500);
 mod tests;
 
 struct Pending {
+    intent: u64,
+    profile: u64,
     token: u64,
     server: Arc<()>,
     document: u64,
@@ -66,12 +68,13 @@ impl App {
     fn formatting_model_current(&self, pending: &Pending) -> bool {
         self.settings_error.is_none()
             && Arc::ptr_eq(&pending.settings, self.settings.extension_layers())
+            && pending.profile == self.settings_profile_generation()
             && pending.workspace == self.workspace.root
-            && self
-                .saving
-                .latest
-                .as_ref()
-                .is_some_and(|intent| intent.document == pending.document)
+            && self.saving.latest.as_ref().is_some_and(|intent| {
+                intent.id == pending.intent
+                    && intent.document == pending.document
+                    && intent.stage == saving::Stage::Formatting
+            })
             && self
                 .documents
                 .iter()
@@ -93,8 +96,8 @@ impl App {
     }
     fn formatting_skip(&mut self, notice: impl Into<String>) {
         if let Some(intent) = &mut self.saving.latest {
-            intent.formatting_done = true;
-            intent.notice = Some(format!("Formatting skipped: {}", notice.into()));
+            intent.stage = saving::Stage::Capture;
+            intent.add_notice(format!("Formatting skipped: {}", notice.into()));
         }
     }
     pub(super) fn begin_save_formatting(&mut self, intent: &saving::Intent) -> Result<bool> {
@@ -159,6 +162,8 @@ impl App {
             }
         };
         self.saving.formatting.active = Some(Pending {
+            intent: intent.id,
+            profile: self.settings_profile_generation(),
             token,
             server,
             document: doc.id,
@@ -232,7 +237,7 @@ impl App {
             Ok(())
         });
         if let Some(intent) = &mut self.saving.latest {
-            intent.formatting_done = true;
+            intent.stage = saving::Stage::Capture;
         }
         if let Err(error) = result {
             self.formatting_skip(format!("{error:#}").chars().take(500).collect::<String>());
