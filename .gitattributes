@@ -11,3 +11,5 @@ tests/fixtures/vscode-cpp-configuration/** -text
 tests/vscode-reference/** -text
 # Preserve source-hashed candidate inputs on Windows checkouts.
 /tests/vscode-reference-save-actions-stable-configuration-candidate/** -text
+# Preserve genuine Windows capture log CRLF without whitespace normalization.
+/tests/vscode-reference/observations/1.95.0/save-configuration-stable/1338970/win32/**/capture.log whitespace=cr-at-eol

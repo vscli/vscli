@@ -1,0 +1,12 @@
+{
+  "name": "workspace-empty-object-retains-user",
+  "casePassed": true,
+  "launcher": {
+    "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+    "bytes": 84352,
+    "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+  },
+  "launchInputsSha256": "091812553c0ad99b5ff592e344bb73a62c1e40685ae5c75205fa7f20fbb45fa0",
+  "runtimeSettingsSha256": "870f5cff58c4ec78b41fcd6fbc1018caef27f54370dd69bbecdc68b98a0ff30c",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

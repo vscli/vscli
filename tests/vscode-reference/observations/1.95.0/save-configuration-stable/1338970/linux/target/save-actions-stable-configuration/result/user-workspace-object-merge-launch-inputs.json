@@ -1,0 +1,7 @@
+{
+  "name": "user-workspace-object-merge",
+  "profileSettings": "{\"telemetry.telemetryLevel\":\"off\",\"update.mode\":\"none\",\"extensions.autoUpdate\":false,\"extensions.autoCheckUpdates\":false,\"security.workspace.trust.enabled\":false,\"workbench.startupEditor\":\"none\",\"workbench.editor.enablePreview\":false,\"editor.parameterHints.enabled\":false,\"editor.quickSuggestions\":false,\"editor.formatOnSave\":false,\"editor.formatOnPaste\":false,\"editor.formatOnType\":false,\"[ini]\":{\"editor.formatOnSave\":true,\"editor.formatOnSaveMode\":\"file\"},\"editor.codeActions.triggerOnFocusChange\":false,\"editor.codeActionsOnSave\":{\"source.fixAll\":\"explicit\"},\"editor.detectIndentation\":false,\"editor.tabSize\":2,\"editor.insertSpaces\":true,\"files.autoSave\":\"off\",\"files.autoSaveDelay\":500,\"files.trimTrailingWhitespace\":false,\"files.insertFinalNewline\":false,\"files.trimFinalNewlines\":false}",
+  "workspaceSettings": "{\"editor.codeActionsOnSave\":{\"source.organizeImports\":\"explicit\"}}",
+  "targetText": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+  "auxiliaryText": "readiness=0\r\n"
+}

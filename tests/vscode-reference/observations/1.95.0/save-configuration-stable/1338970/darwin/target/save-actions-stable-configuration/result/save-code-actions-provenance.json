@@ -1,0 +1,603 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "caseCount": 14,
+  "snapshotCount": 162,
+  "traceSha256": "3470444053d097056e9999e9bf6c690c0e8807a261fcc6c0dab354dfaa791405",
+  "evidenceSha256": "fc4bd4aa957488231a66804124c707702a7ccaa3410689054ae75c1e0ea1e010",
+  "casesSha256": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+  "fixtureReceipts": [
+    {
+      "name": "object-fixall-first",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "7cca8c24f13a2d757ae4175af90cc1c3711183d71fa0d68b99ee255275e67c93",
+      "runtimeSettingsSha256": "ac079795b39f91efed16a52fffa10f1af1ea341afb49685bab8993c8095e67ab",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "array-imports-first",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "1dea87239978aff467b317b740307efcbb5741e3950fdb032e6ba98139b51768",
+      "runtimeSettingsSha256": "a971805ed12a886907f59f923ad7afc7a2581d9e275eaea71835440318c2f00e",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "array-fixall-first",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "37f3ac79716d59afd6dd613264abaf7bba088105e75fd2909c688df7d01fc39f",
+      "runtimeSettingsSha256": "3d3be045d6eccc4a21df31b76eb3ee04c33f5f7ac80f1a5b27d08e3a2714ad94",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "ancestor-false-child",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "db56f3d4697a64cc354846dad011a18dd3cf95c5cd25794c9961654798fd1736",
+      "runtimeSettingsSha256": "6198a8a9c7be97edb68a449a5aacd6b3bc0ac6e90b58ebb8845be1f6e0ccef59",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "ancestor-never-child",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "4fcfcff84c53c65527bf9bc630284132c0ef4279060a5a8704c073ddf1cf93c6",
+      "runtimeSettingsSha256": "0e91f19277148093959482e79720e7f22c68b5701f7dfa92aaa29e368dc7523d",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "source-ancestor-false-family",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "84433f9b51255aec0dd16431b600c81e9f7d77ab1535ff0aa85178ebefe159ea",
+      "runtimeSettingsSha256": "1cfb0bf355967aa4496582a9de6f25b6279e21e231d972a53e63cf90ce20f28d",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "source-ancestor-never-family",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "786446172d97bd1ac7536c60ecefdb1fabec8135fb4fff4ab3365bd9c7df5ab9",
+      "runtimeSettingsSha256": "1911b7de533b4c1478dfbfa6ae2fbc5fa7a5597620a2e9286742317698c8f2f7",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "after-delay-always-skipped",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "51489e2050d3885b2598dfc35fc3ec3a76059dcbb961145ba3ff1eb1dd226792",
+      "runtimeSettingsSha256": "8d027b4c1ecbd109d5ff353468f0382cd709c9e67065a7b57bd50b75277430c5",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "after-delay-array-skipped",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "f35405d98d479258995c9bd92c96632845076e3932d41cda5aaacaa073741661",
+      "runtimeSettingsSha256": "be31af00777e2b583c06ac6db5843b16a733fc2c627f42959c44cf3203905f2e",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "user-workspace-object-merge",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "64877e826cc1c8cdd2dd8abf95744a97b27b5b30a9343dc403c29f553efbe865",
+      "runtimeSettingsSha256": "3f685bc68316a67355db26d3728d53cc7e1d8e1f8b2ba3daf28478f01c2b4c67",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "language-composite-single-merge",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "3f86986fbd2a8dbe02b0913e0535f384fd0d0d9989433e590d2c5c6727a39a4f",
+      "runtimeSettingsSha256": "9a5f6a9830b7d64ef6c8a73b06a35afe6244c159e0866b4192c9216e37d4c219",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "workspace-array-replaces-object",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "d2a264ad5de1d2b745b732d89b14e45bbc61db14d181724dd3d9bb130e676af2",
+      "runtimeSettingsSha256": "b00facaf058b4d0365496d2a1c3b364052037bdf44d2f1b2a292ec75d1f548e3",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "workspace-empty-object-retains-user",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "091812553c0ad99b5ff592e344bb73a62c1e40685ae5c75205fa7f20fbb45fa0",
+      "runtimeSettingsSha256": "870f5cff58c4ec78b41fcd6fbc1018caef27f54370dd69bbecdc68b98a0ff30c",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    },
+    {
+      "name": "child-only-dot-boundary",
+      "casePassed": true,
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "bytes": 84352,
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+      },
+      "launchInputsSha256": "6314035fadee86cf1223ca27cd27319cd04c7ddcc47d133bffc037e8d08f85ef",
+      "runtimeSettingsSha256": "8e5f08ac753769a08c4b769e440d7e534588839e1fc08883cbb16bc12be2a61c",
+      "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+    }
+  ],
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:07.647Z",
+      "name": "object-fixall-first",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "3e42d6577dc1c19cd9a040aa2f0fbf0e2559736d59bf7189c1b85385c9d16e99",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "435419e8ef8bc4203efe800aeb5606e2f8f36d1c2ebb133d9c228ebf1687a802",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:12.629Z",
+      "name": "array-imports-first",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "b09fbd30e909fec557ac969d045d3d921de494f12c55660c4631f3625f7fe8eb",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "9fab3901a5614306262acb77bb7e8c3ccd27f862e10d4dc07f1e2ea9a508ab3e",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:17.150Z",
+      "name": "array-fixall-first",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "10768b5eff7dfbe3a9fb75fcdd3046a333f866fa35a99bf3e53933463a7bf6d4",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "c18cece27ff76ffdd5b6439e81ece3c29c0a7119217e266e8b1affcf486ed2ac",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:23.656Z",
+      "name": "ancestor-false-child",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "d9ca491171798f1670bab8c801aa5a9362e8325e0cfafc710d4e4939bba06a47",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "726269cd17ffe586e721fd731dfcac733c496d0fad5b6ca6819c8ffd0a2c47a4",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:28.396Z",
+      "name": "ancestor-never-child",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "fa39bf3c36636967476e6fee0ff2ef6f3ad63318e50ed9f40e1dcb0574ff444a",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "f5bf657ad57124819604d347daae420c6afa759df90db7a2b43bb9d7d47bd6bf",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:34.672Z",
+      "name": "source-ancestor-false-family",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "9f91f2fcb500423eeecc2acbdaeb7238a2d7cb4d6b99c114c9029ba1ef267a0a",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "3913bb65dfe1e12c4ef24eebbd95b9592134e68e0959788343886990515c8205",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:39.171Z",
+      "name": "source-ancestor-never-family",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "f17b0e6f43e73e6b6af6ef5c892ba6fb1808ddf7b3bcb87246cb4d8e5c67db22",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "8a531da7acaf42c702d6106b4fa9f3e25483b2521347681e0d218cd62e7ab1aa",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:42.719Z",
+      "name": "after-delay-always-skipped",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "543fe73d674878ddf20a8c9ab6ecf717d2dceffe95f4262f839810e4092e71a2",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "3878ef13b1f9a2285c4cee6ba82fed510e64bed1967cd3184a70fbacc81a4db2",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:46.099Z",
+      "name": "after-delay-array-skipped",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "9a40e18680a4445827f395205546bba8d54776954b478e44b57393d29e2c187b",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "cd9a0de15ee1cb1b46177f1f3d0387898a3277e26af753b2157cd81262762d76",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:50.477Z",
+      "name": "user-workspace-object-merge",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "610fff9e9751312df6d3c53d90ef471f82395d36d46e2c4054fcd6ce088251fb",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "39bf60199fbf2b4de5e97b670694bc61bf60a7d5f7ca017a44cb7420e2f0084e",
+      "workspaceSettingsSha256": "c87ce23c0bf8985478a313c14ab3cc73894bf15b847ea159be22884365a6f744",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:55.127Z",
+      "name": "language-composite-single-merge",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "e692dda7f385a8bc501b1db84f417af2bf5c7908ef53183c6d5e9b257f75e471",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "af7c1851bbc7a4db844b3558c1106c456457b8f22dd71d23f1244996a2d8c2ed",
+      "workspaceSettingsSha256": "71408a12159e5228191ee9e380b097dd52df2b333f2df29530e936e5b8c96309",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:20:59.852Z",
+      "name": "workspace-array-replaces-object",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "92cf282b1f5359ca896131beeb8cfda0ed84378c51abfdec11f98039498b7ff5",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "39bf60199fbf2b4de5e97b670694bc61bf60a7d5f7ca017a44cb7420e2f0084e",
+      "workspaceSettingsSha256": "100dfab29e4ec6af9998799a615686a3c588ebc1bcc4ebbad751cd2103f00441",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:21:04.671Z",
+      "name": "workspace-empty-object-retains-user",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "61ea816db85147e7043a042fb1e4b71b3914c6f5fb2bda9a687b96a741ba1a88",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "39bf60199fbf2b4de5e97b670694bc61bf60a7d5f7ca017a44cb7420e2f0084e",
+      "workspaceSettingsSha256": "3c942f74ce203adbe02924c028e5064c55d1796e4f0af62e01d123f9d29e6ff8",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "observedAt": "2026-10-10T15:21:09.606Z",
+      "name": "child-only-dot-boundary",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "launcher": {
+        "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+        "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457",
+        "bytes": 84352
+      },
+      "evidenceSha256": "96f9b04605bb4206487d45c35d79df9b6c36375681d054e7911b3bd1aada77b6",
+      "sources": {
+        "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+        "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+        "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+        "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+        "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+        "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "6e6d76cf5f298575f70bb1a9214472d531928c560beb219d145d55e0d8684e79",
+      "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+    }
+  ]
+}

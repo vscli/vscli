@@ -1,0 +1,12 @@
+{
+  "name": "user-workspace-object-merge",
+  "casePassed": true,
+  "launcher": {
+    "path": "D:\\a\\vscli\\vscli\\target\\vscode-reference\\cache\\vscode-win32-x64-archive-1.95.0\\Code.exe",
+    "bytes": 177370680,
+    "sha256": "a86526a278b6bf1dafece833c9608c535429be9081530379ae51168a0ccade42"
+  },
+  "launchInputsSha256": "64877e826cc1c8cdd2dd8abf95744a97b27b5b30a9343dc403c29f553efbe865",
+  "runtimeSettingsSha256": "332e18094cf312260c160546f4cb4dccd02162ed3532562a2762d749ddae4c01",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

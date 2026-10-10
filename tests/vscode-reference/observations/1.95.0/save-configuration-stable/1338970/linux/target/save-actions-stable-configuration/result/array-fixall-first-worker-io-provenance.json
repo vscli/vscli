@@ -1,0 +1,12 @@
+{
+  "name": "array-fixall-first",
+  "casePassed": true,
+  "launcher": {
+    "path": "/home/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-linux-x64-1.95.0/code",
+    "bytes": 176973136,
+    "sha256": "31a0d92e34790ab32a143d8e68a5886b5680a31e0683b17bdb3dcfeba1a1fd78"
+  },
+  "launchInputsSha256": "37f3ac79716d59afd6dd613264abaf7bba088105e75fd2909c688df7d01fc39f",
+  "runtimeSettingsSha256": "3d3be045d6eccc4a21df31b76eb3ee04c33f5f7ac80f1a5b27d08e3a2714ad94",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

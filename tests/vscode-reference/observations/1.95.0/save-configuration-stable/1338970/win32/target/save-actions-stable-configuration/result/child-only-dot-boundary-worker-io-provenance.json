@@ -1,0 +1,12 @@
+{
+  "name": "child-only-dot-boundary",
+  "casePassed": true,
+  "launcher": {
+    "path": "D:\\a\\vscli\\vscli\\target\\vscode-reference\\cache\\vscode-win32-x64-archive-1.95.0\\Code.exe",
+    "bytes": 177370680,
+    "sha256": "a86526a278b6bf1dafece833c9608c535429be9081530379ae51168a0ccade42"
+  },
+  "launchInputsSha256": "6314035fadee86cf1223ca27cd27319cd04c7ddcc47d133bffc037e8d08f85ef",
+  "runtimeSettingsSha256": "dd40560327255768f330c4597304892b2ab895c15c20158cb0111fbfc805421b",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

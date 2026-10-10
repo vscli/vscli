@@ -1,0 +1,1092 @@
+{
+  "observedRevision": "133897055d5c524ed1fd0b51866edf95f1faffd8",
+  "workflowRun": 38063145339,
+  "platforms": {
+    "linux": {
+      "target/save-actions-stable-configuration/candidate-revision.txt": {
+        "bytes": 41,
+        "sha256": "1f15f64d3db120c2460586d053f29706cdb1db15690f58752dde094a71bbae4b"
+      },
+      "target/save-actions-stable-configuration/capture.log": {
+        "bytes": 116463,
+        "sha256": "c21e6da309a6219b7cb59e5f26c97e38be6055b8922950edb9a73d49b5d9b391"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-evidence.json": {
+        "bytes": 25703,
+        "sha256": "32ea8763b67a30bae78753a48da491b2b197570d9640150d036d9fb2c5b44828"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-launch-inputs.json": {
+        "bytes": 1110,
+        "sha256": "51489e2050d3885b2598dfc35fc3ec3a76059dcbb961145ba3ff1eb1dd226792"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-provenance.json": {
+        "bytes": 2016,
+        "sha256": "488f4fec2cd0982fb0c9071a4af9dbebd552c75e6519df7ebe6a6034cb979260"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-runtime-settings.json": {
+        "bytes": 997,
+        "sha256": "8d027b4c1ecbd109d5ff353468f0382cd709c9e67065a7b57bd50b75277430c5"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-worker-io-provenance.json": {
+        "bytes": 626,
+        "sha256": "e96860ef1719dd646e4b3a2b0c91cc5a15fb2c82bdf66f591dbe316742ed96ca"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-evidence.json": {
+        "bytes": 25146,
+        "sha256": "099743d12dcaf2629ecd5858fd7cb3598d92e9bb04efd61e8bb7a8e9afff25fd"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-launch-inputs.json": {
+        "bytes": 1087,
+        "sha256": "f35405d98d479258995c9bd92c96632845076e3932d41cda5aaacaa073741661"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-provenance.json": {
+        "bytes": 2015,
+        "sha256": "8c00d123d4fbd1c7da3b57c8ee0bac0cc5b6c4cf8534e9dccbed8292275b7893"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-runtime-settings.json": {
+        "bytes": 974,
+        "sha256": "be31af00777e2b583c06ac6db5843b16a733fc2c627f42959c44cf3203905f2e"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-worker-io-provenance.json": {
+        "bytes": 625,
+        "sha256": "f37dbc6ca05f7e52139b706ea3a1e0336934fd56f7816fb5be616bd01ba4ff0a"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-evidence.json": {
+        "bytes": 62396,
+        "sha256": "07599bf0af3a2e3771257ee543d3ae286a18168899908e89108608caaf877959"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-launch-inputs.json": {
+        "bytes": 1091,
+        "sha256": "db56f3d4697a64cc354846dad011a18dd3cf95c5cd25794c9961654798fd1736"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-provenance.json": {
+        "bytes": 2010,
+        "sha256": "59dafb83d4eeab4ec681bc6b97ed58565ca7fe212eadee54da806b38cd367f86"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-runtime-settings.json": {
+        "bytes": 1080,
+        "sha256": "6198a8a9c7be97edb68a449a5aacd6b3bc0ac6e90b58ebb8845be1f6e0ccef59"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-worker-io-provenance.json": {
+        "bytes": 620,
+        "sha256": "b85810beace61c3b0827c649260107071c893e472f00e827c2c25527988635c6"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-evidence.json": {
+        "bytes": 35365,
+        "sha256": "80d63edf6c8339cb61af22f17c6375af17864de7c9abe7636de683a454c562f9"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-launch-inputs.json": {
+        "bytes": 1095,
+        "sha256": "4fcfcff84c53c65527bf9bc630284132c0ef4279060a5a8704c073ddf1cf93c6"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-provenance.json": {
+        "bytes": 2010,
+        "sha256": "87456b2acaa1b6e4a6335b700a9435a77b0f62c790ea0aff45c1c0fe7e617fb7"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-runtime-settings.json": {
+        "bytes": 1062,
+        "sha256": "0e91f19277148093959482e79720e7f22c68b5701f7dfa92aaa29e368dc7523d"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-worker-io-provenance.json": {
+        "bytes": 620,
+        "sha256": "92f9ef1177d4b567bffaee91ad19946432e028e07f49d5c5f24a8b5053a67bf6"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-evidence.json": {
+        "bytes": 39088,
+        "sha256": "c38132fd04af44fa67f61282d6d4ec42a363822273f30cb429922a12abd95a5c"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-launch-inputs.json": {
+        "bytes": 1073,
+        "sha256": "37f3ac79716d59afd6dd613264abaf7bba088105e75fd2909c688df7d01fc39f"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-provenance.json": {
+        "bytes": 2008,
+        "sha256": "8d2fad4db698da1e5714b3c5acd9187eda6ae4809c3c21dd467ee5ee59789547"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-runtime-settings.json": {
+        "bytes": 1040,
+        "sha256": "3d3be045d6eccc4a21df31b76eb3ee04c33f5f7ac80f1a5b27d08e3a2714ad94"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-worker-io-provenance.json": {
+        "bytes": 618,
+        "sha256": "fe0c5e7523d62e29a0217670cb4b2980e6be2c846f9e52e0abff19f09247ec7c"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-evidence.json": {
+        "bytes": 39109,
+        "sha256": "51d5bf1da6dfbe9c47cdee0266bb67015e4345ab5127bd76b82f5782097a7a07"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-launch-inputs.json": {
+        "bytes": 1074,
+        "sha256": "1dea87239978aff467b317b740307efcbb5741e3950fdb032e6ba98139b51768"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-provenance.json": {
+        "bytes": 2009,
+        "sha256": "f16fc798b7bd0ab4ee1bdfe30875820594913c9ba7a680904b5884260731a76f"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-runtime-settings.json": {
+        "bytes": 1041,
+        "sha256": "a971805ed12a886907f59f923ad7afc7a2581d9e275eaea71835440318c2f00e"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-worker-io-provenance.json": {
+        "bytes": 619,
+        "sha256": "dc7af6fc63773f9d96c68d5ff76ae40c5af69898d5caef8e1c765c418d07923b"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-evidence.json": {
+        "bytes": 34384,
+        "sha256": "b8df65d1de973863120e1c7a183fb6ba0fec2b1346ffc16ca3d9ba6616893e73"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-launch-inputs.json": {
+        "bytes": 1070,
+        "sha256": "6314035fadee86cf1223ca27cd27319cd04c7ddcc47d133bffc037e8d08f85ef"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-provenance.json": {
+        "bytes": 2013,
+        "sha256": "6f2df05c56e9c09805021fb40eeff0ff1333ab863e1d21dd5714cfcd60f3f75d"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-runtime-settings.json": {
+        "bytes": 1037,
+        "sha256": "8e5f08ac753769a08c4b769e440d7e534588839e1fc08883cbb16bc12be2a61c"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-worker-io-provenance.json": {
+        "bytes": 623,
+        "sha256": "be5074797ca48a4c1d020b723b01fcfa9675b8e7b373230784017dc2dd4e88b1"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-evidence.json": {
+        "bytes": 44819,
+        "sha256": "6c1d0bcec1d7063871f79056bdb1ee59882858595131560ae753865b97cf5bfc"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-launch-inputs.json": {
+        "bytes": 1248,
+        "sha256": "3f86986fbd2a8dbe02b0913e0535f384fd0d0d9989433e590d2c5c6727a39a4f"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-provenance.json": {
+        "bytes": 2021,
+        "sha256": "96693dc98b9f532917bd0b4605e6bc64e449f04589add6f7ec7a7f5d1e17f6ce"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-runtime-settings.json": {
+        "bytes": 1215,
+        "sha256": "9a5f6a9830b7d64ef6c8a73b06a35afe6244c159e0866b4192c9216e37d4c219"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-worker-io-provenance.json": {
+        "bytes": 631,
+        "sha256": "9277b92e20880732e9070ae86e84b6658d282d22cd2d3b1a894d158db5a09e47"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-evidence.json": {
+        "bytes": 39838,
+        "sha256": "ac2df7b68f401b201ef88c7ae0f5a5c5f4da59936f069c6277801baaa3b37f13"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-launch-inputs.json": {
+        "bytes": 1100,
+        "sha256": "7cca8c24f13a2d757ae4175af90cc1c3711183d71fa0d68b99ee255275e67c93"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-provenance.json": {
+        "bytes": 2009,
+        "sha256": "a725be88b750668c40ba029228e6f9fce872226268e523910281d3a412a09b1e"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-runtime-settings.json": {
+        "bytes": 1067,
+        "sha256": "ac079795b39f91efed16a52fffa10f1af1ea341afb49685bab8993c8095e67ab"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-worker-io-provenance.json": {
+        "bytes": 619,
+        "sha256": "97a2d243fe63149f9506041b7f9b252c213450b42fcf1124c0dab49c8fc99bd3"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions-evidence.json": {
+        "bytes": 600483,
+        "sha256": "059782aaed427c411e998c4d643c4edc23186100546442f8fcb83a5f482cd0fd"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions-provenance.json": {
+        "bytes": 39814,
+        "sha256": "2ef18d11b8e3344d104a4a061b3fa6ada4c3f607fcede8f5aff21088d3dc0334"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions.json": {
+        "bytes": 70709,
+        "sha256": "3470444053d097056e9999e9bf6c690c0e8807a261fcc6c0dab354dfaa791405"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-evidence.json": {
+        "bytes": 64264,
+        "sha256": "64c61a9eacedcbed49e33b771f761bd0b61bfdd3434458417a8b549d197037ce"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-launch-inputs.json": {
+        "bytes": 1086,
+        "sha256": "84433f9b51255aec0dd16431b600c81e9f7d77ab1535ff0aa85178ebefe159ea"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-provenance.json": {
+        "bytes": 2018,
+        "sha256": "3d1031f348406aae720a53841d42077fc5884cd1ceb6b2ced8fdbc82c4526055"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-runtime-settings.json": {
+        "bytes": 1075,
+        "sha256": "1cfb0bf355967aa4496582a9de6f25b6279e21e231d972a53e63cf90ce20f28d"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-worker-io-provenance.json": {
+        "bytes": 628,
+        "sha256": "2b293d927f5ba59f41976088cb26975b391664c29bcad9b15ef409bb78f0b80b"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-evidence.json": {
+        "bytes": 36084,
+        "sha256": "3a7750e3ce42daf8a8e5fe21a7241ec4bd2b5deee7ef70aeabcf2c7477943e92"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-launch-inputs.json": {
+        "bytes": 1090,
+        "sha256": "786446172d97bd1ac7536c60ecefdb1fabec8135fb4fff4ab3365bd9c7df5ab9"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-provenance.json": {
+        "bytes": 2018,
+        "sha256": "9e14893c03289cc7379e858bdb367c596a7b9febcedb53d7d3de7810cd4ad80a"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-runtime-settings.json": {
+        "bytes": 1057,
+        "sha256": "1911b7de533b4c1478dfbfa6ae2fbc5fa7a5597620a2e9286742317698c8f2f7"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-worker-io-provenance.json": {
+        "bytes": 628,
+        "sha256": "6d417e87b9db93aa941c3e7afc163844eb9758ca1bbcc047b69f91a17c1d3dfd"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-evidence.json": {
+        "bytes": 42156,
+        "sha256": "1855eb7ff2c3ffc835fe96d12e84ba3c6a5e179ba825aa8a5041ae327e2daad0"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-launch-inputs.json": {
+        "bytes": 1138,
+        "sha256": "64877e826cc1c8cdd2dd8abf95744a97b27b5b30a9343dc403c29f553efbe865"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-provenance.json": {
+        "bytes": 2017,
+        "sha256": "34115323e08f5656aafe3c12609a85b421ddef7574918be55a6b9def9b19a9c1"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-runtime-settings.json": {
+        "bytes": 1105,
+        "sha256": "3f685bc68316a67355db26d3728d53cc7e1d8e1f8b2ba3daf28478f01c2b4c67"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-worker-io-provenance.json": {
+        "bytes": 627,
+        "sha256": "6687a9300c42c2f53241c0edfcb5a9dc03433626cd6976c8b4b79dfa9d2512a0"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-evidence.json": {
+        "bytes": 36686,
+        "sha256": "b55174ab919a2e4ac62dde76e3907a38bba751a6a258a7d0573b91d11920c199"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-launch-inputs.json": {
+        "bytes": 1129,
+        "sha256": "d2a264ad5de1d2b745b732d89b14e45bbc61db14d181724dd3d9bb130e676af2"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-provenance.json": {
+        "bytes": 2021,
+        "sha256": "a09dcb12cd1dc9505ecb8ba981957c8e1befd925cc9d8efbde84af57fb6fc7ea"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-runtime-settings.json": {
+        "bytes": 1096,
+        "sha256": "b00facaf058b4d0365496d2a1c3b364052037bdf44d2f1b2a292ec75d1f548e3"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-worker-io-provenance.json": {
+        "bytes": 631,
+        "sha256": "8fecad049c446a9272cfaef29c0b781ebf5eaef8f020d60257a1b76c0ee8e766"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-evidence.json": {
+        "bytes": 36346,
+        "sha256": "7e6189d069235977e3eb158ea6c6b0fbab51186f96677a738f1f794bdc933b99"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-launch-inputs.json": {
+        "bytes": 1107,
+        "sha256": "091812553c0ad99b5ff592e344bb73a62c1e40685ae5c75205fa7f20fbb45fa0"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-provenance.json": {
+        "bytes": 2025,
+        "sha256": "70a6db5ed70fc2dda992fc394c3150ac6f28d6e16d205ffd77b7092f8526ee79"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-runtime-settings.json": {
+        "bytes": 1074,
+        "sha256": "870f5cff58c4ec78b41fcd6fbc1018caef27f54370dd69bbecdc68b98a0ff30c"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-worker-io-provenance.json": {
+        "bytes": 635,
+        "sha256": "1757ca476e579fcdba429e092672adb80e3188d15e0273601287a660a0c737e5"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/README.md": {
+        "bytes": 10618,
+        "sha256": "3156e561fed8f00999124f491664f88af9764a61c6cd85efea99231b270e7d52"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/extension.cjs": {
+        "bytes": 43,
+        "sha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/package-lock.json": {
+        "bytes": 17282,
+        "sha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/package.json": {
+        "bytes": 1274,
+        "sha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-cases.json": {
+        "bytes": 2447,
+        "sha256": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-diagnostics.test.cjs": {
+        "bytes": 9299,
+        "sha256": "e17ae405c74b048b20beb0d57e0a92e0f5e96669b36b679e401b91928ddb0089"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-readiness.test.cjs": {
+        "bytes": 7982,
+        "sha256": "4fc5f5b5a414c2922a9e4dfd077d342224ff35e3e38b87c48e555bc5fd57f228"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-run.cjs": {
+        "bytes": 724,
+        "sha256": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-suite.cjs": {
+        "bytes": 3094,
+        "sha256": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-worker.cjs": {
+        "bytes": 7737,
+        "sha256": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions.cjs": {
+        "bytes": 30216,
+        "sha256": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.cjs": {
+        "bytes": 17514,
+        "sha256": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.test.cjs": {
+        "bytes": 34573,
+        "sha256": "2a9e1688509e7e47b38f3f99c39c9eb4f132b54d3437ecde87f382bc70ba734e"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/source-sha256.json": {
+        "bytes": 956,
+        "sha256": "63ffc7dc3a1161e9cdfd08dc474e79d596f06620c0c2cd2912dd80a5dcc18099"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/supervisor.cjs": {
+        "bytes": 4245,
+        "sha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22"
+      }
+    },
+    "darwin": {
+      "target/save-actions-stable-configuration/candidate-revision.txt": {
+        "bytes": 41,
+        "sha256": "1f15f64d3db120c2460586d053f29706cdb1db15690f58752dde094a71bbae4b"
+      },
+      "target/save-actions-stable-configuration/capture.log": {
+        "bytes": 96398,
+        "sha256": "c0d1e6435a8e2ba629f87a7a146c3216d2f7af8f7a87b51f0af8eb5f0b730cc0"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-evidence.json": {
+        "bytes": 24187,
+        "sha256": "543fe73d674878ddf20a8c9ab6ecf717d2dceffe95f4262f839810e4092e71a2"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-launch-inputs.json": {
+        "bytes": 1110,
+        "sha256": "51489e2050d3885b2598dfc35fc3ec3a76059dcbb961145ba3ff1eb1dd226792"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-provenance.json": {
+        "bytes": 2061,
+        "sha256": "d602bbf9be73bd54f277d312ddf2d2b38cd8939019015194f75f9a57cf8c1cf4"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-runtime-settings.json": {
+        "bytes": 997,
+        "sha256": "8d027b4c1ecbd109d5ff353468f0382cd709c9e67065a7b57bd50b75277430c5"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-worker-io-provenance.json": {
+        "bytes": 668,
+        "sha256": "26c2fd80d7616c7a5d1df9d862b3661ddcac9a2d0c6af144dabcc85b0043ab11"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-evidence.json": {
+        "bytes": 23672,
+        "sha256": "9a40e18680a4445827f395205546bba8d54776954b478e44b57393d29e2c187b"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-launch-inputs.json": {
+        "bytes": 1087,
+        "sha256": "f35405d98d479258995c9bd92c96632845076e3932d41cda5aaacaa073741661"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-provenance.json": {
+        "bytes": 2060,
+        "sha256": "1820e4ea92d96ed2e9bcd04c1c20673a4d049797a9cb204cc6a1d69c01c0fd05"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-runtime-settings.json": {
+        "bytes": 974,
+        "sha256": "be31af00777e2b583c06ac6db5843b16a733fc2c627f42959c44cf3203905f2e"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-worker-io-provenance.json": {
+        "bytes": 667,
+        "sha256": "5be4d3969a9cfcf6ba7a11dc768cfa8e084aad047872fd8eed9e95df8ee74f5c"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-evidence.json": {
+        "bytes": 53020,
+        "sha256": "d9ca491171798f1670bab8c801aa5a9362e8325e0cfafc710d4e4939bba06a47"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-launch-inputs.json": {
+        "bytes": 1091,
+        "sha256": "db56f3d4697a64cc354846dad011a18dd3cf95c5cd25794c9961654798fd1736"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-provenance.json": {
+        "bytes": 2055,
+        "sha256": "7205ef8bc18dbfdcb812ac70c94d82c8cde266322b2a427f1385ba1c8774bd6e"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-runtime-settings.json": {
+        "bytes": 1080,
+        "sha256": "6198a8a9c7be97edb68a449a5aacd6b3bc0ac6e90b58ebb8845be1f6e0ccef59"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-worker-io-provenance.json": {
+        "bytes": 662,
+        "sha256": "909e97f0aced4d7d90ff4a301bfc5236bcbe9f49a833c24cdc2803802883f83c"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-evidence.json": {
+        "bytes": 34932,
+        "sha256": "fa39bf3c36636967476e6fee0ff2ef6f3ad63318e50ed9f40e1dcb0574ff444a"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-launch-inputs.json": {
+        "bytes": 1095,
+        "sha256": "4fcfcff84c53c65527bf9bc630284132c0ef4279060a5a8704c073ddf1cf93c6"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-provenance.json": {
+        "bytes": 2055,
+        "sha256": "4c346b0db5f9cefdb248a3ce294e9a3f523ecd96daa8dfeb74c8372e4732fcc7"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-runtime-settings.json": {
+        "bytes": 1062,
+        "sha256": "0e91f19277148093959482e79720e7f22c68b5701f7dfa92aaa29e368dc7523d"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-worker-io-provenance.json": {
+        "bytes": 662,
+        "sha256": "bb56760934e90d32bf8b66bb0e91b9d43cac2281d4232b9444277196425c6dd8"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-evidence.json": {
+        "bytes": 37635,
+        "sha256": "10768b5eff7dfbe3a9fb75fcdd3046a333f866fa35a99bf3e53933463a7bf6d4"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-launch-inputs.json": {
+        "bytes": 1073,
+        "sha256": "37f3ac79716d59afd6dd613264abaf7bba088105e75fd2909c688df7d01fc39f"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-provenance.json": {
+        "bytes": 2053,
+        "sha256": "e5b5578d6d75eb322dfa87d4dae8be48e0dddc7e78a8ce1d18683afcc138a5c9"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-runtime-settings.json": {
+        "bytes": 1040,
+        "sha256": "3d3be045d6eccc4a21df31b76eb3ee04c33f5f7ac80f1a5b27d08e3a2714ad94"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-worker-io-provenance.json": {
+        "bytes": 660,
+        "sha256": "491ac2c0701842a377b99e87243f005a96f226940e9e259f8c5a2cf9db63b340"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-evidence.json": {
+        "bytes": 37655,
+        "sha256": "b09fbd30e909fec557ac969d045d3d921de494f12c55660c4631f3625f7fe8eb"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-launch-inputs.json": {
+        "bytes": 1074,
+        "sha256": "1dea87239978aff467b317b740307efcbb5741e3950fdb032e6ba98139b51768"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-provenance.json": {
+        "bytes": 2054,
+        "sha256": "ffcf50352f081ff1b9d76a7997ccc01fc2e5520d6237daa501745a179a1c43de"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-runtime-settings.json": {
+        "bytes": 1041,
+        "sha256": "a971805ed12a886907f59f923ad7afc7a2581d9e275eaea71835440318c2f00e"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-worker-io-provenance.json": {
+        "bytes": 661,
+        "sha256": "50bc21ef76f935da3b8671eaf611df98132bf1a70963bd8a07e7d1f4de097bf2"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-evidence.json": {
+        "bytes": 32976,
+        "sha256": "96f9b04605bb4206487d45c35d79df9b6c36375681d054e7911b3bd1aada77b6"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-launch-inputs.json": {
+        "bytes": 1070,
+        "sha256": "6314035fadee86cf1223ca27cd27319cd04c7ddcc47d133bffc037e8d08f85ef"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-provenance.json": {
+        "bytes": 2058,
+        "sha256": "1a91ce6e174391d407260e127e5fe3ccf0d1c80e7a814db6c9daa8e953433b29"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-runtime-settings.json": {
+        "bytes": 1037,
+        "sha256": "8e5f08ac753769a08c4b769e440d7e534588839e1fc08883cbb16bc12be2a61c"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-worker-io-provenance.json": {
+        "bytes": 665,
+        "sha256": "4474517ba6f3307daefb1da43eceafe5d33a689560816f97e0626368332b2efb"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-evidence.json": {
+        "bytes": 42861,
+        "sha256": "e692dda7f385a8bc501b1db84f417af2bf5c7908ef53183c6d5e9b257f75e471"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-launch-inputs.json": {
+        "bytes": 1248,
+        "sha256": "3f86986fbd2a8dbe02b0913e0535f384fd0d0d9989433e590d2c5c6727a39a4f"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-provenance.json": {
+        "bytes": 2066,
+        "sha256": "f6a8361b1654a7ca6dc9a985a00b16ad59d25fe8d4dacd0472f99c11599ee366"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-runtime-settings.json": {
+        "bytes": 1215,
+        "sha256": "9a5f6a9830b7d64ef6c8a73b06a35afe6244c159e0866b4192c9216e37d4c219"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-worker-io-provenance.json": {
+        "bytes": 673,
+        "sha256": "fdb497889e1bfa3da22e59388c01a15bad703ed2510e9024b306c2357db9c158"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-evidence.json": {
+        "bytes": 38339,
+        "sha256": "3e42d6577dc1c19cd9a040aa2f0fbf0e2559736d59bf7189c1b85385c9d16e99"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-launch-inputs.json": {
+        "bytes": 1100,
+        "sha256": "7cca8c24f13a2d757ae4175af90cc1c3711183d71fa0d68b99ee255275e67c93"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-provenance.json": {
+        "bytes": 2054,
+        "sha256": "99bcd19f717b0a73294dca5042a3200b973d08b03f2805253ff7f21328256f5c"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-runtime-settings.json": {
+        "bytes": 1067,
+        "sha256": "ac079795b39f91efed16a52fffa10f1af1ea341afb49685bab8993c8095e67ab"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-worker-io-provenance.json": {
+        "bytes": 661,
+        "sha256": "844195b94a635297646c55f9fdb53eda8f4169bfaf4ece72b7f5cea398e21cf6"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions-evidence.json": {
+        "bytes": 560594,
+        "sha256": "fc4bd4aa957488231a66804124c707702a7ccaa3410689054ae75c1e0ea1e010"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions-provenance.json": {
+        "bytes": 41035,
+        "sha256": "c90a0b16c8ebe2f586fd7e326718aeafeb646498cd9600fc4bda4faed6b46692"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions.json": {
+        "bytes": 70709,
+        "sha256": "3470444053d097056e9999e9bf6c690c0e8807a261fcc6c0dab354dfaa791405"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-evidence.json": {
+        "bytes": 52482,
+        "sha256": "9f91f2fcb500423eeecc2acbdaeb7238a2d7cb4d6b99c114c9029ba1ef267a0a"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-launch-inputs.json": {
+        "bytes": 1086,
+        "sha256": "84433f9b51255aec0dd16431b600c81e9f7d77ab1535ff0aa85178ebefe159ea"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-provenance.json": {
+        "bytes": 2063,
+        "sha256": "af362b3dc7c35d190d74f6616afc6ec99bace66300d26df8a5909d34b5f49938"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-runtime-settings.json": {
+        "bytes": 1075,
+        "sha256": "1cfb0bf355967aa4496582a9de6f25b6279e21e231d972a53e63cf90ce20f28d"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-worker-io-provenance.json": {
+        "bytes": 670,
+        "sha256": "85c37688be73794ac3f0578a8cec3fe73d05f9c42e978fb035fd52af0ef3503a"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-evidence.json": {
+        "bytes": 34610,
+        "sha256": "f17b0e6f43e73e6b6af6ef5c892ba6fb1808ddf7b3bcb87246cb4d8e5c67db22"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-launch-inputs.json": {
+        "bytes": 1090,
+        "sha256": "786446172d97bd1ac7536c60ecefdb1fabec8135fb4fff4ab3365bd9c7df5ab9"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-provenance.json": {
+        "bytes": 2063,
+        "sha256": "b6b1758635123df9b337c057017dfd56b2c85cbc34d14283610b88df6d474cb1"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-runtime-settings.json": {
+        "bytes": 1057,
+        "sha256": "1911b7de533b4c1478dfbfa6ae2fbc5fa7a5597620a2e9286742317698c8f2f7"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-worker-io-provenance.json": {
+        "bytes": 670,
+        "sha256": "4f3ffdbe11afe8b11f7565838151f349b91dcb21815b3afac7c1fcdcef785adb"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-evidence.json": {
+        "bytes": 40475,
+        "sha256": "610fff9e9751312df6d3c53d90ef471f82395d36d46e2c4054fcd6ce088251fb"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-launch-inputs.json": {
+        "bytes": 1138,
+        "sha256": "64877e826cc1c8cdd2dd8abf95744a97b27b5b30a9343dc403c29f553efbe865"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-provenance.json": {
+        "bytes": 2062,
+        "sha256": "285eb3f5005e8c373f352a6b501df361cfd1f9c65f3d923bc2e8ccd5b18f9d4e"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-runtime-settings.json": {
+        "bytes": 1105,
+        "sha256": "3f685bc68316a67355db26d3728d53cc7e1d8e1f8b2ba3daf28478f01c2b4c67"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-worker-io-provenance.json": {
+        "bytes": 669,
+        "sha256": "9b362dfb72dbcd3434fbe7cde4b7e8a4b869a207c50f90af55a25b73b0aa2e26"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-evidence.json": {
+        "bytes": 35083,
+        "sha256": "92cf282b1f5359ca896131beeb8cfda0ed84378c51abfdec11f98039498b7ff5"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-launch-inputs.json": {
+        "bytes": 1129,
+        "sha256": "d2a264ad5de1d2b745b732d89b14e45bbc61db14d181724dd3d9bb130e676af2"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-provenance.json": {
+        "bytes": 2066,
+        "sha256": "5a0c1caf07db69d5c0575a19e58989cc459f5b87348187bd49864ad38474eeca"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-runtime-settings.json": {
+        "bytes": 1096,
+        "sha256": "b00facaf058b4d0365496d2a1c3b364052037bdf44d2f1b2a292ec75d1f548e3"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-worker-io-provenance.json": {
+        "bytes": 673,
+        "sha256": "acc1333656f592ffa29a6039e0e58ca3ad7cb3ce7d7b4f537bdb5b726b250333"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-evidence.json": {
+        "bytes": 35960,
+        "sha256": "61ea816db85147e7043a042fb1e4b71b3914c6f5fb2bda9a687b96a741ba1a88"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-launch-inputs.json": {
+        "bytes": 1107,
+        "sha256": "091812553c0ad99b5ff592e344bb73a62c1e40685ae5c75205fa7f20fbb45fa0"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-provenance.json": {
+        "bytes": 2070,
+        "sha256": "db8c3e32ca80ba685cdc20f60ba403af11639fd51533a942e2c609406c69f5e0"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-runtime-settings.json": {
+        "bytes": 1074,
+        "sha256": "870f5cff58c4ec78b41fcd6fbc1018caef27f54370dd69bbecdc68b98a0ff30c"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-worker-io-provenance.json": {
+        "bytes": 677,
+        "sha256": "543919c9f9e6705849f496fd05ed2a492d6b9898e2a61878faa80df9bd65ca95"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/README.md": {
+        "bytes": 10618,
+        "sha256": "3156e561fed8f00999124f491664f88af9764a61c6cd85efea99231b270e7d52"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/extension.cjs": {
+        "bytes": 43,
+        "sha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/package-lock.json": {
+        "bytes": 17282,
+        "sha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/package.json": {
+        "bytes": 1274,
+        "sha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-cases.json": {
+        "bytes": 2447,
+        "sha256": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-diagnostics.test.cjs": {
+        "bytes": 9299,
+        "sha256": "e17ae405c74b048b20beb0d57e0a92e0f5e96669b36b679e401b91928ddb0089"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-readiness.test.cjs": {
+        "bytes": 7982,
+        "sha256": "4fc5f5b5a414c2922a9e4dfd077d342224ff35e3e38b87c48e555bc5fd57f228"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-run.cjs": {
+        "bytes": 724,
+        "sha256": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-suite.cjs": {
+        "bytes": 3094,
+        "sha256": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-worker.cjs": {
+        "bytes": 7737,
+        "sha256": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions.cjs": {
+        "bytes": 30216,
+        "sha256": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.cjs": {
+        "bytes": 17514,
+        "sha256": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.test.cjs": {
+        "bytes": 34573,
+        "sha256": "2a9e1688509e7e47b38f3f99c39c9eb4f132b54d3437ecde87f382bc70ba734e"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/source-sha256.json": {
+        "bytes": 956,
+        "sha256": "63ffc7dc3a1161e9cdfd08dc474e79d596f06620c0c2cd2912dd80a5dcc18099"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/supervisor.cjs": {
+        "bytes": 4245,
+        "sha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22"
+      }
+    },
+    "win32": {
+      "target/save-actions-stable-configuration/candidate-revision.txt": {
+        "bytes": 41,
+        "sha256": "1f15f64d3db120c2460586d053f29706cdb1db15690f58752dde094a71bbae4b"
+      },
+      "target/save-actions-stable-configuration/capture.log": {
+        "bytes": 95309,
+        "sha256": "14d31b3dbf395cb6f1bac7f9207a0710cbc350730a879ff68b917e9fec741692"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-evidence.json": {
+        "bytes": 26298,
+        "sha256": "644acece7785089a3e4f449d86b761b2fd0cce36ea460e243300733e7fe8c7a0"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-launch-inputs.json": {
+        "bytes": 1110,
+        "sha256": "51489e2050d3885b2598dfc35fc3ec3a76059dcbb961145ba3ff1eb1dd226792"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-provenance.json": {
+        "bytes": 2023,
+        "sha256": "25929f09b50e96d36c9dc7731373c5c0569f85dc1e65bb93b21924d7a6d3bb20"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-runtime-settings.json": {
+        "bytes": 1085,
+        "sha256": "31b9e838ff5502973f80378182480350095020b4b3414cf791eb349bb44da659"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-always-skipped-worker-io-provenance.json": {
+        "bytes": 633,
+        "sha256": "0830f75738798411dd4344260e514d863274e286ff074314bd078b2bcd75c8c2"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-evidence.json": {
+        "bytes": 25742,
+        "sha256": "25a47946d6f4cc527ad9f9207cefda11ba62aa2662e62e2cbfae805101ddcdd0"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-launch-inputs.json": {
+        "bytes": 1087,
+        "sha256": "f35405d98d479258995c9bd92c96632845076e3932d41cda5aaacaa073741661"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-provenance.json": {
+        "bytes": 2022,
+        "sha256": "ce741ff87912a521089add3b9d680f049f0ed04ea603ad2625beef66e8a64437"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-runtime-settings.json": {
+        "bytes": 1062,
+        "sha256": "629e4dd09401689327bd1d749867afe0473f8576ac3e7166e639e2345cfa2b97"
+      },
+      "target/save-actions-stable-configuration/result/after-delay-array-skipped-worker-io-provenance.json": {
+        "bytes": 632,
+        "sha256": "e4619d6215356278567fdf2a15ac0d66bca0f7a13f34082d4d30b86d24e37721"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-evidence.json": {
+        "bytes": 52976,
+        "sha256": "f2fe02c6a778be5e04cc43abaff7ff863fa12a4d27ad5614d6a04ec39f087f5c"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-launch-inputs.json": {
+        "bytes": 1091,
+        "sha256": "db56f3d4697a64cc354846dad011a18dd3cf95c5cd25794c9961654798fd1736"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-provenance.json": {
+        "bytes": 2017,
+        "sha256": "c266d7fbbcb5447f15fe9e70c1b3a59769c64dc592a12264891bdf351153b547"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-runtime-settings.json": {
+        "bytes": 1094,
+        "sha256": "87a110aba7d8929e9635bd29e8c5a63c17b626236a31f45854f87dc65f13dd8b"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-false-child-worker-io-provenance.json": {
+        "bytes": 627,
+        "sha256": "5d068bca9078f00e80154efa8a720cdf3a396557525c96f17c1a81a8c9be223e"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-evidence.json": {
+        "bytes": 35995,
+        "sha256": "d6f262ef2947f504b766a0b01ba18e23638568a6e7d3fb168c689969a5d4ea5e"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-launch-inputs.json": {
+        "bytes": 1095,
+        "sha256": "4fcfcff84c53c65527bf9bc630284132c0ef4279060a5a8704c073ddf1cf93c6"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-provenance.json": {
+        "bytes": 2017,
+        "sha256": "c6294d412386cf92e76deb3262c9305a89eaa4d5c39ae5618809833604f94ec9"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-runtime-settings.json": {
+        "bytes": 1070,
+        "sha256": "be812e6dfb48062cf6f2993e341e2379d2967b720573b47e72bd49e7364eb914"
+      },
+      "target/save-actions-stable-configuration/result/ancestor-never-child-worker-io-provenance.json": {
+        "bytes": 627,
+        "sha256": "feff13ba8566b9f24648885164ecdfb633d8b7094531316fe4d3e39dc17826e2"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-evidence.json": {
+        "bytes": 39754,
+        "sha256": "0d3dc2bc346d4cdfe91adb87abbb7b00edfe096cf307a87f30b7e5a8c65210dc"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-launch-inputs.json": {
+        "bytes": 1073,
+        "sha256": "37f3ac79716d59afd6dd613264abaf7bba088105e75fd2909c688df7d01fc39f"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-provenance.json": {
+        "bytes": 2015,
+        "sha256": "169a92032f71f6dbaf1819881d44c045349cd50b60487e0bb45f061db7e46119"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-runtime-settings.json": {
+        "bytes": 1048,
+        "sha256": "8323d5c80c09b6a9406cffae9814aba0b09c1f888b8d9bce2ce445bd2410a748"
+      },
+      "target/save-actions-stable-configuration/result/array-fixall-first-worker-io-provenance.json": {
+        "bytes": 625,
+        "sha256": "11953ac4f76419944c1a690a65973677590c4175844e51ee7f39caedab1e85a7"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-evidence.json": {
+        "bytes": 39775,
+        "sha256": "ede0f66158a5b15ba86fc38b8565431734dc787afcda1e44398fc3873f1d3284"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-launch-inputs.json": {
+        "bytes": 1074,
+        "sha256": "1dea87239978aff467b317b740307efcbb5741e3950fdb032e6ba98139b51768"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-provenance.json": {
+        "bytes": 2016,
+        "sha256": "2dc5a2d5a4da8e6a323ddd7b9ea7b193c4247b6fd0bbe065a49c4160402ea4cb"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-runtime-settings.json": {
+        "bytes": 1049,
+        "sha256": "26735bcb770f4b968cd702a923f37821575264d1b083b12e6c796da92ceddd72"
+      },
+      "target/save-actions-stable-configuration/result/array-imports-first-worker-io-provenance.json": {
+        "bytes": 626,
+        "sha256": "bf308bd6664aba2dc2eb334e75199e2b410be57efcd3223619bf12405259101a"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-evidence.json": {
+        "bytes": 35015,
+        "sha256": "1fc87bb9860dcc359a3f2715a25e558b09aa0c49d5081e615cbe6cb0766c0be0"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-launch-inputs.json": {
+        "bytes": 1070,
+        "sha256": "6314035fadee86cf1223ca27cd27319cd04c7ddcc47d133bffc037e8d08f85ef"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-provenance.json": {
+        "bytes": 2020,
+        "sha256": "9d79d8f93085b9e447cc1faf3baeaff93d01ec336d64c064901e81837b9a98f5"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-runtime-settings.json": {
+        "bytes": 1045,
+        "sha256": "dd40560327255768f330c4597304892b2ab895c15c20158cb0111fbfc805421b"
+      },
+      "target/save-actions-stable-configuration/result/child-only-dot-boundary-worker-io-provenance.json": {
+        "bytes": 630,
+        "sha256": "81820ff49a659c1408f149549f708de6acc43c793272ee1a761bc7dfa44b071e"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-evidence.json": {
+        "bytes": 45485,
+        "sha256": "b43d4360e7ec2c518559a6d3a02b00bf0a3664c439f81a71dbd8bc3f020f7052"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-launch-inputs.json": {
+        "bytes": 1248,
+        "sha256": "3f86986fbd2a8dbe02b0913e0535f384fd0d0d9989433e590d2c5c6727a39a4f"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-provenance.json": {
+        "bytes": 2028,
+        "sha256": "9e48b7c511ed99493a13c266ba64272411b559d6b20d6029e6cdc81c0f80e50d"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-runtime-settings.json": {
+        "bytes": 1223,
+        "sha256": "3066bb4f74a42ad35f341b18acf09c501c59cb5da3da3fe4388e6fde94c60ed4"
+      },
+      "target/save-actions-stable-configuration/result/language-composite-single-merge-worker-io-provenance.json": {
+        "bytes": 638,
+        "sha256": "808787dd736e391e19ebd43c11d2a7148da4b7f0faf38cca3e7dcfbb07875175"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-evidence.json": {
+        "bytes": 40506,
+        "sha256": "54553059ec370185b56d794aa336caa56d5a544e673887c5f3508f504f44789c"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-launch-inputs.json": {
+        "bytes": 1100,
+        "sha256": "7cca8c24f13a2d757ae4175af90cc1c3711183d71fa0d68b99ee255275e67c93"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-provenance.json": {
+        "bytes": 2016,
+        "sha256": "4c9567b8867c990a50a320baaf8cba1ba8ebcd8aeba845b8d6eeb28b9f4b1ba6"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-runtime-settings.json": {
+        "bytes": 1075,
+        "sha256": "0e9f4e0234358e433a9f5f853a8206e3133b88e4f9302e064b9f875f9fabb411"
+      },
+      "target/save-actions-stable-configuration/result/object-fixall-first-worker-io-provenance.json": {
+        "bytes": 626,
+        "sha256": "6136313011e3804ef59e2bc336712cf2546b4f77f35cb7b4f699713f52a57111"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions-evidence.json": {
+        "bytes": 586562,
+        "sha256": "37a949bd64d6696b292bbca71094723e0879101aa008ca58859ba4a9e64153a6"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions-provenance.json": {
+        "bytes": 40010,
+        "sha256": "a0fd127c843177cdee22d66b551be628adfa13ac2ad1274aea1069487c0b7f3a"
+      },
+      "target/save-actions-stable-configuration/result/save-code-actions.json": {
+        "bytes": 70709,
+        "sha256": "3470444053d097056e9999e9bf6c690c0e8807a261fcc6c0dab354dfaa791405"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-evidence.json": {
+        "bytes": 53497,
+        "sha256": "7dc69bca5337010d5e3cfb534bebe4b53d158deb251c26876b5e2fb72547cf03"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-launch-inputs.json": {
+        "bytes": 1086,
+        "sha256": "84433f9b51255aec0dd16431b600c81e9f7d77ab1535ff0aa85178ebefe159ea"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-provenance.json": {
+        "bytes": 2025,
+        "sha256": "e57076f4339f86bc0d728daa011b1026b28e6d81f733233412930ebaaf354c1d"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-runtime-settings.json": {
+        "bytes": 1089,
+        "sha256": "2be4112ea3eb118817f6d7435e6a43a0392f6692ab3f9b7d1c321be388ac93e6"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-false-family-worker-io-provenance.json": {
+        "bytes": 635,
+        "sha256": "76ed6cc3037a575b99ae1db3b6784d9b8e0bb340a183ec741f9f4496bbaf80fb"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-evidence.json": {
+        "bytes": 36714,
+        "sha256": "9fe466c4c3d2c63508efc05965376a5c0db3b58652eb49b963dd09e43a284cba"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-launch-inputs.json": {
+        "bytes": 1090,
+        "sha256": "786446172d97bd1ac7536c60ecefdb1fabec8135fb4fff4ab3365bd9c7df5ab9"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-provenance.json": {
+        "bytes": 2025,
+        "sha256": "8e3b53f3040672e850b60b1d7bf5f242df54656105c75c485fe4a9d2ee4e43ea"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-runtime-settings.json": {
+        "bytes": 1065,
+        "sha256": "675b78c9e5d136530df64f040c4834eedfd0f9dfff680b1102ecd1329abd9861"
+      },
+      "target/save-actions-stable-configuration/result/source-ancestor-never-family-worker-io-provenance.json": {
+        "bytes": 635,
+        "sha256": "aeee2313b030241cda31b38ae424827b2a23b17fea0339d63229a15a091c1db1"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-evidence.json": {
+        "bytes": 42822,
+        "sha256": "03aa1aeca05b513bb7f7ea8a9205b6fe121636e46f3d7be8782a8696a5139872"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-launch-inputs.json": {
+        "bytes": 1138,
+        "sha256": "64877e826cc1c8cdd2dd8abf95744a97b27b5b30a9343dc403c29f553efbe865"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-provenance.json": {
+        "bytes": 2024,
+        "sha256": "42d95e343c6a493a174bd752ca80bd97097724d923008542c3dda995d55404c1"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-runtime-settings.json": {
+        "bytes": 1113,
+        "sha256": "332e18094cf312260c160546f4cb4dccd02162ed3532562a2762d749ddae4c01"
+      },
+      "target/save-actions-stable-configuration/result/user-workspace-object-merge-worker-io-provenance.json": {
+        "bytes": 634,
+        "sha256": "b5314b9bcc15fad6d9f0092c6854a664226e76dae7ef6702b001eb47df6651d3"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-evidence.json": {
+        "bytes": 37317,
+        "sha256": "782deecc398fc2659bab1b9328077c89f38df68c35319711793d932360fdeca1"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-launch-inputs.json": {
+        "bytes": 1129,
+        "sha256": "d2a264ad5de1d2b745b732d89b14e45bbc61db14d181724dd3d9bb130e676af2"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-provenance.json": {
+        "bytes": 2028,
+        "sha256": "247fc3236c1edb45f149588b4d260983b38385cbfd9d1ddd9c97e9edab72f6eb"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-runtime-settings.json": {
+        "bytes": 1104,
+        "sha256": "2e8fac087500648ae7dbd07c41b0476979b91e471859f641ab7dd1447d07c125"
+      },
+      "target/save-actions-stable-configuration/result/workspace-array-replaces-object-worker-io-provenance.json": {
+        "bytes": 638,
+        "sha256": "2cf2fbe94c2ad8beea014d538d89df2f3fc2fd9e77e44be6db18c221c63fce0e"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-evidence.json": {
+        "bytes": 36977,
+        "sha256": "ad63e232e8e08822d6ef11818ab936ceb8d2f0f13c38474492baedabe46c4835"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-launch-inputs.json": {
+        "bytes": 1107,
+        "sha256": "091812553c0ad99b5ff592e344bb73a62c1e40685ae5c75205fa7f20fbb45fa0"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-provenance.json": {
+        "bytes": 2032,
+        "sha256": "7e5f54ed2417aeab555528c66db453b1721126acff5079ce3c94286149dd6f40"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-runtime-settings.json": {
+        "bytes": 1082,
+        "sha256": "5613117efe2f4ac7d80454e9b9d81c14923b5f002a27df5f701c25e6a98b8222"
+      },
+      "target/save-actions-stable-configuration/result/workspace-empty-object-retains-user-worker-io-provenance.json": {
+        "bytes": 642,
+        "sha256": "f6914073d6b381ca59dc6dffa4cddd2a1dbf11f9b7762565580f27f4fb9a9400"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/README.md": {
+        "bytes": 10618,
+        "sha256": "3156e561fed8f00999124f491664f88af9764a61c6cd85efea99231b270e7d52"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/extension.cjs": {
+        "bytes": 43,
+        "sha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/package-lock.json": {
+        "bytes": 17282,
+        "sha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/package.json": {
+        "bytes": 1274,
+        "sha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-cases.json": {
+        "bytes": 2447,
+        "sha256": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-diagnostics.test.cjs": {
+        "bytes": 9299,
+        "sha256": "e17ae405c74b048b20beb0d57e0a92e0f5e96669b36b679e401b91928ddb0089"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-readiness.test.cjs": {
+        "bytes": 7982,
+        "sha256": "4fc5f5b5a414c2922a9e4dfd077d342224ff35e3e38b87c48e555bc5fd57f228"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-run.cjs": {
+        "bytes": 724,
+        "sha256": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-suite.cjs": {
+        "bytes": 3094,
+        "sha256": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-worker.cjs": {
+        "bytes": 7737,
+        "sha256": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions.cjs": {
+        "bytes": 30216,
+        "sha256": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.cjs": {
+        "bytes": 17514,
+        "sha256": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.test.cjs": {
+        "bytes": 34573,
+        "sha256": "2a9e1688509e7e47b38f3f99c39c9eb4f132b54d3437ecde87f382bc70ba734e"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/source-sha256.json": {
+        "bytes": 956,
+        "sha256": "63ffc7dc3a1161e9cdfd08dc474e79d596f06620c0c2cd2912dd80a5dcc18099"
+      },
+      "tests/vscode-reference-save-actions-stable-configuration-candidate/supervisor.cjs": {
+        "bytes": 4245,
+        "sha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22"
+      }
+    }
+  }
+}
