@@ -189,7 +189,16 @@ fn modal_focus_change_rejects_offered_start_and_retry_keeps_current_dirty_docume
     app.configure_language_services(None, false).unwrap();
     app.poll(); // Submit startup; deliberately do not consume its offer yet.
     let deadline = Instant::now() + Duration::from_secs(10);
-    while !root.path().join("cpp.pid").exists() {
+    // Creation precedes the fixture's buffered PID write. Require the complete
+    // first record before polling can reject and retire its startup offer.
+    while !std::fs::read_to_string(root.path().join("cpp.pid"))
+        .ok()
+        .is_some_and(|record| {
+            record.ends_with('\n')
+                && record.lines().count() == 1
+                && record.trim().parse::<u32>().is_ok_and(|pid| pid != 0)
+        })
+    {
         assert!(Instant::now() < deadline, "background server did not start");
         std::thread::sleep(Duration::from_millis(2));
     }
