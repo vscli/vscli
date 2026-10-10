@@ -156,3 +156,25 @@ The corrected suite SHA256 is
 The other seven executable inputs and all case/target definitions are unchanged.
 The full fresh native consumer uses this separate source-matched baseline;
 original observations are not rewritten to match corrected source.
+
+
+## Deadline correction with separate source admission
+
+The original corrected-source baseline and eight inputs above are retained.
+A genuine Windows capture from head `951f2ad` emitted a 13,721 ms setup settlement
+because quiet success was checked before the deadline using wall-clock time.
+Its full forty output files and eight source inputs are preserved as
+[rejected evidence](observations/1.95.0/sticky-settlement-deadline/951f2ad-win32/README.md).
+The actual target settled in 133 ms; this cannot authorize the late setup.
+
+Ordinary CI now selects the
+[separate monotonic package](../vscode-reference-sticky-monotonic-candidate/README.md).
+It preserves all eighteen original cases, five-second acknowledgements,
+three-second settlement budget, 100 ms quiet state, 20 ms polling and 240-second
+supervision. Its actual settlement routine is covered by twelve pure tests.
+Rust admission explicitly binds the selected package's fixed source hashes;
+new complete captures require `--monotonic <directory>`. The default example
+still checks the original baseline and sources. A historical capture cannot
+select the new contract by reporting a different hash, and corrected elapsed
+metadata must be strictly below 3000 ms. Fresh remote capture and complete native
+replay remain qualification gates; no old observations were rewritten.

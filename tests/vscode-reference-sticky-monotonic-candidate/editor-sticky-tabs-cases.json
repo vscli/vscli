@@ -1,0 +1,824 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "files": [
+    {
+      "name": "a.txt",
+      "text": "猫🙂 a-fixture\r\nline-a\r\n"
+    },
+    {
+      "name": "b.txt",
+      "text": "β🙂 b-fixture\r\nline-b\r\n"
+    },
+    {
+      "name": "c.txt",
+      "text": "γ🙂 c-fixture\r\nline-c\r\n"
+    },
+    {
+      "name": "d.txt",
+      "text": "δ🙂 d-fixture\r\nline-d\r\n"
+    },
+    {
+      "name": "e.txt",
+      "text": "ε🙂 e-fixture\r\nline-e\r\n"
+    },
+    {
+      "name": "f.txt",
+      "text": "ζ🙂 f-fixture\r\nline-f\r\n"
+    },
+    {
+      "name": "g.txt",
+      "text": "η🙂 g-fixture\r\nline-g\r\n"
+    },
+    {
+      "name": "h.txt",
+      "text": "θ🙂 h-fixture\r\nline-h\r\n"
+    }
+  ],
+  "policy": {
+    "workbench.editor.enablePreview": true,
+    "workbench.editor.enablePreviewFromQuickOpen": false,
+    "workbench.editor.enablePreviewFromCodeNavigation": false,
+    "workbench.editor.openPositioning": "right",
+    "workbench.editor.focusRecentEditorAfterClose": true,
+    "workbench.editor.closeEmptyGroups": true,
+    "workbench.editor.revealIfOpen": false
+  },
+  "cases": [
+    {
+      "name": "multiple-historical-pins",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false,
+          "selection": {
+            "anchor": 2,
+            "cursor": 1
+          }
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 1,
+          "preview": false
+        }
+      ],
+      "steps": [
+        {
+          "open": "b.txt",
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "open": "d.txt",
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "open": "a.txt",
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "first-sticky-unpin-and-right-open",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.unpinEditor"
+        },
+        {
+          "open": "e.txt",
+          "preview": false
+        },
+        {
+          "open": "a.txt",
+          "preview": true
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "middle-sticky-unpin-repin-and-repeat",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.unpinEditor"
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "last-sticky-unpin-repeat-and-preview-request",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": false
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.unpinEditor"
+        },
+        {
+          "command": "workbench.action.unpinEditor"
+        },
+        {
+          "open": "c.txt",
+          "preview": true
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "open-from-first-sticky-clamps-beyond-prefix",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        }
+      ],
+      "steps": [
+        {
+          "open": "e.txt",
+          "preview": true
+        },
+        {
+          "open": "f.txt",
+          "preview": false
+        },
+        {
+          "open": "h.txt",
+          "preview": true
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "preview-replacement-with-sticky-prefix",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": true
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 1,
+          "preview": false
+        }
+      ],
+      "steps": [
+        {
+          "open": "e.txt",
+          "preview": true
+        },
+        {
+          "open": "a.txt",
+          "preview": true
+        },
+        {
+          "open": "f.txt",
+          "preview": true
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "sticky-source-split-and-independent-open",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": true
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "command": "workbench.action.splitEditor"
+        },
+        {
+          "open": "b.txt",
+          "preview": true
+        },
+        {
+          "command": "workbench.action.focusFirstEditorGroup"
+        },
+        {
+          "open": "c.txt",
+          "preview": true
+        },
+        {
+          "command": "workbench.action.focusSecondEditorGroup"
+        },
+        {
+          "open": "d.txt",
+          "preview": true
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "shared-edit-undo-redo-retains-sticky-source",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.splitEditor"
+        },
+        {
+          "command": "type",
+          "args": {
+            "text": "λ🙂"
+          }
+        },
+        {
+          "command": "undo"
+        },
+        {
+          "command": "workbench.action.focusFirstEditorGroup"
+        },
+        {
+          "command": "workbench.action.unpinEditor"
+        },
+        {
+          "command": "workbench.action.focusSecondEditorGroup"
+        },
+        {
+          "command": "redo"
+        },
+        {
+          "command": "undo"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "protected-close-same-group-nonsticky-mru",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeActiveEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "protected-close-other-group-nonsticky-mru",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.focusFirstEditorGroup"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeActiveEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "protected-close-no-nonsticky-target",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "command": "workbench.action.focusFirstEditorGroup"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeActiveEditor"
+        },
+        {
+          "command": "workbench.action.closeActiveEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "forced-close-clean-sticky-default-policy",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeActivePinnedEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "never-policy-ordinary-close-sticky",
+      "closePolicy": "never",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeActiveEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "mouse-policy-keyboard-close-sticky",
+      "closePolicy": "mouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeActiveEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "keyboard-policy-protects-sticky-and-falls-back",
+      "closePolicy": "keyboard",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeActiveEditor"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "close-editors-in-group-excludes-sticky",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": true
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "e.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.focusFirstEditorGroup"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeEditorsInGroup"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "close-all-editors-excludes-sticky-across-groups",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": true
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.pinEditor"
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "e.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.focusFirstEditorGroup"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeAllEditors"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    },
+    {
+      "name": "close-all-clean-nonsticky-empty-group-boundary",
+      "closePolicy": "keyboardAndMouse",
+      "setup": [
+        {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 2,
+          "preview": false
+        },
+        {
+          "command": "workbench.action.focusFirstEditorGroup"
+        }
+      ],
+      "steps": [
+        {
+          "command": "workbench.action.closeAllEditors"
+        }
+      ],
+      "scope": "Fixed clean-file setup; original target commands once; preserve public sticky/preview order, MRU close outcome, views and disk bytes without preferred-output retries"
+    }
+  ]
+}

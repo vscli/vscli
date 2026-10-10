@@ -16,3 +16,5 @@ tests/vscode-reference/** -text
 # Preserve the earlier immutable Windows readiness/migration terminal logs.
 /tests/vscode-reference/observations/1.95.0/save-participant-readiness/2c5ee40/win32/**/capture.log whitespace=cr-at-eol
 /tests/vscode-reference/observations/1.95.0/save-configuration-diagnostics/67ab795/win32/**/capture.log whitespace=cr-at-eol
+# Bind the corrected sticky observer to exact source bytes on all platforms.
+/tests/vscode-reference-sticky-monotonic-candidate/** -text

@@ -62,7 +62,7 @@ snapshots and 91 setup observations**. Its raw corpus remains unchanged; setup
 observations are not additional native target gestures. Trace SHA-256:
 `e8aa4a1ed449ebbf2fd6b7e2910156efb1835cc8d88d19582b8ff2ee9d1175db`.
 The observation and primary command/configuration source informed this scope.
-The local all-target run passes 936 Rust tests across 51 reports, with 20 optional
+The historical sticky candidate passed 936 Rust tests across 51 reports, with 20 optional
 integrations ignored. This includes 36 engine tests, seven strict consumer
 integrity/replay tests, five admission-refusal tests, fourteen real save-worker
 ownership tests and six settings/key/presentation tests. Formatting, strict
@@ -91,3 +91,34 @@ VS Code workbench parity remain outside this subset. Native editing and these
 settings/commands require no JavaScript runtime.
 
 Primary pinned source: [editor command registrations](https://github.com/microsoft/vscode/blob/912bb683695358a54ae0c670461738984cbb5b95/src/vs/workbench/browser/parts/editor/editorCommands.ts#L1167-L1218).
+
+
+## Rebased save integration and observer deadline qualification
+
+The candidate now builds on the merged stable save-policy path from PR #76.
+Original sticky protected-close/approved-save ownership and unsaved shared views
+retain their existing tests. Five sticky and seven source-action terminal journeys
+pass on debug and optimized executables after the rebase.
+
+A genuine Windows reference setup exceeded its observation budget while the
+producer still labeled it settled. That full rejected capture remains archived;
+its correct target result is not counted as successful qualification. A separate
+frozen monotonic observer checks the deadline before success, preserves all
+operation/quiet/polling limits and original gestures, and requires an explicit
+source-bound reader context. Historical artifacts remain attached to their
+original source and timing contract. The reader adds source/timing integrity
+checks and a genuine failure regression; controlled source-receipt mutations are
+labeled synthetic. See the
+[observer contract](../tests/vscode-reference-sticky-monotonic-candidate/README.md)
+and [rejected Windows evidence](../tests/vscode-reference/observations/1.95.0/sticky-settlement-deadline/951f2ad-win32/README.md).
+Fresh protected platform qualification remains pending for this integrated head.
+
+
+The integrated local run passes 973 locked all-target Rust tests across 51
+reports, with 23 optional integrations ignored, formatting and strict all-target
+locked Clippy. Twelve example tests include all seven historical guards plus
+four explicit source/timing tests and the genuine Windows offline failure guard.
+Eighteen pure Node tests cover both frozen suites and canonical paths. The five
+sticky and seven source-action terminal reports pass on both debug and optimized
+executables. The added source-routing positives are synthetic metadata tests;
+real corrected-platform capture/native comparison remains a separate CI gate.

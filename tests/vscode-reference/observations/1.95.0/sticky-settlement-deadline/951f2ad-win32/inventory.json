@@ -1,0 +1,250 @@
+{
+  "run_id": 38066412649,
+  "head_revision": "951f2ad7a187ee6472598c0dc793c84a0c3906ea",
+  "artifact_id": 11674409574,
+  "artifact_name": "vscode-reference-windows-2022",
+  "artifact_zip_bytes": 700826,
+  "scope": "Unmodified complete raw sticky directory and exact eight source inputs from the rejected Windows capture; not successful native qualification",
+  "files": [
+    {
+      "path": "result/close-all-clean-nonsticky-empty-group-boundary-evidence.json",
+      "bytes": 80848,
+      "sha256": "01294d9a605428542d5457e6abd637fc7d8fe5385d7c3dea1eb4a576a0b60722"
+    },
+    {
+      "path": "result/close-all-clean-nonsticky-empty-group-boundary-provenance.json",
+      "bytes": 1688,
+      "sha256": "b41bbba13a7a7899cef003d375b02a90f7e8c5da9f94a2d963617e1ba84e15ac"
+    },
+    {
+      "path": "result/close-all-editors-excludes-sticky-across-groups-evidence.json",
+      "bytes": 115616,
+      "sha256": "7cd446d3051041bfaf41b758336a96af82a74d279fd067733814ffc6f4da22c9"
+    },
+    {
+      "path": "result/close-all-editors-excludes-sticky-across-groups-provenance.json",
+      "bytes": 1689,
+      "sha256": "5d3042f16c7570d1680731a28366dfaead52025ab6e4bde1fe57413046e50428"
+    },
+    {
+      "path": "result/close-editors-in-group-excludes-sticky-evidence.json",
+      "bytes": 112919,
+      "sha256": "a1ff4f7960d15e8b277f0b8fc9db7121e8bd67507f6c2a7e9309cef0212399e6"
+    },
+    {
+      "path": "result/close-editors-in-group-excludes-sticky-provenance.json",
+      "bytes": 1680,
+      "sha256": "bcf00c4fec860bbe09556608c1d26eba76c7002c2e607e6cf25a41dbb5b65e21"
+    },
+    {
+      "path": "result/editor-sticky-tabs-evidence.json",
+      "bytes": 1771083,
+      "sha256": "4191eb0690f55beb7fb8c00e5805c552bf8b8eb778856918fd9f4ec82516e598"
+    },
+    {
+      "path": "result/editor-sticky-tabs-provenance.json",
+      "bytes": 58486,
+      "sha256": "824dece9e4d5f941d886c47d79a587974d8528f52966047d0a23df4ed2db4172"
+    },
+    {
+      "path": "result/editor-sticky-tabs.json",
+      "bytes": 297055,
+      "sha256": "d9fc2e25eccbed305cbd9ee5681b8e86d27d03063048237faeaecc76f95dd11d"
+    },
+    {
+      "path": "result/first-sticky-unpin-and-right-open-evidence.json",
+      "bytes": 120529,
+      "sha256": "26a45c3e115c59315edc74dd2463aa99301ec0a7f06a9dca58c15935a2e25d73"
+    },
+    {
+      "path": "result/first-sticky-unpin-and-right-open-provenance.json",
+      "bytes": 1675,
+      "sha256": "b844714350f9a432392795340c2c89a8c48ace4fa8ed0f2c65b044734c9ec9e8"
+    },
+    {
+      "path": "result/forced-close-clean-sticky-default-policy-evidence.json",
+      "bytes": 30036,
+      "sha256": "3af1f6ffcc0dc8630b1a67779f9583b3fc6e6dc9cb6e5bb8e2b31f4463834b67"
+    },
+    {
+      "path": "result/forced-close-clean-sticky-default-policy-provenance.json",
+      "bytes": 1682,
+      "sha256": "20b98da76c99d91b191cdec500032205c7f11278a28a50fa5bad5d4c420c82d9"
+    },
+    {
+      "path": "result/keyboard-policy-protects-sticky-and-falls-back-evidence.json",
+      "bytes": 57044,
+      "sha256": "598e634e50c410c16c1e861fd7d6d86e4948c18884c526b95d8677e678e0ca9c"
+    },
+    {
+      "path": "result/keyboard-policy-protects-sticky-and-falls-back-provenance.json",
+      "bytes": 1680,
+      "sha256": "00145e2003a9fb6a1f669bf7c6c137c368967d31ea4af808eb728147bc2afb73"
+    },
+    {
+      "path": "result/last-sticky-unpin-repeat-and-preview-request-evidence.json",
+      "bytes": 111365,
+      "sha256": "170c42113527bd75de1ad000e702f48bae8570f2f1c35a047bacb615eae2df9e"
+    },
+    {
+      "path": "result/last-sticky-unpin-repeat-and-preview-request-provenance.json",
+      "bytes": 1686,
+      "sha256": "d21ea22a1fc420c2516b73cf297a325b835678b875fee12af4a43383d68603a2"
+    },
+    {
+      "path": "result/middle-sticky-unpin-repin-and-repeat-evidence.json",
+      "bytes": 112328,
+      "sha256": "764d5923aa03380039be35d5707666234feb1566349d21b0f006e5e397a5653f"
+    },
+    {
+      "path": "result/middle-sticky-unpin-repin-and-repeat-provenance.json",
+      "bytes": 1678,
+      "sha256": "91526e891d0c228d31d9d12a14e6914d718129582d197bed3b450407d10cfe94"
+    },
+    {
+      "path": "result/mouse-policy-keyboard-close-sticky-evidence.json",
+      "bytes": 29990,
+      "sha256": "c281455d18352bd78330edc15aa4b532d5e52a9605fa341bb0eb9ffa51faaf9b"
+    },
+    {
+      "path": "result/mouse-policy-keyboard-close-sticky-provenance.json",
+      "bytes": 1665,
+      "sha256": "01d732e61f7b28e2d561b85644146dda2da82e260eb3cdff06301593d933d3f4"
+    },
+    {
+      "path": "result/multiple-historical-pins-evidence.json",
+      "bytes": 127583,
+      "sha256": "5f06a49cf694636f56081ae3b909b5725a8b12f591a3ba3c6313b956f17cdf6a"
+    },
+    {
+      "path": "result/multiple-historical-pins-provenance.json",
+      "bytes": 1666,
+      "sha256": "894229fa095c58711b8b262be958583aa324e9553f67d575007f668cf4741fbf"
+    },
+    {
+      "path": "result/native-comparison.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "result/never-policy-ordinary-close-sticky-evidence.json",
+      "bytes": 29990,
+      "sha256": "a8bacc244c7e763ffa56e8c388bd15f0f1840f89a01b37d156c205e27b2be4df"
+    },
+    {
+      "path": "result/never-policy-ordinary-close-sticky-provenance.json",
+      "bytes": 1665,
+      "sha256": "e26f0ce7116be40b856bc330a11a20d8db9c78cd11a31e04043c3a36cc1a1af4"
+    },
+    {
+      "path": "result/open-from-first-sticky-clamps-beyond-prefix-evidence.json",
+      "bytes": 126290,
+      "sha256": "60d380c99d3683c4290c5b698cf42f2adc2cfa95fb8814a1f8cf1b377bae6a48"
+    },
+    {
+      "path": "result/open-from-first-sticky-clamps-beyond-prefix-provenance.json",
+      "bytes": 1685,
+      "sha256": "1aff8ab2282e60745cf423f911a0788dda1c33bfe5da9a5de3decac01c4a0146"
+    },
+    {
+      "path": "result/preview-replacement-with-sticky-prefix-evidence.json",
+      "bytes": 107916,
+      "sha256": "61e18efa10b3a65094988bda6a60dd88b37c22a41f55c76d1c47efda24cf7df3"
+    },
+    {
+      "path": "result/preview-replacement-with-sticky-prefix-provenance.json",
+      "bytes": 1680,
+      "sha256": "15af4fe2e6c1a4469129036a3b15aeb439b58178f914e05df98b526c82358944"
+    },
+    {
+      "path": "result/protected-close-no-nonsticky-target-evidence.json",
+      "bytes": 78888,
+      "sha256": "2f39b9be0315b6b3d7534ef0eaa016b22ee68bf325aabdbd90ca53b814296d1b"
+    },
+    {
+      "path": "result/protected-close-no-nonsticky-target-provenance.json",
+      "bytes": 1677,
+      "sha256": "9b979438d3688db9ab9ef64263b90fd55cd5ce37248485cc71a6578006ff4539"
+    },
+    {
+      "path": "result/protected-close-other-group-nonsticky-mru-evidence.json",
+      "bytes": 72826,
+      "sha256": "3adebb65d0f0a59cc4eeb3581bee2e3795eccdbc8c03c5dba873381f900dd8ee"
+    },
+    {
+      "path": "result/protected-close-other-group-nonsticky-mru-provenance.json",
+      "bytes": 1683,
+      "sha256": "2f21b76972fcb89c650a29d622b039a9b738c5a7c7d66bdb1ecdda861c3b00a5"
+    },
+    {
+      "path": "result/protected-close-same-group-nonsticky-mru-evidence.json",
+      "bytes": 67837,
+      "sha256": "2753d7785b2311829bffc8c5613d75fb71f8ed25bc1497f69e795d236eb8334b"
+    },
+    {
+      "path": "result/protected-close-same-group-nonsticky-mru-provenance.json",
+      "bytes": 1682,
+      "sha256": "71e71a163a89d0791be5de7de884535f8f96b2ee4085e7404028511b1bbaf730"
+    },
+    {
+      "path": "result/shared-edit-undo-redo-retains-sticky-source-evidence.json",
+      "bytes": 140915,
+      "sha256": "d86ab3148b44e91a87ff669285b40e043626e30f46887ab10dd95c692c3332d4"
+    },
+    {
+      "path": "result/shared-edit-undo-redo-retains-sticky-source-provenance.json",
+      "bytes": 1685,
+      "sha256": "6c2a2ba59be5a1fe350fa7493efff912a67a2c261ceae4dd00e6873f71decbb2"
+    },
+    {
+      "path": "result/sticky-source-split-and-independent-open-evidence.json",
+      "bytes": 126530,
+      "sha256": "171fe6055aada709e986fe4e211851f33dc86aeef26fb4d8e15ac2fe1bc6ddd1"
+    },
+    {
+      "path": "result/sticky-source-split-and-independent-open-provenance.json",
+      "bytes": 1682,
+      "sha256": "570f10953b70d75caf3e9364f5911f761be58ddeee3d4a5a14ac6fc13145706f"
+    },
+    {
+      "path": "sources/editor-sticky-tabs-cases.json",
+      "bytes": 21398,
+      "sha256": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9"
+    },
+    {
+      "path": "sources/editor-sticky-tabs-run.cjs",
+      "bytes": 766,
+      "sha256": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda"
+    },
+    {
+      "path": "sources/editor-sticky-tabs-suite.cjs",
+      "bytes": 19634,
+      "sha256": "0821192a8135f054f054ec9eb766b50c5a27418b9fa68ffdc4ae770399f40a35"
+    },
+    {
+      "path": "sources/editor-sticky-tabs-worker.cjs",
+      "bytes": 7821,
+      "sha256": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c"
+    },
+    {
+      "path": "sources/extension.cjs",
+      "bytes": 43,
+      "sha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+    },
+    {
+      "path": "sources/package-lock.json",
+      "bytes": 17282,
+      "sha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c"
+    },
+    {
+      "path": "sources/package.json",
+      "bytes": 1274,
+      "sha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3"
+    },
+    {
+      "path": "sources/supervisor.cjs",
+      "bytes": 4245,
+      "sha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22"
+    }
+  ]
+}
