@@ -86,7 +86,7 @@ committed Rope independently of newer live text. Serialization runs on the bound
 transport writer; oversize escaping cannot publish a partial frame. Four framed
 subprocess tests qualify capability forms, snapshot ownership, lifecycle guards
 and overflow recovery. Native asynchronous Save/Save As now routes receipts
-through this snapshot-aware notification path. Save participants, dynamic
+through this snapshot-aware notification path. Broader save participants, dynamic
 registration and one extension save event per disk commit remain unqualified;
 the current mirror can coalesce multiple commits. See
 [native language-server behavior](USAGE.md#language-servers) and the
