@@ -20,6 +20,28 @@ pub enum LineNumbers {
     Relative,
     Interval,
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum BreadcrumbPath {
+    #[default]
+    On,
+    Off,
+    Last,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Breadcrumbs {
+    pub enabled: bool,
+    pub file_path: BreadcrumbPath,
+    pub symbol_path: BreadcrumbPath,
+}
+impl Default for Breadcrumbs {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            file_path: BreadcrumbPath::On,
+            symbol_path: BreadcrumbPath::On,
+        }
+    }
+}
 #[derive(Clone, Default)]
 pub struct Settings {
     layers: Arc<Vec<Map<String, Value>>>,
@@ -52,6 +74,9 @@ const SUPPORTED: &[&str] = &[
     "editor.autoClosingOvertype",
     "editor.autoSurround",
     "editor.autoIndent",
+    "breadcrumbs.enabled",
+    "breadcrumbs.filePath",
+    "breadcrumbs.symbolPath",
     "workbench.colorTheme",
     "vscli.languageServer.enabled",
     "vscli.languageServer.program",
@@ -275,6 +300,21 @@ impl Settings {
                 .unwrap_or(true),
         }
     }
+    pub fn breadcrumbs(&self, language: &str) -> Breadcrumbs {
+        let path = |key| match self.value(key, language).and_then(Value::as_str) {
+            Some("off") => BreadcrumbPath::Off,
+            Some("last") => BreadcrumbPath::Last,
+            _ => BreadcrumbPath::On,
+        };
+        Breadcrumbs {
+            enabled: self
+                .value("breadcrumbs.enabled", language)
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
+            file_path: path("breadcrumbs.filePath"),
+            symbol_path: path("breadcrumbs.symbolPath"),
+        }
+    }
 
     pub fn typing(&self, language: &str) -> crate::editing_profile::TypingOptions {
         use crate::editing_profile::{AutoClosing, AutoIndent, PairHandling, Surround};
@@ -382,7 +422,11 @@ fn valid(key: &str, value: &Value) -> bool {
         | "editor.quickSuggestions"
         | "editor.suggestOnTriggerCharacters"
         | "editor.parameterHints.enabled"
-        | "editor.parameterHints.cycle" => value.is_boolean(),
+        | "editor.parameterHints.cycle"
+        | "breadcrumbs.enabled" => value.is_boolean(),
+        "breadcrumbs.filePath" | "breadcrumbs.symbolPath" => {
+            matches!(value.as_str(), Some("on" | "off" | "last"))
+        }
         "editor.autoClosingBrackets" | "editor.autoClosingQuotes" => matches!(
             value.as_str(),
             Some("always" | "languageDefined" | "beforeWhitespace" | "never")
@@ -452,6 +496,98 @@ impl Loader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn breadcrumb_defaults_are_enabled_with_both_paths() {
+        assert_eq!(
+            Settings::default().breadcrumbs("cpp"),
+            Breadcrumbs::default()
+        );
+        assert_eq!(
+            Settings::default().breadcrumbs("plaintext"),
+            Breadcrumbs::default()
+        );
+    }
+    #[test]
+    fn breadcrumbs_use_jsonc_workspace_and_language_precedence_without_rewriting_imports() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("vscode-user.json");
+        let workspace = root.path().join("workspace.json");
+        let user_bytes = br#"{
+            // Preserve the user's original comments and trailing commas.
+            "breadcrumbs.enabled":false,
+            "breadcrumbs.filePath":"last",
+            "[cpp][rust]":{"breadcrumbs.enabled":true,"breadcrumbs.symbolPath":"last"},
+            "[cpp]":{"breadcrumbs.filePath":"off"},
+        }"#;
+        let workspace_bytes = br#"{
+            "breadcrumbs.enabled":true,
+            "breadcrumbs.filePath":"on",
+            "breadcrumbs.symbolPath":"off",
+            "[cpp][rust]":{"breadcrumbs.symbolPath":"on"},
+            "[cpp]":{"breadcrumbs.enabled":false,"breadcrumbs.symbolPath":"last"},
+        }"#;
+        std::fs::write(&user, user_bytes).unwrap();
+        std::fs::write(&workspace, workspace_bytes).unwrap();
+        let settings = Settings::load_editor(&[user.clone(), workspace.clone()]).unwrap();
+        assert_eq!(
+            settings.breadcrumbs("cpp"),
+            Breadcrumbs {
+                enabled: false,
+                file_path: BreadcrumbPath::Off,
+                symbol_path: BreadcrumbPath::Last,
+            }
+        );
+        assert_eq!(settings.breadcrumbs("rust"), Breadcrumbs::default());
+        assert_eq!(
+            settings.breadcrumbs("plaintext"),
+            Breadcrumbs {
+                enabled: true,
+                file_path: BreadcrumbPath::On,
+                symbol_path: BreadcrumbPath::Off,
+            }
+        );
+        assert!(settings.warnings.is_empty());
+        assert_eq!(std::fs::read(user).unwrap(), user_bytes);
+        assert_eq!(std::fs::read(workspace).unwrap(), workspace_bytes);
+    }
+    #[test]
+    fn malformed_breadcrumb_values_preserve_lower_layers_and_remain_visible_to_extensions() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(&user,r#"{"breadcrumbs.enabled":false,"breadcrumbs.filePath":"last","breadcrumbs.symbolPath":"off","[cpp]":{"breadcrumbs.filePath":"off"}}"#).unwrap();
+        std::fs::write(&workspace,r#"{"breadcrumbs.enabled":"true","breadcrumbs.filePath":true,"breadcrumbs.symbolPath":"ALL","[cpp]":{"breadcrumbs.enabled":0,"breadcrumbs.filePath":"LAST","breadcrumbs.symbolPath":null}}"#).unwrap();
+        let settings = Settings::load_editor(&[user, workspace]).unwrap();
+        assert_eq!(
+            settings.breadcrumbs("cpp"),
+            Breadcrumbs {
+                enabled: false,
+                file_path: BreadcrumbPath::Off,
+                symbol_path: BreadcrumbPath::Off,
+            }
+        );
+        assert_eq!(
+            settings.breadcrumbs("plaintext"),
+            Breadcrumbs {
+                enabled: false,
+                file_path: BreadcrumbPath::Last,
+                symbol_path: BreadcrumbPath::Off,
+            }
+        );
+        assert_eq!(settings.warnings.len(), 6);
+        assert!(
+            settings
+                .warnings
+                .iter()
+                .all(|warning| warning.contains("invalid value for breadcrumbs."))
+        );
+        assert_eq!(
+            settings.extension_layers()[1]["breadcrumbs.enabled"],
+            "true"
+        );
+        assert!(settings.extension_layers()[1]["breadcrumbs.filePath"].is_boolean());
+        assert!(settings.extension_layers()[1]["[cpp]"]["breadcrumbs.symbolPath"].is_null());
+    }
     #[test]
     fn suggestions_use_language_precedence_and_reject_unimplemented_or_unbounded_options() {
         let root = tempfile::tempdir().unwrap();
