@@ -72,3 +72,13 @@ ownership, source-hit retirement or original platform bindings. These tests and
 review do not establish cross-group transfer, physical keyboard delivery on all
 terminals or full workbench parity. Fresh protected exact-head checks and parent
 integration remain required before merge.
+
+The candidate is now based on merged nested layouts in main
+`fb360539a060f118db4a10239e9d5181410e0a2e`. Layout PR #69 passed all six
+required checks on reviewed head `8664ba9` in
+[run 38073389609](https://github.com/vscli/vscli/actions/runs/38073389609).
+Reordering's previous head `7370e03` also passed all six checks in
+[run 38072995481](https://github.com/vscli/vscli/actions/runs/38072995481).
+Only inherited documentation changed in this main rebase; native source,
+tests, workflows and reference inputs remain byte-identical to that qualified
+reordering head. Fresh exact-head CI is required before this candidate merges.
