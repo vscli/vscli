@@ -35,25 +35,3 @@ under both timing limits. Full Windows admission also needs the real pinned
 Windows product/executable bytes, verified in CI without relaxing identity. This does not prove
 why Windows stalled, native UI parity, physical shortcuts or all tab semantics.
 No local reference editor was launched for this change.
-
-
-## Genuine capture qualification and offline adoption
-
-The complete corrected producer/native comparison passed on Linux, macOS and
-Windows at exact reviewed head
-`3e813500114f6c30d9e00fb15d54d5b85e1fb69b` in
-[run 38071676391](https://github.com/vscli/vscli/actions/runs/38071676391).
-All six required checks passed before PR #68 merged. The separate stable-save
-observer also passed all three jobs in run 38071676300.
-
-[Complete captures](../vscode-reference/observations/1.95.0/sticky-monotonic/3e81350/README.md)
-retain all 49 files per platform byte-for-byte, with pinned inventory hashes: the
-40 raw reference/native outputs and all eight runtime inputs plus the captured
-README. The native outputs are comparison evidence, not upstream inputs.
-No-argument `cargo run --locked --example editor_sticky_tabs_contract` now uses
-the genuine corrected Linux archive and its explicit compiled monotonic contract.
-An explicit historical directory retains historical admission; `--monotonic
-<directory>` still requires a full current artifact. No receipt chooses its own
-source contract. The original baseline/producer and rejected Windows capture
-remain unchanged. Offline byte/source inventory tests do not bypass Mac/Windows
-launcher checks or establish additional parity.

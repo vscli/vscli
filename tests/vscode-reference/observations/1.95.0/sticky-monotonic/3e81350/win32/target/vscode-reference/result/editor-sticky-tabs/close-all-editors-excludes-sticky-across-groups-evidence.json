@@ -1,0 +1,4229 @@
+{
+  "name": "close-all-editors-excludes-sticky-across-groups",
+  "setup": {
+    "commandInventory": [
+      "vscode.open",
+      "workbench.action.pinEditor",
+      "workbench.action.focusFirstEditorGroup",
+      "workbench.action.closeAllEditors"
+    ],
+    "effectiveConfiguration": {
+      "workbench.editor.enablePreview": true,
+      "workbench.editor.enablePreviewFromQuickOpen": false,
+      "workbench.editor.enablePreviewFromCodeNavigation": false,
+      "workbench.editor.openPositioning": "right",
+      "workbench.editor.focusRecentEditorAfterClose": true,
+      "workbench.editor.closeEmptyGroups": true,
+      "workbench.editor.revealIfOpen": false,
+      "workbench.editor.preventPinnedEditorClose": "keyboardAndMouse"
+    },
+    "closePolicy": "keyboardAndMouse",
+    "scope": "Fixed separately labelled public API opens/selections and original pin/focus commands establish clean membership/view/MRU inputs; not target output retries",
+    "operations": [
+      {
+        "step": 0,
+        "gesture": {
+          "api": "showTextDocument",
+          "resource": "a.txt",
+          "group": 1,
+          "preview": false
+        },
+        "settlement": {
+          "observed": {
+            "groups": [
+              {
+                "viewColumn": 1,
+                "active": true,
+                "tabs": [
+                  {
+                    "resource": "a.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  }
+                ]
+              }
+            ],
+            "active": {
+              "resource": "a.txt",
+              "viewColumn": 1,
+              "documentObject": 1,
+              "text": "猫🙂 a-fixture\r\nline-a\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            "visible": [
+              {
+                "resource": "a.txt",
+                "viewColumn": 1,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ],
+            "documents": [
+              {
+                "resource": "a.txt",
+                "loaded": true,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+              },
+              {
+                "resource": "b.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "β🙂 b-fixture\r\nline-b\r\n"
+              },
+              {
+                "resource": "c.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+              },
+              {
+                "resource": "d.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+              },
+              {
+                "resource": "e.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+              },
+              {
+                "resource": "f.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+              },
+              {
+                "resource": "g.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "η🙂 g-fixture\r\nline-g\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "η🙂 g-fixture\r\nline-g\r\n"
+              },
+              {
+                "resource": "h.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "θ🙂 h-fixture\r\nline-h\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+              }
+            ]
+          },
+          "reads": 6,
+          "elapsedMs": 126,
+          "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+        },
+        "events": [
+          {
+            "kind": "tabs",
+            "opened": [
+              {
+                "resource": "a.txt",
+                "active": false,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ],
+            "closed": [],
+            "changed": []
+          },
+          {
+            "kind": "tabs",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              {
+                "resource": "a.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ]
+          },
+          {
+            "kind": "groups",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              1
+            ]
+          },
+          {
+            "kind": "visible",
+            "editors": [
+              {
+                "resource": "a.txt",
+                "viewColumn": 1,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "active",
+            "editor": {
+              "resource": "a.txt",
+              "viewColumn": 1,
+              "documentObject": 1,
+              "text": "猫🙂 a-fixture\r\nline-a\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "supplementalEvents": []
+      },
+      {
+        "step": 1,
+        "gesture": {
+          "command": "workbench.action.pinEditor"
+        },
+        "settlement": {
+          "observed": {
+            "groups": [
+              {
+                "viewColumn": 1,
+                "active": true,
+                "tabs": [
+                  {
+                    "resource": "a.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  }
+                ]
+              }
+            ],
+            "active": {
+              "resource": "a.txt",
+              "viewColumn": 1,
+              "documentObject": 1,
+              "text": "猫🙂 a-fixture\r\nline-a\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            "visible": [
+              {
+                "resource": "a.txt",
+                "viewColumn": 1,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ],
+            "documents": [
+              {
+                "resource": "a.txt",
+                "loaded": true,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+              },
+              {
+                "resource": "b.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "β🙂 b-fixture\r\nline-b\r\n"
+              },
+              {
+                "resource": "c.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+              },
+              {
+                "resource": "d.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+              },
+              {
+                "resource": "e.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+              },
+              {
+                "resource": "f.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+              },
+              {
+                "resource": "g.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "η🙂 g-fixture\r\nline-g\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "η🙂 g-fixture\r\nline-g\r\n"
+              },
+              {
+                "resource": "h.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "θ🙂 h-fixture\r\nline-h\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+              }
+            ]
+          },
+          "reads": 6,
+          "elapsedMs": 132,
+          "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+        },
+        "events": [
+          {
+            "kind": "tabs",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              {
+                "resource": "a.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": true,
+                "preview": false
+              }
+            ]
+          }
+        ],
+        "supplementalEvents": []
+      },
+      {
+        "step": 2,
+        "gesture": {
+          "api": "showTextDocument",
+          "resource": "b.txt",
+          "group": 1,
+          "preview": false
+        },
+        "settlement": {
+          "observed": {
+            "groups": [
+              {
+                "viewColumn": 1,
+                "active": true,
+                "tabs": [
+                  {
+                    "resource": "a.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  },
+                  {
+                    "resource": "b.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  }
+                ]
+              }
+            ],
+            "active": {
+              "resource": "b.txt",
+              "viewColumn": 1,
+              "documentObject": 2,
+              "text": "β🙂 b-fixture\r\nline-b\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            "visible": [
+              {
+                "resource": "b.txt",
+                "viewColumn": 1,
+                "documentObject": 2,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ],
+            "documents": [
+              {
+                "resource": "a.txt",
+                "loaded": true,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+              },
+              {
+                "resource": "b.txt",
+                "loaded": true,
+                "documentObject": 2,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "β🙂 b-fixture\r\nline-b\r\n"
+              },
+              {
+                "resource": "c.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+              },
+              {
+                "resource": "d.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+              },
+              {
+                "resource": "e.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+              },
+              {
+                "resource": "f.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+              },
+              {
+                "resource": "g.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "η🙂 g-fixture\r\nline-g\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "η🙂 g-fixture\r\nline-g\r\n"
+              },
+              {
+                "resource": "h.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "θ🙂 h-fixture\r\nline-h\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+              }
+            ]
+          },
+          "reads": 6,
+          "elapsedMs": 120,
+          "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+        },
+        "events": [
+          {
+            "kind": "tabs",
+            "opened": [
+              {
+                "resource": "b.txt",
+                "active": false,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ],
+            "closed": [],
+            "changed": []
+          },
+          {
+            "kind": "tabs",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              {
+                "resource": "b.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ]
+          },
+          {
+            "kind": "groups",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              1
+            ]
+          },
+          {
+            "kind": "visible",
+            "editors": []
+          },
+          {
+            "kind": "active",
+            "editor": null
+          },
+          {
+            "kind": "visible",
+            "editors": [
+              {
+                "resource": "b.txt",
+                "viewColumn": 1,
+                "documentObject": 2,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "active",
+            "editor": {
+              "resource": "b.txt",
+              "viewColumn": 1,
+              "documentObject": 2,
+              "text": "β🙂 b-fixture\r\nline-b\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "supplementalEvents": []
+      },
+      {
+        "step": 3,
+        "gesture": {
+          "api": "showTextDocument",
+          "resource": "c.txt",
+          "group": 1,
+          "preview": true
+        },
+        "settlement": {
+          "observed": {
+            "groups": [
+              {
+                "viewColumn": 1,
+                "active": true,
+                "tabs": [
+                  {
+                    "resource": "a.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  },
+                  {
+                    "resource": "b.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  },
+                  {
+                    "resource": "c.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": true
+                  }
+                ]
+              }
+            ],
+            "active": {
+              "resource": "c.txt",
+              "viewColumn": 1,
+              "documentObject": 3,
+              "text": "γ🙂 c-fixture\r\nline-c\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            "visible": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ],
+            "documents": [
+              {
+                "resource": "a.txt",
+                "loaded": true,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+              },
+              {
+                "resource": "b.txt",
+                "loaded": true,
+                "documentObject": 2,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "β🙂 b-fixture\r\nline-b\r\n"
+              },
+              {
+                "resource": "c.txt",
+                "loaded": true,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+              },
+              {
+                "resource": "d.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+              },
+              {
+                "resource": "e.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+              },
+              {
+                "resource": "f.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+              },
+              {
+                "resource": "g.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "η🙂 g-fixture\r\nline-g\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "η🙂 g-fixture\r\nline-g\r\n"
+              },
+              {
+                "resource": "h.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "θ🙂 h-fixture\r\nline-h\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+              }
+            ]
+          },
+          "reads": 6,
+          "elapsedMs": 123,
+          "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+        },
+        "events": [
+          {
+            "kind": "tabs",
+            "opened": [
+              {
+                "resource": "c.txt",
+                "active": false,
+                "dirty": false,
+                "pinned": false,
+                "preview": true
+              }
+            ],
+            "closed": [],
+            "changed": []
+          },
+          {
+            "kind": "tabs",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              {
+                "resource": "c.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": false,
+                "preview": true
+              }
+            ]
+          },
+          {
+            "kind": "groups",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              1
+            ]
+          },
+          {
+            "kind": "visible",
+            "editors": []
+          },
+          {
+            "kind": "active",
+            "editor": null
+          },
+          {
+            "kind": "visible",
+            "editors": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "active",
+            "editor": {
+              "resource": "c.txt",
+              "viewColumn": 1,
+              "documentObject": 3,
+              "text": "γ🙂 c-fixture\r\nline-c\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "supplementalEvents": []
+      },
+      {
+        "step": 4,
+        "gesture": {
+          "api": "showTextDocument",
+          "resource": "d.txt",
+          "group": 2,
+          "preview": false
+        },
+        "settlement": {
+          "observed": {
+            "groups": [
+              {
+                "viewColumn": 1,
+                "active": false,
+                "tabs": [
+                  {
+                    "resource": "a.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  },
+                  {
+                    "resource": "b.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  },
+                  {
+                    "resource": "c.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": true
+                  }
+                ]
+              },
+              {
+                "viewColumn": 2,
+                "active": true,
+                "tabs": [
+                  {
+                    "resource": "d.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  }
+                ]
+              }
+            ],
+            "active": {
+              "resource": "d.txt",
+              "viewColumn": 2,
+              "documentObject": 4,
+              "text": "δ🙂 d-fixture\r\nline-d\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            "visible": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "resource": "d.txt",
+                "viewColumn": 2,
+                "documentObject": 4,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ],
+            "documents": [
+              {
+                "resource": "a.txt",
+                "loaded": true,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+              },
+              {
+                "resource": "b.txt",
+                "loaded": true,
+                "documentObject": 2,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "β🙂 b-fixture\r\nline-b\r\n"
+              },
+              {
+                "resource": "c.txt",
+                "loaded": true,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+              },
+              {
+                "resource": "d.txt",
+                "loaded": true,
+                "documentObject": 4,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+              },
+              {
+                "resource": "e.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+              },
+              {
+                "resource": "f.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+              },
+              {
+                "resource": "g.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "η🙂 g-fixture\r\nline-g\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "η🙂 g-fixture\r\nline-g\r\n"
+              },
+              {
+                "resource": "h.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "θ🙂 h-fixture\r\nline-h\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+              }
+            ]
+          },
+          "reads": 5,
+          "elapsedMs": 107,
+          "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+        },
+        "events": [
+          {
+            "kind": "groups",
+            "opened": [
+              2
+            ],
+            "closed": [],
+            "changed": [
+              1
+            ]
+          },
+          {
+            "kind": "tabs",
+            "opened": [
+              {
+                "resource": "d.txt",
+                "active": false,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ],
+            "closed": [],
+            "changed": []
+          },
+          {
+            "kind": "tabs",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              {
+                "resource": "d.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ]
+          },
+          {
+            "kind": "groups",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              1,
+              2
+            ]
+          },
+          {
+            "kind": "groups",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              2
+            ]
+          },
+          {
+            "kind": "visible",
+            "editors": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "resource": "d.txt",
+                "viewColumn": 2,
+                "documentObject": 4,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "active",
+            "editor": {
+              "resource": "d.txt",
+              "viewColumn": 2,
+              "documentObject": 4,
+              "text": "δ🙂 d-fixture\r\nline-d\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "supplementalEvents": []
+      },
+      {
+        "step": 5,
+        "gesture": {
+          "command": "workbench.action.pinEditor"
+        },
+        "settlement": {
+          "observed": {
+            "groups": [
+              {
+                "viewColumn": 1,
+                "active": false,
+                "tabs": [
+                  {
+                    "resource": "a.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  },
+                  {
+                    "resource": "b.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  },
+                  {
+                    "resource": "c.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": true
+                  }
+                ]
+              },
+              {
+                "viewColumn": 2,
+                "active": true,
+                "tabs": [
+                  {
+                    "resource": "d.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  }
+                ]
+              }
+            ],
+            "active": {
+              "resource": "d.txt",
+              "viewColumn": 2,
+              "documentObject": 4,
+              "text": "δ🙂 d-fixture\r\nline-d\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            "visible": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "resource": "d.txt",
+                "viewColumn": 2,
+                "documentObject": 4,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ],
+            "documents": [
+              {
+                "resource": "a.txt",
+                "loaded": true,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+              },
+              {
+                "resource": "b.txt",
+                "loaded": true,
+                "documentObject": 2,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "β🙂 b-fixture\r\nline-b\r\n"
+              },
+              {
+                "resource": "c.txt",
+                "loaded": true,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+              },
+              {
+                "resource": "d.txt",
+                "loaded": true,
+                "documentObject": 4,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+              },
+              {
+                "resource": "e.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+              },
+              {
+                "resource": "f.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+              },
+              {
+                "resource": "g.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "η🙂 g-fixture\r\nline-g\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "η🙂 g-fixture\r\nline-g\r\n"
+              },
+              {
+                "resource": "h.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "θ🙂 h-fixture\r\nline-h\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+              }
+            ]
+          },
+          "reads": 5,
+          "elapsedMs": 121,
+          "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+        },
+        "events": [
+          {
+            "kind": "tabs",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              {
+                "resource": "d.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": true,
+                "preview": false
+              }
+            ]
+          }
+        ],
+        "supplementalEvents": [
+          {
+            "kind": "document-change",
+            "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+            "scheme": "vscode-userdata",
+            "phase": {
+              "kind": "setup",
+              "index": 5
+            },
+            "fixtureEventCount": 28,
+            "documentObject": 5,
+            "languageId": "jsonc",
+            "dirty": false,
+            "version": 2,
+            "changes": [
+              {
+                "text": "{\r\n        \"comments\": \"off\",\r\n        \"strings\": \"off\",\r\n        \"other\": \"off\"\r\n    }",
+                "rangeOffset": 628,
+                "rangeLength": 5
+              }
+            ]
+          },
+          {
+            "kind": "document-change",
+            "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+            "scheme": "vscode-userdata",
+            "phase": {
+              "kind": "setup",
+              "index": 5
+            },
+            "fixtureEventCount": 28,
+            "documentObject": 5,
+            "languageId": "jsonc",
+            "dirty": true,
+            "version": 2,
+            "changes": []
+          }
+        ]
+      },
+      {
+        "step": 6,
+        "gesture": {
+          "api": "showTextDocument",
+          "resource": "e.txt",
+          "group": 2,
+          "preview": false
+        },
+        "settlement": {
+          "observed": {
+            "groups": [
+              {
+                "viewColumn": 1,
+                "active": false,
+                "tabs": [
+                  {
+                    "resource": "a.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  },
+                  {
+                    "resource": "b.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  },
+                  {
+                    "resource": "c.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": true
+                  }
+                ]
+              },
+              {
+                "viewColumn": 2,
+                "active": true,
+                "tabs": [
+                  {
+                    "resource": "d.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  },
+                  {
+                    "resource": "e.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  }
+                ]
+              }
+            ],
+            "active": {
+              "resource": "e.txt",
+              "viewColumn": 2,
+              "documentObject": 9,
+              "text": "ε🙂 e-fixture\r\nline-e\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            "visible": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "resource": "e.txt",
+                "viewColumn": 2,
+                "documentObject": 9,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ],
+            "documents": [
+              {
+                "resource": "a.txt",
+                "loaded": true,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+              },
+              {
+                "resource": "b.txt",
+                "loaded": true,
+                "documentObject": 2,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "β🙂 b-fixture\r\nline-b\r\n"
+              },
+              {
+                "resource": "c.txt",
+                "loaded": true,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+              },
+              {
+                "resource": "d.txt",
+                "loaded": true,
+                "documentObject": 4,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+              },
+              {
+                "resource": "e.txt",
+                "loaded": true,
+                "documentObject": 9,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+              },
+              {
+                "resource": "f.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+              },
+              {
+                "resource": "g.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "η🙂 g-fixture\r\nline-g\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "η🙂 g-fixture\r\nline-g\r\n"
+              },
+              {
+                "resource": "h.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "θ🙂 h-fixture\r\nline-h\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+              }
+            ]
+          },
+          "reads": 5,
+          "elapsedMs": 115,
+          "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+        },
+        "events": [
+          {
+            "kind": "tabs",
+            "opened": [
+              {
+                "resource": "e.txt",
+                "active": false,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ],
+            "closed": [],
+            "changed": []
+          },
+          {
+            "kind": "tabs",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              {
+                "resource": "e.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ]
+          },
+          {
+            "kind": "groups",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              1,
+              2
+            ]
+          },
+          {
+            "kind": "visible",
+            "editors": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "active",
+            "editor": null
+          },
+          {
+            "kind": "visible",
+            "editors": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "resource": "e.txt",
+                "viewColumn": 2,
+                "documentObject": 9,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "active",
+            "editor": {
+              "resource": "e.txt",
+              "viewColumn": 2,
+              "documentObject": 9,
+              "text": "ε🙂 e-fixture\r\nline-e\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "supplementalEvents": [
+          {
+            "kind": "document-change",
+            "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+            "scheme": "vscode-userdata",
+            "phase": {
+              "kind": "setup",
+              "index": 6
+            },
+            "fixtureEventCount": 28,
+            "documentObject": 5,
+            "languageId": "jsonc",
+            "dirty": false,
+            "version": 2,
+            "changes": []
+          },
+          {
+            "kind": "document-change",
+            "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+            "scheme": "vscode-userdata",
+            "phase": {
+              "kind": "setup",
+              "index": 6
+            },
+            "fixtureEventCount": 28,
+            "documentObject": 5,
+            "languageId": "jsonc",
+            "dirty": false,
+            "version": 2,
+            "changes": []
+          },
+          {
+            "kind": "document-close",
+            "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+            "scheme": "vscode-userdata",
+            "phase": {
+              "kind": "setup",
+              "index": 6
+            },
+            "fixtureEventCount": 28,
+            "documentObject": 5,
+            "languageId": "jsonc",
+            "dirty": false,
+            "version": 2
+          },
+          {
+            "kind": "document-close",
+            "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+            "scheme": "vscode-userdata",
+            "phase": {
+              "kind": "setup",
+              "index": 6
+            },
+            "fixtureEventCount": 28,
+            "documentObject": 6,
+            "languageId": "jsonc",
+            "dirty": false,
+            "version": 2
+          },
+          {
+            "kind": "document-close",
+            "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+            "scheme": "vscode-userdata",
+            "phase": {
+              "kind": "setup",
+              "index": 6
+            },
+            "fixtureEventCount": 28,
+            "documentObject": 7,
+            "languageId": "jsonc",
+            "dirty": false,
+            "version": 2
+          },
+          {
+            "kind": "document-close",
+            "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+            "scheme": "vscode-userdata",
+            "phase": {
+              "kind": "setup",
+              "index": 6
+            },
+            "fixtureEventCount": 28,
+            "documentObject": 8,
+            "languageId": "jsonc",
+            "dirty": false,
+            "version": 2
+          }
+        ]
+      },
+      {
+        "step": 7,
+        "gesture": {
+          "command": "workbench.action.focusFirstEditorGroup"
+        },
+        "settlement": {
+          "observed": {
+            "groups": [
+              {
+                "viewColumn": 1,
+                "active": true,
+                "tabs": [
+                  {
+                    "resource": "a.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  },
+                  {
+                    "resource": "b.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  },
+                  {
+                    "resource": "c.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": true
+                  }
+                ]
+              },
+              {
+                "viewColumn": 2,
+                "active": false,
+                "tabs": [
+                  {
+                    "resource": "d.txt",
+                    "active": false,
+                    "dirty": false,
+                    "pinned": true,
+                    "preview": false
+                  },
+                  {
+                    "resource": "e.txt",
+                    "active": true,
+                    "dirty": false,
+                    "pinned": false,
+                    "preview": false
+                  }
+                ]
+              }
+            ],
+            "active": {
+              "resource": "c.txt",
+              "viewColumn": 1,
+              "documentObject": 3,
+              "text": "γ🙂 c-fixture\r\nline-c\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            "visible": [
+              {
+                "resource": "c.txt",
+                "viewColumn": 1,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              },
+              {
+                "resource": "e.txt",
+                "viewColumn": 2,
+                "documentObject": 9,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": 1,
+                "eol": "CRLF",
+                "selections": [
+                  {
+                    "anchor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    },
+                    "cursor": {
+                      "line": 0,
+                      "character": 0,
+                      "scalar": 0
+                    }
+                  }
+                ]
+              }
+            ],
+            "documents": [
+              {
+                "resource": "a.txt",
+                "loaded": true,
+                "documentObject": 1,
+                "text": "猫🙂 a-fixture\r\nline-a\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+              },
+              {
+                "resource": "b.txt",
+                "loaded": true,
+                "documentObject": 2,
+                "text": "β🙂 b-fixture\r\nline-b\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "β🙂 b-fixture\r\nline-b\r\n"
+              },
+              {
+                "resource": "c.txt",
+                "loaded": true,
+                "documentObject": 3,
+                "text": "γ🙂 c-fixture\r\nline-c\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+              },
+              {
+                "resource": "d.txt",
+                "loaded": true,
+                "documentObject": 4,
+                "text": "δ🙂 d-fixture\r\nline-d\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+              },
+              {
+                "resource": "e.txt",
+                "loaded": true,
+                "documentObject": 9,
+                "text": "ε🙂 e-fixture\r\nline-e\r\n",
+                "dirty": false,
+                "version": 1,
+                "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+              },
+              {
+                "resource": "f.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+              },
+              {
+                "resource": "g.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "η🙂 g-fixture\r\nline-g\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "η🙂 g-fixture\r\nline-g\r\n"
+              },
+              {
+                "resource": "h.txt",
+                "loaded": false,
+                "documentObject": null,
+                "text": "θ🙂 h-fixture\r\nline-h\r\n",
+                "dirty": false,
+                "version": null,
+                "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+              }
+            ]
+          },
+          "reads": 5,
+          "elapsedMs": 132,
+          "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+        },
+        "events": [
+          {
+            "kind": "active",
+            "editor": {
+              "resource": "c.txt",
+              "viewColumn": 1,
+              "documentObject": 3,
+              "text": "γ🙂 c-fixture\r\nline-c\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "groups",
+            "opened": [],
+            "closed": [],
+            "changed": [
+              1
+            ]
+          }
+        ],
+        "supplementalEvents": []
+      }
+    ]
+  },
+  "observations": [
+    {
+      "action": "initial",
+      "groups": [
+        {
+          "viewColumn": 1,
+          "active": true,
+          "tabs": [
+            {
+              "resource": "a.txt",
+              "active": false,
+              "dirty": false,
+              "pinned": true,
+              "preview": false
+            },
+            {
+              "resource": "b.txt",
+              "active": false,
+              "dirty": false,
+              "pinned": false,
+              "preview": false
+            },
+            {
+              "resource": "c.txt",
+              "active": true,
+              "dirty": false,
+              "pinned": false,
+              "preview": true
+            }
+          ]
+        },
+        {
+          "viewColumn": 2,
+          "active": false,
+          "tabs": [
+            {
+              "resource": "d.txt",
+              "active": false,
+              "dirty": false,
+              "pinned": true,
+              "preview": false
+            },
+            {
+              "resource": "e.txt",
+              "active": true,
+              "dirty": false,
+              "pinned": false,
+              "preview": false
+            }
+          ]
+        }
+      ],
+      "active": {
+        "resource": "c.txt",
+        "viewColumn": 1,
+        "documentObject": 3,
+        "text": "γ🙂 c-fixture\r\nline-c\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      },
+      "visible": [
+        {
+          "resource": "c.txt",
+          "viewColumn": 1,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        },
+        {
+          "resource": "e.txt",
+          "viewColumn": 2,
+          "documentObject": 9,
+          "text": "ε🙂 e-fixture\r\nline-e\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ],
+      "documents": [
+        {
+          "resource": "a.txt",
+          "loaded": true,
+          "documentObject": 1,
+          "text": "猫🙂 a-fixture\r\nline-a\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+        },
+        {
+          "resource": "b.txt",
+          "loaded": true,
+          "documentObject": 2,
+          "text": "β🙂 b-fixture\r\nline-b\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "β🙂 b-fixture\r\nline-b\r\n"
+        },
+        {
+          "resource": "c.txt",
+          "loaded": true,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+        },
+        {
+          "resource": "d.txt",
+          "loaded": true,
+          "documentObject": 4,
+          "text": "δ🙂 d-fixture\r\nline-d\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+        },
+        {
+          "resource": "e.txt",
+          "loaded": true,
+          "documentObject": 9,
+          "text": "ε🙂 e-fixture\r\nline-e\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+        },
+        {
+          "resource": "f.txt",
+          "loaded": false,
+          "documentObject": null,
+          "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+          "dirty": false,
+          "version": null,
+          "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+        },
+        {
+          "resource": "g.txt",
+          "loaded": false,
+          "documentObject": null,
+          "text": "η🙂 g-fixture\r\nline-g\r\n",
+          "dirty": false,
+          "version": null,
+          "disk": "η🙂 g-fixture\r\nline-g\r\n"
+        },
+        {
+          "resource": "h.txt",
+          "loaded": false,
+          "documentObject": null,
+          "text": "θ🙂 h-fixture\r\nline-h\r\n",
+          "dirty": false,
+          "version": null,
+          "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+        }
+      ]
+    },
+    {
+      "action": "workbench.action.closeAllEditors",
+      "groups": [
+        {
+          "viewColumn": 1,
+          "active": true,
+          "tabs": [
+            {
+              "resource": "a.txt",
+              "active": true,
+              "dirty": false,
+              "pinned": true,
+              "preview": false
+            }
+          ]
+        },
+        {
+          "viewColumn": 2,
+          "active": false,
+          "tabs": [
+            {
+              "resource": "d.txt",
+              "active": true,
+              "dirty": false,
+              "pinned": true,
+              "preview": false
+            }
+          ]
+        }
+      ],
+      "active": {
+        "resource": "a.txt",
+        "viewColumn": 1,
+        "documentObject": 1,
+        "text": "猫🙂 a-fixture\r\nline-a\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      },
+      "visible": [
+        {
+          "resource": "a.txt",
+          "viewColumn": 1,
+          "documentObject": 1,
+          "text": "猫🙂 a-fixture\r\nline-a\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        },
+        {
+          "resource": "d.txt",
+          "viewColumn": 2,
+          "documentObject": 4,
+          "text": "δ🙂 d-fixture\r\nline-d\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ],
+      "documents": [
+        {
+          "resource": "a.txt",
+          "loaded": true,
+          "documentObject": 1,
+          "text": "猫🙂 a-fixture\r\nline-a\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+        },
+        {
+          "resource": "b.txt",
+          "loaded": true,
+          "documentObject": 2,
+          "text": "β🙂 b-fixture\r\nline-b\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "β🙂 b-fixture\r\nline-b\r\n"
+        },
+        {
+          "resource": "c.txt",
+          "loaded": true,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+        },
+        {
+          "resource": "d.txt",
+          "loaded": true,
+          "documentObject": 4,
+          "text": "δ🙂 d-fixture\r\nline-d\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+        },
+        {
+          "resource": "e.txt",
+          "loaded": true,
+          "documentObject": 9,
+          "text": "ε🙂 e-fixture\r\nline-e\r\n",
+          "dirty": false,
+          "version": 1,
+          "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+        },
+        {
+          "resource": "f.txt",
+          "loaded": false,
+          "documentObject": null,
+          "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+          "dirty": false,
+          "version": null,
+          "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+        },
+        {
+          "resource": "g.txt",
+          "loaded": false,
+          "documentObject": null,
+          "text": "η🙂 g-fixture\r\nline-g\r\n",
+          "dirty": false,
+          "version": null,
+          "disk": "η🙂 g-fixture\r\nline-g\r\n"
+        },
+        {
+          "resource": "h.txt",
+          "loaded": false,
+          "documentObject": null,
+          "text": "θ🙂 h-fixture\r\nline-h\r\n",
+          "dirty": false,
+          "version": null,
+          "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+        }
+      ]
+    }
+  ],
+  "settlements": [
+    {
+      "observed": {
+        "groups": [
+          {
+            "viewColumn": 1,
+            "active": true,
+            "tabs": [
+              {
+                "resource": "a.txt",
+                "active": false,
+                "dirty": false,
+                "pinned": true,
+                "preview": false
+              },
+              {
+                "resource": "b.txt",
+                "active": false,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              },
+              {
+                "resource": "c.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": false,
+                "preview": true
+              }
+            ]
+          },
+          {
+            "viewColumn": 2,
+            "active": false,
+            "tabs": [
+              {
+                "resource": "d.txt",
+                "active": false,
+                "dirty": false,
+                "pinned": true,
+                "preview": false
+              },
+              {
+                "resource": "e.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": false,
+                "preview": false
+              }
+            ]
+          }
+        ],
+        "active": {
+          "resource": "c.txt",
+          "viewColumn": 1,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        },
+        "visible": [
+          {
+            "resource": "c.txt",
+            "viewColumn": 1,
+            "documentObject": 3,
+            "text": "γ🙂 c-fixture\r\nline-c\r\n",
+            "dirty": false,
+            "version": 1,
+            "eol": "CRLF",
+            "selections": [
+              {
+                "anchor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                },
+                "cursor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                }
+              }
+            ]
+          },
+          {
+            "resource": "e.txt",
+            "viewColumn": 2,
+            "documentObject": 9,
+            "text": "ε🙂 e-fixture\r\nline-e\r\n",
+            "dirty": false,
+            "version": 1,
+            "eol": "CRLF",
+            "selections": [
+              {
+                "anchor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                },
+                "cursor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                }
+              }
+            ]
+          }
+        ],
+        "documents": [
+          {
+            "resource": "a.txt",
+            "loaded": true,
+            "documentObject": 1,
+            "text": "猫🙂 a-fixture\r\nline-a\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+          },
+          {
+            "resource": "b.txt",
+            "loaded": true,
+            "documentObject": 2,
+            "text": "β🙂 b-fixture\r\nline-b\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "β🙂 b-fixture\r\nline-b\r\n"
+          },
+          {
+            "resource": "c.txt",
+            "loaded": true,
+            "documentObject": 3,
+            "text": "γ🙂 c-fixture\r\nline-c\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+          },
+          {
+            "resource": "d.txt",
+            "loaded": true,
+            "documentObject": 4,
+            "text": "δ🙂 d-fixture\r\nline-d\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+          },
+          {
+            "resource": "e.txt",
+            "loaded": true,
+            "documentObject": 9,
+            "text": "ε🙂 e-fixture\r\nline-e\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+          },
+          {
+            "resource": "f.txt",
+            "loaded": false,
+            "documentObject": null,
+            "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+            "dirty": false,
+            "version": null,
+            "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+          },
+          {
+            "resource": "g.txt",
+            "loaded": false,
+            "documentObject": null,
+            "text": "η🙂 g-fixture\r\nline-g\r\n",
+            "dirty": false,
+            "version": null,
+            "disk": "η🙂 g-fixture\r\nline-g\r\n"
+          },
+          {
+            "resource": "h.txt",
+            "loaded": false,
+            "documentObject": null,
+            "text": "θ🙂 h-fixture\r\nline-h\r\n",
+            "dirty": false,
+            "version": null,
+            "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+          }
+        ]
+      },
+      "reads": 5,
+      "elapsedMs": 129,
+      "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+    },
+    {
+      "observed": {
+        "groups": [
+          {
+            "viewColumn": 1,
+            "active": true,
+            "tabs": [
+              {
+                "resource": "a.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": true,
+                "preview": false
+              }
+            ]
+          },
+          {
+            "viewColumn": 2,
+            "active": false,
+            "tabs": [
+              {
+                "resource": "d.txt",
+                "active": true,
+                "dirty": false,
+                "pinned": true,
+                "preview": false
+              }
+            ]
+          }
+        ],
+        "active": {
+          "resource": "a.txt",
+          "viewColumn": 1,
+          "documentObject": 1,
+          "text": "猫🙂 a-fixture\r\nline-a\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        },
+        "visible": [
+          {
+            "resource": "a.txt",
+            "viewColumn": 1,
+            "documentObject": 1,
+            "text": "猫🙂 a-fixture\r\nline-a\r\n",
+            "dirty": false,
+            "version": 1,
+            "eol": "CRLF",
+            "selections": [
+              {
+                "anchor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                },
+                "cursor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                }
+              }
+            ]
+          },
+          {
+            "resource": "d.txt",
+            "viewColumn": 2,
+            "documentObject": 4,
+            "text": "δ🙂 d-fixture\r\nline-d\r\n",
+            "dirty": false,
+            "version": 1,
+            "eol": "CRLF",
+            "selections": [
+              {
+                "anchor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                },
+                "cursor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                }
+              }
+            ]
+          }
+        ],
+        "documents": [
+          {
+            "resource": "a.txt",
+            "loaded": true,
+            "documentObject": 1,
+            "text": "猫🙂 a-fixture\r\nline-a\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "猫🙂 a-fixture\r\nline-a\r\n"
+          },
+          {
+            "resource": "b.txt",
+            "loaded": true,
+            "documentObject": 2,
+            "text": "β🙂 b-fixture\r\nline-b\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "β🙂 b-fixture\r\nline-b\r\n"
+          },
+          {
+            "resource": "c.txt",
+            "loaded": true,
+            "documentObject": 3,
+            "text": "γ🙂 c-fixture\r\nline-c\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "γ🙂 c-fixture\r\nline-c\r\n"
+          },
+          {
+            "resource": "d.txt",
+            "loaded": true,
+            "documentObject": 4,
+            "text": "δ🙂 d-fixture\r\nline-d\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "δ🙂 d-fixture\r\nline-d\r\n"
+          },
+          {
+            "resource": "e.txt",
+            "loaded": true,
+            "documentObject": 9,
+            "text": "ε🙂 e-fixture\r\nline-e\r\n",
+            "dirty": false,
+            "version": 1,
+            "disk": "ε🙂 e-fixture\r\nline-e\r\n"
+          },
+          {
+            "resource": "f.txt",
+            "loaded": false,
+            "documentObject": null,
+            "text": "ζ🙂 f-fixture\r\nline-f\r\n",
+            "dirty": false,
+            "version": null,
+            "disk": "ζ🙂 f-fixture\r\nline-f\r\n"
+          },
+          {
+            "resource": "g.txt",
+            "loaded": false,
+            "documentObject": null,
+            "text": "η🙂 g-fixture\r\nline-g\r\n",
+            "dirty": false,
+            "version": null,
+            "disk": "η🙂 g-fixture\r\nline-g\r\n"
+          },
+          {
+            "resource": "h.txt",
+            "loaded": false,
+            "documentObject": null,
+            "text": "θ🙂 h-fixture\r\nline-h\r\n",
+            "dirty": false,
+            "version": null,
+            "disk": "θ🙂 h-fixture\r\nline-h\r\n"
+          }
+        ]
+      },
+      "reads": 5,
+      "elapsedMs": 107,
+      "scope": "Awaited acknowledged operation then 100ms unchanged public state; no target retry or preferred-output predicate"
+    }
+  ],
+  "details": [
+    {
+      "step": 0,
+      "gesture": {
+        "command": "workbench.action.closeAllEditors"
+      },
+      "events": [
+        {
+          "kind": "tabs",
+          "opened": [],
+          "closed": [],
+          "changed": [
+            {
+              "resource": "d.txt",
+              "active": true,
+              "dirty": false,
+              "pinned": true,
+              "preview": false
+            }
+          ]
+        },
+        {
+          "kind": "groups",
+          "opened": [],
+          "closed": [],
+          "changed": [
+            1,
+            2
+          ]
+        },
+        {
+          "kind": "tabs",
+          "opened": [],
+          "closed": [
+            {
+              "resource": "e.txt",
+              "active": false,
+              "dirty": false,
+              "pinned": false,
+              "preview": false
+            }
+          ],
+          "changed": []
+        },
+        {
+          "kind": "visible",
+          "editors": [
+            {
+              "resource": "c.txt",
+              "viewColumn": 1,
+              "documentObject": 3,
+              "text": "γ🙂 c-fixture\r\nline-c\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "tabs",
+          "opened": [],
+          "closed": [
+            {
+              "resource": "b.txt",
+              "active": false,
+              "dirty": false,
+              "pinned": false,
+              "preview": false
+            }
+          ],
+          "changed": []
+        },
+        {
+          "kind": "tabs",
+          "opened": [],
+          "closed": [],
+          "changed": [
+            {
+              "resource": "a.txt",
+              "active": true,
+              "dirty": false,
+              "pinned": true,
+              "preview": false
+            }
+          ]
+        },
+        {
+          "kind": "groups",
+          "opened": [],
+          "closed": [],
+          "changed": [
+            1,
+            2
+          ]
+        },
+        {
+          "kind": "tabs",
+          "opened": [],
+          "closed": [
+            {
+              "resource": "c.txt",
+              "active": false,
+              "dirty": false,
+              "pinned": false,
+              "preview": true
+            }
+          ],
+          "changed": []
+        },
+        {
+          "kind": "visible",
+          "editors": []
+        },
+        {
+          "kind": "active",
+          "editor": null
+        },
+        {
+          "kind": "visible",
+          "editors": [
+            {
+              "resource": "d.txt",
+              "viewColumn": 2,
+              "documentObject": 4,
+              "text": "δ🙂 d-fixture\r\nline-d\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "visible",
+          "editors": [
+            {
+              "resource": "d.txt",
+              "viewColumn": 2,
+              "documentObject": 4,
+              "text": "δ🙂 d-fixture\r\nline-d\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            },
+            {
+              "resource": "a.txt",
+              "viewColumn": 1,
+              "documentObject": 1,
+              "text": "猫🙂 a-fixture\r\nline-a\r\n",
+              "dirty": false,
+              "version": 1,
+              "eol": "CRLF",
+              "selections": [
+                {
+                  "anchor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  },
+                  "cursor": {
+                    "line": 0,
+                    "character": 0,
+                    "scalar": 0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "active",
+          "editor": {
+            "resource": "a.txt",
+            "viewColumn": 1,
+            "documentObject": 1,
+            "text": "猫🙂 a-fixture\r\nline-a\r\n",
+            "dirty": false,
+            "version": 1,
+            "eol": "CRLF",
+            "selections": [
+              {
+                "anchor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                },
+                "cursor": {
+                  "line": 0,
+                  "character": 0,
+                  "scalar": 0
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "supplementalEvents": []
+    }
+  ],
+  "events": [
+    {
+      "kind": "tabs",
+      "opened": [
+        {
+          "resource": "a.txt",
+          "active": false,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ],
+      "closed": [],
+      "changed": []
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "a.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ]
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        1
+      ]
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "a.txt",
+          "viewColumn": 1,
+          "documentObject": 1,
+          "text": "猫🙂 a-fixture\r\nline-a\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "active",
+      "editor": {
+        "resource": "a.txt",
+        "viewColumn": 1,
+        "documentObject": 1,
+        "text": "猫🙂 a-fixture\r\nline-a\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "a.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": true,
+          "preview": false
+        }
+      ]
+    },
+    {
+      "kind": "tabs",
+      "opened": [
+        {
+          "resource": "b.txt",
+          "active": false,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ],
+      "closed": [],
+      "changed": []
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "b.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ]
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        1
+      ]
+    },
+    {
+      "kind": "visible",
+      "editors": []
+    },
+    {
+      "kind": "active",
+      "editor": null
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "b.txt",
+          "viewColumn": 1,
+          "documentObject": 2,
+          "text": "β🙂 b-fixture\r\nline-b\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "active",
+      "editor": {
+        "resource": "b.txt",
+        "viewColumn": 1,
+        "documentObject": 2,
+        "text": "β🙂 b-fixture\r\nline-b\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "tabs",
+      "opened": [
+        {
+          "resource": "c.txt",
+          "active": false,
+          "dirty": false,
+          "pinned": false,
+          "preview": true
+        }
+      ],
+      "closed": [],
+      "changed": []
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "c.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": false,
+          "preview": true
+        }
+      ]
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        1
+      ]
+    },
+    {
+      "kind": "visible",
+      "editors": []
+    },
+    {
+      "kind": "active",
+      "editor": null
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "c.txt",
+          "viewColumn": 1,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "active",
+      "editor": {
+        "resource": "c.txt",
+        "viewColumn": 1,
+        "documentObject": 3,
+        "text": "γ🙂 c-fixture\r\nline-c\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "groups",
+      "opened": [
+        2
+      ],
+      "closed": [],
+      "changed": [
+        1
+      ]
+    },
+    {
+      "kind": "tabs",
+      "opened": [
+        {
+          "resource": "d.txt",
+          "active": false,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ],
+      "closed": [],
+      "changed": []
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "d.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ]
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        1,
+        2
+      ]
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        2
+      ]
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "c.txt",
+          "viewColumn": 1,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        },
+        {
+          "resource": "d.txt",
+          "viewColumn": 2,
+          "documentObject": 4,
+          "text": "δ🙂 d-fixture\r\nline-d\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "active",
+      "editor": {
+        "resource": "d.txt",
+        "viewColumn": 2,
+        "documentObject": 4,
+        "text": "δ🙂 d-fixture\r\nline-d\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "d.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": true,
+          "preview": false
+        }
+      ]
+    },
+    {
+      "kind": "tabs",
+      "opened": [
+        {
+          "resource": "e.txt",
+          "active": false,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ],
+      "closed": [],
+      "changed": []
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "e.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ]
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        1,
+        2
+      ]
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "c.txt",
+          "viewColumn": 1,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "active",
+      "editor": null
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "c.txt",
+          "viewColumn": 1,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        },
+        {
+          "resource": "e.txt",
+          "viewColumn": 2,
+          "documentObject": 9,
+          "text": "ε🙂 e-fixture\r\nline-e\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "active",
+      "editor": {
+        "resource": "e.txt",
+        "viewColumn": 2,
+        "documentObject": 9,
+        "text": "ε🙂 e-fixture\r\nline-e\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "active",
+      "editor": {
+        "resource": "c.txt",
+        "viewColumn": 1,
+        "documentObject": 3,
+        "text": "γ🙂 c-fixture\r\nline-c\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        1
+      ]
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "d.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": true,
+          "preview": false
+        }
+      ]
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        1,
+        2
+      ]
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [
+        {
+          "resource": "e.txt",
+          "active": false,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ],
+      "changed": []
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "c.txt",
+          "viewColumn": 1,
+          "documentObject": 3,
+          "text": "γ🙂 c-fixture\r\nline-c\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [
+        {
+          "resource": "b.txt",
+          "active": false,
+          "dirty": false,
+          "pinned": false,
+          "preview": false
+        }
+      ],
+      "changed": []
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        {
+          "resource": "a.txt",
+          "active": true,
+          "dirty": false,
+          "pinned": true,
+          "preview": false
+        }
+      ]
+    },
+    {
+      "kind": "groups",
+      "opened": [],
+      "closed": [],
+      "changed": [
+        1,
+        2
+      ]
+    },
+    {
+      "kind": "tabs",
+      "opened": [],
+      "closed": [
+        {
+          "resource": "c.txt",
+          "active": false,
+          "dirty": false,
+          "pinned": false,
+          "preview": true
+        }
+      ],
+      "changed": []
+    },
+    {
+      "kind": "visible",
+      "editors": []
+    },
+    {
+      "kind": "active",
+      "editor": null
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "d.txt",
+          "viewColumn": 2,
+          "documentObject": 4,
+          "text": "δ🙂 d-fixture\r\nline-d\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "visible",
+      "editors": [
+        {
+          "resource": "d.txt",
+          "viewColumn": 2,
+          "documentObject": 4,
+          "text": "δ🙂 d-fixture\r\nline-d\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        },
+        {
+          "resource": "a.txt",
+          "viewColumn": 1,
+          "documentObject": 1,
+          "text": "猫🙂 a-fixture\r\nline-a\r\n",
+          "dirty": false,
+          "version": 1,
+          "eol": "CRLF",
+          "selections": [
+            {
+              "anchor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              },
+              "cursor": {
+                "line": 0,
+                "character": 0,
+                "scalar": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "active",
+      "editor": {
+        "resource": "a.txt",
+        "viewColumn": 1,
+        "documentObject": 1,
+        "text": "猫🙂 a-fixture\r\nline-a\r\n",
+        "dirty": false,
+        "version": 1,
+        "eol": "CRLF",
+        "selections": [
+          {
+            "anchor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            },
+            "cursor": {
+              "line": 0,
+              "character": 0,
+              "scalar": 0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "supplementalEvents": [
+    {
+      "kind": "document-change",
+      "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+      "scheme": "vscode-userdata",
+      "phase": {
+        "kind": "setup",
+        "index": 5
+      },
+      "fixtureEventCount": 28,
+      "documentObject": 5,
+      "languageId": "jsonc",
+      "dirty": false,
+      "version": 2,
+      "changes": [
+        {
+          "text": "{\r\n        \"comments\": \"off\",\r\n        \"strings\": \"off\",\r\n        \"other\": \"off\"\r\n    }",
+          "rangeOffset": 628,
+          "rangeLength": 5
+        }
+      ]
+    },
+    {
+      "kind": "document-change",
+      "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+      "scheme": "vscode-userdata",
+      "phase": {
+        "kind": "setup",
+        "index": 5
+      },
+      "fixtureEventCount": 28,
+      "documentObject": 5,
+      "languageId": "jsonc",
+      "dirty": true,
+      "version": 2,
+      "changes": []
+    },
+    {
+      "kind": "document-change",
+      "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+      "scheme": "vscode-userdata",
+      "phase": {
+        "kind": "setup",
+        "index": 6
+      },
+      "fixtureEventCount": 28,
+      "documentObject": 5,
+      "languageId": "jsonc",
+      "dirty": false,
+      "version": 2,
+      "changes": []
+    },
+    {
+      "kind": "document-change",
+      "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+      "scheme": "vscode-userdata",
+      "phase": {
+        "kind": "setup",
+        "index": 6
+      },
+      "fixtureEventCount": 28,
+      "documentObject": 5,
+      "languageId": "jsonc",
+      "dirty": false,
+      "version": 2,
+      "changes": []
+    },
+    {
+      "kind": "document-close",
+      "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+      "scheme": "vscode-userdata",
+      "phase": {
+        "kind": "setup",
+        "index": 6
+      },
+      "fixtureEventCount": 28,
+      "documentObject": 5,
+      "languageId": "jsonc",
+      "dirty": false,
+      "version": 2
+    },
+    {
+      "kind": "document-close",
+      "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+      "scheme": "vscode-userdata",
+      "phase": {
+        "kind": "setup",
+        "index": 6
+      },
+      "fixtureEventCount": 28,
+      "documentObject": 6,
+      "languageId": "jsonc",
+      "dirty": false,
+      "version": 2
+    },
+    {
+      "kind": "document-close",
+      "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+      "scheme": "vscode-userdata",
+      "phase": {
+        "kind": "setup",
+        "index": 6
+      },
+      "fixtureEventCount": 28,
+      "documentObject": 7,
+      "languageId": "jsonc",
+      "dirty": false,
+      "version": 2
+    },
+    {
+      "kind": "document-close",
+      "uri": "vscode-userdata:/c:/Users/RUNNER~1/AppData/Local/Temp/vscli-est-3blTtf/close-all-editors-excludes-sticky-across-groups/profile/User/settings.json",
+      "scheme": "vscode-userdata",
+      "phase": {
+        "kind": "setup",
+        "index": 6
+      },
+      "fixtureEventCount": 28,
+      "documentObject": 8,
+      "languageId": "jsonc",
+      "dirty": false,
+      "version": 2
+    }
+  ],
+  "scope": "Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog"
+}

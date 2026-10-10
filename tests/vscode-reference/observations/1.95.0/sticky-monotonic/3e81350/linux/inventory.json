@@ -1,0 +1,255 @@
+{
+  "run": 38071676391,
+  "head": "3e813500114f6c30d9e00fb15d54d5b85e1fb69b",
+  "artifact": 11677123920,
+  "platform": "linux",
+  "fileCount": 49,
+  "bytes": 4082153,
+  "files": [
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/close-all-clean-nonsticky-empty-group-boundary-evidence.json",
+      "bytes": 74030,
+      "sha256": "a28ff0b3d03cb57d82734a0fe50539e558ea3c55645d67933a5317fe0d7dce0f"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/close-all-clean-nonsticky-empty-group-boundary-provenance.json",
+      "bytes": 1688,
+      "sha256": "5f719f05365948ccfef491c511c7c25897ab7924aa31241d049b3bfbd16a8d31"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/close-all-editors-excludes-sticky-across-groups-evidence.json",
+      "bytes": 113596,
+      "sha256": "9257beb0b4c59470c376d9494d5509a2b8b5b0dfb02d5f98252719fb8cafd209"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/close-all-editors-excludes-sticky-across-groups-provenance.json",
+      "bytes": 1689,
+      "sha256": "a1744c4700a86cf66f9f983f4a18c1faa70960aa2f627c4d0699edf2aff33138"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/close-editors-in-group-excludes-sticky-evidence.json",
+      "bytes": 110931,
+      "sha256": "6883df701d3c7748efaf6899a2ec78e36e42a1aa17046b0ed75798240b699920"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/close-editors-in-group-excludes-sticky-provenance.json",
+      "bytes": 1680,
+      "sha256": "4d0d08550cc50ebda657c5cec4ac3bab94dc3e20ba92e82e400a353629325f71"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/editor-sticky-tabs-evidence.json",
+      "bytes": 1737571,
+      "sha256": "e5c5560ac8959d9c2a5ded20b052e612569e7cd4403ccba736c3559dd8b8eed6"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/editor-sticky-tabs-provenance.json",
+      "bytes": 58486,
+      "sha256": "dc448373a9f9ebfee356fdc93577428531812bbe92a184480766a9860855eae9"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/editor-sticky-tabs.json",
+      "bytes": 297055,
+      "sha256": "079338f46c947a5a6539d155fa3c344be661772b571dd2ded0313598f82919eb"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/first-sticky-unpin-and-right-open-evidence.json",
+      "bytes": 118529,
+      "sha256": "8251a4393e2da9bc85110e8968403c1149bc71f8564c85f5d6b08b0de42d05a8"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/first-sticky-unpin-and-right-open-provenance.json",
+      "bytes": 1675,
+      "sha256": "1b17faf027da4a577ea8cd868702e36cf46366ec8b29f90df8f7de68a3f6e9bb"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/forced-close-clean-sticky-default-policy-evidence.json",
+      "bytes": 30036,
+      "sha256": "21e38d40bc429173166e785a1c5d46f0b723c44fd90cc80519715a2afd409bec"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/forced-close-clean-sticky-default-policy-provenance.json",
+      "bytes": 1682,
+      "sha256": "e2d3504ea4f1c161cd273e06ddaf1854ad46e466ab98a2423e4b4030faf0a7e7"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/keyboard-policy-protects-sticky-and-falls-back-evidence.json",
+      "bytes": 54620,
+      "sha256": "650f23f3ee079668b22562f9aa00b3baaa1dd7f8325f0345a41f1c9cf73fd3fa"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/keyboard-policy-protects-sticky-and-falls-back-provenance.json",
+      "bytes": 1680,
+      "sha256": "fb641ecb948c5b63e645a8f60576043c75fd0c0138a30f504d3e1182acfeea29"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/last-sticky-unpin-repeat-and-preview-request-evidence.json",
+      "bytes": 109343,
+      "sha256": "e7356a2409b14da74cb9c083b88ce9a16c34eb1b2c6535ca3c1b660e03f988ec"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/last-sticky-unpin-repeat-and-preview-request-provenance.json",
+      "bytes": 1686,
+      "sha256": "cb422b506b635f3948ad9fa2711862c7df1ac7d0f3bc65abce9e7078a09b55ba"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/middle-sticky-unpin-repin-and-repeat-evidence.json",
+      "bytes": 110322,
+      "sha256": "9d3c7ab75f62d868bf4b976290775e33cb5e9e156b93bf9c42c7d4ff54e5e48a"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/middle-sticky-unpin-repin-and-repeat-provenance.json",
+      "bytes": 1678,
+      "sha256": "0453fb94f7b6122d65aedbde776e0202b133b344fd0acc8aae02996f9a30bba3"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/mouse-policy-keyboard-close-sticky-evidence.json",
+      "bytes": 29990,
+      "sha256": "3d2b8c410f30d5e88779b2fb05c3d9f7bc8ac5ed3f9b88d63d7f9e97bdd434aa"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/mouse-policy-keyboard-close-sticky-provenance.json",
+      "bytes": 1665,
+      "sha256": "57578b5b29cfe47797272deed41c4187101dd57c1dd7424dd0b666b57d176b7e"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/multiple-historical-pins-evidence.json",
+      "bytes": 127039,
+      "sha256": "c173352fc4ec6c3eea8e80cc79bf5132d83e0426adcd9d56faa3f03e9e6f32fc"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/multiple-historical-pins-provenance.json",
+      "bytes": 1666,
+      "sha256": "1f9349fb55f39808932308709d49f6d7de745c6450a6cdb9d3a46295f5b7816c"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/native-comparison.json",
+      "bytes": 260103,
+      "sha256": "c0efce6d9ca9ea5e734a7753763bcb37b0ae5250bc691d691b324cd298baf62b"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/never-policy-ordinary-close-sticky-evidence.json",
+      "bytes": 29990,
+      "sha256": "ad8b53d9331c6e3e541090956df123ddb53f8016b6180e9b691e92f03f3c6a4f"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/never-policy-ordinary-close-sticky-provenance.json",
+      "bytes": 1665,
+      "sha256": "bbaa91866365e1e0647c7ad880844a48deeed1526b8849875bae03f0136b821f"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/open-from-first-sticky-clamps-beyond-prefix-evidence.json",
+      "bytes": 125522,
+      "sha256": "b23ff8244766f42cc00b5b93ed36ea17c2d544c6c4fa630492b84f2ec6276148"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/open-from-first-sticky-clamps-beyond-prefix-provenance.json",
+      "bytes": 1685,
+      "sha256": "df41eb3c72fcc0fc550f6ac7a0231e637a04e76a6f68bff3d7ea2a3572f561e1"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/preview-replacement-with-sticky-prefix-evidence.json",
+      "bytes": 108148,
+      "sha256": "681d50b8623b4bd5a60496b588f11096faa8085e1672ff58f90708e52e3a4cd0"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/preview-replacement-with-sticky-prefix-provenance.json",
+      "bytes": 1680,
+      "sha256": "f4cfc682857199d09517eebb285c0241229c11d2e22e3376930f7773b5ecc738"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/protected-close-no-nonsticky-target-evidence.json",
+      "bytes": 70922,
+      "sha256": "d0c98b7b80bc0631d2e9d18cc5535d32a334ef5c81cf6c45010a169b609f6aa2"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/protected-close-no-nonsticky-target-provenance.json",
+      "bytes": 1677,
+      "sha256": "c5e8cc7f2a8d891010742693cbe35aafcb71399bd81a09cf616e4ebb34540407"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/protected-close-other-group-nonsticky-mru-evidence.json",
+      "bytes": 72678,
+      "sha256": "d5687c45fcd484e23dc19e777b5dd0d593659262006520dce3698b45f4e28a17"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/protected-close-other-group-nonsticky-mru-provenance.json",
+      "bytes": 1683,
+      "sha256": "9236b3492a6a41c0fcfad722da75b57f0c2c848b282cababbc173a0d332f1d91"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/protected-close-same-group-nonsticky-mru-evidence.json",
+      "bytes": 65437,
+      "sha256": "ebb01b9816b619f8ecf40f170caefb25d17105a0f9b39bc242faf2b66e039314"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/protected-close-same-group-nonsticky-mru-provenance.json",
+      "bytes": 1682,
+      "sha256": "98463f5271af3906cf74230d41026f386967bee31914242b8bd617223b0d6e42"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/shared-edit-undo-redo-retains-sticky-source-evidence.json",
+      "bytes": 140371,
+      "sha256": "65b937f9fbe141b4715e37a9ac2268895191e92cc9dd5dfa585ddc76720a1088"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/shared-edit-undo-redo-retains-sticky-source-provenance.json",
+      "bytes": 1685,
+      "sha256": "3385b8f8241a36ec76016461154039dd2b45a08c1235e448f4f823e56c755940"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/sticky-source-split-and-independent-open-evidence.json",
+      "bytes": 125980,
+      "sha256": "a2e4dcd3022b05d382b83e7c010e25c484f5d77ebdc4203b244f75ff6aebd47f"
+    },
+    {
+      "path": "target/vscode-reference/result/editor-sticky-tabs/sticky-source-split-and-independent-open-provenance.json",
+      "bytes": 1682,
+      "sha256": "944796108ee731f3a66e9b49a2f7bb95f7eeb991a0db338a300c5786317b775d"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/README.md",
+      "bytes": 2425,
+      "sha256": "6336533a5a7a6bac8f73dad187ee4d99faf4f348c9b39c4c6e0d6e2647a1fcd6"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/editor-sticky-tabs-cases.json",
+      "bytes": 21398,
+      "sha256": "75393744f2fe70f6f1ddfea5f00794cf45ddb88619d2692e20640bb709f65cf9"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/editor-sticky-tabs-run.cjs",
+      "bytes": 766,
+      "sha256": "a3a3792f52a8ea2e091aea03ebf99256a2273533821f64a34d1d10267f349cda"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/editor-sticky-tabs-suite.cjs",
+      "bytes": 25972,
+      "sha256": "2891fc2d0895ba2963db3b2f026c9f5b6b1b877106630d2cbab920a6c13299d8"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/editor-sticky-tabs-worker.cjs",
+      "bytes": 7821,
+      "sha256": "d4b56dd8fd343badbd35328b8b548ed5fe1021248b6b60ec771318fe1a3d845c"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/extension.cjs",
+      "bytes": 43,
+      "sha256": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/package-lock.json",
+      "bytes": 17282,
+      "sha256": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/package.json",
+      "bytes": 1274,
+      "sha256": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3"
+    },
+    {
+      "path": "tests/vscode-reference-sticky-monotonic-candidate/supervisor.cjs",
+      "bytes": 4245,
+      "sha256": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22"
+    }
+  ]
+}

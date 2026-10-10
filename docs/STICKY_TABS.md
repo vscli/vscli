@@ -135,3 +135,31 @@ Eighteen pure Node tests cover both frozen suites and canonical paths. The five
 sticky and seven source-action terminal reports pass on both debug and optimized
 executables. The added source-routing positives are synthetic metadata tests;
 the later real corrected-platform capture/native comparison passed as recorded above.
+
+
+## Permanent corrected reference evidence
+
+All three successful corrected captures from run 38071676391 are preserved in
+[the full archive](../tests/vscode-reference/observations/1.95.0/sticky-monotonic/3e81350/README.md):
+147 original files (49 per platform), including every raw/native output and all
+frozen runtime inputs. Each platform has an independently pinned byte inventory.
+The default offline sticky example now admits the genuine corrected Linux
+archive under the explicit monotonic source contract. Historical directories
+remain explicitly accepted under their original contract; no source hashes,
+settings, frames or deadlines are rewritten.
+
+The genuine Linux replay compares every original supported setup/target frame
+and exactly equals its actual CI native output, including all four labeled
+empty-group boundaries. Mac/Windows full executable admission remains a
+matching-runner guard; offline inventory checks only establish retained bytes
+and fixed input hashes. This adoption changes reference validation, not editor
+behavior, physical key qualification or the scope of product parity.
+
+
+The archive-adoption candidate passes 975 locked all-target Rust tests across
+51 reports (23 optional integrations ignored), all 14 sticky reader tests,
+formatting and strict locked all-target Clippy. Both the new default genuine
+Linux replay and explicit historical directory replay pass. The native Linux
+result equals the complete remote native output; fixed inventory checks retain
+all 147 original files and all three eight-input source contracts. Fresh
+protected checks for this adoption commit remain separate qualification.
