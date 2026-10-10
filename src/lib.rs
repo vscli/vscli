@@ -23,6 +23,7 @@ pub mod migration;
 pub mod outline;
 pub mod persistence;
 pub mod recovery;
+pub mod save_formatting_edits;
 pub mod save_worker;
 pub mod search;
 pub mod settings;
