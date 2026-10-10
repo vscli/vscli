@@ -3,6 +3,7 @@ const { Position, Uri, Disposable } = require('./api-types.cjs');
 const { createActions } = require('./code-actions.cjs');
 const { CodeActionKind } = require('./code-action-types.cjs');
 const signatureTypes = require('./signatures.cjs');
+const symbolTypes = require('./symbols.cjs');
 const { CancellationTokenSource, SnippetString } = require('./provider-types.cjs');
 const MAX_PROVIDERS = 128, MAX_PENDING = 8, MAX_RESULT_BYTES = 1024 * 1024;
 const METHODS = Object.freeze({
@@ -111,16 +112,7 @@ function normalize(type, value, document) {
       return { uri: uri(value.uri), range: range(value.range) };
     });
     case 'formatting': return list(value, 4096).map(value => edit(value, document));
-    case 'symbols': {
-      let count = 0;
-      const convert = (value, depth) => {
-        if (++count > 512 || depth > 16) throw new Error('Provider symbol count or depth limit exceeded');
-        const result = { name: text(value.name, 4096), kind: kind(value.kind, 25) };
-        if (value.location !== undefined) return { ...result, containerName: text(value.containerName || '', 4096), location: { uri: uri(value.location.uri), range: range(value.location.range) } };
-        return { ...result, detail: text(value.detail || '', 4096), range: range(value.range, document), selectionRange: range(value.selectionRange, document), children: list(value.children || [], 512).map(child => convert(child, depth + 1)) };
-      };
-      return list(value, 512).map(value => convert(value, 0));
-    }
+    case 'symbols': return symbolTypes.normalize(value,document,{text,range,kind});
     case 'signature': return signatureTypes.normalize(value);
     default: throw new Error('Unknown provider type');
   }
@@ -148,8 +140,9 @@ function createProviders(options) {
   } });
   const signatures = signatureTypes.createSignatures({ ...options, position, assertCurrent,
     registered: (entry, epoch) => entries.get(entry.id) === entry && registryEpoch === epoch });
+  const symbols = symbolTypes.createSymbols(options);
   function snapshot() { return [...entries.values()].map(({ id, owner, type, selector, triggers, retriggers, resolves, actionKinds }) => ({ id, owner, type, selector, triggers, resolves, ...(type === 'signature' ? {retriggers} : {}), ...(actionKinds ? {actionKinds} : {}) })); }
-  function publish() { registryEpoch++; completions.clear(); actions.clear(); signatures.clear(); for (const call of calls.values()) if (call.completionOrigin !== undefined || call.actionOrigin !== undefined || call.entry.type === 'signature') call.source.cancel(); options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
+  function publish() { registryEpoch++; completions.clear(); actions.clear(); signatures.clear(); for (const call of calls.values()) if (call.completionOrigin !== undefined || call.actionOrigin !== undefined || ['signature','symbols'].includes(call.entry.type)) call.source.cancel(); options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
   function forOwner(owner) {
     return Object.fromEntries(Object.entries(METHODS).map(([type, [registration, method]]) => [registration, (documentSelector, provider, ...triggers) => {
       if (entries.size >= MAX_PROVIDERS) throw new Error('Extension language provider limit reached');
@@ -182,8 +175,8 @@ function createProviders(options) {
     }]));
   }
   function assertCurrent(call) {
-    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (['completion','codeaction','signature'].includes(call.entry.type) && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version) throw new Error('Language provider result became stale or canceled');
-    if (call.entry.type === 'signature' && (options.document(call.documentId) !== call.document || call.document.uri.toString() !== call.uri)) throw new Error('Signature document identity changed');
+    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (['completion','codeaction','signature','symbols'].includes(call.entry.type) && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version) throw new Error('Language provider result became stale or canceled');
+    if (['signature','symbols'].includes(call.entry.type) && (options.document(call.documentId) !== call.document || call.document.uri.toString() !== call.uri)) throw new Error(call.entry.type === 'signature' ? 'Signature document identity changed' : 'Document symbol identity changed');
     if (call.workspace) actions.assertWorkspace(call.workspace, options);
   }
   function purgeCompletions() {
@@ -207,9 +200,10 @@ function createProviders(options) {
   }
   async function provide(params) {
     const signature = params.signatureRequest === true || entries.get(params.provider)?.type === 'signature';
+    const symbol = params.symbolRequest === true || entries.get(params.provider)?.type === 'symbols';
     let accepted;
     try { return await performProvide(params, call => { accepted = call; }); }
-    finally { if (signature && !accepted?.signatureWork) signatures.released(params, accepted); }
+    finally { if (signature && !accepted?.signatureWork) signatures.released(params, accepted); if (symbol && !accepted?.symbolWork) symbols.released(params, accepted); }
   }
   async function performProvide(params, accepted) {
     const entry = entries.get(params.provider);
@@ -238,11 +232,11 @@ function createProviders(options) {
         case 'formatting':
           if (!Number.isInteger(params.options?.tabSize) || params.options.tabSize < 1 || params.options.tabSize > 32 || typeof params.options.insertSpaces !== 'boolean') throw new Error('Invalid native formatting options');
           args = [document, { tabSize: params.options.tabSize, insertSpaces: params.options.insertSpaces }, source.token]; break;
-        case 'symbols': args = [document, source.token]; break;
+        case 'symbols': symbols.reserve(call,callId); args = [document, source.token]; break;
       }
     } catch (error) { calls.delete(callId); source.dispose(); throw error; }
     let timer;
-    const work = Promise.resolve().then(() => { assertCurrent(call); const callback = entry.provider[entry.method]; if (entry.type === 'signature') assertCurrent(call); return callback.apply(entry.provider, args); }).then(value => {
+    const work = Promise.resolve().then(() => { assertCurrent(call); const callback = entry.provider[entry.method]; if (['signature','symbols'].includes(entry.type)) assertCurrent(call); return callback.apply(entry.provider, args); }).then(value => {
       assertCurrent(call);
       let originals, input = value;
       if (entry.type === 'completion' && value !== undefined && value !== null) {
@@ -268,8 +262,9 @@ function createProviders(options) {
       for (const [id, cached] of completions) if (cached.request === callId) completions.delete(id);
       if (entry.type === 'signature') signatures.retire({session:options.session,owner:entry.owner,request:callId});
       throw error;
-    }).finally(() => { calls.delete(callId); source.dispose(); clearTimeout(timer); if (entry.type === 'signature') signatures.released(params, call); });
+    }).finally(() => { calls.delete(callId); source.dispose(); clearTimeout(timer); if (entry.type === 'signature') signatures.released(params, call); if (entry.type === 'symbols') symbols.released(params,call); });
     if (entry.type === 'signature') call.signatureWork = true;
+    if (entry.type === 'symbols') call.symbolWork = true;
     // A timed-out callback keeps its slot until it settles, bounding ignored cancellation.
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => { reject(new Error('Language provider deadline exceeded')); source.cancel(); }, options.timeoutMs || 5000); });
     let cancellationListener;
@@ -336,6 +331,6 @@ function createProviders(options) {
     for (const call of calls.values()) if (call.workspace) { try { actions.assertWorkspace(call.workspace, options); } catch { call.source.cancel(); } } }
 
   function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
-  return { forOwner, provide, resolveCompletion, resolveAction, retainedActionCount:actions.count, retainedSignatureCount:signatures.count, signaturePending:signatures.pending, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
+  return { forOwner, provide, resolveCompletion, resolveAction, retainedActionCount:actions.count, retainedSignatureCount:signatures.count, signaturePending:signatures.pending, symbolsPending:symbols.pending, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
 }
 module.exports = { createProviders, score, selector, normalize };

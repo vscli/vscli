@@ -14,6 +14,8 @@ impl App {
                 "Editor"
             } else if self.focus == Focus::Explorer {
                 "Explorer"
+            } else if self.focus == Focus::Outline {
+                "Outline"
             } else if self.focus == Focus::Terminal {
                 "Terminal"
             } else {

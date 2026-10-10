@@ -12,18 +12,19 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-Merged source extends through [PR #58](https://github.com/vscli/vscli/pull/58).
+Merged source extends through [PR #59](https://github.com/vscli/vscli/pull/59),
+which passed all six required platform checks.
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
 
 | Work | Source and recorded evidence | Remaining scope |
 | --- | --- | --- |
-| Welcome and recent files | [PR #25](https://github.com/vscli/vscli/pull/25) and [PR #34](https://github.com/vscli/vscli/pull/34): true empty workbench, recent-file history and reopening without resurrecting discarded text | Recent workspaces, navigation history, richer group/tab behavior |
+| Welcome and recent files | [PR #25](https://github.com/vscli/vscli/pull/25) and [PR #34](https://github.com/vscli/vscli/pull/34): true empty workbench, recent-file history and reopening without resurrecting discarded text | Recent workspaces and richer group/tab behavior |
 | Snippets, installation, import and themes | [PR #27](https://github.com/vscli/vscli/pull/27), [#28](https://github.com/vscli/vscli/pull/28), [#30](https://github.com/vscli/vscli/pull/30), [#32](https://github.com/vscli/vscli/pull/32): native catalogs including installed VSIX data, immutable local packages/rollback, copied profiles and persistent theme selection | Extension insertion API, choices/nesting, full settings/profile semantics and theme fidelity |
 | C/C++ colors while typing | [PR #35](https://github.com/vscli/vscli/pull/35), [#44](https://github.com/vscli/vscli/pull/44): bundled grammars and mapped unchanged-text colors during background refresh | Incremental parse reuse, semantic tokens, TextMate fidelity and more grammars |
 | Code actions and parameter hints | [PR #37](https://github.com/vscli/vscli/pull/37), [#39](https://github.com/vscli/vscli/pull/39): native Quick Fix/Refactor and explicit hints; [#55](https://github.com/vscli/vscli/pull/55) combines bounded native/extension actions across retained buffers; [#56](https://github.com/vscli/vscli/pull/56) adds automatic hints and overload navigation; named real clangd workflows | Closed/resource edits, combined edit-and-command actions, full action contexts, multi-provider signature fallback and widget fidelity |
-| Document/workspace symbols | [PR #42](https://github.com/vscli/vscli/pull/42): bounded searchable symbols, shared-buffer navigation and asynchronous existing-file opens | Outline, breadcrumbs, navigation history, range-less workspace-symbol resolution |
+| Document/workspace symbols | [PR #42](https://github.com/vscli/vscli/pull/42): bounded searchable symbols, shared-buffer navigation and asynchronous existing-file opens | Outline qualification, breadcrumbs and range-less workspace-symbol resolution |
 | Clean-session restoration | [PR #43](https://github.com/vscli/vscli/pull/43): opt-in clean file-backed tabs, active tab, selections and up to four visible groups; dirty/untitled recovery stays authoritative | Full hot exit, historical tab/group matrix, workspace transitions and terminals |
 | Installed language servers | [PR #45](https://github.com/vscli/vscli/pull/45): automatic installed clangd C/C++ and rust-analyzer Rust selection without launch flags; explicit override and disable/configuration controls | Concurrent language pools, downloads/provisioning and broader real-project qualification |
 | Registry and activation | [PR #46](https://github.com/vscli/vscli/pull/46), [#47](https://github.com/vscli/vscli/pull/47), [#48](https://github.com/vscli/vscli/pull/48): native stable Open VSX browsing/explicit updates, prerelease filtering, remembered scoped enablement, supported lazy events and selected dependencies | Authenticated registries, dependency downloading/version resolution, broader activation events and engine/ABI qualification |
@@ -70,14 +71,29 @@ reviewed head, including fresh Linux/macOS/Windows comparisons in
 This does not finish installed language configuration or extension parity.
 
 Priority 4 now implements [native Back/Forward history](NAVIGATION_HISTORY.md)
-on its feature branch. Local qualification passes 555 ordinary Rust tests,
+merged in [PR #59](https://github.com/vscli/vscli/pull/59). Local qualification
+passes 555 ordinary Rust tests,
 five public history journeys, four original-key terminal workflows in both debug
 and optimized builds, the existing 35 terminal workflows and seven smart-typing
 workflows. The separate pinned observer/native comparison matches ten cases and
-85 visible snapshots; five reference integrity tests pass. Fresh platform CI
-qualification and merge remain pending. Published ordinary/single-line benchmark
-observations show higher candidate latency in these runs. Outline and breadcrumbs
-are the next usable slice; full navigation parity remains outstanding.
+85 visible snapshots; five reference integrity tests pass. All six required
+platform checks passed before merge. Published ordinary/single-line benchmark
+observations show higher candidate latency in these runs.
+
+The next priority-4 slice implements [native Outline](OUTLINE.md) on its feature
+branch: hierarchical current-document symbols, arrows/collapse/expand, enclosing
+highlights and guarded collapsed identifier-start reveal, with native/optional
+extension ownership lanes. Local qualification passed the full 583-test Rust
+run across 37 suites (19 opt-in tests ignored), formatting, strict all-target
+Clippy and the optional host's 133 Node tests. Focused native/extension publication
+checks, one actual clangd nested-C++ workflow and three debug native-only terminal
+journeys passed. The pinned comparison passes two geometry cases and two
+confirmed collapsed reveals; four integrity tests pass. The complete synthetic
+reference retains 20 snapshots, including early no-ops, so this remains narrow
+API/observed-reveal evidence rather than whole-sidebar or unchanged-package
+qualification. Existing baseline terminal requalification, optimized terminal
+workflows, benchmarks and fresh platform CI are pending. Breadcrumbs and full
+navigation parity remain outstanding.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
@@ -105,7 +121,7 @@ The [usage guide](USAGE.md), [extension report](EXTENSIONS.md) and
 
 | Area | Existing foundation | Remaining work |
 | --- | --- | --- |
-| Welcome and navigation | Explorer, quick open, palette, graphical empty welcome/actions, persistent recent files/reopen and document/workspace symbol pickers | Recent workspaces, back/forward history, outline, breadcrumbs, discoverable settings and consistent focus |
+| Welcome and navigation | Explorer, quick open, palette, graphical empty welcome/actions, persistent recent files/reopen, bounded Back/Forward history, document/workspace symbol pickers and implemented Outline awaiting qualification | Recent workspaces, Outline qualification, breadcrumbs, discoverable settings and consistent focus |
 | Tabs and layout | Shared-document split views, four equal groups and opt-in clean-session visible-layout restore | Per-group tabs, resizing/nested splits, preview/pinned tabs, move editors between groups and complete layout restoration |
 | Session continuity | Dirty-buffer crash recovery plus opt-in clean-file tabs, active tab, cursor/selection and visible-group restoration | Full hot exit, hidden historical tab/view state, workspace history/transitions, terminal restoration and broader failure/durability qualification |
 | Editing | Multi-cursor, selections, undo, line commands, literal find/replace and native C/C++/JSON smart-typing subset | Wrapping, folding, broader/extension language rules, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |

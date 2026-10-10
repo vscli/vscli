@@ -64,6 +64,9 @@ pub(super) struct State {
     query: String,
     changed: Option<Instant>,
     pending: bool,
+    queued: bool,
+    token: Option<u64>,
+    source: Option<std::sync::Arc<()>>,
     generation: u64,
     loading: Option<Loading>,
 }
@@ -88,14 +91,14 @@ impl App {
         if self.provider_symbols_active() {
             self.cancel_extension_provider();
         }
+        self.cancel_owned_symbol_request();
         self.symbols.context = None;
         self.symbols.items.clear();
         self.symbols.pending = false;
+        self.symbols.queued = false;
+        self.symbols.source = None;
         self.symbols.changed = None;
         self.symbols.generation = self.symbols.generation.wrapping_add(1);
-        if let Some(client) = &mut self.lsp {
-            let _ = client.cancel_symbol_requests();
-        }
         if matches!(
             self.prompt.as_ref().map(|p| &p.kind),
             Some(PromptKind::Symbols)
@@ -106,6 +109,9 @@ impl App {
     }
     pub(super) fn start_symbols(&mut self, workspace: bool) {
         self.cancel_symbols();
+        if self.focus == Focus::Outline {
+            self.focus = Focus::Editor;
+        }
         if !workspace && self.extension_language_request("textDocument/documentSymbol", json!({})) {
             return;
         }
@@ -139,32 +145,82 @@ impl App {
         self.focus = Focus::Editor;
         self.start_prompt(PromptKind::Symbols, String::new());
         self.symbols.context = Some(Context::capture(self));
+        self.symbols.source = self.lsp.as_ref().map(lsp::Client::identity);
         self.symbols.workspace = workspace;
         self.symbols.query.clear();
         self.send_symbol_request();
     }
+    fn symbol_source_current(&self) -> bool {
+        self.symbols.source.as_ref().is_some_and(|source| {
+            self.lsp
+                .as_ref()
+                .is_some_and(|client| std::sync::Arc::ptr_eq(source, &client.identity()))
+        })
+    }
+    fn cancel_owned_symbol_request(&mut self) {
+        if let Some(token) = self.symbols.token.take()
+            && self.symbol_source_current()
+            && let Some(client) = &mut self.lsp
+        {
+            let _ = client.cancel_symbol_request(token);
+        }
+    }
+    pub(super) fn native_symbol_picker_waiting(&self) -> bool {
+        self.symbols.context.is_some()
+            && self.symbol_source_current()
+            && (self.symbols.pending || self.symbols.queued || self.symbols.changed.is_some())
+    }
+    pub(super) fn symbol_request_owned(&self, request: &lsp::Request) -> bool {
+        self.symbols.token == Some(request.token)
+            && self
+                .symbols
+                .source
+                .as_ref()
+                .is_some_and(|source| std::sync::Arc::ptr_eq(source, &request.server))
+    }
+    pub(super) fn symbol_failure(&mut self, request: &lsp::Request, message: String) {
+        if !self.symbol_request_owned(request) {
+            return;
+        }
+        self.symbols.token = None;
+        self.symbols.pending = false;
+        self.message = format!("Symbols: {message}");
+    }
     fn send_symbol_request(&mut self) {
+        if !self.symbol_source_current() {
+            self.cancel_symbols();
+            return;
+        }
         let Some(client) = self.lsp.as_mut() else {
             return;
         };
-        let result = client
-            .cancel_symbol_requests()
-            .and_then(|_| client.sync(&self.documents))
-            .and_then(|_| {
-                if self.symbols.workspace {
-                    client.workspace_symbols(&self.symbols.query)
-                } else {
-                    client.request(
-                        "textDocument/documentSymbol",
-                        &self.documents[self.active],
-                        json!({}),
-                    )
-                }
-            });
+        if !client.symbol_available() {
+            self.symbols.queued = true;
+            self.symbols.pending = true;
+            self.symbols.changed = None;
+            self.message = if client.symbol_channel_closed() {
+                "Symbols: awaiting actual timed-out request release or language server restart"
+                    .into()
+            } else {
+                "Waiting for the previous symbol request to finish…".into()
+            };
+            return;
+        }
+        let result = client.sync(&self.documents).and_then(|_| {
+            if self.symbols.workspace {
+                client.workspace_symbols(&self.symbols.query)
+            } else {
+                client.request_document_symbols(&self.documents[self.active])
+            }
+        });
         self.symbols.pending = result.is_ok();
+        self.symbols.queued = false;
         self.symbols.changed = None;
         self.message = match result {
-            Ok(()) => "Loading symbols…".into(),
+            Ok(token) => {
+                self.symbols.token = Some(token);
+                "Loading symbols…".into()
+            }
             Err(error) => format!("Symbols: {error:#}"),
         };
     }
@@ -190,7 +246,9 @@ impl App {
         request: &lsp::Request,
         response: &Value,
     ) -> Result<()> {
-        if !self.symbols.pending
+        if !self.symbol_request_owned(request)
+            || !self.symbols.pending
+            || !self.symbol_source_current()
             || !self.symbols.context.as_ref().is_some_and(|c| c.valid(self))
             || !matches!(
                 self.prompt.as_ref().map(|p| &p.kind),
@@ -204,6 +262,7 @@ impl App {
             return Ok(());
         }
         self.symbols.pending = false;
+        self.symbols.token = None;
         let path = if self.symbols.workspace {
             None
         } else {
@@ -388,6 +447,7 @@ impl App {
             return changed;
         }
         if !self.symbols.context.as_ref().unwrap().valid(self)
+            || !self.symbol_source_current()
             || !self.lsp.as_ref().is_some_and(|c| c.ready)
             || !matches!(
                 self.prompt.as_ref().map(|p| &p.kind),
@@ -397,21 +457,16 @@ impl App {
             self.cancel_symbols();
             return true;
         }
-        if self.symbols.pending && self.lsp.as_ref().is_some_and(|c| !c.has_symbol_request()) {
-            self.symbols.pending = false;
-            changed = true;
-        }
         if self.symbols.workspace {
             let query = self.prompt.as_ref().unwrap().text.clone();
             if query != self.symbols.query {
                 self.symbols.query = query;
                 self.symbols.items.clear();
+                self.cancel_owned_symbol_request();
                 self.symbols.pending = false;
+                self.symbols.queued = false;
                 self.symbols.changed = Some(Instant::now());
                 self.message = "Waiting to search symbols…".into();
-                if let Some(client) = &mut self.lsp {
-                    let _ = client.cancel_symbol_requests();
-                }
                 changed = true;
             }
             if self
@@ -422,6 +477,15 @@ impl App {
                 self.send_symbol_request();
                 changed = true;
             }
+        }
+        if self.symbols.queued
+            && self
+                .lsp
+                .as_ref()
+                .is_some_and(|client| client.symbol_available())
+        {
+            self.send_symbol_request();
+            changed = true;
         }
         changed
     }
@@ -438,6 +502,162 @@ fn symbol_offset(doc: &Document, range: &lsp::Range) -> Result<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn native_fixture() -> (tempfile::TempDir, App) {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("main.cpp");
+        std::fs::write(&path, "猫🙂\r\nbody\r\n").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.open(&path).unwrap();
+        app.lsp = Some(crate::lsp::outline_tests::start(root.path(), app.doc()));
+        (root, app)
+    }
+    #[test]
+    fn picker_cancellation_cannot_cancel_an_unowned_outline_token() {
+        let (_root, mut app) = native_fixture();
+        let doc = &app.documents[app.active];
+        let outline = app
+            .lsp
+            .as_mut()
+            .unwrap()
+            .request_document_symbols(doc)
+            .unwrap();
+        crate::lsp::outline_tests::held(app.lsp.as_mut().unwrap(), outline);
+        for _ in 0..32 {
+            app.cancel_symbols();
+        }
+        app.lsp
+            .as_ref()
+            .unwrap()
+            .fixture_notify("fixture/release", json!({"id":outline}))
+            .unwrap();
+        let events = crate::lsp::outline_tests::until(app.lsp.as_mut().unwrap(), |client, _| {
+            client.symbol_available()
+        });
+        assert!(events.iter().any(
+            |event| matches!(event,lsp::Event::Response(request,_) if request.token==outline)
+        ));
+        app.start_symbols(false);
+        let picker = app.symbols.token.unwrap();
+        crate::lsp::outline_tests::held(app.lsp.as_mut().unwrap(), picker);
+        app.cancel_symbols();
+        for _ in 0..32 {
+            app.start_symbols(false);
+            assert!(app.symbols.queued);
+            assert!(app.symbols.token.is_none());
+        }
+        assert!(app.native_symbol_picker_waiting());
+        app.lsp
+            .as_ref()
+            .unwrap()
+            .fixture_notify("fixture/release", json!({"id":picker}))
+            .unwrap();
+        let events = crate::lsp::outline_tests::until(app.lsp.as_mut().unwrap(), |client, _| {
+            client.symbol_available()
+        });
+        assert!(
+            !events.iter().any(
+                |event| matches!(event,lsp::Event::Response(request,_) if request.token==picker)
+            )
+        );
+        app.poll_symbols();
+        let latest = app.symbols.token.unwrap();
+        assert_ne!(latest, picker);
+        crate::lsp::outline_tests::held(app.lsp.as_mut().unwrap(), latest);
+        app.cancel_symbols();
+        app.lsp
+            .as_ref()
+            .unwrap()
+            .fixture_notify("fixture/release", json!({"id":latest}))
+            .unwrap();
+        crate::lsp::outline_tests::until(app.lsp.as_mut().unwrap(), |client, _| {
+            client.symbol_available()
+        });
+    }
+    #[test]
+    fn latest_workspace_query_waits_for_actual_canceled_request_release() {
+        let (_root, mut app) = native_fixture();
+        app.start_symbols(true);
+        let original = app.symbols.token.unwrap();
+        crate::lsp::outline_tests::held(app.lsp.as_mut().unwrap(), original);
+        for index in 0..32 {
+            app.prompt.as_mut().unwrap().text = format!("query-{index}");
+            app.poll_symbols();
+            assert!(app.symbols.token.is_none());
+            assert!(!app.lsp.as_ref().unwrap().symbol_available());
+        }
+        app.prompt.as_mut().unwrap().text = "latest".into();
+        app.poll_symbols();
+        app.symbols.changed = Some(Instant::now() - Duration::from_millis(201));
+        app.poll_symbols();
+        assert!(app.symbols.queued);
+        assert!(app.native_symbol_picker_waiting());
+        app.lsp
+            .as_ref()
+            .unwrap()
+            .fixture_notify("fixture/release", json!({"id":original}))
+            .unwrap();
+        crate::lsp::outline_tests::until(app.lsp.as_mut().unwrap(), |client, _| {
+            client.symbol_available()
+        });
+        app.poll_symbols();
+        let latest = app.symbols.token.unwrap();
+        assert_ne!(latest, original);
+        crate::lsp::outline_tests::until(app.lsp.as_mut().unwrap(), |_, events| {
+            events.iter().any(
+                |event| matches!(event,lsp::Event::Message(message) if message=="query-latest"),
+            )
+        });
+        assert_eq!(app.symbols.query, "latest");
+        app.cancel_symbols();
+        app.lsp
+            .as_ref()
+            .unwrap()
+            .fixture_notify("fixture/release", json!({"id":latest}))
+            .unwrap();
+        crate::lsp::outline_tests::until(app.lsp.as_mut().unwrap(), |client, _| {
+            client.symbol_available()
+        });
+    }
+    #[test]
+    fn held_native_picker_reply_cannot_revive_after_live_edit_undo() {
+        let (_root, mut app) = native_fixture();
+        app.start_symbols(false);
+        let token = app.symbols.token.unwrap();
+        crate::lsp::outline_tests::held(app.lsp.as_mut().unwrap(), token);
+        let id = app.doc().id;
+        let revision = app.doc().revision;
+        let text = app.doc().text.to_string();
+        let selections = app.doc().selections();
+        app.doc_mut().insert("dirty", false);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().revision, revision);
+        let response = json!([{"name":"stale","kind":12,"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"selectionRange":{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}}]);
+        app.lsp
+            .as_ref()
+            .unwrap()
+            .fixture_notify("fixture/release", json!({"id":token,"result":response}))
+            .unwrap();
+        let events = crate::lsp::outline_tests::until(app.lsp.as_mut().unwrap(), |client, _| {
+            client.symbol_available()
+        });
+        for event in events {
+            if let lsp::Event::Response(request, response) = event {
+                app.symbol_response(&request, &response).unwrap();
+            }
+        }
+        assert!(app.symbols.items.is_empty());
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), text);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(
+            std::fs::read(app.doc().path.as_ref().unwrap()).unwrap(),
+            text.as_bytes()
+        );
+        app.poll_symbols();
+        assert!(app.symbols.context.is_none());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "dirty".to_owned() + &text);
+    }
     #[test]
     fn late_alias_resolution_cannot_move_a_changed_dirty_buffer() {
         let root = tempfile::tempdir().unwrap();

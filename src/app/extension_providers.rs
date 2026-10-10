@@ -9,6 +9,12 @@ struct Lease {
     context: Context,
     shown: bool,
 }
+struct SymbolIntent {
+    provider: crate::extension_providers::Provider,
+    source: (u64, u64),
+    context: Context,
+    extra: Value,
+}
 struct Loading {
     started: std::time::Instant,
     generation: u64,
@@ -25,6 +31,7 @@ enum Target {
 pub(super) struct State {
     generation: u64,
     lease: Option<Lease>,
+    symbol_intent: Option<SymbolIntent>,
     completion_resolves: std::collections::HashMap<u64, Ticket>,
     loading: Option<Loading>,
     pub symbols: Vec<crate::symbols::Symbol>,
@@ -105,6 +112,7 @@ impl App {
             }
         }
         self.extension_providers.symbols.clear();
+        self.extension_providers.symbol_intent = None;
         // A canceled filesystem read retains the one worker slot until it exits.
     }
     fn provider_current(&self, ticket: &Ticket, context: &Context) -> bool {
@@ -170,6 +178,17 @@ impl App {
         {
             lease.context.accept_next_interaction();
         }
+        let queued_current = self
+            .extension_providers
+            .symbol_intent
+            .as_ref()
+            .is_some_and(|intent| self.symbol_intent_current(intent));
+        if allowed
+            && queued_current
+            && let Some(intent) = &mut self.extension_providers.symbol_intent
+        {
+            intent.context.accept_next_interaction();
+        }
     }
     pub(super) fn extension_language_request(&mut self, method: &str, extra: Value) -> bool {
         let Some(kind) = Kind::from_method(method) else {
@@ -194,6 +213,31 @@ impl App {
         }
         if kind == Kind::Symbols {
             self.start_prompt(PromptKind::Symbols, String::new());
+            let provider = self
+                .extension_host
+                .as_ref()
+                .unwrap()
+                .language_provider(Kind::Symbols, self.doc())
+                .unwrap()
+                .clone();
+            let source = self
+                .extension_host
+                .as_ref()
+                .unwrap()
+                .symbol_source_identity(&provider);
+            if let Some(source) = source {
+                self.extension_providers.symbol_intent = Some(SymbolIntent {
+                    provider,
+                    source,
+                    context: Context::capture(self),
+                    extra,
+                });
+                self.poll_provider_symbol_intent();
+            } else {
+                self.prompt = None;
+                self.message = "Extension symbol source changed; request symbols again".into();
+            }
+            return true;
         }
         let context = Context::capture(self);
         let host = self.extension_host.as_mut().unwrap();
@@ -237,6 +281,13 @@ impl App {
             .map(|h| h.take_provider_replies())
             .unwrap_or_default();
         for reply in replies {
+            if self.outline_provider_owned(&reply.ticket) {
+                changed = true;
+                if let Err(error) = self.outline_provider_response(&reply.ticket, reply.result) {
+                    self.message = format!("Outline: {error:#}");
+                }
+                continue;
+            }
             if reply.ticket.provider.kind == Kind::Signature {
                 changed = true;
                 if let Err(error) = self.extension_signature_reply(&reply.ticket, reply.result) {
@@ -323,7 +374,72 @@ impl App {
                 }
             }
         }
-        changed
+        self.poll_provider_symbol_intent() || changed
+    }
+    fn symbol_intent_current(&self, intent: &SymbolIntent) -> bool {
+        intent.context.same_editor(self)
+            && self.modal.is_none()
+            && matches!(
+                self.prompt.as_ref().map(|p| &p.kind),
+                Some(PromptKind::Symbols)
+            )
+            && self.active_document().is_some_and(|doc| {
+                self.extension_host.as_ref().is_some_and(|host| {
+                    host.symbol_source_identity(&intent.provider) == Some(intent.source)
+                        && host
+                            .language_provider(Kind::Symbols, doc)
+                            .is_some_and(|selected| {
+                                selected.id == intent.provider.id
+                                    && selected.owner == intent.provider.owner
+                            })
+                })
+            })
+    }
+    fn poll_provider_symbol_intent(&mut self) -> bool {
+        let Some(intent) = &self.extension_providers.symbol_intent else {
+            return false;
+        };
+        if !self.symbol_intent_current(intent) {
+            self.cancel_symbols();
+            self.message = "Extension symbol request expired; request symbols again".into();
+            return true;
+        }
+        let host = self.extension_host.as_ref().unwrap();
+        if !host.symbols_available() {
+            self.message = if host.symbol_channel_closed() {
+                "Symbols: awaiting actual timed-out callback release or extension host restart"
+                    .into()
+            } else {
+                "Waiting for the previous extension symbol callback to finish…".into()
+            };
+            return false;
+        }
+        let intent = self.extension_providers.symbol_intent.take().unwrap();
+        let host = self.extension_host.as_mut().unwrap();
+        let result = host.sync_configuration(&self.settings).and_then(|()| {
+            host.request_language_provider_from(
+                &intent.provider,
+                &self.documents,
+                &self.hidden_documents,
+                self.active,
+                intent.extra,
+            )
+        });
+        match result {
+            Ok(ticket) => {
+                self.extension_providers.lease = Some(Lease {
+                    ticket,
+                    context: intent.context,
+                    shown: false,
+                });
+                self.message = "Loading extension symbols…".into();
+            }
+            Err(error) => {
+                self.prompt = None;
+                self.message = format!("Extension symbol request failed: {error:#}");
+            }
+        }
+        true
     }
     fn provider_result(&mut self, ticket: &Ticket, value: Value) -> Result<()> {
         if self.modal.is_some() || (self.prompt.is_some() && ticket.provider.kind != Kind::Symbols)
@@ -535,12 +651,25 @@ impl App {
         Ok(())
     }
     pub(super) fn provider_symbols_active(&self) -> bool {
-        self.extension_providers
-            .lease
-            .as_ref()
-            .is_some_and(|l| l.ticket.provider.kind == Kind::Symbols)
+        self.extension_providers.symbol_intent.is_some()
+            || self
+                .extension_providers
+                .lease
+                .as_ref()
+                .is_some_and(|l| l.ticket.provider.kind == Kind::Symbols)
     }
     pub(super) fn accept_provider_symbol(&mut self, query: &str, selected: usize) {
+        if self.extension_providers.symbol_intent.is_some()
+            || self
+                .extension_providers
+                .lease
+                .as_ref()
+                .is_some_and(|lease| lease.ticket.provider.kind == Kind::Symbols && !lease.shown)
+        {
+            self.prompt = Some(Prompt::new(PromptKind::Symbols, query.into()));
+            self.message = "Wait for current extension symbols".into();
+            return;
+        }
         let result = (|| -> Result<()> {
             let lease = self
                 .extension_providers
@@ -654,6 +783,305 @@ mod tests {
                 || a.message.contains("response:")
         });
         assert!(!app.message.contains("response:"), "{}", app.message);
+    }
+    fn held_symbol_app(root: &Path) -> (App, Ticket) {
+        std::fs::write(root.join("input.sql"), "sel 🙂\r\nfrom table;\r\n").unwrap();
+        let package = root.join("provider");
+        std::fs::create_dir(&package).unwrap();
+        std::fs::write(package.join("package.json"), r#"{"publisher":"vscli-tests","name":"held-symbol-picker","version":"1.0.0","main":"index.cjs","engines":{"vscode":"^1.95.0"}}"#).unwrap();
+        let root_json = serde_json::to_string(root).unwrap();
+        std::fs::write(package.join("index.cjs"), format!(r#"
+const vscode=require('vscode'),fs=require('node:fs'),path=require('node:path'),root={root_json};
+let count=0;
+exports.activate=context=>context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider('*',{{
+ provideDocumentSymbols(){{
+  count++;fs.appendFileSync(path.join(root,'entered'),'x');
+  const symbols=[new vscode.DocumentSymbol('query','',vscode.SymbolKind.Function,new vscode.Range(0,0,0,3),new vscode.Range(0,0,0,3))];
+  if(count>1)return symbols;
+  return new Promise(resolve=>{{const timer=setInterval(()=>{{if(fs.existsSync(path.join(root,'release'))){{clearInterval(timer);resolve(symbols);}}}},2);}});
+ }}
+}}));
+"#)).unwrap();
+        let mut app = App::new(root.into(), Profile::Linux);
+        app.open(&root.join("input.sql")).unwrap();
+        app.start_extension_packages(vec![crate::extensions::Package::read(&package).unwrap()])
+            .unwrap();
+        until(&mut app, |a| a.has_extension_provider(Kind::Symbols));
+        let provider = app
+            .extension_host
+            .as_ref()
+            .unwrap()
+            .language_provider(Kind::Symbols, app.doc())
+            .unwrap()
+            .clone();
+        let ticket = app
+            .extension_host
+            .as_mut()
+            .unwrap()
+            .request_language_provider_from(
+                &provider,
+                &app.documents,
+                &app.hidden_documents,
+                app.active,
+                json!({}),
+            )
+            .unwrap();
+        until(&mut app, |_| root.join("entered").exists());
+        app.extension_host
+            .as_mut()
+            .unwrap()
+            .cancel_language_provider(&ticket)
+            .unwrap();
+        (app, ticket)
+    }
+    fn outline_symbol_app(root: &Path) -> App {
+        let text = "猫🙂 parent\r\n  child 猫\r\n}\r\n";
+        std::fs::write(root.join("input.sql"), text).unwrap();
+        let package = root.join("outline-provider");
+        std::fs::create_dir(&package).unwrap();
+        std::fs::write(package.join("package.json"), r#"{"publisher":"vscli-tests","name":"outline-publication","version":"1.0.0","main":"index.cjs","engines":{"vscode":"^1.95.0"}}"#).unwrap();
+        let root_json = serde_json::to_string(root).unwrap();
+        std::fs::write(package.join("index.cjs"),format!(r#"
+const vscode=require('vscode'),fs=require('node:fs'),path=require('node:path'),root={root_json};
+let generation=1,registration;
+function register(context){{
+ registration=vscode.languages.registerDocumentSymbolProvider('*',{{provideDocumentSymbols(document){{
+  fs.appendFileSync(path.join(root,'uris'),document.uri.toString()+'\n');
+  const parent=new vscode.DocumentSymbol('parent-'+generation,'class detail',vscode.SymbolKind.Class,new vscode.Range(0,0,2,1),new vscode.Range(0,4,0,10));
+  const child=new vscode.DocumentSymbol('child-'+generation,'method detail',vscode.SymbolKind.Method,new vscode.Range(1,0,1,9),new vscode.Range(1,2,1,7));
+  child.tags=[vscode.SymbolTag.Deprecated];parent.children.push(child);
+  if(generation===1)return [parent];
+  return new Promise(resolve=>{{const timer=setInterval(()=>{{if(fs.existsSync(path.join(root,'new-release'))){{clearInterval(timer);resolve([parent]);}}}},2);}});
+ }}}});context.subscriptions.push(registration);
+}}
+exports.activate=context=>{{register(context);context.subscriptions.push(vscode.commands.registerCommand('test.symbols.retire',()=>{{registration.dispose();generation++;register(context);}}));}};
+"#)).unwrap();
+        let mut app = App::new(root.into(), Profile::Linux);
+        app.open(&root.join("input.sql")).unwrap();
+        let end = app.doc().text.len_chars();
+        app.doc_mut().move_to(end, false);
+        app.doc_mut().insert("Δ", false);
+        app.start_extension_packages(vec![crate::extensions::Package::read(&package).unwrap()])
+            .unwrap();
+        until(&mut app, |a| a.has_extension_provider(Kind::Symbols));
+        app.execute("outline.focus", Value::Null);
+        until(&mut app, |a| a.outline_view().actionable);
+        app
+    }
+    fn reveal_outline_child(app: &mut App) {
+        app.execute("outline.focus", Value::Null);
+        app.event(Event::Key(KeyEvent::new(KeyCode::Home, KeyModifiers::NONE)));
+        app.event(Event::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)));
+        assert_eq!(app.outline_view().visible.len(), 1);
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Right,
+            KeyModifiers::NONE,
+        )));
+        assert_eq!(app.outline_view().visible.len(), 2);
+        app.event(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)));
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::NONE,
+        )));
+        assert!(app.focus == Focus::Editor);
+        assert_eq!(
+            app.doc().cursor,
+            13,
+            "UTF-16 child start maps to a collapsed scalar caret"
+        );
+        assert!(app.doc().anchor.is_none());
+        assert!(app.doc().secondary.is_empty());
+    }
+    #[test]
+    fn extension_outline_publication_hierarchy_and_untitled_keyboard_reveal_preserve_crlf_history()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = outline_symbol_app(root.path());
+        let original = "猫🙂 parent\r\n  child 猫\r\n}\r\n";
+        let dirty = format!("{original}Δ");
+        let file_id = app.doc().id;
+        assert!(app.lsp.is_none());
+        assert!(app.doc().dirty());
+        let view = app.outline_view();
+        assert_eq!(view.status, super::super::OutlineStatus::Ready);
+        assert!(view.source.contains("outline-publication"));
+        let tree = view.tree.unwrap();
+        assert_eq!(tree.nodes.len(), 2);
+        assert_eq!(tree.nodes[1].parent, Some(0));
+        assert_eq!(tree.nodes[0].name, "parent-1");
+        assert_eq!(tree.nodes[1].detail, "method detail");
+        assert!(tree.nodes[1].deprecated);
+        app.doc_mut().add_cursor(1);
+        reveal_outline_child(&mut app);
+        assert_eq!(app.doc().id, file_id);
+        assert_eq!(app.doc().text.to_string(), dirty);
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            original.as_bytes()
+        );
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), original);
+        assert!(
+            !app.outline_view().actionable,
+            "edit→Undo requires a fresh Outline proof"
+        );
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), dirty);
+        app.doc_mut().save().unwrap();
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            dirty.as_bytes()
+        );
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert(&dirty, false);
+        let untitled = app.doc().id;
+        until(&mut app, |a| a.outline_view().actionable);
+        assert!(app.doc().path.is_none());
+        assert_ne!(untitled, file_id);
+        assert_eq!(app.outline_view().tree.unwrap().nodes[1].parent, Some(0));
+        app.doc_mut().add_cursor(1);
+        reveal_outline_child(&mut app);
+        assert_eq!(app.doc().id, untitled);
+        assert_eq!(app.doc().text.to_string(), dirty);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "");
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), dirty);
+        assert!(
+            std::fs::read_to_string(root.path().join("uris"))
+                .unwrap()
+                .contains(&format!("untitled:vscli-{untitled}"))
+        );
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            dirty.as_bytes()
+        );
+    }
+    #[test]
+    fn extension_outline_owner_source_round_trip_retires_published_tree_until_new_callback_settles()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = outline_symbol_app(root.path());
+        let original = app.doc().text.to_string();
+        let source = app
+            .extension_host
+            .as_ref()
+            .unwrap()
+            .language_provider(Kind::Symbols, app.doc())
+            .unwrap()
+            .id;
+        app.extension_host
+            .as_mut()
+            .unwrap()
+            .execute_with_hidden(
+                "test.symbols.retire",
+                None,
+                &app.documents,
+                &app.hidden_documents,
+                app.active,
+                &app.settings,
+            )
+            .unwrap();
+        until(&mut app, |a| {
+            a.extension_host
+                .as_ref()
+                .unwrap()
+                .language_provider(Kind::Symbols, a.doc())
+                .is_some_and(|provider| provider.id != source)
+        });
+        assert!(!app.outline_view().actionable);
+        assert!(app.outline_view().tree.is_none());
+        let selections = app.doc().selections();
+        app.execute("outline.focus", Value::Null);
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::NONE,
+        )));
+        assert!(app.focus == Focus::Outline);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(app.doc().text.to_string(), original);
+        assert!(app.lsp.is_none());
+        std::fs::write(root.path().join("new-release"), "").unwrap();
+        until(&mut app, |a| a.outline_view().actionable);
+        assert_eq!(app.outline_view().tree.unwrap().nodes[0].name, "parent-2");
+        assert!(app.outline_view().source.contains("outline-publication"));
+        reveal_outline_child(&mut app);
+        assert_eq!(app.doc().text.to_string(), original);
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            "猫🙂 parent\r\n  child 猫\r\n}\r\n".as_bytes()
+        );
+    }
+    #[test]
+    fn explicit_extension_symbol_picker_from_outline_keeps_one_latest_intent_until_actual_release()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, _held) = held_symbol_app(root.path());
+        let original = app.doc().text.to_string();
+        let document = app.doc().id;
+        for _ in 0..32 {
+            app.focus = Focus::Outline;
+            app.start_symbols(false);
+            assert!(app.focus == Focus::Editor);
+            assert!(app.extension_providers.symbol_intent.is_some());
+            assert!(app.extension_providers.lease.is_none());
+            assert!(app.provider_symbols_active());
+            assert!(
+                !app.native_symbol_picker_waiting(),
+                "must not fall back to native symbols"
+            );
+            app.poll();
+        }
+        for character in "query".chars() {
+            app.event(Event::Key(KeyEvent::new(
+                KeyCode::Char(character),
+                KeyModifiers::NONE,
+            )));
+        }
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::NONE,
+        )));
+        assert!(app.extension_providers.symbol_intent.is_some());
+        assert!(matches!(
+            app.prompt.as_ref().map(|p| &p.kind),
+            Some(PromptKind::Symbols)
+        ));
+        assert_eq!(std::fs::read(root.path().join("entered")).unwrap(), b"x");
+        std::fs::write(root.path().join("release"), "").unwrap();
+        until(&mut app, |a| !a.extension_providers.symbols.is_empty());
+        assert!(app.extension_providers.symbol_intent.is_none());
+        assert_eq!(std::fs::read(root.path().join("entered")).unwrap(), b"xx");
+        assert_eq!(app.symbol_items("query").len(), 1);
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::NONE,
+        )));
+        assert_eq!(app.doc().id, document);
+        assert_eq!(app.doc().cursor, 0);
+        assert_eq!(app.doc().text.to_string(), original);
+        assert!(app.prompt.is_none());
+    }
+    #[test]
+    fn queued_extension_symbol_picker_edit_undo_retires_without_dispatching_or_fallback() {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, _held) = held_symbol_app(root.path());
+        let original = app.doc().text.to_string();
+        app.start_symbols(false);
+        assert!(app.extension_providers.symbol_intent.is_some());
+        app.doc_mut().insert("dirty", false);
+        app.doc_mut().undo();
+        app.poll();
+        assert!(app.extension_providers.symbol_intent.is_none());
+        assert!(app.prompt.is_none());
+        std::fs::write(root.path().join("release"), "").unwrap();
+        until(&mut app, |a| {
+            a.extension_host.as_ref().unwrap().symbols_available()
+        });
+        assert_eq!(std::fs::read(root.path().join("entered")).unwrap(), b"x");
+        assert!(!app.native_symbol_picker_waiting());
+        assert!(app.extension_providers.symbols.is_empty());
+        assert_eq!(app.doc().text.to_string(), original);
     }
     fn completion_resolve_app(root: &Path) -> App {
         std::fs::write(root.join("input.sql"), "sel 🙂\r\nfrom table;\r\n").unwrap();

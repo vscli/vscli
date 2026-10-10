@@ -123,7 +123,8 @@ ranges; secondary cursors are not retained in history entries.
 Closed file destinations load in the background. Shortcut availability reflects
 the committed location; unsuccessful or stale loads cannot consume history.
 See [recording rules, asynchronous bounds and qualification](NAVIGATION_HISTORY.md).
-Outline and breadcrumbs are still separate work.
+The native [Outline section](OUTLINE.md) is a separate implemented slice awaiting
+local qualification; breadcrumbs remain outstanding.
 
 ## Snippets
 
@@ -636,8 +637,9 @@ locations. Document search filters one response locally; workspace queries wait
 Hierarchical `DocumentSymbol` uses `selectionRange`; flat `SymbolInformation` and
 range-bearing `WorkspaceSymbol` use their location range. Range-less workspace
 symbols requiring `workspaceSymbol/resolve`, non-file URIs, malformed ranges and
-oversized responses produce explicit errors. Resolve, an outline panel, symbol
-previews, grouping modes and complete VS Code navigation behavior are not implemented.
+oversized responses produce explicit errors. Range-less resolve, symbol previews,
+grouping modes and complete VS Code navigation behavior remain incomplete.
+The separate [Outline section](OUTLINE.md) is implemented with qualification pending.
 
 Before navigation, the picker checks the workspace, active buffer, all captured
 open-buffer identities/revisions, selections, pane and focus. New input contexts,
@@ -676,6 +678,25 @@ cargo test --locked --test symbol_navigation real_clangd -- --ignored
 
 This evidence qualifies that fixture and server, not all workspace indexing,
 server implementations or full symbol-navigation parity.
+
+## Outline
+
+F1 → **Outline: Focus** enables the native tree in Explorer for this session.
+There is no added default Outline shortcut. Up/Down select visible symbols,
+Right/Left expand or collapse a node and traverse its children/parent, and Enter
+reveals the identifier start as a collapsed caret. Escape returns to the editor
+without navigation. **Outline: Collapse All**, **Expand All** and **Toggle Follow
+Cursor** are also available in the palette. Follow Cursor starts enabled and
+selects the deepest enclosing symbol; switching it off preserves manual tree
+selection. Outline state is session-only.
+
+A ready native server supplies the tree without Node. A matching selected
+extension can provide document symbols through the optional host. Loading,
+updating and unsupported trees cannot navigate; stale replies cannot revive after
+edit/Undo. Focused native and extension publication checks, the named actual
+clangd workflow, the narrow pinned provider/reveal comparison and three debug
+terminal workflows passed locally. Fresh platform CI and optimized terminal
+qualification remain pending. See [bounds and scoped evidence](OUTLINE.md).
 
 ## Clean-file session restoration
 

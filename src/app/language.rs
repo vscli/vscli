@@ -109,6 +109,13 @@ impl App {
                         Event::SignatureFailure(request, error) => {
                             self.signature_failure(&request, &error);
                         }
+                        Event::SymbolFailure(request, error) => {
+                            if self.symbol_request_owned(&request) {
+                                self.symbol_failure(&request, error);
+                            } else {
+                                self.outline_native_failure(&request, &error);
+                            }
+                        }
                         Event::Diagnostics(publication) => {
                             if let Some(doc) = self
                                 .documents
@@ -216,6 +223,9 @@ impl App {
             request.method.as_str(),
             "textDocument/documentSymbol" | "workspace/symbol"
         ) {
+            if self.outline_native_owned(&request) {
+                return self.outline_native_response(&request, &response);
+            }
             return self.symbol_response(&request, &response);
         }
         if request.method == "workspace/executeCommand" {

@@ -15,6 +15,7 @@ mod language;
 mod language_services;
 mod navigation;
 mod navigation_history;
+mod outline;
 mod panes;
 mod signature_help;
 mod suggestions;
@@ -40,6 +41,7 @@ use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
 };
 pub use language::{Diagnostics, LanguageAction, LanguageItem};
+pub use outline::{OutlineStatus, OutlineView};
 use ratatui::layout::Rect;
 use serde_json::{Value, json};
 use std::{
@@ -286,6 +288,10 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Go: Go to Line…", "workbench.action.gotoLine"),
     ("Go: Back", "workbench.action.navigateBack"),
     ("Go: Forward", "workbench.action.navigateForward"),
+    ("Outline: Focus", "outline.focus"),
+    ("Outline: Collapse All", "outline.collapse"),
+    ("Outline: Expand All", "outline.expand"),
+    ("Outline: Toggle Follow Cursor", "outline.followCursor"),
     (
         "Language: Parameter Hints",
         "editor.action.triggerParameterHints",
@@ -323,6 +329,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
 pub enum Focus {
     Editor,
     Explorer,
+    Outline,
     Terminal,
     Output,
 }
@@ -510,6 +517,7 @@ pub struct App {
     session: session::State,
     navigation: navigation::State,
     navigation_history: navigation_history::State,
+    outline: outline::State,
     symbols: symbols::State,
     theme_state: themes::State,
     pub settings: crate::settings::Settings,
@@ -520,6 +528,7 @@ pub struct App {
     pub diagnostics: HashMap<PathBuf, crate::lsp::DiagnosticPublication>,
     pub editor_area: Rect,
     pub explorer_area: Rect,
+    pub outline_area: Rect,
     pub tab_area: Rect,
     pub pending: Option<AfterSave>,
     snippet_pending: Option<snippets::Pending>,
@@ -601,6 +610,7 @@ impl App {
             session: session::State::default(),
             navigation: navigation::State::default(),
             navigation_history: navigation_history::State::default(),
+            outline: outline::State::default(),
             symbols: symbols::State::default(),
             theme_state: themes::State::default(),
             settings: crate::settings::Settings::default(),
@@ -611,6 +621,7 @@ impl App {
             diagnostics: HashMap::new(),
             editor_area: Rect::default(),
             explorer_area: Rect::default(),
+            outline_area: Rect::default(),
             tab_area: Rect::default(),
             pending: None,
             snippet_pending: None,
@@ -701,6 +712,7 @@ impl App {
             changed |= terminal.poll();
         }
         self.observe_navigation(navigation_history::Reason::Ordinary);
+        changed |= self.poll_outline();
         changed
     }
     pub fn recovery_documents(&self) -> Vec<&Document> {
@@ -775,6 +787,7 @@ impl App {
                 navigation_history::Reason::Ordinary
             },
         );
+        self.observe_outline();
         result
     }
     fn open_with_intent_inner(
@@ -1018,6 +1031,7 @@ impl App {
                 "filesExplorerFocus".into(),
                 json!(self.focus == Focus::Explorer),
             ),
+            ("outlineFocused".into(), json!(self.focus == Focus::Outline)),
             ("editorLangId".into(), json!(self.language())),
             (
                 "isLinux".into(),
@@ -1059,6 +1073,7 @@ impl App {
         self.sync_pane();
         self.observe_navigation(navigation_history::Reason::Ordinary);
         self.invalidate_symbol_context();
+        self.observe_outline();
         self.invalidate_pending_extension_commands();
         self.observe_suggestion_edit(suggestion_edit);
         self.observe_signature_edit(signature_edit);
@@ -1174,6 +1189,10 @@ impl App {
                         }
                         _ => {}
                     }
+                } else if self.outline_area.contains(p)
+                    && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+                {
+                    self.outline_click((mouse.row - self.outline_area.y) as usize);
                 } else if self.explorer_area.contains(p)
                     && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
                 {
@@ -1285,6 +1304,10 @@ impl App {
         self.navigation_input_interaction();
         if self.focus == Focus::Output {
             self.output_key(key);
+            return;
+        }
+        if self.focus == Focus::Outline {
+            self.outline_key(key);
             return;
         }
         if self.focus == Focus::Explorer {
@@ -1760,6 +1783,10 @@ impl App {
             "workbench.action.gotoLine" => self.start_prompt(PromptKind::Goto, String::new()),
             "workbench.action.navigateBack" => self.navigate_history(navigation_history::Direction::Back),
             "workbench.action.navigateForward" => self.navigate_history(navigation_history::Direction::Forward),
+            "outline.focus" => self.focus_outline(),
+            "outline.collapse" => self.outline_expand_all(false),
+            "outline.expand" => self.outline_expand_all(true),
+            "outline.followCursor" => self.outline_follow_cursor(),
             "vscli.extensions.search" => self.start_prompt(PromptKind::SearchExtensions, String::new()),
             "vscli.extensions.updates" => self.manage_extension(extension_management::Action::CheckUpdates),
             "workbench.extensions.action.installVSIX" => self.start_prompt(PromptKind::InstallExtension, String::new()),
@@ -2507,6 +2534,9 @@ impl App {
     }
     fn explorer_key(&mut self, key: KeyEvent) {
         match key.code {
+            KeyCode::Tab if self.outline_view().status != OutlineStatus::Hidden => {
+                self.focus_outline();
+            }
             KeyCode::Down => {
                 self.explorer_selected =
                     (self.explorer_selected + 1).min(self.entries.len().saturating_sub(1))

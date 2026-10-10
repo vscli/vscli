@@ -18,6 +18,7 @@ pub mod language_services;
 pub mod languages;
 pub mod lsp;
 pub mod migration;
+pub mod outline;
 pub mod recovery;
 pub mod search;
 pub mod settings;
