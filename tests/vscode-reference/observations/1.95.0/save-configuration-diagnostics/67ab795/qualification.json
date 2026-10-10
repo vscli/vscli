@@ -1,0 +1,122 @@
+{
+  "linux": {
+    "runner": "ubuntu-24.04",
+    "traceSha256": "b3040a6c56b650362213cd347911de06621d5c85cc994a817ebd653577eb5f25",
+    "evidenceSha256": "224603b6ac312062937f25140b55b0170f33480ef07b9bbfb4b2af078288950c",
+    "cases": 14,
+    "frames": 162,
+    "equalsHistoricalLinuxTargetProjection": true,
+    "configurationEvents": {
+      "ancestor-false-child": [
+        {
+          "sequence": 4,
+          "phase": "target",
+          "elapsedMs": 1320,
+          "open": true,
+          "affected": [
+            "editor.codeActionsOnSave"
+          ],
+          "codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.fixAll.child": "never"
+          }
+        }
+      ],
+      "source-ancestor-false-family": [
+        {
+          "sequence": 4,
+          "phase": "target",
+          "elapsedMs": 1259,
+          "open": true,
+          "affected": [
+            "editor.codeActionsOnSave"
+          ],
+          "codeActionsOnSave": {
+            "source": "explicit",
+            "source.fixAll": "never"
+          }
+        }
+      ]
+    }
+  },
+  "darwin": {
+    "runner": "macos-14",
+    "traceSha256": "b3040a6c56b650362213cd347911de06621d5c85cc994a817ebd653577eb5f25",
+    "evidenceSha256": "e93e0590702029e015db17e5188fb9f36bf24efced880f7cd7ea1226f005b9b5",
+    "cases": 14,
+    "frames": 162,
+    "equalsHistoricalLinuxTargetProjection": true,
+    "configurationEvents": {
+      "ancestor-false-child": [
+        {
+          "sequence": 4,
+          "phase": "target",
+          "elapsedMs": 1713,
+          "open": true,
+          "affected": [
+            "editor.codeActionsOnSave"
+          ],
+          "codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.fixAll.child": "never"
+          }
+        }
+      ],
+      "source-ancestor-false-family": [
+        {
+          "sequence": 4,
+          "phase": "target",
+          "elapsedMs": 1357,
+          "open": true,
+          "affected": [
+            "editor.codeActionsOnSave"
+          ],
+          "codeActionsOnSave": {
+            "source": "explicit",
+            "source.fixAll": "never"
+          }
+        }
+      ]
+    }
+  },
+  "win32": {
+    "runner": "windows-2022",
+    "traceSha256": "b3040a6c56b650362213cd347911de06621d5c85cc994a817ebd653577eb5f25",
+    "evidenceSha256": "8a5c88b7c0477d43081ea915aa5241bd6e4f17c49af5337691ab2c967b41d49b",
+    "cases": 14,
+    "frames": 162,
+    "equalsHistoricalLinuxTargetProjection": true,
+    "configurationEvents": {
+      "ancestor-false-child": [
+        {
+          "sequence": 4,
+          "phase": "target",
+          "elapsedMs": 1216,
+          "open": true,
+          "affected": [
+            "editor.codeActionsOnSave"
+          ],
+          "codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.fixAll.child": "never"
+          }
+        }
+      ],
+      "source-ancestor-false-family": [
+        {
+          "sequence": 4,
+          "phase": "target",
+          "elapsedMs": 1293,
+          "open": true,
+          "affected": [
+            "editor.codeActionsOnSave"
+          ],
+          "codeActionsOnSave": {
+            "source": "explicit",
+            "source.fixAll": "never"
+          }
+        }
+      ]
+    }
+  }
+}

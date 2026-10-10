@@ -1,0 +1,645 @@
+{
+  "name": "source-ancestor-never-family",
+  "setup": {
+    "saveParticipantReadiness": {
+      "status": "observed",
+      "resource": "readiness.ini",
+      "input": "readiness=0\r\n",
+      "effective": {
+        "formatOnSave": true,
+        "formatOnSaveMode": "file",
+        "autoSave": "off"
+      },
+      "limits": {
+        "maxAttempts": 16,
+        "deadlineMs": 5000,
+        "retryIntervalMs": 250
+      },
+      "initial": {
+        "resource": "readiness.ini",
+        "uri": "file:///c%3A/Users/RUNNER~1/AppData/Local/Temp/vscli-sca-kFNVd9/source-ancestor-never-family/w/readiness.ini",
+        "version": 1,
+        "text": "readiness=0\r\n",
+        "dirty": false,
+        "disk": "readiness=0\r\n"
+      },
+      "final": {
+        "resource": "readiness.ini",
+        "uri": "file:///c%3A/Users/RUNNER~1/AppData/Local/Temp/vscli-sca-kFNVd9/source-ancestor-never-family/w/readiness.ini",
+        "version": 2,
+        "text": "readiness=0\r\nx",
+        "dirty": false,
+        "disk": "readiness=0\r\nx"
+      },
+      "attempts": [
+        {
+          "index": 1,
+          "before": {
+            "resource": "readiness.ini",
+            "uri": "file:///c%3A/Users/RUNNER~1/AppData/Local/Temp/vscli-sca-kFNVd9/source-ancestor-never-family/w/readiness.ini",
+            "version": 1,
+            "text": "readiness=0\r\n",
+            "dirty": false,
+            "disk": "readiness=0\r\n"
+          },
+          "prepared": {
+            "resource": "readiness.ini",
+            "uri": "file:///c%3A/Users/RUNNER~1/AppData/Local/Temp/vscli-sca-kFNVd9/source-ancestor-never-family/w/readiness.ini",
+            "version": 2,
+            "text": "readiness=0\r\nx",
+            "dirty": true,
+            "disk": "readiness=0\r\n"
+          },
+          "after": {
+            "resource": "readiness.ini",
+            "uri": "file:///c%3A/Users/RUNNER~1/AppData/Local/Temp/vscli-sca-kFNVd9/source-ancestor-never-family/w/readiness.ini",
+            "version": 2,
+            "text": "readiness=0\r\nx",
+            "dirty": false,
+            "disk": "readiness=0\r\nx"
+          },
+          "callbackStart": 0,
+          "callbackCount": 1,
+          "matched": true,
+          "elapsedMs": 155
+        }
+      ],
+      "callbacks": [
+        {
+          "attempt": 1,
+          "uri": "file:///c%3A/Users/RUNNER~1/AppData/Local/Temp/vscli-sca-kFNVd9/source-ancestor-never-family/w/readiness.ini",
+          "version": 2,
+          "text": "readiness=0\r\nx",
+          "resource": "readiness.ini",
+          "exactDocument": true,
+          "duringSave": true,
+          "cancelled": false,
+          "matched": true
+        }
+      ],
+      "scope": "Separate public auxiliary Save and exact null-formatter callback establish save-contribution installation; no target output predicate or target command retry"
+    },
+    "effective": {
+      "codeActionsOnSave": {
+        "source": "explicit",
+        "source.fixAll": "never"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source",
+      "source.fixAll"
+    ],
+    "configurationInspect": {
+      "key": "editor.codeActionsOnSave",
+      "defaultValue": {},
+      "globalValue": {
+        "source": "explicit",
+        "source.fixAll": "never"
+      }
+    },
+    "before": {
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "version": 1,
+      "dirty": false,
+      "selections": [
+        [
+          5,
+          0,
+          5,
+          0
+        ]
+      ],
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+    },
+    "after": {
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "version": 1,
+      "dirty": false,
+      "selections": [
+        [
+          5,
+          0,
+          5,
+          0
+        ]
+      ],
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+    },
+    "warmKinds": [
+      "source.organizeImports",
+      "source.fixAll.child",
+      "source.fixAll",
+      "source.fixAllX"
+    ],
+    "scope": "One public execute-source-provider call; no edits applied, exact unchanged proof and no readiness retry"
+  },
+  "observations": [
+    {
+      "action": "initial",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "dirty": false,
+      "primary": {
+        "anchor": 40,
+        "cursor": 40
+      },
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+    },
+    {
+      "action": "type",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+    },
+    {
+      "action": "workbench.action.files.save",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "undo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "undo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "undo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "dirty": true,
+      "primary": {
+        "anchor": 40,
+        "cursor": 40
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "undo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "dirty": true,
+      "primary": {
+        "anchor": 40,
+        "cursor": 40
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "undo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "dirty": true,
+      "primary": {
+        "anchor": 40,
+        "cursor": 40
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "redo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "redo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "redo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "redo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    },
+    {
+      "action": "redo",
+      "resource": "main.txt",
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "primary": {
+        "anchor": 42,
+        "cursor": 42
+      },
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    }
+  ],
+  "steps": [
+    {
+      "action": "type",
+      "settlement": {
+        "elapsedMs": 113,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "workbench.action.files.save",
+      "acknowledgement": {
+        "elapsedMs": 0,
+        "event": {
+          "phase": "target",
+          "version": 5,
+          "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+          "dirty": false,
+          "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+        }
+      },
+      "settlement": {
+        "elapsedMs": 112,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "undo",
+      "settlement": {
+        "elapsedMs": 106,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "undo",
+      "settlement": {
+        "elapsedMs": 122,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "undo",
+      "settlement": {
+        "elapsedMs": 106,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "undo",
+      "settlement": {
+        "elapsedMs": 250,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "undo",
+      "settlement": {
+        "elapsedMs": 105,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "redo",
+      "settlement": {
+        "elapsedMs": 117,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "redo",
+      "settlement": {
+        "elapsedMs": 106,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "redo",
+      "settlement": {
+        "elapsedMs": 105,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "redo",
+      "settlement": {
+        "elapsedMs": 108,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    },
+    {
+      "action": "redo",
+      "settlement": {
+        "elapsedMs": 104,
+        "scope": "Actual command/didSave acknowledgement followed by minimum100ms/50ms stable public state; no preferred target-output predicate or retry"
+      }
+    }
+  ],
+  "callbacks": [
+    {
+      "phase": "setup",
+      "only": "source",
+      "triggerKind": 1,
+      "version": 1,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "cancelled": false,
+      "range": [
+        0,
+        0,
+        5,
+        0
+      ],
+      "returned": [
+        {
+          "title": "Synthetic imports",
+          "kind": "source.organizeImports"
+        },
+        {
+          "title": "Synthetic child fix",
+          "kind": "source.fixAll.child"
+        },
+        {
+          "title": "Synthetic root fix",
+          "kind": "source.fixAll"
+        },
+        {
+          "title": "Synthetic unrelated prefix",
+          "kind": "source.fixAllX"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "only": "source",
+      "triggerKind": 2,
+      "version": 3,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "cancelled": false,
+      "range": [
+        0,
+        0,
+        5,
+        3
+      ],
+      "returned": [
+        {
+          "title": "Synthetic imports",
+          "kind": "source.organizeImports"
+        },
+        {
+          "title": "Synthetic child fix",
+          "kind": "source.fixAll.child"
+        },
+        {
+          "title": "Synthetic root fix",
+          "kind": "source.fixAll"
+        },
+        {
+          "title": "Synthetic unrelated prefix",
+          "kind": "source.fixAllX"
+        }
+      ]
+    }
+  ],
+  "saved": [
+    {
+      "phase": "target",
+      "version": 5,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+    }
+  ],
+  "changes": [
+    {
+      "phase": "target",
+      "version": 2,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ",
+      "dirty": false,
+      "reason": null,
+      "changes": [
+        {
+          "rangeOffset": 41,
+          "rangeLength": 0,
+          "text": "λ"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 2,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ",
+      "dirty": true,
+      "reason": null,
+      "changes": []
+    },
+    {
+      "phase": "target",
+      "version": 3,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": null,
+      "changes": [
+        {
+          "rangeOffset": 42,
+          "rangeLength": 0,
+          "text": "🙂"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 4,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": null,
+      "changes": [
+        {
+          "rangeOffset": 15,
+          "rangeLength": 1,
+          "text": "1"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 5,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": null,
+      "changes": [
+        {
+          "rangeOffset": 33,
+          "rangeLength": 1,
+          "text": "1"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 5,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "reason": null,
+      "changes": []
+    },
+    {
+      "phase": "target",
+      "version": 5,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "reason": null,
+      "changes": []
+    },
+    {
+      "phase": "target",
+      "version": 6,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "reason": 1,
+      "changes": [
+        {
+          "rangeOffset": 33,
+          "rangeLength": 1,
+          "text": "0"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 6,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": null,
+      "changes": []
+    },
+    {
+      "phase": "target",
+      "version": 7,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": 1,
+      "changes": [
+        {
+          "rangeOffset": 15,
+          "rangeLength": 1,
+          "text": "0"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 8,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+      "dirty": true,
+      "reason": 1,
+      "changes": [
+        {
+          "rangeOffset": 41,
+          "rangeLength": 3,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 9,
+      "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": 2,
+      "changes": [
+        {
+          "rangeOffset": 41,
+          "rangeLength": 0,
+          "text": "λ🙂"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 10,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": 2,
+      "changes": [
+        {
+          "rangeOffset": 15,
+          "rangeLength": 1,
+          "text": "1"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 11,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": true,
+      "reason": 2,
+      "changes": [
+        {
+          "rangeOffset": 33,
+          "rangeLength": 1,
+          "text": "1"
+        }
+      ]
+    },
+    {
+      "phase": "target",
+      "version": 11,
+      "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+      "dirty": false,
+      "reason": null,
+      "changes": []
+    }
+  ],
+  "commandInventory": [
+    "redo",
+    "type",
+    "undo",
+    "workbench.action.files.save"
+  ],
+  "executeApiListed": false,
+  "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+}

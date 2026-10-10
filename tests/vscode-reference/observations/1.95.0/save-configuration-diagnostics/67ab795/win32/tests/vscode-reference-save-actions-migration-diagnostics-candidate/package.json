@@ -1,0 +1,61 @@
+{
+  "name": "vscli-reference-harness",
+  "publisher": "vscli-test",
+  "version": "0.0.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "main": "extension.cjs",
+  "activationEvents": [
+    "*"
+  ],
+  "scripts": {
+    "reference": "node run.cjs"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "3.1.0",
+    "jsonc-parser": "3.3.1"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "VSCLI reference fixture",
+      "properties": {
+        "vscliReference.enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "vscliReference.object": {
+          "type": "object",
+          "default": {
+            "left": 1,
+            "nested": {
+              "a": 1
+            },
+            "list": [
+              1,
+              2
+            ]
+          }
+        },
+        "vscliReference.null": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "vscliReference.language": {
+          "type": "number",
+          "default": 1,
+          "scope": "language-overridable"
+        },
+        "vscliReference.machine": {
+          "type": "string",
+          "default": "default",
+          "scope": "machine"
+        }
+      }
+    }
+  }
+}
