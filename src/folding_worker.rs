@@ -1,6 +1,7 @@
 //! One actually occupied native folding worker. No App or view mutation.
 use crate::{
     display_rows::{DisplayRows, Options},
+    document::{FoldAction, FoldPrepared, FoldSnapshot},
     folding::{self, Region},
 };
 use anyhow::{Context, Result, bail, ensure};
@@ -19,7 +20,23 @@ use std::{
 pub const MAX_SELECTIONS: usize = 10_000;
 pub const DEADLINE: Duration = Duration::from_secs(6);
 
+/// Finite operations on a Document-owned snapshot. No external source Rope can
+/// be substituted; source and full view proof are captured together.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DocumentWork {
+    Discover,
+    Existing,
+    Collapsed(Arc<[Region]>),
+    Action {
+        action: FoldAction,
+        catalog: Arc<[Region]>,
+    },
+}
 pub enum Work {
+    Document {
+        snapshot: FoldSnapshot,
+        operation: DocumentWork,
+    },
     Discover {
         tab_size: u8,
     },
@@ -31,7 +48,12 @@ pub enum Work {
 }
 pub enum Prepared {
     Catalog(Arc<[Region]>),
+    DocumentCatalog {
+        snapshot: FoldSnapshot,
+        catalog: Arc<[Region]>,
+    },
     Rows(DisplayRows),
+    Document(FoldPrepared),
 }
 pub struct Reply {
     pub token: u64,
@@ -61,18 +83,74 @@ impl Worker {
 
     /// All validation and ID checks precede spawning or live slot mutation.
     pub fn start(&mut self, text: Rope, work: Work, now: Instant) -> Result<u64> {
+        let deadline = now
+            .checked_add(DEADLINE)
+            .context("Folding deadline overflow")?;
+        self.start_until(text, work, now, deadline)
+    }
+    /// A controller's queued legacy job also retains its admitted deadline.
+    pub fn start_until(
+        &mut self,
+        text: Rope,
+        work: Work,
+        now: Instant,
+        deadline: Instant,
+    ) -> Result<u64> {
+        ensure!(
+            !matches!(work, Work::Document { .. }),
+            "Document folding requires an owned snapshot submission"
+        );
+        self.start_owned(text, work, now, deadline)
+    }
+    /// The deadline belongs to the original gesture, including discovery time.
+    /// Validation/spawn failure leaves the actual slot and checked ID untouched.
+    pub fn start_document(
+        &mut self,
+        snapshot: FoldSnapshot,
+        operation: DocumentWork,
+        now: Instant,
+        deadline: Instant,
+    ) -> Result<u64> {
         ensure!(
             self.available(),
             "Folding worker is actually occupied or stopped"
+        );
+        snapshot.validate_worker()?;
+        let text = snapshot.text().clone();
+        self.start_owned(
+            text,
+            Work::Document {
+                snapshot,
+                operation,
+            },
+            now,
+            deadline,
+        )
+    }
+    fn start_owned(
+        &mut self,
+        text: Rope,
+        work: Work,
+        now: Instant,
+        deadline: Instant,
+    ) -> Result<u64> {
+        ensure!(
+            self.available(),
+            "Folding worker is actually occupied or stopped"
+        );
+        ensure!(
+            now < deadline
+                && deadline
+                    <= now
+                        .checked_add(DEADLINE)
+                        .context("Folding deadline overflow")?,
+            "Folding deadline is expired or exceeds original budget"
         );
         validate(&text, &work)?;
         let token = self
             .token
             .checked_add(1)
             .context("Folding request ID exhausted")?;
-        let deadline = now
-            .checked_add(DEADLINE)
-            .context("Folding deadline overflow")?;
         let cancel = Arc::new(AtomicBool::new(false));
         let own_cancel = cancel.clone();
         let (sender, result) = mpsc::sync_channel(1);
@@ -166,6 +244,22 @@ fn validate(text: &Rope, work: &Work) -> Result<()> {
         "Folding work exceeds 2 MiB or 100,000 lines"
     );
     match work {
+        Work::Document {
+            snapshot,
+            operation,
+        } => {
+            snapshot.validate_worker()?;
+            if let DocumentWork::Collapsed(regions)
+            | DocumentWork::Action {
+                catalog: regions, ..
+            } = operation
+            {
+                ensure!(
+                    regions.len() <= folding::MAX_REGIONS,
+                    "Folding document operation exceeds 5,000 regions"
+                );
+            }
+        }
         Work::Discover { tab_size } => {
             ensure!((1..=16).contains(tab_size), "Invalid folding tab size")
         }
@@ -205,6 +299,30 @@ fn guard(cancel: &AtomicBool, deadline: Instant) -> Result<()> {
 fn prepare(text: Rope, work: Work, cancel: &AtomicBool, deadline: Instant) -> Result<Prepared> {
     guard(cancel, deadline)?;
     match work {
+        Work::Document {
+            snapshot,
+            operation,
+        } => match operation {
+            DocumentWork::Discover => {
+                let catalog = folding::discover(
+                    snapshot.text(),
+                    usize::from(snapshot.options().tab_size),
+                    cancel,
+                    deadline,
+                )?
+                .into();
+                Ok(Prepared::DocumentCatalog { snapshot, catalog })
+            }
+            DocumentWork::Existing => Ok(Prepared::Document(
+                snapshot.prepare_existing(cancel, deadline)?,
+            )),
+            DocumentWork::Collapsed(regions) => Ok(Prepared::Document(
+                snapshot.prepare_collapsed(regions, cancel, deadline)?,
+            )),
+            DocumentWork::Action { action, catalog } => Ok(Prepared::Document(
+                snapshot.prepare_action(action, catalog, cancel, deadline)?,
+            )),
+        },
         Work::Discover { tab_size } => Ok(Prepared::Catalog(
             folding::discover(&text, usize::from(tab_size), cancel, deadline)?.into(),
         )),
@@ -251,20 +369,34 @@ fn prepare(text: Rope, work: Work, cancel: &AtomicBool, deadline: Instant) -> Re
 
 #[cfg(test)]
 #[derive(Clone)]
-pub(crate) struct Gate(Arc<(std::sync::Mutex<bool>, std::sync::Condvar)>);
+pub(crate) struct Gate(
+    Arc<(std::sync::Mutex<bool>, std::sync::Condvar)>,
+    Arc<AtomicBool>,
+);
 #[cfg(test)]
 impl Gate {
     pub(crate) fn held() -> Self {
-        Self(Arc::new((
-            std::sync::Mutex::new(false),
-            std::sync::Condvar::new(),
-        )))
+        Self(
+            Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new())),
+            Arc::new(AtomicBool::new(false)),
+        )
     }
     pub(crate) fn release(&self) {
         *self.0.0.lock().unwrap() = true;
         self.0.1.notify_all();
     }
+    pub(crate) fn wait_reached(&self) {
+        let deadline = Instant::now() + Duration::from_secs(8);
+        while !self.1.load(Ordering::Acquire) {
+            assert!(
+                Instant::now() < deadline,
+                "Actual folding gate was never reached"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
     fn wait(&self) {
+        self.1.store(true, Ordering::Release);
         let (released, _) = self
             .0
             .1
@@ -287,6 +419,9 @@ pub(crate) struct Gates {
 impl Worker {
     pub(crate) fn hold(&mut self, gates: Gates) {
         self.gates = Some(gates);
+    }
+    pub(crate) fn last_token(&self) -> u64 {
+        self.token
     }
 }
 #[cfg(test)]
@@ -428,5 +563,168 @@ mod tests {
         assert!(settle(&mut worker).result.is_err());
         assert!(!worker.available());
         worker.shutdown(Duration::from_secs(1)).unwrap();
+    }
+    fn document_fixture() -> (crate::document::Document, Options) {
+        let doc = crate::document::Document::from_text(
+            "prefix\r\nhead猫\r\n body🙂\r\n tail\r\nafter\r\n",
+        );
+        let options = Options {
+            wrap: Wrap::Off,
+            width: 80,
+            tab_size: doc.tab_size as u8,
+        };
+        (doc, options)
+    }
+    #[test]
+    fn owned_document_job_retains_slot_after_result_and_never_revives_edit_undo() {
+        for canceled in [false, true] {
+            let (mut doc, options) = document_fixture();
+            let snapshot = doc.capture_folding(0, options).unwrap();
+            let region = Region::from_lines(&doc.text, 1, 3).unwrap();
+            let mut worker = Worker::default();
+            let gates = Gates {
+                before: Gate::held(),
+                after: Gate::held(),
+            };
+            worker.hold(gates.clone());
+            let now = Instant::now();
+            let token = worker
+                .start_document(
+                    snapshot,
+                    DocumentWork::Collapsed(vec![region].into()),
+                    now,
+                    now + DEADLINE,
+                )
+                .unwrap();
+            if canceled {
+                worker.cancel(token)
+            }
+            gates.before.release();
+            gates.after.wait_reached(); // Actual result exists, actual thread remains held.
+            assert!(worker.poll().is_none());
+            assert!(worker.occupied());
+            assert!(!worker.available());
+            let unchanged = doc.text.to_string();
+            let revision = doc.revision;
+            let epoch = doc.text_epoch();
+            doc.insert("é", false);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), unchanged);
+            assert_eq!(doc.revision, revision);
+            assert!(doc.text_epoch() > epoch);
+            gates.after.release();
+            let reply = settle(&mut worker);
+            assert_eq!(reply.token, token);
+            if canceled {
+                assert!(reply.result.is_err());
+            } else {
+                let Prepared::Document(prepared) = reply.result.unwrap() else {
+                    panic!("Wrong result kind")
+                };
+                assert_eq!(prepared.rows().text().to_string(), unchanged);
+                assert!(doc.prepare_fold_publication(prepared).is_err());
+            }
+            assert!(worker.available());
+            assert!(doc.current_folding_rows(0).is_none());
+            doc.redo();
+            assert_eq!(doc.text.to_string(), format!("é{unchanged}"));
+            doc.undo();
+            assert_eq!(doc.text.to_string(), unchanged);
+        }
+    }
+    #[test]
+    fn external_source_substitution_expired_phase_and_checked_id_are_inert() {
+        let (doc, options) = document_fixture();
+        let snapshot = doc.capture_folding(0, options).unwrap();
+        let mut worker = Worker {
+            token: 9,
+            active: None,
+            stopping: false,
+            gates: None,
+        };
+        let now = Instant::now();
+        assert!(
+            worker
+                .start(
+                    Rope::from_str("impostor"),
+                    Work::Document {
+                        snapshot: snapshot.clone(),
+                        operation: DocumentWork::Existing
+                    },
+                    now
+                )
+                .is_err()
+        );
+        assert!(
+            worker
+                .start_document(snapshot.clone(), DocumentWork::Existing, now, now)
+                .is_err()
+        );
+        assert!(
+            worker
+                .start_document(
+                    snapshot.clone(),
+                    DocumentWork::Existing,
+                    now,
+                    now + DEADLINE + Duration::from_nanos(1)
+                )
+                .is_err()
+        );
+        assert!(worker.available());
+        assert_eq!(worker.token, 9);
+        worker.token = u64::MAX;
+        assert!(
+            worker
+                .start_document(snapshot, DocumentWork::Existing, now, now + DEADLINE)
+                .is_err()
+        );
+        assert!(worker.available());
+        assert_eq!(worker.token, u64::MAX);
+        assert_eq!(
+            doc.text.to_string(),
+            "prefix\r\nhead猫\r\n body🙂\r\n tail\r\nafter\r\n"
+        );
+    }
+    #[test]
+    fn malformed_late_proposed_catalog_is_rejected_by_actual_worker_atomically() {
+        let (mut doc, options) = document_fixture();
+        let region = Region::from_lines(&doc.text, 1, 3).unwrap();
+        let current = doc
+            .capture_folding(0, options)
+            .unwrap()
+            .prepare_collapsed(
+                vec![region.clone()].into(),
+                &AtomicBool::new(false),
+                Instant::now() + DEADLINE,
+            )
+            .unwrap();
+        doc.prepare_fold_publication(current).unwrap().publish();
+        let generation = doc.folding_generation(0);
+        let long = Rope::from_str("a\nb\nc\nd\ne\nf\ng\nh\n");
+        let invalid = Region::from_lines(&long, 5, 7).unwrap();
+        // This region's scalar anchors need not be beyond the shorter Unicode
+        // source, but they are not valid complete source-line anchors there.
+        let snapshot = doc.capture_folding(0, options).unwrap();
+        let mut worker = Worker::default();
+        let now = Instant::now();
+        worker
+            .start_document(
+                snapshot,
+                DocumentWork::Action {
+                    action: FoldAction::FoldAll,
+                    catalog: vec![region, invalid].into(),
+                },
+                now,
+                now + DEADLINE,
+            )
+            .unwrap();
+        assert!(settle(&mut worker).result.is_err());
+        assert_eq!(doc.folding_generation(0), generation);
+        assert_eq!(doc.folding_desired_count(0), Some(1));
+        assert!(doc.current_folding_rows(0).is_some());
+        assert_eq!(
+            doc.text.to_string(),
+            "prefix\r\nhead猫\r\n body🙂\r\n tail\r\nafter\r\n"
+        );
     }
 }

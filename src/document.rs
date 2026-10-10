@@ -14,7 +14,9 @@ mod comments;
 mod editing;
 mod folding;
 pub use comments::CommentOperation;
-pub use folding::{FoldCommit, FoldPrepared, FoldSnapshot, FoldViewInsertion};
+pub use folding::{
+    FoldAction, FoldClear, FoldCommit, FoldPrepared, FoldSnapshot, FoldViewInsertion,
+};
 pub(crate) mod graphemes;
 mod indentation;
 mod snippets;

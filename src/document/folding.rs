@@ -3,8 +3,9 @@
 use super::{Document, Selection, ViewState};
 use crate::{
     display_rows::{DisplayRows, Options, Wrap},
+    editor_groups::Membership,
     folding::{self, Region},
-    folding_controller::Lifetime,
+    folding_controller::{Current, CurrentView, Lifetime, ModelProof},
 };
 use anyhow::{Result, ensure};
 use ropey::Rope;
@@ -94,6 +95,7 @@ pub struct FoldPrepared {
     desired: Arc<[Region]>,
     rows: Arc<DisplayRows>,
     hidden: Arc<[Range<usize>]>,
+    skipped: usize,
 }
 /// Exclusive publication lease. Dropping it leaves all document state intact.
 pub struct FoldCommit<'a> {
@@ -101,6 +103,23 @@ pub struct FoldCommit<'a> {
     prepared: FoldPrepared,
     next_generation: u64,
 }
+/// Native finite worker actions. No original command arguments or syntax ranges
+/// are implied. Full selection protection is part of preparation, not relocation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FoldAction {
+    Fold,
+    Unfold,
+    FoldAll,
+}
+
+/// A scan-free clear lease, including generation-exhaustion recovery. Clearing
+/// always creates a fresh private lifetime, so a no-op cannot revive old replies.
+pub struct FoldClear<'a> {
+    document: &'a mut Document,
+    view: u64,
+    state: View,
+}
+
 /// Explicit split or unseen shared-view insertion, staged without activating it.
 /// A copied split receives a fresh private lifetime. Ordinary insertion expands.
 pub struct FoldViewInsertion<'a> {
@@ -170,6 +189,43 @@ impl FoldSnapshot {
     /// Replay exact scalar changes and remove touched or selection-hidden intent.
     /// Undo is another forward epoch/change and can never resurrect removed intent.
     pub fn prepare_existing(self, cancel: &AtomicBool, deadline: Instant) -> Result<FoldPrepared> {
+        let desired = self.map_desired(cancel, deadline)?;
+        self.finish(desired, true, cancel, deadline)
+    }
+    pub fn is_current(&self, current: &Current<'_>) -> bool {
+        self.proof.document == current.model.document
+            && self.proof.epoch == current.model.text_epoch
+            && self.proof.policy == current.model.options
+            && self.proof.options.tab_size == current.model.tab_size
+            && current.view.as_ref().is_some_and(|view| {
+                view.membership.document == self.proof.document
+                    && view.membership.group.value() == self.proof.view
+                    && *view.lifetime == self.proof.lifetime
+                    && view.generation == self.proof.generation
+                    && view.selection_generation == self.proof.selection_generation
+                    && *view.primary == self.proof.primary
+                    && view.secondary == self.proof.secondary.as_slice()
+            })
+    }
+    pub(crate) fn validate_worker(&self) -> Result<()> {
+        ensure!(
+            self.text.len_bytes() <= folding::MAX_BYTES
+                && self.text.len_lines() <= folding::MAX_LINES,
+            "Folding source exceeds worker limits"
+        );
+        ensure!(
+            self.proof.options.wrap == Wrap::Off && (1..=16).contains(&self.proof.options.tab_size),
+            "Folding snapshot options are invalid"
+        );
+        ensure!(
+            self.proof.secondary.len() < MAX_SELECTIONS
+                && self.desired.len() <= folding::MAX_REGIONS
+                && self.changes.len() <= MAX_JOURNAL,
+            "Folding snapshot metadata exceeds worker limits"
+        );
+        Ok(())
+    }
+    fn map_desired(&self, cancel: &AtomicBool, deadline: Instant) -> Result<Vec<Region>> {
         guard(cancel, deadline)?;
         let mut desired = self.desired.to_vec();
         for change in &self.changes {
@@ -183,8 +239,119 @@ impl FoldSnapshot {
             }
             desired = mapped;
         }
-        self.finish(desired, true, cancel, deadline)
+        Ok(desired)
     }
+    /// Catalog targeting runs on the retained worker. Per-selection nesting is
+    /// capped at the foundation's depth; no regions × selections Cartesian walk.
+    /// Fold/Unfold operate simultaneously on the original collapsed mask.
+    pub fn prepare_action(
+        self,
+        action: FoldAction,
+        catalog: Arc<[Region]>,
+        cancel: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<FoldPrepared> {
+        guard(cancel, deadline)?;
+        ensure!(
+            catalog.len() <= folding::MAX_REGIONS,
+            "Folding catalog exceeds 5,000 regions"
+        );
+        folding::RowMap::new(&self.text, &catalog)?;
+        if action == FoldAction::FoldAll {
+            return self.finish(catalog.to_vec(), true, cancel, deadline);
+        }
+        let mapped = self.map_desired(cancel, deadline)?;
+        let existing = self.clone().finish(mapped, true, cancel, deadline)?;
+        let mut catalog = catalog.to_vec();
+        catalog.sort_unstable_by_key(|r| {
+            (r.characters().start, std::cmp::Reverse(r.characters().end))
+        });
+        let keys: Vec<_> = catalog
+            .iter()
+            .map(|r| {
+                let c = r.characters();
+                (c.start, std::cmp::Reverse(c.end))
+            })
+            .collect();
+        let mut mask = vec![false; catalog.len()];
+        for region in existing.desired.iter() {
+            guard(cancel, deadline)?;
+            let c = region.characters();
+            if let Ok(index) = keys.binary_search(&(c.start, std::cmp::Reverse(c.end))) {
+                mask[index] = true;
+            }
+        }
+        let mut positions: Vec<_> = std::iter::once(&self.proof.primary)
+            .chain(&self.proof.secondary)
+            .map(|s| {
+                self.text
+                    .line_to_char(self.text.char_to_line(s.range().start))
+            })
+            .collect();
+        positions.sort_unstable();
+        positions.dedup();
+        let mut changed = vec![false; catalog.len()];
+        let mut stack: Vec<usize> = Vec::new();
+        let mut next = 0;
+        for position in positions {
+            guard(cancel, deadline)?;
+            while next < catalog.len() && catalog[next].characters().start <= position {
+                let start = catalog[next].characters().start;
+                while stack
+                    .last()
+                    .is_some_and(|&index| catalog[index].characters().end <= start)
+                {
+                    stack.pop();
+                }
+                ensure!(
+                    stack.len() < folding::MAX_DEPTH,
+                    "Folding catalog nesting exceeds limit"
+                );
+                stack.push(next);
+                next += 1;
+            }
+            while stack
+                .last()
+                .is_some_and(|&index| catalog[index].characters().end <= position)
+            {
+                stack.pop();
+            }
+            for &index in stack.iter().rev() {
+                guard(cancel, deadline)?;
+                if mask[index] == (action == FoldAction::Unfold) {
+                    changed[index] = true;
+                    break;
+                }
+            }
+        }
+        // Preserve valid mapped intent absent from the current indentation catalog;
+        // target only the catalog members named by this finite action.
+        let mut desired = existing.desired.to_vec();
+        if action == FoldAction::Fold {
+            for (index, region) in catalog.into_iter().enumerate() {
+                guard(cancel, deadline)?;
+                if changed[index] {
+                    desired.push(region);
+                }
+            }
+        } else {
+            let mut retained = Vec::with_capacity(desired.len());
+            for region in desired {
+                guard(cancel, deadline)?;
+                let c = region.characters();
+                let keep = match keys.binary_search(&(c.start, std::cmp::Reverse(c.end))) {
+                    Ok(index) => !changed[index],
+                    Err(_) => true,
+                };
+                if keep {
+                    retained.push(region);
+                }
+            }
+            desired = retained;
+        }
+        self.finish(desired, false, cancel, deadline)
+    }
+
     /// Explicit collapse is all-or-nothing, including malformed late regions and
     /// protected selections. No caller cursor is relocated to make it succeed.
     pub fn prepare_collapsed(
@@ -228,6 +395,7 @@ impl FoldSnapshot {
                 selected.push(range);
             }
         }
+        let proposed_count = desired.len();
         let mut accepted = Vec::with_capacity(desired.len());
         let mut hidden: Vec<Range<usize>> = Vec::with_capacity(desired.len());
         for region in desired {
@@ -257,6 +425,7 @@ impl FoldSnapshot {
         guard(cancel, deadline)?;
         Ok(FoldPrepared {
             proof: self.proof,
+            skipped: proposed_count - accepted.len(),
             desired: accepted.into(),
             rows: Arc::new(rows),
             hidden: hidden.into(),
@@ -264,7 +433,101 @@ impl FoldSnapshot {
     }
 }
 
+impl FoldPrepared {
+    pub fn skipped_regions(&self) -> usize {
+        self.skipped
+    }
+    pub fn rows(&self) -> &DisplayRows {
+        &self.rows
+    }
+    pub fn desired_count(&self) -> usize {
+        self.desired.len()
+    }
+}
 impl Document {
+    /// This validates model/view ownership, not live Groups membership. App
+    /// validates Groups/UI before and after using this borrowed bridge.
+    pub fn with_folding_current<T>(
+        &self,
+        membership: Membership,
+        interaction: u64,
+        inspect: impl FnOnce(Current<'_>) -> T,
+    ) -> Result<T> {
+        ensure!(
+            membership.document == self.id,
+            "Folding membership belongs to another document"
+        );
+        let view = self
+            .exact_fold_view(membership.group.value())
+            .ok_or_else(|| anyhow::anyhow!("Folding view retired"))?;
+        ensure!(
+            !view.folding.blocked && view.secondary.len() < MAX_SELECTIONS,
+            "Folding view is blocked or exceeds selection limits"
+        );
+        ensure!(
+            (1..=16).contains(&self.tab_size),
+            "Folding tab size is invalid"
+        );
+        let primary = primary(view);
+        let model = ModelProof {
+            document: self.id,
+            text_epoch: self.text_epoch,
+            options: self.folding_policy.clone(),
+            tab_size: self.tab_size as u8,
+        };
+        Ok(inspect(Current {
+            model: &model,
+            view: Some(CurrentView {
+                membership,
+                lifetime: &view.folding.lifetime,
+                generation: view.folding.generation,
+                selection_generation: view.folding.selection_generation,
+                interaction,
+                primary: &primary,
+                secondary: &view.secondary,
+            }),
+        }))
+    }
+    pub fn check_folding_snapshot(&self, snapshot: &FoldSnapshot) -> Result<()> {
+        let proof = &snapshot.proof;
+        ensure!(
+            self.id == proof.document
+                && self.text_epoch == proof.epoch
+                && self.folding_policy == proof.policy
+                && self.tab_size == usize::from(proof.options.tab_size),
+            "Folding source changed"
+        );
+        let view = self
+            .exact_fold_view(proof.view)
+            .ok_or_else(|| anyhow::anyhow!("Folding view retired"))?;
+        ensure!(
+            !view.folding.blocked
+                && view.folding.lifetime == proof.lifetime
+                && view.folding.generation == proof.generation
+                && view.folding.selection_generation == proof.selection_generation
+                && primary(view) == proof.primary
+                && view.secondary == proof.secondary,
+            "Folding view changed"
+        );
+        Ok(())
+    }
+    /// No source-byte, region or selection traversal. Always renew lifetime even
+    /// if already expanded, and recover an exhausted fold clock with a fresh one.
+    pub fn prepare_clear_folding(&mut self, id: u64) -> Result<FoldClear<'_>> {
+        let view = self
+            .exact_fold_view(id)
+            .ok_or_else(|| anyhow::anyhow!("Folding view retired"))?;
+        let state = View {
+            generation: view.folding.generation.checked_add(1).unwrap_or(0),
+            desired_epoch: self.text_epoch,
+            ..View::default()
+        };
+        Ok(FoldClear {
+            document: self,
+            view: id,
+            state,
+        })
+    }
     fn exact_fold_view(&self, id: u64) -> Option<&ViewState> {
         if id == self.active_view {
             Some(&self.view)
@@ -557,6 +820,14 @@ impl Document {
             target,
             state,
         })
+    }
+}
+impl FoldClear<'_> {
+    pub fn publish(self) {
+        self.document
+            .exact_fold_view_mut(self.view)
+            .expect("exclusive folding clear lease")
+            .folding = self.state;
     }
 }
 impl FoldCommit<'_> {
@@ -1002,5 +1273,201 @@ mod tests {
             doc.line_start(1)..doc.line_end(1)
         );
         assert_eq!(bytes(&doc), SOURCE.as_bytes());
+    }
+    #[test]
+    fn clear_renews_even_expanded_authority_without_touching_source_or_redo() {
+        let mut doc = Document::from_text(SOURCE);
+        doc.insert("é🙂", false);
+        doc.undo();
+        doc.move_to(0, false);
+        let original = (
+            doc.id,
+            doc.revision,
+            doc.saved_revision,
+            doc.text_epoch,
+            doc.save_generation,
+            doc.dirty(),
+            doc.selections(),
+            bytes(&doc),
+        );
+        let snapshot = doc.capture_folding(0, options(&doc)).unwrap();
+        let prepared = snapshot
+            .clone()
+            .prepare_collapsed(
+                vec![region(&doc)].into(),
+                &AtomicBool::new(false),
+                Instant::now() + Duration::from_secs(5),
+            )
+            .unwrap();
+        let lifetime = doc.folding_view_lifetime(0).unwrap().clone();
+        drop(doc.prepare_clear_folding(0).unwrap());
+        assert_eq!(doc.folding_view_lifetime(0).unwrap(), &lifetime);
+        assert!(doc.check_folding_snapshot(&snapshot).is_ok());
+        doc.prepare_clear_folding(0).unwrap().publish();
+        assert_ne!(doc.folding_view_lifetime(0).unwrap(), &lifetime);
+        assert!(doc.check_folding_snapshot(&snapshot).is_err());
+        assert!(doc.prepare_fold_publication(prepared).is_err());
+        assert_eq!(
+            (
+                doc.id,
+                doc.revision,
+                doc.saved_revision,
+                doc.text_epoch,
+                doc.save_generation,
+                doc.dirty(),
+                doc.selections(),
+                bytes(&doc)
+            ),
+            original
+        );
+        let next = doc.folding_view_lifetime(0).unwrap().clone();
+        doc.prepare_clear_folding(0).unwrap().publish();
+        assert_ne!(
+            doc.folding_view_lifetime(0).unwrap(),
+            &next,
+            "No-op clear retires pending interest"
+        );
+        doc.redo();
+        assert_eq!(doc.text.to_string(), format!("é🙂{SOURCE}"));
+        doc.undo();
+        assert_eq!(bytes(&doc), SOURCE.as_bytes());
+    }
+    #[test]
+    fn clear_survives_preparation_budget_and_clock_exhaustion_without_blocking_editing() {
+        let mut doc = Document::from_text(&"x".repeat(folding::MAX_BYTES + 1));
+        doc.secondary = vec![Selection::caret(0); MAX_SELECTIONS];
+        assert!(doc.capture_folding(0, options(&doc)).is_err());
+        let before = (
+            doc.id,
+            doc.revision,
+            doc.text_epoch,
+            doc.save_generation,
+            doc.selections(),
+        );
+        let old = doc.view.folding.lifetime.clone();
+        doc.view.folding.generation = u64::MAX;
+        doc.view.folding.selection_generation = u64::MAX;
+        doc.view.folding.blocked = true;
+        doc.prepare_clear_folding(0).unwrap().publish();
+        assert_ne!(doc.view.folding.lifetime, old);
+        assert!(!doc.view.folding.blocked);
+        assert_eq!(doc.view.folding.generation, 0);
+        assert_eq!(doc.view.folding.selection_generation, 0);
+        assert_eq!(
+            (
+                doc.id,
+                doc.revision,
+                doc.text_epoch,
+                doc.save_generation,
+                doc.selections()
+            ),
+            before
+        );
+        assert_eq!(doc.len(), folding::MAX_BYTES + 1);
+        doc.set_selections(vec![Selection::caret(0)]);
+        doc.insert("猫", false);
+        assert_eq!(doc.text.char(0), '猫');
+        doc.undo();
+        assert_eq!(doc.len(), folding::MAX_BYTES + 1);
+        doc.redo();
+        assert_eq!(doc.text.char(0), '猫');
+    }
+    #[test]
+    fn borrowed_bridge_checks_exact_view_not_groups_liveness_and_noop_clear_retires_proof() {
+        let mut doc = Document::from_text(SOURCE);
+        let mut groups = crate::editor_groups::Groups::default();
+        let member = groups.open(doc.id).unwrap().active.unwrap();
+        doc.prepare_folding_view(member.group.value(), None)
+            .unwrap()
+            .publish();
+        doc.activate_view(member.group.value());
+        let snapshot = doc
+            .capture_folding(member.group.value(), options(&doc))
+            .unwrap();
+        let proof = doc
+            .with_folding_current(member, 7, |current| {
+                crate::folding_controller::ViewProof::capture(
+                    current.model.clone(),
+                    current.view.unwrap(),
+                )
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            proof.selection_generation,
+            doc.folding_selection_generation(member.group.value())
+                .unwrap()
+        );
+        assert!(
+            doc.with_folding_current(member, 7, |current| snapshot.is_current(&current))
+                .unwrap()
+        );
+        let other = groups.open(doc.id + 1).unwrap().active.unwrap();
+        assert!(doc.with_folding_current(other, 7, |_| ()).is_err());
+        // Removing the membership alone is deliberately App's check, not a
+        // fabricated claim that Document knows Groups validity.
+        groups.close(member).unwrap();
+        assert!(
+            doc.with_folding_current(member, 7, |current| snapshot.is_current(&current))
+                .unwrap()
+        );
+        doc.prepare_clear_folding(member.group.value())
+            .unwrap()
+            .publish();
+        assert!(
+            !doc.with_folding_current(member, 7, |current| snapshot.is_current(&current))
+                .unwrap()
+        );
+        doc.remove_view(member.group.value());
+        assert!(doc.with_folding_current(member, 7, |_| ()).is_err());
+    }
+    #[test]
+    fn finite_actions_protect_full_ranges_and_duplicate_carets_use_original_mask() {
+        let mut doc = Document::from_text("root\r\n child猫\r\n  body🙂\r\n tail\r\nafter\r\n");
+        let outer = Region::from_lines(&doc.text, 0, 3).unwrap();
+        let inner = Region::from_lines(&doc.text, 1, 2).unwrap();
+        let catalog: Arc<[Region]> = vec![outer.clone(), inner.clone()].into();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let cancel = AtomicBool::new(false);
+        doc.set_selections(vec![Selection {
+            cursor: doc.len(),
+            anchor: Some(0),
+            desired_column: None,
+        }]);
+        let protected = doc
+            .capture_folding(0, options(&doc))
+            .unwrap()
+            .prepare_action(FoldAction::FoldAll, catalog.clone(), &cancel, deadline)
+            .unwrap();
+        assert_eq!(protected.desired_count(), 0);
+        assert_eq!(protected.skipped_regions(), 2);
+        assert!(
+            doc.capture_folding(0, options(&doc))
+                .unwrap()
+                .prepare_action(FoldAction::Fold, catalog.clone(), &cancel, deadline)
+                .is_err()
+        );
+        let header = doc.line_start(1);
+        doc.set_selections(vec![Selection::caret(header)]);
+        doc.secondary.push(Selection::caret(header));
+        let folded = doc
+            .capture_folding(0, options(&doc))
+            .unwrap()
+            .prepare_action(FoldAction::Fold, catalog.clone(), &cancel, deadline)
+            .unwrap();
+        assert_eq!(folded.desired_count(), 1);
+        doc.prepare_fold_publication(folded).unwrap().publish();
+        assert_eq!(doc.folding_desired_count(0), Some(1));
+        let unfolded = doc
+            .capture_folding(0, options(&doc))
+            .unwrap()
+            .prepare_action(FoldAction::Unfold, catalog, &cancel, deadline)
+            .unwrap();
+        assert_eq!(unfolded.desired_count(), 0);
+        doc.prepare_fold_publication(unfolded).unwrap().publish();
+        assert_eq!(
+            bytes(&doc),
+            "root\r\n child猫\r\n  body🙂\r\n tail\r\nafter\r\n".as_bytes()
+        );
     }
 }
