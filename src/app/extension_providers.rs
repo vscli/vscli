@@ -854,7 +854,10 @@ function register(context){{
   const child=new vscode.DocumentSymbol('child-'+generation,'method detail',vscode.SymbolKind.Method,new vscode.Range(1,0,1,9),new vscode.Range(1,2,1,7));
   child.tags=[vscode.SymbolTag.Deprecated];parent.children.push(child);
   if(generation===1)return [parent];
-  return new Promise(resolve=>{{const timer=setInterval(()=>{{if(fs.existsSync(path.join(root,'new-release'))){{clearInterval(timer);resolve([parent]);}}}},2);}});
+  return new Promise((resolve,reject)=>{{
+   const timer=setInterval(()=>{{if(fs.existsSync(path.join(root,'new-release'))){{clearInterval(timer);clearTimeout(deadline);resolve([parent]);}}}},2);
+   const deadline=setTimeout(()=>{{clearInterval(timer);reject(new Error('document-symbol fixture release was not acknowledged within 30 seconds'));}},30000);
+  }});
  }}}});context.subscriptions.push(registration);
 }}
 exports.activate=context=>{{register(context);context.subscriptions.push(vscode.commands.registerCommand('test.symbols.retire',()=>{{registration.dispose();generation++;register(context);}}));}};
@@ -1669,8 +1672,27 @@ exports.activate=context=>{{register(context);context.subscriptions.push(vscode.
     }
     #[test]
     fn breadcrumb_extension_source_round_trip_retires_picker_and_retains_one_actual_lane() {
+        fn phase(message: &str) {
+            use std::io::Write;
+            // Direct stderr is visible even while libtest captures a held test.
+            let _ = writeln!(
+                std::io::stderr().lock(),
+                "breadcrumb source round trip: {message}"
+            );
+        }
+        struct ReleaseHeldCallback(PathBuf);
+        impl Drop for ReleaseHeldCallback {
+            fn drop(&mut self) {
+                // On assertion failure, release the real callback before App's
+                // host teardown. Preserve the failing assertion as the oracle.
+                let _ = std::fs::write(&self.0, "");
+            }
+        }
         let root = tempfile::tempdir().unwrap();
+        phase("starting document-symbol host");
         let mut app = document_symbol_app(root.path(), false);
+        let _release_on_unwind = ReleaseHeldCallback(root.path().join("new-release"));
+        phase("initial tree published");
         app.doc_mut().move_to(13, false);
         app.observe_outline();
         app.observe_breadcrumbs();
@@ -1713,6 +1735,7 @@ exports.activate=context=>{{register(context);context.subscriptions.push(vscode.
                 .count()
                 == 2
         });
+        phase("replacement callback is held");
         assert!(app.breadcrumbs_view().picker.is_none());
         assert!(!app.document_symbols_view().current);
         assert!(
@@ -1764,6 +1787,7 @@ exports.activate=context=>{{register(context);context.subscriptions.push(vscode.
             );
             assert_eq!(app.doc().selections(), selections);
         }
+        phase("retiring held source and releasing callback");
         std::fs::write(root.path().join("new-release"), "").unwrap();
         until(&mut app, |a| a.document_symbols_view().current);
         assert_eq!(
@@ -1785,5 +1809,13 @@ exports.activate=context=>{{register(context);context.subscriptions.push(vscode.
             std::fs::read(root.path().join("input.sql")).unwrap(),
             "猫🙂 parent\r\n  child 猫\r\n}\r\n".as_bytes()
         );
+        // Current publication may precede the exact actual-release event. The
+        // fixture must acknowledge that event before retiring its process.
+        until(&mut app, |a| {
+            a.extension_host.as_ref().unwrap().symbols_available()
+        });
+        phase("actual callback released; dropping host");
+        drop(app);
+        phase("host dropped");
     }
 }
