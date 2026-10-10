@@ -1,0 +1,6314 @@
+[
+  {
+    "name": "cpp-electric-close-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 41,
+            "cursor": 41
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 41,
+            "cursor": 41
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "while (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "while (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "lineBreakInsert",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    { run(); }\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 25,
+            "cursor": 25
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    { run(); }\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 25,
+            "cursor": 25
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "[\r\n    {\"x\": 1},\r\n\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "[\r\n    {\"x\": 1},\r\n\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 25,
+            "cursor": 25
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 25,
+            "cursor": 25
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "while (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 28,
+            "cursor": 28
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "while (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 28,
+            "cursor": 28
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 30,
+            "cursor": 30
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 30,
+            "cursor": 30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "lineBreakInsert",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    { run(); }\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    { run(); }\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": 1\r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": 1\r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "[\r\n    {\"x\": 1},\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "[\r\n    {\"x\": 1},\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\t\t\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\t\t\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 25,
+            "cursor": 25
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 25,
+            "cursor": 25
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "while (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 28,
+            "cursor": 28
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "while (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 28,
+            "cursor": 28
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 30,
+            "cursor": 30
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 30,
+            "cursor": 30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "lineBreakInsert",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    { run(); }\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    { run(); }\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": 1\r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": 1\r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "[\r\n    {\"x\": 1},\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "[\r\n    {\"x\": 1},\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\t\t\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\t\t\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 41,
+            "cursor": 41
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 41,
+            "cursor": 41
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "while (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "while (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "lineBreakInsert",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    { run(); }\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    { run(); }\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": 1\r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": 1\r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "[\r\n    {\"x\": 1},\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "[\r\n    {\"x\": 1},\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\t\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\t\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 41,
+            "cursor": 41
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 41,
+            "cursor": 41
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "while (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "while (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "while (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "else if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "else if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "else if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "lineBreakInsert",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    { run(); }\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    { run(); }\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    { run(); }\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": 1}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "[\r\n    {\"x\": 1},\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "[\r\n    {\"x\": 1},\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n\t\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\t\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\tif (ok)\r\n\t\trun();\r\n\t\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-after-content",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    run(); \r\n}",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n    run(); }\r\n}",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    run(); \r\n}",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n    run(); }\r\n}",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-same-line",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "    {   \r\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    {   }\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    {   \r\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    {   }\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-no-opener",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "    \r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    }\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    \r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    }\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    // \r\n}",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n    // }\r\n}",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    // \r\n}",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n    // }\r\n}",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-block-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    /* \r\n}",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n    /* }\r\n}",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    /* \r\n}",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n    /* }\r\n}",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-raw-string",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    R\"tag(\r\n        \r\n)tag\";\r\n}",
+        "selections": [
+          {
+            "anchor": 32,
+            "cursor": 32
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n    R\"tag(\r\n        }\r\n)tag\";\r\n}",
+        "selections": [
+          {
+            "anchor": 33,
+            "cursor": 33
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    R\"tag(\r\n        \r\n)tag\";\r\n}",
+        "selections": [
+          {
+            "anchor": 32,
+            "cursor": 32
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n    R\"tag(\r\n        }\r\n)tag\";\r\n}",
+        "selections": [
+          {
+            "anchor": 33,
+            "cursor": 33
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-mixed-indent",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\tvoid f() {\r\n \t  \r\n\t}",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\tvoid f() {\r\n    }\r\n\t}",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\tvoid f() {\r\n \t  \r\n\t}",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\tvoid f() {\r\n    }\r\n\t}",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-nested",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    if (ok) {\r\n            \r\n    }\r\n}",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n    if (ok) {\r\n    }\r\n    }\r\n}",
+        "selections": [
+          {
+            "anchor": 32,
+            "cursor": 32
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    if (ok) {\r\n            \r\n    }\r\n}",
+        "selections": [
+          {
+            "anchor": 39,
+            "cursor": 39
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n    if (ok) {\r\n    }\r\n    }\r\n}",
+        "selections": [
+          {
+            "anchor": 32,
+            "cursor": 32
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-string",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"text } \r\n}",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"text } }\r\n}",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"text } \r\n}",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"text } }\r\n}",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-after-content",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": 1 \r\n}",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": 1 }\r\n}",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": 1 \r\n}",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": 1 }\r\n}",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-if-empty-body",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    \r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    \r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-if-blank-previous",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-nested-controls",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (a)\r\n    if (b)\r\n        run();\r\n",
+        "selections": [
+          {
+            "anchor": 34,
+            "cursor": 34
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (a)\r\n    if (b)\r\n        run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 40,
+            "cursor": 40
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (a)\r\n    if (b)\r\n        run();\r\n",
+        "selections": [
+          {
+            "anchor": 34,
+            "cursor": 34
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (a)\r\n    if (b)\r\n        run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 40,
+            "cursor": 40
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-unicode-control-body",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    use(\"猫🙂\");\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    use(\"猫🙂\");\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 25,
+            "cursor": 25
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    use(\"猫🙂\");\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    use(\"猫🙂\");\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 25,
+            "cursor": 25
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-mixed-control-body",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\tif (ok)\r\n \t  run();\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\tif (ok)\r\n \t  run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\tif (ok)\r\n \t  run();\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\tif (ok)\r\n \t  run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-line-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "    // 猫🙂 comment\r\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    // 猫🙂 comment\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    // 猫🙂 comment\r\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    // 猫🙂 comment\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-block-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "    /* 猫🙂 comment\r\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    /* 猫🙂 comment\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    /* 猫🙂 comment\r\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    /* 猫🙂 comment\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-doc-comment",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "    /** 猫🙂 comment\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    /** 猫🙂 comment\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    /** 猫🙂 comment\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    /** 猫🙂 comment\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-string-brace",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "    \"hello {\"\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    \"hello {\"\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    \"hello {\"\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    \"hello {\"\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-raw-string-brace",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "    R\"tag(hello {)tag\"\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    R\"tag(hello {)tag\"\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 28,
+            "cursor": 28
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    R\"tag(hello {)tag\"\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    R\"tag(hello {)tag\"\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 28,
+            "cursor": 28
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-array-value",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "[\r\n    1,\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "[\r\n    1,\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "[\r\n    1,\r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "[\r\n    1,\r\n    \r\n]\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-after-closed-array",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": []\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": []\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": []\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": []\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-after-root-close",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-string-brace",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": \"hello {\"\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": \"hello {\"\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": \"hello {\"\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": \"hello {\"\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-escaped-quote-brace",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": \"hello \\\" {\"\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": \"hello \\\" {\"\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 30,
+            "cursor": 30
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": \"hello \\\" {\"\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": \"hello \\\" {\"\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 30,
+            "cursor": 30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-extra-indent",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n            \"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n            \"x\": 1\r\n            \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 35,
+            "cursor": 35
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n            \"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n            \"x\": 1\r\n            \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 35,
+            "cursor": 35
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-tabs",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n\t\"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n\t\"x\": 1\r\n\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n\t\"x\": 1\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 10,
+            "cursor": 10
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n\t\"x\": 1\r\n\t\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-enter",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (a)\r\n    run();\r\nif (b)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          },
+          {
+            "anchor": 38,
+            "cursor": 38
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (a)\r\n    run();\r\n\r\nif (b)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 42,
+            "cursor": 42
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (a)\r\n    run();\r\nif (b)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          },
+          {
+            "anchor": 38,
+            "cursor": 38
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (a)\r\n    run();\r\n\r\nif (b)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 42,
+            "cursor": 42
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-enter",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": 1}\r\n{\r\n    \"x\": 2}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n{\r\n    \"x\": 2\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          },
+          {
+            "anchor": 33,
+            "cursor": 33
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": 1}\r\n{\r\n    \"x\": 2}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": 1\r\n}\r\n{\r\n    \"x\": 2\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          },
+          {
+            "anchor": 33,
+            "cursor": 33
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-generated-close-precedence",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "    \r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    {}\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    {\r\n        \r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 15,
+            "cursor": 15
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "    {\r\n    }\r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "    {}\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "    {\r\n    }\r\n    }\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-none-late-recheck",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-none-late-recheck",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-full-late-recheck",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-full-late-recheck",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer-none",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n        }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n        }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer-keep",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n        }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n        }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n        }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n        }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          },
+          {
+            "anchor": 45,
+            "cursor": 45
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "void f() {\r\n        }\r\n}\r\nvoid g() {\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 47,
+            "cursor": 47
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n        }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          },
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n        }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-escaped-string-end",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"x\": \"hello \\\" {\"\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"x\": \"hello \\\" {\r\n    \"\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"x\": \"hello \\\" {\"\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"x\": \"hello \\\" {\r\n    \"\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-comment-body-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    // note {\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    // note {\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    // note {\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    // note {\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-block-comment-body-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    /* note {\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    /* note {\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    /* note {\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    /* note {\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-header-string-bracket-advanced",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (check(\"(\"))\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (check(\"(\"))\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (check(\"(\"))\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (check(\"(\"))\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-comment-body-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    // note {\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    // note {\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    // note {\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    // note {\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-block-comment-body-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    /* note {\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    /* note {\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    /* note {\r\n",
+        "selections": [
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    /* note {\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-header-string-bracket-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (check(\"(\"))\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (check(\"(\"))\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (check(\"(\"))\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 27,
+            "cursor": 27
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (check(\"(\"))\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-single-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  {}\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  {}\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-primary-first-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{}\r\n  {}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{}\r\n  {}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-primary-last-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{}\r\n  {}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{}\r\n  {}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-single-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "  {}\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "  {}\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-primary-first-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{}\r\n  {}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{}\r\n  {}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-primary-last-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{}\r\n  {}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{}\r\n  {}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \r\n}\r\n  {\r\n    \r\n  }\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-aligned-closer-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n\r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n\r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-comment-closer-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n// \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          },
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n// }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n// \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          },
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n// }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-string-closer-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"value\r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"value}\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          },
+          {
+            "anchor": 31,
+            "cursor": 31
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"value\r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"value}\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          },
+          {
+            "anchor": 31,
+            "cursor": 31
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-aligned-closer-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n\r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n}\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n\r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 19,
+            "cursor": 19
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n}\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-comment-closer-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n// \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          },
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n// }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n// \r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          },
+          {
+            "anchor": 22,
+            "cursor": 22
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n// }\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          },
+          {
+            "anchor": 24,
+            "cursor": 24
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-string-closer-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{\r\n    \"value\r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \"value}\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          },
+          {
+            "anchor": 31,
+            "cursor": 31
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{\r\n    \"value\r\n}\r\n{\r\n        \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          },
+          {
+            "anchor": 29,
+            "cursor": 29
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "{\r\n    \"value}\r\n}\r\n{\r\n        }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 14,
+            "cursor": 14
+          },
+          {
+            "anchor": 31,
+            "cursor": 31
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-nel-header-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n    run();\r\n    \r\n",
+        "selections": [
+          {
+            "anchor": 26,
+            "cursor": 26
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-bom-header-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": " ﻿if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": " ﻿if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": " ﻿if (ok)\r\n    run();\r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": " ﻿if (ok)\r\n    run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 23,
+            "cursor": 23
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-bom-body-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n  ﻿run();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n  ﻿run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n  ﻿run();\r\n",
+        "selections": [
+          {
+            "anchor": 18,
+            "cursor": 18
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n  ﻿run();\r\n\r\n",
+        "selections": [
+          {
+            "anchor": 20,
+            "cursor": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-if-unicode-boundary-full",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "if (ok)\r\n  if猫();\r\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "if (ok)\r\n  if猫();\r\n  \r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "if (ok)\r\n  if猫();\r\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "if (ok)\r\n  if猫();\r\n  \r\n",
+        "selections": [
+          {
+            "anchor": 21,
+            "cursor": 21
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -51,8 +51,10 @@ The [two published benchmark runs](PERFORMANCE.md#smart-typing-and-idle-hint-wor
 have mixed results and establish no overall speed ranking.
 
 The current branch adds language-specific advanced/full indentation and closing
-alignment, with a separate prepared-token reference observer and integrity/PTY
-qualification still in progress. The [30-target token-readiness capture](reference/2026-10-10-cpp-token-readiness/README.md)
+alignment. Its [prepared-token contract](ADVANCED_INDENTATION.md) matches 132 actual
+Linux reference cases and 530 snapshots; 496 native tests, strict quality checks,
+ten new terminal sessions and the existing 35-workflow terminal suite pass.
+Fresh platform CI qualification is still in progress. The [30-target token-readiness capture](reference/2026-10-10-cpp-token-readiness/README.md)
 records an actual pinned-editor startup distinction independently of native
 comparison; prepared and natural behavior remain separate qualification scopes.
 Extension language configuration, additional native profiles and broader
@@ -87,7 +89,7 @@ The [usage guide](USAGE.md), [extension report](EXTENSIONS.md) and
 | Welcome and navigation | Explorer, quick open, palette, graphical empty welcome/actions, persistent recent files/reopen and document/workspace symbol pickers | Recent workspaces, back/forward history, outline, breadcrumbs, discoverable settings and consistent focus |
 | Tabs and layout | Shared-document split views, four equal groups and opt-in clean-session visible-layout restore | Per-group tabs, resizing/nested splits, preview/pinned tabs, move editors between groups and complete layout restoration |
 | Session continuity | Dirty-buffer crash recovery plus opt-in clean-file tabs, active tab, cursor/selection and visible-group restoration | Full hot exit, hidden historical tab/view state, workspace history/transitions, terminal restoration and broader failure/durability qualification |
-| Editing | Multi-cursor, selections, undo, line commands, literal find/replace and native C/C++/JSON smart-typing subset | Wrapping, folding, advanced/extension language rules, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |
+| Editing | Multi-cursor, selections, undo, line commands, literal find/replace and native C/C++/JSON smart-typing subset | Wrapping, folding, broader/extension language rules, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |
 | Snippets | Literal insertion, linked fields, variables, native catalogs and completion snippet/import transactions | Choices, nested insertion, extension insertion API and full transform semantics |
 | Settings and migration | Small settings subset, language overrides, copied-profile import and binding diagnostics | Autosave, format-on-save, indentation detection, excludes, EOL settings, editable settings UI, full profiles/workspace migration, extension inventory reconciliation |
 | Themes and highlighting | Tree-sitter C/C++ and other families, mapped stable colors during typing, native JSONC/installed themes and persistent picker | TextMate grammar/scope semantics, font styles, semantic themes, more workbench colors, icon themes, embedded languages and grammars |
