@@ -216,6 +216,90 @@ impl PositionChange {
     }
 }
 
+/// Immutable input and publication proof for a background native save. Cloning
+/// shares Rope storage; capture and proof checks perform no filesystem work.
+#[derive(Clone)]
+pub struct SaveSnapshot {
+    document_id: u64,
+    source_path: Option<PathBuf>,
+    target: PathBuf,
+    revision: u64,
+    text_epoch: u64,
+    saved_revision: u64,
+    save_generation: u64,
+    next_save_generation: u64,
+    text: Rope,
+    baseline: Option<Rope>,
+}
+impl SaveSnapshot {
+    pub fn document_id(&self) -> u64 {
+        self.document_id
+    }
+    pub fn source_path(&self) -> Option<&Path> {
+        self.source_path.as_deref()
+    }
+    pub fn target(&self) -> &Path {
+        &self.target
+    }
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+    pub fn text_epoch(&self) -> u64 {
+        self.text_epoch
+    }
+    pub fn saved_revision(&self) -> u64 {
+        self.saved_revision
+    }
+    pub fn save_generation(&self) -> u64 {
+        self.save_generation
+    }
+    pub fn text(&self) -> &Rope {
+        &self.text
+    }
+    pub fn baseline(&self) -> Option<&Rope> {
+        self.baseline.as_ref()
+    }
+}
+
+impl std::fmt::Debug for SaveSnapshot {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SaveSnapshot")
+            .field("document_id", &self.document_id)
+            .field("source_path", &self.source_path)
+            .field("target", &self.target)
+            .field("revision", &self.revision)
+            .field("text_epoch", &self.text_epoch)
+            .field("saved_revision", &self.saved_revision)
+            .field("save_generation", &self.save_generation)
+            .field("text_bytes", &self.text.len_bytes())
+            .field(
+                "baseline_bytes",
+                &self.baseline.as_ref().map(Rope::len_bytes),
+            )
+            .finish()
+    }
+}
+
+fn validate_snapshot_path(path: &Path, canonical: bool) -> Result<()> {
+    let bytes = path.as_os_str().as_encoded_bytes();
+    if bytes.is_empty() || bytes.len() > 4096 || bytes.contains(&0) || path.file_name().is_none() {
+        bail!("Save paths require a filename and 1–4096 bytes without NUL");
+    }
+    if canonical
+        && (!path.is_absolute()
+            || path.components().any(|component| {
+                matches!(
+                    component,
+                    std::path::Component::CurDir | std::path::Component::ParentDir
+                )
+            }))
+    {
+        bail!("Save receipt requires an absolute canonical destination");
+    }
+    Ok(())
+}
+
 pub struct Document {
     pub id: u64,
     pub text: Rope,
@@ -1151,6 +1235,84 @@ impl Document {
         self.apply_changes(changes);
         count
     }
+    /// Capture an ordinary save or Save As without resolving or reading paths.
+    /// The worker must validate aliases, destination baseline and file identity.
+    pub fn capture_save(&self, target: PathBuf) -> Result<SaveSnapshot> {
+        validate_snapshot_path(&target, false)?;
+        if let Some(path) = &self.path {
+            validate_snapshot_path(path, false)?;
+        }
+        if self.text.len_bytes() as u64 > MAX_FILE_BYTES
+            || self
+                .disk_content
+                .as_ref()
+                .is_some_and(|text| text.len_bytes() as u64 > MAX_FILE_BYTES)
+        {
+            bail!("Save snapshot exceeds the 32 MiB document budget");
+        }
+        let next_save_generation = self
+            .save_generation
+            .checked_add(1)
+            .context("Document save generation exhausted")?;
+        Ok(SaveSnapshot {
+            document_id: self.id,
+            source_path: self.path.clone(),
+            target,
+            revision: self.revision,
+            text_epoch: self.text_epoch,
+            saved_revision: self.saved_revision,
+            save_generation: self.save_generation,
+            next_save_generation,
+            text: self.text.clone(),
+            baseline: self.disk_content.clone(),
+        })
+    }
+    /// Authorize only the exact captured model state. Undo cannot restore the
+    /// monotonic text epoch, even when its bytes and revision match the capture.
+    pub fn check_save_snapshot(&self, snapshot: &SaveSnapshot) -> Result<()> {
+        if self.id != snapshot.document_id
+            || self.path != snapshot.source_path
+            || self.revision != snapshot.revision
+            || self.text_epoch != snapshot.text_epoch
+            || self.saved_revision != snapshot.saved_revision
+            || self.save_generation != snapshot.save_generation
+        {
+            bail!("Document changed during save preparation; retry saving");
+        }
+        Ok(())
+    }
+    /// Publish only after the worker proves this snapshot was persisted at the
+    /// returned canonical destination. No filesystem work or byte comparison
+    /// occurs here. Newer edits survive and remain dirty against the saved revision.
+    pub fn publish_save(
+        &mut self,
+        snapshot: &SaveSnapshot,
+        canonical_destination: PathBuf,
+    ) -> Result<()> {
+        validate_snapshot_path(&canonical_destination, true)?;
+        if canonical_destination.file_name() != snapshot.target.file_name() {
+            bail!("Save receipt destination does not match the captured filename");
+        }
+        if self.id != snapshot.document_id
+            || self.path != snapshot.source_path
+            || self.save_generation != snapshot.save_generation
+            || self.saved_revision != snapshot.saved_revision
+        {
+            bail!(
+                "Document path or saved baseline changed after save authorization; persisted snapshot retained on disk"
+            );
+        }
+        if self.path.as_ref() != Some(&canonical_destination) {
+            // Save As changes language semantics without changing text history.
+            self.retire_typing_pairs();
+        }
+        self.path = Some(canonical_destination);
+        self.disk_content = Some(snapshot.text.clone());
+        self.saved_revision = snapshot.revision;
+        self.save_generation = snapshot.next_save_generation;
+        self.break_group();
+        Ok(())
+    }
     pub fn save(&mut self) -> Result<()> {
         let path = self
             .path
@@ -1261,6 +1423,286 @@ fn map_position(p: usize, range: &Range<usize>, added: usize) -> usize {
         p - (range.end - range.start) + added
     } else {
         range.start + added
+    }
+}
+
+#[cfg(test)]
+mod save_snapshot_tests {
+    use super::*;
+
+    fn fixture() -> (tempfile::TempDir, Document, PathBuf) {
+        let directory = tempfile::tempdir().unwrap();
+        let path = fs::canonicalize(directory.path())
+            .unwrap()
+            .join("source.cpp");
+        fs::write(&path, "猫🙂 base\r\n").unwrap();
+        let document = Document::open(&path).unwrap();
+        (directory, document, path)
+    }
+    fn view_selections(view: &ViewState) -> Vec<Selection> {
+        let mut selections = vec![Selection {
+            cursor: view.cursor,
+            anchor: view.anchor,
+            desired_column: view.desired_column,
+        }];
+        selections.extend(view.secondary.iter().cloned());
+        selections
+    }
+    fn persist_snapshot(snapshot: &SaveSnapshot) {
+        // Simulate the worker's successful receipt with actual persisted bytes.
+        // Filesystem/identity/race qualification belongs to the real worker tests.
+        let mut file = fs::File::create(snapshot.target()).unwrap();
+        snapshot.text().write_to(&mut file).unwrap();
+        file.sync_all().unwrap();
+    }
+
+    #[test]
+    fn save_capture_is_io_free_and_edit_undo_cannot_revive_authorization() {
+        let (directory, mut document, path) = fixture();
+        let absent = directory.path().join("uncreated/target.cpp");
+        let pure = document.capture_save(absent.clone()).unwrap();
+        assert_eq!(pure.target(), absent);
+        assert!(!absent.parent().unwrap().exists());
+        assert_eq!(pure.text(), &document.text);
+        assert_eq!(pure.baseline(), document.disk_content.as_ref());
+        let snapshot = document.capture_save(path.clone()).unwrap();
+        document.check_save_snapshot(&snapshot).unwrap();
+        let selections = document.selections();
+        document.insert("λ", false);
+        document.undo();
+        assert_eq!(document.revision, snapshot.revision());
+        assert_eq!(document.text, *snapshot.text());
+        assert_eq!(document.selections(), selections);
+        assert!(!document.dirty());
+        assert!(document.text_epoch() > snapshot.text_epoch());
+        assert!(
+            document
+                .check_save_snapshot(&snapshot)
+                .unwrap_err()
+                .to_string()
+                .contains("changed during save preparation")
+        );
+        assert_eq!(document.save_generation(), 0);
+        document.redo();
+        assert_eq!(document.text, "λ猫🙂 base\r\n");
+        assert_eq!(fs::read(path).unwrap(), "猫🙂 base\r\n".as_bytes());
+    }
+
+    #[test]
+    fn receipt_publishes_captured_baseline_and_keeps_newer_edits_and_history() {
+        let (_directory, mut document, path) = fixture();
+        document.insert("captured ", false);
+        let snapshot = document.capture_save(path.clone()).unwrap();
+        document.check_save_snapshot(&snapshot).unwrap();
+        persist_snapshot(&snapshot);
+        document.insert("newer ", false);
+        let newer = document.text.clone();
+        let selections = document.selections();
+        let epoch = document.text_epoch();
+        let history = (
+            document.undo.len(),
+            document.redo.len(),
+            document.next_revision,
+        );
+        document.publish_save(&snapshot, path.clone()).unwrap();
+        assert_eq!(document.text, newer);
+        assert_eq!(document.selections(), selections);
+        assert_eq!(document.text_epoch(), epoch);
+        assert_eq!(
+            (
+                document.undo.len(),
+                document.redo.len(),
+                document.next_revision
+            ),
+            history
+        );
+        assert_eq!(document.disk_content.as_ref(), Some(snapshot.text()));
+        assert_eq!(document.saved_revision, snapshot.revision());
+        assert_eq!(document.save_generation(), 1);
+        assert!(document.dirty());
+        document.undo();
+        assert_eq!(document.text, *snapshot.text());
+        assert!(!document.dirty());
+        document.undo();
+        assert_eq!(document.text, "猫🙂 base\r\n");
+        assert!(document.dirty());
+        document.redo();
+        assert_eq!(document.text, *snapshot.text());
+        assert!(!document.dirty());
+        document.redo();
+        assert_eq!(document.text, newer);
+        assert!(document.dirty());
+        assert_eq!(
+            fs::read(path).unwrap(),
+            snapshot.text().to_string().as_bytes()
+        );
+    }
+
+    #[test]
+    fn save_as_receipt_preserves_shared_reversed_selections_and_existing_redo() {
+        let (directory, mut document, source) = fixture();
+        let destination = fs::canonicalize(directory.path()).unwrap().join("new.json");
+        let id = document.id;
+        document.activate_view(11);
+        document.insert("captured ", false);
+        document.set_selections(vec![
+            Selection {
+                cursor: 1,
+                anchor: Some(5),
+                desired_column: Some(7),
+            },
+            Selection::caret(8),
+        ]);
+        let snapshot = document.capture_save(destination.clone()).unwrap();
+        document.check_save_snapshot(&snapshot).unwrap();
+        persist_snapshot(&snapshot);
+        document.activate_view(22);
+        document.set_selections(vec![Selection::caret(document.len())]);
+        document.insert("later λ\r\n", false);
+        let newer = document.text.clone();
+        document.insert("redo 猫", false);
+        let redo = document.text.clone();
+        document.undo();
+        assert_eq!(document.text, newer);
+        let first_view = view_selections(document.view_state(Some(11)));
+        let second_view = view_selections(document.view_state(Some(22)));
+        let epoch = document.text_epoch();
+        let history = (document.undo.len(), document.redo.len());
+        document
+            .publish_save(&snapshot, destination.clone())
+            .unwrap();
+        assert_eq!(document.id, id);
+        assert_eq!(document.path.as_ref(), Some(&destination));
+        assert_eq!(document.text, newer);
+        assert_eq!(document.text_epoch(), epoch);
+        assert_eq!(view_selections(document.view_state(Some(11))), first_view);
+        assert_eq!(view_selections(document.view_state(Some(22))), second_view);
+        assert_eq!((document.undo.len(), document.redo.len()), history);
+        assert!(document.dirty());
+        document.redo();
+        assert_eq!(document.text, redo);
+        assert_eq!(document.path.as_ref(), Some(&destination));
+        document.undo();
+        document.undo();
+        assert_eq!(document.text, *snapshot.text());
+        assert!(!document.dirty());
+        assert_eq!(document.id, id);
+        assert_eq!(document.path.as_ref(), Some(&destination));
+        assert_eq!(fs::read(source).unwrap(), "猫🙂 base\r\n".as_bytes());
+        assert_eq!(
+            fs::read(destination).unwrap(),
+            snapshot.text().to_string().as_bytes()
+        );
+    }
+
+    #[test]
+    fn moved_path_reloaded_baseline_and_duplicate_receipts_never_mutate_metadata() {
+        for change in [0, 1, 2] {
+            let (directory, mut document, path) = fixture();
+            document.insert("captured ", false);
+            let snapshot = document.capture_save(path.clone()).unwrap();
+            persist_snapshot(&snapshot);
+            match change {
+                0 => document.path = Some(directory.path().join("moved.cpp")),
+                1 => document.reload_content(Rope::from_str("reloaded λ\r\n")),
+                _ => document.publish_save(&snapshot, path.clone()).unwrap(),
+            }
+            let text = document.text.clone();
+            let baseline = document.disk_content.clone();
+            let selections = document.selections();
+            let state = (
+                document.path.clone(),
+                document.revision,
+                document.saved_revision,
+                document.text_epoch(),
+                document.save_generation(),
+                document.undo.len(),
+                document.redo.len(),
+            );
+            assert!(
+                document
+                    .publish_save(&snapshot, path.clone())
+                    .unwrap_err()
+                    .to_string()
+                    .contains("path or saved baseline changed")
+            );
+            assert_eq!(document.text, text);
+            assert_eq!(document.disk_content, baseline);
+            assert_eq!(document.selections(), selections);
+            assert_eq!(
+                (
+                    document.path.clone(),
+                    document.revision,
+                    document.saved_revision,
+                    document.text_epoch(),
+                    document.save_generation(),
+                    document.undo.len(),
+                    document.redo.len()
+                ),
+                state
+            );
+        }
+    }
+
+    #[test]
+    fn foreign_or_invalid_receipt_and_capture_limits_leave_state_untouched() {
+        let (_directory, mut document, path) = fixture();
+        let snapshot = document.capture_save(path.clone()).unwrap();
+        let mut other = Document::from_text("猫🙂 base\r\n");
+        other.path = Some(path.clone());
+        assert!(other.check_save_snapshot(&snapshot).is_err());
+        assert!(other.publish_save(&snapshot, path.clone()).is_err());
+        let before = (
+            document.path.clone(),
+            document.text_epoch(),
+            document.saved_revision,
+            document.save_generation(),
+        );
+        assert!(
+            document
+                .publish_save(&snapshot, PathBuf::from("source.cpp"))
+                .is_err()
+        );
+        assert!(
+            document
+                .publish_save(&snapshot, path.with_file_name("other.cpp"))
+                .is_err()
+        );
+        assert!(
+            document
+                .capture_save(PathBuf::from("x".repeat(4097)))
+                .is_err()
+        );
+        assert!(document.capture_save(PathBuf::from("bad\0.cpp")).is_err());
+        assert_eq!(
+            (
+                document.path.clone(),
+                document.text_epoch(),
+                document.saved_revision,
+                document.save_generation()
+            ),
+            before
+        );
+        document.save_generation = u64::MAX;
+        assert!(
+            document
+                .capture_save(path.clone())
+                .unwrap_err()
+                .to_string()
+                .contains("generation exhausted")
+        );
+        document.save_generation = 0;
+        document.text = Rope::from_str(&"x".repeat(MAX_FILE_BYTES as usize + 1));
+        assert!(document.capture_save(path.clone()).is_err());
+        document.text = Rope::from_str("small");
+        document.disk_content = Some(Rope::from_str(&"x".repeat(MAX_FILE_BYTES as usize + 1)));
+        assert!(document.capture_save(path).is_err());
+        let debug = format!("{snapshot:?}");
+        assert!(debug.contains("text_bytes"));
+        assert!(
+            !debug.contains("猫🙂 base"),
+            "Debug must not expose saved text"
+        );
     }
 }
 
