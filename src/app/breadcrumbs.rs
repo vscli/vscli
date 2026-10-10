@@ -658,9 +658,12 @@ mod tests {
     use super::*;
     fn fixture() -> (tempfile::TempDir, App) {
         let root = tempfile::tempdir().unwrap();
-        let path = root.path().join("猫.cpp");
+        // Match CLI startup: saved documents and workspace use canonical roots,
+        // including macOS /var aliases and Windows extended-length prefixes.
+        let workspace = std::fs::canonicalize(root.path()).unwrap();
+        let path = workspace.join("猫.cpp");
         std::fs::write(&path, "猫🙂\r\nbody\r\n").unwrap();
-        let mut app = App::new(root.path().into(), Profile::Linux);
+        let mut app = App::new(workspace, Profile::Linux);
         app.open(&path).unwrap();
         (root, app)
     }
