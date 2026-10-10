@@ -115,7 +115,16 @@ checks and a genuine failure regression; controlled source-receipt mutations are
 labeled synthetic. See the
 [observer contract](../tests/vscode-reference-sticky-monotonic-candidate/README.md)
 and [rejected Windows evidence](../tests/vscode-reference/observations/1.95.0/sticky-settlement-deadline/951f2ad-win32/README.md).
-Fresh protected platform qualification remains pending for this integrated head.
+The integrated head subsequently passed all six required checks in
+[run 38071676391](https://github.com/vscli/vscli/actions/runs/38071676391),
+including the corrected complete capture and explicit native replay on Linux,
+macOS and Windows. All three separate stable save-reference jobs passed in
+[run 38071676300](https://github.com/vscli/vscli/actions/runs/38071676300).
+[PR #68](https://github.com/vscli/vscli/pull/68) merged into main at
+`db76ed6d2a314efe2dcf1e799e5ba5a85f2dc29c`; its tree is byte-identical to
+reviewed head `3e813500114f6c30d9e00fb15d54d5b85e1fb69b`.
+The rejected earlier Windows capture remains evidence of its original producer;
+this later qualification does not prove that earlier delay's underlying cause.
 
 
 The integrated local run passes 973 locked all-target Rust tests across 51
@@ -125,4 +134,4 @@ four explicit source/timing tests and the genuine Windows offline failure guard.
 Eighteen pure Node tests cover both frozen suites and canonical paths. The five
 sticky and seven source-action terminal reports pass on both debug and optimized
 executables. The added source-routing positives are synthetic metadata tests;
-real corrected-platform capture/native comparison remains a separate CI gate.
+the later real corrected-platform capture/native comparison passed as recorded above.
