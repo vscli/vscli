@@ -39,8 +39,71 @@ pub(super) struct State {
     registry: Registry,
     calls: HashMap<u64, Call>,
     replies: VecDeque<Reply>,
+    signature: Option<Ticket>,
+    signature_started: Option<Instant>,
+    signature_fenced: bool,
 }
 impl Client {
+    pub(crate) fn signature_available(&self) -> bool {
+        !self.providers.signature_fenced
+            && self.providers.signature.is_none()
+            && !self
+                .providers
+                .calls
+                .values()
+                .any(|call| call.ticket.provider.kind == Kind::Signature)
+            && !self
+                .providers
+                .replies
+                .iter()
+                .any(|reply| reply.ticket.provider.kind == Kind::Signature)
+            && self.language_provider_capacity()
+    }
+    pub(crate) fn signature_channel_closed(&self) -> bool {
+        self.providers.signature_fenced
+    }
+    pub(crate) fn signature_source_identity(&self, provider: &Provider) -> Option<(u64, u64)> {
+        (provider.kind == Kind::Signature
+            && self.provider_owner_ready(&provider.owner)
+            && self
+                .providers
+                .registry
+                .current(provider, self.providers.registry.epoch()))
+        .then_some((self.session, self.providers.registry.epoch()))
+    }
+    pub(super) fn signature_released(&mut self, value: Value) -> Result<()> {
+        if value["session"].as_u64() != Some(self.session) {
+            return Ok(());
+        }
+        let Some(ticket) = &self.providers.signature else {
+            return Ok(());
+        };
+        if value["request"].as_u64() != Some(ticket.id) {
+            return Ok(());
+        }
+        if value["owner"].as_str() != Some(ticket.provider.owner.as_str())
+            || value["provider"].as_u64() != Some(ticket.provider.id)
+        {
+            bail!("Invalid signature callback release ownership");
+        }
+        self.providers.signature = None;
+        self.providers.signature_started = None;
+        self.providers.signature_fenced = false;
+        Ok(())
+    }
+    pub(crate) fn release_signature_help(&self, ticket: &Ticket, help: &Value) -> Result<()> {
+        if ticket.session != self.session || ticket.provider.kind != Kind::Signature {
+            return Ok(());
+        }
+        let Some(handle) = help["_vscliSignatureHelpHandle"].as_u64() else {
+            return Ok(());
+        };
+        self.process
+            .send(json!({"method":"cancelLanguageProvider","params":{
+            "session":self.session,"owner":ticket.provider.owner,"provider":ticket.provider.id,
+            "document":ticket.document,"request":ticket.id,"releaseSignatureHelp":true,
+            "signatureHandle":handle}}))
+    }
     pub(crate) fn provider_owner_ready(&self, owner: &str) -> bool {
         self.owner_active(owner)
     }
@@ -213,6 +276,11 @@ impl Client {
         if !self.language_provider_capacity() {
             bail!("Language provider callback limit reached (8); wait for pending callbacks");
         }
+        if provider.kind == Kind::Signature && !self.signature_available() {
+            bail!(
+                "Signature callback is still running or fenced; wait for actual release or restart the extension host"
+            );
+        }
         self.sync_with_hidden(documents, hidden, active)?;
         let mirror = self
             .mirror
@@ -238,9 +306,14 @@ impl Client {
         self.request("provideLanguage", json!({"session":self.session,"owner":ticket.provider.owner,
             "provider":ticket.provider.id,"document":doc.id,"version":ticket.version,
             "position":lsp::position(doc,doc.cursor),"includeDeclaration":true,"completionContext":options.get("context"),
+            "signatureContext":options.get("context"),"signatureRequest":provider.kind == Kind::Signature,
             "range":options.get("range"),"selection":options.get("selection"),"actionContext":options.get("context"),
             "workspace":ticket.workspace.iter().map(|target| json!({"document":target.document,"uri":target.uri,"version":target.version})).collect::<Vec<_>>(),
             "options":options.get("options").cloned().unwrap_or_else(|| json!({"tabSize":4,"insertSpaces":true}))}))?;
+        if provider.kind == Kind::Signature {
+            self.providers.signature = Some(ticket.clone());
+            self.providers.signature_started = Some(Instant::now());
+        }
         self.providers.calls.insert(
             ticket.id,
             Call {
@@ -353,10 +426,22 @@ impl Client {
         let Some(call) = self.providers.calls.remove(&id) else {
             return Ok(());
         };
-        if call.canceled {
+        if call.canceled && call.ticket.provider.kind != Kind::Signature {
             return Ok(());
         }
-        let result = if !message["error"].is_null() {
+        if call.ticket.provider.kind == Kind::Signature
+            && self
+                .providers
+                .signature
+                .as_ref()
+                .is_some_and(|occupied| occupied.id == id)
+            && message["error"]["message"].as_str() == Some("Language provider deadline exceeded")
+        {
+            self.providers.signature_fenced = true;
+        }
+        let result = if call.canceled {
+            Err("Signature invocation canceled".into())
+        } else if !message["error"].is_null() {
             Err(message["error"]["message"]
                 .as_str()
                 .unwrap_or("Language provider failed")
@@ -366,6 +451,14 @@ impl Client {
         } else {
             let value = message["result"].take();
             provider_result_budget(&value)
+                .and_then(|()| {
+                    if call.ticket.provider.kind == Kind::Signature
+                        && serde_json::to_vec(&value)?.len() > 256 * 1024
+                    {
+                        bail!("Signature help exceeds 256 KiB");
+                    }
+                    Ok(())
+                })
                 .map(|()| value)
                 .map_err(|e| e.to_string())
         };
@@ -376,6 +469,16 @@ impl Client {
         Ok(())
     }
     pub(super) fn expire_language_providers(&mut self) -> Result<()> {
+        // A canceled wire reply may arrive long before the actual callback ends.
+        // Keep its own clock after the generic Call has been removed.
+        if self.providers.signature.is_some()
+            && self
+                .providers
+                .signature_started
+                .is_some_and(|started| started.elapsed() >= DEADLINE)
+        {
+            self.providers.signature_fenced = true;
+        }
         let expired: Vec<_> = self
             .providers
             .calls
@@ -384,6 +487,15 @@ impl Client {
             .map(|c| c.ticket.clone())
             .collect();
         for ticket in expired {
+            if ticket.provider.kind == Kind::Signature
+                && self
+                    .providers
+                    .signature
+                    .as_ref()
+                    .is_some_and(|occupied| occupied.id == ticket.id)
+            {
+                self.providers.signature_fenced = true;
+            }
             self.cancel_language_provider(&ticket)?;
             self.providers.calls.remove(&ticket.id);
             self.pending.remove(&ticket.id);
@@ -452,6 +564,238 @@ mod tests {
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    fn signature_reply(client: &mut Client, docs: &mut [Document], id: u64) -> Reply {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            client.poll(docs, 0, &Settings::default()).unwrap();
+            if let Some(reply) = client.take_provider_replies().pop_front() {
+                assert_eq!(reply.ticket.id, id);
+                return reply;
+            }
+            assert!(Instant::now() < deadline, "No signature reply for {id}");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    #[test]
+    fn signature_original_help_survives_typing_versions_and_explicit_release_retires_identity() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"
+const v=require('vscode');let original;exports.activate=()=>v.languages.registerSignatureHelpProvider('*',{
+provideSignatureHelp(document,position,token,context){
+ if(context.activeSignatureHelp){if(context.activeSignatureHelp!==original||original.opaque.callback()!==42||original.activeSignature!==1||original.activeParameter!==1)throw Error('Original identity or selected indices lost');}
+ else {original=new v.SignatureHelp();const a=new v.SignatureInformation('f(猫,🙂)');a.parameters=[new v.ParameterInformation([2,3]),new v.ParameterInformation([4,6])];const b=new v.SignatureInformation('f(left,right)');b.parameters=[new v.ParameterInformation('left'),new v.ParameterInformation('right')];original.signatures=[a,b];original.opaque={callback:()=>42};original.opaque.self=original;}
+ return original;
+}}, {triggerCharacters:['('],retriggerCharacters:[',']});
+"#,
+        );
+        let mut docs = vec![Document::from_text("猫🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let provider = client
+            .language_provider(Kind::Signature, &docs[0])
+            .unwrap()
+            .clone();
+        assert_eq!(provider.triggers, ["("]);
+        assert_eq!(provider.retriggers, [","]);
+        assert!(client.signature_source_identity(&provider).is_some());
+        let first = client
+            .request_language_provider_from(
+                &provider,
+                &docs,
+                &[],
+                0,
+                json!({"context":{"triggerKind":2,"triggerCharacter":"(","isRetrigger":false}}),
+            )
+            .unwrap();
+        assert!(!client.signature_available());
+        let mut help = signature_reply(&mut client, &mut docs, first.id)
+            .result
+            .unwrap();
+        assert!(client.signature_available());
+        let first_handle = help["_vscliSignatureHelpHandle"].as_u64().unwrap();
+        assert!(help.get("opaque").is_none());
+        docs[0].insert("x", false);
+        assert!(!client.provider_ticket_current(&first, &docs[0]));
+        help["activeSignature"] = json!(1);
+        help["activeParameter"] = json!(1);
+        let second = client
+            .request_language_provider_from(
+                &provider,
+                &docs,
+                &[],
+                0,
+                json!({"context":{"triggerKind":3,"isRetrigger":true,"activeSignatureHelp":help}}),
+            )
+            .unwrap();
+        let help = signature_reply(&mut client, &mut docs, second.id)
+            .result
+            .unwrap();
+        assert_ne!(
+            help["_vscliSignatureHelpHandle"].as_u64().unwrap(),
+            first_handle
+        );
+        client.release_signature_help(&second, &help).unwrap();
+        let stale = client
+            .request_language_provider_from(
+                &provider,
+                &docs,
+                &[],
+                0,
+                json!({"context":{"triggerKind":3,"isRetrigger":true,"activeSignatureHelp":help}}),
+            )
+            .unwrap();
+        assert!(
+            signature_reply(&mut client, &mut docs, stale.id)
+                .result
+                .unwrap_err()
+                .contains("Stale signature help")
+        );
+        assert!(client.signature_available());
+        assert_eq!(docs[0].text.to_string(), "x猫🙂\r\n");
+    }
+    #[test]
+    fn canceled_signature_wire_reply_keeps_actual_capacity_until_framed_release_ack() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"
+const v=require('vscode'),fs=require('fs'),p=require('path');exports.activate=()=>v.languages.registerSignatureHelpProvider('*',{
+provideSignatureHelp(){fs.writeFileSync(p.join(v.workspace.rootPath,'signature-entered'),'yes');return new Promise(resolve=>{const timer=setInterval(()=>{if(fs.existsSync(p.join(v.workspace.rootPath,'signature-release'))){clearInterval(timer);resolve(null);}},5);});}
+},'(');
+"#,
+        );
+        let mut docs = vec![Document::from_text("猫🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Signature, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !root.path().join("signature-entered").exists() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        client.cancel_language_provider(&ticket).unwrap();
+        assert!(
+            signature_reply(&mut client, &mut docs, ticket.id)
+                .result
+                .unwrap_err()
+                .contains("canceled")
+        );
+        assert!(
+            client.providers.calls.is_empty(),
+            "The wire error precedes actual settlement"
+        );
+        assert!(!client.signature_available());
+        assert!(!client.signature_channel_closed());
+        for _ in 0..32 {
+            assert!(
+                client
+                    .request_language_provider(Kind::Signature, &docs, &[], 0, json!({}))
+                    .is_err()
+            );
+        }
+        client.providers.signature_started = Some(Instant::now() - DEADLINE);
+        client.expire_language_providers().unwrap();
+        assert!(
+            client.signature_channel_closed(),
+            "Canceled early replies retain an independent actual-work deadline"
+        );
+        std::fs::write(root.path().join("signature-release"), "yes").unwrap();
+        while !client.signature_available() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(client.providers.signature.is_none());
+        assert!(!client.signature_channel_closed());
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+    }
+    #[test]
+    fn signature_timeout_fences_until_matching_actual_release_and_ignores_foreign_ack() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerSignatureHelpProvider('*',{provideSignatureHelp:()=>new Promise(()=>{})},'(');"#,
+        );
+        let mut docs = vec![Document::from_text("猫🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Signature, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        client.providers.calls.get_mut(&ticket.id).unwrap().started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert!(client.signature_channel_closed());
+        assert!(!client.signature_available());
+        assert!(
+            client
+                .take_provider_replies()
+                .pop_front()
+                .unwrap()
+                .result
+                .is_err()
+        );
+        let ack = json!({"session":ticket.session,"owner":ticket.provider.owner,"provider":ticket.provider.id,"request":ticket.id});
+        let mut foreign = ack.clone();
+        foreign["session"] = json!(ticket.session + 1);
+        client.signature_released(foreign).unwrap();
+        let mut foreign = ack.clone();
+        foreign["request"] = json!(ticket.id + 1);
+        client.signature_released(foreign).unwrap();
+        let mut foreign = ack.clone();
+        foreign["owner"] = json!("other.owner");
+        assert!(client.signature_released(foreign).is_err());
+        assert!(client.signature_channel_closed());
+        client.signature_released(ack).unwrap();
+        assert!(!client.signature_channel_closed());
+        assert!(client.signature_available());
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+    }
+    #[test]
+    fn signature_positive_release_before_late_wire_reply_prevents_false_timeout_fence() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerSignatureHelpProvider('*',{provideSignatureHelp:()=>new Promise(()=>{})},'(');"#,
+        );
+        let mut docs = vec![Document::from_text("猫🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Signature, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        client.signature_released(json!({"session":ticket.session,"owner":ticket.provider.owner,"provider":ticket.provider.id,"request":ticket.id})).unwrap();
+        assert!(
+            !client.signature_available(),
+            "A success wire reply is still pending"
+        );
+        client.providers.calls.get_mut(&ticket.id).unwrap().started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert!(
+            !client.signature_channel_closed(),
+            "The callback already supplied positive settlement proof"
+        );
+        assert!(
+            client
+                .take_provider_replies()
+                .pop_front()
+                .unwrap()
+                .result
+                .is_err()
+        );
+        assert!(client.signature_available());
     }
     #[test]
     fn completed_native_completion_lease_retirement_invalidates_original_host_handle() {

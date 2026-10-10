@@ -1646,9 +1646,14 @@ fn draw_signature(frame: &mut Frame, app: &App) {
             .wrap(Wrap { trim: false })
             .style(Style::default().fg(colors.foreground).bg(colors.panel))
             .block(Block::default().borders(Borders::ALL).title(format!(
-                " Parameter Hints {}/{} · Esc closes ",
+                " Parameter Hints {}/{} · {}Esc closes ",
                 hint.signature + 1,
-                hint.count
+                hint.count,
+                if hint.count > 1 {
+                    "↑/↓ overload · "
+                } else {
+                    ""
+                }
             ))),
         popup,
     );

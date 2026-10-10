@@ -337,6 +337,10 @@ impl Client {
                 "providers.cjs",
                 include_str!("../extension-host/providers.cjs"),
             ),
+            (
+                "signatures.cjs",
+                include_str!("../extension-host/signatures.cjs"),
+            ),
             ("prompts.cjs", include_str!("../extension-host/prompts.cjs")),
             (
                 "document-services.cjs",
@@ -833,6 +837,9 @@ impl Client {
                                 json!({"id":message["id"], "error":{"message":error.to_string()}}),
                             )?,
                         }
+                    }
+                    "signatureReleased" => {
+                        self.signature_released(message["params"].take())?;
                     }
                     "languageProviders" => {
                         if message["params"]["session"].as_u64() != Some(self.session) {

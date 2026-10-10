@@ -18,6 +18,7 @@ xvfb-run -a node tests/vscode-reference/run.cjs target/vscode-reference/result
 node tests/vscode-reference/run.cjs target/vscode-reference/result
 node tests/vscode-reference/compare.cjs target/vscode-reference/result target/debug/vscli
 node tests/vscode-reference/diagnostics-compare.cjs target/vscode-reference/result
+cargo run --locked --example typing_contract -- target/vscode-reference/result/typing.json
 # Use target/debug/vscli.exe on Windows.
 node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs tests/vscode-reference/diagnostics-compare.test.cjs
 ```
@@ -47,6 +48,16 @@ remaining in the owned group/tree; detached descendants and arbitrary Windows
 worker crashes with surviving children are not qualified by these tests.
 
 ## Evidence and boundaries
+
+`typing.json` captures 18 C++/JSON smart-typing workflows from the executable,
+including generated versus manual delimiters, reversed/adjacent/mixed selections,
+multi-cursor typing, comment/string/raw-string rules, physical-Enter-equivalent
+`type` newline versus explicit `lineBreakInsert`, CRLF, and Undo/Redo. Every
+intermediate text and scalar selection is compared by `examples/typing_contract.rs`.
+`typing-provenance.json` records the asserted product commit, observer/case/trace
+SHA-256 hashes, platform and scope. The committed Linux capture is an actual run;
+fresh platform captures are compared and retained by CI. These command/document
+observations do not qualify physical terminal delivery or all indentation rules.
 
 Diagnostic collection capture writes `diagnostics.json` and
 `diagnostics-provenance.json`: 26 raw snapshots and 17 events from the executable,

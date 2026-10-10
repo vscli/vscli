@@ -41,6 +41,11 @@ New documents and files without line breaks use CRLF on Windows and LF on Unix. 
 
 The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary text entry, grapheme-aware horizontal movement, visual-column vertical movement, keyboard/mouse selection, undo/redo, indentation, comments, line deletion, literal find, replace all, and go to line.
 
+C/C++ and JSON/JSONC now have native [smart typing](SMART_TYPING.md): bracket/quote
+pairing, surrounding selections, generated-close skipping/deletion and bracket-aware
+Enter. Paste remains literal. Language overrides control pairing and indentation;
+advanced language indentation rules and other profiles remain incomplete.
+
 Quick open indexes up to 100,000 workspace files in a background worker. It respects ignore rules and skips `.git`, `target`, `node_modules`, `.venv`, and `__pycache__`. The explorer shows the current directory; Right opens a directory or file (Enter also opens in Linux/Windows profiles), Left/Backspace goes to its parent, and Escape returns focus to the editor. macOS uses Enter for rename. Native file notifications refresh the index after a short debounce; Refresh Explorer is available when notifications are unavailable. See [external file changes](#external-file-changes) for qualification limits.
 
 The command palette lists implemented actions. Background Tree-sitter highlighting covers C/C++, Rust, Python, JavaScript/JSX, TypeScript/TSX, and JSON, including multiline constructs. C/C++ use native bundled grammars without Node or a language server; C++ templates, preprocessor directives, multiline raw strings and Unicode comments map to native theme categories. Headers (`.h`, `.hpp` and related suffixes), module files and `.h.in`/`.hpp.in` templates select C++ highlighting. CUDA grammar, semantic tokens and exact TextMate scopes remain unsupported. Grammar work retains the 2 MiB document limit, cancellation and revision checks; larger files use existing fallback highlighting. Tabs switch using the profile's next/previous editor shortcuts. Multiple cursors support typing, deletion, indentation, comments, selection movement, clipboard operations, and undo. Up to four editor groups can share documents with independent cursors and scroll positions.
@@ -557,35 +562,29 @@ separate limitations described above.
 ## Parameter hints
 
 **Ctrl+Shift+Space** on Linux/Windows or **Cmd+Shift+Space** on macOS requests
-**Language: Parameter Hints** from the configured LSP server. The original binding
-requires editor focus and a server advertising signature help. The native themed
-panel shows the server-selected signature, highlights its active parameter, and
-renders signature/parameter documentation as plain text. **Escape** or
-**Shift+Escape** dismisses it. The panel remains nonmodal: typing, movement, other
-commands, prompts, selection/view changes or closing the editor dismiss it and
-cancel any pending request. Late canceled replies cannot reopen it. Invoking the
-command from an empty welcome screen does not create a document.
+**Language: Parameter Hints** from a matching optional extension or native LSP.
+Typing registered trigger characters also opens hints automatically, with a
+120 ms debounce and registered retrigger/content-change contexts. The nonmodal
+panel highlights the active parameter and displays inert plain-text documentation.
+Up/Down cycles overloads locally; Alt+Up/Alt+Down remains available while completion
+is open. Completion navigation and its first Escape take precedence. Escape or
+Shift+Escape closes hints; typing and keyboard movement can retrigger active help.
 
-This first slice is explicitly invoked. Automatic triggers/retriggering while
-arguments are typed, overload navigation, Markdown formatting and every server's
-parameter-selection behavior remain unqualified. UTF-16 offset-pair and substring
-parameter labels are supported; string labels use the pinned editor's ASCII word
-boundaries so `int` matches the type in `print(value: int)`, with an empty highlight
-when no match exists. This is source-informed by
-[VS Code 1.95 parameter rendering](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/editor/contrib/parameterHints/browser/parameterHintsWidget.ts).
-Out-of-range active indices fall back to zero.
-The response accepts at most 32 signatures, 128 parameters per signature, 8 KiB per
-signature label or selected documentation field, and 64 KiB total signature labels. The panel clips
-long content to its available editor area. Malformed ranges or oversized data
-report an error without touching the buffer. Hints never edit or save files.
+`editor.parameterHints.enabled` and `.cycle` default to true and support language
+overrides. Manual invocation remains available when automatic initial hints are
+disabled. Save and unrelated retained-buffer edits preserve valid hints. Active
+editor, settings, source and text-epoch checks reject stale replies. Invoking on
+the empty welcome screen does not create a document.
 
-Deterministic protocol/UI/PTY tests cover original shortcuts, active highlighting,
-shared-document identity, cancellation, out-of-order replies, empty startup,
-malformed data and CRLF save/undo after dismissal. A real clangd 23.1.1 C++ fixture
-checks the second argument of a two-parameter function without changing file bytes:
+See [parameter hint contracts, bounds and evidence](PARAMETER_HINTS.md) for the
+independent actual-work lanes, original extension help-object revival, validation
+of all overloads, UTF-16 labels and remaining qualification. Hints never edit/save.
+Named native, synthetic extension and Unix PTY tests cover these workflows. The
+opt-in real clangd checks can be run with:
 
 ```sh
 cargo test --locked --test signature_help real_clangd -- --ignored
+python3 tests/signature_hints_pty.py target/debug/vscli --real-clangd
 ```
 
 This is native workflow evidence, not full signature-help parity with VS Code.
@@ -722,7 +721,7 @@ Use `vscli --enable-extension publisher.name` to remember a global code grant wi
 
 ## Native extension language providers
 
-A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). The highest-scoring matching provider wins, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Completion also requests automatically after identifier typing or registered trigger characters; signature invocation remains explicit.
+A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). The highest-scoring matching provider wins, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Completion requests automatically after identifier typing or registered trigger characters; parameter hints use automatic triggers/retriggers and local overload navigation as described above.
 
 Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. Definitions and references reuse dirty/shared buffers and load closed files asynchronously. Completion uses the nonmodal caret popup with Up/Down selection, Tab/Enter acceptance and Escape cancellation; native snippet placeholder Tab retains precedence. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Completion resolution and linked snippet fields with atomic import edits are supported. Completion commands, workspace symbol providers and provider aggregation remain unsupported. See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).
 

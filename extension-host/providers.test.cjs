@@ -165,7 +165,7 @@ test('signature metadata overload dispatches the original context and validates 
   providers.forOwner('test.extension').registerSignatureHelpProvider('cpp', {
     provideSignatureHelp(document, position, token, context) { observed = context; return new types.SignatureHelp(); },
   }, { triggerCharacters: ['('], retriggerCharacters: [','] });
-  const entry = providers.snapshot()[0]; assert.deepEqual(entry.triggers, ['(', ',']);
+  const entry = providers.snapshot()[0]; assert.deepEqual(entry.triggers, ['(']); assert.deepEqual(entry.retriggers, [',']);
   await providers.provide(request(entry.id)); assert.deepEqual(observed, { triggerKind: 1, isRetrigger: false });
   assert.throws(() => providers.forOwner('test.extension').registerSignatureHelpProvider('*', { provideSignatureHelp() {} }, { unsupported: true }), /metadata/);
 });

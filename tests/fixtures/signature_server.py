@@ -37,7 +37,19 @@ while True:
     if method == "initialize":
         send({"id":ident,"result":{"capabilities":{"textDocumentSync":1,"signatureHelpProvider":{"triggerCharacters":["(",","]}}}})
     elif method == "textDocument/signatureHelp":
-        assert message["params"]["context"] == {"triggerKind":1,"isRetrigger":False}
+        context = message["params"]["context"]
+        assert set(context) <= {"triggerKind", "isRetrigger", "triggerCharacter", "activeSignatureHelp"}
+        assert context["triggerKind"] in (1, 2, 3)
+        assert isinstance(context["isRetrigger"], bool)
+        if context["triggerKind"] == 2:
+            assert context["triggerCharacter"] in ("(", ",")
+        else:
+            assert "triggerCharacter" not in context
+        if "activeSignatureHelp" in context:
+            assert context["isRetrigger"]
+            assert context["activeSignatureHelp"]["signatures"][0]["label"].startswith("sum")
+        if count == 0:
+            assert not context["isRetrigger"]
         count += 1
         threading.Thread(target=reply,args=(ident,count),daemon=True).start()
     elif method == "shutdown": send({"id":ident,"result":None})

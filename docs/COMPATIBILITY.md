@@ -50,16 +50,20 @@ resolution, and validated edits across synchronized open buffers. C++ qualificat
 includes a real clangd 23.1.1 missing-semicolon fix on Linux; broader server/refactor
 compatibility remains unqualified. See [supported edits and integrity boundaries](USAGE.md#native-code-actions-and-quick-fixes).
 
-Native explicitly invoked LSP parameter hints now show the server-selected signature
-and active parameter in a themed nonmodal panel; automatic triggers and overload
-navigation remain pending. See [behavior and evidence](USAGE.md#parameter-hints).
+Native and optional-extension parameter hints now support automatic triggers,
+retrigger contexts and local overload navigation alongside completion. Dedicated
+actual-work lanes and active-editor/source/settings guards reject stale replies.
+See [contracts and remaining qualification](PARAMETER_HINTS.md). Native C/C++ and
+JSON/JSONC [smart typing](SMART_TYPING.md) adds guarded pairs, surrounding selections,
+owned-close handling and bracket-aware Enter; advanced indentation and broader
+language configuration remain incomplete.
 
 Native LSP document/workspace symbol search supports bounded hierarchical and flat
 responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-file
 loads. Range-less WorkspaceSymbol resolve and an outline panel remain unsupported.
 See [symbol-navigation behavior and evidence](USAGE.md#native-document-and-workspace-symbols).
 
-Optional selected extensions now dispatch seven language-provider workflows into native UI: completion, hover, definitions, references, formatting, document symbols and signature help. Native context/version checks guard responses and picker acceptance; formatting/completion preserve EOL and undo. Synthetic native/PTY qualification covers this subset; unchanged NPM Intellisense 1.4.5 completion and SQL Formatter VSCode 4.2.6 document formatting also pass named native/terminal workflows on Linux. Provider aggregation, code-action providers and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).
+Optional selected extensions dispatch completion, hover, definitions, references, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers; aggregation/fallback for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).
 
 ## Feature disposition
 

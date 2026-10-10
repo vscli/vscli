@@ -12,7 +12,7 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-This plan describes the source included through [PR #52](https://github.com/vscli/vscli/pull/52).
+Merged source extends through [PR #55](https://github.com/vscli/vscli/pull/55).
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
@@ -40,6 +40,14 @@ ranking. Its checks and recorded workflows remain separate from full IntelliSens
 parity. The merged [PR #54 diagnostics slice](DIAGNOSTICS.md) adds independent collections,
 native text-epoch/server guards and successful-save events. Extension code-action
 providers follow it within priority 2 through the [bounded action slice](CODE_ACTIONS.md), with official unchanged sample and real clangd qualification. Command/resource/full-context parity remains outstanding.
+
+Priority 3 is in integration: native C/C++ and JSON/JSONC [smart typing](SMART_TYPING.md)
+and [automatic parameter hints](PARAMETER_HINTS.md). Local evidence includes 18
+observed pinned-editor typing traces, document/settings integrity tests, Unix
+native/extension PTY interactions and automatic installed clangd hints without
+executable Node. Whole-branch checks and protected-main CI remain separate gates.
+Advanced language indentation, extension language configuration and broader
+signature-extension qualification remain follow-up scope.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
@@ -143,7 +151,7 @@ SnippetString or registering a provider as implementing insertion semantics.
 
 ### 2. Qualify the C++ project workflow end to end
 
-Installed clangd startup, C/C++ highlighting, automatic completion, explicit signature help,
+Installed clangd startup, C/C++ highlighting, automatic completion, automatic signature help,
 definitions/references, symbols and a real quick fix are integrated. Qualify them
 together in a representative repository using `compile_commands.json`, with useful
 missing-configuration and server-restart feedback. Add completion resolve/snippets,

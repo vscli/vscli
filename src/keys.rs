@@ -390,13 +390,18 @@ impl Keymap {
         for (key, cmd) in [
             ("backspace", "deleteLeft"),
             ("delete", "deleteRight"),
-            ("enter", "lineBreakInsert"),
             ("tab", "tab"),
             ("shift+tab", "outdent"),
             ("escape", "cancelSelection"),
         ] {
             map.add(key, cmd, Some("editorTextFocus"));
         }
+        map.bindings.push(Binding {
+            key: "enter".into(),
+            command: "type".into(),
+            when: Some("editorTextFocus".into()),
+            args: Some(serde_json::json!({"text":"\n"})),
+        });
         map.add(
             &format!("{word}+backspace"),
             "deleteWordLeft",
@@ -430,6 +435,30 @@ impl Keymap {
                 key,
                 "closeParameterHints",
                 Some("editorFocus && parameterHintsVisible"),
+            );
+        }
+        for (key, command) in [
+            ("up", "showPrevParameterHint"),
+            ("alt+up", "showPrevParameterHint"),
+            ("down", "showNextParameterHint"),
+            ("alt+down", "showNextParameterHint"),
+        ] {
+            map.add(
+                key,
+                command,
+                Some("editorFocus && parameterHintsMultipleSignatures && parameterHintsVisible"),
+            );
+        }
+        if profile == Profile::Macos {
+            map.add(
+                "ctrl+p",
+                "showPrevParameterHint",
+                Some("editorFocus && parameterHintsMultipleSignatures && parameterHintsVisible"),
+            );
+            map.add(
+                "ctrl+n",
+                "showNextParameterHint",
+                Some("editorFocus && parameterHintsMultipleSignatures && parameterHintsVisible"),
             );
         }
         for (key, command) in [
@@ -939,7 +968,7 @@ mod tests {
             );
             context.insert("acceptSuggestionOnEnter".into(), json!(false));
             assert!(
-                matches!(map.resolve("enter", &context), Resolution::Command(id, _) if id == "lineBreakInsert")
+                matches!(map.resolve("enter", &context), Resolution::Command(id, Some(args)) if id == "type" && args == json!({"text":"\n"}))
             );
         }
     }
@@ -1437,7 +1466,12 @@ mod tests {
                 .filter(|b| {
                     matches!(
                         b["command"].as_str(),
-                        Some("editor.action.triggerParameterHints" | "closeParameterHints")
+                        Some(
+                            "editor.action.triggerParameterHints"
+                                | "closeParameterHints"
+                                | "showPrevParameterHint"
+                                | "showNextParameterHint"
+                        )
                     )
                 })
             {
@@ -1458,6 +1492,42 @@ mod tests {
                 map.resolve(&key, &HashMap::new()),
                 Resolution::Command(_, _)
             ));
+        }
+    }
+    #[test]
+    fn completion_and_parameter_hint_keys_preserve_each_widgets_priority() {
+        for profile in [Profile::Linux, Profile::Macos, Profile::Windows] {
+            let map = Keymap::new(profile);
+            let mut context = HashMap::from([
+                ("editorFocus".into(), json!(true)),
+                ("editorTextFocus".into(), json!(true)),
+                ("textInputFocus".into(), json!(true)),
+                ("parameterHintsVisible".into(), json!(true)),
+                ("parameterHintsMultipleSignatures".into(), json!(true)),
+                ("suggestWidgetVisible".into(), json!(true)),
+            ]);
+            for (key, command) in [
+                ("down", "selectNextSuggestion"),
+                ("up", "selectPrevSuggestion"),
+                ("escape", "hideSuggestWidget"),
+                ("alt+down", "showNextParameterHint"),
+                ("alt+up", "showPrevParameterHint"),
+            ] {
+                assert!(
+                    matches!(map.resolve(key, &context), Resolution::Command(id, _) if id == command)
+                );
+            }
+            context.insert("suggestWidgetVisible".into(), json!(false));
+            assert!(
+                matches!(map.resolve("down", &context), Resolution::Command(id, _) if id == "showNextParameterHint")
+            );
+            assert!(
+                matches!(map.resolve("escape", &context), Resolution::Command(id, _) if id == "closeParameterHints")
+            );
+            context.insert("parameterHintsMultipleSignatures".into(), json!(false));
+            assert!(
+                matches!(map.resolve("down", &context), Resolution::Command(id, _) if id == "cursorDown")
+            );
         }
     }
     #[test]

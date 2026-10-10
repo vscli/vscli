@@ -82,6 +82,8 @@ pub struct Provider {
     pub selector: Vec<Filter>,
     pub triggers: Vec<String>,
     #[serde(default)]
+    pub retriggers: Vec<String>,
+    #[serde(default)]
     pub resolves: bool,
     #[serde(default, rename = "actionKinds")]
     pub action_kinds: Option<Vec<String>>,
@@ -132,15 +134,18 @@ impl Registry {
                 || (provider.resolves
                     && !matches!(provider.kind, Kind::Completion | Kind::CodeAction))
                 || (provider.kind != Kind::CodeAction && provider.action_kinds.is_some())
+                || (provider.kind != Kind::Signature && !provider.retriggers.is_empty())
                 || provider.action_kinds.as_ref().is_some_and(|kinds| {
                     kinds.len() > 32 || kinds.iter().any(|kind| kind.len() > 128)
                 })
                 || provider.selector.len() > 32
                 || !provider.selector.iter().all(Filter::valid)
                 || provider.triggers.len() > 16
+                || provider.retriggers.len() > 16
                 || provider
                     .triggers
                     .iter()
+                    .chain(&provider.retriggers)
                     .any(|value| value.chars().count() != 1 || value.len() > 4)
             {
                 bail!("Invalid extension language provider registration");
@@ -178,6 +183,30 @@ mod tests {
     use serde_json::json;
     fn registration(id: u64, language: &str) -> serde_json::Value {
         json!({"id":id,"owner":"test.provider","type":"completion","selector":[{"language":language,"scheme":"file"}],"triggers":["."]})
+    }
+    #[test]
+    fn signature_metadata_preserves_distinct_triggers_and_rejects_atomic_invalid_updates() {
+        let mut registry = Registry::default();
+        let owners = ["test.provider"];
+        let mut signature = registration(1, "cpp");
+        signature["type"] = json!("signature");
+        signature["triggers"] = json!(["("]);
+        signature["retriggers"] = json!([",", ")"]);
+        registry
+            .replace(json!([signature.clone()]), &owners)
+            .unwrap();
+        assert_eq!(registry.entries()[0].triggers, ["("]);
+        assert_eq!(registry.entries()[0].retriggers, [",", ")"]);
+        let epoch = registry.epoch();
+        for field in [json!(["ab"]), json!(vec![","; 17]), json!([0])] {
+            let mut invalid = signature.clone();
+            invalid["retriggers"] = field;
+            assert!(registry.replace(json!([invalid]), &owners).is_err());
+            assert_eq!(registry.epoch(), epoch);
+        }
+        signature["type"] = json!("completion");
+        assert!(registry.replace(json!([signature]), &owners).is_err());
+        assert_eq!(registry.epoch(), epoch);
     }
     #[test]
     fn metadata_updates_are_atomic_and_do_not_adopt_unknown_owners_or_selector_fields() {

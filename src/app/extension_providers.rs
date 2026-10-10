@@ -28,7 +28,6 @@ pub(super) struct State {
     completion_resolves: std::collections::HashMap<u64, Ticket>,
     loading: Option<Loading>,
     pub symbols: Vec<crate::symbols::Symbol>,
-    hint: Option<crate::signature::Hint>,
 }
 impl App {
     pub(super) fn request_provider_completion_resolve(
@@ -106,7 +105,6 @@ impl App {
             }
         }
         self.extension_providers.symbols.clear();
-        self.extension_providers.hint = None;
         // A canceled filesystem read retains the one worker slot until it exits.
     }
     fn provider_current(&self, ticket: &Ticket, context: &Context) -> bool {
@@ -120,27 +118,22 @@ impl App {
     pub(super) fn provider_ui_event(&mut self, event: &Event) {
         let allowed = match event {
             Event::Key(key) if key.kind != KeyEventKind::Release => {
-                // Resolve hint dismissal against the still-current visible hint.
-                // Advancing the input epoch first would make its when-clause false.
-                let dismiss_hint = self.extension_signature_help().is_some()
-                    && matches!(self.keymap.resolve(&keys::token(*key), &self.context()), Resolution::Command(command, _) if command == "closeParameterHints");
                 let picker = matches!(&self.modal, Some(Modal::Language { items, .. }) if items.iter().any(|i| matches!(i.action, language::LanguageAction::Provider { .. })));
                 let symbols = self.provider_symbols_active()
                     && matches!(
                         self.prompt.as_ref().map(|p| &p.kind),
                         Some(PromptKind::Symbols)
                     );
-                dismiss_hint
-                    || (picker
-                        && matches!(
-                            key.code,
-                            KeyCode::Up
-                                | KeyCode::Down
-                                | KeyCode::PageUp
-                                | KeyCode::PageDown
-                                | KeyCode::Enter
-                                | KeyCode::Tab
-                        ))
+                (picker
+                    && matches!(
+                        key.code,
+                        KeyCode::Up
+                            | KeyCode::Down
+                            | KeyCode::PageUp
+                            | KeyCode::PageDown
+                            | KeyCode::Enter
+                            | KeyCode::Tab
+                    ))
                     || (symbols
                         && (key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT)
                         && matches!(
@@ -184,6 +177,10 @@ impl App {
         };
         if !self.has_extension_provider(kind) {
             return false;
+        }
+        if kind == Kind::Signature {
+            self.request_signature();
+            return true;
         }
         self.cancel_extension_provider();
         if let Err(error) = Context::check_budget(self) {
@@ -240,6 +237,13 @@ impl App {
             .map(|h| h.take_provider_replies())
             .unwrap_or_default();
         for reply in replies {
+            if reply.ticket.provider.kind == Kind::Signature {
+                changed = true;
+                if let Err(error) = self.extension_signature_reply(&reply.ticket, reply.result) {
+                    self.message = format!("Extension parameter hints: {error:#}");
+                }
+                continue;
+            }
             if reply.ticket.provider.kind == Kind::CodeAction {
                 changed = true;
                 self.extension_action_reply(reply.ticket, reply.result);
@@ -385,8 +389,7 @@ impl App {
                 }
             }
             Kind::Signature => {
-                self.extension_providers.hint = crate::signature::Hint::parse(&value)?;
-                self.message = "Extension parameter hints · Shift+Escape closes".into();
+                bail!("Signature results must use their independent request controller");
             }
             Kind::Symbols => {
                 let fallback = PathBuf::from(self.doc().name());
@@ -520,28 +523,6 @@ impl App {
         self.message = "Extension location opened".into();
         Ok(())
     }
-    pub(super) fn clear_extension_signature(&mut self) {
-        if self
-            .extension_providers
-            .lease
-            .as_ref()
-            .is_some_and(|l| l.ticket.provider.kind == Kind::Signature)
-        {
-            self.cancel_extension_provider();
-        }
-    }
-    pub(super) fn extension_signature_help(&self) -> Option<&crate::signature::Hint> {
-        self.extension_providers
-            .lease
-            .as_ref()
-            .filter(|l| {
-                l.ticket.provider.kind == Kind::Signature
-                    && self.provider_current(&l.ticket, &l.context)
-                    && self.modal.is_none()
-                    && self.prompt.is_none()
-            })
-            .and(self.extension_providers.hint.as_ref())
-    }
     pub(super) fn provider_symbols_active(&self) -> bool {
         self.extension_providers
             .lease
@@ -651,6 +632,9 @@ mod tests {
     fn request(app: &mut App, kind: Kind) {
         app.language_request(kind.method(), json!({}));
         until(app, |a| {
+            if kind == Kind::Signature {
+                return a.signature_help().is_some() || a.message.contains("response:");
+            }
             a.extension_providers
                 .lease
                 .as_ref()

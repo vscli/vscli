@@ -61,6 +61,12 @@ installation evidence, not validation of additional published extension workflow
 
 Selected ready extensions can provide explicit and automatic typing completion, hover, definitions, references, document formatting, document symbols and signature help through the editor's native commands and UI. Highest selector score/newest registration selects one provider; a nonmatching extension leaves native LSP dispatch available. Native context and document-version guards remain active through response, picker selection and asynchronous target loading. Completion/formatting normalize inserted text to the current EOL convention before validating ranges, overlaps and byte limits. [Supported forms, bounds and synthetic workflow evidence](EXTENSION_PROVIDERS.md) distinguish this subset from full extension language compatibility.
 
+Signature help additionally supports automatic trigger/retrigger contexts, local
+overload navigation and revival of the original provider object alongside native
+completion. Its dedicated bounded lane and named synthetic terminal evidence are
+documented in [parameter hints](PARAMETER_HINTS.md); a production signature-extension
+corpus and multi-provider null fallback remain unqualified.
+
 ## Native snippet packages
 
 Installed `contributes.snippets` are available through **F1 → Insert Snippet** and

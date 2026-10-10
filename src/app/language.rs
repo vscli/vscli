@@ -106,6 +106,9 @@ impl App {
                         }
                         Event::Ready => self.message = "Language server ready".into(),
                         Event::Message(message) => self.message = message,
+                        Event::SignatureFailure(request, error) => {
+                            self.signature_failure(&request, &error);
+                        }
                         Event::Diagnostics(publication) => {
                             if let Some(doc) = self
                                 .documents
@@ -135,6 +138,10 @@ impl App {
         }
     }
     pub(super) fn language_request(&mut self, method: &str, extra: Value) {
+        if method == "textDocument/signatureHelp" {
+            self.request_signature();
+            return;
+        }
         if method == "textDocument/codeAction" {
             let kind = extra["context"]["only"]
                 .as_array()

@@ -2,6 +2,7 @@
 const { Position, Uri, Disposable } = require('./api-types.cjs');
 const { createActions } = require('./code-actions.cjs');
 const { CodeActionKind } = require('./code-action-types.cjs');
+const signatureTypes = require('./signatures.cjs');
 const { CancellationTokenSource, SnippetString } = require('./provider-types.cjs');
 const MAX_PROVIDERS = 128, MAX_PENDING = 8, MAX_RESULT_BYTES = 1024 * 1024;
 const METHODS = Object.freeze({
@@ -120,16 +121,7 @@ function normalize(type, value, document) {
       };
       return list(value, 512).map(value => convert(value, 0));
     }
-    case 'signature': return {
-      signatures: list(value.signatures, 128).map(signature => ({
-        label: text(signature.label, 65536), ...(signature.documentation !== undefined ? { documentation: documentation(signature.documentation) } : {}),
-        parameters: list(signature.parameters || [], 128).map(parameter => {
-          const label = typeof parameter.label === 'string' ? text(parameter.label) : list(parameter.label, 2);
-          if (Array.isArray(label) && (label.length !== 2 || !label.every(Number.isSafeInteger) || label[0] < 0 || label[1] < label[0] || label[1] > signature.label.length)) throw new Error('Invalid signature parameter offsets');
-          return { label, ...(parameter.documentation !== undefined ? { documentation: documentation(parameter.documentation) } : {}) };
-        }),
-      })), activeSignature: value.activeSignature, activeParameter: value.activeParameter,
-    };
+    case 'signature': return signatureTypes.normalize(value);
     default: throw new Error('Unknown provider type');
   }
 }
@@ -154,13 +146,15 @@ function createProviders(options) {
     if (entries.get(item.entry.id) !== item.entry || item.epoch !== registryEpoch || item.document.isClosed || item.document.version !== item.version) return false;
     try { actions.assertWorkspace(item.workspace, options); return true; } catch { return false; }
   } });
-  function snapshot() { return [...entries.values()].map(({ id, owner, type, selector, triggers, resolves, actionKinds }) => ({ id, owner, type, selector, triggers, resolves, ...(actionKinds ? {actionKinds} : {}) })); }
-  function publish() { registryEpoch++; completions.clear(); actions.clear(); for (const call of calls.values()) if (call.completionOrigin !== undefined || call.actionOrigin !== undefined) call.source.cancel(); options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
+  const signatures = signatureTypes.createSignatures({ ...options, position, assertCurrent,
+    registered: (entry, epoch) => entries.get(entry.id) === entry && registryEpoch === epoch });
+  function snapshot() { return [...entries.values()].map(({ id, owner, type, selector, triggers, retriggers, resolves, actionKinds }) => ({ id, owner, type, selector, triggers, resolves, ...(type === 'signature' ? {retriggers} : {}), ...(actionKinds ? {actionKinds} : {}) })); }
+  function publish() { registryEpoch++; completions.clear(); actions.clear(); signatures.clear(); for (const call of calls.values()) if (call.completionOrigin !== undefined || call.actionOrigin !== undefined || call.entry.type === 'signature') call.source.cancel(); options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
   function forOwner(owner) {
     return Object.fromEntries(Object.entries(METHODS).map(([type, [registration, method]]) => [registration, (documentSelector, provider, ...triggers) => {
       if (entries.size >= MAX_PROVIDERS) throw new Error('Extension language provider limit reached');
       if (!provider || typeof provider[method] !== 'function') throw new TypeError(`Provider requires ${method}`);
-      let actionKinds;
+      let actionKinds, retriggers = [];
       if (type === 'codeaction') {
         if (triggers.length > 1) throw new Error('Invalid code action metadata');
         const metadata = triggers[0]; triggers = [];
@@ -173,11 +167,14 @@ function createProviders(options) {
       if (type === 'signature' && triggers.length === 1 && triggers[0] && typeof triggers[0] === 'object') {
         const metadata = triggers[0];
         if (Object.keys(metadata).some(key => !['triggerCharacters', 'retriggerCharacters'].includes(key))) throw new Error('Unsupported signature provider metadata');
-        triggers = [...list(metadata.triggerCharacters || [], 16), ...list(metadata.retriggerCharacters || [], 16)];
+        const triggerCharacters = metadata.triggerCharacters, retriggerCharacters = metadata.retriggerCharacters;
+        triggers = signatureTypes.characters(triggerCharacters === undefined ? [] : triggerCharacters);
+        retriggers = signatureTypes.characters(retriggerCharacters === undefined ? [] : retriggerCharacters);
       }
+      if (type === 'signature') triggers = signatureTypes.characters(triggers);
       if (triggers.length > 16 || triggers.some(value => typeof value !== 'string' || [...value].length !== 1 || Buffer.byteLength(value) > 4)) throw new Error('Provider trigger characters exceed their budget');
       const id = ++nextId;
-      const entry = { id, owner, type, selector: selector(documentSelector), triggers, provider, method, actionKinds, resolves: type === 'completion' && typeof provider.resolveCompletionItem === 'function' || type === 'codeaction' && typeof provider.resolveCodeAction === 'function' };
+      const entry = { id, owner, type, selector: selector(documentSelector), triggers, retriggers, provider, method, actionKinds, resolves: type === 'completion' && typeof provider.resolveCompletionItem === 'function' || type === 'codeaction' && typeof provider.resolveCodeAction === 'function' };
       entries.set(id, entry);
       const disposable = new Disposable(() => { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); publish(); });
       try { const result = options.track(owner, disposable); publish(); return result; }
@@ -185,7 +182,8 @@ function createProviders(options) {
     }]));
   }
   function assertCurrent(call) {
-    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (['completion','codeaction'].includes(call.entry.type) && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version) throw new Error('Language provider result became stale or canceled');
+    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (['completion','codeaction','signature'].includes(call.entry.type) && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version) throw new Error('Language provider result became stale or canceled');
+    if (call.entry.type === 'signature' && (options.document(call.documentId) !== call.document || call.document.uri.toString() !== call.uri)) throw new Error('Signature document identity changed');
     if (call.workspace) actions.assertWorkspace(call.workspace, options);
   }
   function purgeCompletions() {
@@ -208,6 +206,12 @@ function createProviders(options) {
     for (let index = 0; index < staged.length; index++) { completions.set(...staged[index]); result.items[index]._vscliCompletionHandle = staged[index][0]; }
   }
   async function provide(params) {
+    const signature = params.signatureRequest === true || entries.get(params.provider)?.type === 'signature';
+    let accepted;
+    try { return await performProvide(params, call => { accepted = call; }); }
+    finally { if (signature && !accepted?.signatureWork) signatures.released(params, accepted); }
+  }
+  async function performProvide(params, accepted) {
     const entry = entries.get(params.provider);
     if (params.session !== options.session || !entry || entry.owner !== params.owner) throw new Error('Stale or invalid provider owner/session');
     const document = options.document(params.document);
@@ -215,8 +219,8 @@ function createProviders(options) {
     if (calls.size >= MAX_PENDING) throw new Error('Language provider invocation limit reached');
     const callId = params.request === undefined ? Symbol() : params.request;
     if (typeof callId !== 'symbol' && (!Number.isSafeInteger(callId) || callId < 1 || calls.has(callId))) throw new Error('Invalid or duplicate provider request ID');
-    const source = new CancellationTokenSource(), call = { source, entry, document, version: document.version, epoch: registryEpoch };
-    calls.set(callId, call);
+    const source = new CancellationTokenSource(), call = { source, entry, document, documentId: params.document, uri: document.uri.toString(), version: document.version, epoch: registryEpoch };
+    calls.set(callId, call); accepted(call);
     let args;
     try {
       switch (entry.type) {
@@ -228,7 +232,7 @@ function createProviders(options) {
           if (kind === 2 && (typeof context.triggerCharacter !== 'string' || [...context.triggerCharacter].length !== 1 || Buffer.byteLength(context.triggerCharacter) > 4)) throw new TypeError('Invalid completion trigger character');
           args = [document, position(params.position, document), source.token, { triggerKind: kind - 1, ...(kind === 2 ? { triggerCharacter: context.triggerCharacter } : {}) }]; break;
         }
-        case 'signature': args = [document, position(params.position, document), source.token, { triggerKind: 1, isRetrigger: false }]; break;
+        case 'signature': signatures.reserve(call, callId); args = signatures.args(params, call); break;
         case 'hover': case 'definition': args = [document, position(params.position, document), source.token]; break;
         case 'references': args = [document, position(params.position, document), { includeDeclaration: !!params.includeDeclaration }, source.token]; break;
         case 'formatting':
@@ -238,7 +242,7 @@ function createProviders(options) {
       }
     } catch (error) { calls.delete(callId); source.dispose(); throw error; }
     let timer;
-    const work = Promise.resolve().then(() => { assertCurrent(call); return entry.provider[entry.method](...args); }).then(value => {
+    const work = Promise.resolve().then(() => { assertCurrent(call); const callback = entry.provider[entry.method]; if (entry.type === 'signature') assertCurrent(call); return callback.apply(entry.provider, args); }).then(value => {
       assertCurrent(call);
       let originals, input = value;
       if (entry.type === 'completion' && value !== undefined && value !== null) {
@@ -255,14 +259,17 @@ function createProviders(options) {
       assertCurrent(call);
       if (entry.type === 'codeaction') actions.retain(call,originals,result,callId);
       if (entry.type === 'completion' && entry.resolves && result) retainCompletions(entry, call, originals, result, callId);
+      if (entry.type === 'signature') signatures.retain(call, value, result, callId);
       wireBudget(result);
       assertCurrent(call);
       return result;
     }).catch(error => {
       actions.retire(callId,entry.owner);
       for (const [id, cached] of completions) if (cached.request === callId) completions.delete(id);
+      if (entry.type === 'signature') signatures.retire({session:options.session,owner:entry.owner,request:callId});
       throw error;
-    }).finally(() => { calls.delete(callId); source.dispose(); clearTimeout(timer); });
+    }).finally(() => { calls.delete(callId); source.dispose(); clearTimeout(timer); if (entry.type === 'signature') signatures.released(params, call); });
+    if (entry.type === 'signature') call.signatureWork = true;
     // A timed-out callback keeps its slot until it settles, bounding ignored cancellation.
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => { reject(new Error('Language provider deadline exceeded')); source.cancel(); }, options.timeoutMs || 5000); });
     let cancellationListener;
@@ -316,6 +323,8 @@ function createProviders(options) {
   }
   function cancel(params) {
     if (params.session !== options.session) return false;
+    signatures.retire(params);
+    if (params.releaseSignatureHelp === true) return true;
     actions.retire(params.request,params.owner);
     for (const [id, cached] of completions) if (cached.entry.owner === params.owner && cached.request === params.request) completions.delete(id);
     for (const pending of calls.values()) if (pending.entry.owner === params.owner && (pending.completionOrigin === params.request || pending.actionOrigin === params.request)) pending.source.cancel();
@@ -323,10 +332,10 @@ function createProviders(options) {
     if (!call || call.entry.owner !== params.owner) return false;
     call.source.cancel(); return true;
   }
-  function documentChanged() { purgeCompletions(); actions.purge(); for (const { source, document, version } of calls.values()) if (document.isClosed || document.version !== version) source.cancel();
+  function documentChanged() { purgeCompletions(); actions.purge(); signatures.purge(); for (const { source, document, version } of calls.values()) if (document.isClosed || document.version !== version) source.cancel();
     for (const call of calls.values()) if (call.workspace) { try { actions.assertWorkspace(call.workspace, options); } catch { call.source.cancel(); } } }
 
   function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
-  return { forOwner, provide, resolveCompletion, resolveAction, retainedActionCount:actions.count, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
+  return { forOwner, provide, resolveCompletion, resolveAction, retainedActionCount:actions.count, retainedSignatureCount:signatures.count, signaturePending:signatures.pending, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
 }
 module.exports = { createProviders, score, selector, normalize };

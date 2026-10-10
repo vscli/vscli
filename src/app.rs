@@ -27,6 +27,7 @@ mod symbols;
 mod tasks;
 mod terminals;
 mod themes;
+mod typing;
 mod watching;
 use crate::{
     document::Document,
@@ -280,6 +281,9 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "Language: Parameter Hints",
         "editor.action.triggerParameterHints",
     ),
+    ("Language: Previous Parameter Hint", "showPrevParameterHint"),
+    ("Language: Next Parameter Hint", "showNextParameterHint"),
+    ("Language: Close Parameter Hints", "closeParameterHints"),
     ("Language: Hover", "editor.action.showHover"),
     ("Language: Complete", "editor.action.triggerSuggest"),
     (
@@ -607,7 +611,7 @@ impl App {
     pub fn poll(&mut self) -> bool {
         let actions_changed = self.poll_code_actions();
         let brand_changed = self.welcome_brand.poll();
-        let invalidated = self.refresh_signature();
+        let invalidated = self.poll_signature();
         let invalidated = self.poll_suggestions() || invalidated;
         let changed = self.poll_symbols() || invalidated;
         let changed = self.workspace.poll() || changed;
@@ -626,8 +630,16 @@ impl App {
                         // cannot revive a completion from an earlier context.
                         self.cancel_suggestions();
                         self.cancel_code_actions();
-                        self.settings = settings;
+                        self.clear_signature();
+                        let previous = std::mem::replace(&mut self.settings, settings);
                         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
+                            let language = doc
+                                .path
+                                .as_deref()
+                                .map_or("plaintext", crate::languages::language);
+                            if previous.typing(language) != self.settings.typing(language) {
+                                doc.retire_typing_pairs();
+                            }
                             self.settings.apply(doc);
                         }
                         self.message = format!(
@@ -880,6 +892,10 @@ impl App {
                 json!(self.signature_help().is_some()),
             ),
             (
+                "parameterHintsMultipleSignatures".into(),
+                json!(self.signature_help().is_some_and(|hint| hint.count > 1)),
+            ),
+            (
                 "editorTextFocus".into(),
                 json!(
                     self.active_document().is_some()
@@ -968,6 +984,8 @@ impl App {
 
     pub fn event(&mut self, event: Event) {
         let suggestion_edit = self.suggestion_edit_event(&event);
+        let signature_edit = self.signature_edit_event(&event);
+        self.signature_ui_event(&event);
         self.suggestion_ui_event(&event);
         self.provider_ui_event(&event);
         self.code_action_ui_event(&event);
@@ -979,10 +997,11 @@ impl App {
         }
         self.event_inner(event);
         self.sync_pane();
-        self.refresh_signature();
         self.invalidate_symbol_context();
         self.invalidate_pending_extension_commands();
         self.observe_suggestion_edit(suggestion_edit);
+        self.observe_signature_edit(signature_edit);
+        self.refresh_signature();
     }
     fn event_inner(&mut self, event: Event) {
         match event {
@@ -1209,7 +1228,7 @@ impl App {
                     | KeyModifiers::META,
             )
         {
-            self.doc_mut().insert(&c.to_string(), true);
+            self.type_editor_text(&c.to_string(), true);
             return;
         }
         if !token.is_empty() {
@@ -1222,19 +1241,19 @@ impl App {
     }
     fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
         let suggestion_edit = self.suggestion_edit_command(command, args.as_ref());
+        let signature_edit = self.signature_edit_command(command, args.as_ref());
         self.execute_inner(command, args);
         self.sync_pane();
         self.invalidate_pending_extension_commands();
         self.observe_suggestion_edit(suggestion_edit);
+        self.observe_signature_edit(signature_edit);
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
-        if suggestions::command(command) {
+        self.advance_signature_interaction(command);
+        if suggestions::command(command) || signature_help::command(command) {
             self.advance_suggestion_interaction();
         } else if !suggestions::typing_command(command) {
             self.cancel_suggestions();
-        }
-        if command != "editor.action.triggerParameterHints" {
-            self.clear_signature();
         }
         self.cancel_symbols();
 
@@ -1417,6 +1436,8 @@ impl App {
             "vscli.languageServer.restart" | "vscli.languageServer.disable" | "vscli.languageServer.enable" | "vscli.languageServer.status" => self.language_service_command(command),
             "editor.action.triggerParameterHints" => self.request_signature(),
             "closeParameterHints" => self.clear_signature(),
+            "showPrevParameterHint" => self.cycle_signature(false),
+            "showNextParameterHint" => self.cycle_signature(true),
             "editor.action.showHover" => self.language_request("textDocument/hover", Value::Null),
             "editor.action.triggerSuggest" => self.language_request(
                 "textDocument/completion",
@@ -1451,7 +1472,7 @@ impl App {
             "leaveSnippet" => self.doc_mut().leave_snippet(),
             "type" => {
                 if let Some(text) = args.get("text").and_then(Value::as_str) {
-                    self.doc_mut().insert(text, false);
+                    self.type_editor_text(text, false);
                 }
             }
             "workbench.action.files.newUntitledFile" => {
@@ -1545,11 +1566,16 @@ impl App {
             "redo" => self.doc_mut().redo(),
             "editor.action.selectAll" => self.doc_mut().select_all(),
             "expandLineSelection" => self.doc_mut().select_line(),
-            "deleteLeft" => self.doc_mut().backspace(false),
+            "deleteLeft" => self.backspace_editor(false),
             "deleteRight" => self.doc_mut().delete(false),
-            "deleteWordLeft" => self.doc_mut().backspace(true),
+            "deleteWordLeft" => self.backspace_editor(true),
             "deleteWordRight" => self.doc_mut().delete(true),
-            "lineBreakInsert" => self.doc_mut().newline(),
+            "lineBreakInsert" => {
+                let options = self.settings.typing(self.language());
+                if let Err(error) = self.doc_mut().line_break_with_options(options) {
+                    self.message = format!("Line break failed: {error:#}");
+                }
+            }
             "tab" => {
                 if self
                     .doc()
