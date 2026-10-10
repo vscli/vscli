@@ -1,0 +1,16 @@
+[
+  {"name":"object-fixall-first","autosave":"off","user":{"editor.codeActionsOnSave":{"source.organizeImports":"explicit","source.fixAll":"explicit"}},"workspace":{}},
+  {"name":"array-imports-first","autosave":"off","user":{"editor.codeActionsOnSave":["source.organizeImports","source.fixAll"]},"workspace":{}},
+  {"name":"array-fixall-first","autosave":"off","user":{"editor.codeActionsOnSave":["source.fixAll","source.organizeImports"]},"workspace":{}},
+  {"name":"ancestor-false-child","autosave":"off","user":{"editor.codeActionsOnSave":{"source.fixAll":"explicit","source.fixAll.child":false}},"workspace":{}},
+  {"name":"ancestor-never-child","autosave":"off","user":{"editor.codeActionsOnSave":{"source.fixAll":"explicit","source.fixAll.child":"never"}},"workspace":{}},
+  {"name":"source-ancestor-false-family","autosave":"off","user":{"editor.codeActionsOnSave":{"source":"explicit","source.fixAll":false}},"workspace":{}},
+  {"name":"source-ancestor-never-family","autosave":"off","user":{"editor.codeActionsOnSave":{"source":"explicit","source.fixAll":"never"}},"workspace":{}},
+  {"name":"after-delay-always-skipped","autosave":"afterDelay","user":{"editor.codeActionsOnSave":{"source.fixAll":"always","source.organizeImports":"always"}},"workspace":{}},
+  {"name":"after-delay-array-skipped","autosave":"afterDelay","user":{"editor.codeActionsOnSave":["source.organizeImports","source.fixAll"]},"workspace":{}},
+  {"name":"user-workspace-object-merge","autosave":"off","user":{"editor.codeActionsOnSave":{"source.fixAll":"explicit"}},"workspace":{"editor.codeActionsOnSave":{"source.organizeImports":"explicit"}}},
+  {"name":"language-composite-single-merge","autosave":"off","user":{"editor.codeActionsOnSave":{"source.organizeImports":"explicit"},"[plaintext][cpp]":{"editor.codeActionsOnSave":{"source.fixAll":"explicit"}}},"workspace":{"[plaintext]":{"editor.codeActionsOnSave":{"source.fixAll.child":"never"}}}},
+  {"name":"workspace-array-replaces-object","autosave":"off","user":{"editor.codeActionsOnSave":{"source.fixAll":"explicit"}},"workspace":{"editor.codeActionsOnSave":["source.organizeImports"]}},
+  {"name":"workspace-empty-object-retains-user","autosave":"off","user":{"editor.codeActionsOnSave":{"source.fixAll":"explicit"}},"workspace":{"editor.codeActionsOnSave":{}}},
+  {"name":"child-only-dot-boundary","autosave":"off","user":{"editor.codeActionsOnSave":{"source.fixAll.child":"explicit"}},"workspace":{}}
+]
