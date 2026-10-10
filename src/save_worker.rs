@@ -75,6 +75,31 @@ impl Worker {
     pub fn busy(&self) -> bool {
         self.pending.is_some()
     }
+    /// Observe only bounded scalar state; do not drain replies or wait for work.
+    #[cfg(test)]
+    pub(crate) fn fixture_status(&self) -> String {
+        let Some(pending) = &self.pending else {
+            return "worker=idle".into();
+        };
+        let phase = match pending.phase {
+            Phase::Preparing => "preparing",
+            Phase::Awaiting => "awaiting",
+            Phase::Committing => "committing",
+            Phase::Retiring => "retiring",
+            Phase::Finishing => "finishing",
+        };
+        let deadline_remaining_ms = pending.deadline.map(|deadline| {
+            deadline
+                .saturating_duration_since(Instant::now())
+                .as_millis()
+        });
+        format!(
+            "worker(id={}, phase={phase}, thread_finished={}, terminal_reply={}, deadline_remaining_ms={deadline_remaining_ms:?})",
+            pending.id,
+            pending.thread.is_finished(),
+            pending.finished.is_some(),
+        )
+    }
     pub fn awaiting_authorization(&self, id: u64) -> bool {
         self.pending.as_ref().is_some_and(|pending| {
             pending.id == id
