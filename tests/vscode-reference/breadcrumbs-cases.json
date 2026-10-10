@@ -1,0 +1,511 @@
+[
+  {
+    "name": "hierarchical-cpp-focused-reveals",
+    "shape": "hierarchical",
+    "text": "// \u03b1\ud83d\ude00 outline\r\nnamespace demo {\r\nclass Widget {\r\npublic:\r\n    int /* \ud83d\ude00 */ render(int value) {\r\n        return value + 1;\r\n    }\r\n    void reset() {}\r\n};\r\n}\r\nint main() { return 0; }\r\n",
+    "symbols": [
+      {
+        "name": "demo",
+        "detail": "fixture declaration",
+        "kind": 3,
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 0
+          },
+          "end": {
+            "line": 9,
+            "character": 1
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 1,
+            "character": 10
+          },
+          "end": {
+            "line": 1,
+            "character": 14
+          }
+        },
+        "children": [
+          {
+            "name": "Widget",
+            "detail": "fixture declaration",
+            "kind": 5,
+            "range": {
+              "start": {
+                "line": 2,
+                "character": 0
+              },
+              "end": {
+                "line": 8,
+                "character": 2
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 2,
+                "character": 6
+              },
+              "end": {
+                "line": 2,
+                "character": 12
+              }
+            },
+            "children": [
+              {
+                "name": "render(int value)",
+                "detail": "fixture declaration",
+                "kind": 6,
+                "range": {
+                  "start": {
+                    "line": 4,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 6,
+                    "character": 5
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 4,
+                    "character": 17
+                  },
+                  "end": {
+                    "line": 4,
+                    "character": 23
+                  }
+                },
+                "children": []
+              },
+              {
+                "name": "reset()",
+                "detail": "fixture declaration",
+                "kind": 6,
+                "range": {
+                  "start": {
+                    "line": 7,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 19
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 7,
+                    "character": 9
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 14
+                  }
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "main()",
+        "detail": "fixture declaration",
+        "kind": 12,
+        "range": {
+          "start": {
+            "line": 10,
+            "character": 0
+          },
+          "end": {
+            "line": 10,
+            "character": 24
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 10,
+            "character": 4
+          },
+          "end": {
+            "line": 10,
+            "character": 8
+          }
+        },
+        "children": []
+      }
+    ],
+    "selection": {
+      "line": 5,
+      "character": 8
+    },
+    "commands": [
+      "breadcrumbs.focus",
+      "breadcrumbs.revealFocused",
+      "breadcrumbs.selectEditor",
+      "breadcrumbs.focus",
+      "breadcrumbs.focusPrevious",
+      "breadcrumbs.revealFocused",
+      "breadcrumbs.selectEditor",
+      "workbench.action.navigateBack",
+      "workbench.action.navigateForward"
+    ]
+  },
+  {
+    "name": "hierarchical-cpp-sibling-picker",
+    "shape": "hierarchical",
+    "text": "// \u03b1\ud83d\ude00 outline\r\nnamespace demo {\r\nclass Widget {\r\npublic:\r\n    int /* \ud83d\ude00 */ render(int value) {\r\n        return value + 1;\r\n    }\r\n    void reset() {}\r\n};\r\n}\r\nint main() { return 0; }\r\n",
+    "symbols": [
+      {
+        "name": "demo",
+        "detail": "fixture declaration",
+        "kind": 3,
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 0
+          },
+          "end": {
+            "line": 9,
+            "character": 1
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 1,
+            "character": 10
+          },
+          "end": {
+            "line": 1,
+            "character": 14
+          }
+        },
+        "children": [
+          {
+            "name": "Widget",
+            "detail": "fixture declaration",
+            "kind": 5,
+            "range": {
+              "start": {
+                "line": 2,
+                "character": 0
+              },
+              "end": {
+                "line": 8,
+                "character": 2
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 2,
+                "character": 6
+              },
+              "end": {
+                "line": 2,
+                "character": 12
+              }
+            },
+            "children": [
+              {
+                "name": "render(int value)",
+                "detail": "fixture declaration",
+                "kind": 6,
+                "range": {
+                  "start": {
+                    "line": 4,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 6,
+                    "character": 5
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 4,
+                    "character": 17
+                  },
+                  "end": {
+                    "line": 4,
+                    "character": 23
+                  }
+                },
+                "children": []
+              },
+              {
+                "name": "reset()",
+                "detail": "fixture declaration",
+                "kind": 6,
+                "range": {
+                  "start": {
+                    "line": 7,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 19
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 7,
+                    "character": 9
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 14
+                  }
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "main()",
+        "detail": "fixture declaration",
+        "kind": 12,
+        "range": {
+          "start": {
+            "line": 10,
+            "character": 0
+          },
+          "end": {
+            "line": 10,
+            "character": 24
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 10,
+            "character": 4
+          },
+          "end": {
+            "line": 10,
+            "character": 8
+          }
+        },
+        "children": []
+      }
+    ],
+    "selection": {
+      "line": 5,
+      "character": 8
+    },
+    "commands": [
+      "breadcrumbs.focusAndSelect",
+      "list.focusDown",
+      "list.select",
+      "breadcrumbs.selectEditor",
+      "workbench.action.navigateBack",
+      "workbench.action.navigateForward"
+    ]
+  },
+  {
+    "name": "hierarchical-cpp-outside-root-picker",
+    "shape": "hierarchical",
+    "text": "// \u03b1\ud83d\ude00 outline\r\nnamespace demo {\r\nclass Widget {\r\npublic:\r\n    int /* \ud83d\ude00 */ render(int value) {\r\n        return value + 1;\r\n    }\r\n    void reset() {}\r\n};\r\n}\r\nint main() { return 0; }\r\n",
+    "symbols": [
+      {
+        "name": "demo",
+        "detail": "fixture declaration",
+        "kind": 3,
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 0
+          },
+          "end": {
+            "line": 9,
+            "character": 1
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 1,
+            "character": 10
+          },
+          "end": {
+            "line": 1,
+            "character": 14
+          }
+        },
+        "children": [
+          {
+            "name": "Widget",
+            "detail": "fixture declaration",
+            "kind": 5,
+            "range": {
+              "start": {
+                "line": 2,
+                "character": 0
+              },
+              "end": {
+                "line": 8,
+                "character": 2
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 2,
+                "character": 6
+              },
+              "end": {
+                "line": 2,
+                "character": 12
+              }
+            },
+            "children": [
+              {
+                "name": "render(int value)",
+                "detail": "fixture declaration",
+                "kind": 6,
+                "range": {
+                  "start": {
+                    "line": 4,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 6,
+                    "character": 5
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 4,
+                    "character": 17
+                  },
+                  "end": {
+                    "line": 4,
+                    "character": 23
+                  }
+                },
+                "children": []
+              },
+              {
+                "name": "reset()",
+                "detail": "fixture declaration",
+                "kind": 6,
+                "range": {
+                  "start": {
+                    "line": 7,
+                    "character": 0
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 19
+                  }
+                },
+                "selectionRange": {
+                  "start": {
+                    "line": 7,
+                    "character": 9
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 14
+                  }
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "main()",
+        "detail": "fixture declaration",
+        "kind": 12,
+        "range": {
+          "start": {
+            "line": 10,
+            "character": 0
+          },
+          "end": {
+            "line": 10,
+            "character": 24
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 10,
+            "character": 4
+          },
+          "end": {
+            "line": 10,
+            "character": 8
+          }
+        },
+        "children": []
+      }
+    ],
+    "selection": {
+      "line": 0,
+      "character": 0
+    },
+    "commands": [
+      "breadcrumbs.focusAndSelect",
+      "list.focusFirst",
+      "list.focusDown",
+      "list.select",
+      "breadcrumbs.selectEditor"
+    ]
+  },
+  {
+    "name": "flat-cpp-symbol-picker",
+    "shape": "flat",
+    "text": "// \u03b1\ud83d\ude00 outline\r\nnamespace demo {\r\nclass Widget {\r\npublic:\r\n    int /* \ud83d\ude00 */ render(int value) {\r\n        return value + 1;\r\n    }\r\n    void reset() {}\r\n};\r\n}\r\nint main() { return 0; }\r\n",
+    "symbols": [
+      {
+        "name": "render(int value)",
+        "kind": 6,
+        "location": {
+          "range": {
+            "start": {
+              "line": 4,
+              "character": 17
+            },
+            "end": {
+              "line": 4,
+              "character": 23
+            }
+          }
+        },
+        "containerName": "Widget"
+      },
+      {
+        "name": "main()",
+        "kind": 12,
+        "location": {
+          "range": {
+            "start": {
+              "line": 10,
+              "character": 4
+            },
+            "end": {
+              "line": 10,
+              "character": 8
+            }
+          }
+        },
+        "containerName": ""
+      }
+    ],
+    "selection": {
+      "line": 4,
+      "character": 18
+    },
+    "commands": [
+      "breadcrumbs.focus",
+      "breadcrumbs.revealFocused",
+      "breadcrumbs.selectEditor",
+      "breadcrumbs.focusAndSelect",
+      "list.focusDown",
+      "list.select",
+      "breadcrumbs.selectEditor"
+    ]
+  }
+]

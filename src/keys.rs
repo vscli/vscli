@@ -505,6 +505,77 @@ impl Keymap {
             "acceptSelectedSuggestion",
             Some("textInputFocus && suggestWidgetVisible && acceptSuggestionOnEnter"),
         );
+        let visible = "breadcrumbsPossible && breadcrumbsVisible";
+        let active = "breadcrumbsActive && breadcrumbsVisible";
+        let picker = "breadcrumbsActive && breadcrumbsVisible && listFocus && !inputFocus && !treestickyScrollFocused";
+        map.add(&format!("{p}+shift+;"), "breadcrumbs.focus", Some(visible));
+        map.add(
+            &format!("{p}+shift+."),
+            "breadcrumbs.focusAndSelect",
+            Some(visible),
+        );
+        map.add(
+            &format!("{p}+shift+."),
+            "breadcrumbs.toggleToOn",
+            Some("!config.breadcrumbs.enabled"),
+        );
+        let navigation_modifier = if profile == Profile::Macos {
+            "alt"
+        } else {
+            "ctrl"
+        };
+        for (key, command) in [
+            ("right", "breadcrumbs.focusNext"),
+            ("left", "breadcrumbs.focusPrevious"),
+        ] {
+            map.add(key, command, Some(active));
+            map.add(
+                &format!("{navigation_modifier}+{key}"),
+                command,
+                Some(active),
+            );
+        }
+        for key in [format!("{p}+enter"), "space".into()] {
+            map.add(&key, "breadcrumbs.revealFocused", Some(active));
+        }
+        map.add(
+            &format!("{p}+enter"),
+            "breadcrumbs.revealFocusedFromTreeAside",
+            Some(picker),
+        );
+        for key in ["down", "enter"] {
+            map.add(key, "breadcrumbs.selectFocused", Some(active));
+        }
+        map.add(
+            "enter",
+            "list.select",
+            Some("listFocus && !inputFocus && !treestickyScrollFocused"),
+        );
+        for (key, command) in [
+            ("down", "list.focusDown"),
+            ("up", "list.focusUp"),
+            ("home", "list.focusFirst"),
+            ("end", "list.focusLast"),
+            ("pageup", "list.focusPageUp"),
+            ("pagedown", "list.focusPageDown"),
+        ] {
+            map.add(
+                key,
+                command,
+                Some("listFocus && !inputFocus && !treestickyScrollFocused"),
+            );
+        }
+        map.add(
+            &format!("{navigation_modifier}+right"),
+            "breadcrumbs.focusNextWithPicker",
+            Some(picker),
+        );
+        map.add(
+            &format!("{navigation_modifier}+left"),
+            "breadcrumbs.focusPreviousWithPicker",
+            Some(picker),
+        );
+        map.add("escape", "breadcrumbs.selectEditor", Some(active));
         map.defaults = map.bindings.clone();
         map
     }
@@ -1105,6 +1176,75 @@ mod tests {
             assert_eq!(map.resolve(back, &context), Resolution::None);
             assert!(
                 matches!(map.resolve(forward, &context), Resolution::Command(id, _) if id == "workbench.action.navigateForward")
+            );
+        }
+    }
+    #[test]
+    fn breadcrumb_rules_match_captured_platform_defaults_and_picker_precedence() {
+        for (profile, platform) in [
+            (Profile::Linux, "linux"),
+            (Profile::Windows, "win32"),
+            (Profile::Macos, "darwin"),
+        ] {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/vscode-reference/baselines/1.95.0")
+                .join(platform)
+                .join("inventory.json");
+            let inventory: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+            let map = Keymap::new(profile);
+            for binding in map.bindings.iter().filter(|binding| {
+                binding.command.starts_with("breadcrumbs.") || binding.command.starts_with("list.")
+            }) {
+                assert!(
+                    inventory["bindings"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|original| {
+                            original["command"] == binding.command
+                                && original["key"]
+                                    .as_str()
+                                    .is_some_and(|key| normalize_sequence(key) == binding.key)
+                                && original["when"].as_str() == binding.when.as_deref()
+                        }),
+                    "Uncaptured default: {profile:?} {binding:?}"
+                );
+            }
+            let p = profile.primary();
+            let mut context = HashMap::from([
+                ("breadcrumbsPossible".into(), Value::Bool(true)),
+                ("breadcrumbsVisible".into(), Value::Bool(true)),
+                ("breadcrumbsActive".into(), Value::Bool(true)),
+                ("config.breadcrumbs.enabled".into(), Value::Bool(true)),
+            ]);
+            assert!(
+                matches!(map.resolve(&format!("{p}+shift+."), &context), Resolution::Command(id, _) if id == "breadcrumbs.focusAndSelect")
+            );
+            assert!(
+                matches!(map.resolve("enter", &context), Resolution::Command(id, _) if id == "breadcrumbs.selectFocused")
+            );
+            context.insert("listFocus".into(), Value::Bool(true));
+            assert!(
+                matches!(map.resolve(&format!("{p}+enter"), &context), Resolution::Command(id, _) if id == "breadcrumbs.revealFocusedFromTreeAside")
+            );
+            assert!(
+                matches!(map.resolve("enter", &context), Resolution::Command(id, _) if id == "list.select")
+            );
+            let modifier = if profile == Profile::Macos {
+                "alt"
+            } else {
+                "ctrl"
+            };
+            assert!(
+                matches!(map.resolve(&format!("{modifier}+right"), &context), Resolution::Command(id, _) if id == "breadcrumbs.focusNextWithPicker")
+            );
+            context.insert("inputFocus".into(), Value::Bool(true));
+            assert!(
+                matches!(map.resolve("enter", &context), Resolution::Command(id, _) if id == "breadcrumbs.selectFocused")
+            );
+            context.insert("config.breadcrumbs.enabled".into(), Value::Bool(false));
+            assert!(
+                matches!(map.resolve(&format!("{p}+shift+."), &context), Resolution::Command(id, _) if id == "breadcrumbs.toggleToOn")
             );
         }
     }

@@ -16,6 +16,8 @@ impl App {
                 "Explorer"
             } else if self.focus == Focus::Outline {
                 "Outline"
+            } else if self.focus == Focus::Breadcrumbs {
+                "Breadcrumbs"
             } else if self.focus == Focus::Terminal {
                 "Terminal"
             } else {

@@ -22,6 +22,14 @@ pub enum OutlineStatus {
     Error,
 }
 
+pub(super) struct DocumentSymbolsView<'a> {
+    pub tree: Option<&'a Tree>,
+    pub active: Option<usize>,
+    pub generation: u64,
+    pub current: bool,
+    pub status: OutlineStatus,
+}
+
 pub struct OutlineView<'a> {
     pub status: OutlineStatus,
     pub tree: Option<&'a Tree>,
@@ -137,6 +145,7 @@ pub(super) struct State {
     pending: Option<Pending>,
     wanted: Option<Instant>,
     generation: u64,
+    publication: u64,
     exhausted: bool,
     status: OutlineStatus,
     message: String,
@@ -157,6 +166,7 @@ impl Default for State {
             pending: None,
             wanted: None,
             generation: 0,
+            publication: 0,
             exhausted: false,
             status: OutlineStatus::Hidden,
             message: String::new(),
@@ -261,9 +271,26 @@ impl App {
             }),
         }
     }
+    pub(super) fn document_symbols_view(&self) -> DocumentSymbolsView<'_> {
+        DocumentSymbolsView {
+            tree: self.outline.published.as_ref().map(|p| &p.tree),
+            active: self.outline.active,
+            generation: self.outline.publication,
+            status: self.outline.status,
+            current: self.outline.status == OutlineStatus::Ready
+                && self.outline_published_current(),
+        }
+    }
+    fn document_symbols_demand(&self) -> bool {
+        (self.outline.enabled && self.sidebar) || self.breadcrumbs_demand()
+    }
     pub fn outline_view(&self) -> OutlineView<'_> {
         OutlineView {
-            status: self.outline.status,
+            status: if self.outline.enabled {
+                self.outline.status
+            } else {
+                OutlineStatus::Hidden
+            },
             tree: self.outline.published.as_ref().map(|p| &p.tree),
             visible: &self.outline.visible,
             selected: self.outline.selected,
@@ -305,7 +332,7 @@ impl App {
         self.outline.cursor = None;
     }
     pub(super) fn observe_outline(&mut self) -> bool {
-        if !self.outline.enabled || self.outline.exhausted {
+        if self.outline.exhausted {
             return false;
         }
         let source = self.outline_source();
@@ -400,7 +427,7 @@ impl App {
             self.outline.current = Some(stamp);
             self.outline.cursor = None;
         }
-        if !self.sidebar
+        if !self.document_symbols_demand()
             || matches!(
                 self.prompt.as_ref().map(|p| &p.kind),
                 Some(PromptKind::Symbols)
@@ -416,8 +443,7 @@ impl App {
     }
     pub(super) fn poll_outline(&mut self) -> bool {
         let changed = self.observe_outline();
-        if !self.outline.enabled
-            || !self.sidebar
+        if !self.document_symbols_demand()
             || self.outline.exhausted
             || self.outline.pending.is_some()
             || self.outline.wanted.is_none_or(|at| Instant::now() < at)
@@ -627,6 +653,14 @@ impl App {
         })();
         match result {
             Ok(published) => {
+                let Some(publication) = self.outline.publication.checked_add(1) else {
+                    self.outline.exhausted = true;
+                    self.outline_error(
+                        "Document-symbol publication identity exhausted; restart the editor",
+                    );
+                    bail!("Document-symbol publication identity exhausted");
+                };
+                self.outline.publication = publication;
                 self.outline
                     .collapsed
                     .retain(|id| published.identities.contains(id));
@@ -777,11 +811,6 @@ impl App {
         {
             bail!("Outline changed or is still updating; wait for current symbols");
         }
-        let published = self
-            .outline
-            .published
-            .as_ref()
-            .context("No current outline")?;
         let index = self
             .outline
             .selected
@@ -789,20 +818,33 @@ impl App {
         if !self.outline.visible.contains(&index) {
             bail!("Outline symbol is no longer visible");
         }
-        let node = &published.tree.nodes[index];
+        self.reveal_document_symbol(index, self.outline.publication)
+    }
+    pub(super) fn reveal_document_symbol(&mut self, index: usize, generation: u64) -> Result<()> {
+        if generation != self.outline.publication || !self.document_symbols_view().current {
+            bail!("Document symbols changed or are still updating");
+        }
+        let published = self
+            .outline
+            .published
+            .as_ref()
+            .context("No current document symbols")?;
+        let node = published
+            .tree
+            .nodes
+            .get(index)
+            .context("No current document symbol")?;
         let offset = crate::outline::strict_offset(self.doc(), node.selection_range.start)?;
         let label: String = node.name.chars().take(120).collect();
         self.navigation_input_interaction();
         let previous = self.suspend_navigation_observation();
         self.doc_mut().clear_secondary();
-        // move_to also retires snippet traversal when the identifier is outside
-        // its active field; clear_secondary collapses the whole cursor cohort.
         self.doc_mut().move_to(offset, false);
         self.focus = Focus::Editor;
         self.sync_pane();
         self.resume_navigation_observation(previous, navigation_history::Reason::Jump);
         self.update_outline_active();
-        self.message = format!("Outline · {label}");
+        self.message = format!("Symbol · {label}");
         Ok(())
     }
     pub(crate) fn outline_offset(&self, height: u16) -> usize {
@@ -1062,5 +1104,67 @@ mod tests {
             assert!(app.outline.pending.is_none());
             assert!(app.outline.wanted.is_none());
         }
+    }
+    #[test]
+    fn breadcrumbs_same_resource_labels_stay_inert_through_held_edit_undo_refresh() {
+        let (_root, mut app) = fixture();
+        let token = launch(&mut app);
+        release(&mut app, token, symbols()).unwrap();
+        app.doc_mut().move_to(1, false);
+        app.observe_outline();
+        app.observe_breadcrumbs();
+        app.execute("breadcrumbs.focusAndSelect", Value::Null);
+        assert!(app.breadcrumbs_view().picker.is_some());
+        let generation = app.breadcrumbs_view().generation;
+        let id = app.doc().id;
+        app.doc_mut().insert("x", false);
+        app.doc_mut().undo();
+        app.lsp.as_mut().unwrap().sync(&app.documents).unwrap();
+        app.observe_outline();
+        app.observe_breadcrumbs();
+        assert!(app.breadcrumbs_view().generation > generation);
+        assert!(app.breadcrumbs_view().picker.is_none());
+        assert_eq!(app.breadcrumbs_view().elements.last().unwrap().label, "猫");
+        assert!(app.breadcrumbs_view().updating);
+        let selections = app.doc().selections();
+        let epoch = app.doc().text_epoch();
+        app.execute("breadcrumbs.revealFocused", Value::Null);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert!(app.focus == Focus::Breadcrumbs);
+        let token = launch(&mut app);
+        for _ in 0..32 {
+            app.poll_outline();
+            app.poll_breadcrumbs();
+            assert!(!app.lsp.as_ref().unwrap().symbol_available());
+            assert_eq!(app.breadcrumbs_view().elements.last().unwrap().label, "猫");
+            assert!(app.breadcrumbs_view().picker.is_none());
+        }
+        let mut fresh = symbols();
+        fresh[0]["name"] = json!("fresh猫");
+        release(&mut app, token, fresh).unwrap();
+        app.observe_breadcrumbs();
+        assert_eq!(
+            app.breadcrumbs_view().elements.last().unwrap().label,
+            "fresh猫"
+        );
+        assert!(!app.breadcrumbs_view().updating);
+        app.execute("breadcrumbs.focusAndSelect", Value::Null);
+        assert!(app.breadcrumbs_view().picker.is_some());
+        app.execute("breadcrumbs.revealFocusedFromTreeAside", Value::Null);
+        assert!(app.message.contains("not supported"));
+        assert!(app.breadcrumbs_view().picker.is_some());
+        assert_eq!(app.doc().selections(), selections);
+        app.execute("list.select", Value::Null);
+        assert!(app.focus == Focus::Editor);
+        assert_eq!(app.doc().cursor, 0);
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert_eq!(
+            std::fs::read(app.doc().path.as_ref().unwrap()).unwrap(),
+            "猫🙂\r\nbody\r\n".as_bytes()
+        );
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "猫x🙂\r\nbody\r\n");
     }
 }

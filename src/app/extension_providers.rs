@@ -835,6 +835,9 @@ exports.activate=context=>context.subscriptions.push(vscode.languages.registerDo
         (app, ticket)
     }
     fn outline_symbol_app(root: &Path) -> App {
+        document_symbol_app(root, true)
+    }
+    fn document_symbol_app(root: &Path, focus_outline: bool) -> App {
         let text = "猫🙂 parent\r\n  child 猫\r\n}\r\n";
         std::fs::write(root.join("input.sql"), text).unwrap();
         let package = root.join("outline-provider");
@@ -864,8 +867,12 @@ exports.activate=context=>{{register(context);context.subscriptions.push(vscode.
         app.start_extension_packages(vec![crate::extensions::Package::read(&package).unwrap()])
             .unwrap();
         until(&mut app, |a| a.has_extension_provider(Kind::Symbols));
-        app.execute("outline.focus", Value::Null);
-        until(&mut app, |a| a.outline_view().actionable);
+        if focus_outline {
+            app.execute("outline.focus", Value::Null);
+        } else {
+            app.sidebar = false;
+        }
+        until(&mut app, |a| a.document_symbols_view().current);
         app
     }
     fn reveal_outline_child(app: &mut App) {
@@ -1583,5 +1590,200 @@ exports.activate=context=>{{register(context);context.subscriptions.push(vscode.
         let changes = provider_edits(&doc, vec![edit("a\nb\rc\r\nd".into())]).unwrap();
         assert_eq!(changes[0].1, "a\r\nb\r\nc\r\nd");
         assert_eq!(doc.text.to_string(), "α🙂\r\n");
+    }
+    #[test]
+    fn default_breadcrumbs_extension_publication_and_reveal_need_no_outline_sidebar_or_native_server()
+     {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = document_symbol_app(root.path(), false);
+        let id = app.doc().id;
+        let original = "猫🙂 parent\r\n  child 猫\r\n}\r\n";
+        let dirty = format!("{original}Δ");
+        assert!(!app.sidebar);
+        assert!(app.lsp.is_none());
+        assert_eq!(
+            app.outline_view().status,
+            super::super::OutlineStatus::Hidden
+        );
+        app.doc_mut().add_cursor(1);
+        app.doc_mut().move_to(13, false);
+        app.observe_outline();
+        app.observe_breadcrumbs();
+        assert_eq!(
+            app.breadcrumbs_view()
+                .elements
+                .iter()
+                .filter(|item| item.node.is_some())
+                .map(|item| item.label.as_str())
+                .collect::<Vec<_>>(),
+            ["parent-1", "child-1"]
+        );
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Char('.'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        )));
+        assert_eq!(
+            app.breadcrumbs_view().picker.as_ref().unwrap().rows[0].label,
+            "child-1"
+        );
+        let generation = app.breadcrumbs_view().generation;
+        app.event(Event::Key(KeyEvent::new_with_kind(
+            KeyCode::Char('.'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            KeyEventKind::Release,
+        )));
+        assert!(app.focus == Focus::Breadcrumbs);
+        assert!(app.breadcrumbs_view().picker.is_some());
+        assert_eq!(app.breadcrumbs_view().generation, generation);
+        let selections = app.doc().selections();
+        let epoch = app.doc().text_epoch();
+        app.event(Event::Key(KeyEvent::new(
+            KeyCode::Char('x'),
+            KeyModifiers::NONE,
+        )));
+        assert!(app.message.contains("filtering is not supported"));
+        app.event(Event::Paste("unsafe edit\r\n猫".into()));
+        assert!(app.message.contains("filtering is not supported"));
+        assert!(app.focus == Focus::Breadcrumbs);
+        assert!(app.breadcrumbs_view().picker.is_some());
+        assert_eq!(app.breadcrumbs_view().generation, generation);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert_eq!(app.doc().text.to_string(), dirty);
+        app.execute("list.select", Value::Null);
+        assert!(app.focus == Focus::Editor);
+        assert_eq!(app.doc().cursor, 13);
+        assert!(app.doc().anchor.is_none());
+        assert!(app.doc().secondary.is_empty());
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), dirty);
+        assert!(app.doc().dirty());
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            original.as_bytes()
+        );
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), original);
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), dirty);
+    }
+    #[test]
+    fn breadcrumb_extension_source_round_trip_retires_picker_and_retains_one_actual_lane() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = document_symbol_app(root.path(), false);
+        app.doc_mut().move_to(13, false);
+        app.observe_outline();
+        app.observe_breadcrumbs();
+        app.execute("breadcrumbs.focusAndSelect", Value::Null);
+        assert!(app.breadcrumbs_view().picker.is_some());
+        let original = app.doc().text.to_string();
+        let selections = app.doc().selections();
+        let id = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        let old = app
+            .extension_host
+            .as_ref()
+            .unwrap()
+            .language_provider(Kind::Symbols, app.doc())
+            .unwrap()
+            .id;
+        app.extension_host
+            .as_mut()
+            .unwrap()
+            .execute_with_hidden(
+                "test.symbols.retire",
+                None,
+                &app.documents,
+                &app.hidden_documents,
+                app.active,
+                &app.settings,
+            )
+            .unwrap();
+        until(&mut app, |a| {
+            a.extension_host
+                .as_ref()
+                .unwrap()
+                .language_provider(Kind::Symbols, a.doc())
+                .is_some_and(|provider| provider.id != old)
+        });
+        until(&mut app, |_| {
+            std::fs::read_to_string(root.path().join("uris"))
+                .unwrap()
+                .lines()
+                .count()
+                == 2
+        });
+        assert!(app.breadcrumbs_view().picker.is_none());
+        assert!(!app.document_symbols_view().current);
+        assert!(
+            app.breadcrumbs_view()
+                .elements
+                .iter()
+                .all(|element| element.node.is_none())
+        );
+        app.breadcrumbs_picker_click(0);
+        app.execute("breadcrumbs.revealFocused", Value::Null);
+        assert_eq!(app.doc().selections(), selections);
+        let second = app
+            .extension_host
+            .as_ref()
+            .unwrap()
+            .language_provider(Kind::Symbols, app.doc())
+            .unwrap()
+            .id;
+        app.extension_host
+            .as_mut()
+            .unwrap()
+            .execute_with_hidden(
+                "test.symbols.retire",
+                None,
+                &app.documents,
+                &app.hidden_documents,
+                app.active,
+                &app.settings,
+            )
+            .unwrap();
+        until(&mut app, |a| {
+            a.extension_host
+                .as_ref()
+                .unwrap()
+                .language_provider(Kind::Symbols, a.doc())
+                .is_some_and(|provider| provider.id != second)
+        });
+        for _ in 0..32 {
+            app.poll();
+            assert!(!app.extension_host.as_ref().unwrap().symbols_available());
+            assert!(app.lsp.is_none());
+            assert!(app.breadcrumbs_view().picker.is_none());
+            assert_eq!(
+                std::fs::read_to_string(root.path().join("uris"))
+                    .unwrap()
+                    .lines()
+                    .count(),
+                2
+            );
+            assert_eq!(app.doc().selections(), selections);
+        }
+        std::fs::write(root.path().join("new-release"), "").unwrap();
+        until(&mut app, |a| a.document_symbols_view().current);
+        assert_eq!(
+            app.document_symbols_view().tree.unwrap().nodes[0].name,
+            "parent-3"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.path().join("uris"))
+                .unwrap()
+                .lines()
+                .count(),
+            3
+        );
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert_eq!(app.doc().text.to_string(), original);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(
+            std::fs::read(root.path().join("input.sql")).unwrap(),
+            "猫🙂 parent\r\n  child 猫\r\n}\r\n".as_bytes()
+        );
     }
 }
