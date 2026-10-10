@@ -138,6 +138,18 @@ jobs:
         run: cargo run --locked --example outline_contract -- target/vscode-reference/result/outline/outline.json > target/vscode-reference/result/outline/outline-vscli.json
       - name: Check Outline reference source validation
         run: cargo test --locked --example outline_contract
+      - name: Observe pinned Breadcrumbs provider contracts (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        run: xvfb-run -a node tests/vscode-reference/breadcrumbs-run.cjs target/vscode-reference/result/breadcrumbs
+      - name: Observe pinned Breadcrumbs provider contracts (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 3
+        run: node tests/vscode-reference/breadcrumbs-run.cjs target/vscode-reference/result/breadcrumbs
+      - name: Compare Breadcrumbs provider geometry and confirmed picker reveals
+        run: cargo run --locked --example breadcrumbs_contract -- target/vscode-reference/result/breadcrumbs/breadcrumbs.json > target/vscode-reference/result/breadcrumbs/breadcrumbs-vscli.json
+      - name: Check Breadcrumbs reference source validation
+        run: cargo test --locked --example breadcrumbs_contract
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -173,6 +185,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/outline_pty.py target/debug/vscli
+      - name: Run native Breadcrumbs keyboard workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/breadcrumbs_pty.py target/debug/vscli
       - name: Run automatic parameter hint workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
@@ -267,6 +283,10 @@ jobs:
         env:
           VSCLI_CLANGD: /usr/bin/clangd
         run: cargo test --locked --test outline actual_clangd_namespace_class_methods_reveal_exact_utf16_and_preserve_dirty_work -- --ignored --exact
+      - name: Qualify Breadcrumbs with actual clangd
+        env:
+          VSCLI_CLANGD: /usr/bin/clangd
+        run: cargo test --locked --test breadcrumbs actual_clangd_breadcrumbs_enclosing_trail_and_sibling_reveal_preserve_dirty_work -- --ignored --exact
       - run: cargo test --test debug_adapter -- --ignored
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
