@@ -12,7 +12,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 mod comments;
 mod editing;
+mod folding;
 pub use comments::CommentOperation;
+pub use folding::{FoldCommit, FoldPrepared, FoldSnapshot, FoldViewInsertion};
 pub(crate) mod graphemes;
 mod indentation;
 mod snippets;
@@ -169,6 +171,7 @@ pub struct ViewState {
     snippet: Option<snippets::Session>,
     snippet_generation: u64,
     pairs: typing::Pairs,
+    folding: folding::View,
 }
 #[derive(Clone)]
 pub(crate) struct ByteChange {
@@ -320,6 +323,8 @@ pub struct Document {
     text_epoch: u64,
     save_generation: u64,
     byte_changes: std::collections::VecDeque<(u64, ByteChange)>,
+    folding_policy: crate::folding_controller::Lifetime,
+    folding_changes: std::collections::VecDeque<folding::Change>,
     typing: Option<(Instant, usize)>,
     typing_context: typing::ContextCache,
     language_configuration: Option<std::sync::Arc<crate::language_configuration::Configuration>>,
@@ -397,6 +402,7 @@ impl Document {
             view.cursor_history.clear();
             view.snippet = None;
             view.pairs = typing::Pairs::default();
+            view.folding = folding::View::default();
             view
         });
         let previous = std::mem::replace(&mut self.view, next);
@@ -407,6 +413,7 @@ impl Document {
         self.other_views.remove(&id);
         if self.active_view == id {
             self.active_view = 0;
+            self.view.folding = folding::View::default();
         }
     }
     pub(crate) fn text_epoch(&self) -> u64 {
@@ -450,6 +457,7 @@ impl Document {
             added: added_bytes,
         };
         self.record_byte_change(bytes.clone());
+        self.record_folding_change(range.clone(), added);
         let change = PositionChange {
             range,
             added,
@@ -494,6 +502,8 @@ impl Document {
             text_epoch: 0,
             save_generation: 0,
             byte_changes: std::collections::VecDeque::new(),
+            folding_policy: crate::folding_controller::Lifetime::default(),
+            folding_changes: std::collections::VecDeque::new(),
             typing: None,
             typing_context: typing::ContextCache::default(),
             language_configuration: None,
@@ -641,6 +651,7 @@ impl Document {
     pub fn set_indentation(&mut self, tab_size: usize, insert_spaces: bool) {
         let tab_size = tab_size.clamp(1, 16);
         if self.tab_size != tab_size {
+            self.retire_folding_policy();
             self.view.desired_column = None;
             for selection in &mut self.view.secondary {
                 selection.desired_column = None;
@@ -831,6 +842,7 @@ impl Document {
     fn restore(&mut self, mut s: Snapshot) {
         for change in s.changes.iter().rev().map(PositionChange::inverse) {
             self.record_byte_change(change.bytes.clone());
+            self.record_folding_change(change.range.clone(), change.added);
             change.map(&mut self.view);
             for view in self.other_views.values_mut() {
                 change.map(view);
@@ -859,10 +871,12 @@ impl Document {
             view.cursor_history.clear();
         }
         self.revision = s.revision;
+        self.observe_folding_selection();
     }
     pub fn move_to(&mut self, pos: usize, select: bool) {
         self.move_to_inner(pos, select);
         self.retire_outside_typing_pairs();
+        self.observe_folding_selection();
     }
     fn move_to_inner(&mut self, pos: usize, select: bool) {
         self.break_group();
@@ -941,6 +955,7 @@ impl Document {
     pub fn horizontal(&mut self, right: bool, select: bool, word: bool) {
         self.horizontal_inner(right, select, word);
         self.retire_outside_typing_pairs();
+        self.observe_folding_selection();
     }
     fn horizontal_inner(&mut self, right: bool, select: bool, word: bool) {
         let pos = if !select && !word && self.selection().is_some() {
@@ -962,6 +977,7 @@ impl Document {
     pub fn vertical(&mut self, amount: isize, select: bool) {
         self.vertical_inner(amount, select);
         self.retire_outside_typing_pairs();
+        self.observe_folding_selection();
     }
     fn vertical_inner(&mut self, amount: isize, select: bool) {
         let col = self.desired_column.unwrap_or_else(|| self.visual_column());
@@ -975,6 +991,7 @@ impl Document {
     pub fn home(&mut self, select: bool) {
         self.home_inner(select);
         self.retire_outside_typing_pairs();
+        self.observe_folding_selection();
     }
     fn home_inner(&mut self, select: bool) {
         let start = self.line_start(self.row());
@@ -1310,6 +1327,7 @@ impl Document {
         if self.path.as_ref() != Some(&canonical_destination) {
             // Save As changes language semantics without changing text history.
             self.retire_typing_pairs();
+            self.retire_folding_policy();
         }
         self.path = Some(canonical_destination);
         self.disk_content = Some(snapshot.text.clone());
@@ -1378,6 +1396,7 @@ impl Document {
             // Save As changes document semantics independently of Undo. A later
             // return to the old path cannot revive delimiter ownership.
             self.retire_typing_pairs();
+            self.retire_folding_policy();
         }
         self.path = Some(path);
         self.disk_content = Some(self.text.clone());

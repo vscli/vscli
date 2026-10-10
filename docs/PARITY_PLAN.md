@@ -410,3 +410,9 @@ and evidence](EDITOR_LAYOUT.md).
 Editor movement/reordering, spatial focus, distinct Close Group merge semantics,
 divider dragging and workspace transitions remain priority-6 gaps. Wrap/folding
 still needs a unified display-row mapping; neither prototype is a shipped feature.
+
+The folding foundation now includes checked per-Document view ownership and twelve
+passing integrity tests. Its full Rust suite passes 1,026 tests across 51 reports
+(20 optional cases ignored), plus formatting and strict locked Clippy. Fold/Unfold
+commands, complete render/hit/movement mapping and native terminal journeys remain
+outstanding; see [per-view ownership](FOLD_VIEW_STATE.md).

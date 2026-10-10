@@ -25,6 +25,7 @@ impl Document {
         self.assign_selections(selections);
         self.normalize_selections();
         self.retire_outside_typing_pairs();
+        self.observe_folding_selection();
     }
     fn record_cursors(&mut self) {
         let selections = self.selections();
@@ -43,6 +44,7 @@ impl Document {
         self.secondary.clear();
         self.anchor = None;
         self.break_group();
+        self.observe_folding_selection();
     }
     pub fn normalize_selections(&mut self) {
         let mut selections: Vec<_> = self
@@ -208,6 +210,7 @@ impl Document {
         // Intermediate primary positions are not the completed multi-cursor
         // movement. Retire ownership only after every caret has been moved.
         self.retire_outside_typing_pairs();
+        self.observe_folding_selection();
         true
     }
     pub fn add_cursor(&mut self, pos: usize) {
@@ -250,6 +253,7 @@ impl Document {
                 self.anchor = Some(r.start);
                 self.cursor = r.end;
                 if !all {
+                    self.observe_folding_selection();
                     return true;
                 }
                 r
