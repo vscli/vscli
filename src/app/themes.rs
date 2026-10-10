@@ -237,10 +237,17 @@ fn installed_packages(directory: Option<&Path>) -> Result<Vec<(PathBuf, Value)>>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[track_caller]
     fn poll(app: &mut App) {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while !app.poll_theme() {
-            assert!(std::time::Instant::now() < deadline);
+            assert!(
+                std::time::Instant::now() < deadline,
+                "Theme fixture timed out: pending={}, theme={:?}, notice={:?}",
+                app.theme_state.pending.is_some(),
+                app.theme.name,
+                app.message,
+            );
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
     }

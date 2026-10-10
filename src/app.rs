@@ -27,6 +27,7 @@ mod settings_persistence;
 mod signature_help;
 mod sticky_tabs;
 mod suggestions;
+mod tab_reordering;
 mod workspace_edits;
 
 mod session;
@@ -277,6 +278,14 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "workbench.action.toggleSidebarVisibility",
     ),
     ("View: Explorer", "workbench.view.explorer"),
+    (
+        "View: Move Editor Left",
+        "workbench.action.moveEditorLeftInGroup",
+    ),
+    (
+        "View: Move Editor Right",
+        "workbench.action.moveEditorRightInGroup",
+    ),
     ("View: Next Editor", "workbench.action.nextEditor"),
     ("View: Previous Editor", "workbench.action.previousEditor"),
     (
@@ -1631,6 +1640,9 @@ impl App {
     fn execute_with_args(&mut self, command: &str, args: Option<Value>) {
         self.observe_editor_geometry();
         if self.execute_editor_layout_command(command) {
+            return;
+        }
+        if self.execute_tab_reorder_command(command) {
             return;
         }
         self.breadcrumbs_ui_command(command);

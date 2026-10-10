@@ -244,6 +244,11 @@ in another group start a fresh view; revisiting a tab restores that group's curs
 selection and scroll. Click a displayed tab to focus its exact membership.
 Ctrl+PageDown/PageUp (Cmd+Alt+Right/Left on macOS) traverse tabs across groups;
 F1 → View: Next/Previous Editor in Group wraps inside the selected group.
+Ctrl+Shift+PageUp/PageDown moves the active tab left/right inside its current
+group (macOS: Cmd+K, Cmd+Shift+Left/Right); F1 exposes View: Move Editor Left/Right.
+An actual move commits a preview and pins/unpins it when crossing the sticky
+prefix. Edge no-ops retain preview mode. Document identity, per-group views,
+Undo/Redo and layout ratios remain retained. See [reorder scope and qualification](TAB_REORDERING.md).
 Closing selects that group's most recently active surviving tab. Close Editors in
 Group reviews last-owned dirty documents one at a time; Cancel preserves remaining
 tabs, and a changed tab list retires the batch. A delayed Save→Close closes its

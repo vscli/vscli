@@ -324,3 +324,37 @@ sticky reports cover nine native-only sessions. The isolated paired
 passes 80 launches / 3,200 keys, including the retained small-file repeat.
 Results vary; no editor ranking or active-sticky performance is established.
 Fresh platform checks remain required before merge.
+
+## Same-group reorder engine candidate
+
+The `feat/native-tab-reordering` branch adds synchronous staged same-group
+reordering, before App/key/terminal integration. Exact ordered group proofs and
+Membership IDs are validated even for a clamped edge no-op. An actual move
+commits a preview; crossing the sticky prefix pins or unpins that membership.
+Tab/document/group IDs, active editor, activation MRU and historical document
+views stay intact. Checked interaction/membership generations and fallible result
+reservations precede bounded in-place rotation. No new tab/group/model is admitted.
+
+Eight focused native tests cover visual order, sticky transitions, preview versus
+edge no-op, stale order/inverse proofs, replaced membership, counter refusal, all
+512 legal memberships and shared Unicode/CRLF document views with pending Redo.
+The engine candidate passes 995 all-target Rust tests across 51 reports, formatting
+and strict locked all-target Clippy, with 20 optional cases ignored. App commands,
+original profile keys, accepted-save/batch-close integration and Unix terminal
+journeys are separate pending qualification. This does not implement cross-group
+transfer, drag or original Close Group merging, and claims no new actual upstream
+behavioral capture. Policy follows the pinned original source.
+
+
+## Same-group reorder App integration candidate
+
+Original Move Editor Left/Right commands and platform keys now have a prepared
+App integration. Fresh exact group/membership proofs govern synchronous movement;
+changed moves publish once, retain layout and shared document views, and retire
+stale presentation targets. An edge no-op bypasses reorder-specific cancellation
+and publication. Remaining close batches retire on change, while the approved
+original Save→Close receipt retains its captured ownership and mode eligibility.
+The five App integrity cases pass with actual held save workers; four Unix
+terminal journeys pass across five native-only sessions. The candidate passes
+1,001 all-target tests with four test threads, formatting and strict locked
+Clippy; fresh platform qualification remains required. See [the behavior and evidence contract](TAB_REORDERING.md).
