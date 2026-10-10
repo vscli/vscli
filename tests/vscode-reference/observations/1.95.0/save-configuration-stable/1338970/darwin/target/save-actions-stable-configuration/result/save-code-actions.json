@@ -1,0 +1,2438 @@
+[
+  {
+    "name": "object-fixall-first",
+    "effective": {
+      "codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll": "explicit"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.organizeImports",
+      "source.fixAll"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.fixAll",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      },
+      {
+        "only": "source.organizeImports",
+        "triggerKind": 2,
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "array-imports-first",
+    "effective": {
+      "codeActionsOnSave": [
+        "source.organizeImports",
+        "source.fixAll"
+      ],
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": null,
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.organizeImports",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      },
+      {
+        "only": "source.fixAll",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "array-fixall-first",
+    "effective": {
+      "codeActionsOnSave": [
+        "source.fixAll",
+        "source.organizeImports"
+      ],
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": null,
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.fixAll",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      },
+      {
+        "only": "source.organizeImports",
+        "triggerKind": 2,
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ancestor-false-child",
+    "effective": {
+      "codeActionsOnSave": {
+        "source.fixAll": "explicit",
+        "source.fixAll.child": "never"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.fixAll",
+      "source.fixAll.child"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.fixAll",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ancestor-never-child",
+    "effective": {
+      "codeActionsOnSave": {
+        "source.fixAll": "explicit",
+        "source.fixAll.child": "never"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.fixAll",
+      "source.fixAll.child"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.fixAll",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "source-ancestor-false-family",
+    "effective": {
+      "codeActionsOnSave": {
+        "source": "explicit",
+        "source.fixAll": "never"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source",
+      "source.fixAll"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "source-ancestor-never-family",
+    "effective": {
+      "codeActionsOnSave": {
+        "source": "explicit",
+        "source.fixAll": "never"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source",
+      "source.fixAll"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=1\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "after-delay-always-skipped",
+    "effective": {
+      "codeActionsOnSave": {
+        "source.fixAll": "always",
+        "source.organizeImports": "always"
+      },
+      "formatOnSave": false,
+      "autoSave": "afterDelay",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.fixAll",
+      "source.organizeImports"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "files.autoSave.afterDelay",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": []
+  },
+  {
+    "name": "after-delay-array-skipped",
+    "effective": {
+      "codeActionsOnSave": [
+        "source.organizeImports",
+        "source.fixAll"
+      ],
+      "formatOnSave": false,
+      "autoSave": "afterDelay",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": null,
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "files.autoSave.afterDelay",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": []
+  },
+  {
+    "name": "user-workspace-object-merge",
+    "effective": {
+      "codeActionsOnSave": {
+        "source.fixAll": "explicit",
+        "source.organizeImports": "explicit"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.fixAll",
+      "source.organizeImports"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.fixAll",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      },
+      {
+        "only": "source.organizeImports",
+        "triggerKind": 2,
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "language-composite-single-merge",
+    "effective": {
+      "codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll": "explicit",
+        "source.fixAll.child": "never"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.organizeImports",
+      "source.fixAll",
+      "source.fixAll.child"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.fixAll",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      },
+      {
+        "only": "source.organizeImports",
+        "triggerKind": 2,
+        "text": "fix=1\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "workspace-array-replaces-object",
+    "effective": {
+      "codeActionsOnSave": [
+        "source.organizeImports"
+      ],
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": null,
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=1\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.organizeImports",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "workspace-empty-object-retains-user",
+    "effective": {
+      "codeActionsOnSave": {
+        "source.fixAll": "explicit"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.fixAll"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.fixAll",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "child-only-dot-boundary",
+    "effective": {
+      "codeActionsOnSave": {
+        "source.fixAll.child": "explicit"
+      },
+      "formatOnSave": false,
+      "autoSave": "off",
+      "autoSaveDelay": 500
+    },
+    "effectiveKeys": [
+      "source.fixAll.child"
+    ],
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 40,
+          "cursor": 40
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 42,
+          "cursor": 42
+        },
+        "disk": "fix=0\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂"
+      }
+    ],
+    "callbacks": [
+      {
+        "only": "source.fixAll.child",
+        "triggerKind": 2,
+        "text": "fix=0\r\nimports=0\r\nchild=0\r\nother=0\r\n猫🙂\r\nλ🙂",
+        "returned": [
+          {
+            "title": "Synthetic imports",
+            "kind": "source.organizeImports"
+          },
+          {
+            "title": "Synthetic child fix",
+            "kind": "source.fixAll.child"
+          },
+          {
+            "title": "Synthetic root fix",
+            "kind": "source.fixAll"
+          },
+          {
+            "title": "Synthetic unrelated prefix",
+            "kind": "source.fixAllX"
+          }
+        ]
+      }
+    ]
+  }
+]

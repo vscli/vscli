@@ -1,0 +1,12 @@
+{
+  "name": "ancestor-never-child",
+  "casePassed": true,
+  "launcher": {
+    "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+    "bytes": 84352,
+    "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+  },
+  "launchInputsSha256": "4fcfcff84c53c65527bf9bc630284132c0ef4279060a5a8704c073ddf1cf93c6",
+  "runtimeSettingsSha256": "0e91f19277148093959482e79720e7f22c68b5701f7dfa92aaa29e368dc7523d",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

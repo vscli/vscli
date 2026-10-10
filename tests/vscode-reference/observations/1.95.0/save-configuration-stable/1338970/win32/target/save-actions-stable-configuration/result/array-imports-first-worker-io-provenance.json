@@ -1,0 +1,12 @@
+{
+  "name": "array-imports-first",
+  "casePassed": true,
+  "launcher": {
+    "path": "D:\\a\\vscli\\vscli\\target\\vscode-reference\\cache\\vscode-win32-x64-archive-1.95.0\\Code.exe",
+    "bytes": 177370680,
+    "sha256": "a86526a278b6bf1dafece833c9608c535429be9081530379ae51168a0ccade42"
+  },
+  "launchInputsSha256": "1dea87239978aff467b317b740307efcbb5741e3950fdb032e6ba98139b51768",
+  "runtimeSettingsSha256": "26735bcb770f4b968cd702a923f37821575264d1b083b12e6c796da92ceddd72",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

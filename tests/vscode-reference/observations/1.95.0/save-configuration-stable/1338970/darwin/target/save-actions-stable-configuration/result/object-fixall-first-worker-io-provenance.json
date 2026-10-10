@@ -1,0 +1,12 @@
+{
+  "name": "object-fixall-first",
+  "casePassed": true,
+  "launcher": {
+    "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+    "bytes": 84352,
+    "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+  },
+  "launchInputsSha256": "7cca8c24f13a2d757ae4175af90cc1c3711183d71fa0d68b99ee255275e67c93",
+  "runtimeSettingsSha256": "ac079795b39f91efed16a52fffa10f1af1ea341afb49685bab8993c8095e67ab",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

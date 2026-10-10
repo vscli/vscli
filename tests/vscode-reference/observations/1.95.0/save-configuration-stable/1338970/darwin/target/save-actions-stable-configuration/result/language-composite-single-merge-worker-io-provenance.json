@@ -1,0 +1,12 @@
+{
+  "name": "language-composite-single-merge",
+  "casePassed": true,
+  "launcher": {
+    "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+    "bytes": 84352,
+    "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+  },
+  "launchInputsSha256": "3f86986fbd2a8dbe02b0913e0535f384fd0d0d9989433e590d2c5c6727a39a4f",
+  "runtimeSettingsSha256": "9a5f6a9830b7d64ef6c8a73b06a35afe6244c159e0866b4192c9216e37d4c219",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

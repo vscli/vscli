@@ -1,0 +1,12 @@
+{
+  "name": "after-delay-array-skipped",
+  "casePassed": true,
+  "launcher": {
+    "path": "D:\\a\\vscli\\vscli\\target\\vscode-reference\\cache\\vscode-win32-x64-archive-1.95.0\\Code.exe",
+    "bytes": 177370680,
+    "sha256": "a86526a278b6bf1dafece833c9608c535429be9081530379ae51168a0ccade42"
+  },
+  "launchInputsSha256": "f35405d98d479258995c9bd92c96632845076e3932d41cda5aaacaa073741661",
+  "runtimeSettingsSha256": "629e4dd09401689327bd1d749867afe0473f8576ac3e7166e639e2345cfa2b97",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

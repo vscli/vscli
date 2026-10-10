@@ -1,0 +1,12 @@
+{
+  "name": "workspace-empty-object-retains-user",
+  "casePassed": true,
+  "launcher": {
+    "path": "/home/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-linux-x64-1.95.0/code",
+    "bytes": 176973136,
+    "sha256": "31a0d92e34790ab32a143d8e68a5886b5680a31e0683b17bdb3dcfeba1a1fd78"
+  },
+  "launchInputsSha256": "091812553c0ad99b5ff592e344bb73a62c1e40685ae5c75205fa7f20fbb45fa0",
+  "runtimeSettingsSha256": "870f5cff58c4ec78b41fcd6fbc1018caef27f54370dd69bbecdc68b98a0ff30c",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

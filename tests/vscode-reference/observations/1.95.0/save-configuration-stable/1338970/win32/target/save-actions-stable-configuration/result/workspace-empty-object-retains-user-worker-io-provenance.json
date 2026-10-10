@@ -1,0 +1,12 @@
+{
+  "name": "workspace-empty-object-retains-user",
+  "casePassed": true,
+  "launcher": {
+    "path": "D:\\a\\vscli\\vscli\\target\\vscode-reference\\cache\\vscode-win32-x64-archive-1.95.0\\Code.exe",
+    "bytes": 177370680,
+    "sha256": "a86526a278b6bf1dafece833c9608c535429be9081530379ae51168a0ccade42"
+  },
+  "launchInputsSha256": "091812553c0ad99b5ff592e344bb73a62c1e40685ae5c75205fa7f20fbb45fa0",
+  "runtimeSettingsSha256": "5613117efe2f4ac7d80454e9b9d81c14923b5f002a27df5f701c25e6a98b8222",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

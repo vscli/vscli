@@ -1,0 +1,12 @@
+{
+  "name": "language-composite-single-merge",
+  "casePassed": true,
+  "launcher": {
+    "path": "/home/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-linux-x64-1.95.0/code",
+    "bytes": 176973136,
+    "sha256": "31a0d92e34790ab32a143d8e68a5886b5680a31e0683b17bdb3dcfeba1a1fd78"
+  },
+  "launchInputsSha256": "3f86986fbd2a8dbe02b0913e0535f384fd0d0d9989433e590d2c5c6727a39a4f",
+  "runtimeSettingsSha256": "9a5f6a9830b7d64ef6c8a73b06a35afe6244c159e0866b4192c9216e37d4c219",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

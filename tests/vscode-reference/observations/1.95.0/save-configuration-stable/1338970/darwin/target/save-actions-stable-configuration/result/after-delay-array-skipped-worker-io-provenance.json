@@ -1,0 +1,12 @@
+{
+  "name": "after-delay-array-skipped",
+  "casePassed": true,
+  "launcher": {
+    "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+    "bytes": 84352,
+    "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+  },
+  "launchInputsSha256": "f35405d98d479258995c9bd92c96632845076e3932d41cda5aaacaa073741661",
+  "runtimeSettingsSha256": "be31af00777e2b583c06ac6db5843b16a733fc2c627f42959c44cf3203905f2e",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

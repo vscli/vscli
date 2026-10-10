@@ -1,0 +1,30 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "observedAt": "2026-10-10T15:20:27.247Z",
+  "name": "after-delay-always-skipped",
+  "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+  "launcher": {
+    "path": "/home/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-linux-x64-1.95.0/code",
+    "sha256": "31a0d92e34790ab32a143d8e68a5886b5680a31e0683b17bdb3dcfeba1a1fd78",
+    "bytes": 176973136
+  },
+  "evidenceSha256": "32ea8763b67a30bae78753a48da491b2b197570d9640150d036d9fb2c5b44828",
+  "sources": {
+    "save-code-actions.cjs": "918045d167f724cbb7ba63025d1bb5896ea02425808ede65b12d3547e6ad19be",
+    "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+    "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+    "save-code-actions-suite.cjs": "e042514f0fb763a86341e0a361d8ec68abdfba112343a208b57a6be80d9cf11f",
+    "save-code-actions-run.cjs": "81e11f58262d2340ec79d46ec175130078b77031999ef46fecb31f0ab5d98b03",
+    "save-code-actions-worker.cjs": "62a483ea66001c814cd2e2f5bd64cb9e37862b005023552953d631e8a5631ecf",
+    "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+    "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+    "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+    "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+  },
+  "profileSettingsSha256": "3878ef13b1f9a2285c4cee6ba82fed510e64bed1967cd3184a70fbacc81a4db2",
+  "workspaceSettingsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "scope": "Pinned synthetic sourceActions, layered/language settings and original Save/Undo/Redo; exact callback order and text/disk/selection. Not native LSP, unchanged extension or full save-lifecycle parity"
+}

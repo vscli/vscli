@@ -1,0 +1,12 @@
+{
+  "name": "child-only-dot-boundary",
+  "casePassed": true,
+  "launcher": {
+    "path": "/Users/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-darwin-arm64-1.95.0/Visual Studio Code.app/Contents/MacOS/Electron",
+    "bytes": 84352,
+    "sha256": "a1e06b9858b844e559cbbe8748a28c0620d1de3b83e41ef92a91cdeeaa8f6457"
+  },
+  "launchInputsSha256": "6314035fadee86cf1223ca27cd27319cd04c7ddcc47d133bffc037e8d08f85ef",
+  "runtimeSettingsSha256": "8e5f08ac753769a08c4b769e440d7e534588839e1fc08883cbb16bc12be2a61c",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}

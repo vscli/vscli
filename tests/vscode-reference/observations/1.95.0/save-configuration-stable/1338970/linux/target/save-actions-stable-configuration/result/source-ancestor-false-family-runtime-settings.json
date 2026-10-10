@@ -1,0 +1,5 @@
+{
+  "name": "source-ancestor-false-family",
+  "profileSettings": "{\"telemetry.telemetryLevel\":\"off\",\"update.mode\":\"none\",\"extensions.autoUpdate\":false,\"extensions.autoCheckUpdates\":false,\"security.workspace.trust.enabled\":false,\"workbench.startupEditor\":\"none\",\"workbench.editor.enablePreview\":false,\"editor.parameterHints.enabled\":false,\"editor.quickSuggestions\":{\n    \"comments\": \"off\",\n    \"strings\": \"off\",\n    \"other\": \"off\"\n  },\"editor.formatOnSave\":false,\"editor.formatOnPaste\":false,\"editor.formatOnType\":false,\"[ini]\":{\"editor.formatOnSave\":true,\"editor.formatOnSaveMode\":\"file\"},\"editor.codeActions.triggerOnFocusChange\":false,\"editor.codeActionsOnSave\":{\n    \"source\": \"explicit\",\n    \"source.fixAll\": \"never\"\n  },\"editor.detectIndentation\":false,\"editor.tabSize\":2,\"editor.insertSpaces\":true,\"files.autoSave\":\"off\",\"files.autoSaveDelay\":500,\"files.trimTrailingWhitespace\":false,\"files.insertFinalNewline\":false,\"files.trimFinalNewlines\":false}",
+  "workspaceSettings": "{}"
+}

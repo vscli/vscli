@@ -1,0 +1,12 @@
+{
+  "name": "after-delay-always-skipped",
+  "casePassed": true,
+  "launcher": {
+    "path": "/home/runner/work/vscli/vscli/target/vscode-reference/cache/vscode-linux-x64-1.95.0/code",
+    "bytes": 176973136,
+    "sha256": "31a0d92e34790ab32a143d8e68a5886b5680a31e0683b17bdb3dcfeba1a1fd78"
+  },
+  "launchInputsSha256": "51489e2050d3885b2598dfc35fc3ec3a76059dcbb961145ba3ff1eb1dd226792",
+  "runtimeSettingsSha256": "8d027b4c1ecbd109d5ff353468f0382cd709c9e67065a7b57bd50b75277430c5",
+  "scope": "Declared launch bytes and actual post-editor settings bytes; upstream migration may change runtime files; no target-outcome retry"
+}
