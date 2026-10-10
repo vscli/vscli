@@ -1,0 +1,37 @@
+# Native immutable display window
+
+This foundation prepares one bounded Wrap Off viewport from an immutable
+DisplayRows projection. Painting, source hits and caret projection can use the
+same prepared grapheme runs; current App rendering and input still use their
+existing paths. Fold commands, wrapping and presentation authority are pending.
+
+Clones retain private window identity; equal fresh preparations do not revive
+it. The exact source projection is retained. Runs carry absolute byte, scalar
+and logical cell ranges plus clipped viewport cells. Tabs retain configured
+stops; CRLF, combining sequences and wide clusters retain native affinities.
+Partial clusters expose complete source ranges and must be painted as blank
+fragments rather than sliced UTF-8. Fold bodies and off-window positions cannot
+produce source hits or a visible caret. Header decoration is separate metadata;
+App must partition marker cells before permitting a source-cell action.
+
+Preparation visits only visible logical lines. Their whole physical byte lengths
+are checked before segmentation: 64 KiB per line and 256 KiB total. Up to 4,096
+rows and 262,144 cells are admitted. Actual row/run vector capacities, Arc counters,
+inline data and cross-chunk scratch capacity are accounted against 8 MiB.
+Fallible reservations and invalid anchors/options reject unpublished candidates
+without changing the old window. Zero dimensions are inert; a valid 1×1 window
+remains representable. No whole-source fold discovery runs in this API.
+
+Hit and caret queries binary-search these same prepared runs rather than
+segmenting a prefix on each query. This is a bounded algorithmic foundation,
+not an editor latency benchmark. App must still account for all unique windows
+retained by current, cached and held frames, and seal exact document, membership,
+view, geometry, settings and interaction ownership before publishing or clicking.
+
+Nine local tests pass with independent Unicode/tab cell and source-offset
+oracles. They cover every offset, multiple tab sizes and horizontal origins,
+CRLF, cross-chunk clusters, folded bodies, private identities, invalid/zero
+windows, capacity accounting, maximal admitted scans and refusal of an oversized
+visible line while retaining prior authority. A large document with an off-window
+long line demonstrates that preparation does not inspect unrelated rows.
+These tests qualify this immutable API, not terminal gestures or upstream parity.

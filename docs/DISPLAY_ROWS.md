@@ -23,7 +23,10 @@ permits row traversal but no actionable cell projection.
 
 Cell mapping scans graphemes up to the requested line prefix, using the existing
 chunked native helper; a cross-chunk cluster can allocate. This foundation is not
-a cached long-line projection or a typing-latency claim. Per-view display state
+a cached long-line projection or a typing-latency claim. A separately qualified
+[immutable display window](DISPLAY_WINDOW.md) now prepares bounded visible
+grapheme runs shared by future painting, hits and caret projection; App adoption
+is still outstanding. Per-view display state
 must remain separate from document Undo. Edits must retire folded projections
 before a new normal frame; pending preparation cannot hide new source text.
 
@@ -64,6 +67,6 @@ integrity tests qualify per-view intent, immutable checked publication, edit
 journal retirement, complete selection protection and independent split ownership;
 see [per-view folding ownership](FOLD_VIEW_STATE.md). App integration is outstanding.
 
-The candidate passes 1,038 all-target Rust tests across 51 reports (20 optional
+The candidate passes 1,047 all-target Rust tests across 51 reports (20 optional
 cases ignored), formatting and strict locked all-target Clippy. No terminal
 gesture changes in this foundation require a new PTY claim; the App feature does.
