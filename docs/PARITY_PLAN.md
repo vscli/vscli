@@ -12,7 +12,7 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-Merged source extends through [PR #55](https://github.com/vscli/vscli/pull/55).
+Merged source extends through [PR #56](https://github.com/vscli/vscli/pull/56).
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
@@ -20,18 +20,18 @@ capabilities; it does not extend our tested baseline to newer releases.
 | Work | Source and recorded evidence | Remaining scope |
 | --- | --- | --- |
 | Welcome and recent files | [PR #25](https://github.com/vscli/vscli/pull/25) and [PR #34](https://github.com/vscli/vscli/pull/34): true empty workbench, recent-file history and reopening without resurrecting discarded text | Recent workspaces, navigation history, richer group/tab behavior |
-| Snippets, installation, import and themes | [PR #27](https://github.com/vscli/vscli/pull/27), [#28](https://github.com/vscli/vscli/pull/28), [#30](https://github.com/vscli/vscli/pull/30), [#32](https://github.com/vscli/vscli/pull/32): native catalogs including installed VSIX data, immutable local packages/rollback, copied profiles and persistent theme selection | Completion/API snippets, choices/nesting, full settings/profile semantics and theme fidelity |
+| Snippets, installation, import and themes | [PR #27](https://github.com/vscli/vscli/pull/27), [#28](https://github.com/vscli/vscli/pull/28), [#30](https://github.com/vscli/vscli/pull/30), [#32](https://github.com/vscli/vscli/pull/32): native catalogs including installed VSIX data, immutable local packages/rollback, copied profiles and persistent theme selection | Extension insertion API, choices/nesting, full settings/profile semantics and theme fidelity |
 | C/C++ colors while typing | [PR #35](https://github.com/vscli/vscli/pull/35), [#44](https://github.com/vscli/vscli/pull/44): bundled grammars and mapped unchanged-text colors during background refresh | Incremental parse reuse, semantic tokens, TextMate fidelity and more grammars |
-| Code actions and parameter hints | [PR #37](https://github.com/vscli/vscli/pull/37), [#39](https://github.com/vscli/vscli/pull/39): native Quick Fix/Refactor with staged open-buffer edits and explicit hints with active parameter; named real clangd workflows | Closed/resource edits, combined edit-and-command actions, automatic hints and overload navigation |
+| Code actions and parameter hints | [PR #37](https://github.com/vscli/vscli/pull/37), [#39](https://github.com/vscli/vscli/pull/39): native Quick Fix/Refactor and explicit hints; [#55](https://github.com/vscli/vscli/pull/55) combines bounded native/extension actions across retained buffers; [#56](https://github.com/vscli/vscli/pull/56) adds automatic hints and overload navigation; named real clangd workflows | Closed/resource edits, combined edit-and-command actions, full action contexts, multi-provider signature fallback and widget fidelity |
 | Document/workspace symbols | [PR #42](https://github.com/vscli/vscli/pull/42): bounded searchable symbols, shared-buffer navigation and asynchronous existing-file opens | Outline, breadcrumbs, navigation history, range-less workspace-symbol resolution |
 | Clean-session restoration | [PR #43](https://github.com/vscli/vscli/pull/43): opt-in clean file-backed tabs, active tab, selections and up to four visible groups; dirty/untitled recovery stays authoritative | Full hot exit, historical tab/group matrix, workspace transitions and terminals |
 | Installed language servers | [PR #45](https://github.com/vscli/vscli/pull/45): automatic installed clangd C/C++ and rust-analyzer Rust selection without launch flags; explicit override and disable/configuration controls | Concurrent language pools, downloads/provisioning and broader real-project qualification |
 | Registry and activation | [PR #46](https://github.com/vscli/vscli/pull/46), [#47](https://github.com/vscli/vscli/pull/47), [#48](https://github.com/vscli/vscli/pull/48): native stable Open VSX browsing/explicit updates, prerelease filtering, remembered scoped enablement, supported lazy events and selected dependencies | Authenticated registries, dependency downloading/version resolution, broader activation events and engine/ABI qualification |
 | Shared host and native prompts | [PR #36](https://github.com/vscli/vscli/pull/36), [#41](https://github.com/vscli/vscli/pull/41): optional shared session, owned callbacks, Unix group teardown and bounded Quick Pick/Input Box | Windows descendant cleanup, richer Quick Input, safe individual hot unload and full lifecycle compatibility |
-| Native extension documents/state/providers | [PR #49](https://github.com/vscli/vscli/pull/49): hidden/shared open/show, curated built-in commands, global/workspace Mementos and seven providers; unchanged NPM Intellisense/SQL Formatter workflows | Completion resolve/snippets/commands, diagnostics/code-action providers, filesystem/resource APIs, secrets and broader package qualification |
+| Native extension documents/state/providers | [PR #49](https://github.com/vscli/vscli/pull/49): hidden/shared open/show, curated built-in commands, global/workspace Mementos and seven providers; unchanged NPM Intellisense/SQL Formatter workflows | Full completion commands/semantics, filesystem/resource APIs, secrets and broader package qualification; later provider/diagnostic slices are described below |
 | Native extension surfaces | [PR #50](https://github.com/vscli/vscli/pull/50): bounded read-only output, status items and declared lazy trees with owner/generation guards and retained callback capacity | Named real-package surface corpus, advanced tree/status/output behavior, progress/menus and graphical compatibility |
 | Graphical welcome and keyboard layout | [PR #51](https://github.com/vscli/vscli/pull/51): native mark with Kitty/cell fallback, clickable actions/recent files, settings path and themed keycap inspector | Broader terminal/multiplexer graphics and physical-keyboard/layout qualification; no physical held-key inference |
-| Automatic suggestions | [PR #52](https://github.com/vscli/vscli/pull/52): debounced typing/trigger-character completion, nonmodal caret popup and Tab/Enter acceptance from native LSP or active extension provider | Completion resolve/snippets/commands, fuzzy ranking, richer settings and multi-provider aggregation; parameter hints remain explicit |
+| Automatic suggestions | [PR #52](https://github.com/vscli/vscli/pull/52): debounced typing/trigger-character completion, nonmodal caret popup and Tab/Enter acceptance from native LSP or active extension provider | Full completion commands/semantics, richer fuzzy ranking, settings and multi-provider aggregation; resolved completion and automatic hints follow in later slices below |
 
 The merged [PR #53](https://github.com/vscli/vscli/pull/53)
 [resolved-completion slice](COMPLETIONS.md) adds lazy resolution,
@@ -41,12 +41,21 @@ parity. The merged [PR #54 diagnostics slice](DIAGNOSTICS.md) adds independent c
 native text-epoch/server guards and successful-save events. Extension code-action
 providers follow it within priority 2 through the [bounded action slice](CODE_ACTIONS.md), with official unchanged sample and real clangd qualification. Command/resource/full-context parity remains outstanding.
 
-Priority 3 is in integration: native C/C++ and JSON/JSONC [smart typing](SMART_TYPING.md)
-and [automatic parameter hints](PARAMETER_HINTS.md). Local evidence includes 18
-observed pinned-editor typing traces, document/settings integrity tests, Unix
-native/extension PTY interactions and automatic installed clangd hints without
-executable Node. Whole-branch checks and protected-main CI remain separate gates.
-Advanced language indentation, extension language configuration and broader
+The first priority-3 slice is merged in [PR #56](https://github.com/vscli/vscli/pull/56):
+native C/C++ and JSON/JSONC [smart typing](SMART_TYPING.md) and
+[automatic parameter hints](PARAMETER_HINTS.md). Its reviewed source passes all six
+required CI checks, including fresh pinned-editor comparisons on Linux/macOS/Windows.
+Local evidence records 482 ordinary Rust tests, 123 host tests, 18 observed typing
+traces, 35 terminal smoke workflows and named release native/extension/clangd PTYs.
+The [two published benchmark runs](PERFORMANCE.md#smart-typing-and-idle-hint-work-2026-10-10)
+have mixed results and establish no overall speed ranking.
+
+The current branch adds language-specific advanced/full indentation and closing
+alignment, with a separate prepared-token reference observer and integrity/PTY
+qualification still in progress. The [30-target token-readiness capture](reference/2026-10-10-cpp-token-readiness/README.md)
+records an actual pinned-editor startup distinction independently of native
+comparison; prepared and natural behavior remain separate qualification scopes.
+Extension language configuration, additional native profiles and broader
 signature-extension qualification remain follow-up scope.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
@@ -78,14 +87,14 @@ The [usage guide](USAGE.md), [extension report](EXTENSIONS.md) and
 | Welcome and navigation | Explorer, quick open, palette, graphical empty welcome/actions, persistent recent files/reopen and document/workspace symbol pickers | Recent workspaces, back/forward history, outline, breadcrumbs, discoverable settings and consistent focus |
 | Tabs and layout | Shared-document split views, four equal groups and opt-in clean-session visible-layout restore | Per-group tabs, resizing/nested splits, preview/pinned tabs, move editors between groups and complete layout restoration |
 | Session continuity | Dirty-buffer crash recovery plus opt-in clean-file tabs, active tab, cursor/selection and visible-group restoration | Full hot exit, hidden historical tab/view state, workspace history/transitions, terminal restoration and broader failure/durability qualification |
-| Editing | Multi-cursor, selections, undo, line commands, literal find/replace | Wrapping, folding, smart indentation/brackets, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |
+| Editing | Multi-cursor, selections, undo, line commands, literal find/replace and native C/C++/JSON smart-typing subset | Wrapping, folding, advanced/extension language rules, richer regex replacement, complete command semantics, encoding/BOM choices and large-file mode |
 | Snippets | Literal insertion, linked fields, variables, native catalogs and completion snippet/import transactions | Choices, nested insertion, extension insertion API and full transform semantics |
 | Settings and migration | Small settings subset, language overrides, copied-profile import and binding diagnostics | Autosave, format-on-save, indentation detection, excludes, EOL settings, editable settings UI, full profiles/workspace migration, extension inventory reconciliation |
 | Themes and highlighting | Tree-sitter C/C++ and other families, mapped stable colors during typing, native JSONC/installed themes and persistent picker | TextMate grammar/scope semantics, font styles, semantic themes, more workbench colors, icon themes, embedded languages and grammars |
 | Extension packages | Native local VSIX/rollback, stable Open VSX search/download/explicit updates, scoped enablement and immutable selected generations | Dependency downloading and version solving, engine/ABI qualification, authenticated registries, profiles, package cleanup and automatic update policy |
 | Extension host | Optional shared CommonJS cohort, supported lazy activation/selected dependencies, hidden/shared document handles, curated commands and bounded Mementos | Broader activation/dependency APIs, filesystem/resource edits, full editor handles, secrets/sync/storage URIs, Windows descendant cleanup and engine/ABI qualification |
-| Extension UI/providers | Commands/messages, bounded Quick Pick/Input Box, output/status/lazy trees, seven language-provider routes and diagnostic collections | Completion commands, code actions, full diagnostic aggregation, progress/menus, richer tree/UI and task/debug/test/SCM providers |
-| Language intelligence | One automatically selected installed native server or manual override; diagnostics, automatic/explicit completion popup, hover/navigation/format/rename, actions, explicit parameter hints and symbols; seven extension providers | Completion commands/full completion semantics, automatic hints/overloads, concurrent servers, closed-file refactors, unopened-file extension diagnostics, semantic tokens/inlay hints/code lenses |
+| Extension UI/providers | Commands/messages, bounded Quick Pick/Input Box, output/status/lazy trees, eight language-provider routes and diagnostic collections | Completion commands, full code-action semantics, full diagnostic aggregation, progress/menus, richer tree/UI and task/debug/test/SCM providers |
+| Language intelligence | One automatically selected installed native server or manual override; diagnostics, automatic/explicit completion popup, hover/navigation/format/rename, actions, automatic/explicit parameter hints with overloads and symbols; eight extension provider routes | Completion commands/full completion semantics, multi-provider signature fallback, concurrent servers, closed-file refactors, unopened-file extension diagnostics, semantic tokens/inlay hints/code lenses |
 | Search and projects | Workspace regex search over unsaved buffers; file operations/watchers | Replace across files with preview, include/exclude controls, live results, multiline regex, multi-root `.code-workspace`, workspace trust and settings layers |
 | Git | Status, file diffs, stage/unstage, commits/history | Inline changes, hunk staging, branch/remotes/stash/worktrees, blame/history navigation, merge conflict UI, richer provider support |
 | Tasks | Basic process/POSIX-shell tasks and variables | Dependencies, background readiness, problem matchers, auto-detection/providers, inputs, cancellation UX and Windows shell tasks |

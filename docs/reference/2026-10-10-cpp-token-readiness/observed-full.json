@@ -1,0 +1,933 @@
+{
+  "mode": "full",
+  "initialConfiguration": {
+    "global": "full",
+    "cpp": "full",
+    "effective": "full"
+  },
+  "finalConfiguration": {
+    "global": "full",
+    "cpp": "full",
+    "effective": "full"
+  },
+  "globalBefore": {
+    "label": "before-language-activation",
+    "language": "plaintext",
+    "effective": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true,
+      "detectIndentation": false,
+      "autoClosingQuotes": "languageDefined",
+      "autoClosingBrackets": "languageDefined"
+    },
+    "before": {
+      "text": "    value\r\n",
+      "selections": [
+        {
+          "anchor": 9,
+          "cursor": 9
+        }
+      ],
+      "version": 1,
+      "eol": "CRLF"
+    },
+    "after": {
+      "text": "    value\r\n    \r\n",
+      "selections": [
+        {
+          "anchor": 15,
+          "cursor": 15
+        }
+      ],
+      "version": 2,
+      "eol": "CRLF"
+    }
+  },
+  "grammar": {
+    "attempts": 5,
+    "positive": {
+      "text": "vscli_probe \r\n    ''\r\n// ",
+      "selections": [
+        {
+          "anchor": 19,
+          "cursor": 19
+        }
+      ],
+      "version": 10,
+      "eol": "CRLF"
+    },
+    "negative": {
+      "text": "vscli_probe \r\n    ''\r\n// '",
+      "selections": [
+        {
+          "anchor": 26,
+          "cursor": 26
+        }
+      ],
+      "version": 11,
+      "eol": "CRLF"
+    },
+    "effective": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true,
+      "detectIndentation": false,
+      "autoClosingQuotes": "languageDefined",
+      "autoClosingBrackets": "languageDefined"
+    },
+    "witness": "Positive code pair at line2 then comment suppression at line3; independent of electric indentation"
+  },
+  "traces": [
+    {
+      "name": "cpp-close-early-natural",
+      "arm": "natural",
+      "mode": "full",
+      "effective": {
+        "autoIndent": "full",
+        "tabSize": 4,
+        "insertSpaces": true,
+        "detectIndentation": false,
+        "autoClosingQuotes": "languageDefined",
+        "autoClosingBrackets": "languageDefined"
+      },
+      "beforePreparation": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "initial": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "typed": {
+        "text": "void f() {\r\n    }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "undone": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 3,
+        "eol": "CRLF"
+      },
+      "redone": {
+        "text": "void f() {\r\n    }\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 17,
+            "cursor": 17
+          }
+        ],
+        "version": 4,
+        "eol": "CRLF"
+      },
+      "modeBefore": {
+        "label": "cpp-close-early-natural/before",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      },
+      "modeAfter": {
+        "label": "cpp-close-early-natural/after",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      }
+    },
+    {
+      "name": "cpp-close-early-force-retokenize",
+      "arm": "force-retokenize",
+      "mode": "full",
+      "effective": {
+        "autoIndent": "full",
+        "tabSize": 4,
+        "insertSpaces": true,
+        "detectIndentation": false,
+        "autoClosingQuotes": "languageDefined",
+        "autoClosingBrackets": "languageDefined"
+      },
+      "beforePreparation": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "initial": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "typed": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "undone": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 3,
+        "eol": "CRLF"
+      },
+      "redone": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 4,
+        "eol": "CRLF"
+      },
+      "modeBefore": {
+        "label": "cpp-close-early-force-retokenize/before",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      },
+      "modeAfter": {
+        "label": "cpp-close-early-force-retokenize/after",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      }
+    },
+    {
+      "name": "cpp-close-early-model-options-recreation",
+      "arm": "model-options-recreation",
+      "mode": "full",
+      "effective": {
+        "autoIndent": "full",
+        "tabSize": 4,
+        "insertSpaces": true,
+        "detectIndentation": false,
+        "autoClosingQuotes": "languageDefined",
+        "autoClosingBrackets": "languageDefined"
+      },
+      "beforePreparation": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "initial": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "typed": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "undone": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 3,
+        "eol": "CRLF"
+      },
+      "redone": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 4,
+        "eol": "CRLF"
+      },
+      "modeBefore": {
+        "label": "cpp-close-early-model-options-recreation/before",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      },
+      "modeAfter": {
+        "label": "cpp-close-early-model-options-recreation/after",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      }
+    },
+    {
+      "name": "cpp-close-late-natural",
+      "arm": "natural",
+      "mode": "full",
+      "effective": {
+        "autoIndent": "full",
+        "tabSize": 4,
+        "insertSpaces": true,
+        "detectIndentation": false,
+        "autoClosingQuotes": "languageDefined",
+        "autoClosingBrackets": "languageDefined"
+      },
+      "beforePreparation": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "initial": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "typed": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "undone": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 3,
+        "eol": "CRLF"
+      },
+      "redone": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 4,
+        "eol": "CRLF"
+      },
+      "modeBefore": {
+        "label": "cpp-close-late-natural/before",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      },
+      "modeAfter": {
+        "label": "cpp-close-late-natural/after",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      }
+    },
+    {
+      "name": "cpp-close-late-force-retokenize",
+      "arm": "force-retokenize",
+      "mode": "full",
+      "effective": {
+        "autoIndent": "full",
+        "tabSize": 4,
+        "insertSpaces": true,
+        "detectIndentation": false,
+        "autoClosingQuotes": "languageDefined",
+        "autoClosingBrackets": "languageDefined"
+      },
+      "beforePreparation": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "initial": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "typed": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "undone": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 3,
+        "eol": "CRLF"
+      },
+      "redone": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 4,
+        "eol": "CRLF"
+      },
+      "modeBefore": {
+        "label": "cpp-close-late-force-retokenize/before",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      },
+      "modeAfter": {
+        "label": "cpp-close-late-force-retokenize/after",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      }
+    },
+    {
+      "name": "cpp-close-late-model-options-recreation",
+      "arm": "model-options-recreation",
+      "mode": "full",
+      "effective": {
+        "autoIndent": "full",
+        "tabSize": 4,
+        "insertSpaces": true,
+        "detectIndentation": false,
+        "autoClosingQuotes": "languageDefined",
+        "autoClosingBrackets": "languageDefined"
+      },
+      "beforePreparation": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "initial": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 1,
+        "eol": "CRLF"
+      },
+      "typed": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 2,
+        "eol": "CRLF"
+      },
+      "undone": {
+        "text": "void f() {\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 16,
+            "cursor": 16
+          }
+        ],
+        "version": 3,
+        "eol": "CRLF"
+      },
+      "redone": {
+        "text": "void f() {\r\n}\r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 13,
+            "cursor": 13
+          }
+        ],
+        "version": 4,
+        "eol": "CRLF"
+      },
+      "modeBefore": {
+        "label": "cpp-close-late-model-options-recreation/before",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      },
+      "modeAfter": {
+        "label": "cpp-close-late-model-options-recreation/after",
+        "language": "plaintext",
+        "effective": {
+          "autoIndent": "full",
+          "tabSize": 4,
+          "insertSpaces": true,
+          "detectIndentation": false,
+          "autoClosingQuotes": "languageDefined",
+          "autoClosingBrackets": "languageDefined"
+        },
+        "before": {
+          "text": "    value\r\n",
+          "selections": [
+            {
+              "anchor": 9,
+              "cursor": 9
+            }
+          ],
+          "version": 1,
+          "eol": "CRLF"
+        },
+        "after": {
+          "text": "    value\r\n    \r\n",
+          "selections": [
+            {
+              "anchor": 15,
+              "cursor": 15
+            }
+          ],
+          "version": 2,
+          "eol": "CRLF"
+        }
+      }
+    }
+  ],
+  "globalAfter": {
+    "label": "after-all-targets",
+    "language": "plaintext",
+    "effective": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true,
+      "detectIndentation": false,
+      "autoClosingQuotes": "languageDefined",
+      "autoClosingBrackets": "languageDefined"
+    },
+    "before": {
+      "text": "    value\r\n",
+      "selections": [
+        {
+          "anchor": 9,
+          "cursor": 9
+        }
+      ],
+      "version": 1,
+      "eol": "CRLF"
+    },
+    "after": {
+      "text": "    value\r\n    \r\n",
+      "selections": [
+        {
+          "anchor": 15,
+          "cursor": 15
+        }
+      ],
+      "version": 2,
+      "eol": "CRLF"
+    }
+  }
+}
