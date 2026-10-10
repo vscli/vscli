@@ -280,6 +280,20 @@ child only. Neither behavior is a sandbox or a whole process-tree resource limit
 
 The server must already be installed. This implementation uses native stdio JSON-RPC with bounded transport queues, UTF-16 positions, document versions, and stale-response checks. Diagnostics appear as gutter markers and in Problems. Server failure leaves editing available. Incoming and outgoing serialized JSON frames are each capped at 16 MiB. Oversized document synchronization or tooling requests reject language-server work while retaining native buffers; the editor’s 32 MiB file-opening limit does not qualify every such file for LSP.
 
+Successful-save notifications follow the server's static save capability. The
+notification includes text only when `includeText` is true; disabled or omitted
+object save options suppress it. Legacy numeric Full/Incremental synchronization
+requests save without text, following the official language client's normalization.
+The native snapshot API accepts the exact committed Rope, and the transport writer
+serializes it off the input thread within its existing 64 MiB output budget.
+Escaped output exceeding the 16 MiB frame limit reports a notification failure
+while preserving the successful file save and protocol channel. Four real framed
+subprocess tests cover capabilities, Unicode/CRLF snapshots, closed/unsynchronized
+documents and overflow recovery. Background application saves, dynamic capability
+registration and save participants remain separate work. See the
+[LSP save contract](https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/lsp/3.17/textDocument/didSave.md)
+and [official client normalization](https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common/client.ts).
+
 | Action | Linux | Windows | macOS |
 | --- | --- | --- | --- |
 | Completion | Ctrl+Space | Ctrl+Space | Ctrl+Space |

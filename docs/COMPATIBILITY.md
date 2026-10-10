@@ -64,6 +64,14 @@ server transitions; real-clangd qualification exercises opening C++ and paramete
 hints without `--lsp`. Installed rust-analyzer launch selection is implemented,
 while broad real Rust project behavior remains outstanding qualification.
 
+Native LSP save notifications honor static server options and can carry an exact
+committed Rope independently of newer live text. Serialization runs on the bounded
+transport writer; oversize escaping cannot publish a partial frame. Four framed
+subprocess tests qualify capability forms, snapshot ownership, lifecycle guards
+and overflow recovery. This is a notification foundation, not evidence that native
+application saves are asynchronous or that save participants/dynamic registration
+have parity. See [native language-server behavior](USAGE.md#language-servers).
+
 Native LSP Quick Fix/Refactor now supports bounded action discovery, lazy edit
 resolution, and validated edits across synchronized open buffers. C++ qualification
 includes a real clangd 23.1.1 missing-semicolon fix on Linux; broader server/refactor
