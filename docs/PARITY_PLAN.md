@@ -378,7 +378,9 @@ historical views. Legacy schemas remain readable without rewriting on load;
 recovery and held save ownership remain authoritative. It passes 987 all-target
 Rust tests across 51 reports, formatting and strict locked Clippy. Eight relevant
 Unix scripts pass 40 reports, including four new nested reports over five sessions.
-Optimized and platform qualification remain separate gates. See [layout scope
+The optimized executable passes 75 reports across nine Unix scripts; isolated
+paired core samples pass 80 launches / 3,200 keys with mixed measurements.
+Platform qualification remains a separate gate. See [layout scope
 and evidence](EDITOR_LAYOUT.md).
 
 Editor movement/reordering, spatial focus, distinct Close Group merge semantics,
