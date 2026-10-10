@@ -40,7 +40,10 @@ eight matching optional providers and actual unresolved optional callbacks;
 including unedited documents. Enabled/preferred rows precede disabled rows within
 each source. Exceeding row shares is reported. A source failure leaves independent
 sources usable. Native requests/resolution retain their one actual action slot
-until a response, and a timeout disables further actions until server restart.
+until a response. One latest native intent waits behind canceled work and joins
+the still-current picker after the actual slot is free, preserving independent
+optional results. A source restart, context change or acceptance retires that
+intent. A timeout disables further actions until server restart.
 Optional callbacks that ignore cancellation retain occupancy until settlement.
 These bounds do not bound arbitrary extension-owned JavaScript object graphs.
 
@@ -62,6 +65,10 @@ edit→Undo, normalized byte limits and no-op history preservation.
 `tests/extension_code_actions.rs` adds framed real-host workflows, failure
 isolation, lazy resolution, hidden/untitled edits and an opt-in actual clangd
 coexistence workflow. Existing native action tests retain strict integrity checks.
+`tests/code_actions_queue_pty.py` uses original enhanced Ctrl+. with an empty
+PATH and a held server callback. It checks 32 user intents coalesce behind one
+actual request, rejects the earlier reply, applies only the latest selection,
+and preserves Unicode/CRLF, explicit save/Undo and terminal restoration.
 
 The unchanged MIT official **vscode-samples.code-actions-sample 0.0.2** is pinned
 to Microsoft/vscode-extension-samples commit

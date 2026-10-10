@@ -16,6 +16,7 @@ struct Cohort {
     context: Context,
     settings: crate::settings::Settings,
     native: Option<(u64, Arc<()>)>,
+    native_queued: Option<(Arc<()>, Value)>,
     native_origin: Option<Arc<Request>>,
     tickets: Vec<Ticket>,
     resolve: Option<Ticket>,
@@ -80,7 +81,51 @@ impl App {
             self.message = "Document changed or editor context changed since code action request; request actions again".into();
             return true;
         }
-        false
+        self.dispatch_queued_native_action()
+    }
+    fn dispatch_queued_native_action(&mut self) -> bool {
+        let Some(cohort) = self.actions.cohort.as_ref() else {
+            return false;
+        };
+        let Some((origin, _)) = &cohort.native_queued else {
+            return false;
+        };
+        if cohort.selected {
+            return false;
+        }
+        let Some(client) = &self.lsp else {
+            self.actions.cohort.as_mut().unwrap().native_queued = None;
+            return true;
+        };
+        if !Arc::ptr_eq(origin, &client.identity()) || client.action_channel_closed() {
+            self.actions.cohort.as_mut().unwrap().native_queued = None;
+            self.message = "Native code action source changed or timed out; restart the server and request actions again".into();
+            return true;
+        }
+        if !client.action_available() {
+            return false;
+        }
+        let (origin, extra) = self
+            .actions
+            .cohort
+            .as_mut()
+            .unwrap()
+            .native_queued
+            .take()
+            .unwrap();
+        let client = self.lsp.as_mut().unwrap();
+        let result = client.sync(&self.documents).and_then(|()| {
+            client.request_code_actions(
+                &self.documents[self.active],
+                extra,
+                self.panes.get(self.active_pane).map(|pane| pane.id),
+            )
+        });
+        match result {
+            Ok(token) => self.actions.cohort.as_mut().unwrap().native = Some((token, origin)),
+            Err(error) => self.message = format!("Native code action source: {error:#}"),
+        }
+        true
     }
     pub(super) fn code_action_ui_event(&mut self, event: &Event) {
         let picker = self
@@ -167,6 +212,7 @@ impl App {
             context: Context::capture(self),
             settings: self.settings.clone(),
             native: None,
+            native_queued: None,
             native_origin: None,
             tickets: Vec::new(),
             resolve: None,
@@ -181,18 +227,25 @@ impl App {
             client.capabilities["codeActionProvider"] != Value::Null
                 && client.capabilities["codeActionProvider"] != false
         }) {
-            let result = client.sync(&self.documents).and_then(|()| {
-                client.request_code_actions(
-                    &self.documents[self.active],
-                    json!({"range":range,"context":native_context}),
-                    self.panes.get(self.active_pane).map(|pane| pane.id),
-                )
-            });
-            match result {
-                Ok(token) => {
-                    self.actions.cohort.as_mut().unwrap().native = Some((token, client.identity()))
+            let extra = json!({"range":range,"context":native_context});
+            if !client.action_available() && !client.action_channel_closed() {
+                self.actions.cohort.as_mut().unwrap().native_queued =
+                    Some((client.identity(), extra));
+            } else {
+                let result = client.sync(&self.documents).and_then(|()| {
+                    client.request_code_actions(
+                        &self.documents[self.active],
+                        extra,
+                        self.panes.get(self.active_pane).map(|pane| pane.id),
+                    )
+                });
+                match result {
+                    Ok(token) => {
+                        self.actions.cohort.as_mut().unwrap().native =
+                            Some((token, client.identity()))
+                    }
+                    Err(error) => failures.push(error.to_string()),
                 }
-                Err(error) => failures.push(error.to_string()),
             }
         }
         if let Some(host) = &mut self.extension_host {
@@ -220,9 +273,14 @@ impl App {
             }
         }
         let cohort = self.actions.cohort.as_mut().unwrap();
-        cohort.source_limit =
-            300 / (usize::from(cohort.native.is_some()) + cohort.tickets.len()).max(1);
-        self.message = if cohort.native.is_none() && cohort.tickets.is_empty() {
+        cohort.source_limit = 300
+            / (usize::from(cohort.native.is_some() || cohort.native_queued.is_some())
+                + cohort.tickets.len())
+            .max(1);
+        self.message = if cohort.native.is_none()
+            && cohort.native_queued.is_none()
+            && cohort.tickets.is_empty()
+        {
             format!(
                 "No ready code action providers{}",
                 if failures.is_empty() {
@@ -269,6 +327,7 @@ impl App {
             bail!("A code action was already selected");
         }
         cohort.selected = true;
+        cohort.native_queued = None;
         Ok(())
     }
     pub(super) fn native_action_reply(&mut self, request: Request, value: Value) -> Result<()> {
@@ -474,6 +533,11 @@ impl App {
         if !self.extension_action_current(ticket) || self.modal.is_some() || self.prompt.is_some() {
             bail!("Extension code action context changed");
         }
+        if !resolved {
+            let cohort = self.actions.cohort.as_mut().unwrap();
+            cohort.selected = true;
+            cohort.native_queued = None;
+        }
         if item.get("disabled").is_some() {
             bail!(
                 "Code action is disabled: {}",
@@ -484,9 +548,6 @@ impl App {
         }
         if item.get("command").is_some() {
             bail!("Extension code action commands are unsupported; no edits applied");
-        }
-        if !resolved {
-            self.actions.cohort.as_mut().unwrap().selected = true;
         }
         if !resolved && item.get("edit").is_none() && ticket.provider.resolves {
             let host = self

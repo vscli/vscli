@@ -99,6 +99,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 5
         run: python3 -u tests/pty_smoke.py target/debug/vscli
+      - name: Run native code action queue workflow
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/code_actions_queue_pty.py target/debug/vscli
       - name: Run graphical welcome lifecycle workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
