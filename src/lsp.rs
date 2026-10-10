@@ -75,6 +75,7 @@ pub enum Event {
     Ready,
     ApplyEdit(Value, Option<Request>, Value),
     Response(Request, Value),
+    SignatureFailure(Request, String),
     Diagnostics(DiagnosticPublication),
     Message(String),
 }
@@ -91,6 +92,8 @@ pub struct Client {
     pending: HashMap<u64, Request>,
     completion_resolve: Option<u64>,
     completion_resolve_valid: bool,
+    signature_occupied: Option<u64>,
+    signature_timed_out: bool,
     synced: HashMap<String, Synced>,
     next_id: u64,
     command_channel_valid: bool,
@@ -278,6 +281,8 @@ impl Client {
             pending: HashMap::new(),
             completion_resolve: None,
             completion_resolve_valid: true,
+            signature_occupied: None,
+            signature_timed_out: false,
             synced: HashMap::new(),
             next_id: 1,
             command_channel_valid: true,
@@ -479,6 +484,9 @@ impl Client {
             bail!("Too many pending language requests");
         }
         let is_action = method == "textDocument/codeAction";
+        if method == "textDocument/signatureHelp" && !self.signature_available() {
+            bail!("A parameter hint request is still running or awaiting release");
+        }
         if is_action {
             self.ensure_action_available()?;
         }
@@ -535,6 +543,9 @@ impl Client {
                 started: Instant::now(),
             },
         );
+        if method == "textDocument/signatureHelp" {
+            self.signature_occupied = Some(id);
+        }
         Ok(())
     }
     pub(crate) fn has_symbol_request(&self) -> bool {
@@ -688,10 +699,27 @@ impl Client {
             .map(|(id, _)| *id)
             .collect();
         for id in ids {
-            self.pending.remove(&id);
+            // Cancellation is advisory. Only its exact response or process
+            // retirement proves that this actual callback slot was released.
             self.notify("$/cancelRequest", json!({"id":id}))?;
         }
         Ok(())
+    }
+    pub(crate) fn signature_available(&self) -> bool {
+        self.ready && self.signature_occupied.is_none() && self.pending.len() < 32
+    }
+    pub(crate) fn signature_channel_closed(&self) -> bool {
+        self.signature_timed_out
+    }
+    pub(crate) fn request_signature_help(
+        &mut self,
+        doc: &Document,
+        extra: Value,
+        view: Option<u64>,
+    ) -> Result<u64> {
+        let token = self.next_id;
+        self.request_in_view("textDocument/signatureHelp", doc, extra, view)?;
+        Ok(token)
     }
     pub(crate) fn request_completion(
         &mut self,
@@ -771,6 +799,16 @@ impl Client {
             .collect::<Vec<_>>()
         {
             let request = self.pending.remove(&id).unwrap();
+            if request.method == "textDocument/signatureHelp" {
+                // Retain the actual occupied token after the response deadline.
+                // A late acknowledgement releases capacity without reviving it.
+                self.signature_timed_out = true;
+                events.push(Event::SignatureFailure(
+                    request.clone(),
+                    "Parameter hint request timed out; awaiting actual release or server restart"
+                        .into(),
+                ));
+            }
             if matches!(
                 request.method.as_str(),
                 "textDocument/codeAction" | "codeAction/resolve"
@@ -865,6 +903,15 @@ impl Client {
                     events.push(Event::Message(text.chars().take(2000).collect()));
                 }
             } else if let Some(id) = message["id"].as_u64() {
+                if self.signature_occupied == Some(id) {
+                    if message.get("result").is_none() && message.get("error").is_none() {
+                        // A malformed numeric-id message is not positive
+                        // evidence that the actual callback has settled.
+                        continue;
+                    }
+                    self.signature_occupied = None;
+                    self.signature_timed_out = false;
+                }
                 if id == 0 && !self.ready {
                     if let Some(error) = message.get("error") {
                         bail!("Language server initialization failed: {error}");
@@ -890,7 +937,12 @@ impl Client {
                             json!({"_vscliResolveError":message["error"]}),
                         ));
                     } else if let Some(error) = message.get("error") {
-                        events.push(Event::Message(format!("Language request failed: {error}")));
+                        if request.method == "textDocument/signatureHelp" {
+                            events.push(Event::SignatureFailure(request, format!("{error}")));
+                        } else {
+                            events
+                                .push(Event::Message(format!("Language request failed: {error}")));
+                        }
                     } else {
                         events.push(Event::Response(request, message["result"].clone()));
                     }
@@ -905,6 +957,123 @@ mod tests {
     use super::*;
     use crate::transport::read_message;
     use std::io::BufReader;
+    #[test]
+    fn signature_actual_slot_survives_cancellation_and_timeout_until_exact_release() {
+        const PEER: &str = r#"
+import json,sys
+held={}
+def send(message):
+    data=json.dumps({'jsonrpc':'2.0',**message}).encode()
+    sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(data)).encode()+data)
+    sys.stdout.buffer.flush()
+def notice(value): send({'method':'window/showMessage','params':{'type':3,'message':value}})
+while True:
+    headers={}
+    while True:
+        line=sys.stdin.buffer.readline()
+        if not line: sys.exit(0)
+        if line==b'\r\n': break
+        key,value=line.decode().split(':',1)
+        headers[key.lower()]=value.strip()
+    message=json.loads(sys.stdin.buffer.read(int(headers['content-length'])))
+    method,ident,params=message.get('method'),message.get('id'),message.get('params',{})
+    if method=='initialize': send({'id':ident,'result':{'capabilities':{'textDocumentSync':1,'signatureHelpProvider':{'triggerCharacters':['(', ',']}}}})
+    elif method=='textDocument/signatureHelp':
+        if params.get('fail'): send({'id':ident,'error':{'code':-32603,'message':'fixture failure'}})
+        elif params.get('hold'):
+            held[ident]={'signatures':[{'label':'held(int value)'}]}
+            notice('held-%d'%ident)
+        else: send({'id':ident,'result':{'signatures':[{'label':'fresh()'}]}})
+    elif method=='$/cancelRequest': notice('ignored-cancel-%d'%params['id'])
+    elif method=='fixture/release': send({'id':params['id'],'result':held.pop(params['id'])})
+    elif method=='fixture/unknown': send({'id':params['id'],'result':None})
+    elif method=='textDocument/hover': send({'id':ident,'result':None})
+    elif method=='shutdown': send({'id':ident,'result':None})
+    elif method=='exit': break
+"#;
+        fn until(client: &mut Client, predicate: impl Fn(&Client, &[Event]) -> bool) -> Vec<Event> {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                let events = client.poll().unwrap();
+                if predicate(client, &events) {
+                    return events;
+                }
+                assert!(Instant::now() < deadline, "{}", client.debug_summary());
+                std::thread::sleep(Duration::from_millis(2));
+            }
+        }
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("main.cpp");
+        std::fs::write(&path, "sum(猫🙂)\r\n").unwrap();
+        let doc = Document::open(&path).unwrap();
+        let mut client = Client::start(
+            if cfg!(windows) { "python" } else { "python3" },
+            &["-u".into(), "-c".into(), PEER.into()],
+            root.path(),
+            "cpp".into(),
+        )
+        .unwrap();
+        until(&mut client, |client, _| client.ready);
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        let token = client
+            .request_signature_help(&doc, json!({"hold":true}), Some(17))
+            .unwrap();
+        until(&mut client, |_, events| {
+            events.iter().any(|event| matches!(event, Event::Message(message) if message == &format!("held-{token}")))
+        });
+        for _ in 0..32 {
+            client.cancel_signature_help().unwrap();
+            assert!(!client.signature_available());
+            assert!(
+                client
+                    .request_signature_help(&doc, json!({}), None)
+                    .is_err()
+            );
+        }
+        assert_eq!(client.pending.len(), 1);
+        assert_eq!(client.signature_occupied, Some(token));
+        client.pending.get_mut(&token).unwrap().started = Instant::now() - Duration::from_secs(16);
+        let events = client.poll().unwrap();
+        assert!(events.iter().any(|event| matches!(event, Event::SignatureFailure(request, message) if request.token == token && message.contains("timed out"))));
+        assert!(client.signature_channel_closed());
+        assert!(!client.signature_available());
+        client
+            .notify("fixture/unknown", json!({"id":token + 999}))
+            .unwrap();
+        client
+            .request("textDocument/hover", &doc, json!({}))
+            .unwrap();
+        until(&mut client, |_, events| {
+            events.iter().any(|event| matches!(event, Event::Response(request, _) if request.method == "textDocument/hover"))
+        });
+        assert!(client.signature_channel_closed());
+        client
+            .notify("fixture/release", json!({"id":token}))
+            .unwrap();
+        let late = until(&mut client, |client, _| client.signature_available());
+        assert!(
+            !late.iter().any(
+                |event| matches!(event, Event::Response(request, _) if request.token == token)
+            )
+        );
+        assert!(!client.signature_channel_closed());
+        let failure = client
+            .request_signature_help(&doc, json!({"fail":true}), None)
+            .unwrap();
+        until(&mut client, |_, events| {
+            events.iter().any(|event| matches!(event, Event::SignatureFailure(request, message) if request.token == failure && message.contains("fixture failure")))
+        });
+        assert!(client.signature_available());
+        let fresh = client
+            .request_signature_help(&doc, json!({}), None)
+            .unwrap();
+        until(&mut client, |_, events| {
+            events.iter().any(|event| matches!(event, Event::Response(request, value) if request.token == fresh && value["signatures"][0]["label"] == "fresh()"))
+        });
+        assert!(client.signature_available());
+        assert_eq!(std::fs::read(path).unwrap(), "sum(猫🙂)\r\n".as_bytes());
+    }
+
     #[test]
     fn ignored_action_cancellation_retains_slots_and_timeout_blocks_further_action_work() {
         // A real framed peer confirms receipt and explicitly ignores cancellation.

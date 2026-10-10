@@ -44,6 +44,14 @@ const SUPPORTED: &[&str] = &[
     "editor.quickSuggestionsDelay",
     "editor.suggestOnTriggerCharacters",
     "editor.acceptSuggestionOnEnter",
+    "editor.parameterHints.enabled",
+    "editor.parameterHints.cycle",
+    "editor.autoClosingBrackets",
+    "editor.autoClosingQuotes",
+    "editor.autoClosingDelete",
+    "editor.autoClosingOvertype",
+    "editor.autoSurround",
+    "editor.autoIndent",
     "workbench.colorTheme",
     "vscli.languageServer.enabled",
     "vscli.languageServer.program",
@@ -130,6 +138,12 @@ impl Settings {
             } else if !valid(key, value) {
                 self.warnings
                     .push(format!("{source}: invalid value for {key}"));
+            } else if key == "editor.autoIndent"
+                && matches!(value.as_str(), Some("advanced" | "full"))
+            {
+                self.warnings.push(format!(
+                    "{source}: {key} supports bracket indentation; advanced/full language rules remain incomplete"
+                ));
             }
         }
     }
@@ -255,6 +269,58 @@ impl Settings {
         }
     }
 
+    pub fn parameter_hints(&self, language: &str) -> crate::signature::Options {
+        crate::signature::Options {
+            enabled: self
+                .value("editor.parameterHints.enabled", language)
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
+            cycle: self
+                .value("editor.parameterHints.cycle", language)
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
+        }
+    }
+
+    pub fn typing(&self, language: &str) -> crate::editing_profile::TypingOptions {
+        use crate::editing_profile::{AutoClosing, AutoIndent, PairHandling, Surround};
+        let closing = |key| match self.value(key, language).and_then(Value::as_str) {
+            Some("always") => AutoClosing::Always,
+            Some("beforeWhitespace") => AutoClosing::BeforeWhitespace,
+            Some("never") => AutoClosing::Never,
+            _ => AutoClosing::LanguageDefined,
+        };
+        let handling = |key| match self.value(key, language).and_then(Value::as_str) {
+            Some("always") => PairHandling::Always,
+            Some("never") => PairHandling::Never,
+            _ => PairHandling::Auto,
+        };
+        crate::editing_profile::TypingOptions {
+            profile: crate::editing_profile::ProfileId::for_language(language),
+            brackets: closing("editor.autoClosingBrackets"),
+            quotes: closing("editor.autoClosingQuotes"),
+            delete: handling("editor.autoClosingDelete"),
+            overtype: handling("editor.autoClosingOvertype"),
+            surround: match self
+                .value("editor.autoSurround", language)
+                .and_then(Value::as_str)
+            {
+                Some("quotes") => Surround::Quotes,
+                Some("brackets") => Surround::Brackets,
+                Some("never") => Surround::Never,
+                _ => Surround::LanguageDefined,
+            },
+            indent: match self
+                .value("editor.autoIndent", language)
+                .and_then(Value::as_str)
+            {
+                Some("none") => AutoIndent::None,
+                Some("keep") => AutoIndent::Keep,
+                _ => AutoIndent::Brackets,
+            },
+        }
+    }
+
     pub fn apply(&self, doc: &mut crate::document::Document) {
         let language = doc
             .path
@@ -316,8 +382,29 @@ fn valid(key: &str, value: &Value) -> bool {
                     <= 16384
         }),
         "editor.tabSize" => value.as_u64().is_some_and(|n| (1..=16).contains(&n)),
-        "editor.insertSpaces" | "editor.quickSuggestions" | "editor.suggestOnTriggerCharacters" => {
-            value.is_boolean()
+        "editor.insertSpaces"
+        | "editor.quickSuggestions"
+        | "editor.suggestOnTriggerCharacters"
+        | "editor.parameterHints.enabled"
+        | "editor.parameterHints.cycle" => value.is_boolean(),
+        "editor.autoClosingBrackets" | "editor.autoClosingQuotes" => matches!(
+            value.as_str(),
+            Some("always" | "languageDefined" | "beforeWhitespace" | "never")
+        ),
+        "editor.autoClosingDelete" | "editor.autoClosingOvertype" => {
+            matches!(value.as_str(), Some("always" | "auto" | "never"))
+        }
+        "editor.autoSurround" => {
+            matches!(
+                value.as_str(),
+                Some("languageDefined" | "quotes" | "brackets" | "never")
+            )
+        }
+        "editor.autoIndent" => {
+            matches!(
+                value.as_str(),
+                Some("none" | "keep" | "brackets" | "advanced" | "full")
+            )
         }
         "editor.quickSuggestionsDelay" => value.as_u64().is_some_and(|n| n <= 2000),
         "editor.acceptSuggestionOnEnter" => matches!(value.as_str(), Some("on" | "off")),
@@ -530,6 +617,82 @@ mod tests {
         settings.apply(&mut doc);
         assert_eq!(doc.tab_size, 3);
     }
+    #[test]
+    fn typing_and_parameter_hints_keep_language_scope_and_report_partial_indentation() {
+        use crate::editing_profile::{AutoClosing, AutoIndent, PairHandling, ProfileId, Surround};
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(
+            &user,
+            r#"{
+            "editor.autoClosingBrackets":"never",
+            "editor.parameterHints.enabled":false,
+            "[cpp]":{"editor.autoClosingBrackets":"always","editor.parameterHints.enabled":true}
+        }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &workspace,
+            r#"{
+            "editor.autoClosingBrackets":"beforeWhitespace",
+            "editor.autoClosingDelete":"always",
+            "editor.autoClosingOvertype":"never",
+            "editor.autoSurround":"quotes",
+            "editor.autoIndent":"full",
+            "editor.parameterHints.cycle":false,
+            "[cpp]":{"editor.autoClosingQuotes":"never"}
+        }"#,
+        )
+        .unwrap();
+        let settings = Settings::load(&[user, workspace]).unwrap();
+        let cpp = settings.typing("cpp");
+        assert_eq!(cpp.profile, ProfileId::Cpp);
+        assert_eq!(cpp.brackets, AutoClosing::Always);
+        assert_eq!(cpp.quotes, AutoClosing::Never);
+        assert_eq!(cpp.delete, PairHandling::Always);
+        assert_eq!(cpp.overtype, PairHandling::Never);
+        assert_eq!(cpp.surround, Surround::Quotes);
+        assert_eq!(cpp.indent, AutoIndent::Brackets);
+        assert!(settings.parameter_hints("cpp").enabled);
+        assert!(!settings.parameter_hints("cpp").cycle);
+        assert!(!settings.parameter_hints("json").enabled);
+        assert_eq!(
+            settings.typing("json").brackets,
+            AutoClosing::BeforeWhitespace
+        );
+        assert_eq!(settings.warnings.len(), 1);
+        assert!(settings.warnings[0].contains("advanced/full"));
+    }
+
+    #[test]
+    fn invalid_typing_values_do_not_override_valid_layers_or_coerce_hint_flags() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("user.json");
+        let workspace = root.path().join("workspace.json");
+        std::fs::write(
+            &user,
+            r#"{"editor.autoClosingBrackets":"never","editor.parameterHints.enabled":false}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &workspace,
+            r#"{
+            "editor.autoClosingBrackets":"sometimes",
+            "editor.parameterHints.enabled":"true",
+            "[cpp]":{"editor.autoIndent":true}
+        }"#,
+        )
+        .unwrap();
+        let settings = Settings::load(&[user, workspace]).unwrap();
+        assert_eq!(
+            settings.typing("cpp").brackets,
+            crate::editing_profile::AutoClosing::Never
+        );
+        assert!(!settings.parameter_hints("cpp").enabled);
+        assert_eq!(settings.warnings.len(), 3);
+    }
+
     #[test]
     fn tab_width_agrees_with_cursor_motion_and_indent_transactions() {
         let mut doc = crate::document::Document::from_text("\t界\n0123456789");

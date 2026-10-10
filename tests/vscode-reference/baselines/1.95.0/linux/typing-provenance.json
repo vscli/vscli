@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "observedAt": "2026-10-10T00:35:05.174Z",
+  "reference": {
+    "version": "1.95.0",
+    "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+    "platform": "linux",
+    "arch": "x64",
+    "node": "20.18.0"
+  },
+  "observerSha256": "f0e9de03296fe2559325a579d5b135b05ce50dfe4d03deea80000212c13cd533",
+  "casesSha256": "375dd456812f4ec30cd083e265d4dc5cdd73877a48830a6bd4746b871198e1f7",
+  "traceSha256": "d7def6e1a56294fee87e357f2cfc4dd528f3371b47a620cf6542459b827855d2",
+  "observations": 18,
+  "limitations": [
+    "Native comparisons cover the named C++/JSON gestures and scalar selections only.",
+    "These commands do not qualify physical keyboard delivery or all language indentation rules."
+  ]
+}

@@ -1,0 +1,702 @@
+[
+  {
+    "name": "cpp-generated-close",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "猫🙂 \r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫🙂 ()\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫🙂 ()\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "猫🙂 \r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "猫🙂 ()\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-generated-delete",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "()\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "deleteLeft",
+        "text": "\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "()\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "redo",
+        "text": "\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-manual-delete",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "()\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "deleteLeft",
+        "text": ")\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "()\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-surround-reversed",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "猫🙂 value\r\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "猫🙂 (value)\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "猫🙂 value\r\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-pair-enter-crlf",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-multi-cursor-pairs",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "one\r\ntwo\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "one()\r\ntwo()\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          },
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "one()\r\ntwo()\r\n",
+        "selections": [
+          {
+            "anchor": 5,
+            "cursor": 5
+          },
+          {
+            "anchor": 12,
+            "cursor": 12
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "one\r\ntwo\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          },
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-line-comment-quotes",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "// hello\r\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "// hello\"\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "// hello\r\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-string-brackets",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\"hello\"\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\"he(llo\"\r\n",
+        "selections": [
+          {
+            "anchor": 4,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\"hello\"\r\n",
+        "selections": [
+          {
+            "anchor": 3,
+            "cursor": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-quotes",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\"\"\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\"\"\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-explicit-line-break",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "{}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "lineBreakInsert",
+        "text": "{\r\n    \r\n}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "{}\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-bracket-in-string-whitespace",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\"hello world\"\r\n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\"hello() world\"\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-bracket-in-comment-whitespace",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "// hello world\r\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "// hello() world\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "json-bracket-in-string-whitespace",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "\"hello world\"\r\n",
+        "selections": [
+          {
+            "anchor": 6,
+            "cursor": 6
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "\"hello( world\"\r\n",
+        "selections": [
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-quote-in-comment-whitespace",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "// hello world\r\n",
+        "selections": [
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "// hello\" world\r\n",
+        "selections": [
+          {
+            "anchor": 9,
+            "cursor": 9
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-quote-in-raw-string",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "R\"tag(hello world)tag\"\r\n",
+        "selections": [
+          {
+            "anchor": 11,
+            "cursor": 11
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "R\"tag(hello\" world)tag\"\r\n",
+        "selections": [
+          {
+            "anchor": 12,
+            "cursor": 12
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-mixed-nonempty-and-cursor",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "one\r\ntwo\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          },
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "(\r\ntwo(\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          },
+          {
+            "anchor": 7,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "one\r\ntwo\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 3
+          },
+          {
+            "anchor": 8,
+            "cursor": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-adjacent-surround-selections",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "abcd\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 2
+          },
+          {
+            "anchor": 2,
+            "cursor": 4
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "(ab)(cd)\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 3
+          },
+          {
+            "anchor": 5,
+            "cursor": 7
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "abcd\r\n",
+        "selections": [
+          {
+            "anchor": 0,
+            "cursor": 2
+          },
+          {
+            "anchor": 2,
+            "cursor": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cpp-manual-close-overtype",
+    "observations": [
+      {
+        "action": "initial",
+        "text": "()\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      },
+      {
+        "action": "type",
+        "text": "())\r\n",
+        "selections": [
+          {
+            "anchor": 2,
+            "cursor": 2
+          }
+        ]
+      },
+      {
+        "action": "undo",
+        "text": "()\r\n",
+        "selections": [
+          {
+            "anchor": 1,
+            "cursor": 1
+          }
+        ]
+      }
+    ]
+  }
+]

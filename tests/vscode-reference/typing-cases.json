@@ -1,0 +1,347 @@
+[
+  {
+    "name": "cpp-generated-close",
+    "language": "cpp",
+    "text": "\u732b\ud83d\ude42 \r\n",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      },
+      {
+        "type": ")"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-generated-delete",
+    "language": "cpp",
+    "text": "\r\n",
+    "steps": [
+      {
+        "type": "("
+      },
+      {
+        "command": "deleteLeft"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-manual-delete",
+    "language": "cpp",
+    "text": "()\r\n",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 1
+      }
+    ],
+    "steps": [
+      {
+        "command": "deleteLeft"
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-surround-reversed",
+    "language": "cpp",
+    "text": "\u732b\ud83d\ude42 value\r\n",
+    "selections": [
+      {
+        "anchor": 8,
+        "cursor": 3
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-pair-enter-crlf",
+    "language": "cpp",
+    "text": "\r\n",
+    "steps": [
+      {
+        "type": "{"
+      },
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-multi-cursor-pairs",
+    "language": "cpp",
+    "text": "one\r\ntwo\r\n",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      },
+      {
+        "anchor": 8,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      },
+      {
+        "type": ")"
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-line-comment-quotes",
+    "language": "cpp",
+    "text": "// hello\r\n",
+    "selections": [
+      {
+        "anchor": 8,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "\""
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-string-brackets",
+    "language": "cpp",
+    "text": "\"hello\"\r\n",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "json-quotes",
+    "language": "json",
+    "text": "\r\n",
+    "steps": [
+      {
+        "type": "\""
+      },
+      {
+        "type": "\""
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-explicit-line-break",
+    "language": "cpp",
+    "text": "{}\r\n",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 1
+      }
+    ],
+    "steps": [
+      {
+        "command": "lineBreakInsert"
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-bracket-in-string-whitespace",
+    "language": "cpp",
+    "text": "\"hello world\"\r\n",
+    "selections": [
+      {
+        "anchor": 6,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      }
+    ]
+  },
+  {
+    "name": "cpp-bracket-in-comment-whitespace",
+    "language": "cpp",
+    "text": "// hello world\r\n",
+    "selections": [
+      {
+        "anchor": 8,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      }
+    ]
+  },
+  {
+    "name": "json-bracket-in-string-whitespace",
+    "language": "json",
+    "text": "\"hello world\"\r\n",
+    "selections": [
+      {
+        "anchor": 6,
+        "cursor": 6
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      }
+    ]
+  },
+  {
+    "name": "cpp-quote-in-comment-whitespace",
+    "language": "cpp",
+    "text": "// hello world\r\n",
+    "selections": [
+      {
+        "anchor": 8,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "\""
+      }
+    ]
+  },
+  {
+    "name": "cpp-quote-in-raw-string",
+    "language": "cpp",
+    "text": "R\"tag(hello world)tag\"\r\n",
+    "selections": [
+      {
+        "anchor": 11,
+        "cursor": 11
+      }
+    ],
+    "steps": [
+      {
+        "type": "\""
+      }
+    ]
+  },
+  {
+    "name": "cpp-mixed-nonempty-and-cursor",
+    "language": "cpp",
+    "text": "one\r\ntwo\r\n",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 3
+      },
+      {
+        "anchor": 8,
+        "cursor": 8
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-adjacent-surround-selections",
+    "language": "cpp",
+    "text": "abcd\r\n",
+    "selections": [
+      {
+        "anchor": 0,
+        "cursor": 2
+      },
+      {
+        "anchor": 2,
+        "cursor": 4
+      }
+    ],
+    "steps": [
+      {
+        "type": "("
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-manual-close-overtype",
+    "language": "cpp",
+    "text": "()\r\n",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 1
+      }
+    ],
+    "steps": [
+      {
+        "type": ")"
+      },
+      {
+        "command": "undo"
+      }
+    ]
+  }
+]

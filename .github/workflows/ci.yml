@@ -66,6 +66,7 @@ jobs:
       - run: node --test extension-host/providers.test.cjs extension-host/provider-wire.test.cjs
       - run: node --test extension-host/diagnostics.test.cjs
       - run: node --test extension-host/code-actions.test.cjs
+      - run: node --test extension-host/signatures.test.cjs
       - run: cargo test --locked
       - run: cargo build --locked
       - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs tests/vscode-reference/diagnostics-compare.test.cjs
@@ -88,6 +89,8 @@ jobs:
         run: cargo run --locked --example snippet_contract -- --insertion target/vscode-reference/result/snippet-insertion.json > target/vscode-reference/result/snippet-insertion-vscli.json
       - name: Compare snippet variables and cancellation with the pinned editor
         run: cargo run --locked --example snippet_contract -- --variables target/vscode-reference/result/snippet-variables.json > target/vscode-reference/result/snippet-variables-vscli.json
+      - name: Compare native typing gestures with the pinned editor
+        run: cargo run --locked --example typing_contract -- target/vscode-reference/result/typing.json > target/vscode-reference/result/typing-vscli.json
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -103,6 +106,14 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/code_actions_queue_pty.py target/debug/vscli
+      - name: Run native smart typing workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/smart_typing_pty.py target/debug/vscli
+      - name: Run automatic parameter hint workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/signature_hints_pty.py target/debug/vscli
       - name: Run graphical welcome lifecycle workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
@@ -188,6 +199,7 @@ jobs:
       - run: cargo build --locked
       - run: python3 -u tests/automatic_language_services_pty.py target/debug/vscli --real-clangd
       - run: python3 -u tests/suggestions_pty.py target/debug/vscli --real-clangd
+      - run: python3 -u tests/signature_hints_pty.py target/debug/vscli --real-clangd
       - run: cargo test --test debug_adapter -- --ignored
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

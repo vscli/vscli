@@ -8,6 +8,7 @@ const { parse } = require('jsonc-parser');
 const { configurationTrace } = require('./contracts.cjs');
 const { snippetTrace } = require('./snippets.cjs');
 const { diagnosticTrace } = require('./diagnostics.cjs');
+const { typingTrace } = require('./typing.cjs');
 
 async function run() {
   assert.equal(vscode.version, '1.95.0', 'Reference version must remain pinned');
@@ -65,6 +66,19 @@ async function run() {
     observations: diagnostics.snapshots.length, events: diagnostics.events.length,
     limitations: ['Collection operations and document edit/close retention are observed in the actual pinned executable.',
       'The optional-host comparison separately excludes document event adapters and main-thread marker mirror events.'],
+  }, null, 2) + '\n');
+  const typing = await typingTrace(vscode);
+  fs.writeFileSync(path.join(output, 'typing.json'), JSON.stringify(typing, null, 2) + '\n');
+  fs.writeFileSync(path.join(output, 'typing-provenance.json'), JSON.stringify({
+    schema: 1, observedAt: new Date().toISOString(),
+    reference: { version: vscode.version, commit: product.commit,
+      platform: process.platform, arch: process.arch, node: process.versions.node },
+    observerSha256: createHash('sha256').update(fs.readFileSync(require.resolve('./typing.cjs'))).digest('hex'),
+    casesSha256: createHash('sha256').update(fs.readFileSync(require.resolve('./typing-cases.json'))).digest('hex'),
+    traceSha256: createHash('sha256').update(fs.readFileSync(path.join(output, 'typing.json'))).digest('hex'),
+    observations: typing.length,
+    limitations: ['Native comparisons cover the named C++/JSON gestures and scalar selections only.',
+      'These commands do not qualify physical keyboard delivery or all language indentation rules.'],
   }, null, 2) + '\n');
   console.log(`Exported ${bindings.length} default rules, ${trace.length} configuration observations and ${snippets.length} snippet session traces and ${insertion.length} insertion traces and ${variables.length} variable/cancellation traces`);
 }
