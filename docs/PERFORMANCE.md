@@ -876,3 +876,72 @@ python3 scripts/bench_editor.py --vscli /path/to/preview-tabs/vscli \
   --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
   --output target/benchmarks/native-editor-preview-tabs-single-line.json
 ```
+
+
+## Native sticky tabs core baseline (2026-10-10)
+
+The [ordinary-file report](benchmarks/2026-10-10-native-sticky-editor-tabs.json)
+and [single-line report](benchmarks/2026-10-10-native-sticky-editor-tabs-single-line.json)
+compare the sticky executable built at
+`802e4e6f9eef37feae9d3c85be386f89e91596b5`, native source tree
+`d5530554a69041b9b868d87aaeb6385699eab837`, with the preserved preview executable,
+native source tree `ac7188bf99161cdb6e513020cd2ebaf375582784`.
+Five interleaved launches and 200 serial keys per executable/workload produce
+40 successful launches / 1,600 observed keys with zero failures. No local builds,
+test suites, terminal journeys or reference editors ran during measurement.
+
+| File / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS median MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / preview tabs | 5.880 | 0.190 | 0.730 | 0.836 | 12.96 |
+| 10 KiB multiline / sticky tabs | 5.201 | 0.307 | 0.570 | 0.784 | 13.08 |
+| 1 MiB multiline / preview tabs | 8.039 | 0.380 | 0.839 | 0.985 | 13.99 |
+| 1 MiB multiline / sticky tabs | 8.193 | 0.382 | 0.812 | 1.073 | 14.20 |
+| 10 MiB multiline / preview tabs | 18.998 | 0.325 | 0.823 | 0.903 | 24.46 |
+| 10 MiB multiline / sticky tabs | 21.333 | 0.334 | 0.537 | 0.784 | 24.70 |
+| 1 MiB single line / preview tabs | 10.724 | 0.230 | 0.577 | 0.805 | 14.09 |
+| 1 MiB single line / sticky tabs | 8.209 | 0.229 | 0.604 | 0.730 | 14.22 |
+
+The initial small-file key median was higher for the candidate (0.307 vs
+0.190 ms), so a [focused repeat](benchmarks/2026-10-10-native-sticky-editor-tabs-small-repeat.json)
+retains the same binaries/fixture and increases to twenty interleaved launches
+per executable, forty keys per launch and one-second idle samples. All forty
+launches / 1,600 keys passed. Preview/sticky startup medians were 6.319/6.521 ms,
+key medians 0.317/0.325 ms, key p95 0.673/0.741 ms, key p99 0.855/0.949 ms and
+sampled tree RSS 12.93/13.10 MiB. The large initial median difference did not
+recur; the repeat still has higher candidate tails. Both reports are retained.
+Mixed initial results and this variability establish neither an overall speedup
+nor a causal regression or editor ranking. Five startup samples do not qualify
+startup tails; pooled keys are not independent launches and sampled RSS is not
+peak memory. Host frequency, temperature and scheduling were uncontrolled on the
+Linux x86_64 i9-13900H / 20-logical-CPU machine.
+
+Both binaries edit warm-cache ASCII plaintext at 120 × 40 cells with isolated
+settings/data, recovery disabled, no language servers/extensions, and autosave,
+formatting and source actions off. Default file Breadcrumbs are enabled; each
+renders one committed ordinary tab. These trials exercise core editing with
+sticky support present; no pin, close, group churn or active-sticky workload is
+measured. The Python PTY-cell oracle is included; physical input and graphical
+painting are excluded. Sticky lifecycle correctness has separate actual
+save-worker, reference and terminal evidence in [the sticky contract](STICKY_TABS.md).
+
+Candidate executable SHA256:
+`af92cc53fbde0f514d2fc6eda0926c02a2b72c148cbae10faf4f02e966438ace`.
+Baseline executable SHA256:
+`d9015c5b95388c9098f1e538cdea562b954e6bf3cae00514bda1d69052e27e7e`.
+Raw reports retain every trial, executable/fixture hashes and the qualification
+revision. Later documentation changes leave both native source trees unchanged.
+
+```sh
+python3 scripts/bench_editor.py --vscli /path/to/sticky-tabs/vscli \
+  --compare-vscli /path/to/preview-tabs/vscli \
+  --sizes 10240 1048576 10485760 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-sticky-editor-tabs.json
+python3 scripts/bench_editor.py --vscli /path/to/sticky-tabs/vscli \
+  --compare-vscli /path/to/preview-tabs/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-sticky-editor-tabs-single-line.json
+python3 scripts/bench_editor.py --vscli /path/to/sticky-tabs/vscli \
+  --compare-vscli /path/to/preview-tabs/vscli \
+  --sizes 10240 --trials 20 --keys 40 --idle-seconds 1 \
+  --output target/benchmarks/native-sticky-editor-tabs-small-repeat.json
+```

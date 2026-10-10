@@ -2,8 +2,9 @@
 
 The native sticky-tab subset is implemented on the feature branch. Its engine,
 App save/close ownership, settings, original shortcuts and tab presentation pass
-local Rust and terminal qualification. Fresh protected platform checks and
-optimized qualification remain required before merge. This is a bounded editor
+local Rust and terminal qualification. The optimized executable passes the same
+sticky journeys and adjacent workflows. Fresh protected platform checks remain
+required before merge. This is a bounded editor
 slice, not full VS Code workbench parity.
 
 ## Native behavior
@@ -69,14 +70,19 @@ all-target locked Clippy and six observer path/event tests pass. The complete
 source-matched Linux native comparison covers all 65 target and 91 setup states;
 four named final-empty-group boundaries retain raw upstream inventories.
 
-Five new terminal reports across nine isolated sessions pass on the debug binary.
+Five new terminal reports across nine isolated sessions pass on both debug and
+optimized binaries.
 They use original Linux-profile enhanced keys with empty PATH, no Node and no LSP:
 pin/unpin metadata and dirty history; protected local/global MRU and forced close;
 captured group/all subsets; all four root policies and workspace/language scope;
 and shared Unicode/CRLF carets/Undo/Redo. Existing original-group close and held
 save assertions remain unchanged. The complete ordinary Unix terminal regression passes all 31 scripts and
-145 reports. Optimized journeys, performance measurements and fresh platform CI
-are recorded separately when complete. Mouse-close gestures and physical terminal/key delivery are unqualified.
+145 reports. The optimized executable passes 71 reports across eight scripts:
+sticky, preview, groups, saving, formatting, source actions, adjacent Escape and
+the 35-report smoke suite. The [isolated paired core benchmark](PERFORMANCE.md#native-sticky-tabs-core-baseline-2026-10-10)
+passes 80 launches / 3,200 keys, including a focused repeat, with mixed results
+and no editor ranking or active-sticky performance claim. Fresh platform CI
+remains required before merge. Mouse-close gestures and physical terminal/key delivery are unqualified.
 
 Sticky state is transient; clean-session restoration commits historical tabs and
 does not persist stickiness. Nested/resizable layouts, graphical sticky rows,
