@@ -157,7 +157,13 @@ def run():
             wait_screen(app, "DIRTY猫🙂", "settings.json *")
             dirty = "// DIRTY猫🙂\r\n".encode() + SETTINGS
             palette(app, "View: Toggle Breadcrumbs")
-            wait_screen(app, "Breadcrumbs setting unchanged", "unsaved changes")
+            refusal = wait_screen(app, "unsaved changes")
+            # A canonical user path refuses immediately; a parent alias can
+            # reach the worker's native-identity guard first. Both are explicit
+            # refusals and must retain the same bytes/header/history below.
+            assert any(marker in refusal for marker in (
+                "Breadcrumbs setting unchanged", "Settings write refused"
+            )), refusal
             header(app, "settings.json", True)
             assert user.read_bytes() == SETTINGS
             assert source.read_bytes() == ORIGINAL
