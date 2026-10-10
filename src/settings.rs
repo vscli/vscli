@@ -85,6 +85,8 @@ const SUPPORTED: &[&str] = &[
     "breadcrumbs.enabled",
     "breadcrumbs.filePath",
     "breadcrumbs.symbolPath",
+    "files.autoSave",
+    "files.autoSaveDelay",
     "workbench.colorTheme",
     "vscli.languageServer.enabled",
     "vscli.languageServer.program",
@@ -169,8 +171,20 @@ impl Settings {
                     "{source}: {key} is not a native setting; extensions may read it"
                 ));
             } else if !valid(key, value) {
-                self.warnings
-                    .push(format!("{source}: invalid value for {key}"));
+                self.warnings.push(if key == "files.autoSaveDelay" {
+                    format!("{source}: invalid value for {key}; native autosave disabled (delay must be 0–86400000 ms)")
+                } else if key == "files.autoSave" {
+                    format!("{source}: invalid value for {key}; native autosave disabled")
+                } else {
+                    format!("{source}: invalid value for {key}")
+                });
+            } else if key == "files.autoSave"
+                && matches!(value.as_str(), Some("onFocusChange" | "onWindowChange"))
+            {
+                self.warnings.push(format!(
+                    "{source}: {key} mode {} is not implemented; native autosave disabled",
+                    value.as_str().unwrap()
+                ));
             }
         }
     }
@@ -211,9 +225,18 @@ impl Settings {
         language: &str,
         limit: usize,
     ) -> Option<ScopedValue<'_>> {
+        self.scoped_source(key, language, limit, true)
+    }
+    fn scoped_source(
+        &self,
+        key: &str,
+        language: &str,
+        limit: usize,
+        require_valid: bool,
+    ) -> Option<ScopedValue<'_>> {
         let mut result = None;
         for (index, layer) in self.layers.iter().take(limit).enumerate() {
-            if let Some(value) = layer.get(key).filter(|v| valid(key, v)) {
+            if let Some(value) = layer.get(key).filter(|v| !require_valid || valid(key, v)) {
                 result = Some(ScopedValue {
                     value,
                     layer: index,
@@ -247,7 +270,7 @@ impl Settings {
                 }
                 let found = value
                     .get(key)
-                    .filter(|v| valid(key, v))
+                    .filter(|v| !require_valid || valid(key, v))
                     .map(|value| ScopedValue {
                         value,
                         layer: index,
@@ -368,6 +391,29 @@ impl Settings {
         }
     }
 
+    /// Autosave resolves the highest present value, including malformed values.
+    /// Falling back to a lower valid value could unexpectedly enable disk writes.
+    /// Language blocks follow the same pinned precedence as editor settings.
+    pub fn auto_save(&self, language: &str) -> crate::autosave::Policy {
+        use crate::autosave::{DEFAULT_DELAY_MS, MAX_DELAY_MS, Policy};
+        let raw = |key| {
+            self.scoped_source(key, language, self.layers.len(), false)
+                .map(|source| source.value)
+        };
+        let delay_ms = match raw("files.autoSaveDelay") {
+            None => DEFAULT_DELAY_MS,
+            Some(value) => match value.as_u64().filter(|&delay| delay <= MAX_DELAY_MS.into()) {
+                Some(delay) => delay as u32,
+                None => return Policy::Off,
+            },
+        };
+        match raw("files.autoSave") {
+            None => Policy::Off,
+            Some(value) if value.as_str() == Some("afterDelay") => Policy::AfterDelay { delay_ms },
+            _ => Policy::Off,
+        }
+    }
+
     pub fn typing(&self, language: &str) -> crate::editing_profile::TypingOptions {
         use crate::editing_profile::{AutoClosing, AutoIndent, PairHandling, Surround};
         let closing = |key| match self.value(key, language).and_then(Value::as_str) {
@@ -450,6 +496,13 @@ pub struct LanguageServer {
 }
 fn valid(key: &str, value: &Value) -> bool {
     match key {
+        "files.autoSave" => matches!(
+            value.as_str(),
+            Some("off" | "afterDelay" | "onFocusChange" | "onWindowChange")
+        ),
+        "files.autoSaveDelay" => value
+            .as_u64()
+            .is_some_and(|delay| delay <= crate::autosave::MAX_DELAY_MS.into()),
         "workbench.colorTheme" => value.is_string(),
         "vscli.languageServer.enabled" | "vscli.languageServer.allowWorkspaceConfiguration" => {
             value.is_boolean()
@@ -792,6 +845,139 @@ mod loader_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn autosave_settings(layers: impl IntoIterator<Item = Value>) -> Settings {
+        let mut settings = Settings::default();
+        for value in layers {
+            let values = value.as_object().unwrap().clone();
+            settings.validate(&values, "autosave fixture");
+            Arc::make_mut(&mut settings.layers).push(values);
+        }
+        settings.serialized = serde_json::to_string(settings.layers.as_ref())
+            .unwrap()
+            .into();
+        settings
+    }
+    #[test]
+    fn autosave_defaults_and_explicit_native_delay_boundaries() {
+        use crate::autosave::{MAX_DELAY_MS, Policy};
+        assert_eq!(Settings::default().auto_save("cpp"), Policy::Off);
+        for delay_ms in [0, 1000, MAX_DELAY_MS] {
+            let settings = autosave_settings([serde_json::json!({
+                "files.autoSave":"afterDelay", "files.autoSaveDelay":delay_ms
+            })]);
+            assert_eq!(settings.auto_save("cpp"), Policy::AfterDelay { delay_ms });
+            assert!(settings.warnings.is_empty());
+        }
+        let settings = autosave_settings([serde_json::json!({"files.autoSave":"afterDelay"})]);
+        assert_eq!(
+            settings.auto_save("cpp"),
+            Policy::AfterDelay { delay_ms: 1000 }
+        );
+    }
+    #[test]
+    fn autosave_invalid_winning_delay_disables_instead_of_falling_back() {
+        use crate::autosave::{MAX_DELAY_MS, Policy};
+        for invalid in [
+            serde_json::json!(-1),
+            serde_json::json!(1.5),
+            serde_json::json!("1"),
+            Value::Bool(true),
+            Value::Null,
+            serde_json::json!(MAX_DELAY_MS as u64 + 1),
+            serde_json::json!(u32::MAX),
+        ] {
+            let settings = autosave_settings([
+                serde_json::json!({"files.autoSave":"afterDelay", "files.autoSaveDelay":1}),
+                serde_json::json!({"files.autoSaveDelay":invalid}),
+            ]);
+            assert_eq!(settings.auto_save("cpp"), Policy::Off);
+            assert_eq!(settings.warnings.len(), 1);
+            assert!(settings.warnings[0].contains("native autosave disabled"));
+        }
+    }
+    #[test]
+    fn autosave_unsupported_or_malformed_mode_never_enables_automation() {
+        use crate::autosave::Policy;
+        for mode in [
+            serde_json::json!("onFocusChange"),
+            serde_json::json!("onWindowChange"),
+            serde_json::json!("invalid"),
+            Value::Bool(true),
+            Value::Null,
+        ] {
+            let settings = autosave_settings([
+                serde_json::json!({"files.autoSave":"afterDelay"}),
+                serde_json::json!({"files.autoSave":mode}),
+            ]);
+            assert_eq!(settings.auto_save("cpp"), Policy::Off);
+            assert_eq!(settings.warnings.len(), 1);
+            assert!(settings.warnings[0].contains("native autosave disabled"));
+        }
+        let settings = autosave_settings([serde_json::json!({
+            "files.autoSave":"off", "files.autoSaveDelay":null
+        })]);
+        assert_eq!(settings.auto_save("cpp"), Policy::Off);
+        assert_eq!(settings.warnings.len(), 1);
+    }
+    #[test]
+    fn autosave_language_composite_and_single_groups_preserve_pinned_precedence() {
+        use crate::autosave::Policy;
+        let settings = autosave_settings([
+            serde_json::json!({
+                "files.autoSave":"off", "files.autoSaveDelay":100,
+                "[cpp][rust]":{"files.autoSave":"afterDelay", "files.autoSaveDelay":50},
+                "[cpp]":{"files.autoSaveDelay":25}
+            }),
+            serde_json::json!({
+                "files.autoSave":"afterDelay", "files.autoSaveDelay":500,
+                "[cpp][rust]":{"files.autoSaveDelay":75},
+                "[rust]":{"files.autoSave":"off"}
+            }),
+        ]);
+        assert_eq!(
+            settings.auto_save("cpp"),
+            Policy::AfterDelay { delay_ms: 25 }
+        );
+        assert_eq!(settings.auto_save("rust"), Policy::Off);
+        assert_eq!(
+            settings.auto_save("plaintext"),
+            Policy::AfterDelay { delay_ms: 500 }
+        );
+        assert!(settings.warnings.is_empty());
+    }
+    #[test]
+    fn autosave_malformed_language_winner_disables_without_changing_other_key_fallback() {
+        use crate::autosave::Policy;
+        let settings = autosave_settings([
+            serde_json::json!({
+                "files.autoSave":"afterDelay", "files.autoSaveDelay":10, "editor.tabSize":2,
+                "[cpp][rust]":{"files.autoSaveDelay":20, "editor.tabSize":8}
+            }),
+            serde_json::json!({
+                "[cpp][rust]":{"files.autoSaveDelay":null, "editor.tabSize":null}
+            }),
+        ]);
+        assert_eq!(settings.auto_save("cpp"), Policy::Off);
+        assert_eq!(settings.auto_save("rust"), Policy::Off);
+        assert_eq!(
+            settings.auto_save("plaintext"),
+            Policy::AfterDelay { delay_ms: 10 }
+        );
+        assert_eq!(
+            settings.value("editor.tabSize", "cpp"),
+            Some(&serde_json::json!(8))
+        );
+        assert_eq!(settings.warnings.len(), 2);
+        let single = autosave_settings([
+            serde_json::json!({"files.autoSave":"afterDelay", "[cpp][rust]":{"files.autoSaveDelay":20}}),
+            serde_json::json!({"[cpp]":{"files.autoSaveDelay":"bad"}}),
+        ]);
+        assert_eq!(single.auto_save("cpp"), Policy::Off);
+        assert_eq!(
+            single.auto_save("rust"),
+            Policy::AfterDelay { delay_ms: 20 }
+        );
+    }
     #[test]
     fn root_write_scope_defaults_to_user_and_uses_the_recorded_workspace_index() {
         assert_eq!(
@@ -1175,7 +1361,11 @@ mod tests {
         )
         .unwrap();
         let settings = Settings::load(&[user, workspace]).unwrap();
-        assert_eq!(settings.warnings.len(), 1);
+        assert!(settings.warnings.is_empty());
+        assert_eq!(
+            settings.auto_save("rust"),
+            crate::autosave::Policy::AfterDelay { delay_ms: 1000 }
+        );
         let mut doc = crate::document::Document::default();
         doc.path = Some("main.rs".into());
         settings.apply(&mut doc);

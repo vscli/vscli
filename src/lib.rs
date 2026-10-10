@@ -1,4 +1,5 @@
 pub mod app;
+pub mod autosave;
 pub mod brand;
 pub mod breadcrumbs;
 pub mod debug;
