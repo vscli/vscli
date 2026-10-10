@@ -16,6 +16,91 @@ pub(super) enum Reason {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn loaded_history_target_reservation_refusal_keeps_original_model_focus_stack_and_redo() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let a = root.join("a.txt");
+        let b = root.join("b.txt");
+        std::fs::write(&a, "猫🙂 A\r\n").unwrap();
+        std::fs::write(&b, "λ B\r\n").unwrap();
+        let mut app = App::new(root, Profile::Linux);
+        app.open(&a).unwrap();
+        let retired = app.doc().id;
+        app.open(&b).unwrap();
+        let removed = app
+            .documents
+            .iter()
+            .position(|doc| doc.id == retired)
+            .unwrap();
+        app.documents.remove(removed);
+        app.active = 0;
+        app.sync_pane();
+        app.doc_mut().move_to(1, false);
+        app.doc_mut().insert(" newer Ω", false);
+        let dirty = app.doc().text.clone();
+        app.doc_mut().undo();
+        app.observe_navigation(Reason::Ordinary);
+        let entry = app
+            .navigation_history
+            .entries
+            .iter()
+            .find(|entry| entry.location.document == retired)
+            .unwrap()
+            .clone();
+        let travel = Travel {
+            token: 1,
+            entry: entry.id,
+            location: entry.location,
+            context: app.navigation_context(),
+        };
+        app.navigation_history.desired = Some(travel.clone());
+        let current = app.navigation_history.current;
+        let observed = app.navigation_history.observed.clone();
+        let groups = app.editor_groups.clone();
+        let original = (
+            app.doc().id,
+            app.doc().text_epoch(),
+            app.doc().cursor,
+            app.doc().anchor,
+            app.doc().revision,
+            app.doc().text.clone(),
+        );
+        let active = (app.active, app.active_pane, app.focus.clone());
+        let loaded = Document::open_existing(&a).unwrap();
+        let loaded_id = loaded.id;
+        app.editor_groups.fail_next_recent_reservation();
+        let error = app.install_history_document(&travel, loaded).unwrap_err();
+        assert!(
+            error.to_string().contains("injected allocation refusal"),
+            "{error:#}"
+        );
+        assert_eq!(app.documents.len(), 1);
+        assert!(app.documents.iter().all(|doc| doc.id != loaded_id));
+        assert!(app.hidden_documents.is_empty());
+        assert_eq!(app.editor_groups, groups);
+        assert!((app.active, app.active_pane, app.focus.clone()) == active);
+        assert_eq!(app.navigation_history.current, current);
+        assert!(app.navigation_history.observed == observed);
+        assert!(app.history_travel_current(&travel));
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().text_epoch(),
+                app.doc().cursor,
+                app.doc().anchor,
+                app.doc().revision,
+                app.doc().text.clone()
+            ),
+            original
+        );
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text, dirty);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text, original.5);
+        assert_eq!(std::fs::read(&a).unwrap(), "猫🙂 A\r\n".as_bytes());
+        assert_eq!(std::fs::read(&b).unwrap(), "λ B\r\n".as_bytes());
+    }
     fn untitled(root: &Path, text: &str) -> App {
         let mut app = App::new(root.into(), Profile::Linux);
         app.documents.push(Document::from_text(text));
@@ -759,6 +844,23 @@ impl App {
         if visible.is_none() && hidden.is_none() {
             anyhow::bail!("Navigation history model was closed");
         }
+        if visible.is_none() {
+            self.documents.try_reserve(1).map_err(|error| {
+                anyhow::anyhow!("Cannot reserve history model storage: {error}")
+            })?;
+        }
+        let change = self.admit_history_target(travel, document)?;
+        self.finish_history_target(travel, document, change);
+        Ok(())
+    }
+
+    /// Commit the actual engine operation before moving/publishing model data.
+    /// Callers validate travel and reserve model storage first, with no await.
+    fn admit_history_target(
+        &mut self,
+        travel: &Travel,
+        document: u64,
+    ) -> Result<Option<crate::editor_groups::Change>> {
         let target_group = self
             .editor_groups
             .groups()
@@ -774,6 +876,20 @@ impl App {
         } else {
             Some(self.editor_groups.open(document)?)
         };
+        Ok(change)
+    }
+
+    fn finish_history_target(
+        &mut self,
+        travel: &Travel,
+        document: u64,
+        change: Option<crate::editor_groups::Change>,
+    ) {
+        let visible = self.documents.iter().position(|doc| doc.id == document);
+        let hidden = self
+            .hidden_documents
+            .iter()
+            .position(|doc| doc.id == document);
         let suspended = self.suspend_navigation_observation();
         let index = visible.unwrap_or_else(|| {
             self.documents
@@ -825,7 +941,6 @@ impl App {
         self.navigation_history.queued = None;
         self.resume_navigation_observation(suspended, Reason::HistoryTravel);
         self.message = format!("Navigation history · {}", self.doc().name());
-        Ok(())
     }
     pub(super) fn install_history_document(
         &mut self,
@@ -850,7 +965,14 @@ impl App {
         self.settings.apply(&mut doc);
         self.configure_document_language(&mut doc)?;
         let document = doc.id;
+        self.documents
+            .try_reserve(1)
+            .map_err(|error| anyhow::anyhow!("Cannot reserve history model storage: {error}"))?;
+        let change = self.admit_history_target(travel, document)?;
+        // No fallible admission remains after engine publication. Rechecking
+        // pre-admission UI context here would reject our own accepted change.
         self.documents.push(doc);
-        self.apply_history_target(travel, document)
+        self.finish_history_target(travel, document, change);
+        Ok(())
     }
 }

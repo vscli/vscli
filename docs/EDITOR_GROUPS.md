@@ -253,8 +253,10 @@ group tabs, saving, format-on-save, source actions, adjacent Escape and the full
 branch; later changes only affect qualification, documentation and observers.
 The [isolated paired benchmark](PERFORMANCE.md#native-preview-tabs-core-baseline-2026-10-10)
 passes 40 launches and 1,600 keys with mixed measurements; it does not establish
-an editor ranking or active-preview performance. Fresh protected platform checks
-are required before merging the preview PR.
+an editor ranking or active-preview performance. All six required checks passed for the reviewed preview head in
+[CI run 38046439264](https://github.com/vscli/vscli/actions/runs/38046439264),
+including fresh Linux/macOS/Windows reference comparisons and Unix terminal
+workflows. Preview tabs are merged on main in PR #67.
 
 The previous Windows run failed in the observer's canonical-path equality, and
 the macOS smoke test edited before positively observing Quick Open publication.
@@ -264,3 +266,38 @@ smoke test waits for the exact result and loaded document before editing. These
 changes require a fresh platform run; a local Linux pass alone does not qualify
 Windows or macOS. Native Explorer click is implemented; this keyboard corpus
 does not qualify graphical single/double-click parity.
+
+
+## Sticky engine and transactional admission foundation
+
+The engine now supports a bounded sticky prefix, exact pin/unpin ordering,
+committed split destinations, local and global nonsticky membership MRU, and
+atomic captured nonsticky close subsets. Pin/unpin preserves native shared
+identity and historical views. Original nonsticky transitions remain covered.
+User command dispatch, sticky styling and close-policy integration are separate
+App work; this engine foundation alone is not shipped sticky-tab UX.
+
+MRU storage can refuse admission recoverably. Untitled creation, loaded history
+navigation, Problems reveal and loaded native rename targets now admit their
+engine memberships before publishing models, focus or edits. Multi-file rename
+stages all required memberships before changing any buffer. Five new refusal
+integrity tests use a test-only one-shot reservation seam and preserve exact
+models, selections, epochs, Undo/Redo, history and disks. They test error handling,
+not a real allocator or memory-pressure workload; production has no test seam.
+The legacy rename restrictions remain in place.
+
+The strict consumer verifies the complete actual 39-file source-matched sticky
+baseline before native replay. It compares all 18 cases, 65 target snapshots and
+91 setup states. Four named final-empty-group observations preserve the upstream
+one-empty-group/native-zero-group boundary explicitly; no target is removed.
+Versions/object allocation and callback scheduling remain raw evidence outside
+native equality. The observer hashes the selected executable, not an entire
+installation. See the [reference contract](../tests/vscode-reference/editor-sticky-tabs.README.md).
+
+Local foundation qualification passes 916 all-target Rust tests across 51
+reports, including 36 engine tests and seven consumer integrity/replay tests;
+20 optional tests are ignored. Formatting, strict all-target locked Clippy and
+six observer path/event tests pass. A fresh complete unattended Linux capture
+has the exact original target trace. Navigation history, welcome and the full
+smoke suite pass 41 terminal reports. App sticky behavior, fresh macOS/Windows
+sticky comparisons and optimized qualification remain subsequent gates.

@@ -1816,9 +1816,19 @@ impl App {
                 if let Err(error) = self.configure_document_language(&mut doc) {
                     self.message = format!("Native language configuration rejected: {error:#}");
                 }
-                self.documents.push(doc);
-                self.active = self.documents.len() - 1;
-                self.focus = Focus::Editor;
+                if self.group_fallback {
+                    if let Err(error) = self.documents.try_reserve(1) {
+                        self.message = format!("New tab rejected; existing buffers retained: {error}");
+                        return;
+                    }
+                    self.documents.push(doc);
+                    self.active = self.documents.len() - 1;
+                    self.focus = Focus::Editor;
+                } else if let Err(error) = self.install_preview_document(
+                    doc, crate::editor_groups::OpenMode::Committed,
+                ) {
+                    self.message = format!("New tab rejected; existing buffers retained: {error:#}");
+                }
             }
             "workbench.action.files.openFile" => self.start_prompt(
                 PromptKind::Open,
@@ -2995,6 +3005,65 @@ fn clipboard_command(name: &str, args: &[&str], input: Option<&str>) -> Option<S
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn actual_mru_reservation_refusal_does_not_publish_new_untitled_or_touch_original_redo() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.documents.push(Document::from_text("猫🙂 original\r\n"));
+        app.sync_pane();
+        app.doc_mut().move_to(1, false);
+        app.doc_mut().insert(" dirty λ", false);
+        let dirty = app.doc().text.clone();
+        app.doc_mut().undo();
+        let original = (
+            app.doc().id,
+            app.doc().cursor,
+            app.doc().anchor,
+            app.doc().revision,
+            app.doc().text_epoch(),
+            app.doc().text.clone(),
+        );
+        let groups = app.editor_groups.clone();
+        let panes = app
+            .panes
+            .iter()
+            .map(|pane| (pane.id, pane.document))
+            .collect::<Vec<_>>();
+        let active = (app.active, app.active_pane, app.focus.clone());
+        app.editor_groups.fail_next_recent_reservation();
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        assert!(
+            app.message.contains("injected allocation refusal"),
+            "{}",
+            app.message
+        );
+        assert_eq!(app.documents.len(), 1);
+        assert!(app.hidden_documents.is_empty());
+        assert_eq!(app.editor_groups, groups);
+        assert_eq!(
+            app.panes
+                .iter()
+                .map(|pane| (pane.id, pane.document))
+                .collect::<Vec<_>>(),
+            panes
+        );
+        assert!((app.active, app.active_pane, app.focus.clone()) == active);
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().cursor,
+                app.doc().anchor,
+                app.doc().revision,
+                app.doc().text_epoch(),
+                app.doc().text.clone()
+            ),
+            original
+        );
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text, dirty);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text, original.5);
+    }
     fn key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         app.event(Event::Key(KeyEvent::new(code, modifiers)));
     }
