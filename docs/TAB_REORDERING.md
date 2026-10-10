@@ -57,16 +57,17 @@ through every host terminal.
 ## Qualification on merged native reliability repairs
 
 The reordering implementation is rebased onto main
-`ba024b1d98b3cbcab3d47739bd92c04844b3e492`, including merged display
+`7fe73a340c44133963b2eae30c248ab090e1f516`, including merged display
 foundations and the fixture-publication and syntax-cancellation repairs in PR
 #79. The feature implementation and terminal fixtures remain byte-identical to
 preceding head `2c5b0ab`; inherited native repairs change the integrated source.
-Current local qualification passes 1,101 locked all-target Rust tests across 51
+Current local qualification passes 1,103 locked all-target Rust tests across 51
 reports, with 23 optional integrations ignored, formatting and strict locked
 all-target Clippy. Five debug terminal scripts pass 21 reports covering
 reordering, nested layouts, sticky tabs, source actions on save and syntax color
-stability. Reordering and sticky terminal scripts pass nine reports on the
-optimized executable. No local reference-editor instance was launched.
+stability. The preceding `ba024b1` parent also passed nine optimized reordering
+and sticky terminal reports; that older result is separate from the current
+debug requalification. No local reference-editor instance was launched.
 
 The first full run on this parent timed out in the existing relative-theme
 fixture. The unchanged focused test passed. Test-only timeout diagnostics now
@@ -86,3 +87,9 @@ Reordering's earlier head `7370e03` passed all six checks in
 [run 38072995481](https://github.com/vscli/vscli/actions/runs/38072995481).
 That historical result does not qualify the new integrated head. Fresh exact-head
 CI is required before this candidate merges.
+
+Reviewed preceding head `d232b5c` passed all six protected checks in
+[run 38080897605](https://github.com/vscli/vscli/actions/runs/38080897605).
+The new parent adds source-bound sticky observation qualification without
+changing the native reordering implementation. Rebase qualification preserves
+the unchanged feature and terminal fixtures; fresh exact-head CI is required.
