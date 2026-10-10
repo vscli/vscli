@@ -8,7 +8,7 @@ import tempfile
 from extension_sessions_pty import Editor, LIVE, command, wait, save
 from extension_surfaces_pty import stop_surface_process
 from prepare_code_actions_sample import prepare
-from pty_smoke import CTRL_Z, wait_screen
+from pty_smoke import CTRL_Z, eventually, wait_screen
 
 ORIGINAL = '猫🙂 :) emoji\r\n'
 DIRTY = 'dirty 猫🙂 :) emoji\r\n'
@@ -24,7 +24,17 @@ def picker(app, *, full=True):
     app.send(HOME + RIGHT * 9)
     app.send(SHIFT_END if full else SHIFT_RIGHT * 2)
     app.send(QUICK_FIX)
-    return wait_screen(app, 'Code Actions', 'Convert to 😺', 'Convert to 😀', 'Convert to 💩', timeout=8)
+    wait_screen(app, 'Code Actions', 'Convert to 😺', 'Convert to 😀', 'Convert to 💩', timeout=8)
+    snapshot = ''
+    def all_sources_visible():
+        nonlocal snapshot
+        app.read()
+        snapshot = app.screen.text()
+        rows = [line for line in snapshot.splitlines()
+                if 'Convert to ' in line or 'Learn more...' in line]
+        return len(rows) == (5 if full else 4)
+    eventually(all_sources_visible, timeout=8)
+    return snapshot
 
 
 def select_title(app, title):

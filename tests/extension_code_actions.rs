@@ -13,14 +13,32 @@ use vscli::{
 };
 
 const ORIGINAL: &str = "猫🙂 bad\r\n";
+#[track_caller]
 fn until(app: &mut App, predicate: impl Fn(&App) -> bool) {
+    until_phase(app, "waiting for editor state", predicate);
+}
+#[track_caller]
+fn until_phase(app: &mut App, phase: &str, predicate: impl Fn(&App) -> bool) {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         app.poll();
         if predicate(app) {
             return;
         }
-        assert!(Instant::now() < deadline, "Timed out: {}", app.message);
+        let rows = match &app.modal {
+            Some(Modal::Language { items, .. }) => items
+                .iter()
+                .map(|row| row.label.as_str())
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        };
+        assert!(
+            Instant::now() < deadline,
+            "Timed out during {phase}: {}; rows={rows:?}; native_ready={}; extension_ready={}",
+            app.message,
+            app.lsp.as_ref().is_some_and(|client| client.ready),
+            app.extension_host.as_ref().is_some_and(|host| host.ready)
+        );
         std::thread::sleep(Duration::from_millis(2));
     }
 }
@@ -81,8 +99,8 @@ fn choose(app: &mut App, title: &str) {
 fn escape(app: &mut App) {
     app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
 }
-fn wait_primary_publication(app: &mut App) {
-    until(app, |app| {
+fn wait_primary_publication(app: &mut App, phase: &str) {
+    until_phase(app, phase, |app| {
         app.current_diagnostics()
             .iter()
             .any(|diagnostic| diagnostic.message == "primary original diagnostic")
@@ -95,12 +113,16 @@ fn original_diagnostics_multiple_providers_and_failure_isolation_keep_native_act
     let mut app = ready(root.path(), &["primary", "secondary", "failing"]);
     app.doc_mut().select_all();
     app.doc_mut().insert("bad 猫🙂\r\n", false);
-    until(&mut app, |app| {
-        app.current_diagnostics().iter().any(|diagnostic| {
-            diagnostic.message == "primary original diagnostic"
-                && diagnostic.range.start.character == 0
-        })
-    });
+    until_phase(
+        &mut app,
+        "primary observes dirty Unicode repositioning",
+        |app| {
+            app.current_diagnostics().iter().any(|diagnostic| {
+                diagnostic.message == "primary original diagnostic"
+                    && diagnostic.range.start.character == 0
+            })
+        },
+    );
     app.doc_mut().move_to(0, false);
     app.doc_mut().move_to(3, true);
     app.lsp = Some(
@@ -115,15 +137,20 @@ fn original_diagnostics_multiple_providers_and_failure_isolation_keep_native_act
         )
         .unwrap(),
     );
-    until(&mut app, |app| {
+    until_phase(&mut app, "native diagnostic startup", |app| {
         app.current_diagnostics()
             .iter()
             .any(|d| d.message == "Fix fixture")
     });
     actions(&mut app, "editor.action.quickFix");
-    until(
+    until_phase(
         &mut app,
-        |app| matches!(&app.modal, Some(Modal::Language { items, .. }) if items.iter().any(|row| row.label.starts_with("Fix selected text"))),
+        "initial native and two optional providers aggregate",
+        |app| {
+            matches!(&app.modal, Some(Modal::Language { items, .. })
+            if ["Fix selected text", "Primary Unicode fix", "Secondary independent fix"].iter()
+                .all(|title| items.iter().any(|row| row.label.starts_with(title))))
+        },
     );
     let labels = match &app.modal {
         Some(Modal::Language { items, .. }) => items
@@ -152,12 +179,13 @@ fn original_diagnostics_multiple_providers_and_failure_isolation_keep_native_act
     choose(&mut app, "Secondary independent fix");
     until(&mut app, |app| app.doc().text == "secondary 猫🙂\r\n");
     app.execute("undo", Value::Null);
-    wait_primary_publication(&mut app);
+    wait_primary_publication(&mut app, "primary publication after secondary edit Undo");
     app.doc_mut().move_to(0, false);
     app.doc_mut().move_to(3, true);
     actions(&mut app, "editor.action.quickFix");
-    until(
+    until_phase(
         &mut app,
+        "native source after secondary edit Undo",
         |app| matches!(&app.modal, Some(Modal::Language { items, .. }) if items.iter().any(|row| row.label.starts_with("Fix selected text"))),
     );
     choose(&mut app, "Fix selected text");
@@ -166,11 +194,14 @@ fn original_diagnostics_multiple_providers_and_failure_isolation_keep_native_act
     // version. That still needs a change event and fresh diagnostic publication.
     app.execute("undo", Value::Null);
     assert_eq!(app.doc().text.to_string(), "bad 猫🙂\r\n");
-    wait_primary_publication(&mut app);
+    wait_primary_publication(
+        &mut app,
+        "byte-equal native edit Undo republishes primary diagnostic",
+    );
     app.doc_mut().move_to(0, false);
     app.doc_mut().move_to(3, true);
     actions(&mut app, "editor.action.quickFix");
-    until(&mut app, |app| {
+    until_phase(&mut app, "primary action before owner retirement", |app| {
         matches!(&app.modal, Some(Modal::Language {items,..})
         if items.iter().any(|row| row.label.starts_with("Primary Unicode fix")))
     });
@@ -186,23 +217,31 @@ fn original_diagnostics_multiple_providers_and_failure_isolation_keep_native_act
     assert_eq!(app.doc().text.to_string(), "bad 猫🙂\r\n");
     // Retiring one extension must leave both another optional source and the
     // same native protocol usable in the next user-invoked action request.
-    until(&mut app, |app| {
-        app.extension_host.as_ref().is_some_and(|host| {
-            host.owner_active("qualification.code-action-secondary")
-                && !host
-                    .packages
-                    .iter()
-                    .any(|package| package.id == "qualification.code-action-primary")
-        })
-    });
+    until_phase(
+        &mut app,
+        "remaining optional owner ready after retirement",
+        |app| {
+            app.extension_host.as_ref().is_some_and(|host| {
+                host.owner_active("qualification.code-action-secondary")
+                    && !host
+                        .packages
+                        .iter()
+                        .any(|package| package.id == "qualification.code-action-primary")
+            })
+        },
+    );
     app.doc_mut().move_to(0, false);
     app.doc_mut().move_to(3, true);
     actions(&mut app, "editor.action.quickFix");
-    until(&mut app, |app| {
-        matches!(&app.modal, Some(Modal::Language {items,..})
+    until_phase(
+        &mut app,
+        "queued native and optional source after retirement",
+        |app| {
+            matches!(&app.modal, Some(Modal::Language {items,..})
         if items.iter().any(|row| row.label.starts_with("Secondary independent fix"))
         && items.iter().any(|row| row.label.starts_with("Fix selected text")))
-    });
+        },
+    );
     let Some(Modal::Language { items, .. }) = &app.modal else {
         unreachable!()
     };
@@ -420,6 +459,11 @@ fn multi_document_action_keeps_hidden_untitled_and_dirty_native_identity_with_pe
         "Saving active model leaves hidden disk alone"
     );
     app.open(&hidden).unwrap();
+    until_phase(
+        &mut app,
+        "alias path promotes existing hidden model",
+        |app| app.doc().id == hidden_id,
+    );
     assert_eq!(app.doc().id, hidden_id);
     assert_eq!(app.doc().text.to_string(), "both\r\n");
     app.doc_mut().undo();

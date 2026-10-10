@@ -65,9 +65,12 @@ fn select(app: &mut App, start: usize, end: usize) {
     app.doc_mut().move_to(start, false);
     app.doc_mut().move_to(end, true);
 }
-fn actions(app: &mut App) -> Vec<String> {
+fn actions(app: &mut App, expected_rows: usize) -> Vec<String> {
     app.execute("editor.action.quickFix", Value::Null);
-    until(app, |app| matches!(app.modal, Some(Modal::Language { .. })));
+    until(app, |app| {
+        matches!(&app.modal, Some(Modal::Language { items, .. })
+        if items.len() == expected_rows)
+    });
     let Some(Modal::Language { items, .. }) = &app.modal else {
         unreachable!()
     };
@@ -95,7 +98,7 @@ fn official_two_providers_keep_supported_edits_and_reject_command_rows_individua
         let id = app.doc().id;
         app.execute("workbench.action.splitEditorRight", Value::Null);
         select(&mut app, 9, 17);
-        let labels = actions(&mut app);
+        let labels = actions(&mut app, 5);
         assert_eq!(
             labels.len(),
             5,
@@ -133,7 +136,7 @@ fn official_two_providers_keep_supported_edits_and_reject_command_rows_individua
             assert_eq!(app.doc().text.to_string(), DIRTY);
             assert_eq!(app.doc().selections(), selections);
             assert_eq!(std::fs::read(&path).unwrap(), ORIGINAL.as_bytes());
-            assert_eq!(actions(&mut app).len(), 5);
+            assert_eq!(actions(&mut app, 5).len(), 5);
         }
         let labels = if let Some(Modal::Language { items, .. }) = &app.modal {
             items
@@ -196,7 +199,7 @@ fn official_empty_newer_provider_does_not_hide_older_fixes_and_retirement_invali
     assert_eq!(diagnostic.range.start.character, 7, "UTF-16 after 猫🙂");
     assert_eq!(diagnostic.range.end.character, 12);
     select(&mut app, 3, 5);
-    let labels = actions(&mut app);
+    let labels = actions(&mut app, 4);
     assert_eq!(
         labels.len(),
         4,
@@ -204,13 +207,13 @@ fn official_empty_newer_provider_does_not_hide_older_fixes_and_retirement_invali
     );
     app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
     select(&mut app, 6, 11);
-    let labels = actions(&mut app);
+    let labels = actions(&mut app, 1);
     assert_eq!(labels.len(), 1);
     assert!(labels[0].starts_with("Learn more..."));
     choose_index(&mut app, 0);
     assert_eq!(app.doc().text.to_string(), ORIGINAL);
     select(&mut app, 3, 11);
-    let labels = actions(&mut app);
+    let labels = actions(&mut app, 5);
     let chosen = labels
         .iter()
         .position(|label| label.starts_with("Convert to 😀"))
