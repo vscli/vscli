@@ -359,3 +359,43 @@ Active signature/completion contention, source highlighting, wider document size
 physical input-to-display latency and matched VS Code workloads remain separate
 performance qualification. Functional native/extension/clangd PTYs qualify their
 named interactions; they are not performance comparisons.
+
+## Advanced indentation baseline: 2026-10-10
+
+[Raw observations](benchmarks/2026-10-10-advanced-indentation.json) compare clean
+advanced-indentation source `00a4718` with the saved PR #56 release executable
+(merged main `04d01e1`). The candidate SHA-256 is
+`fdcfbf3ab16b9ee6b88335b30607e42f16a3a380203b7660105db343cfb0ee0e`;
+the comparison SHA-256 is
+`6b9288a4ca05b8a8e675637872e8871e7d9f6beb03f29269cfaa31eeca017a7b`.
+Both are optimized native builds on the same Linux i9-13900H host. Five fresh
+launches per build/fixture yield 200 serial keys per row, with interleaved order
+and no concurrent local builds, tests or reference-editor processes.
+
+| Fixture | Build | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | RSS median MiB |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB | Prior main | 6.475 | 0.302 | 0.704 | 0.938 | 12.13 |
+| 10 KiB | Advanced indentation | 6.251 | 0.298 | 0.575 | 0.884 | 12.36 |
+| 1 MiB | Prior main | 5.113 | 0.161 | 0.398 | 0.624 | 13.22 |
+| 1 MiB | Advanced indentation | 5.164 | 0.155 | 0.540 | 0.829 | 13.49 |
+
+All 20 trials passed. The candidate's 10 KiB typing tail is lower, while its
+1 MiB tail is higher; these mixed observations establish no general speedup or
+sustained regression. Host scheduling and CPU frequency were uncontrolled.
+The warm-cache ASCII plain-text workload exercises ordinary typing with no LSP,
+extensions or recovery; it does not benchmark indentation predicates or lexical
+scan exhaustion. PTY-to-observed-cell timings include the Python oracle and
+exclude physical input and graphical terminal painting. Sampled RSS is not peak
+memory; five startup samples do not qualify startup tails. The 0.3-second idle
+sample recorded zero ticks and does not establish sustained idle CPU behavior.
+
+Reproduce with a saved PR #56 release executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr56/vscli \
+  --sizes 10240 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/advanced-indentation.json
+```
+
+Source-language typing, active IDE contention, matched VS Code workloads and
+fastest-editor claims remain separate performance qualification.
