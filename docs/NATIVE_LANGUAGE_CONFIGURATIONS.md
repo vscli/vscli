@@ -98,8 +98,12 @@ integration tests remained ignored. Formatting and strict all-target Clippy
 checks passed. Four comparator integrity tests reject malformed source sets before
 any fixture writes. `tests/native_configuration_pty.py` passed five terminal sessions
 (four reports), covering original terminal commands and physical input with an
-empty executable PATH and a missing Node executable. Fresh platform CI
-qualification remains pending for this slice. The optimized build also passes
+empty executable PATH and a missing Node executable. All six required checks
+passed for the reviewed head of [PR #58](https://github.com/vscli/vscli/pull/58),
+including fresh pinned-editor captures and native comparison on Linux, macOS and
+Windows in [CI run 38018064477](https://github.com/vscli/vscli/actions/runs/38018064477).
+The merged source includes short macOS reference-profile paths and exact-byte
+fixture checkout on Windows. The optimized build also passes
 these five sessions and the seven smart-typing terminal workflows. The
 [published benchmark](PERFORMANCE.md#native-language-configuration-baseline-2026-10-10)
 has mixed ordinary-typing results and establishes no overall speed ranking.

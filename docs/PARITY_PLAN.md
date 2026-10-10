@@ -12,7 +12,7 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-Merged source extends through [PR #57](https://github.com/vscli/vscli/pull/57).
+Merged source extends through [PR #58](https://github.com/vscli/vscli/pull/58).
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
@@ -59,14 +59,15 @@ required checks. The [30-target token-readiness capture](reference/2026-10-10-cp
 records an actual pinned-editor startup distinction independently of native
 comparison; prepared and natural behavior remain separate qualification scopes.
 Additional native profiles and broader signature-extension qualification remain
-follow-up scope. The current branch implements
+follow-up scope. The merged [PR #58](https://github.com/vscli/vscli/pull/58) adds
 [installed native language configurations](NATIVE_LANGUAGE_CONFIGURATIONS.md),
 pair/comment commands and disable/update ownership retirement. Local comparisons
 match 50 recorded C++ workflows / 200 snapshots plus 21 workflows / 84 snapshots
 with the unchanged bundled C++ declaration. Local qualification passes 533 ordinary Rust tests, five new terminal sessions,
-formatting and strict all-target Clippy; fresh platform CI qualification remains
-in progress. This branch is not yet merged and
-does not finish installed language configuration or extension parity.
+formatting and strict all-target Clippy. All six required checks passed at the
+reviewed head, including fresh Linux/macOS/Windows comparisons in
+[CI run 38018064477](https://github.com/vscli/vscli/actions/runs/38018064477).
+This does not finish installed language configuration or extension parity.
 
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
