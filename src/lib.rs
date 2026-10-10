@@ -23,6 +23,7 @@ pub mod outline;
 pub mod recovery;
 pub mod search;
 pub mod settings;
+pub mod settings_write;
 pub mod snippet;
 pub mod suggestions;
 pub mod symbols;
