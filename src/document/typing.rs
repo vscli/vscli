@@ -213,6 +213,7 @@ impl Document {
             return Ok(());
         }
         self.retire_typing_pairs();
+        self.retire_folding_policy();
         self.typing_context = ContextCache::default();
         self.language_configuration = configuration;
         Ok(())

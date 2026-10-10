@@ -1,14 +1,13 @@
 # Native display-row foundation
 
 This candidate adds pure folding and display-row modules. It does not expose
-Fold/Unfold commands or word wrapping in the editor. App view ownership,
-rendering, navigation, reveal paths, popup anchors and source clicks still need
+Fold/Unfold commands or word wrapping in the editor. App rendering, navigation, reveal paths, popup anchors and source clicks still need
 combined integration and terminal qualification.
 
 `DisplayRows` owns an immutable Rope snapshot, options and private preparation
 identity. A clone preserves identity; a fresh equal preparation does not revive
-old authority. Future callers also need exact document, text-epoch and view
-lifetime guards. Visible anchors, ordinals, clamped movement, grapheme-aware cell
+old authority. Document-owned publication now checks exact document, text epoch, policy and
+private view lifetimes; App still needs membership and presentation guards. Visible anchors, ordinals, clamped movement, grapheme-aware cell
 hits and logical-offset projection share one mapping. Hidden logical positions
 identify their visible header and require a reveal before editing. Hidden rows
 cannot produce source hits. CRLF source offsets and configured tab stops are
@@ -57,8 +56,11 @@ Four real-worker tests and six controller tests cover held cancellation, replies
 before exit, selection protection, bounded malformed admission, expiration,
 edit/Undo epochs, options/view lifetime changes, latest/coalesced demand,
 shutdown timeout and closing the last model while a canceled worker remains
-occupied. These tests qualify controller contracts, not Document/App integration.
+occupied. These tests qualify controller contracts. Twelve additional actual Document
+integrity tests qualify per-view intent, immutable checked publication, edit
+journal retirement, complete selection protection and independent split ownership;
+see [per-view folding ownership](FOLD_VIEW_STATE.md). App integration is outstanding.
 
-The candidate passes 1,014 all-target Rust tests across 51 reports (20 optional
+The candidate passes 1,026 all-target Rust tests across 51 reports (20 optional
 cases ignored), formatting and strict locked all-target Clippy. No terminal
 gesture changes in this foundation require a new PTY claim; the App feature does.
