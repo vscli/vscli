@@ -1,0 +1,3660 @@
+[
+  {
+    "name": "cpp-electric-close-none",
+    "language": "cpp",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-none",
+    "language": "json",
+    "text": "{\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-none",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-none",
+    "language": "cpp",
+    "text": "else\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-none",
+    "language": "cpp",
+    "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 39,
+        "cursor": 39
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-none",
+    "language": "cpp",
+    "text": "while (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-none",
+    "language": "cpp",
+    "text": "else if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 24,
+        "cursor": 24
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-none",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "command": "lineBreakInsert"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-none",
+    "language": "cpp",
+    "text": "if (ok)\r\n    { run(); }\r\n",
+    "selections": [
+      {
+        "anchor": 23,
+        "cursor": 23
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-none",
+    "language": "json",
+    "text": "{\r\n    \"x\": 1}\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-none",
+    "language": "json",
+    "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-none",
+    "language": "cpp",
+    "text": "void f() {\r\n\t\t\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 14,
+        "cursor": 14
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-none",
+    "language": "cpp",
+    "text": "\tif (ok)\r\n\t\trun();\r\n",
+    "selections": [
+      {
+        "anchor": 18,
+        "cursor": 18
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-keep",
+    "language": "cpp",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-keep",
+    "language": "json",
+    "text": "{\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-keep",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-keep",
+    "language": "cpp",
+    "text": "else\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-keep",
+    "language": "cpp",
+    "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 39,
+        "cursor": 39
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-keep",
+    "language": "cpp",
+    "text": "while (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-keep",
+    "language": "cpp",
+    "text": "else if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 24,
+        "cursor": 24
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-keep",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "command": "lineBreakInsert"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-keep",
+    "language": "cpp",
+    "text": "if (ok)\r\n    { run(); }\r\n",
+    "selections": [
+      {
+        "anchor": 23,
+        "cursor": 23
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-keep",
+    "language": "json",
+    "text": "{\r\n    \"x\": 1}\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-keep",
+    "language": "json",
+    "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-keep",
+    "language": "cpp",
+    "text": "void f() {\r\n\t\t\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 14,
+        "cursor": 14
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-keep",
+    "language": "cpp",
+    "text": "\tif (ok)\r\n\t\trun();\r\n",
+    "selections": [
+      {
+        "anchor": 18,
+        "cursor": 18
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-brackets",
+    "language": "cpp",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-brackets",
+    "language": "json",
+    "text": "{\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-brackets",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-brackets",
+    "language": "cpp",
+    "text": "else\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-brackets",
+    "language": "cpp",
+    "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 39,
+        "cursor": 39
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-brackets",
+    "language": "cpp",
+    "text": "while (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-brackets",
+    "language": "cpp",
+    "text": "else if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 24,
+        "cursor": 24
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-brackets",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "command": "lineBreakInsert"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-brackets",
+    "language": "cpp",
+    "text": "if (ok)\r\n    { run(); }\r\n",
+    "selections": [
+      {
+        "anchor": 23,
+        "cursor": 23
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-brackets",
+    "language": "json",
+    "text": "{\r\n    \"x\": 1}\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-brackets",
+    "language": "json",
+    "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-brackets",
+    "language": "cpp",
+    "text": "void f() {\r\n\t\t\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 14,
+        "cursor": 14
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-brackets",
+    "language": "cpp",
+    "text": "\tif (ok)\r\n\t\trun();\r\n",
+    "selections": [
+      {
+        "anchor": 18,
+        "cursor": 18
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-advanced",
+    "language": "cpp",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-advanced",
+    "language": "json",
+    "text": "{\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-advanced",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-advanced",
+    "language": "cpp",
+    "text": "else\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-advanced",
+    "language": "cpp",
+    "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 39,
+        "cursor": 39
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-advanced",
+    "language": "cpp",
+    "text": "while (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-advanced",
+    "language": "cpp",
+    "text": "else if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 24,
+        "cursor": 24
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-advanced",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "command": "lineBreakInsert"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-advanced",
+    "language": "cpp",
+    "text": "if (ok)\r\n    { run(); }\r\n",
+    "selections": [
+      {
+        "anchor": 23,
+        "cursor": 23
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-advanced",
+    "language": "json",
+    "text": "{\r\n    \"x\": 1}\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-advanced",
+    "language": "json",
+    "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-advanced",
+    "language": "cpp",
+    "text": "void f() {\r\n\t\t\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 14,
+        "cursor": 14
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-advanced",
+    "language": "cpp",
+    "text": "\tif (ok)\r\n\t\trun();\r\n",
+    "selections": [
+      {
+        "anchor": 18,
+        "cursor": 18
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-full",
+    "language": "cpp",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-full",
+    "language": "json",
+    "text": "{\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-full",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-full",
+    "language": "cpp",
+    "text": "else\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-for-full",
+    "language": "cpp",
+    "text": "for (int i = 0; i < 2; ++i)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 39,
+        "cursor": 39
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-while-full",
+    "language": "cpp",
+    "text": "while (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-else-if-full",
+    "language": "cpp",
+    "text": "else if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 24,
+        "cursor": 24
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-if-command-full",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "command": "lineBreakInsert"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-braced-body-full",
+    "language": "cpp",
+    "text": "if (ok)\r\n    { run(); }\r\n",
+    "selections": [
+      {
+        "anchor": 23,
+        "cursor": 23
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-close-full",
+    "language": "json",
+    "text": "{\r\n    \"x\": 1}\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-closed-object-comma-full",
+    "language": "json",
+    "text": "[\r\n    {\"x\": 1},\r\n]\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-tabs-full",
+    "language": "cpp",
+    "text": "void f() {\r\n\t\t\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 14,
+        "cursor": 14
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-unbraced-tabs-full",
+    "language": "cpp",
+    "text": "\tif (ok)\r\n\t\trun();\r\n",
+    "selections": [
+      {
+        "anchor": 18,
+        "cursor": 18
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-after-content",
+    "language": "cpp",
+    "text": "void f() {\r\n    run(); \r\n}",
+    "selections": [
+      {
+        "anchor": 23,
+        "cursor": 23
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-same-line",
+    "language": "cpp",
+    "text": "    {   \r\n",
+    "selections": [
+      {
+        "anchor": 8,
+        "cursor": 8
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-no-opener",
+    "language": "cpp",
+    "text": "    \r\n",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 4
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-comment",
+    "language": "cpp",
+    "text": "void f() {\r\n    // \r\n}",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-block-comment",
+    "language": "cpp",
+    "text": "void f() {\r\n    /* \r\n}",
+    "selections": [
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-raw-string",
+    "language": "cpp",
+    "text": "void f() {\r\n    R\"tag(\r\n        \r\n)tag\";\r\n}",
+    "selections": [
+      {
+        "anchor": 32,
+        "cursor": 32
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-mixed-indent",
+    "language": "cpp",
+    "text": "\tvoid f() {\r\n \t  \r\n\t}",
+    "selections": [
+      {
+        "anchor": 17,
+        "cursor": 17
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-nested",
+    "language": "cpp",
+    "text": "void f() {\r\n    if (ok) {\r\n            \r\n    }\r\n}",
+    "selections": [
+      {
+        "anchor": 39,
+        "cursor": 39
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-string",
+    "language": "json",
+    "text": "{\r\n    \"text } \r\n}",
+    "selections": [
+      {
+        "anchor": 15,
+        "cursor": 15
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-after-content",
+    "language": "json",
+    "text": "{\r\n    \"x\": 1 \r\n}",
+    "selections": [
+      {
+        "anchor": 14,
+        "cursor": 14
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-if-empty-body",
+    "language": "cpp",
+    "text": "if (ok)\r\n    \r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-if-blank-previous",
+    "language": "cpp",
+    "text": "if (ok)\r\n\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 21,
+        "cursor": 21
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-nested-controls",
+    "language": "cpp",
+    "text": "if (a)\r\n    if (b)\r\n        run();\r\n",
+    "selections": [
+      {
+        "anchor": 34,
+        "cursor": 34
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-unicode-control-body",
+    "language": "cpp",
+    "text": "if (ok)\r\n    use(\"猫🙂\");\r\n",
+    "selections": [
+      {
+        "anchor": 23,
+        "cursor": 23
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-mixed-control-body",
+    "language": "cpp",
+    "text": "\tif (ok)\r\n \t  run();\r\n",
+    "selections": [
+      {
+        "anchor": 20,
+        "cursor": 20
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-line-comment",
+    "language": "cpp",
+    "text": "    // 猫🙂 comment\r\n",
+    "selections": [
+      {
+        "anchor": 17,
+        "cursor": 17
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-block-comment",
+    "language": "cpp",
+    "text": "    /* 猫🙂 comment\r\n",
+    "selections": [
+      {
+        "anchor": 17,
+        "cursor": 17
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-doc-comment",
+    "language": "cpp",
+    "text": "    /** 猫🙂 comment\r\n",
+    "selections": [
+      {
+        "anchor": 18,
+        "cursor": 18
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-string-brace",
+    "language": "cpp",
+    "text": "    \"hello {\"\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-raw-string-brace",
+    "language": "cpp",
+    "text": "    R\"tag(hello {)tag\"\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-array-value",
+    "language": "json",
+    "text": "[\r\n    1,\r\n]\r\n",
+    "selections": [
+      {
+        "anchor": 9,
+        "cursor": 9
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-after-closed-array",
+    "language": "json",
+    "text": "{\r\n    \"x\": []\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 14,
+        "cursor": 14
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-after-root-close",
+    "language": "json",
+    "text": "{\r\n    \"x\": 1\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-string-brace",
+    "language": "json",
+    "text": "{\r\n    \"x\": \"hello {\"\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 21,
+        "cursor": 21
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-escaped-quote-brace",
+    "language": "json",
+    "text": "{\r\n    \"x\": \"hello \\\" {\"\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 24,
+        "cursor": 24
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-extra-indent",
+    "language": "json",
+    "text": "{\r\n            \"x\": 1\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 21,
+        "cursor": 21
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-tabs",
+    "language": "json",
+    "text": "{\r\n\t\"x\": 1\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 10,
+        "cursor": 10
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": false,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer",
+    "language": "cpp",
+    "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 20,
+        "cursor": 20
+      },
+      {
+        "anchor": 45,
+        "cursor": 45
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer",
+    "language": "json",
+    "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 11,
+        "cursor": 11
+      },
+      {
+        "anchor": 27,
+        "cursor": 27
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-enter",
+    "language": "cpp",
+    "text": "if (a)\r\n    run();\r\nif (b)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 18,
+        "cursor": 18
+      },
+      {
+        "anchor": 38,
+        "cursor": 38
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-enter",
+    "language": "json",
+    "text": "{\r\n    \"x\": 1}\r\n{\r\n    \"x\": 2}\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      },
+      {
+        "anchor": 29,
+        "cursor": 29
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-generated-close-precedence",
+    "language": "cpp",
+    "text": "    \r\n",
+    "selections": [
+      {
+        "anchor": 4,
+        "cursor": 4
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "{"
+      },
+      {
+        "type": "\n"
+      },
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-none-late-recheck",
+    "language": "cpp",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-none-late-recheck",
+    "language": "json",
+    "text": "{\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-electric-close-full-late-recheck",
+    "language": "cpp",
+    "text": "void f() {\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 16,
+        "cursor": 16
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-electric-close-full-late-recheck",
+    "language": "json",
+    "text": "{\r\n    \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer-none",
+    "language": "cpp",
+    "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 20,
+        "cursor": 20
+      },
+      {
+        "anchor": 45,
+        "cursor": 45
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer-none",
+    "language": "json",
+    "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 11,
+        "cursor": 11
+      },
+      {
+        "anchor": 27,
+        "cursor": 27
+      }
+    ],
+    "settings": {
+      "autoIndent": "none",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer-keep",
+    "language": "cpp",
+    "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 20,
+        "cursor": 20
+      },
+      {
+        "anchor": 45,
+        "cursor": 45
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer-keep",
+    "language": "json",
+    "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 11,
+        "cursor": 11
+      },
+      {
+        "anchor": 27,
+        "cursor": 27
+      }
+    ],
+    "settings": {
+      "autoIndent": "keep",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer-brackets",
+    "language": "cpp",
+    "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 20,
+        "cursor": 20
+      },
+      {
+        "anchor": 45,
+        "cursor": 45
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer-brackets",
+    "language": "json",
+    "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 11,
+        "cursor": 11
+      },
+      {
+        "anchor": 27,
+        "cursor": 27
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-multicursor-closer-advanced",
+    "language": "cpp",
+    "text": "void f() {\r\n        \r\n}\r\nvoid g() {\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 20,
+        "cursor": 20
+      },
+      {
+        "anchor": 45,
+        "cursor": 45
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-multicursor-closer-advanced",
+    "language": "json",
+    "text": "{\r\n        \r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 11,
+        "cursor": 11
+      },
+      {
+        "anchor": 27,
+        "cursor": 27
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-enter-before-escaped-string-end",
+    "language": "json",
+    "text": "{\r\n    \"x\": \"hello \\\" {\"\r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 23,
+        "cursor": 23
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-comment-body-advanced",
+    "language": "cpp",
+    "text": "if (ok)\r\n    // note {\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-block-comment-body-advanced",
+    "language": "cpp",
+    "text": "if (ok)\r\n    /* note {\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-header-string-bracket-advanced",
+    "language": "cpp",
+    "text": "if (check(\"(\"))\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 27,
+        "cursor": 27
+      }
+    ],
+    "settings": {
+      "autoIndent": "advanced",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-comment-body-full",
+    "language": "cpp",
+    "text": "if (ok)\r\n    // note {\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-block-comment-body-full",
+    "language": "cpp",
+    "text": "if (ok)\r\n    /* note {\r\n",
+    "selections": [
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-header-string-bracket-full",
+    "language": "cpp",
+    "text": "if (check(\"(\"))\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 27,
+        "cursor": 27
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "insertSpaces": true,
+      "tabSize": 4
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-single-brackets",
+    "language": "cpp",
+    "text": "  {}\r\n",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-primary-first-brackets",
+    "language": "cpp",
+    "text": "{}\r\n  {}\r\n",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 1
+      },
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-primary-last-brackets",
+    "language": "cpp",
+    "text": "{}\r\n  {}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      },
+      {
+        "anchor": 1,
+        "cursor": 1
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-single-full",
+    "language": "cpp",
+    "text": "  {}\r\n",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-primary-first-full",
+    "language": "cpp",
+    "text": "{}\r\n  {}\r\n",
+    "selections": [
+      {
+        "anchor": 1,
+        "cursor": 1
+      },
+      {
+        "anchor": 7,
+        "cursor": 7
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-partial-indent-primary-last-full",
+    "language": "cpp",
+    "text": "{}\r\n  {}\r\n",
+    "selections": [
+      {
+        "anchor": 7,
+        "cursor": 7
+      },
+      {
+        "anchor": 1,
+        "cursor": 1
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-aligned-closer-brackets",
+    "language": "json",
+    "text": "{\r\n\r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      },
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-comment-closer-brackets",
+    "language": "json",
+    "text": "{\r\n// \r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 6,
+        "cursor": 6
+      },
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-string-closer-brackets",
+    "language": "json",
+    "text": "{\r\n    \"value\r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      },
+      {
+        "anchor": 29,
+        "cursor": 29
+      }
+    ],
+    "settings": {
+      "autoIndent": "brackets",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-aligned-closer-full",
+    "language": "json",
+    "text": "{\r\n\r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 3,
+        "cursor": 3
+      },
+      {
+        "anchor": 19,
+        "cursor": 19
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-comment-closer-full",
+    "language": "json",
+    "text": "{\r\n// \r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 6,
+        "cursor": 6
+      },
+      {
+        "anchor": 22,
+        "cursor": 22
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "json-mixed-string-closer-full",
+    "language": "json",
+    "text": "{\r\n    \"value\r\n}\r\n{\r\n        \r\n}\r\n",
+    "selections": [
+      {
+        "anchor": 13,
+        "cursor": 13
+      },
+      {
+        "anchor": 29,
+        "cursor": 29
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "}"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-nel-header-full",
+    "language": "cpp",
+    "text": "if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 20,
+        "cursor": 20
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-bom-header-full",
+    "language": "cpp",
+    "text": " ﻿if (ok)\r\n    run();\r\n",
+    "selections": [
+      {
+        "anchor": 21,
+        "cursor": 21
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-bom-body-full",
+    "language": "cpp",
+    "text": "if (ok)\r\n  ﻿run();\r\n",
+    "selections": [
+      {
+        "anchor": 18,
+        "cursor": 18
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  },
+  {
+    "name": "cpp-enter-if-unicode-boundary-full",
+    "language": "cpp",
+    "text": "if (ok)\r\n  if猫();\r\n",
+    "selections": [
+      {
+        "anchor": 17,
+        "cursor": 17
+      }
+    ],
+    "settings": {
+      "autoIndent": "full",
+      "tabSize": 4,
+      "insertSpaces": true
+    },
+    "steps": [
+      {
+        "type": "\n"
+      },
+      {
+        "command": "undo"
+      },
+      {
+        "command": "redo"
+      }
+    ]
+  }
+]

@@ -20,6 +20,12 @@ positive quote-pair and negative comment-quote readiness witnesses, and exact
 Undo/Redo text and scalar-selection observations. Preparation checks preserve
 text, version and selections. The target result never controls a retry.
 
+The archived negative scratch probe does not independently establish grammar
+readiness: cheap-token suppression can also produce a single quote. The observed
+electric targets contain code without comments or strings, and their natural
+versus prepared results remain recorded. The later native-comparison observer
+strengthens both scratch probes with explicit unchanged retokenization.
+
 The [pinned electric implementation](https://github.com/microsoft/vscode/blob/912bb683695358a54ae0c670461738984cbb5b95/src/vs/editor/common/cursor/cursorTypeEditOperations.ts#L388)
 checks whether the target line is cheap to tokenize before forcing its tokens.
 Together with the [token readiness implementation](https://github.com/microsoft/vscode/blob/912bb683695358a54ae0c670461738984cbb5b95/src/vs/editor/common/model/textModelTokens.ts#L131),

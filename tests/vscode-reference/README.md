@@ -47,6 +47,65 @@ plus supervisor signal interruption on POSIX. Cleanup relies on descendants
 remaining in the owned group/tree; detached descendants and arbitrary Windows
 worker crashes with surviving children are not qualified by these tests.
 
+## Prepared advanced indentation
+
+The standalone advanced observer captures C++/JSON indentation separately from
+the ordinary 120-second extension suite:
+
+```sh
+# After installing the reference dependencies above, on Linux:
+xvfb-run -a node tests/vscode-reference/advanced-indentation-run.cjs target/vscode-reference/result/advanced
+# macOS or Windows (or Linux with an available display):
+node tests/vscode-reference/advanced-indentation-run.cjs target/vscode-reference/result/advanced
+cargo run --locked --example advanced_indentation_contract -- target/vscode-reference/result/advanced/advanced-indentation.json
+# Compare the recorded Linux observations without launching VS Code:
+cargo run --locked --example advanced_indentation_contract -- tests/vscode-reference/baselines/1.95.0/advanced-indentation/linux.json
+```
+
+Its supervisor bounds the entire download and five reference processes to
+300 seconds, with the same owned process-group/tree cleanup as the ordinary
+runner. CI gives this separate capture step six minutes. Each process uses a
+fresh isolated profile with one fixed `editor.autoIndent` mode (`none`, `keep`,
+`brackets`, `advanced`, or `full`) set identically in global and C++/JSON startup
+settings. Per-case tab/space overrides are restored. Every target checks its
+actual document-scoped settings and an independent plain-text Enter witness;
+that witness distinguishes None from indentation retention, while the other
+mode distinctions rely on fixed startup settings and exact configuration reads.
+
+The [actual Linux baseline](baselines/1.95.0/advanced-indentation/linux.json)
+contains 132 cases and 530 text/scalar-selection snapshots. It covers electric
+closers, unbraced C++ control bodies, JSON indentation rules, comments/strings,
+Unicode and ECMAScript whitespace boundaries, visual tab stops, mixed and
+permuted cursor sets, CRLF, and ordinary typed newline versus `lineBreakInsert`.
+The native comparison matches every snapshot, including 131 single-gesture
+Undo/Redo restoration witnesses and the generated-pair workflow's grouped
+newline/closer Undo/Redo trace.
+
+This is a **prepared-token contract**. Before each target `type` or
+`lineBreakInsert`, the observer invokes the public developer command
+`editor.action.forceRetokenize`. The [evidence](baselines/1.95.0/advanced-indentation/linux-evidence.json)
+records 134 preparations whose bytes, version, selections and EOL remain exactly
+unchanged. It performs no preparation between Undo and Redo. Independent scratch
+quote probes verify both code pairing and comment suppression, with 20 unchanged
+positive/negative token-preparation proofs across the five processes. Preparing
+both probes prevents an expensive/stale-token auto-closing fallback from looking
+like verified comment suppression. Only independent readiness probes may retry;
+target editing gestures are observed once, without retrying for a desired result.
+
+The [provenance](baselines/1.95.0/advanced-indentation/linux-provenance.json)
+records actual product commit, platform, installed language configurations, and
+case/observer/runner/evidence/trace SHA-256 hashes. This committed capture is
+Linux-only. CI is configured to capture and compare all three platforms, but
+qualification of this new contract in fresh CI runs remains pending.
+
+Natural tokenization startup timing is outside this contract. The separate
+[archived fixed-mode experiment](../../docs/reference/2026-10-10-cpp-token-readiness/README.md)
+preserves differences between early natural, prepared and later natural C++
+closer observations; its original suppression probe alone does not establish
+grammar readiness. The native engine does not invoke VS Code's developer command.
+These document observations also do not establish physical terminal delivery,
+arbitrary language configuration support, or complete VS Code indentation parity.
+
 ## Evidence and boundaries
 
 `typing.json` captures 18 C++/JSON smart-typing workflows from the executable,

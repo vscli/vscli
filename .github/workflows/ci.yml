@@ -91,6 +91,16 @@ jobs:
         run: cargo run --locked --example snippet_contract -- --variables target/vscode-reference/result/snippet-variables.json > target/vscode-reference/result/snippet-variables-vscli.json
       - name: Compare native typing gestures with the pinned editor
         run: cargo run --locked --example typing_contract -- target/vscode-reference/result/typing.json > target/vscode-reference/result/typing-vscli.json
+      - name: Observe prepared advanced indentation (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 6
+        run: xvfb-run -a node tests/vscode-reference/advanced-indentation-run.cjs target/vscode-reference/result/advanced
+      - name: Observe prepared advanced indentation (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 6
+        run: node tests/vscode-reference/advanced-indentation-run.cjs target/vscode-reference/result/advanced
+      - name: Compare advanced indentation with the pinned editor
+        run: cargo run --locked --example advanced_indentation_contract -- target/vscode-reference/result/advanced/advanced-indentation.json > target/vscode-reference/result/advanced/advanced-indentation-vscli.json
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -110,6 +120,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/smart_typing_pty.py target/debug/vscli
+      - name: Run advanced native indentation workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/advanced_indentation_pty.py target/debug/vscli
       - name: Run automatic parameter hint workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
