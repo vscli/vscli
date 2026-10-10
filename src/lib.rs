@@ -17,6 +17,8 @@ pub mod extension_store;
 pub mod extensions;
 pub mod files;
 pub mod folding;
+pub mod folding_controller;
+pub mod folding_worker;
 pub mod git;
 pub mod jsonc;
 pub mod keys;
