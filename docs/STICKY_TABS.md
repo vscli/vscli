@@ -163,3 +163,12 @@ Linux replay and explicit historical directory replay pass. The native Linux
 result equals the complete remote native output; fixed inventory checks retain
 all 147 original files and all three eight-input source contracts. Fresh
 protected checks for this adoption commit remain separate qualification.
+
+The adoption is rebased onto nested-layout main `fb36053`. Its 147 captured
+files, inventories, reader and corrected runtime inputs remain byte-identical
+to adoption head `7814949`, which passed all six required checks in
+[run 38074319204](https://github.com/vscli/vscli/actions/runs/38074319204).
+The integrated main-based candidate passes 1,026 locked all-target Rust tests
+across 51 reports (23 opt-in cases ignored), all 14 reader tests, formatting,
+strict locked all-target Clippy, default genuine replay and explicit historical
+replay. Fresh exact-head protected CI remains required for this rebase.
