@@ -12,6 +12,11 @@ removes those collections while independently owned native diagnostics remain.
 Restarting a native server removes its publications without removing extension
 collections.
 
+A transmitted text version also emits a document-change notification when an edit
+and Undo are coalesced into identical final bytes. This lets collections recompute
+against the current version instead of staying stale. Cursor, successful-save and
+other metadata-only updates remain separate from text changes.
+
 ## Native identity and limits
 
 Each native publication retains its originating server identity and the document

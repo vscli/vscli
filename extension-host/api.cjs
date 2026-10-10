@@ -111,7 +111,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         changes.push(() => opened.fire(document));
       } else {
         document._update(snapshot);
-        if (snapshot.version !== previousVersion && previous !== document.getText()) {
+        if (snapshot.version !== previousVersion && typeof snapshot.text === 'string') {
           changes.push(() => changed.fire({ document, contentChanges: [{
             range: new Range(new Position(0, 0), previousEnd),
             rangeOffset: 0, rangeLength: previous.length, text: document.getText(),

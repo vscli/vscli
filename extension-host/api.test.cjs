@@ -4,6 +4,23 @@ const assert = require('node:assert/strict');
 const { createApi } = require('./api.cjs');
 const initial = () => ({ generation: 1, documents: [{ id: 1, uri: 'untitled:test', text: 'b\na\n', version: 1, languageId: 'plaintext', isDirty: true }], active: 1, selections: [{ anchor: { line: 0, character: 0 }, active: { line: 2, character: 0 } }] });
 
+test('coalesced edit and undo notifies a fresh version even with unchanged bytes', () => {
+  const runtime = createApi(() => {}, () => {});
+  runtime.sync(initial());
+  const document = runtime.api.workspace.textDocuments[0], events = [];
+  runtime.api.workspace.onDidChangeTextDocument(event => events.push(event));
+  const state = initial(); state.generation = 2; state.documents[0].version = 2;
+  runtime.sync(state);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].document, document);
+  assert.equal(document.version, 2);
+  assert.deepEqual(events[0].contentChanges.map(change => [change.rangeOffset,change.rangeLength,change.text]), [[0,4,'b\na\n']]);
+  state.generation = 3; state.documents[0].savedGeneration = 1;
+  state.selections = [{anchor:{line:1,character:0},active:{line:1,character:0}}];
+  runtime.sync(state);
+  assert.equal(events.length, 1, 'Save and cursor updates without a text version remain quiet');
+});
+
 test('native edit approval updates the existing document before resolving the edit promise', async () => {
   let call, builder;
   const after = initial(); after.generation = 2; after.documents[0].text = 'a\nb\n'; after.documents[0].version = 2;
