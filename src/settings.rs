@@ -30,6 +30,12 @@ pub enum RootWriteScope {
     Workspace,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SaveFormatting {
+    Off,
+    File,
+    Unavailable(&'static str),
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Breadcrumbs {
     pub enabled: bool,
     pub file_path: BreadcrumbPath,
@@ -67,6 +73,9 @@ struct ScopedValue<'a> {
     selector: Option<&'a str>,
 }
 const SUPPORTED: &[&str] = &[
+    "editor.formatOnSave",
+    "editor.formatOnSaveMode",
+    "editor.defaultFormatter",
     "editor.tabSize",
     "editor.insertSpaces",
     "editor.lineNumbers",
@@ -185,6 +194,10 @@ impl Settings {
                     "{source}: {key} mode {} is not implemented; native autosave disabled",
                     value.as_str().unwrap()
                 ));
+            } else if key == "editor.formatOnSaveMode" && value.as_str() != Some("file") {
+                self.warnings.push(format!("{source}: modified-lines format-on-save is not implemented; opted-in saves use an explicit skip notice"));
+            } else if key == "editor.defaultFormatter" && !value.is_null() {
+                self.warnings.push(format!("{source}: extension formatter selection on save is not implemented; opted-in saves use an explicit skip notice"));
             }
         }
     }
@@ -394,6 +407,26 @@ impl Settings {
     /// Autosave resolves the highest present value, including malformed values.
     /// Falling back to a lower valid value could unexpectedly enable disk writes.
     /// Language blocks follow the same pinned precedence as editor settings.
+    pub fn save_formatting(&self, language: &str) -> SaveFormatting {
+        let raw = |key| {
+            self.scoped_source(key, language, self.layers.len(), false)
+                .map(|source| source.value)
+        };
+        match raw("editor.formatOnSave") {
+            None | Some(Value::Bool(false)) => return SaveFormatting::Off,
+            Some(Value::Bool(true)) => {}
+            _ => return SaveFormatting::Unavailable("invalid editor.formatOnSave setting"),
+        }
+        if raw("editor.formatOnSaveMode").is_some_and(|value| value.as_str() != Some("file")) {
+            return SaveFormatting::Unavailable("only formatOnSaveMode file is supported");
+        }
+        if raw("editor.defaultFormatter").is_some_and(|value| !value.is_null()) {
+            return SaveFormatting::Unavailable(
+                "configured extension formatter is not supported on save yet",
+            );
+        }
+        SaveFormatting::File
+    }
     pub fn auto_save(&self, language: &str) -> crate::autosave::Policy {
         use crate::autosave::{DEFAULT_DELAY_MS, MAX_DELAY_MS, Policy};
         let raw = |key| {
@@ -496,6 +529,17 @@ pub struct LanguageServer {
 }
 fn valid(key: &str, value: &Value) -> bool {
     match key {
+        "editor.formatOnSave" => value.is_boolean(),
+        "editor.formatOnSaveMode" => matches!(
+            value.as_str(),
+            Some("file" | "modifications" | "modificationsIfAvailable")
+        ),
+        "editor.defaultFormatter" => {
+            value.is_null()
+                || value
+                    .as_str()
+                    .is_some_and(|s| !s.is_empty() && s.len() <= 4096)
+        }
         "files.autoSave" => matches!(
             value.as_str(),
             Some("off" | "afterDelay" | "onFocusChange" | "onWindowChange")
@@ -845,6 +889,74 @@ mod loader_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn save_formatting_is_opt_in_language_scoped_and_fails_closed() {
+        assert_eq!(
+            Settings::default().save_formatting("cpp"),
+            SaveFormatting::Off
+        );
+        let settings = Settings::from_values(
+            serde_json::json!({
+                "editor.formatOnSave":true,
+                "[cpp]":{"editor.formatOnSave":false},
+                "[rust]":{"editor.formatOnSaveMode":"modifications"},
+                "[python]":{"editor.defaultFormatter":"example.formatter"},
+                "[go]":{"editor.formatOnSave":"true"}
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+            "formatting test",
+        )
+        .unwrap();
+        assert_eq!(settings.save_formatting("plaintext"), SaveFormatting::File);
+        assert_eq!(settings.save_formatting("cpp"), SaveFormatting::Off);
+        for language in ["rust", "python", "go"] {
+            assert!(matches!(
+                settings.save_formatting(language),
+                SaveFormatting::Unavailable(_)
+            ));
+        }
+        for value in [serde_json::json!(false), serde_json::json!(0), Value::Null] {
+            let settings = Settings::from_values(
+                serde_json::json!({"editor.formatOnSave":value})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                "formatting test",
+            )
+            .unwrap();
+            assert_ne!(settings.save_formatting("cpp"), SaveFormatting::File);
+        }
+    }
+    #[test]
+    fn higher_invalid_save_formatting_values_do_not_enable_a_lower_formatter() {
+        let directory = tempfile::tempdir().unwrap();
+        let user = directory.path().join("user.json");
+        let workspace = directory.path().join("workspace.json");
+        std::fs::write(
+            &user,
+            r#"{"editor.formatOnSave":true,"editor.defaultFormatter":"user.formatter"}"#,
+        )
+        .unwrap();
+        std::fs::write(&workspace, r#"{"editor.formatOnSave":"invalid"}"#).unwrap();
+        let settings = Settings::load(&[user.clone(), workspace.clone()]).unwrap();
+        assert!(matches!(
+            settings.save_formatting("cpp"),
+            SaveFormatting::Unavailable(_)
+        ));
+        std::fs::write(
+            &workspace,
+            r#"{"editor.formatOnSave":true,"editor.defaultFormatter":null}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            Settings::load(&[user, workspace])
+                .unwrap()
+                .save_formatting("cpp"),
+            SaveFormatting::File
+        );
+    }
     fn autosave_settings(layers: impl IntoIterator<Item = Value>) -> Settings {
         let mut settings = Settings::default();
         for value in layers {
