@@ -21,14 +21,26 @@ Priority 6 includes merged
 checks passed on reviewed head `65207aea1c2db480a058315cb9cb519f0491e37b` in
 [CI run 38046439264](https://github.com/vscli/vscli/actions/runs/38046439264).
 Preview tabs do not complete workspace continuity.
-The sticky-tab candidate implements original pin/unpin commands, membership-local
-markers and save-safe protected-close subsets. Local qualification passes 936
-Rust tests, all 31 ordinary Unix PTY scripts / 145 reports, and 71 optimized
-terminal reports; fresh protected platform CI is required before merge.
-[Sticky PR #68](https://github.com/vscli/vscli/pull/68) is under review.
-The subsequent [nested layout foundation](EDITOR_LAYOUT.md) passes fifteen
-focused cases and 951 all-target tests; its App/UI integration remains scratch
-work. See [the sticky contract](STICKY_TABS.md).
+Priority 5 also includes merged [stable save policy #76](https://github.com/vscli/vscli/pull/76):
+legacy boolean exclusions are normalized in native execution without rewriting
+settings or historical evidence. All six post-merge checks passed in
+[run 38069857502](https://github.com/vscli/vscli/actions/runs/38069857502).
+
+[Sticky PR #68](https://github.com/vscli/vscli/pull/68) implements original
+pin/unpin commands, membership-local markers and save-safe protected-close
+subsets. Its rebased local qualification passes 973 Rust tests, 18 observer
+tests and 12 terminal reports on each debug/optimized executable. A separate
+source-bound monotonic observer fixes late settlement acceptance; the complete
+rejected Windows capture is retained. Fresh platform CI remains required.
+See [the sticky contract](STICKY_TABS.md).
+
+[Nested layouts #69](https://github.com/vscli/vscli/pull/69) now include App/UI
+integration, original split/resize commands and strict schema-3 session metadata.
+After rebasing onto corrected sticky tabs, 1,024 Rust tests, 36 debug terminal
+reports and 22 optimized reports pass. Source review found no material
+integration issue; protected parent/platform qualification remains pending.
+See [the layout contract](EDITOR_LAYOUT.md) for bounded geometry, recovery and
+remaining upstream layout gaps.
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
 VS Code **1.95.0**. Current upstream documentation helps inventory additional
 capabilities; it does not extend our tested baseline to newer releases.
