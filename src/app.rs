@@ -12,6 +12,7 @@ mod extension_services;
 pub mod extension_surfaces;
 mod extensions;
 mod files;
+mod group_merge;
 pub mod keyboard;
 mod language;
 mod language_services;
@@ -133,6 +134,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "View: Close Pinned Editor",
         "workbench.action.closeActivePinnedEditor",
     ),
+    ("View: Close Group", "workbench.action.closeGroup"),
     ("Language: Restart Server", "vscli.languageServer.restart"),
     ("Language: Disable Services", "vscli.languageServer.disable"),
     ("Language: Enable Services", "vscli.languageServer.enable"),
@@ -232,7 +234,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "workbench.action.focusNextGroup",
     ),
     (
-        "View: Close Editor Group",
+        "View: Close All Editors in Group",
         "workbench.action.closeEditorsInGroup",
     ),
     ("Tasks: Run Task", "workbench.action.tasks.runTask"),
@@ -1677,6 +1679,9 @@ impl App {
             return;
         }
         if self.execute_tab_reorder_command(command) {
+            return;
+        }
+        if self.execute_group_merge_command(command, args.as_ref()) {
             return;
         }
         if self.execute_tab_transfer_command(command) {

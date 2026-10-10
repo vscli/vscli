@@ -17,6 +17,8 @@ pub(crate) mod graphemes;
 mod indentation;
 mod snippets;
 mod typing;
+mod view_merge;
+pub use view_merge::{ViewMerge, ViewMergeProjection};
 mod view_transfer;
 pub use view_transfer::ViewTransfer;
 #[cfg(test)]

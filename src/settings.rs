@@ -390,6 +390,28 @@ impl Settings {
             })
             .unwrap_or_default()
     }
+    /// Root-only native merge policy. Invalid higher values retain lower
+    /// valid layers; unsupported valid policy refuses changed merges.
+    /// Explicit group merge removes its source even when closeEmptyGroups is false.
+    /// Other valid insertion policies need a separately qualified merge engine.
+    pub(crate) fn check_group_merge_policy(&self) -> Result<()> {
+        let positioning = self
+            .layers
+            .iter()
+            .rev()
+            .find_map(|layer| {
+                layer
+                    .get("workbench.editor.openPositioning")
+                    .filter(|value| valid("workbench.editor.openPositioning", value))
+                    .and_then(Value::as_str)
+            })
+            .unwrap_or("right");
+        ensure!(
+            positioning == "right",
+            "Native Close Group supports only workbench.editor.openPositioning=right"
+        );
+        Ok(())
+    }
     /// Root-only native transfer policy. Invalid higher values retain lower
     /// valid layers; unsupported valid policy refuses changed transfers.
     pub fn tab_transfer_direction(&self) -> Result<EditorSideBySideDirection> {

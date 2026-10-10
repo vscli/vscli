@@ -24,7 +24,7 @@ LEFT = b"\x1b[D"
 PIN = "View: Pin Editor"
 UNPIN = "View: Unpin Editor"
 FORCED_CLOSE = "View: Close Pinned Editor"
-CLOSE_GROUP = "View: Close Editor Group"  # workbench.action.closeEditorsInGroup.
+CLOSE_GROUP = "View: Close All Editors in Group"  # workbench.action.closeEditorsInGroup.
 CLOSE_ALL = "File: Close All Editors"
 
 

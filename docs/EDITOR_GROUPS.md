@@ -69,7 +69,7 @@ Postauthorization edits remain dirty and require review; Escape can cancel a
 deferred close while already authorized filesystem work continues. Saves still
 publish against their original document identity, independently of group focus.
 
-Close Group captures its membership list and structural generation. Tabs opened
+Close All Editors in Group captures its membership list and structural generation. Tabs opened
 or replaced while review is pending are excluded from an old batch. Dirty models
 still owned by another group do not require global discard. Membership changes
 retire stale review, preserving buffers. Earlier successful saves remain real
@@ -161,7 +161,7 @@ a held source-action Save. Existing Breadcrumbs tests now locate the exact row
 following the group strip, retaining all symbol/picker/byte/history assertions;
 the original stale-row failure is preserved locally. This totals 28 scripts and
 132 successful workflow reports. A gated native save regression additionally
-proves Close Group retains a model whose Undo made it clean while an authorized
+proves Close All Editors in Group retains a model whose Undo made it clean while an authorized
 snapshot was pending, then preserves its restored text as dirty after receipt.
 
 The optimized executable additionally passes all six group journeys, seven
@@ -358,3 +358,17 @@ The five App integrity cases pass with actual held save workers; four Unix
 terminal journeys pass across five native-only sessions. The candidate passes
 1,001 all-target tests with four test threads, formatting and strict locked
 Clippy; fresh platform qualification remains required. See [the behavior and evidence contract](TAB_REORDERING.md).
+
+
+## Native Close Group merge candidate
+
+`workbench.action.closeGroup` is a separate prepared merge operation, exposed as
+native View: Close Group. It retains all source models and moves their tab
+memberships into the most recently active other group; it never executes a
+save/discard close batch. The old View: Close Editor Group label is corrected to
+original View: Close All Editors in Group for `closeEditorsInGroup`.
+The prepared App integration stages all historical document view leases and
+Layout removal before one Groups publication, preserving accepted save receipts.
+Eleven App integrity cases and three new debug terminal journeys pass; broader
+qualification and remaining gaps are recorded in
+[Close Group scope and evidence](CLOSE_GROUP_MERGE.md).
