@@ -1,0 +1,12 @@
+{
+  "save-code-actions.cjs": "d8a86d018b43b02c9df326be29022019552ec973bf3ec2173cd44d31bd6635b6",
+  "save-configuration-ready.cjs": "c98c112a06a7d7db6a37833a695b1b10e7b3518bb84ec6a77bd29d0403088aca",
+  "save-code-actions-cases.json": "a96e7078cd7e710cb33fc0c3d5e4e40e9cd0283e884035ff552dfd37b1a9be9c",
+  "save-code-actions-suite.cjs": "7227634ff58361b556ab4b3a2ad3f288c269e2133b68ca0409bd3dde6e489a22",
+  "save-code-actions-run.cjs": "6c52e1675410389a28232efa31a060f49fcbe0df65633b1e33a94d6be4c12696",
+  "save-code-actions-worker.cjs": "50d8a268f5d08d0f9557f89904bc39b9a90f7545c3356f5ae83ecc19d6e96d81",
+  "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+  "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+  "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+  "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+}
