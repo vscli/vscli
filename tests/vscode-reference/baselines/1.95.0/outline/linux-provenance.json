@@ -1,0 +1,59 @@
+{
+  "version": "1.95.0",
+  "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "platform": "linux",
+  "architecture": "x64",
+  "caseCount": 2,
+  "snapshotCount": 20,
+  "traceSha256": "277277079220cd59b5cd5561117cb8c59c3199f12495e42896e571ad73a6e937",
+  "evidenceSha256": "0014925813ee1b8bc0cab612502e0496a2959daeca68e5ddb9193fe33aa05ca8",
+  "casesSha256": "c11449a50037b205fb98be7bd2cbfc289e07245cf7d394e9219e5d47ae81b1a1",
+  "runs": [
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T03:29:35.238Z",
+      "name": "hierarchical-cpp-api-and-outline-reveal",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "21c4e7faaf1385424165f4794c4212b471f788a08598ce4a1954eef99e29aa13",
+      "sources": {
+        "outline.cjs": "6a939c2aed0d28b3f155494cb1d57afe1936d90d36b7a978e6cd4f2860357f4f",
+        "outline-cases.json": "c11449a50037b205fb98be7bd2cbfc289e07245cf7d394e9219e5d47ae81b1a1",
+        "outline-suite.cjs": "ce54e732f9e73ea26b7caaffa2891319534ec2328c35858d0ae44dd77dc100fc",
+        "outline-run.cjs": "00b9705383eb4af532395978d8df7980561d2f4d60517e78acd96389d9189c06",
+        "outline-worker.cjs": "2f8f5b74d70b94e03969db9d620b27d8e4f6b829457080542544a28b9126b9f8",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "566d16d3269d25a11f20cf6b91598aa5081fc676523ed6fdd25f35b0fbf7563f",
+      "scope": "Named synthetic DocumentSymbolProvider public API and original command/editor projection; not unchanged extension qualification or private sidebar tree differential"
+    },
+    {
+      "version": "1.95.0",
+      "commit": "912bb683695358a54ae0c670461738984cbb5b95",
+      "platform": "linux",
+      "architecture": "x64",
+      "observedAt": "2026-10-10T03:29:38.002Z",
+      "name": "flat-cpp-api-symbol-information",
+      "productSha256": "3a9db06699900b7da70447f3e1cc5ca65cdbfceab99e9eb94757ffcbe582e08d",
+      "evidenceSha256": "26c683be4bf14b8f10fa85c09b1f2696c00c8a87210acf09f2c734f5da9b4793",
+      "sources": {
+        "outline.cjs": "6a939c2aed0d28b3f155494cb1d57afe1936d90d36b7a978e6cd4f2860357f4f",
+        "outline-cases.json": "c11449a50037b205fb98be7bd2cbfc289e07245cf7d394e9219e5d47ae81b1a1",
+        "outline-suite.cjs": "ce54e732f9e73ea26b7caaffa2891319534ec2328c35858d0ae44dd77dc100fc",
+        "outline-run.cjs": "00b9705383eb4af532395978d8df7980561d2f4d60517e78acd96389d9189c06",
+        "outline-worker.cjs": "2f8f5b74d70b94e03969db9d620b27d8e4f6b829457080542544a28b9126b9f8",
+        "supervisor.cjs": "d0bb864b1b699fe29d6b4e24de7a1fa587fe122b6b4a92e9c74cfd25a74d5b22",
+        "package-lock.json": "74d30a58472daabec49f33d54bc1bfd1b9fb8d0858eec22a022c2464c263ca8c",
+        "package.json": "4358149fa583c7a8402d0396e06bb88b1ddb6f5ca82c2002c4b841da1a14bec3",
+        "extension.cjs": "64115fcd8cfbe8fc111970b4f536dff54e505f92625dbce117e2cd60e4490c75"
+      },
+      "profileSettingsSha256": "566d16d3269d25a11f20cf6b91598aa5081fc676523ed6fdd25f35b0fbf7563f",
+      "scope": "Named synthetic DocumentSymbolProvider public API and original command/editor projection; not unchanged extension qualification or private sidebar tree differential"
+    }
+  ]
+}

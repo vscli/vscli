@@ -42,8 +42,58 @@ pub(super) struct State {
     signature: Option<Ticket>,
     signature_started: Option<Instant>,
     signature_fenced: bool,
+    symbols: Option<Ticket>,
+    symbols_started: Option<Instant>,
+    symbols_fenced: bool,
 }
 impl Client {
+    pub(crate) fn symbols_available(&self) -> bool {
+        !self.providers.symbols_fenced
+            && self.providers.symbols.is_none()
+            && !self
+                .providers
+                .calls
+                .values()
+                .any(|call| call.ticket.provider.kind == Kind::Symbols)
+            && !self
+                .providers
+                .replies
+                .iter()
+                .any(|reply| reply.ticket.provider.kind == Kind::Symbols)
+            && self.language_provider_capacity()
+    }
+    pub(crate) fn symbol_channel_closed(&self) -> bool {
+        self.providers.symbols_fenced
+    }
+    pub(crate) fn symbol_source_identity(&self, provider: &Provider) -> Option<(u64, u64)> {
+        (provider.kind == Kind::Symbols
+            && self.provider_owner_ready(&provider.owner)
+            && self
+                .providers
+                .registry
+                .current(provider, self.providers.registry.epoch()))
+        .then_some((self.session, self.providers.registry.epoch()))
+    }
+    pub(super) fn symbols_released(&mut self, value: Value) -> Result<()> {
+        if value["session"].as_u64() != Some(self.session) {
+            return Ok(());
+        }
+        let Some(ticket) = &self.providers.symbols else {
+            return Ok(());
+        };
+        if value["request"].as_u64() != Some(ticket.id) {
+            return Ok(());
+        }
+        if value["owner"].as_str() != Some(ticket.provider.owner.as_str())
+            || value["provider"].as_u64() != Some(ticket.provider.id)
+        {
+            bail!("Invalid document symbol callback release ownership");
+        }
+        self.providers.symbols = None;
+        self.providers.symbols_started = None;
+        self.providers.symbols_fenced = false;
+        Ok(())
+    }
     pub(crate) fn signature_available(&self) -> bool {
         !self.providers.signature_fenced
             && self.providers.signature.is_none()
@@ -281,6 +331,11 @@ impl Client {
                 "Signature callback is still running or fenced; wait for actual release or restart the extension host"
             );
         }
+        if provider.kind == Kind::Symbols && !self.symbols_available() {
+            bail!(
+                "Document symbol callback is still running or fenced; wait for actual release or restart the extension host"
+            );
+        }
         self.sync_with_hidden(documents, hidden, active)?;
         let mirror = self
             .mirror
@@ -307,12 +362,17 @@ impl Client {
             "provider":ticket.provider.id,"document":doc.id,"version":ticket.version,
             "position":lsp::position(doc,doc.cursor),"includeDeclaration":true,"completionContext":options.get("context"),
             "signatureContext":options.get("context"),"signatureRequest":provider.kind == Kind::Signature,
+            "symbolRequest":provider.kind == Kind::Symbols,
             "range":options.get("range"),"selection":options.get("selection"),"actionContext":options.get("context"),
             "workspace":ticket.workspace.iter().map(|target| json!({"document":target.document,"uri":target.uri,"version":target.version})).collect::<Vec<_>>(),
             "options":options.get("options").cloned().unwrap_or_else(|| json!({"tabSize":4,"insertSpaces":true}))}))?;
         if provider.kind == Kind::Signature {
             self.providers.signature = Some(ticket.clone());
             self.providers.signature_started = Some(Instant::now());
+        }
+        if provider.kind == Kind::Symbols {
+            self.providers.symbols = Some(ticket.clone());
+            self.providers.symbols_started = Some(Instant::now());
         }
         self.providers.calls.insert(
             ticket.id,
@@ -426,7 +486,7 @@ impl Client {
         let Some(call) = self.providers.calls.remove(&id) else {
             return Ok(());
         };
-        if call.canceled && call.ticket.provider.kind != Kind::Signature {
+        if call.canceled && !matches!(call.ticket.provider.kind, Kind::Signature | Kind::Symbols) {
             return Ok(());
         }
         if call.ticket.provider.kind == Kind::Signature
@@ -439,8 +499,22 @@ impl Client {
         {
             self.providers.signature_fenced = true;
         }
+        if call.ticket.provider.kind == Kind::Symbols
+            && self
+                .providers
+                .symbols
+                .as_ref()
+                .is_some_and(|occupied| occupied.id == id)
+            && message["error"]["message"].as_str() == Some("Language provider deadline exceeded")
+        {
+            self.providers.symbols_fenced = true;
+        }
         let result = if call.canceled {
-            Err("Signature invocation canceled".into())
+            Err(match call.ticket.provider.kind {
+                Kind::Symbols => "Document symbol invocation canceled",
+                _ => "Signature invocation canceled",
+            }
+            .into())
         } else if !message["error"].is_null() {
             Err(message["error"]["message"]
                 .as_str()
@@ -450,17 +524,21 @@ impl Client {
                 .collect())
         } else {
             let value = message["result"].take();
-            provider_result_budget(&value)
-                .and_then(|()| {
-                    if call.ticket.provider.kind == Kind::Signature
-                        && serde_json::to_vec(&value)?.len() > 256 * 1024
-                    {
-                        bail!("Signature help exceeds 256 KiB");
-                    }
-                    Ok(())
-                })
-                .map(|()| value)
-                .map_err(|e| e.to_string())
+            (if call.ticket.provider.kind == Kind::Symbols {
+                result_budget(&value, 40)
+            } else {
+                provider_result_budget(&value)
+            })
+            .and_then(|()| {
+                if call.ticket.provider.kind == Kind::Signature
+                    && serde_json::to_vec(&value)?.len() > 256 * 1024
+                {
+                    bail!("Signature help exceeds 256 KiB");
+                }
+                Ok(())
+            })
+            .map(|()| value)
+            .map_err(|e| e.to_string())
         };
         self.providers.replies.push_back(Reply {
             ticket: call.ticket,
@@ -479,6 +557,14 @@ impl Client {
         {
             self.providers.signature_fenced = true;
         }
+        if self.providers.symbols.is_some()
+            && self
+                .providers
+                .symbols_started
+                .is_some_and(|started| started.elapsed() >= DEADLINE)
+        {
+            self.providers.symbols_fenced = true;
+        }
         let expired: Vec<_> = self
             .providers
             .calls
@@ -495,6 +581,15 @@ impl Client {
                     .is_some_and(|occupied| occupied.id == ticket.id)
             {
                 self.providers.signature_fenced = true;
+            }
+            if ticket.provider.kind == Kind::Symbols
+                && self
+                    .providers
+                    .symbols
+                    .as_ref()
+                    .is_some_and(|occupied| occupied.id == ticket.id)
+            {
+                self.providers.symbols_fenced = true;
             }
             self.cancel_language_provider(&ticket)?;
             self.providers.calls.remove(&ticket.id);
@@ -517,11 +612,14 @@ fn kind_intersects(a: &str, b: &str) -> bool {
             .is_some_and(|suffix| suffix.starts_with('.'))
 }
 fn provider_result_budget(value: &Value) -> Result<()> {
+    result_budget(value, 32)
+}
+fn result_budget(value: &Value, maximum_depth: usize) -> Result<()> {
     let mut stack = vec![(value, 0usize)];
     let (mut nodes, mut bytes) = (0, 0);
     while let Some((value, depth)) = stack.pop() {
         nodes += 1;
-        if nodes > 100_000 || depth > 32 {
+        if nodes > 100_000 || depth > maximum_depth {
             bail!("Language provider result exceeds node/depth budget")
         }
         match value {
@@ -576,6 +674,253 @@ mod tests {
             assert!(Instant::now() < deadline, "No signature reply for {id}");
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    #[test]
+    fn symbols_wire_depth_preserves_sixteen_levels_without_widening_other_kinds() {
+        let range = json!({"start":{"line":0,"character":0},"end":{"line":0,"character":0}});
+        let mut symbol =
+            json!({"name":"leaf","kind":1,"range":range,"selectionRange":range,"children":[]});
+        for _ in 0..16 {
+            symbol = json!({"name":"parent","kind":1,"range":range,"selectionRange":range,"children":[symbol]});
+        }
+        let value = json!([symbol]);
+        assert!(provider_result_budget(&value).is_err());
+        result_budget(&value, 40).unwrap();
+        let mut too_deep = json!(null);
+        for _ in 0..41 {
+            too_deep = json!([too_deep]);
+        }
+        assert!(result_budget(&too_deep, 40).is_err());
+    }
+    #[test]
+    fn symbols_canceled_wire_keeps_actual_slot_until_exact_framed_settlement() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"
+const v=require('vscode'),fs=require('fs'),p=require('path');exports.activate=()=>{
+v.languages.registerDocumentSymbolProvider('*',{provideDocumentSymbols(){fs.writeFileSync(p.join(v.workspace.rootPath,'symbols-entered'),'yes');return new Promise(resolve=>{const timer=setInterval(()=>{if(fs.existsSync(p.join(v.workspace.rootPath,'symbols-release'))){clearInterval(timer);resolve([]);}},5);});}});
+v.languages.registerSignatureHelpProvider('*',{provideSignatureHelp:()=>null},'(');
+};"#,
+        );
+        let mut docs = vec![Document::from_text("猫🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let provider = client
+            .language_provider(Kind::Symbols, &docs[0])
+            .unwrap()
+            .clone();
+        assert!(client.symbol_source_identity(&provider).is_some());
+        let ticket = client
+            .request_language_provider(Kind::Symbols, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !root.path().join("symbols-entered").exists() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        client.cancel_language_provider(&ticket).unwrap();
+        assert!(
+            signature_reply(&mut client, &mut docs, ticket.id)
+                .result
+                .unwrap_err()
+                .contains("canceled")
+        );
+        assert!(client.providers.calls.is_empty());
+        assert!(!client.symbols_available());
+        for _ in 0..32 {
+            assert!(
+                client
+                    .request_language_provider(Kind::Symbols, &docs, &[], 0, json!({}))
+                    .is_err()
+            );
+        }
+        let signature = client
+            .request_language_provider(Kind::Signature, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        assert!(
+            signature_reply(&mut client, &mut docs, signature.id)
+                .result
+                .unwrap()
+                .is_null()
+        );
+        assert!(!client.symbols_available());
+        client.providers.symbols_started = Some(Instant::now() - DEADLINE);
+        client.expire_language_providers().unwrap();
+        assert!(client.symbol_channel_closed());
+        std::fs::write(root.path().join("symbols-release"), "yes").unwrap();
+        while !client.symbols_available() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(!client.symbol_channel_closed());
+        assert!(client.providers.symbols.is_none());
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+    }
+    #[test]
+    fn symbols_timeout_and_early_ack_validate_exact_owner_session_request_and_provider() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerDocumentSymbolProvider('*',{provideDocumentSymbols:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![Document::from_text("猫🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Symbols, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        client.providers.calls.get_mut(&ticket.id).unwrap().started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert!(
+            client
+                .take_provider_replies()
+                .pop_front()
+                .unwrap()
+                .result
+                .is_err()
+        );
+        assert!(client.symbol_channel_closed());
+        let ack = json!({"session":ticket.session,"owner":ticket.provider.owner,"provider":ticket.provider.id,"request":ticket.id});
+        for field in ["session", "request"] {
+            let mut foreign = ack.clone();
+            foreign[field] = json!(ack[field].as_u64().unwrap() + 1);
+            client.symbols_released(foreign).unwrap();
+            assert!(client.symbol_channel_closed());
+        }
+        let mut foreign = ack.clone();
+        foreign["owner"] = json!("other.owner");
+        assert!(client.symbols_released(foreign).is_err());
+        let mut foreign = ack.clone();
+        foreign["provider"] = json!(ticket.provider.id + 1);
+        assert!(client.symbols_released(foreign).is_err());
+        assert!(!client.symbols_available());
+        client.symbols_released(ack).unwrap();
+        assert!(client.symbols_available());
+        assert!(!client.symbol_channel_closed());
+        client
+            .provider_response(ticket.id, json!({"result":[]}))
+            .unwrap();
+        assert!(client.take_provider_replies().is_empty());
+        // A positive ack before its wire reply must not cause a false fence.
+        let next = client
+            .request_language_provider(Kind::Symbols, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        client.symbols_released(json!({"session":next.session,"owner":next.provider.owner,"provider":next.provider.id,"request":next.id})).unwrap();
+        assert!(
+            !client.symbols_available(),
+            "The wire reply remains outstanding"
+        );
+        client.providers.calls.get_mut(&next.id).unwrap().started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert!(!client.symbol_channel_closed());
+        assert!(
+            client
+                .take_provider_replies()
+                .pop_front()
+                .unwrap()
+                .result
+                .is_err()
+        );
+        assert!(client.symbols_available());
+    }
+    #[test]
+    fn symbols_source_a_b_a_and_edit_undo_never_revive_old_ticket_proofs() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerDocumentSymbolProvider('*',{provideDocumentSymbols:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![Document::from_text("猫🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let provider = client
+            .language_provider(Kind::Symbols, &docs[0])
+            .unwrap()
+            .clone();
+        let identity = client.symbol_source_identity(&provider).unwrap();
+        let ticket = client
+            .request_language_provider(Kind::Symbols, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        docs[0].insert("transient", false);
+        docs[0].undo();
+        assert_eq!(docs[0].revision, ticket.revision);
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        client.sync_with_hidden(&docs, &[], 0).unwrap();
+        let mut forged = ticket.clone();
+        forged.version += 1;
+        assert!(!client.provider_ticket_current(&forged, &docs[0]));
+        client.register_language_providers(json!([])).unwrap();
+        assert!(client.symbol_source_identity(&provider).is_none());
+        client
+            .register_language_providers(json!([provider]))
+            .unwrap();
+        assert_ne!(
+            client.symbol_source_identity(&ticket.provider).unwrap(),
+            identity
+        );
+        assert!(!client.provider_registration_current(&ticket));
+        assert!(
+            !client.symbols_available(),
+            "Registry retirement cannot settle actual work"
+        );
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+    }
+    #[test]
+    fn symbols_global_capacity_and_untitled_flat_and_hierarchical_shapes_are_preserved() {
+        let root = tempfile::tempdir().unwrap();
+        let path = fixture(
+            root.path(),
+            r#"
+const v=require('vscode');exports.activate=()=>{
+v.languages.registerDocumentSymbolProvider('*',{provideDocumentSymbols(d){const r=new v.Range(0,0,0,3),s=new v.Range(0,1,0,3),parent=new v.DocumentSymbol('parent','detail',v.SymbolKind.Class,r,s);parent.children=[new v.DocumentSymbol('child','',v.SymbolKind.Method,s,s)];return [parent,new v.SymbolInformation('flat',v.SymbolKind.Function,'container',s,d.uri)];}});
+v.languages.registerHoverProvider('*',{provideHover:()=>new Promise(()=>{})});
+};"#,
+        );
+        let mut docs = vec![Document::from_text("猫🙂\r\n")];
+        let mut client =
+            Client::start("node", &path, root.path(), &docs, 0, &Settings::default()).unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Symbols, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let value = signature_reply(&mut client, &mut docs, ticket.id)
+            .result
+            .unwrap();
+        assert_eq!(value[0]["range"]["start"]["character"], 0);
+        assert_eq!(value[0]["selectionRange"]["start"]["character"], 1);
+        assert_eq!(value[0]["children"][0]["name"], "child");
+        assert_eq!(
+            value[1]["location"]["uri"],
+            client.mirror.mirrors[&docs[0].id].uri
+        );
+        assert!(value[1].get("children").is_none());
+        assert!(client.symbols_available());
+        for _ in 0..LIMIT {
+            client
+                .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+                .unwrap()
+                .unwrap();
+        }
+        assert!(!client.symbols_available());
+        assert!(
+            client
+                .request_language_provider(Kind::Symbols, &docs, &[], 0, json!({}))
+                .is_err()
+        );
+        assert!(client.providers.symbols.is_none());
+        assert_eq!(client.providers.calls.len(), LIMIT);
     }
     #[test]
     fn signature_original_help_survives_typing_versions_and_explicit_release_retires_identity() {

@@ -1,7 +1,7 @@
 mod keyboard;
 pub(crate) mod welcome;
 use crate::{
-    app::{App, COMMANDS, Focus, Modal, PromptKind},
+    app::{App, COMMANDS, Focus, Modal, OutlineStatus, PromptKind},
     document::{Document, display_width, grapheme_width, graphemes},
 };
 use ratatui::{
@@ -32,6 +32,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     app.extension_surfaces.output_area = Rect::default();
     app.extension_surfaces.status_hits.clear();
     app.extension_surfaces.presented_tree = None;
+    app.outline_area = Rect::default();
     let colors = app.theme.colors;
     let area = frame.area();
     frame.render_widget(
@@ -273,6 +274,119 @@ fn draw_terminal(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_explorer(frame: &mut Frame, app: &mut App, area: Rect) {
+    if app.outline_view().status != OutlineStatus::Hidden && area.height >= 6 {
+        let height = (area.height / 3).clamp(4, 12).min(area.height - 2);
+        let sections =
+            Layout::vertical([Constraint::Min(2), Constraint::Length(height)]).split(area);
+        draw_explorer_files(frame, app, sections[0]);
+        draw_outline(frame, app, sections[1]);
+    } else {
+        draw_explorer_files(frame, app, area);
+    }
+}
+
+fn draw_outline(frame: &mut Frame, app: &mut App, area: Rect) {
+    let colors = app.theme.colors;
+    let focused = app.focus == Focus::Outline;
+    let block = Block::default()
+        .borders(Borders::RIGHT | Borders::TOP)
+        .title(if focused {
+            " OUTLINE • "
+        } else {
+            " OUTLINE "
+        })
+        .border_style(Style::default().fg(if focused { colors.accent } else { colors.muted }))
+        .style(Style::default().bg(colors.panel));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let rows = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).split(inner);
+    app.outline_area = rows[1];
+    let view = app.outline_view();
+    let status = match view.status {
+        OutlineStatus::Loading => "Loading symbols…",
+        OutlineStatus::Updating => "Updating symbols…",
+        OutlineStatus::Error => "Symbols unavailable",
+        OutlineStatus::NoDocument => "No open document",
+        OutlineStatus::Unsupported => "No symbol provider",
+        _ if view.source.is_empty() => "Document symbols",
+        _ => view.source,
+    };
+    frame.render_widget(
+        Paragraph::new(clean(status)).style(Style::default().fg(colors.muted)),
+        rows[0],
+    );
+    let Some(tree) = view.tree else {
+        frame.render_widget(
+            Paragraph::new(clean(view.message))
+                .style(Style::default().fg(colors.muted))
+                .wrap(Wrap { trim: false }),
+            rows[1],
+        );
+        return;
+    };
+    if view.visible.is_empty() {
+        frame.render_widget(
+            Paragraph::new("No symbols").style(Style::default().fg(colors.muted)),
+            rows[1],
+        );
+        return;
+    }
+    let offset = app.outline_offset(rows[1].height);
+    let lines: Vec<Line> = view
+        .visible
+        .iter()
+        .skip(offset)
+        .take(rows[1].height as usize)
+        .map(|index| {
+            let node = &tree.nodes[*index];
+            let branch = tree
+                .nodes
+                .get(index + 1)
+                .is_some_and(|child| child.parent == Some(*index));
+            let expanded = branch && view.visible.contains(&(index + 1));
+            let marker = if branch {
+                if expanded { "▾" } else { "▸" }
+            } else {
+                " "
+            };
+            let kind = match node.kind {
+                2..=4 => "◈",
+                5 | 11 | 23 => "◇",
+                6 | 9 | 12 => "ƒ",
+                7 | 8 | 13 | 14 => "·",
+                _ => "○",
+            };
+            let mut style = Style::default().fg(if view.actionable {
+                if view.active == Some(*index) {
+                    colors.accent
+                } else {
+                    colors.foreground
+                }
+            } else {
+                colors.muted
+            });
+            if focused && view.selected == Some(*index) {
+                style = style.bg(colors.selection);
+            }
+            if node.deprecated {
+                style = style.add_modifier(Modifier::CROSSED_OUT);
+            }
+            Line::styled(
+                format!(
+                    "{}{} {} {}",
+                    " ".repeat(node.depth as usize),
+                    marker,
+                    kind,
+                    clean(&node.name)
+                ),
+                style,
+            )
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines), rows[1]);
+}
+
+fn draw_explorer_files(frame: &mut Frame, app: &mut App, area: Rect) {
     let colors = app.theme.colors;
     let title = if app.focus == Focus::Explorer {
         " EXPLORER • "
@@ -2122,6 +2236,35 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn outline_no_document_and_hidden_surfaces_never_leave_mouse_targets() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = App::new(dir.path().into(), crate::keys::Profile::Linux);
+        app.execute("outline.focus", serde_json::Value::Null);
+        let mut terminal = Terminal::new(TestBackend::new(110, 32)).unwrap();
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(text.contains("OUTLINE"));
+        assert!(text.contains("No open document"));
+        assert!(app.documents.is_empty());
+        assert!(app.outline_area.height > 0);
+        for (width, height) in [(40, 10), (1, 1)] {
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+            assert_eq!(app.outline_area, Rect::default());
+            assert!(app.documents.is_empty());
+        }
+        app.modal = Some(Modal::Inspector);
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        assert_eq!(app.outline_area, Rect::default());
     }
 
     #[test]

@@ -76,6 +76,7 @@ pub enum Event {
     ApplyEdit(Value, Option<Request>, Value),
     Response(Request, Value),
     SignatureFailure(Request, String),
+    SymbolFailure(Request, String),
     Diagnostics(DiagnosticPublication),
     Message(String),
 }
@@ -86,6 +87,11 @@ struct Synced {
     version: i64,
     path: PathBuf,
 }
+struct SymbolSlot {
+    token: u64,
+    canceled: bool,
+    timed_out: bool,
+}
 pub struct Client {
     identity: Arc<()>,
     transport: crate::transport::Process,
@@ -94,6 +100,7 @@ pub struct Client {
     completion_resolve_valid: bool,
     signature_occupied: Option<u64>,
     signature_timed_out: bool,
+    symbol_slot: Option<SymbolSlot>,
     synced: HashMap<String, Synced>,
     next_id: u64,
     command_channel_valid: bool,
@@ -283,6 +290,7 @@ impl Client {
             completion_resolve_valid: true,
             signature_occupied: None,
             signature_timed_out: false,
+            symbol_slot: None,
             synced: HashMap::new(),
             next_id: 1,
             command_channel_valid: true,
@@ -315,6 +323,10 @@ impl Client {
     }
     fn send(&self, value: Value) -> Result<()> {
         self.transport.send(value)
+    }
+    #[cfg(test)]
+    pub(crate) fn fixture_notify(&self, method: &str, params: Value) -> Result<()> {
+        self.notify(method, params)
     }
     fn notify(&self, method: &str, params: Value) -> Result<()> {
         self.send(json!({"jsonrpc":"2.0","method":method,"params":params}))
@@ -490,6 +502,9 @@ impl Client {
         if is_action {
             self.ensure_action_available()?;
         }
+        if method == "textDocument/documentSymbol" {
+            self.ensure_symbol_available()?;
+        }
         if is_action && self.synced.len() > 128 {
             bail!("Code actions support at most 128 synchronized buffers");
         }
@@ -546,38 +561,47 @@ impl Client {
         if method == "textDocument/signatureHelp" {
             self.signature_occupied = Some(id);
         }
-        Ok(())
-    }
-    pub(crate) fn has_symbol_request(&self) -> bool {
-        self.pending.values().any(|r| {
-            matches!(
-                r.method.as_str(),
-                "textDocument/documentSymbol" | "workspace/symbol"
-            )
-        })
-    }
-    pub(crate) fn cancel_symbol_requests(&mut self) -> Result<()> {
-        let ids: Vec<_> = self
-            .pending
-            .iter()
-            .filter(|(_, r)| {
-                matches!(
-                    r.method.as_str(),
-                    "textDocument/documentSymbol" | "workspace/symbol"
-                )
-            })
-            .map(|(id, _)| *id)
-            .collect();
-        for id in ids {
-            self.pending.remove(&id);
-            self.notify("$/cancelRequest", json!({"id":id}))?;
+        if method == "textDocument/documentSymbol" {
+            self.symbol_slot = Some(SymbolSlot {
+                token: id,
+                canceled: false,
+                timed_out: false,
+            });
         }
         Ok(())
     }
-    pub(crate) fn workspace_symbols(&mut self, query: &str) -> Result<()> {
-        if !self.ready || self.pending.len() >= 32 {
-            bail!("Language server unavailable or request queue full");
+    pub(crate) fn symbol_available(&self) -> bool {
+        self.ready && self.symbol_slot.is_none() && self.pending.len() < 32
+    }
+    pub(crate) fn symbol_channel_closed(&self) -> bool {
+        self.symbol_slot.as_ref().is_some_and(|slot| slot.timed_out)
+    }
+    fn ensure_symbol_available(&self) -> Result<()> {
+        if self.symbol_channel_closed() {
+            bail!("Symbol request timed out; awaiting actual release or language server restart");
         }
+        if !self.symbol_available() {
+            bail!("A symbol request is still running or awaiting actual release");
+        }
+        Ok(())
+    }
+    pub(crate) fn request_document_symbols(&mut self, doc: &Document) -> Result<u64> {
+        let token = self.next_id;
+        self.request("textDocument/documentSymbol", doc, json!({}))?;
+        Ok(token)
+    }
+    pub(crate) fn cancel_symbol_request(&mut self, token: u64) -> Result<()> {
+        if let Some(slot) = &mut self.symbol_slot
+            && slot.token == token
+            && !slot.canceled
+        {
+            slot.canceled = true;
+            self.notify("$/cancelRequest", json!({"id":token}))?;
+        }
+        Ok(())
+    }
+    pub(crate) fn workspace_symbols(&mut self, query: &str) -> Result<u64> {
+        self.ensure_symbol_available()?;
         let id = self.next_id;
         self.next_id += 1;
         self.send(
@@ -601,7 +625,12 @@ impl Client {
                 started: Instant::now(),
             },
         );
-        Ok(())
+        self.symbol_slot = Some(SymbolSlot {
+            token: id,
+            canceled: false,
+            timed_out: false,
+        });
+        Ok(id)
     }
     pub fn action_available(&self) -> bool {
         self.action_channel_valid
@@ -794,10 +823,29 @@ impl Client {
         for id in self
             .pending
             .iter()
-            .filter(|(_, r)| r.started.elapsed() > Duration::from_secs(15))
+            .filter(|(id, r)| {
+                r.started.elapsed() > Duration::from_secs(15)
+                    && !self
+                        .symbol_slot
+                        .as_ref()
+                        .is_some_and(|slot| slot.token == **id && slot.timed_out)
+            })
             .map(|(id, _)| *id)
             .collect::<Vec<_>>()
         {
+            if let Some(slot) = &mut self.symbol_slot
+                && slot.token == id
+            {
+                slot.timed_out = true;
+                let request = self.pending.get(&id).unwrap().clone();
+                events.push(Event::SymbolFailure(
+                    request,
+                    "Symbol request timed out; awaiting actual release or language server restart"
+                        .into(),
+                ));
+                self.notify("$/cancelRequest", json!({"id":id}))?;
+                continue;
+            }
             let request = self.pending.remove(&id).unwrap();
             if request.method == "textDocument/signatureHelp" {
                 // Retain the actual occupied token after the response deadline.
@@ -903,6 +951,31 @@ impl Client {
                     events.push(Event::Message(text.chars().take(2000).collect()));
                 }
             } else if let Some(id) = message["id"].as_u64() {
+                if self
+                    .symbol_slot
+                    .as_ref()
+                    .is_some_and(|slot| slot.token == id)
+                {
+                    // Only an exact completed response releases actual capacity.
+                    let result = message.get("result");
+                    let error = message.get("error");
+                    let completed = message["jsonrpc"] == "2.0"
+                        && (matches!((result, error), (Some(_), None))
+                            || matches!((result,error),(None,Some(error)) if error["code"].as_i64().is_some_and(|code| i32::try_from(code).is_ok()) && error["message"].as_str().is_some()));
+                    if !completed {
+                        continue;
+                    }
+                    let slot = self.symbol_slot.take().unwrap();
+                    let request = self.pending.remove(&id).unwrap();
+                    if !slot.canceled && !slot.timed_out {
+                        if let Some(error) = error {
+                            events.push(Event::SymbolFailure(request, format!("{error}")));
+                        } else {
+                            events.push(Event::Response(request, result.unwrap().clone()));
+                        }
+                    }
+                    continue;
+                }
                 if self.signature_occupied == Some(id) {
                     if message.get("result").is_none() && message.get("error").is_none() {
                         // A malformed numeric-id message is not positive
@@ -950,6 +1023,205 @@ impl Client {
             }
         }
         Ok(events)
+    }
+}
+#[cfg(test)]
+pub(crate) mod outline_tests {
+    use super::*;
+    const PEER: &str = r#"
+import json,sys
+held={}
+def send(message):
+    data=json.dumps({'jsonrpc':'2.0',**message}).encode()
+    sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(data)).encode()+data)
+    sys.stdout.buffer.flush()
+def notice(text): send({'method':'window/showMessage','params':{'type':3,'message':text}})
+while True:
+    headers={}
+    while True:
+        line=sys.stdin.buffer.readline()
+        if not line: sys.exit(0)
+        if line==b'\r\n': break
+        key,value=line.decode().split(':',1)
+        headers[key.lower()]=value.strip()
+    message=json.loads(sys.stdin.buffer.read(int(headers['content-length'])))
+    method,ident,params=message.get('method'),message.get('id'),message.get('params',{})
+    if method=='initialize': send({'id':ident,'result':{'capabilities':{'textDocumentSync':1,'documentSymbolProvider':True,'workspaceSymbolProvider':True}}})
+    elif method in ('textDocument/documentSymbol','workspace/symbol'):
+        held[ident]=method
+        notice('held-%d'%ident)
+        if method=='workspace/symbol': notice('query-'+params['query'])
+    elif method=='fixture/release':
+        ident=params['id']
+        held.pop(ident)
+        if params.get('fail'): send({'id':ident,'error':{'code':-32603,'message':'fixture symbol failure'}})
+        else: send({'id':ident,'result':params.get('result',[])})
+    elif method=='fixture/message': send(params)
+    elif method=='fixture/ack': notice('ack')
+    elif method=='textDocument/hover': send({'id':ident,'result':None})
+    elif method=='shutdown': send({'id':ident,'result':None})
+    elif method=='exit': break
+"#;
+    pub(crate) fn until(
+        client: &mut Client,
+        predicate: impl Fn(&Client, &[Event]) -> bool,
+    ) -> Vec<Event> {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let events = client.poll().unwrap();
+            if predicate(client, &events) {
+                return events;
+            }
+            assert!(Instant::now() < deadline, "{}", client.debug_summary());
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    pub(crate) fn start(root: &Path, doc: &Document) -> Client {
+        let mut client = Client::start(
+            if cfg!(windows) { "python" } else { "python3" },
+            &["-u".into(), "-c".into(), PEER.into()],
+            root,
+            "cpp".into(),
+        )
+        .unwrap();
+        until(&mut client, |client, _| client.ready);
+        client.sync(std::slice::from_ref(doc)).unwrap();
+        client
+    }
+    pub(crate) fn held(client: &mut Client, token: u64) {
+        until(client, |_, events| {
+            events.iter().any(|event|matches!(event,Event::Message(message) if message == &format!("held-{token}")))
+        });
+    }
+    #[test]
+    fn symbol_actual_slot_survives_ignored_cancel_timeout_and_malformed_acknowledgements() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("main.cpp");
+        std::fs::write(&path, "猫🙂\r\n").unwrap();
+        let doc = Document::open_existing(&path).unwrap();
+        let mut client = start(root.path(), &doc);
+        let token = client.request_document_symbols(&doc).unwrap();
+        held(&mut client, token);
+        for _ in 0..32 {
+            client.cancel_symbol_request(token).unwrap();
+            assert!(!client.symbol_available());
+            assert!(client.request_document_symbols(&doc).is_err());
+            assert!(client.workspace_symbols("latest").is_err());
+        }
+        assert_eq!(client.pending.len(), 1);
+        for message in [
+            json!({"id":token}),
+            json!({"id":token,"error":null}),
+            json!({"id":token,"result":[],"error":{"code":-1,"message":"both"}}),
+            json!({"id":token+999,"result":[]}),
+            json!({"id":token.to_string(),"result":[]}),
+        ] {
+            client.notify("fixture/message", message).unwrap();
+        }
+        client.notify("fixture/ack", json!({})).unwrap();
+        until(&mut client, |_, events| {
+            events
+                .iter()
+                .any(|event| matches!(event,Event::Message(message) if message=="ack"))
+        });
+        assert_eq!(client.symbol_slot.as_ref().unwrap().token, token);
+        for message in [
+            json!({"jsonrpc":"1.0","id":token,"result":[]}),
+            json!({"id":token,"error":{"code":(i32::MAX as i64)+1,"message":"invalid code"}}),
+        ] {
+            client.notify("fixture/message", message).unwrap();
+            client.notify("fixture/ack", json!({})).unwrap();
+            until(&mut client, |_, events| {
+                events
+                    .iter()
+                    .any(|event| matches!(event, Event::Message(message) if message == "ack"))
+            });
+            assert_eq!(client.symbol_slot.as_ref().unwrap().token, token);
+            assert!(!client.symbol_available());
+        }
+        client.pending.get_mut(&token).unwrap().started = Instant::now() - Duration::from_secs(16);
+        let events = client.poll().unwrap();
+        assert!(events.iter().any(|event|matches!(event,Event::SymbolFailure(request,message) if request.token==token && message.contains("timed out"))));
+        assert!(client.symbol_channel_closed());
+        assert!(!client.symbol_available());
+        assert_eq!(client.pending.len(), 1);
+        assert!(
+            !client
+                .poll()
+                .unwrap()
+                .iter()
+                .any(|event| matches!(event, Event::SymbolFailure(_, _)))
+        );
+        client
+            .notify("fixture/release", json!({"id":token}))
+            .unwrap();
+        let late = until(&mut client, |client, _| client.symbol_available());
+        assert!(
+            !late
+                .iter()
+                .any(|event| matches!(event,Event::Response(request,_) if request.token==token))
+        );
+        assert!(!client.symbol_channel_closed());
+        let failure = client.workspace_symbols("latest").unwrap();
+        held(&mut client, failure);
+        client
+            .notify("fixture/release", json!({"id":failure,"fail":true}))
+            .unwrap();
+        until(&mut client, |_, events| {
+            events.iter().any(|event|matches!(event,Event::SymbolFailure(request,message) if request.token==failure && message.contains("fixture symbol failure")))
+        });
+        assert!(client.symbol_available());
+        let fresh = client.request_document_symbols(&doc).unwrap();
+        held(&mut client, fresh);
+        client
+            .notify("fixture/release", json!({"id":fresh}))
+            .unwrap();
+        until(&mut client, |_, events| {
+            events.iter().any(|event|matches!(event,Event::Response(request,value) if request.token==fresh && value==&json!([])))
+        });
+        assert!(client.symbol_available());
+        assert_eq!(std::fs::read(&path).unwrap(), "猫🙂\r\n".as_bytes());
+    }
+    #[test]
+    fn symbol_replies_retain_exact_server_and_synchronized_model_lifetime() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("main.cpp");
+        std::fs::write(&path, "猫🙂\r\n").unwrap();
+        let mut doc = Document::open_existing(&path).unwrap();
+        let mut client = start(root.path(), &doc);
+        let token = client.request_document_symbols(&doc).unwrap();
+        held(&mut client, token);
+        let request = client.pending[&token].clone();
+        let revision = doc.revision;
+        let selection = doc.selections();
+        doc.insert("dirty", false);
+        doc.undo();
+        assert_eq!(doc.revision, revision);
+        assert_eq!(doc.selections(), selection);
+        assert_ne!(doc.text_epoch(), request.text_epoch);
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(!client.request_current(&request));
+        client
+            .notify("fixture/release", json!({"id":token}))
+            .unwrap();
+        let responses = until(&mut client, |client, _| client.symbol_available());
+        assert!(responses.iter().any(|event|matches!(event,Event::Response(reply,_) if reply.token==token && !client.request_current(reply))));
+        let fresh = client.request_document_symbols(&doc).unwrap();
+        held(&mut client, fresh);
+        let request = client.pending[&fresh].clone();
+        client.sync(&[]).unwrap();
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(!client.request_current(&request));
+        let replacement = start(root.path(), &doc);
+        assert!(!replacement.request_current(&request));
+        client.cancel_symbol_request(fresh).unwrap();
+        client
+            .notify("fixture/release", json!({"id":fresh}))
+            .unwrap();
+        until(&mut client, |client, _| client.symbol_available());
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "dirty猫🙂\r\n");
+        assert_eq!(std::fs::read(&path).unwrap(), "猫🙂\r\n".as_bytes());
     }
 }
 #[cfg(test)]

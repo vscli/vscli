@@ -40,7 +40,9 @@ models and panes, with the original platform shortcuts and conditional
 identity, Undo and disk bytes; stale background file loads cannot commit travel.
 The recorded single-group comparison matches 10 pinned VS Code 1.95.0 cases and
 85 visible snapshots. It does not qualify every navigation integration, pending
-shortcut context, cross-launch persistence or Outline/breadcrumbs. See
+shortcut context, cross-launch persistence or Outline/breadcrumbs.
+[PR #59](https://github.com/vscli/vscli/pull/59) merged after all six required
+platform checks. See
 [native history behavior and evidence](NAVIGATION_HISTORY.md).
 
 
@@ -79,7 +81,18 @@ remain incomplete.
 
 Native LSP document/workspace symbol search supports bounded hierarchical and flat
 responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-file
-loads. Range-less WorkspaceSymbol resolve and an outline panel remain unsupported.
+loads. Range-less WorkspaceSymbol resolve remains unsupported. A separate native
+[Outline section](OUTLINE.md) is implemented on its feature branch: hierarchical
+trees, collapse/expand, enclosing-symbol following and guarded identifier-start
+reveal. Native and extension ownership lanes are bounded; stale/loading trees
+are nonactionable. Focused native and extension publication checks, one actual
+clangd nested-C++ workflow and three debug native-only PTY journeys passed
+locally. The narrow comparison passes two provider-geometry cases and two
+confirmed collapsed reveals; all four reference integrity tests pass. Two pinned
+synthetic provider cases retain 20 snapshots, including initial no-ops. Fresh
+platform CI, optimized terminal qualification and performance measurements remain
+pending; this evidence does not establish complete sidebar or unchanged-package
+compatibility.
 See [symbol-navigation behavior and evidence](USAGE.md#native-document-and-workspace-symbols).
 
 Optional selected extensions dispatch completion, hover, definitions, references, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers; aggregation/fallback for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).

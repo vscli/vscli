@@ -341,6 +341,7 @@ impl Client {
                 "signatures.cjs",
                 include_str!("../extension-host/signatures.cjs"),
             ),
+            ("symbols.cjs", include_str!("../extension-host/symbols.cjs")),
             ("prompts.cjs", include_str!("../extension-host/prompts.cjs")),
             (
                 "document-services.cjs",
@@ -840,6 +841,9 @@ impl Client {
                     }
                     "signatureReleased" => {
                         self.signature_released(message["params"].take())?;
+                    }
+                    "symbolsReleased" => {
+                        self.symbols_released(message["params"].take())?;
                     }
                     "languageProviders" => {
                         if message["params"]["session"].as_u64() != Some(self.session) {
