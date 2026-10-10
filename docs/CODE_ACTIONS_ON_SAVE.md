@@ -30,9 +30,11 @@ Object policy runs fix-all first; legacy arrays retain the configured family ord
 autosave skips source actions, including always and array policies. Focus/window
 autosave and focus-triggered actions are not implemented by this participant.
 
-The pinned 1.95 runtime treats false and never differently under an enabled
-ancestor: false does not exclude that ancestor's descendants; never does. The
-native policy preserves that observed distinction. Kinds match dot boundaries,
+Legacy true is interpreted as `explicit` and false as `never` in the final native
+executable policy. False excludes its kind and descendants even under an enabled
+ancestor, matching the stable pinned 1.95 configuration cohort. Raw JSONC,
+imported source files, merged layers and extension-visible values stay unchanged;
+there is no persisted migration. Kinds match dot boundaries,
 so `source.fixAllX` is outside fix-all. A broad `source` entry projects to the two
 supported families with a notice about other unavailable source actions.
 Malformed effective values fail closed with a notice; native limits include
@@ -76,16 +78,28 @@ and 2 MiB of action JSON; depth, labels, synchronized inventory, resolve count a
 metadata are bounded before retention. No queued participant stores a Rope save
 snapshot. The filesystem snapshot is captured after text participants finish.
 
-Reference evidence currently includes fourteen actual pinned VS Code Linux cases
-and 162 snapshots for settings, callback order, exact text/disk/selection and
-original Save/Undo/Redo commands. The native policy consumer compares supported
-eligibility across all fourteen cases. The native workflow consumer targets six
-named cases with at most one mutating action per supported family, covering 58
-snapshots. Both the frozen Linux corpus and its retained fresh capture pass all
-three native consumer tests. Native model versions, graphical UI, unchanged
-extension behavior and complete save-pipeline parity are outside those
-comparisons. See the
-[reference observer](../tests/vscode-reference/save-code-actions.README.md).
+The original fourteen-case Linux reference remains historical evidence with its
+raw settings and callbacks intact. Current supported eligibility uses the separately admitted stable configuration cohort at revision
+`133897055d5c524ed1fd0b51866edf95f1faffd8`, run `38063145339`: fourteen unchanged
+cases / 162 frames per platform, exact ten source inputs and independent
+configuration/participant readiness barriers. All three genuine platform archives
+are retained. The two false-entry cases now have canonical `never` and matching
+exclusions; after-delay targets retain zero callbacks. This does not establish
+why the earlier transitional observations differed.
+
+Native comparison is limited to supported-kind eligibility and at most one
+mutating edit per supported family. Seven native terminal journeys pass on debug
+and optimized executables,
+including excluded child returned before an eligible root and excluded family
+under broad `source`; each checks Unicode/CRLF saved bytes, independent Undo/Redo
+stages and unchanged user/workspace JSONC. All 31 ordinary reference tests pass
+with the default stable archive and each genuine second-cohort platform artifact.
+See [reference validation](SAVE_REFERENCE_VALIDATION.md) for exact evidence and
+fresh CI status. Native model
+versions, graphical UI, unchanged extension behavior and complete save-pipeline
+parity remain outside these comparisons. See the
+[reference observer](../tests/vscode-reference/save-code-actions.README.md) and
+[policy/evidence scope](SAVE_ACTION_POLICY.md).
 
 For child-only policy, the native participant requests the family root and
 filters descendants locally, whereas the pinned observer requests that child
@@ -94,9 +108,9 @@ callback input/trigger and exact text/history for this cohort without claiming
 the requested-kind parameter is identical. The other five implemented cohorts
 compare their captured request kind and callback text directly.
 
-## Local qualification
+## Historical participant qualification
 
-The candidate passes 784 ordinary Rust tests across 41 reports, with 20 optional
+The original participant candidate passed 784 ordinary Rust tests across 41 reports, with 20 optional
 integrations ignored, formatting and strict all-target Clippy. Named coverage
 includes five policy tests, five extraction integrity tests, six framed action
 lane tests and eight controller journeys. All 133 extension-host tests and 25

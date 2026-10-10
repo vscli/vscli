@@ -1,4 +1,10 @@
-# Pinned code actions on save observer
+# Historical pinned code actions on save observer
+
+This document describes the original nine-input observer and its retained raw
+Linux evidence. Current native policy comparisons use the separately frozen
+StableV2 source and complete three-platform captures; see
+[reference validation](../../docs/SAVE_REFERENCE_VALIDATION.md). Running this
+historical producer does not qualify the current consumer.
 
 Run `node tests/vscode-reference/save-code-actions-run.cjs target/save-code-actions-reference`
 from the repository root with the reference harness dependencies installed.

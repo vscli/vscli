@@ -25,6 +25,10 @@ delayed Save→Close targets the original tab.
 The Breadcrumbs toggle now saves its root setting through
 [native background settings persistence](docs/SETTINGS_PERSISTENCE.md), preserving
 comments and guarding unsaved settings buffers.
+Opt-in native save actions support fix-all, organize-imports and file formatting.
+Legacy boolean exclusions retain raw imported settings; see the
+[save-action contract](docs/CODE_ACTIONS_ON_SAVE.md) and
+[reference qualification](docs/SAVE_REFERENCE_VALIDATION.md).
 
 This alpha implements a **subset** of VS Code commands and bindings. Native language features include diagnostics, completion, explicit parameter hints, symbols, navigation, formatting and limited rename/refactoring. One native language server is active per window; manual configuration and disable controls remain available. Clean-file session restoration is opt-in and separate from dirty-buffer crash recovery. Native debugging supports breakpoints, stepping, stack/variables and expression evaluation through an explicitly configured stdio adapter; Python/debugpy is tested.
 

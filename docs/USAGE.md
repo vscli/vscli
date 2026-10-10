@@ -448,8 +448,10 @@ Enable `"editor.formatOnSave": true`, optionally inside `[cpp]` or another langu
 
 Set `"editor.codeActionsOnSave": {"source.fixAll": "explicit", "source.organizeImports": "explicit"}`
 to run eligible native edits before formatting on an explicit Save. Object entries
-merge across settings scopes; language blocks apply. After-delay autosave skips
-source actions. This first participant supports direct/lazy origin-only edits,
+merge across settings scopes; language blocks apply. Legacy true means `explicit`
+and false means `never`, excluding that kind and its descendants under enabled
+ancestors. These executable interpretations preserve original JSONC and imported
+settings files. After-delay autosave skips source actions. This first participant supports direct/lazy origin-only edits,
 applies at most one mutating action per family, and skips command-bearing actions
 in full with a notice. Each valid edit has its own Undo stage. See
 [settings, cancellation, limits and qualification](CODE_ACTIONS_ON_SAVE.md).

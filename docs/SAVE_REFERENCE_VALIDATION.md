@@ -33,20 +33,18 @@ positive admission. They retain original errors, issued/pending gestures and
 completed public evidence; they do not claim real failure captures. A truncated
 worker artifact cannot certify a successful cohort.
 
-Local qualification passes all 26 ordinary save-reference tests with two optional
+The initial reader qualification passed all 26 ordinary save-reference tests with two optional
 artifact tests ignored. The explicit metadata-only artifact test additionally
 passes against the separately extracted genuine Linux, macOS and Windows files.
-The main-based candidate passes 913 locked all-target Rust tests across 50 reports
+That reader milestone passed 913 locked all-target Rust tests across 50 reports
 with four test threads; 22 optional tests are ignored. Formatting and strict
 all-target locked Clippy pass. One borrowed Value comparison was corrected after
 initial compilation; no producer, observation or protocol assertion changed.
 
 The earlier 2c readiness and 67ab diagnostics archives retain all 284 original
-Git blobs byte-for-byte. Native policy, the default runtime comparison and
-ordinary CI still use their previous behavior in this validation change.
-Native legacy-boolean normalization and explicit stable default/CI adoption
-remain subsequent qualification steps. These results
-do not establish full native save or extension parity.
+Git blobs byte-for-byte. That validation-only milestone retained the previous
+native policy and default comparison. The native policy and ordinary CI adoption
+are described below; neither establishes full native save or extension parity.
 
 CurrentCapture admission now takes an independently supplied exact lowercase
 40-hex checkout revision. Both explicit environment inputs are required; a
@@ -74,3 +72,28 @@ Six Python integrity checks pass, including byte-exact staging of all 270 genuin
 files, retained synthetic failures, overlap/overwrite refusal and bounded reads;
 the symlink check qualifies the POSIX path. Staging itself never certifies source,
 revision, readiness or successful target behavior.
+
+
+The current native policy treats legacy object-entry false as `never` after raw
+settings merge. Ordinary comparisons use the admitted StableV2 archive locally
+and a fresh, isolated capture in CI. The former
+`VSCLI_SAVE_CODE_ACTIONS_REFERENCE_DIR` input is rejected by current native
+comparisons; the historical corpus still has its own source/frame test.
+
+CI checks out the workflow's trusted head revision, checks it against Git HEAD,
+records the receipt, verifies producer identity before dependency setup, captures
+each platform once, and stages all available source and output bytes even after
+failure. It then supplies both `VSCLI_SAVE_ACTIONS_STABLE_CURRENT_ARTIFACT_DIR`
+and `VSCLI_SAVE_ACTIONS_STABLE_EXPECTED_REVISION`. Partial input, unknown files,
+wrong revisions or incomplete environment pairs cannot select the archived
+fallback. The raw source/output artifact is uploaded even if staging rejects.
+
+Current local qualification passes 922 locked all-target Rust tests across 50
+reports, with 23 optional tests ignored. All 31 ordinary historical/current
+reference tests also pass with each independently supplied genuine second-cohort
+artifact (Linux, macOS and Windows, revision `fe8e670`). Native execution here
+runs on Linux; replaying Windows/macOS evidence does not qualify native execution
+on those platforms. Nine policy tests, 60 producer unit tests, six staging tests,
+formatting and strict locked all-target Clippy pass. Seven actual debug terminal
+journeys pass on both debug and optimized executables. Fresh platform CI
+qualification remains pending until its own run finishes.
