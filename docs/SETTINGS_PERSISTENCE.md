@@ -78,6 +78,21 @@ Fresh platform CI qualification remains underway. Windows native file-ID FFI and
 behavior require the upcoming Windows checks; capability-dependent symlink tests
 report a skip when Windows does not grant symlink creation privileges.
 
+The first Windows run exposed existing-target replacement failures while the
+baseline file handle remained open. The repair keeps that identity proof live:
+Windows replacement uses Rust 1.99 `fs::rename`, whose
+[implementation](https://github.com/rust-lang/rust/blob/1.99.0/library/std/src/sys/fs/windows.rs#L1248)
+supports replacing open destinations through POSIX rename semantics. This avoids
+the direct legacy `MoveFileExW` call in
+[tempfile's Windows persistence path](https://github.com/Stebalien/tempfile/blob/v3.27.0/src/file/imp/windows.rs).
+Microsoft documents that [POSIX replacement keeps existing open handles usable](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information).
+The temporary marker is cleared before replacement, and failed renames retain
+automatic temporary cleanup. Missing files retain atomic no-clobber behavior.
+Regression tests assert exact JSONC/CRLF bytes, distinct replacement identity,
+continued access through the old reader, and success/error cleanup. The repair
+awaits fresh Windows CI qualification; unsupported replacement semantics fail
+without releasing the baseline identity proof early.
+
 This feature does not implement
 autosave, format-on-save, save-time code actions or full settings parity.
 
