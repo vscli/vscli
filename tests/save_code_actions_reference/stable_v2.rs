@@ -1353,6 +1353,15 @@ fn provenance(
     );
     Ok(())
 }
+#[path = "stable_v2/current_capture.rs"]
+mod current_capture;
+
+/// Load fully admitted current rows, or the exact archived Linux cohort locally.
+/// A current artifact requires the independently supplied revision environment pair.
+pub(super) fn current_corpus() -> Result<Vec<Value>> {
+    current_capture::current_corpus()
+}
+
 struct Artifact {
     root: PathBuf,
     cases: Vec<Value>,
@@ -1363,6 +1372,13 @@ struct Artifact {
 }
 impl Artifact {
     fn admit(root: &Path) -> Result<Self> {
+        Self::admit_with_context(root, current_capture::Context::Archived133)
+    }
+
+    fn admit_with_context(root: &Path, context: current_capture::Context<'_>) -> Result<Self> {
+        // Validate trusted caller input before any artifact I/O. The envelope,
+        // source hashes and metadata guards below are shared without exceptions.
+        let expected_revision = context.expected_revision()?;
         let input = root.join(INPUT);
         let output = root.join(OUTPUT);
         let result = output.join("result");
@@ -1393,7 +1409,7 @@ impl Artifact {
 
         ensure!(
             std::str::from_utf8(&bounded(&output.join("candidate-revision.txt"), 128)?)?.trim()
-                == REVISION,
+                == expected_revision,
             "StableV2 source revision changed"
         );
         let manifest = read(&input.join("source-sha256.json"), 16384)?;
