@@ -44,7 +44,7 @@ jobs:
           fi
   test:
     name: Test (${{ matrix.os }})
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -244,6 +244,20 @@ jobs:
         run: cargo test --locked --example editor_preview_tabs_contract
       - name: Compare native preview lifecycle with fresh complete observations
         run: cargo run --locked --example editor_preview_tabs_contract -- target/vscode-reference/result/editor-preview-tabs > target/vscode-reference/result/editor-preview-tabs/native-comparison.json
+      - name: Check sticky observer canonical identity and event evidence
+        run: node --test tests/vscode-reference/editor-sticky-tabs-suite.cjs tests/vscode-reference/editor-sticky-tabs-paths.test.cjs
+      - name: Observe complete pinned sticky tab contracts (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: xvfb-run -a node tests/vscode-reference/editor-sticky-tabs-run.cjs target/vscode-reference/result/editor-sticky-tabs
+      - name: Observe complete pinned sticky tab contracts (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 5
+        run: node tests/vscode-reference/editor-sticky-tabs-run.cjs target/vscode-reference/result/editor-sticky-tabs
+      - name: Check sticky reference integrity and replay tests
+        run: cargo test --locked --example editor_sticky_tabs_contract
+      - name: Compare native sticky membership with fresh complete observations
+        run: cargo run --locked --example editor_sticky_tabs_contract -- target/vscode-reference/result/editor-sticky-tabs > target/vscode-reference/result/editor-sticky-tabs/native-comparison.json
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -259,6 +273,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/editor_preview_tabs_pty.py target/debug/vscli
+      - name: Run native sticky keyboard and retained-work workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/sticky_editor_tabs_pty.py target/debug/vscli
       - name: Run native code-actions-on-save workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
