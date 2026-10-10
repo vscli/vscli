@@ -2,6 +2,12 @@
 
 ## Public promise
 
+Native Save As and first-save creation refuse a destination created after the
+preflight check through atomic no-clobber persistence. Injected filesystem-race
+tests preserve foreign bytes, document identity, selections and Undo/Redo. This
+qualifies create-only persistence; existing-file replacement races, background
+saves and autosave remain separate work.
+
 Compatibility must describe observed behavior against a pinned reference version. An extension being downloadable, installable, or activatable does not establish that its workflows work.
 
 Publish three independent records: supported VS Code API behavior, verified extension workflows, and tested terminal/input combinations. Also record package provenance and use rights separately from technical compatibility. Most statuses in this design remain targets. The first command/edit host experiment and named Sort Lines workflow are recorded in [extension evidence](EXTENSIONS.md); that workflow does not establish broader API or package compatibility.
