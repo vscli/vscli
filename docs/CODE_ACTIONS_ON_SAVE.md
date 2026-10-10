@@ -1,7 +1,7 @@
 # Native code actions on save
 
-Status: implementation candidate under qualification. Fresh required platform
-checks and terminal/reference consumers must pass before this behavior ships.
+Status: local qualification passes; fresh required platform checks remain
+necessary before protected-main merge.
 
 Opt in through native user settings or workspace `.vscode/settings.json`:
 
@@ -106,6 +106,15 @@ history preservation, combined-command refusal, deadline/late-capacity release,
 Close/Escape cancellation and after-delay exclusion. The language server starts
 from native settings with an empty PATH and missing Node.
 
-The complete terminal matrix, optimized executable, routine-editing comparison
-and fresh Linux/macOS/Windows checks still require qualification. These local
-results establish named supported workflows, not full upstream save parity.
+All 27 ordinary Unix terminal scripts pass, with 126 reported checks. The five
+source-action journeys and five existing formatting journeys also pass on the
+optimized executable. Three existing automatic-service/suggestions/signature
+terminal suites and two native/extension action integration tests pass against
+installed clangd; these are existing workflow regressions, not real-server
+fix-all parity. The final package rebuild repeats all 784 ordinary Rust tests,
+strict Clippy and the fresh reference consumer successfully.
+
+The [routine-editing comparison](PERFORMANCE.md#native-code-actions-on-save-core-baseline-2026-10-10)
+passes 40 interleaved launches/1,600 keys without failures, with mixed observations
+and no speed ranking. Fresh Linux/macOS/Windows checks still require qualification. These local results establish named supported workflows, not full
+upstream save parity.

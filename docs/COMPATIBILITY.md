@@ -22,8 +22,18 @@ background-save snapshot. It preserves original model ownership across unrelated
 focus changes, rejects stale epochs/lifetimes, and skips short-delay autosaves.
 Native protocol/controller and terminal checks qualify this bounded implementation.
 The new pinned Linux observer records separate formatting Undo, null no-op and
-source-action-before-format ordering; source actions and extension save participants
-remain outstanding. See [format-on-save scope and evidence](FORMAT_ON_SAVE.md).
+source-action-before-format ordering. See [format-on-save scope and evidence](FORMAT_ON_SAVE.md).
+
+The native source-action save candidate resolves bounded layered/language policies
+and origin-only direct/lazy edits before formatting. It skips command-bearing
+actions in full, applies at most one mutating action per supported family, and
+shares actual native capacity with the interactive picker. Fourteen pinned Linux
+cases/162 snapshots qualify the reference corpus; local consumers pass fourteen
+supported policy cases and six native workflows/58 snapshots. Debug terminal
+journeys pass; optimized and fresh platform qualification are recorded separately in
+[code-actions-on-save scope and evidence](CODE_ACTIONS_ON_SAVE.md). Extension save
+participants, secondary-resource persistence and complete save parity remain
+outstanding.
 
 Compatibility must describe observed behavior against a pinned reference version. An extension being downloadable, installable, or activatable does not establish that its workflows work.
 
