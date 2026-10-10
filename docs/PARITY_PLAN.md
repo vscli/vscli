@@ -69,6 +69,16 @@ reviewed head, including fresh Linux/macOS/Windows comparisons in
 [CI run 38018064477](https://github.com/vscli/vscli/actions/runs/38018064477).
 This does not finish installed language configuration or extension parity.
 
+Priority 4 now implements [native Back/Forward history](NAVIGATION_HISTORY.md)
+on its feature branch. Local qualification passes 555 ordinary Rust tests,
+five public history journeys, four original-key terminal workflows in both debug
+and optimized builds, the existing 35 terminal workflows and seven smart-typing
+workflows. The separate pinned observer/native comparison matches ten cases and
+85 visible snapshots; five reference integrity tests pass. Fresh platform CI
+qualification and merge remain pending. Published ordinary/single-line benchmark
+observations show higher candidate latency in these runs. Outline and breadcrumbs
+are the next usable slice; full navigation parity remains outstanding.
+
 Folding is not shipped. The committed `feat/native-folding-foundation` contains
 bounded scanning/row mapping; a preserved old dirty prototype contains unfinished
 App/Document/UI integration. Neither is a qualified user feature. The bounded diagnostics/action subsets do not finish priority 2 or full extension compatibility; further API/context/resource and production-package qualification remains.
