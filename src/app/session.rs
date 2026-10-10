@@ -4,6 +4,7 @@ use crate::session::{
     Event as SessionEvent, Group as SavedGroup, Layout, Pane as SavedPane, SavedFile,
     Tab as SavedTab, View, Worker,
 };
+use anyhow::Context as _;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, PartialEq)]
@@ -405,22 +406,36 @@ impl App {
             self.message = "Clean session files appended; editor-group layout unavailable beyond the active group's 128-tab limit; all recovery retained".into();
             return Ok(());
         }
+        self.documents
+            .try_reserve(staged.len())
+            .context("Cannot reserve retained session models; all buffers retained")?;
         let mut engine = self.editor_groups.clone();
         if had_existing {
+            let mut change = crate::editor_groups::Change {
+                previous: engine.active_membership(),
+                ..crate::editor_groups::Change::default()
+            };
             let active = engine.active_membership();
-            for id in unassigned {
-                engine.open(id)?;
-            }
-            for doc in &staged {
-                engine.open(doc.id)?;
+            for id in unassigned
+                .iter()
+                .copied()
+                .chain(staged.iter().map(|doc| doc.id))
+            {
+                let admitted = engine.open(id)?;
+                change.changed |= admitted.changed;
+                change.inserted.extend(admitted.inserted);
+                change.created_groups.extend(admitted.created_groups);
+                change.promoted.extend(admitted.promoted);
             }
             if let Some(active) = active {
                 engine.focus(active)?;
             }
             // No session-saved selections are applied to authoritative recovery,
             // and existing group order/MRU/view payloads are retained.
+            change.active = engine.active_membership();
+            let layout = self.prepare_group_layout(&engine, &change, None)?;
             self.documents.extend(staged);
-            self.editor_groups = engine;
+            self.publish_group_layout(engine, layout);
             self.project_editor_groups();
         } else {
             let saved_groups = layout.groups.as_ref().expect("normalized groups");
@@ -433,6 +448,15 @@ impl App {
                 })
                 .collect::<Vec<_>>();
             engine.import(&imported, layout.active_group)?;
+            let editor_layout = self.prepare_import_group_layout(
+                &engine,
+                None,
+                if layout.horizontal {
+                    crate::editor_layout::Axis::Rows
+                } else {
+                    crate::editor_layout::Axis::Columns
+                },
+            )?;
             for (group, saved) in engine.groups().iter().zip(saved_groups) {
                 for tab in &saved.tabs {
                     let doc = staged
@@ -444,7 +468,7 @@ impl App {
                 }
             }
             self.documents = staged;
-            self.editor_groups = engine;
+            self.publish_group_layout(engine, editor_layout);
             self.group_fallback = false;
             self.horizontal_split = layout.horizontal;
             self.project_editor_groups();
@@ -1046,6 +1070,15 @@ mod tests {
                         },
                     ],
                     1,
+                )
+                .unwrap();
+            // This fixture imports the membership engine directly; establish
+            // its companion topology before exercising production restoration.
+            app.editor_layout = app
+                .prepare_import_group_layout(
+                    &app.editor_groups,
+                    None,
+                    crate::editor_layout::Axis::Columns,
                 )
                 .unwrap();
             let left = app.editor_groups.groups()[0].id().value();

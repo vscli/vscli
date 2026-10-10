@@ -85,6 +85,7 @@ impl App {
             self.message = format!("Preview ownership refresh failed; buffers retained: {error:#}");
         }
         if change.changed {
+            self.invalidate_editor_presentation();
             if matches!(self.modal, Some(Modal::Confirm(AfterSave::Close)))
                 && self
                     .close_membership
@@ -169,6 +170,14 @@ impl App {
         if self.group_fallback {
             return Ok(());
         }
+        self.editor_layout.validate(
+            &self
+                .editor_groups
+                .groups()
+                .iter()
+                .map(|group| group.id())
+                .collect::<Vec<_>>(),
+        )?;
         self.editor_groups.can_open(document)
     }
     pub fn sync_pane(&mut self) {
@@ -220,37 +229,56 @@ impl App {
                     })
             })
             .collect();
-        for member in removed {
-            match self.editor_groups.close(member) {
-                Ok(change) => self.apply_group_change(change),
-                Err(error) => {
-                    self.message = format!("Editor-group update rejected: {error:#}");
-                    return;
-                }
-            }
-        }
         let unassigned: Vec<_> = self
             .documents
             .iter()
             .map(|doc| doc.id)
             .filter(|id| self.editor_groups.memberships(*id).next().is_none())
             .collect();
-        for id in unassigned {
-            match self.editor_groups.open(id) {
-                Ok(change) => self.apply_group_change(change),
+        if !removed.is_empty() || !unassigned.is_empty() {
+            let result = (|| -> Result<(crate::editor_groups::Groups, crate::editor_layout::Layout, Change)> {
+                let mut groups = self.editor_groups.clone();
+                let mut aggregate = Change { previous: groups.active_membership(), ..Change::default() };
+                for member in removed {
+                    merge_change(&mut aggregate, groups.close(member)?);
+                }
+                for id in unassigned {
+                    merge_change(&mut aggregate, groups.open(id)?);
+                }
+                if let Some(document) = desired {
+                    let current = groups.active_group().and_then(|group| groups.memberships(document)
+                        .find(|member| member.group == group));
+                    let change = if let Some(member) = current {
+                        groups.focus(member)?
+                    } else {
+                        groups.open(document)?
+                    };
+                    merge_change(&mut aggregate, change);
+                }
+                aggregate.active = groups.active_membership();
+                let layout = self.prepare_group_layout(&groups, &aggregate, None)?;
+                Ok((groups, layout, aggregate))
+            })();
+            match result {
+                Ok((groups, layout, change)) => {
+                    self.publish_group_layout(groups, layout);
+                    self.apply_group_change(change);
+                }
                 Err(error) => {
-                    self.message =
-                        format!("Editor-group admission rejected; buffers retained: {error:#}");
-                    return;
+                    self.message = format!(
+                        "Editor-group reconciliation rejected; all buffers retained: {error:#}"
+                    )
                 }
             }
+            return;
         }
         if let Some(id) = desired {
             let result = self.retain_focused_preview(id).and_then(|retained| {
                 if retained {
                     return Ok(());
                 }
-                let change = self.editor_groups.open(id)?;
+                let change =
+                    self.open_editor_group(id, crate::editor_groups::OpenMode::Committed, None)?;
                 self.apply_group_change(change);
                 Ok(())
             });
@@ -372,7 +400,11 @@ impl App {
                 "Group splits are unavailable while recovered buffers exceed the tab limit".into();
             return;
         }
-        match self.editor_groups.split_active() {
+        match self.split_editor_layout(if horizontal {
+            crate::editor_layout::Direction::Down
+        } else {
+            crate::editor_layout::Direction::Right
+        }) {
             Ok(change) => {
                 self.horizontal_split = horizontal;
                 self.apply_group_change(change);
@@ -385,7 +417,7 @@ impl App {
         if !self.editor_groups.membership_current(member) {
             anyhow::bail!("Original editor tab was closed or replaced");
         }
-        let change = self.editor_groups.close(member)?;
+        let change = self.close_editor_membership(member)?;
         self.record_closed_tab(member);
         self.apply_group_change(change);
         if self
@@ -409,6 +441,17 @@ impl App {
     pub(super) fn close_pane(&mut self) {
         self.begin_close_editor_batch(false);
     }
+}
+
+fn merge_change(aggregate: &mut Change, change: Change) {
+    aggregate.changed |= change.changed;
+    aggregate.active = change.active;
+    aggregate.inserted.extend(change.inserted);
+    aggregate.removed.extend(change.removed);
+    aggregate.created_groups.extend(change.created_groups);
+    aggregate.removed_groups.extend(change.removed_groups);
+    aggregate.promoted.extend(change.promoted);
+    aggregate.sticky_changed.extend(change.sticky_changed);
 }
 
 #[cfg(test)]

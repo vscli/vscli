@@ -30,6 +30,8 @@ mod autosave_tests;
 #[cfg(test)]
 mod close_pending_tests;
 #[cfg(test)]
+mod nested_layout_tests;
+#[cfg(test)]
 mod settings_lane_tests;
 #[cfg(test)]
 mod shutdown_tests;
@@ -114,6 +116,13 @@ pub(super) struct State {
     autosave_now: Option<std::time::Instant>,
 }
 impl App {
+    #[cfg(test)]
+    pub(super) fn replace_save_worker_fixture(&mut self, worker: Worker) {
+        assert!(self.saving.active.is_none());
+        assert!(self.saving.latest.is_none());
+        self.saving.worker = worker;
+    }
+
     pub(super) fn autosave_now(&self) -> std::time::Instant {
         #[cfg(test)]
         if let Some(now) = self.saving.autosave_now {

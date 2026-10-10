@@ -1,3 +1,4 @@
+mod editor_layout;
 mod group_tabs;
 mod keyboard;
 pub(crate) mod welcome;
@@ -27,6 +28,9 @@ fn clean_multiline(s: &str) -> String {
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
     app.welcome_brand.begin_frame();
+    app.editor_presentation.begin_frame();
+    app.pane_areas.clear();
+    app.editor_area = Rect::default();
     app.welcome_actions.clear();
     // Frame presentation is rebuilt only for surfaces actually drawn below.
     // Full-screen Inspector and tiny-terminal early returns show none of them.
@@ -46,10 +50,12 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         area,
     );
     if matches!(app.modal, Some(Modal::Inspector)) {
+        app.invalidate_editor_presentation();
         keyboard::draw(frame, app);
         return;
     }
     if area.width < 20 || area.height < 6 {
+        app.invalidate_editor_presentation();
         frame.render_widget(
             Paragraph::new("VSCLI · enlarge terminal\nCtrl+Shift+W to exit")
                 .wrap(Wrap { trim: false }),
@@ -176,9 +182,11 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         draw_breadcrumbs_picker(frame, app);
     }
     if app.prompt.is_some() {
+        app.invalidate_editor_presentation();
         draw_prompt(frame, app);
     }
     if app.modal.is_some() {
+        app.invalidate_editor_presentation();
         draw_modal(frame, app);
     }
 }
@@ -435,61 +443,27 @@ fn draw_explorer_files(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_editors(frame: &mut Frame, app: &mut App, area: Rect) {
-    let colors = app.theme.colors;
-    app.sync_pane();
     if app.documents.is_empty() {
+        app.invalidate_editor_presentation();
         welcome::draw(frame, app, area);
         return;
     }
-    let active_document = app.active;
-    let active_view = app.panes[app.active_pane].id;
-    let count = app.panes.len();
-    let layout = Layout::default()
-        .direction(if app.horizontal_split {
-            ratatui::layout::Direction::Vertical
-        } else {
-            ratatui::layout::Direction::Horizontal
-        })
-        .constraints(vec![Constraint::Ratio(1, count as u32); count])
-        .split(area);
-    app.pane_areas.clear();
-    for (index, pane_area) in layout.iter().enumerate() {
-        let pane = app.panes[index].clone();
-        app.active = app
-            .documents
-            .iter()
-            .position(|doc| doc.id == pane.document)
-            .unwrap_or(active_document);
-        app.doc_mut().display_view(pane.id);
-        let focused = index == app.active_pane;
-        let inner = if count == 1 {
-            *pane_area
-        } else {
-            let block = Block::default().borders(Borders::RIGHT).border_style(
-                Style::default().fg(if focused { colors.accent } else { colors.muted }),
-            );
-            let inner = block.inner(*pane_area);
-            frame.render_widget(block, *pane_area);
-            inner
-        };
-        // Each group owns its strip. Reuse the old split-title row, while a
-        // single group gains a strip above its Breadcrumbs and text viewport.
-        let rows = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(inner);
-        group_tabs::draw(frame, app, rows[0], pane.id, index);
-        let content = rows[1];
-        let editor = if focused && content.height >= 2 && app.breadcrumbs_view().visible {
-            let rows = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(content);
-            draw_breadcrumbs(frame, app, rows[0]);
-            rows[1]
-        } else {
-            content
-        };
-        draw_editor(frame, app, editor, focused);
-        app.pane_areas.push(app.editor_area);
+    if app.editor_group_overflow() {
+        // Retained recovery models remain keyboard-editable without fabricated
+        // group identities or an unproved source pointer fallback.
+        app.invalidate_editor_presentation();
+        editor_layout::draw_recovery(frame, app, area);
+        return;
     }
-    app.active = active_document;
-    app.doc_mut().display_view(active_view);
-    app.editor_area = app.pane_areas[app.active_pane];
+    if editor_layout::draw(frame, app, area).is_err() {
+        // Fail closed: no stale pane/tab/Breadcrumb geometry after a rejected map.
+        app.invalidate_editor_presentation();
+        frame.render_widget(
+            Paragraph::new("Editor layout unavailable")
+                .style(Style::default().fg(app.theme.colors.muted)),
+            area,
+        );
+    }
 }
 
 // Clip before allocating presentation text. Metadata remains cached by the controller.
