@@ -26,6 +26,7 @@ pub(super) struct Context {
 #[derive(Clone, PartialEq)]
 struct Snapshot {
     epoch: u64,
+    groups: crate::editor_groups::UiProof,
     workspace: PathBuf,
     focus: Focus,
     active: Option<u64>,
@@ -76,6 +77,7 @@ impl Context {
         Self {
             snapshot: Some(Snapshot {
                 epoch: app.extension_services.epoch,
+                groups: app.editor_groups.proof(),
                 workspace: app.workspace.root.clone(),
                 focus: app.focus.clone(),
                 active: app.active_document().map(|doc| doc.id),
@@ -466,13 +468,14 @@ impl App {
                 Ok((start, end))
             })
             .transpose()?;
+        self.can_admit_editor(show.document)?;
         if let Some(index) = self
             .hidden_documents
             .iter()
             .position(|d| d.id == show.document)
         {
             let doc = self.hidden_documents.remove(index);
-            self.install_open_document(doc);
+            self.install_open_document(doc)?;
         } else {
             self.active = self
                 .documents
@@ -660,7 +663,7 @@ exports.activate = async context => {
         assert!(app.documents.is_empty());
         assert_eq!(app.hidden_documents[0].id, id);
         let doc = app.hidden_documents.remove(0);
-        app.install_open_document(doc);
+        app.install_open_document(doc).unwrap();
         app.doc_mut().move_to(1, false);
         app.split_editor(false);
         app.doc_mut().move_to(5, false);

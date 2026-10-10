@@ -78,12 +78,36 @@ impl Fixture {
         assert!(self.app.saves_pending(), "{}", self.app.message);
     }
     fn two_panes(&mut self) -> (u64, u64) {
+        // These persistence cases need one sole membership per original
+        // model. Committed tabs now retain historical membership, so explicitly
+        // close B's first-group tab before constructing the second group.
+        let b = self
+            .app
+            .editor_groups
+            .memberships(self.b_id)
+            .next()
+            .unwrap();
+        self.app.focus_tab(b).unwrap();
+        self.app
+            .execute("workbench.action.closeActiveEditor", Value::Null);
         self.app
             .execute("workbench.action.splitEditor", Value::Null);
         self.app.open(&self.b).unwrap();
         until(&mut self.app, "B in second pane", |app| {
-            app.doc().id == self.b_id
+            app.doc().path.as_ref() == Some(&self.b)
         });
+        self.b_id = self.app.doc().id;
+        let shared_a = self
+            .app
+            .editor_groups
+            .memberships(self.a_id)
+            .find(|member| Some(member.group) == self.app.editor_groups.active_group())
+            .unwrap();
+        self.app.focus_tab(shared_a).unwrap();
+        self.app
+            .execute("workbench.action.closeActiveEditor", Value::Null);
+        assert_eq!(self.app.editor_groups.memberships(self.a_id).count(), 1);
+        assert_eq!(self.app.editor_groups.memberships(self.b_id).count(), 1);
         let b_pane = self.app.panes[self.app.active_pane].id;
         let a_pane = self
             .app

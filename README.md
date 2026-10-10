@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/vscli/vscli/actions/workflows/ci.yml/badge.svg)](https://github.com/vscli/vscli/actions/workflows/ci.yml)
 
-VSCLI is a native Rust terminal editor working toward the VS Code workflow. **An evolving editor alpha is implemented.** Edit UTF-8 files with multiple cursors and shared split views, search workspaces, navigate symbols, run shells/tasks, and inspect or stage Git changes. Installed clangd (C/C++) and rust-analyzer (Rust) start automatically when a saved file is selected; completion appears in a native caret popup as you type, with Tab/Enter acceptance. Core editing needs no Node.js, browser or account.
+VSCLI is a native Rust terminal editor working toward the VS Code workflow. **An evolving editor alpha is implemented.** Edit UTF-8 files with multiple cursors, independent group tabs and shared split views, search workspaces, navigate symbols, run shells/tasks, and inspect or stage Git changes. Installed clangd (C/C++) and rust-analyzer (Rust) start automatically when a saved file is selected; completion appears in a native caret popup as you type, with Tab/Enter acceptance. Core editing needs no Node.js, browser or account.
 
 ```sh
 cargo build --release --locked
@@ -19,6 +19,8 @@ Native navigation includes [Back/Forward history](docs/NAVIGATION_HISTORY.md),
 [Outline](docs/OUTLINE.md) and [Breadcrumbs](docs/BREADCRUMBS.md). Breadcrumbs
 file trails work without Node or a language server; current native or extension
 symbols supply a guarded sibling picker.
+[Editor groups](docs/EDITOR_GROUPS.md) keep committed tabs, historical views and
+MRU close selection independently; delayed Save→Close targets the original tab.
 The Breadcrumbs toggle now saves its root setting through
 [native background settings persistence](docs/SETTINGS_PERSISTENCE.md), preserving
 comments and guarding unsaved settings buffers.

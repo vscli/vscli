@@ -626,7 +626,7 @@ impl App {
         if let Some(doc) = loaded {
             let mut doc = *doc;
             self.settings.apply(&mut doc);
-            self.install_open_document(doc);
+            self.install_open_document(doc)?;
         } else {
             let result = self.open_with_intent(&path, navigation::OpenIntent::Location(range));
             self.resume_navigation_observation(

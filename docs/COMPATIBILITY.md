@@ -62,8 +62,11 @@ Recent-file navigation provides a persistent native MRU picker and session-local
 reopening of closed file-backed editors. Opt-in clean-session restoration additionally
 reopens clean files, the active tab and the current four-equal-group visible layout,
 with bounded cursor/selection metadata. Dirty/untitled recovery and explicit CLI
-files remain authoritative. Full hot exit, independent per-group tabs, historical
-hidden-view state, workspace transitions and terminal persistence remain incomplete.
+files remain authoritative. Independent committed group tabs and historical
+membership views are implemented in the current candidate, with a strict schema-2
+migration and exact membership-owned closing. Full hot exit, preview/pinned tabs,
+resizable/nested layouts, workspace transitions and terminal persistence remain
+incomplete. See [group/tab scope and qualification](EDITOR_GROUPS.md).
 See [recent-file integrity](USAGE.md#recent-files-and-reopening-closed-editors) and
 [clean-session behavior and limits](USAGE.md#clean-file-session-restoration).
 
@@ -376,7 +379,7 @@ bounded background reads, per-instance leases, atomic publication and retryable
 all-or-nothing restore. `--no-session` disables this separate persistence mechanism.
 See [usage and limits](USAGE.md#clean-file-session-restoration) for qualification.
 This is a native convenience feature, not a claim of VS Code hot-exit, independent
-per-group tabs, terminal persistence, workspace transitions, or extension-state parity.
+preview/pinned tabs, nested/resizable layouts, terminal persistence, workspace transitions, or extension-state parity.
 
 Selected CommonJS packages now support dependency-first cached activation and same-host `vscode.extensions` lookup/exports within the eight-package cohort. Missing or cyclic dependencies reject before execution; runtime reverse waits reject. See [extension lifecycle limits](EXTENSIONS.md#session-limits-and-failure-behavior). Remembered user-owned global/workspace execution grants and bounded `*` / startup / command / language / workspace-file event dispatch are implemented. This is an explicit subset; dependency installation, hot unloading and cross-host APIs remain unsupported. Installed native declarative contributions remain separate from execution grants.
 

@@ -1,3 +1,4 @@
+mod group_tabs;
 mod keyboard;
 pub(crate) mod welcome;
 use crate::{
@@ -37,6 +38,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     app.breadcrumbs_picker_area = Rect::default();
     app.breadcrumbs_hits.clear();
     app.breadcrumbs_presented = None;
+    app.tab_hits.clear();
     let colors = app.theme.colors;
     let area = frame.area();
     frame.render_widget(
@@ -69,27 +71,14 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             .fg(colors.accent)
             .add_modifier(Modifier::BOLD),
     )];
-    for (i, doc) in app.documents.iter().enumerate() {
-        tabs.push(Span::styled(
-            format!(
-                " {}{} ",
-                clean(&doc.name()),
-                if doc.dirty() { " ●" } else { "" }
-            ),
-            Style::default()
-                .fg(if i == app.active {
-                    colors.foreground
-                } else {
-                    colors.muted
-                })
-                .bg(if i == app.active {
-                    colors.selection
-                } else {
-                    colors.panel
-                }),
-        ));
-        tabs.push(Span::raw(" "));
-    }
+    let workspace = app.workspace.root.file_name().map_or_else(
+        || app.workspace.root.to_string_lossy(),
+        |name| name.to_string_lossy(),
+    );
+    tabs.push(Span::styled(
+        format!(" · {}", group_tabs::bounded_label(&workspace)),
+        Style::default().fg(colors.muted),
+    ));
     frame.render_widget(
         Paragraph::new(Line::from(tabs)).style(Style::default().bg(colors.panel)),
         rows[0],
@@ -476,24 +465,24 @@ fn draw_editors(frame: &mut Frame, app: &mut App, area: Rect) {
         let inner = if count == 1 {
             *pane_area
         } else {
-            let block = Block::default()
-                .borders(Borders::TOP | Borders::RIGHT)
-                .title(format!(" {} · {} ", index + 1, clean(&app.doc().name())))
-                .border_style(Style::default().fg(if focused {
-                    colors.accent
-                } else {
-                    colors.muted
-                }));
+            let block = Block::default().borders(Borders::RIGHT).border_style(
+                Style::default().fg(if focused { colors.accent } else { colors.muted }),
+            );
             let inner = block.inner(*pane_area);
             frame.render_widget(block, *pane_area);
             inner
         };
-        let editor = if focused && inner.height >= 2 && app.breadcrumbs_view().visible {
-            let rows = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(inner);
+        // Each group owns its strip. Reuse the old split-title row, while a
+        // single group gains a strip above its Breadcrumbs and text viewport.
+        let rows = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(inner);
+        group_tabs::draw(frame, app, rows[0], pane.id, index);
+        let content = rows[1];
+        let editor = if focused && content.height >= 2 && app.breadcrumbs_view().visible {
+            let rows = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(content);
             draw_breadcrumbs(frame, app, rows[0]);
             rows[1]
         } else {
-            inner
+            content
         };
         draw_editor(frame, app, editor, focused);
         app.pane_areas.push(app.editor_area);

@@ -48,6 +48,19 @@ pub struct Pane {
     pub file: usize,
     pub view: View,
 }
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Tab {
+    pub file: usize,
+    pub view: View,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Group {
+    pub tabs: Vec<Tab>,
+    pub active: usize,
+    pub recent: Vec<usize>,
+}
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Layout {
@@ -56,6 +69,10 @@ pub struct Layout {
     pub active_file: usize,
     pub active_pane: usize,
     pub horizontal: bool,
+    #[serde(default)]
+    pub groups: Option<Vec<Group>>,
+    #[serde(default)]
+    pub active_group: usize,
 }
 impl Layout {
     pub fn validate(&self) -> Result<()> {
@@ -66,6 +83,7 @@ impl Layout {
         for file in &self.files {
             if !file.path.is_absolute()
                 || file.path.as_os_str().len() > 4096
+                || file.path.as_os_str().as_encoded_bytes().contains(&0)
                 || !paths.insert(&file.path)
             {
                 bail!("Invalid or duplicate session file path");
@@ -89,8 +107,151 @@ impl Layout {
             }
             pane.view.validate()?;
         }
+        if let Some(groups) = &self.groups {
+            validate_groups(&self.files, groups, self.active_group)?;
+            if self.active_pane != self.active_group
+                || self.panes.len() != groups.len()
+                || self.panes.iter().zip(groups).any(|(pane, group)| {
+                    let tab = &group.tabs[group.active];
+                    pane.file != tab.file || pane.view != tab.view
+                })
+            {
+                bail!("Session group compatibility projection changed");
+            }
+        } else if self.active_group != 0 {
+            bail!("Legacy session has no active group");
+        }
+        if let Some(groups) = &self.groups {
+            #[derive(Serialize)]
+            struct BorrowedLayout<'a> {
+                files: Vec<&'a Path>,
+                groups: &'a [Group],
+                active_group: usize,
+                horizontal: bool,
+            }
+            serde_json::to_writer(
+                MetadataBudget(0),
+                &BorrowedLayout {
+                    files: self.files.iter().map(|file| file.path.as_path()).collect(),
+                    groups,
+                    active_group: self.active_group,
+                    horizontal: self.horizontal,
+                },
+            )
+            .context("Session metadata exceeds 1 MiB")?;
+        }
         Ok(())
     }
+    /// Upgrade legacy inventory in memory. Reading never rewrites its source slot.
+    pub fn normalized(&self) -> Result<Self> {
+        self.validate()?;
+        if self.groups.is_some() {
+            let mut normalized = self.clone();
+            normalized.project_file_views();
+            return Ok(normalized);
+        }
+        let mut groups = Vec::new();
+        if let Some(first) = self.panes.first() {
+            let tabs = self
+                .files
+                .iter()
+                .enumerate()
+                .map(|(file, saved)| Tab {
+                    file,
+                    view: if file == first.file {
+                        first.view.clone()
+                    } else {
+                        saved.view.clone()
+                    },
+                })
+                .collect::<Vec<_>>();
+            let recent = std::iter::once(first.file)
+                .chain((0..tabs.len()).filter(|file| *file != first.file))
+                .collect();
+            groups.push(Group {
+                tabs,
+                active: first.file,
+                recent,
+            });
+            groups.extend(self.panes.iter().skip(1).map(|pane| Group {
+                tabs: vec![Tab {
+                    file: pane.file,
+                    view: pane.view.clone(),
+                }],
+                active: 0,
+                recent: vec![0],
+            }));
+        }
+        let mut normalized = self.clone();
+        normalized.groups = Some(groups);
+        normalized.active_group = self.active_pane;
+        normalized.project_file_views();
+        normalized.validate()?;
+        Ok(normalized)
+    }
+    fn project_file_views(&mut self) {
+        let mut assigned = [false; MAX_DOCUMENTS];
+        for group in self.groups.as_ref().expect("normalized groups") {
+            for tab in &group.tabs {
+                if !assigned[tab.file] {
+                    self.files[tab.file].view = tab.view.clone();
+                    assigned[tab.file] = true;
+                }
+            }
+        }
+    }
+}
+struct MetadataBudget(usize);
+impl Write for MetadataBudget {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if bytes.len() > (MAX_BYTES as usize).saturating_sub(self.0) {
+            return Err(std::io::Error::other("Session metadata exceeds 1 MiB"));
+        }
+        self.0 += bytes.len();
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+fn validate_groups(files: &[SavedFile], groups: &[Group], active: usize) -> Result<()> {
+    if groups.len() > MAX_VIEWS
+        || (groups.is_empty() && (!files.is_empty() || active != 0))
+        || (!groups.is_empty() && active >= groups.len())
+    {
+        bail!("Invalid session group count or active group");
+    }
+    let mut referenced = [false; MAX_DOCUMENTS];
+    for group in groups {
+        if group.tabs.is_empty()
+            || group.tabs.len() > MAX_DOCUMENTS
+            || group.active >= group.tabs.len()
+            || group.recent.len() != group.tabs.len()
+            || group.recent.first() != Some(&group.active)
+        {
+            bail!("Invalid session group tabs, active tab or recent order");
+        }
+        let mut membership = [false; MAX_DOCUMENTS];
+        let mut recent = [false; MAX_DOCUMENTS];
+        for tab in &group.tabs {
+            if tab.file >= files.len() || membership[tab.file] {
+                bail!("Invalid or duplicate session group file");
+            }
+            membership[tab.file] = true;
+            referenced[tab.file] = true;
+            tab.view.validate()?;
+        }
+        for &tab in &group.recent {
+            if tab >= group.tabs.len() || recent[tab] {
+                bail!("Invalid session recent-tab permutation");
+            }
+            recent[tab] = true;
+        }
+    }
+    if referenced[..files.len()].iter().any(|used| !used) {
+        bail!("Session file has no group membership");
+    }
+    Ok(())
 }
 impl View {
     pub fn capture(doc: &Document, view: &crate::document::ViewState) -> Result<Self> {
@@ -146,13 +307,109 @@ impl View {
         doc.left = self.left.min(crate::document::MAX_FILE_BYTES as usize);
     }
 }
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct Saved {
-    schema: u32,
     workspace: PathBuf,
     stamp: u64,
     layout: Layout,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyLayout {
+    files: Vec<SavedFile>,
+    panes: Vec<Pane>,
+    active_file: usize,
+    active_pane: usize,
+    horizontal: bool,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedV1 {
+    schema: u32,
+    workspace: PathBuf,
+    stamp: u64,
+    layout: LegacyLayout,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GroupLayout {
+    files: Vec<PathBuf>,
+    groups: Vec<Group>,
+    active_group: usize,
+    horizontal: bool,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedV2 {
+    schema: u32,
+    workspace: PathBuf,
+    stamp: u64,
+    layout: GroupLayout,
+}
+impl GroupLayout {
+    fn from_layout(layout: &Layout) -> Result<Self> {
+        let layout = layout.normalized()?;
+        Ok(Self {
+            files: layout.files.into_iter().map(|file| file.path).collect(),
+            groups: layout.groups.expect("normalized groups"),
+            active_group: layout.active_group,
+            horizontal: layout.horizontal,
+        })
+    }
+    fn into_layout(self) -> Result<Layout> {
+        // Check counts before indexing/allocating derived compatibility state.
+        if self.files.len() > MAX_DOCUMENTS || self.groups.len() > MAX_VIEWS {
+            bail!("Session exceeds 32 files or four groups");
+        }
+        let files = self
+            .files
+            .into_iter()
+            .map(|path| SavedFile {
+                path,
+                view: View {
+                    selections: vec![SavedSelection {
+                        cursor: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                        anchor: None,
+                    }],
+                    top: 0,
+                    left: 0,
+                },
+            })
+            .collect::<Vec<_>>();
+        validate_groups(&files, &self.groups, self.active_group)?;
+        let mut layout = Layout {
+            files,
+            panes: Vec::new(),
+            active_file: 0,
+            active_pane: self.active_group,
+            horizontal: self.horizontal,
+            groups: Some(self.groups),
+            active_group: self.active_group,
+        };
+        let groups = layout.groups.as_ref().unwrap();
+        let mut assigned = [false; MAX_DOCUMENTS];
+        for group in groups {
+            for tab in &group.tabs {
+                if !assigned[tab.file] {
+                    layout.files[tab.file].view = tab.view.clone();
+                    assigned[tab.file] = true;
+                }
+            }
+            let tab = &group.tabs[group.active];
+            layout.panes.push(Pane {
+                file: tab.file,
+                view: tab.view.clone(),
+            });
+        }
+        layout.active_file = layout
+            .panes
+            .get(layout.active_pane)
+            .map_or(0, |pane| pane.file);
+        layout.validate()?;
+        Ok(layout)
+    }
 }
 fn regular_open(path: &Path, create: bool) -> Result<File> {
     match fs::symlink_metadata(path) {
@@ -198,8 +455,46 @@ fn read(path: &Path, workspace: &Path) -> Result<Saved> {
     if bytes.len() as u64 > MAX_BYTES {
         bail!("Session metadata exceeds 1 MiB");
     }
-    let saved: Saved = serde_json::from_slice(&bytes).context("Invalid session metadata")?;
-    if saved.schema != 1 || saved.workspace != workspace {
+    let value: serde_json::Value =
+        serde_json::from_slice(&bytes).context("Invalid session metadata")?;
+    let saved = match value.get("schema").and_then(serde_json::Value::as_u64) {
+        Some(1) => {
+            let saved: SavedV1 =
+                serde_json::from_slice(&bytes).context("Invalid schema-1 session")?;
+            if saved.schema != 1 {
+                bail!("Session schema mismatch");
+            }
+            let legacy = saved.layout;
+            Saved {
+                workspace: saved.workspace,
+                stamp: saved.stamp,
+                layout: Layout {
+                    files: legacy.files,
+                    panes: legacy.panes,
+                    active_file: legacy.active_file,
+                    active_pane: legacy.active_pane,
+                    horizontal: legacy.horizontal,
+                    groups: None,
+                    active_group: 0,
+                }
+                .normalized()?,
+            }
+        }
+        Some(2) => {
+            let saved: SavedV2 =
+                serde_json::from_slice(&bytes).context("Invalid schema-2 session")?;
+            if saved.schema != 2 {
+                bail!("Session schema mismatch");
+            }
+            Saved {
+                workspace: saved.workspace,
+                stamp: saved.stamp,
+                layout: saved.layout.into_layout()?,
+            }
+        }
+        _ => bail!("Unknown session schema"),
+    };
+    if saved.workspace != workspace {
         bail!("Session schema/workspace mismatch");
     }
     saved.layout.validate()?;
@@ -309,14 +604,14 @@ impl Store {
         before_publish: impl FnOnce() -> Result<()>,
     ) -> Result<()> {
         layout.validate()?;
-        let saved = Saved {
-            schema: 1,
+        let saved = SavedV2 {
+            schema: 2,
             workspace: self.workspace.clone(),
             stamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)?
                 .as_micros()
                 .min(u64::MAX as u128) as u64,
-            layout: layout.clone(),
+            layout: GroupLayout::from_layout(layout)?,
         };
         let bytes = serde_json::to_vec(&saved)?;
         if bytes.len() as u64 > MAX_BYTES {
@@ -352,22 +647,54 @@ fn restore(layout: &Layout, skip: &[PathBuf]) -> Result<Restored> {
     restore_with_budget(layout, skip, MAX_READ_BYTES)
 }
 fn restore_with_budget(layout: &Layout, skip: &[PathBuf], mut remaining: u64) -> Result<Restored> {
-    layout.validate()?;
+    let mut layout = layout.normalized()?;
+    validate_skip(skip)?;
+    let identities = skip
+        .iter()
+        .map(|path| {
+            (
+                path,
+                fs::canonicalize(path).unwrap_or_else(|_| path.clone()),
+            )
+        })
+        .collect::<Vec<_>>();
     let mut documents = Vec::new();
-    for file in &layout.files {
-        if skip.contains(&file.path) {
+    let mut paths = std::collections::HashSet::new();
+    for file in &mut layout.files {
+        let canonical = fs::canonicalize(&file.path);
+        let identity = canonical.as_ref().unwrap_or(&file.path);
+        if !paths.insert(identity.clone()) {
+            bail!("Session contains aliases of the same file");
+        }
+        if let Some((path, _)) = identities
+            .iter()
+            .find(|(path, resolved)| **path == file.path || resolved == identity)
+        {
+            file.path = path.to_path_buf();
             continue;
         }
+        canonical?;
         let doc = Document::open_existing_bounded(&file.path, remaining)?;
         remaining = remaining
             .checked_sub(doc.text.len_bytes() as u64)
             .context("Session files exceed 128 MiB")?;
+        file.path = doc.path.clone().context("Restored file has no path")?;
         documents.push(doc);
     }
-    Ok(Restored {
-        layout: layout.clone(),
-        documents,
-    })
+    layout.validate()?;
+    Ok(Restored { layout, documents })
+}
+fn validate_skip(skip: &[PathBuf]) -> Result<()> {
+    if skip.len() > 128
+        || skip.iter().any(|path| {
+            !path.is_absolute()
+                || path.as_os_str().len() > 4096
+                || path.as_os_str().as_encoded_bytes().contains(&0)
+        })
+    {
+        bail!("Session existing-model paths exceed native bounds");
+    }
+    Ok(())
 }
 enum Request {
     Save(Layout),
@@ -461,6 +788,7 @@ impl Worker {
         Some(event)
     }
     pub fn save(&mut self, layout: Layout) -> Result<()> {
+        layout.validate()?;
         if !self.pending && self.saved.as_ref() == Some(&layout) && self.queued.is_none() {
             return Ok(());
         }
@@ -481,6 +809,7 @@ impl Worker {
         Ok(())
     }
     pub fn restore(&mut self, skip: Vec<PathBuf>) -> Result<()> {
+        validate_skip(&skip)?;
         if self.pending {
             bail!("Session worker is busy; retry shortly");
         }
@@ -577,7 +906,7 @@ mod tests {
         assert_ne!(first.path, second.path);
         drop(first);
         let (third, prior) = Store::new(&config, root.path()).unwrap();
-        assert_eq!(prior, Some(saved));
+        assert_eq!(prior, Some(saved.normalized().unwrap()));
         assert!(
             Store::new(&root.path().join("other-config"), root.path())
                 .unwrap()
@@ -633,7 +962,10 @@ mod tests {
                 .is_err()
         );
         assert_eq!(fs::read(&store.path).unwrap(), before);
-        assert_eq!(read(&store.path, &workspace).unwrap().layout, saved);
+        assert_eq!(
+            read(&store.path, &workspace).unwrap().layout,
+            saved.normalized().unwrap()
+        );
         assert!(read(&store.path, &workspace.join("different-workspace")).is_err());
         for bytes in [b"malformed".to_vec(), vec![b' '; MAX_BYTES as usize + 1]] {
             fs::write(&store.path, &bytes).unwrap();
@@ -696,7 +1028,7 @@ mod tests {
         worker.save(saved.clone()).unwrap();
         worker.finish(Some(saved.clone())).unwrap(); // Saved may still be queued.
         let (_, previous) = Store::new(&config, root.path()).unwrap();
-        assert_eq!(previous, Some(saved));
+        assert_eq!(previous, Some(saved.normalized().unwrap()));
     }
     #[test]
     fn returning_to_acknowledged_state_while_another_write_runs_preserves_latest_snapshot() {
@@ -715,7 +1047,281 @@ mod tests {
         worker.flush().unwrap();
         assert!(matches!(await_event(&mut worker), Event::Saved));
         worker.finish(None).unwrap();
-        assert_eq!(Store::new(&config, root.path()).unwrap().1, Some(a));
+        assert_eq!(
+            Store::new(&config, root.path()).unwrap().1,
+            Some(a.normalized().unwrap())
+        );
+    }
+    fn groups_layout(paths: &[PathBuf]) -> Layout {
+        let mut saved = layout(&paths[0]);
+        let base_view = saved.files[0].view.clone();
+        saved.files.extend(
+            paths
+                .iter()
+                .skip(1)
+                .map(|path| SavedFile {
+                    path: path.clone(),
+                    view: base_view.clone(),
+                })
+                .collect::<Vec<_>>(),
+        );
+        let mut first = saved.files[0].view.clone();
+        first.selections[0].cursor.character = 1;
+        let mut historical = first.clone();
+        historical.selections[0].cursor.character = 3;
+        historical.selections[0].anchor = Some(Position {
+            line: 0,
+            character: 0,
+        });
+        let mut shared = first.clone();
+        shared.selections[0].cursor.character = 5;
+        shared.top = 4;
+        saved.groups = Some(vec![
+            Group {
+                tabs: vec![
+                    Tab {
+                        file: 0,
+                        view: first.clone(),
+                    },
+                    Tab {
+                        file: 1,
+                        view: historical,
+                    },
+                ],
+                active: 0,
+                recent: vec![0, 1],
+            },
+            Group {
+                tabs: vec![Tab {
+                    file: 0,
+                    view: shared.clone(),
+                }],
+                active: 0,
+                recent: vec![0],
+            },
+        ]);
+        saved.panes = vec![
+            Pane {
+                file: 0,
+                view: first,
+            },
+            Pane {
+                file: 0,
+                view: shared,
+            },
+        ];
+        saved.active_group = 1;
+        saved.active_pane = 1;
+        saved.horizontal = true;
+        saved.normalized().unwrap()
+    }
+    #[test]
+    fn schema_two_worker_roundtrip_retains_inactive_views_shared_files_and_recent_order() {
+        let root = tempfile::tempdir().unwrap();
+        let canonical = fs::canonicalize(root.path()).unwrap();
+        let paths = [canonical.join("a.txt"), canonical.join("b.txt")];
+        for path in &paths {
+            fs::write(path, "猫🙂 alpha\r\nsecond\r\n").unwrap();
+        }
+        let saved = groups_layout(&paths);
+        let config = root.path().join("config");
+        let mut worker = Worker::start(config.clone(), root.path().into()).unwrap();
+        assert!(matches!(await_event(&mut worker), Event::Ready(false)));
+        worker.save(saved.clone()).unwrap();
+        assert!(matches!(await_event(&mut worker), Event::Saved));
+        worker.finish(None).unwrap();
+        let mut worker = Worker::start(config, root.path().into()).unwrap();
+        assert!(matches!(await_event(&mut worker), Event::Ready(true)));
+        worker.restore(Vec::new()).unwrap();
+        let Event::Restored(restored) = await_event(&mut worker) else {
+            panic!("restore failed");
+        };
+        assert_eq!(restored.layout, saved);
+        assert_eq!(restored.documents.len(), 2);
+        assert!(restored.documents.iter().all(|doc| !doc.dirty()));
+        assert_eq!(
+            restored.layout.groups.as_ref().unwrap()[0].tabs[1]
+                .view
+                .selections[0]
+                .anchor,
+            Some(Position {
+                line: 0,
+                character: 0
+            })
+        );
+        worker.finish(None).unwrap();
+        for path in &paths {
+            assert_eq!(
+                fs::read(path).unwrap(),
+                "猫🙂 alpha\r\nsecond\r\n".as_bytes()
+            );
+        }
+    }
+    #[test]
+    fn schema_one_migration_retains_original_bytes_until_successful_schema_two_publish() {
+        let root = tempfile::tempdir().unwrap();
+        let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
+        let mut legacy = layout(&root.path().join("a.txt"));
+        legacy.files.push(SavedFile {
+            path: root.path().join("b.txt"),
+            view: legacy.files[0].view.clone(),
+        });
+        legacy.files.push(SavedFile {
+            path: root.path().join("c.txt"),
+            view: legacy.files[0].view.clone(),
+        });
+        legacy.panes[0].file = 1;
+        legacy.panes.push(Pane {
+            file: 0,
+            view: legacy.files[0].view.clone(),
+        });
+        legacy.active_file = 0;
+        legacy.active_pane = 1;
+        legacy.panes[0].view.selections[0].cursor.character = 7;
+        let bytes = serde_json::to_vec(&serde_json::json!({"schema":1,"workspace":store.workspace,"stamp":12,"layout":LegacyLayout {
+            files: legacy.files.clone(), panes: legacy.panes.clone(), active_file: legacy.active_file,
+            active_pane: legacy.active_pane, horizontal: true,
+        }})).unwrap();
+        fs::write(&store.path, &bytes).unwrap();
+        let migrated = read(&store.path, &store.workspace).unwrap().layout;
+        let groups = migrated.groups.as_ref().unwrap();
+        assert_eq!(
+            groups[0]
+                .tabs
+                .iter()
+                .map(|tab| tab.file)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+        assert_eq!(groups[0].active, 1);
+        assert_eq!(groups[0].recent, vec![1, 0, 2]);
+        assert_eq!(groups[0].tabs[1].view.selections[0].cursor.character, 7);
+        assert_eq!(groups[1].tabs.len(), 1);
+        assert_eq!(migrated.active_group, 1);
+        assert_eq!(fs::read(&store.path).unwrap(), bytes);
+        assert!(
+            store
+                .publish_with(&migrated, || bail!(
+                    "injected migration publication failure"
+                ))
+                .is_err()
+        );
+        assert_eq!(fs::read(&store.path).unwrap(), bytes);
+        store.publish(&migrated).unwrap();
+        let wire: serde_json::Value =
+            serde_json::from_slice(&fs::read(&store.path).unwrap()).unwrap();
+        assert_eq!(wire["schema"], 2);
+        assert!(wire["layout"].get("panes").is_none());
+        assert!(wire["layout"].get("active_file").is_none());
+        assert!(wire["layout"]["files"][0].is_string());
+        assert_eq!(
+            read(&store.path, &store.workspace).unwrap().layout,
+            migrated
+        );
+    }
+    #[test]
+    fn late_invalid_group_reference_unknown_fields_and_versions_fail_without_rewriting() {
+        let root = tempfile::tempdir().unwrap();
+        let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
+        let saved = groups_layout(&[root.path().join("a"), root.path().join("b")]);
+        store.publish(&saved).unwrap();
+        let prior = fs::read(&store.path).unwrap();
+        let wire: serde_json::Value = serde_json::from_slice(&prior).unwrap();
+        for mode in 0..6 {
+            let mut bad = wire.clone();
+            match mode {
+                0 => bad["layout"]["groups"][1]["tabs"][0]["file"] = serde_json::json!(32),
+                1 => bad["layout"]["groups"][0]["recent"] = serde_json::json!([0, 0]),
+                2 => bad["layout"]["groups"][0]["tabs"][1]["file"] = serde_json::json!(0),
+                3 => bad["layout"]["groups"][1]["unexpected"] = serde_json::json!(true),
+                4 => bad["layout"]["panes"] = serde_json::json!([]),
+                _ => bad["schema"] = serde_json::json!(3),
+            }
+            let malformed = serde_json::to_vec(&bad).unwrap();
+            fs::write(&store.path, &malformed).unwrap();
+            assert!(read(&store.path, &store.workspace).is_err(), "mode {mode}");
+            assert_eq!(fs::read(&store.path).unwrap(), malformed);
+        }
+        fs::write(&store.path, &prior).unwrap();
+        let mut bad = saved.clone();
+        bad.groups.as_mut().unwrap()[1].tabs[0].file = 32;
+        assert!(store.publish(&bad).is_err());
+        assert_eq!(fs::read(&store.path).unwrap(), prior);
+    }
+    #[test]
+    fn metadata_budget_and_bad_latest_snapshot_preserve_acknowledged_publication() {
+        let root = tempfile::tempdir().unwrap();
+        let (store, _) = Store::new(&root.path().join("config"), root.path()).unwrap();
+        let saved = groups_layout(&[root.path().join("a"), root.path().join("b")]);
+        store.publish(&saved).unwrap();
+        let prior = fs::read(&store.path).unwrap();
+        let mut huge = saved.clone();
+        huge.files = (0..MAX_DOCUMENTS)
+            .map(|index| SavedFile {
+                path: root.path().join(format!("file{index}")),
+                view: saved.files[0].view.clone(),
+            })
+            .collect();
+        let view = View {
+            selections: vec![
+                SavedSelection {
+                    cursor: Position {
+                        line: usize::MAX,
+                        character: usize::MAX
+                    },
+                    anchor: Some(Position {
+                        line: usize::MAX,
+                        character: usize::MAX
+                    })
+                };
+                MAX_SELECTIONS
+            ],
+            top: usize::MAX,
+            left: usize::MAX,
+        };
+        let group = Group {
+            tabs: (0..MAX_DOCUMENTS)
+                .map(|file| Tab {
+                    file,
+                    view: view.clone(),
+                })
+                .collect(),
+            active: 0,
+            recent: (0..MAX_DOCUMENTS).collect(),
+        };
+        huge.groups = Some(vec![group; MAX_VIEWS]);
+        huge.active_group = 0;
+        huge.active_pane = 0;
+        huge.panes = vec![Pane { file: 0, view }; MAX_VIEWS];
+        assert!(huge.validate().is_err());
+        assert!(store.publish(&huge).is_err());
+        assert_eq!(fs::read(&store.path).unwrap(), prior);
+        let mut worker =
+            Worker::start(root.path().join("other-config"), root.path().into()).unwrap();
+        worker.save(saved.clone()).unwrap();
+        assert!(worker.save(huge).is_err());
+        assert_eq!(worker.queued, Some(saved.clone()));
+        worker.finish(Some(saved)).unwrap();
+    }
+    #[cfg(unix)]
+    #[test]
+    fn aliases_and_late_missing_files_reject_whole_restore_but_recovered_deleted_models_survive() {
+        use std::os::unix::fs::symlink;
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("file");
+        let alias = root.path().join("alias");
+        fs::write(&file, "clean 猫🙂\r\n").unwrap();
+        symlink(&file, &alias).unwrap();
+        let saved = groups_layout(&[file.clone(), alias]);
+        assert!(restore(&saved, &[]).is_err());
+        let missing = root.path().join("missing");
+        let saved = groups_layout(&[file.clone(), missing.clone()]);
+        assert!(restore(&saved, &[]).is_err());
+        assert!(!missing.exists());
+        let restored = restore(&saved, std::slice::from_ref(&missing)).unwrap();
+        assert_eq!(restored.documents.len(), 1);
+        assert_eq!(restored.layout.files[1].path, missing);
+        assert_eq!(fs::read(&file).unwrap(), "clean 猫🙂\r\n".as_bytes());
     }
     #[test]
     fn shutdown_deadline_does_not_join_a_blocked_worker() {

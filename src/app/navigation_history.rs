@@ -759,15 +759,22 @@ impl App {
         if visible.is_none() && hidden.is_none() {
             anyhow::bail!("Navigation history model was closed");
         }
-        let suspended = self.suspend_navigation_observation();
-        self.sync_pane();
-        if let Some(pane) = self
-            .panes
+        let target_group = self
+            .editor_groups
+            .groups()
             .iter()
-            .position(|pane| pane.id == travel.location.pane)
-        {
-            self.active_pane = pane;
-        }
+            .find(|group| group.id().value() == travel.location.pane)
+            .map(|group| group.id());
+        // One engine operation selects both target group and tab. Admission
+        // and checked counters complete before any model/view publication.
+        let change = if self.group_fallback {
+            None
+        } else if let Some(group) = target_group {
+            Some(self.editor_groups.open_in_group(group, document)?)
+        } else {
+            Some(self.editor_groups.open(document)?)
+        };
+        let suspended = self.suspend_navigation_observation();
         let index = visible.unwrap_or_else(|| {
             self.documents
                 .push(self.hidden_documents.remove(hidden.unwrap()));
@@ -775,7 +782,18 @@ impl App {
         });
         self.active = index;
         self.focus = Focus::Editor;
-        self.sync_pane();
+        if let Some(change) = change {
+            self.apply_group_change(change);
+        } else {
+            if let Some(pane) = self
+                .panes
+                .iter()
+                .position(|pane| pane.id == travel.location.pane)
+            {
+                self.active_pane = pane;
+            }
+            self.sync_pane();
+        }
         let cursor = offset(self.doc(), travel.location.cursor);
         let anchor = travel
             .location
@@ -816,6 +834,18 @@ impl App {
     ) -> Result<()> {
         if !self.history_travel_current(travel) {
             anyhow::bail!("Navigation history context changed");
+        }
+        if !self.group_fallback {
+            if let Some(group) = self
+                .editor_groups
+                .groups()
+                .iter()
+                .find(|group| group.id().value() == travel.location.pane)
+            {
+                self.editor_groups.can_open_in_group(group.id(), doc.id)?;
+            } else {
+                self.can_admit_editor(doc.id)?;
+            }
         }
         self.settings.apply(&mut doc);
         self.configure_document_language(&mut doc)?;

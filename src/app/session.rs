@@ -1,12 +1,27 @@
 use super::*;
-use crate::session::{Event as SessionEvent, Layout, Pane as SavedPane, SavedFile, View, Worker};
+use crate::editor_groups::{RestoreGroup, UiProof};
+use crate::session::{
+    Event as SessionEvent, Group as SavedGroup, Layout, Pane as SavedPane, SavedFile,
+    Tab as SavedTab, View, Worker,
+};
 use std::time::{Duration, Instant};
 
+#[derive(Debug, PartialEq)]
+struct ModelContext {
+    id: u64,
+    revision: u64,
+    text_epoch: u64,
+    save_generation: u64,
+    path: Option<PathBuf>,
+    selections: Vec<crate::document::Selection>,
+}
 #[derive(PartialEq)]
 struct Context {
     epoch: u64,
     workspace: PathBuf,
-    documents: Vec<(u64, u64, Option<PathBuf>, Vec<crate::document::Selection>)>,
+    documents: Vec<ModelContext>,
+    groups: UiProof,
+    fallback: bool,
     panes: Vec<(u64, u64)>,
     active: usize,
     active_pane: usize,
@@ -67,8 +82,18 @@ impl App {
             documents: self
                 .documents
                 .iter()
-                .map(|d| (d.id, d.revision, d.path.clone(), d.selections()))
+                .chain(&self.hidden_documents)
+                .map(|d| ModelContext {
+                    id: d.id,
+                    revision: d.revision,
+                    text_epoch: d.text_epoch(),
+                    save_generation: d.save_generation(),
+                    path: d.path.clone(),
+                    selections: d.selections(),
+                })
                 .collect(),
+            groups: self.editor_groups.proof(),
+            fallback: self.group_fallback,
             panes: self.panes.iter().map(|p| (p.id, p.document)).collect(),
             active: self.active,
             active_pane: self.active_pane,
@@ -99,20 +124,44 @@ impl App {
             self.message = "Session restore is still loading; retry shortly".into();
             return;
         }
-        if self.documents.len() > 128
+        if self.documents.len() + self.hidden_documents.len()
+            > crate::editor_groups::MAX_MEMBERSHIPS
             || self
                 .documents
                 .iter()
+                .chain(&self.hidden_documents)
                 .any(|doc| doc.secondary.len() >= crate::session::MAX_SELECTIONS)
         {
             self.message =
                 "Too many existing buffers/selections for guarded session restore".into();
             return;
         }
+        let mut model_ids = std::collections::HashSet::new();
+        let mut path_bytes = 0usize;
+        if self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .any(|doc| {
+                if !model_ids.insert(doc.id) {
+                    return true;
+                }
+                let Some(path) = &doc.path else {
+                    return false;
+                };
+                let bytes = path.as_os_str().as_encoded_bytes();
+                path_bytes = path_bytes.saturating_add(bytes.len());
+                bytes.len() > 4096 || bytes.contains(&0) || path_bytes > 512 * 1024
+            })
+        {
+            self.message = "Session restore proof exceeds distinct-model/path bounds; all buffers and previous metadata retained".into();
+            return;
+        }
         let context = self.session_context();
         let skip = self
             .documents
             .iter()
+            .chain(&self.hidden_documents)
             .filter_map(|doc| doc.path.clone())
             .collect();
         let Some(worker) = &mut self.session.worker else {
@@ -129,6 +178,88 @@ impl App {
         }
     }
     fn capture_session(&self) -> Result<Layout> {
+        if self.group_fallback {
+            return self.capture_legacy_session();
+        }
+        let mut layout = Layout {
+            groups: Some(Vec::new()),
+            horizontal: self.horizontal_split,
+            ..Layout::default()
+        };
+        let mut ids = Vec::new();
+        let mut paths = std::collections::HashSet::new();
+        let mut groups = Vec::new();
+        for group in self.editor_groups.groups() {
+            let mut tabs = Vec::new();
+            let mut tab_ids = Vec::new();
+            for tab in group.tabs() {
+                let doc = self
+                    .documents
+                    .iter()
+                    .find(|doc| doc.id == tab.document())
+                    .ok_or_else(|| anyhow::anyhow!("Session tab model is not retained"))?;
+                if doc.dirty() {
+                    continue;
+                }
+                let Some(path) = &doc.path else {
+                    continue;
+                };
+                if path.as_os_str().len() > 4096 {
+                    anyhow::bail!("Session path exceeds 4 KiB");
+                }
+                let view = View::capture(doc, doc.view_state(Some(group.id().value())))?;
+                let file = if let Some(file) = ids.iter().position(|id| *id == doc.id) {
+                    file
+                } else {
+                    if ids.len() >= crate::session::MAX_DOCUMENTS || !paths.insert(path.clone()) {
+                        anyhow::bail!("Session exceeds 32 unique clean file paths");
+                    }
+                    ids.push(doc.id);
+                    layout.files.push(SavedFile {
+                        path: path.clone(),
+                        view: view.clone(),
+                    });
+                    ids.len() - 1
+                };
+                tabs.push(SavedTab { file, view });
+                tab_ids.push(tab.id());
+            }
+            if tabs.is_empty() {
+                continue;
+            }
+            let recent = group
+                .recent()
+                .iter()
+                .filter_map(|id| tab_ids.iter().position(|tab| tab == id))
+                .collect::<Vec<_>>();
+            let active = group
+                .active()
+                .and_then(|tab| tab_ids.iter().position(|id| *id == tab.id()))
+                .or_else(|| recent.first().copied())
+                .ok_or_else(|| anyhow::anyhow!("Session clean tab has no recent order"))?;
+            if self.editor_groups.active_group() == Some(group.id()) {
+                layout.active_group = groups.len();
+            }
+            layout.panes.push(SavedPane {
+                file: tabs[active].file,
+                view: tabs[active].view.clone(),
+            });
+            groups.push(SavedGroup {
+                tabs,
+                active,
+                recent,
+            });
+        }
+        layout.active_pane = layout.active_group;
+        layout.active_file = layout
+            .panes
+            .get(layout.active_pane)
+            .map_or(0, |pane| pane.file);
+        layout.groups = Some(groups);
+        layout.validate()?;
+        Ok(layout)
+    }
+    fn capture_legacy_session(&self) -> Result<Layout> {
         let mut layout = Layout::default();
         let mut ids = Vec::new();
         for doc in &self.documents {
@@ -173,7 +304,7 @@ impl App {
         layout.active_file = layout.panes.get(layout.active_pane).map_or(0, |p| p.file);
         layout.horizontal = self.horizontal_split;
         layout.validate()?;
-        Ok(layout)
+        layout.normalized()
     }
     fn session_snapshot(&self) -> Result<Option<Layout>> {
         if self.session.protected
@@ -186,67 +317,128 @@ impl App {
         Ok((!layout.files.is_empty() || self.session.explicit_empty).then_some(layout))
     }
     fn install_session(&mut self, restored: crate::session::Restored) -> Result<()> {
-        // Resolve and validate every reference before changing the live document set.
-        restored.layout.validate()?;
-        let had_existing = !self.documents.is_empty();
-        if restored.layout.files.iter().any(|file| {
-            !self
-                .documents
-                .iter()
-                .chain(&restored.documents)
-                .any(|doc| doc.path.as_ref() == Some(&file.path))
-        }) {
-            anyhow::bail!("A restored session file is no longer available");
-        }
-        let crate::session::Restored { layout, documents } = restored;
-        for mut doc in documents {
-            self.settings.apply(&mut doc);
-            self.configure_document_language(&mut doc)?;
-            // Existing and recovered documents never receive persisted selections.
-            if !self
-                .documents
-                .iter()
-                .any(|existing| existing.path == doc.path)
-            {
-                let saved = layout
-                    .files
-                    .iter()
-                    .find(|file| Some(&file.path) == doc.path.as_ref())
-                    .unwrap();
-                saved.view.apply(&mut doc);
-                self.documents.push(doc);
-            }
-        }
-        if !had_existing {
-            let mut panes = Vec::new();
-            for saved in &layout.panes {
-                let path = &layout.files[saved.file].path;
-                let doc = self
+        self.install_session_with(restored, |app, doc| {
+            app.settings.apply(doc);
+            app.configure_document_language(doc)
+        })
+    }
+    fn install_session_with(
+        &mut self,
+        restored: crate::session::Restored,
+        mut configure: impl FnMut(&Self, &mut Document) -> Result<()>,
+    ) -> Result<()> {
+        // Configure and import the complete batch before changing any live model,
+        // membership, view, focus, or checked engine identity counter.
+        let layout = restored.layout.normalized()?;
+        let had_existing = !self.documents.is_empty() || !self.hidden_documents.is_empty();
+        let mut staged = Vec::new();
+        let mut incoming_ids = std::collections::HashSet::new();
+        for mut doc in restored.documents {
+            if !incoming_ids.insert(doc.id)
+                || self
                     .documents
-                    .iter_mut()
-                    .find(|doc| doc.path.as_ref() == Some(path))
-                    .unwrap();
-                let id = self.next_pane_id;
-                self.next_pane_id += 1;
-                doc.activate_view(id);
-                saved.view.apply(doc);
-                panes.push(Pane {
-                    id,
-                    document: doc.id,
-                });
+                    .iter()
+                    .chain(&self.hidden_documents)
+                    .any(|old| old.id == doc.id)
+            {
+                anyhow::bail!("Duplicate restored document identity");
             }
-            self.panes = panes;
-            self.active_pane = layout.active_pane;
-            self.active = layout.active_file;
+            if self
+                .documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .any(|old| old.path == doc.path)
+            {
+                continue;
+            }
+            if !layout
+                .files
+                .iter()
+                .any(|file| doc.path.as_ref() == Some(&file.path))
+            {
+                anyhow::bail!("Restored document is absent from the session file table");
+            }
+            configure(self, &mut doc)?;
+            staged.push(doc);
+        }
+        let mut file_ids = Vec::new();
+        for file in &layout.files {
+            let id = self
+                .documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .chain(&staged)
+                .find(|doc| doc.path.as_ref() == Some(&file.path))
+                .map(|doc| doc.id)
+                .ok_or_else(|| anyhow::anyhow!("A restored session file is no longer available"))?;
+            file_ids.push(id);
+        }
+        let combined = self.documents.len() + self.hidden_documents.len() + staged.len();
+        if combined > crate::editor_groups::MAX_MEMBERSHIPS {
+            anyhow::bail!(
+                "Session restore exceeds the retained model proof limit; recovery retained"
+            );
+        }
+        if had_existing
+            && (self.group_fallback
+                || self.documents.len() + staged.len() > crate::editor_groups::MAX_TABS_PER_GROUP)
+        {
+            self.documents.extend(staged);
+            self.group_fallback = true;
+            self.sync_pane();
+            self.session.protected = false;
+            self.session.explicit_empty = self.documents.is_empty();
+            self.message = "Clean session files appended; editor-group layout unavailable beyond 128 recovered buffers; all recovery retained".into();
+            return Ok(());
+        }
+        let mut engine = self.editor_groups.clone();
+        if had_existing {
+            let active = engine.active_membership();
+            for doc in &staged {
+                engine.open(doc.id)?;
+            }
+            if let Some(active) = active {
+                engine.focus(active)?;
+            }
+            // No session-saved selections are applied to authoritative recovery,
+            // and existing group order/MRU/view payloads are retained.
+            self.documents.extend(staged);
+            self.editor_groups = engine;
+            self.project_editor_groups();
+        } else {
+            let saved_groups = layout.groups.as_ref().expect("normalized groups");
+            let imported = saved_groups
+                .iter()
+                .map(|group| RestoreGroup {
+                    documents: group.tabs.iter().map(|tab| file_ids[tab.file]).collect(),
+                    active: group.active,
+                    recent: group.recent.clone(),
+                })
+                .collect::<Vec<_>>();
+            engine.import(&imported, layout.active_group)?;
+            for (group, saved) in engine.groups().iter().zip(saved_groups) {
+                for tab in &saved.tabs {
+                    let doc = staged
+                        .iter_mut()
+                        .find(|doc| doc.id == file_ids[tab.file])
+                        .expect("complete file table checked");
+                    doc.activate_view(group.id().value());
+                    tab.view.apply(doc);
+                }
+            }
+            self.documents = staged;
+            self.editor_groups = engine;
+            self.group_fallback = false;
             self.horizontal_split = layout.horizontal;
-            if !self.panes.is_empty() {
-                self.focus_pane(self.active_pane);
-            } else {
-                self.sync_pane();
-            }
+            self.project_editor_groups();
         }
         self.session.protected = false;
         self.session.explicit_empty = self.documents.is_empty();
+        self.focus = if self.documents.is_empty() {
+            self.focus.clone()
+        } else {
+            Focus::Editor
+        };
         self.message = format!(
             "Restored clean-file session · {} file(s) · existing/recovered buffers retained",
             layout.files.len()
@@ -638,6 +830,206 @@ mod tests {
         app.doc_mut().undo();
         assert_eq!(app.doc().text, "e\u{301}猫\r\nX\r\n");
         app.finish_session().unwrap();
+    }
+    fn grouped_fixture(root: &Path) -> crate::session::Restored {
+        use crate::session::{Position, SavedSelection};
+        let mut files = Vec::new();
+        let mut documents = Vec::new();
+        for name in ["a.cpp", "b.cpp"] {
+            let path = root.join(name);
+            fs::write(&path, "猫🙂 value\r\nnext\r\n").unwrap();
+            let doc = Document::open(&path).unwrap();
+            files.push(SavedFile {
+                path: doc.path.clone().unwrap(),
+                view: View::capture(&doc, doc.view_state(None)).unwrap(),
+            });
+            documents.push(doc);
+        }
+        let view = |cursor: usize, anchor: Option<usize>| View {
+            selections: vec![SavedSelection {
+                cursor: Position {
+                    line: 0,
+                    character: cursor,
+                },
+                anchor: anchor.map(|character| Position { line: 0, character }),
+            }],
+            top: 0,
+            left: 0,
+        };
+        let groups = vec![
+            SavedGroup {
+                tabs: vec![
+                    SavedTab {
+                        file: 0,
+                        view: view(3, Some(0)),
+                    },
+                    SavedTab {
+                        file: 1,
+                        view: view(4, None),
+                    },
+                ],
+                active: 0,
+                recent: vec![0, 1],
+            },
+            SavedGroup {
+                tabs: vec![
+                    SavedTab {
+                        file: 0,
+                        view: view(5, None),
+                    },
+                    SavedTab {
+                        file: 1,
+                        view: view(1, None),
+                    },
+                ],
+                active: 1,
+                recent: vec![1, 0],
+            },
+        ];
+        let panes = groups
+            .iter()
+            .map(|group| SavedPane {
+                file: group.tabs[group.active].file,
+                view: group.tabs[group.active].view.clone(),
+            })
+            .collect();
+        let layout = Layout {
+            files,
+            panes,
+            active_file: 1,
+            active_pane: 1,
+            active_group: 1,
+            horizontal: true,
+            groups: Some(groups),
+        }
+        .normalized()
+        .unwrap();
+        crate::session::Restored { layout, documents }
+    }
+    #[test]
+    fn grouped_restore_keeps_inactive_tab_order_recent_and_all_shared_historical_views() {
+        let root = tempfile::tempdir().unwrap();
+        let restored = grouped_fixture(root.path());
+        let expected = restored.layout.clone();
+        let ids = restored
+            .documents
+            .iter()
+            .map(|doc| doc.id)
+            .collect::<Vec<_>>();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.install_session(restored).unwrap();
+        assert_eq!(app.capture_session().unwrap(), expected);
+        assert_eq!(
+            app.documents.iter().map(|doc| doc.id).collect::<Vec<_>>(),
+            ids
+        );
+        assert_eq!(app.editor_groups.groups().len(), 2);
+        let left = app.editor_groups.groups()[0].id().value();
+        let right = app.editor_groups.groups()[1].id().value();
+        assert_eq!(app.documents[0].view_state(Some(left)).cursor, 3);
+        assert_eq!(app.documents[0].view_state(Some(left)).anchor, Some(0));
+        assert_eq!(app.documents[0].view_state(Some(right)).cursor, 5);
+        assert_eq!(app.documents[1].view_state(Some(left)).cursor, 4);
+        assert_eq!(app.documents[1].view_state(Some(right)).cursor, 1);
+        assert_eq!(app.doc().id, ids[1]);
+        assert_eq!(app.doc().cursor, 1);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text, "猫🙂 value\r\nnext\r\n");
+        assert!(!app.doc().dirty());
+    }
+    #[test]
+    fn late_configuration_failure_leaves_models_engine_views_and_identity_counters_unchanged() {
+        let root = tempfile::tempdir().unwrap();
+        let restored = grouped_fixture(root.path());
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let mut recovered = Document::from_text("recovered 猫🙂\r\n");
+        recovered.insert("dirty", false);
+        app.documents.push(recovered);
+        app.sync_pane();
+        let engine = app.editor_groups.clone();
+        let context = app.session_context();
+        let bytes = app.doc().text.to_string();
+        let mut calls = 0;
+        let result = app.install_session_with(restored, |_, doc| {
+            calls += 1;
+            doc.tab_size = 2;
+            if calls == 2 {
+                anyhow::bail!("injected late language configuration refusal");
+            }
+            Ok(())
+        });
+        assert!(result.is_err());
+        assert_eq!(calls, 2);
+        assert_eq!(app.documents.len(), 1);
+        assert_eq!(app.editor_groups, engine);
+        assert!(app.session_context() == context);
+        assert_eq!(app.doc().text.to_string(), bytes);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text, "recovered 猫🙂\r\n");
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), bytes);
+    }
+    #[test]
+    fn legacy_live_layout_migrates_global_tabs_and_views_into_groups_before_install() {
+        let root = tempfile::tempdir().unwrap();
+        let mut restored = grouped_fixture(root.path());
+        restored.layout.groups = None;
+        restored.layout.active_group = 0;
+        let expected = restored.layout.normalized().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.install_session(restored).unwrap();
+        assert_eq!(app.capture_session().unwrap(), expected);
+        assert_eq!(app.editor_groups.groups()[0].tabs().len(), 2);
+        assert_eq!(app.editor_groups.groups()[1].tabs().len(), 1);
+        assert_eq!(app.active_pane, 1);
+    }
+    #[test]
+    fn group_focus_aba_retires_session_context_even_with_identical_model_selections() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.install_session(grouped_fixture(root.path())).unwrap();
+        let before = app.session_context();
+        let left = app.editor_groups.groups()[0].id();
+        let right = app.editor_groups.groups()[1].id();
+        app.editor_groups.focus_group(left).unwrap();
+        app.editor_groups.focus_group(right).unwrap();
+        assert!(app.session_context() != before);
+        assert_eq!(app.session_context().panes, before.panes);
+        assert_eq!(app.session_context().documents, before.documents);
+    }
+    #[test]
+    fn over_cap_recovery_retains_every_variant_and_history_while_appending_clean_files() {
+        let root = tempfile::tempdir().unwrap();
+        let restored = grouped_fixture(root.path());
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.documents = (0..129)
+            .map(|index| {
+                let mut doc = Document::from_text(&format!("recovered {index} 猫🙂\r\n"));
+                doc.insert("dirty", false);
+                doc
+            })
+            .collect();
+        app.active = 128;
+        app.sync_pane();
+        let ids = app.documents.iter().map(|doc| doc.id).collect::<Vec<_>>();
+        let primary = app.doc().id;
+        let before = app.doc().text.to_string();
+        app.install_session(restored).unwrap();
+        assert!(app.group_fallback);
+        assert!(app.message.contains("all recovery retained"));
+        assert_eq!(app.documents.len(), 131);
+        assert_eq!(
+            app.documents[..129]
+                .iter()
+                .map(|doc| doc.id)
+                .collect::<Vec<_>>(),
+            ids
+        );
+        assert_eq!(app.doc().id, primary);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text, "recovered 128 猫🙂\r\n");
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), before);
     }
 }
 

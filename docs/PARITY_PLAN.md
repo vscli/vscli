@@ -345,9 +345,13 @@ checks each. The edit-only native source-action candidate compares fourteen
 pinned policy cases and six supported workflows/58 snapshots, with broader
 qualification recorded in [its scope document](CODE_ACTIONS_ON_SAVE.md).
 
-Priority 6 starts with independent ordered tabs in each of the existing four
-groups, exact global versus in-group navigation, membership-aware Close, and
-versioned restoration of historical group/tab views. Shared native document
-identity and dirty recovery remain authoritative. Deferred Save→Close must close
-its original group/model membership. Preview/pinned tabs, editor movement,
-resizing/nested layouts and workspace transitions follow that foundation.
+Priority 6's current candidate implements independent ordered committed tabs in
+each of the existing four groups, global versus in-group navigation,
+membership-aware Close, and schema-2 restoration of historical group/tab views.
+Fresh pinned reference captures record eight cases/70 membership snapshots; the
+consumer explicitly preserves the upstream one-empty-group versus native
+zero-group welcome boundary. Shared native identity and dirty recovery remain
+authoritative. Delayed Save→Close retains the exact original tab identity through
+focus changes and rejects close/reopen ABA. See [implementation and qualification](EDITOR_GROUPS.md).
+Preview/pinned tabs, editor movement, resizing/nested layouts and workspace
+transitions remain next within priority 6 before moving to wrap/folding.
