@@ -30,6 +30,10 @@ focus, text epoch, document identity, baseline or Undo/Redo. Unrelated historica
 views remain owned independently. Fold intent starts expanded at the destination;
 future folding integration needs its own checked quota/admission hooks. Exact
 upstream caret restoration through Undo after transfer remains unqualified.
+Private editing sessions have a fresh view lifetime plus checked source/destination
+generation retirement. Undo cannot revive generated brackets or snippet sessions
+from an old target view, including one closed before transfer. Exhausted clocks
+refuse before publication and leave the source and destination intact.
 
 Local focused evidence: 57 editor-group tests pass, including thirteen new
 transfer integrity tests; four new Document tests pass with concrete Unicode/CRLF
