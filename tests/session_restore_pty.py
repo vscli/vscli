@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from pty_smoke import Editor, eventually, wait_screen, CTRL_S, CTRL_Z
+from pty_smoke import Editor, eventually, wait_screen, CTRL_A, CTRL_S, CTRL_SHIFT_S, CTRL_Z
 
 LIVE = []
 def editor(root, *args, **kwargs):
@@ -204,14 +204,29 @@ def run():
             assert "beta recovered" in app.screen.text()
             app.send("!")
             app.send(CTRL_S)
-            eventually(lambda: app.read() and first.read_bytes() == b"be!ta recovered\r\n")
-            # Quit asks about the independent alpha buffer; discarding it cannot replace beta.
+            # The independent alpha model is still dirty at this same canonical
+            # path. A native save must protect it instead of replacing disk bytes.
+            wait(app, "Save retired")
+            assert first.read_bytes() == original
+            assert "be!ta recovered" in app.screen.text()
+            saved_beta = root / "saved-beta.txt"
+            app.send(CTRL_SHIFT_S)
+            wait_screen(app, "Save As (existing files are protected)")
+            app.send(CTRL_A)
+            app.send(str(saved_beta))
+            app.send(b"\r")
+            eventually(lambda: app.read() and saved_beta.exists() and saved_beta.read_bytes() == b"be!ta recovered\r\n")
+            # Require the successful receipt, not merely disk visibility, before
+            # asking Quit to review the independent remaining alpha buffer.
+            wait_screen(app, "Saved", absent=("Save As (existing files are protected)",))
+            assert first.read_bytes() == original
             finish(app, discard=True)
-            assert first.read_bytes() == b"be!ta recovered\r\n"
+            assert first.read_bytes() == original
+            assert saved_beta.read_bytes() == b"be!ta recovered\r\n"
             for path in (config / "state" / "sessions").glob("*/*.json"):
                 metadata = path.read_text()
                 assert "alpha recovered" not in metadata and "beta recovered" not in metadata
-            print("PASS: duplicate dirty recovery variants keep identity and caret; clean session metadata never stores buffer text")
+            print("PASS: duplicate dirty recovery variants keep identity/caret; alias-conflicting Save is refused, Save As preserves beta and original bytes, and clean metadata never stores text")
             combined(root)
         finally:
             original_failure = sys.exc_info()[0] is not None

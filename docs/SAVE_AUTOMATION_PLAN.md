@@ -161,3 +161,7 @@ Reference save-participant and event-order captures need explicit setup/target
 separation and must retain unsupported/no-op outcomes without desired-output
 retries. Adding participants requires a separate bounded provider/edit pipeline
 and reviewed failure policy; it is not part of this implementation.
+
+### Dirty recovery alias terminal oracle correction
+
+The clean-session terminal fixture now qualifies the native dirty-alias save boundary: two independently recovered alpha/beta models retain the same original canonical path and beta caret; original Save must visibly retire and leave the original disk bytes unchanged, then original Save As to a fresh destination must publish a successful receipt and persist beta’s exact Unicode/CRLF bytes. Discarding alpha on Quit cannot replace either file, and clean-session metadata contains no buffer text. All five session-restart journeys passed locally with the preserved `/tmp/vscli-native-save-automation-release-benchmark` binary, whose production save source matches the PR63 candidate; this is a fixture oracle correction, not a weakened alias check or new runtime fix. Ubuntu CI’s previous timeout at `session_restore_pty.py:207` expected the now-refused conflicting write. Fresh platform CI remains necessary after the correction.
