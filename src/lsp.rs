@@ -77,6 +77,7 @@ pub enum Event {
     Response(Request, Value),
     SignatureFailure(Request, String),
     SymbolFailure(Request, String),
+    FormattingResult(Request, Result<Value, String>),
     Diagnostics(DiagnosticPublication),
     Message(String),
 }
@@ -92,6 +93,11 @@ struct SymbolSlot {
     canceled: bool,
     timed_out: bool,
 }
+struct FormattingSlot {
+    token: u64,
+    canceled: bool,
+    timed_out: bool,
+}
 pub struct Client {
     identity: Arc<()>,
     transport: crate::transport::Process,
@@ -101,6 +107,7 @@ pub struct Client {
     signature_occupied: Option<u64>,
     signature_timed_out: bool,
     symbol_slot: Option<SymbolSlot>,
+    formatting_slot: Option<FormattingSlot>,
     synced: HashMap<String, Synced>,
     next_id: u64,
     command_channel_valid: bool,
@@ -291,6 +298,7 @@ impl Client {
             signature_occupied: None,
             signature_timed_out: false,
             symbol_slot: None,
+            formatting_slot: None,
             synced: HashMap::new(),
             next_id: 1,
             command_channel_valid: true,
@@ -330,6 +338,16 @@ impl Client {
     }
     fn notify(&self, method: &str, params: Value) -> Result<()> {
         self.send(json!({"jsonrpc":"2.0","method":method,"params":params}))
+    }
+    fn request_identity(&self) -> Result<(u64, u64)> {
+        let id = self.next_id;
+        if id == 0 || self.pending.contains_key(&id) {
+            bail!("Language request identity is no longer available; restart the server");
+        }
+        let next = id
+            .checked_add(1)
+            .context("Language request identity exhausted; restart the server")?;
+        Ok((id, next))
     }
     pub fn sync(&mut self, documents: &[Document]) -> Result<()> {
         if !self.ready {
@@ -513,16 +531,60 @@ impl Client {
         if !self.ready {
             bail!("Language server is still initializing");
         }
+        let formatting = method == "textDocument/formatting";
+        if formatting {
+            self.ensure_formatting_available()?;
+            if doc.path.as_ref().is_none_or(|path| {
+                path.as_os_str().len() > 4096 || path.as_os_str().as_encoded_bytes().contains(&0)
+            }) {
+                bail!("Native formatting requires a saved path of at most 4 KiB");
+            }
+            let object = extra
+                .as_object()
+                .context("Invalid native formatting parameters")?;
+            if object.len() != 1 || !object.contains_key("options") {
+                bail!("Native formatting accepts only formatting options");
+            }
+            let options = extra["options"]
+                .as_object()
+                .context("Invalid native formatting options")?;
+            if options.len() > 16
+                || !options
+                    .get("tabSize")
+                    .and_then(Value::as_u64)
+                    .is_some_and(|n| (1..=32).contains(&n))
+                || !options.get("insertSpaces").is_some_and(Value::is_boolean)
+                || options.iter().any(|(key, value)| {
+                    key.len() > 128
+                        || key.contains('\0')
+                        || !(value.is_boolean()
+                            || value.is_number()
+                            || value.as_str().is_some_and(|text| text.len() <= 4096))
+                })
+            {
+                bail!("Invalid or oversized native formatting options");
+            }
+        }
         let path = doc
             .path
             .clone()
             .context("Save this file before requesting language features")?;
         let uri = file_uri(&path)?;
-        let sync_version = self
+        let synced = self
             .synced
             .get(&uri)
-            .context("This language server does not handle this file type")?
-            .version;
+            .context("This language server does not handle this file type")?;
+        if formatting
+            && (synced.id != doc.id
+                || synced.path != path
+                || synced.revision != doc.revision
+                || synced.text_epoch != doc.text_epoch())
+        {
+            bail!(
+                "Document has not been synchronized for formatting; retry after language synchronization"
+            );
+        }
+        let sync_version = synced.version;
         if self.pending.len() >= 32 {
             bail!("Too many pending language requests");
         }
@@ -557,16 +619,16 @@ impl Client {
         } else {
             HashMap::new()
         };
-        let id = self.next_id;
-        self.next_id += 1;
+        let (id, next_id) = self.request_identity()?;
         let mut params = json!({"textDocument":{"uri":uri}});
-        if !is_action && method != "textDocument/documentSymbol" {
+        if !is_action && method != "textDocument/documentSymbol" && !formatting {
             params["position"] = json!(position(doc, doc.cursor));
         }
         if let Some(extra) = extra.as_object() {
             params.as_object_mut().unwrap().extend(extra.clone());
         }
         self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
+        self.next_id = next_id;
         self.pending.insert(
             id,
             Request {
@@ -598,6 +660,75 @@ impl Client {
                 canceled: false,
                 timed_out: false,
             });
+        }
+        if formatting {
+            self.formatting_slot = Some(FormattingSlot {
+                token: id,
+                canceled: false,
+                timed_out: false,
+            });
+        }
+        Ok(())
+    }
+    pub(crate) fn supports_document_formatting(&self) -> bool {
+        match self.capabilities.get("documentFormattingProvider") {
+            Some(Value::Bool(true)) => true,
+            Some(Value::Object(options)) => options
+                .get("workDoneProgress")
+                .is_none_or(Value::is_boolean),
+            _ => false,
+        }
+    }
+    pub(crate) fn formatting_available(&self) -> bool {
+        self.ready
+            && self.supports_document_formatting()
+            && self.formatting_slot.is_none()
+            && self.pending.len() < 32
+    }
+    pub(crate) fn formatting_channel_closed(&self) -> bool {
+        self.formatting_slot
+            .as_ref()
+            .is_some_and(|slot| slot.timed_out)
+    }
+    pub(crate) fn formatting_request_current(&self, token: u64) -> bool {
+        self.formatting_slot
+            .as_ref()
+            .is_some_and(|slot| slot.token == token)
+            && self
+                .pending
+                .get(&token)
+                .is_some_and(|request| self.request_current(request))
+    }
+    fn ensure_formatting_available(&self) -> Result<()> {
+        if !self.supports_document_formatting() {
+            bail!("Language server does not provide native document formatting");
+        }
+        if self.formatting_channel_closed() {
+            bail!(
+                "Formatting request timed out; awaiting actual response or language server restart"
+            );
+        }
+        if !self.formatting_available() {
+            bail!("A formatting request is still running or awaiting actual response");
+        }
+        Ok(())
+    }
+    pub(crate) fn request_document_formatting(&mut self, doc: &Document) -> Result<u64> {
+        let token = self.next_id;
+        self.request(
+            "textDocument/formatting",
+            doc,
+            json!({"options":{"tabSize":doc.tab_size,"insertSpaces":doc.insert_spaces}}),
+        )?;
+        Ok(token)
+    }
+    pub(crate) fn cancel_formatting_request(&mut self, token: u64) -> Result<()> {
+        if let Some(slot) = &mut self.formatting_slot
+            && slot.token == token
+            && !slot.canceled
+        {
+            slot.canceled = true;
+            self.notify("$/cancelRequest", json!({"id":token}))?;
         }
         Ok(())
     }
@@ -633,11 +764,11 @@ impl Client {
     }
     pub(crate) fn workspace_symbols(&mut self, query: &str) -> Result<u64> {
         self.ensure_symbol_available()?;
-        let id = self.next_id;
-        self.next_id += 1;
+        let (id, next_id) = self.request_identity()?;
         self.send(
             json!({"jsonrpc":"2.0","id":id,"method":"workspace/symbol","params":{"query":query}}),
         )?;
+        self.next_id = next_id;
         self.pending.insert(
             id,
             Request {
@@ -724,6 +855,9 @@ impl Client {
         Ok(())
     }
     pub fn follow_up(&mut self, original: &Request, method: &str, params: Value) -> Result<()> {
+        if method == "textDocument/formatting" {
+            bail!("Formatting requires a synchronized document formatting request");
+        }
         if self.pending.len() >= 32 {
             bail!("Too many pending language requests");
         }
@@ -733,9 +867,9 @@ impl Client {
         if method == "codeAction/resolve" {
             self.ensure_action_available()?;
         }
-        let id = self.next_id;
-        self.next_id += 1;
+        let (id, next_id) = self.request_identity()?;
         self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
+        self.next_id = next_id;
         let mut request = original.clone();
         request.token = id;
         request.method = method.into();
@@ -857,6 +991,10 @@ impl Client {
             .filter(|(id, r)| {
                 r.started.elapsed() > Duration::from_secs(15)
                     && !self
+                        .formatting_slot
+                        .as_ref()
+                        .is_some_and(|slot| slot.token == **id && slot.timed_out)
+                    && !self
                         .symbol_slot
                         .as_ref()
                         .is_some_and(|slot| slot.token == **id && slot.timed_out)
@@ -864,6 +1002,21 @@ impl Client {
             .map(|(id, _)| *id)
             .collect::<Vec<_>>()
         {
+            if let Some(slot) = &mut self.formatting_slot
+                && slot.token == id
+            {
+                slot.timed_out = true;
+                let notify = !slot.canceled;
+                slot.canceled = true;
+                let request = self.pending.get(&id).unwrap().clone();
+                events.push(Event::FormattingResult(request, Err(
+                    "Formatting request timed out; awaiting actual response or language server restart".into()
+                )));
+                if notify {
+                    self.notify("$/cancelRequest", json!({"id":id}))?;
+                }
+                continue;
+            }
             if let Some(slot) = &mut self.symbol_slot
                 && slot.token == id
             {
@@ -983,6 +1136,36 @@ impl Client {
                 }
             } else if let Some(id) = message["id"].as_u64() {
                 if self
+                    .formatting_slot
+                    .as_ref()
+                    .is_some_and(|slot| slot.token == id)
+                {
+                    let result = message.get("result");
+                    let error = message.get("error");
+                    let completed = message["jsonrpc"] == "2.0"
+                        && (matches!((result, error), (Some(_), None))
+                            || matches!((result,error),(None,Some(error)) if error["code"].as_i64().is_some_and(|code| i32::try_from(code).is_ok()) && error["message"].as_str().is_some()));
+                    if !completed {
+                        continue;
+                    }
+                    let slot = self.formatting_slot.take().unwrap();
+                    let request = self.pending.remove(&id).unwrap();
+                    if !slot.canceled && !slot.timed_out {
+                        let response = if let Some(error) = error {
+                            let text = error["message"].as_str().unwrap();
+                            let mut end = text.len().min(4096);
+                            while !text.is_char_boundary(end) {
+                                end -= 1;
+                            }
+                            Err(format!("{} ({})", &text[..end], error["code"]))
+                        } else {
+                            Ok(result.unwrap().clone())
+                        };
+                        events.push(Event::FormattingResult(request, response));
+                    }
+                    continue;
+                }
+                if self
                     .symbol_slot
                     .as_ref()
                     .is_some_and(|slot| slot.token == id)
@@ -1056,6 +1239,417 @@ impl Client {
         Ok(events)
     }
 }
+#[cfg(test)]
+pub(crate) mod formatting_tests {
+    use super::*;
+    const PEER: &str = r#"
+import json,sys
+held={}; calls=[]; cancellations=[]
+def send(message):
+    data=json.dumps(message).encode()
+    sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(data)).encode()+data)
+    sys.stdout.buffer.flush()
+def reply(message): send({'jsonrpc':'2.0',**message})
+def notice(text): reply({'method':'window/showMessage','params':{'type':3,'message':text}})
+while True:
+    headers={}
+    while True:
+        line=sys.stdin.buffer.readline()
+        if not line: sys.exit(0)
+        if line==b'\r\n': break
+        key,value=line.decode().split(':',1); headers[key.lower()]=value.strip()
+    message=json.loads(sys.stdin.buffer.read(int(headers['content-length'])))
+    method,ident,params=message.get('method'),message.get('id'),message.get('params',{})
+    if method=='initialize':
+        reply({'id':ident,'result':{'capabilities':{'textDocumentSync':1,'documentFormattingProvider':json.loads(sys.argv[1])}}})
+    elif method=='textDocument/formatting':
+        held[ident]=params; calls.append({'id':ident,'params':params}); notice('held-%d'%ident)
+    elif method=='$/cancelRequest': cancellations.append(params['id']); notice('ignored-cancel-%d'%params['id'])
+    elif method=='fixture/message': send(params)
+    elif method=='fixture/ack': notice('ack')
+    elif method=='fixture/state': notice('formatter-state:'+json.dumps({'calls':calls,'cancellations':cancellations}))
+    elif method=='fixture/release':
+        held.pop(params['id'],None)
+        if params.get('fail'): reply({'id':params['id'],'error':{'code':-32603,'message':params.get('message','fixture formatting failed')}})
+        else: reply({'id':params['id'],'result':params.get('result',[])})
+    elif method=='textDocument/hover': reply({'id':ident,'result':None})
+    elif method=='workspace/symbol': reply({'id':ident,'result':[]})
+    elif method=='shutdown': reply({'id':ident,'result':None})
+    elif method=='exit': break
+"#;
+    pub(crate) fn until(
+        client: &mut Client,
+        predicate: impl Fn(&Client, &[Event]) -> bool,
+    ) -> Vec<Event> {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let events = client.poll().unwrap();
+            if predicate(client, &events) {
+                return events;
+            }
+            assert!(Instant::now() < deadline, "{}", client.debug_summary());
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    fn start_with_capability(root: &Path, doc: &Document, capability: Value) -> Client {
+        let mut client = Client::start(
+            if cfg!(windows) { "python" } else { "python3" },
+            &[
+                "-u".into(),
+                "-c".into(),
+                PEER.into(),
+                capability.to_string(),
+            ],
+            root,
+            "cpp".into(),
+        )
+        .unwrap();
+        until(&mut client, |client, _| client.ready);
+        client.sync(std::slice::from_ref(doc)).unwrap();
+        client
+    }
+    pub(crate) fn start(root: &Path, doc: &Document) -> Client {
+        start_with_capability(root, doc, Value::Bool(true))
+    }
+    pub(crate) fn held(client: &mut Client, token: u64) {
+        until(client, |_, events| {
+            events.iter().any(|event| {
+            matches!(event,Event::Message(message) if message == &format!("held-{token}"))
+        })
+        });
+    }
+    fn state(client: &mut Client) -> Value {
+        client.notify("fixture/state", json!({})).unwrap();
+        let events = until(client, |_, events| {
+            events.iter().any(|event| {
+            matches!(event,Event::Message(message) if message.starts_with("formatter-state:"))
+        })
+        });
+        events
+            .into_iter()
+            .find_map(|event| match event {
+                Event::Message(message) => message
+                    .strip_prefix("formatter-state:")
+                    .map(|text| serde_json::from_str(text).unwrap()),
+                _ => None,
+            })
+            .unwrap()
+    }
+    fn inject(client: &mut Client, message: Value) -> Vec<Event> {
+        client.notify("fixture/message", message).unwrap();
+        client.notify("fixture/ack", json!({})).unwrap();
+        let mut observed = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let events = client.poll().unwrap();
+            let acknowledged = events
+                .iter()
+                .any(|event| matches!(event,Event::Message(message) if message == "ack"));
+            observed.extend(events);
+            if acknowledged {
+                return observed;
+            }
+            assert!(Instant::now() < deadline, "{}", client.debug_summary());
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    fn fixture() -> (tempfile::TempDir, Document) {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("main.cpp");
+        std::fs::write(&path, "猫🙂 original\r\n").unwrap();
+        let doc = Document::open(&path).unwrap();
+        (root, doc)
+    }
+
+    #[test]
+    fn shared_manual_save_formatter_lane_has_exact_params_and_typed_results() {
+        let (root, mut doc) = fixture();
+        doc.set_indentation(8, false);
+        let mut client = start(root.path(), &doc);
+        let token = client.next_id;
+        client
+            .request_in_view(
+                "textDocument/formatting",
+                &doc,
+                json!({"options":{"tabSize":8,"insertSpaces":false}}),
+                Some(17),
+            )
+            .unwrap();
+        held(&mut client, token);
+        assert!(client.request_document_formatting(&doc).is_err());
+        let snapshot = state(&mut client);
+        assert_eq!(snapshot["calls"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            snapshot["calls"][0]["params"],
+            json!({
+                "textDocument":{"uri":file_uri(doc.path.as_ref().unwrap()).unwrap()},
+                "options":{"tabSize":8,"insertSpaces":false}
+            })
+        );
+        let replacement = json!([{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"newText":"犬"}]);
+        client
+            .notify("fixture/release", json!({"id":token,"result":replacement}))
+            .unwrap();
+        let events = until(&mut client, |client, _| client.formatting_available());
+        assert!(events.iter().any(|event| matches!(event,Event::FormattingResult(request,Ok(value)) if request.token == token && request.view == Some(17) && value == &replacement && client.request_current(request))));
+        let save = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, save);
+        assert!(
+            client
+                .request(
+                    "textDocument/formatting",
+                    &doc,
+                    json!({"options":{"tabSize":4,"insertSpaces":true}})
+                )
+                .is_err()
+        );
+        client
+            .notify("fixture/release", json!({"id":save,"fail":true}))
+            .unwrap();
+        let events = until(&mut client, |client, _| client.formatting_available());
+        assert!(events.iter().any(|event| matches!(event,Event::FormattingResult(request,Err(error)) if request.token == save && request.view.is_none() && error.contains("fixture formatting failed"))));
+        assert_eq!(
+            std::fs::read(doc.path.as_ref().unwrap()).unwrap(),
+            "猫🙂 original\r\n".as_bytes()
+        );
+        assert_eq!(doc.save_generation(), 0);
+    }
+
+    #[test]
+    fn formatter_cancel_retains_actual_capacity_is_idempotent_and_never_publishes_late_edits() {
+        let (root, doc) = fixture();
+        let mut client = start(root.path(), &doc);
+        let token = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, token);
+        for _ in 0..64 {
+            client.cancel_formatting_request(token).unwrap();
+            client.cancel_formatting_request(token + 999).unwrap();
+            assert!(!client.formatting_available());
+            assert!(client.request_document_formatting(&doc).is_err());
+        }
+        let wire = state(&mut client);
+        assert_eq!(wire["cancellations"], json!([token]));
+        assert_eq!(wire["calls"].as_array().unwrap().len(), 1);
+        assert_eq!(client.pending.len(), 1);
+        assert!(!client.formatting_channel_closed());
+        client
+            .notify(
+                "fixture/release",
+                json!({"id":token,"result":[{"newText":"STALE"}]}),
+            )
+            .unwrap();
+        let events = until(&mut client, |client, _| client.formatting_available());
+        assert!(!events.iter().any(
+            |event| matches!(event,Event::FormattingResult(request,_) if request.token == token)
+        ));
+        assert!(client.pending.is_empty());
+        assert_eq!(doc.text.to_string(), "猫🙂 original\r\n");
+    }
+
+    #[test]
+    fn formatter_timeout_retains_slot_and_malformed_or_wrong_replies_cannot_release_it() {
+        let (root, doc) = fixture();
+        let mut client = start(root.path(), &doc);
+        let token = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, token);
+        let malformed = [
+            json!({"id":token,"result":null}),
+            json!({"jsonrpc":"1.0","id":token,"result":null}),
+            json!({"jsonrpc":"2.0","id":token}),
+            json!({"jsonrpc":"2.0","id":token,"result":null,"error":{"code":-1,"message":"both"}}),
+            json!({"jsonrpc":"2.0","id":token,"error":{"code":2147483648_i64,"message":"oversized"}}),
+            json!({"jsonrpc":"2.0","id":token,"error":{"code":-1,"message":12}}),
+            json!({"jsonrpc":"2.0","id":token+999,"result":[]}),
+            json!({"jsonrpc":"2.0","id":token,"method":"window/showMessage","params":{"message":"method is not settlement"},"result":[]}),
+        ];
+        for message in malformed {
+            assert!(
+                !inject(&mut client, message)
+                    .iter()
+                    .any(|event| matches!(event, Event::FormattingResult(_, _)))
+            );
+            assert_eq!(client.formatting_slot.as_ref().unwrap().token, token);
+            assert!(client.pending.contains_key(&token));
+            assert!(!client.formatting_available());
+        }
+        client.pending.get_mut(&token).unwrap().started = Instant::now() - Duration::from_secs(16);
+        let events = client.poll().unwrap();
+        assert_eq!(events.iter().filter(|event| matches!(event,Event::FormattingResult(request,Err(error)) if request.token==token && error.contains("timed out"))).count(), 1);
+        assert!(client.formatting_channel_closed());
+        for _ in 0..64 {
+            assert!(
+                !client
+                    .poll()
+                    .unwrap()
+                    .iter()
+                    .any(|event| matches!(event, Event::FormattingResult(_, _)))
+            );
+            assert!(client.request_document_formatting(&doc).is_err());
+        }
+        assert_eq!(state(&mut client)["cancellations"], json!([token]));
+        let events = inject(
+            &mut client,
+            json!({"jsonrpc":"2.0","id":token,"error":{"code":-32800,"message":"actually finished"}}),
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, Event::FormattingResult(_, _)))
+        );
+        assert!(client.formatting_available());
+        assert!(!client.formatting_channel_closed());
+        assert!(client.pending.is_empty());
+    }
+
+    #[test]
+    fn native_formatting_ticket_retains_epoch_server_and_sync_lifetime_provenance() {
+        let (root, mut doc) = fixture();
+        let mut client = start(root.path(), &doc);
+        let token = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, token);
+        let request = client.pending[&token].clone();
+        assert!(client.request_current(&request));
+        assert!(client.formatting_request_current(token));
+        assert!(!client.formatting_request_current(token + 1));
+        let next_id = client.next_id;
+        assert!(
+            client
+                .follow_up(&request, "textDocument/formatting", json!({}))
+                .is_err()
+        );
+        assert_eq!(client.next_id, next_id);
+        assert_eq!(client.pending.len(), 1);
+        doc.insert("dirty ", false);
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂 original\r\n");
+        assert_ne!(doc.text_epoch(), request.text_epoch);
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(!client.request_current(&request));
+        assert!(!client.formatting_request_current(token));
+        client
+            .notify("fixture/release", json!({"id":token}))
+            .unwrap();
+        let events = until(&mut client, |client, _| client.formatting_available());
+        assert!(events.iter().any(|event| matches!(event,Event::FormattingResult(reply,Ok(_)) if reply.token==token && !client.request_current(reply))));
+        let fresh = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, fresh);
+        let request = client.pending[&fresh].clone();
+        client.sync(&[]).unwrap();
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(!client.request_current(&request));
+        assert!(!client.formatting_request_current(fresh));
+        let replacement = start(root.path(), &doc);
+        assert!(!replacement.request_current(&request));
+        client.cancel_formatting_request(fresh).unwrap();
+        client
+            .notify("fixture/release", json!({"id":fresh}))
+            .unwrap();
+        until(&mut client, |client, _| client.formatting_available());
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "dirty 猫🙂 original\r\n");
+        assert_eq!(
+            std::fs::read(doc.path.as_ref().unwrap()).unwrap(),
+            "猫🙂 original\r\n".as_bytes()
+        );
+    }
+
+    #[test]
+    fn static_formatting_capability_and_option_admission_fail_without_wire_or_identity_mutation() {
+        let (root, mut doc) = fixture();
+        let mut client = start(root.path(), &doc);
+        for capability in [
+            Value::Null,
+            Value::Bool(false),
+            json!("true"),
+            json!({"workDoneProgress":12}),
+        ] {
+            client.capabilities["documentFormattingProvider"] = capability;
+            let before = client.next_id;
+            assert!(!client.supports_document_formatting());
+            assert!(client.request_document_formatting(&doc).is_err());
+            assert_eq!(client.next_id, before);
+            assert!(client.pending.is_empty());
+            assert!(client.formatting_slot.is_none());
+        }
+        client.capabilities["documentFormattingProvider"] = json!({"workDoneProgress":false});
+        assert!(client.supports_document_formatting());
+        let before = client.next_id;
+        for extra in [
+            json!({}),
+            json!({"options":{"tabSize":0,"insertSpaces":true}}),
+            json!({"options":{"tabSize":4,"insertSpaces":"true"}}),
+            json!({"options":{"tabSize":4,"insertSpaces":true,"oversized":"x".repeat(4097)}}),
+            json!({"options":{"tabSize":4,"insertSpaces":true},"textDocument":{"uri":"file:///other"}}),
+        ] {
+            assert!(
+                client
+                    .request("textDocument/formatting", &doc, extra)
+                    .is_err()
+            );
+            assert_eq!(client.next_id, before);
+            assert!(client.pending.is_empty());
+        }
+        doc.insert("unsynced ", false);
+        assert!(client.request_document_formatting(&doc).is_err());
+        assert_eq!(client.next_id, before);
+        assert!(state(&mut client)["calls"].as_array().unwrap().is_empty());
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        let token = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, token);
+        client
+            .notify("fixture/release", json!({"id":token,"result":null}))
+            .unwrap();
+        assert!(until(&mut client, |client, _| client.formatting_available()).iter()
+            .any(|event| matches!(event,Event::FormattingResult(request,Ok(value)) if request.token==token && value.is_null())));
+    }
+
+    #[test]
+    fn checked_native_request_id_exhaustion_preserves_all_constructor_state() {
+        let (root, doc) = fixture();
+        let mut client = start(root.path(), &doc);
+        client
+            .request("textDocument/hover", &doc, json!({}))
+            .unwrap();
+        let events = until(&mut client, |_, events| {
+            events.iter().any(|event| matches!(event,Event::Response(request,_) if request.method=="textDocument/hover"))
+        });
+        let original = events
+            .into_iter()
+            .find_map(|event| match event {
+                Event::Response(request, _) => Some(request),
+                _ => None,
+            })
+            .unwrap();
+        client.next_id = u64::MAX;
+        assert!(
+            client
+                .request_document_formatting(&doc)
+                .unwrap_err()
+                .to_string()
+                .contains("exhausted")
+        );
+        assert!(
+            client
+                .workspace_symbols("main")
+                .unwrap_err()
+                .to_string()
+                .contains("exhausted")
+        );
+        assert!(
+            client
+                .follow_up(&original, "completionItem/resolve", json!({}))
+                .unwrap_err()
+                .to_string()
+                .contains("exhausted")
+        );
+        assert_eq!(client.next_id, u64::MAX);
+        assert!(client.pending.is_empty());
+        assert!(client.formatting_slot.is_none());
+        assert!(client.symbol_slot.is_none());
+        assert!(state(&mut client)["calls"].as_array().unwrap().is_empty());
+    }
+}
+
 #[cfg(test)]
 mod save_notification_tests {
     use super::*;
