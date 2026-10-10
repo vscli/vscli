@@ -172,3 +172,5 @@ The integrated main-based candidate passes 1,026 locked all-target Rust tests
 across 51 reports (23 opt-in cases ignored), all 14 reader tests, formatting,
 strict locked all-target Clippy, default genuine replay and explicit historical
 replay. Fresh exact-head protected CI remains required for this rebase.
+
+The corrected-capture adoption is also requalified on merged display-foundation main `3cc75ab9f59f7f95ce2621b020f39364e42c4f05`: all 1,086 locked all-target Rust tests/51 reports (23 opt-in ignored), all 14 reader tests, formatting, strict Clippy, default corrected Linux replay and explicit historical replay pass. Archived files, inventories and reader code are byte-identical to adoption head `6a974d257cf5315d8b461027ef8a8a2a473f6dd5`, which passed all six checks in run38076300620. Fresh checks on the rebased adoption remain required; no capture is regenerated locally.
