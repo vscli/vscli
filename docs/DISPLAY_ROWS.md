@@ -35,8 +35,10 @@ late input, private preparation identity and the distinct source admission limit
 These are native foundation tests, not upstream command or desktop parity.
 
 The additional native worker and controller remain separate from App. One actual
-thread and a one-result channel serve one latest metadata intent; queued work
-retains no Rope. Cancellation retires interest without freeing capacity. Poll
+thread and a one-result channel serve one latest intent. Ordinary queued demand
+retains metadata only. The authorized discovery-to-preparation handoff retains
+its original Document-owned snapshot and absolute deadline; it never recaptures
+a newer model or allows edited public outcome fields to redirect preparation. Cancellation retires interest without freeing capacity. Poll
 joins the finished thread before releasing its slot, including a result sent
 before thread exit. Private view/options lifetimes, exact membership, text epoch,
 selection and interaction proofs guard publication. Ordinary polling borrows
@@ -52,15 +54,16 @@ without blocking, and a detached thread owns its immutable source until exit.
 The six-second deadline is checked around bounded preparation phases and does
 not provide a hard wall-clock execution guarantee.
 
-Four real-worker tests and six controller tests cover held cancellation, replies
+Seven real-worker tests and eleven controller tests cover held cancellation, replies
 before exit, selection protection, bounded malformed admission, expiration,
 edit/Undo epochs, options/view lifetime changes, latest/coalesced demand,
 shutdown timeout and closing the last model while a canceled worker remains
-occupied. These tests qualify controller contracts. Twelve additional actual Document
+occupied, original discovery handoff authority and stale-phase refusal. These tests
+qualify controller contracts. Sixteen additional actual Document
 integrity tests qualify per-view intent, immutable checked publication, edit
 journal retirement, complete selection protection and independent split ownership;
 see [per-view folding ownership](FOLD_VIEW_STATE.md). App integration is outstanding.
 
-The candidate passes 1,026 all-target Rust tests across 51 reports (20 optional
+The candidate passes 1,038 all-target Rust tests across 51 reports (20 optional
 cases ignored), formatting and strict locked all-target Clippy. No terminal
 gesture changes in this foundation require a new PTY claim; the App feature does.

@@ -29,12 +29,24 @@ and deadline checks. No discovery or region replay runs in ordinary source edit
 hooks. Core 32 MiB unwrapped editing, native saves and text history remain usable
 when folding preparation is refused.
 
-Qualification: twelve actual Document integrity tests pass locally. They cover
+The Document bridge now supplies borrowed exact model/view/selection proofs to
+one owned worker lane. Discovery and preparation share the original snapshot,
+private handoff authority and absolute deadline; a later intent cannot be
+replaced by a stale discovery reply. Public outcome fields cannot redirect that
+handoff. Clear/Unfold All renews private lifetime without scanning source or
+selections, even when pending work or exhausted clocks would refuse preparation.
+Finite Fold/Unfold actions target the original collapsed mask simultaneously;
+Fold All keeps complete selected intervals visible. These APIs remain separate
+from App command registration and source-cell authority.
+
+Qualification: sixteen actual Document integrity tests pass locally. They cover
 Unicode/CRLF persistence, pending Redo, stale edit→Undo replies, touched-anchor
 no-revival, split versus ordinary insertion, close/recreate lifetimes, selection
 ABA, complete secondary intervals, malformed batches, journal rollover, policy
 ABA, generation exhaustion, oversized selection refusal and cancellation/deadline
-refusal. Full-suite evidence is recorded in [the display-row foundation](DISPLAY_ROWS.md).
+refusal. New cases cover borrowed proof ownership, simultaneous nested targeting,
+clear after oversized-source/cohort refusal and pending-only no-op clear retirement.
+Full-suite evidence is recorded in [the display-row foundation](DISPLAY_ROWS.md).
 These tests qualify Document ownership rather than App gestures or upstream parity.
 
 App integration must retain the existing single actual folding worker, add global
