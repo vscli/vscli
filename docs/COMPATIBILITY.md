@@ -82,17 +82,20 @@ remain incomplete.
 Native LSP document/workspace symbol search supports bounded hierarchical and flat
 responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-file
 loads. Range-less WorkspaceSymbol resolve remains unsupported. A separate native
-[Outline section](OUTLINE.md) is implemented on its feature branch: hierarchical
+[Outline section](OUTLINE.md) was merged in [PR #60](https://github.com/vscli/vscli/pull/60): hierarchical
 trees, collapse/expand, enclosing-symbol following and guarded identifier-start
 reveal. Native and extension ownership lanes are bounded; stale/loading trees
 are nonactionable. Focused native and extension publication checks, one actual
 clangd nested-C++ workflow and three debug native-only PTY journeys passed
 locally. The narrow comparison passes two provider-geometry cases and two
 confirmed collapsed reveals; all four reference integrity tests pass. Two pinned
-synthetic provider cases retain 20 snapshots, including initial no-ops. Fresh
-platform CI, optimized terminal qualification and performance measurements remain
-pending; this evidence does not establish complete sidebar or unchanged-package
-compatibility.
+synthetic provider cases retain 20 snapshots, including initial no-ops. All three
+Outline workflows also passed with the optimized executable. The published core
+measurements use disabled Outline and show mixed latency observations; active
+provider performance is unqualified. All six required checks, including Linux,
+macOS, Windows and real protocol servers, passed in
+[CI run 38021276828](https://github.com/vscli/vscli/actions/runs/38021276828).
+This evidence does not establish complete sidebar or unchanged-package compatibility.
 See [symbol-navigation behavior and evidence](USAGE.md#native-document-and-workspace-symbols).
 
 Optional selected extensions dispatch completion, hover, definitions, references, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers; aggregation/fallback for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).

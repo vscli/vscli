@@ -64,7 +64,8 @@ surrogate positions reject the result. These checks precede navigation.
 
 ## Evidence and qualification
 
-Implementation is present on the Outline feature branch. Local qualification
+Implementation was merged in [PR #60](https://github.com/vscli/vscli/pull/60).
+Local qualification
 passed the full Rust run with **583 ordinary tests across 37 suites**; 19 opt-in
 tests remained ignored. Formatting and strict all-target Clippy passed. The
 optional host's **133 Node tests** passed. These totals include focused subsets;
@@ -84,8 +85,10 @@ All three Outline terminal journeys also passed with the optimized executable.
 The [published core benchmarks](PERFORMANCE.md#native-outline-core-baseline-2026-10-10)
 record 30 successful trials and mixed latency observations with Outline disabled;
 they do not measure active symbol-provider performance or establish a speed ranking.
-Fresh platform CI remains pending. Named local successes do not establish every
-provider, project or terminal behavior.
+All six required checks passed on the reviewed head in
+[CI run 38021276828](https://github.com/vscli/vscli/actions/runs/38021276828):
+Linux, macOS, Windows, quality, commit style and real protocol servers. Named
+successes do not establish every provider, project or terminal behavior.
 
 An actual pinned VS Code **1.95.0**, commit
 `912bb683695358a54ae0c670461738984cbb5b95`, capture observed two named synthetic
