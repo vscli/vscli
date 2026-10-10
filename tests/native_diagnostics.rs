@@ -73,8 +73,8 @@ fn action_request(client: &mut Client, doc: &Document) -> Request {
     client
         .request("textDocument/codeAction", doc, json!({}))
         .unwrap();
-    collect_until(client, |events| events.iter().any(|event| matches!(event, Event::Response(request, _) if request.method == "textDocument/codeAction")))
-        .into_iter().find_map(|event| match event { Event::Response(request, _) => Some(request), _ => None }).unwrap()
+    collect_until(client, |events| events.iter().any(|event| matches!(event, Event::ActionResult(request, Ok(_)) if request.method == "textDocument/codeAction")))
+        .into_iter().find_map(|event| match event { Event::ActionResult(request, Ok(_)) => Some(request), _ => None }).unwrap()
 }
 
 #[test]

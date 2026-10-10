@@ -74,10 +74,12 @@ impl App {
                 .as_ref()
                 .is_some_and(|c| c.capabilities["codeActionProvider"]["resolveProvider"] == true)
         {
-            self.lsp
+            let token = self
+                .lsp
                 .as_mut()
                 .context("Language server disconnected")?
-                .follow_up(request, "codeAction/resolve", item.clone())?;
+                .resolve_code_action(request, item.clone())?;
+            self.track_native_action(request, token);
             self.message = "Resolving code action…".into();
             return Ok(());
         }
@@ -89,9 +91,10 @@ impl App {
         if let Some(command) = command {
             let client = self.lsp.as_mut().context("Language server disconnected")?;
             client.sync(&self.documents)?;
-            client.follow_up(request, "workspace/executeCommand", json!({
+            let token = client.execute_action_command(request, json!({
                 "command":command["command"], "arguments":command.get("arguments").cloned().unwrap_or_else(|| json!([]))
             }))?;
+            self.track_native_action(request, token);
             self.message = "Code action command running…".into();
         }
         Ok(())
