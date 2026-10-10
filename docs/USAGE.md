@@ -43,8 +43,11 @@ The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary te
 
 C/C++ and JSON/JSONC now have native [smart typing](SMART_TYPING.md): bracket/quote
 pairing, surrounding selections, generated-close skipping/deletion and bracket-aware
-Enter. Paste remains literal. Language overrides control pairing and indentation;
-advanced language indentation rules and other profiles remain incomplete.
+Enter. Native [advanced indentation](ADVANCED_INDENTATION.md) distinguishes all five
+`editor.autoIndent` modes, defaults to `full`, and adds bundled C++ unbraced-body
+and JSON indentation rules plus guarded closing-bracket alignment. Paste remains
+literal. Language overrides control pairing and indentation; extension language
+configurations, other profiles and full language-rule parity remain incomplete.
 
 Quick open indexes up to 100,000 workspace files in a background worker. It respects ignore rules and skips `.git`, `target`, `node_modules`, `.venv`, and `__pycache__`. The explorer shows the current directory; Right opens a directory or file (Enter also opens in Linux/Windows profiles), Left/Backspace goes to its parent, and Escape returns focus to the editor. macOS uses Enter for rename. Native file notifications refresh the index after a short debounce; Refresh Explorer is available when notifications are unavailable. See [external file changes](#external-file-changes) for qualification limits.
 

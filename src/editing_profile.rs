@@ -28,8 +28,10 @@ pub enum Surround {
 pub enum AutoIndent {
     None,
     Keep,
-    #[default]
     Brackets,
+    Advanced,
+    #[default]
+    Full,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TypingOptions {

@@ -59,6 +59,46 @@ fn reload(app: &mut App, path: &PathBuf, configuration: Value) {
 }
 
 #[test]
+fn configured_indent_modes_drive_physical_enter_and_preserve_crlf_save_undo() {
+    let original = "if (ok)\r\n    run();\r\n// 猫🙂\r\n";
+    for (mode, indentation) in [
+        ("none", ""),
+        ("keep", "    "),
+        ("brackets", "    "),
+        ("advanced", ""),
+        ("full", ""),
+    ] {
+        let (root, mut app, settings) = fixture(original);
+        reload(
+            &mut app,
+            &settings,
+            configuration(json!({"editor.tabSize":4,"[cpp]":{"editor.autoIndent":mode}})),
+        );
+        let id = app.doc().id;
+        app.doc_mut().move_to(19, false);
+        key(&mut app, KeyCode::Enter);
+        let expected = format!("if (ok)\r\n    run();\r\n{indentation}\r\n// 猫🙂\r\n");
+        assert_eq!(app.doc().text.to_string(), expected, "mode {mode}");
+        assert_eq!(app.doc().cursor, 21 + indentation.len(), "mode {mode}");
+        assert_eq!(app.doc().id, id);
+        assert!(app.doc().dirty());
+        let source = root.path().join("main.cpp");
+        assert_eq!(std::fs::read(&source).unwrap(), original.as_bytes());
+        app.execute("workbench.action.files.save", Value::Null);
+        assert_eq!(std::fs::read(&source).unwrap(), expected.as_bytes());
+        app.execute("undo", Value::Null);
+        assert_eq!(app.doc().text.to_string(), original);
+        assert_eq!(app.doc().cursor, 19);
+        app.execute("workbench.action.files.save", Value::Null);
+        assert_eq!(std::fs::read(&source).unwrap(), original.as_bytes());
+        app.execute("redo", Value::Null);
+        assert_eq!(app.doc().text.to_string(), expected);
+        assert_eq!(app.doc().id, id);
+        assert!(app.lsp.is_none());
+    }
+}
+
+#[test]
 fn actual_reload_a_b_a_and_undo_redo_never_revive_retired_generated_delimiters() {
     let original = "猫🙂 \r\n";
     let (root, mut app, settings) = fixture(original);
