@@ -105,6 +105,26 @@ The diagram is a US reference layout, not physical keyboard detection. Highlight
 
 Exact physical key delivery depends on terminal configuration. VSCLI negotiates enhanced keyboard reporting when supported. A terminal may otherwise turn Ctrl+Shift+P into Ctrl+P or consume the combination entirely. The editor does not silently replace that binding. Use F1 → Keyboard Inspector, release the conflicting terminal binding, and retest. No terminal configuration is changed automatically. OS-global, international-layout, and multiplexer behavior still require real-device qualification.
 
+## Navigation history
+
+F1 → **Go: Back** or **Go: Forward** restores locations within this session.
+The original shortcuts are Ctrl+Alt+- / Ctrl+Shift+- on Linux,
+Alt+Left / Alt+Right on Windows, and Ctrl+- / Ctrl+Shift+- on macOS.
+The terminal must deliver the combination; enhanced keyboard reporting can
+distinguish shortcuts that legacy terminal input cannot represent.
+
+History keeps up to 50 locations across native documents and editor panes.
+Editor changes, explicit line jumps and large cursor movements record locations;
+nearby ordinary movement coalesces. Travel preserves unsaved text, document
+identity and Undo/Redo. Save As follows the model's current path, and closed
+untitled models cannot be resurrected. Primary selections restore as forward
+ranges; secondary cursors are not retained in history entries.
+
+Closed file destinations load in the background. Shortcut availability reflects
+the committed location; unsuccessful or stale loads cannot consume history.
+See [recording rules, asynchronous bounds and qualification](NAVIGATION_HISTORY.md).
+Outline and breadcrumbs are still separate work.
+
 ## Snippets
 
 Literal templates work through `editor.action.insertSnippet` with `args.snippet`.

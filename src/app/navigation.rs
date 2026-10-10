@@ -6,6 +6,248 @@ pub(super) enum OpenIntent {
     Search(crate::search::Hit),
     Debug { line: usize, column: usize },
     Settings,
+    History(super::navigation_history::Travel),
+}
+
+#[cfg(test)]
+mod history_tests {
+    use super::super::navigation_history::{Direction, Reason};
+    use super::*;
+    use std::time::{Duration, Instant};
+    fn three(root: &Path) -> (App, Vec<PathBuf>) {
+        let mut app = App::new(root.into(), Profile::Linux);
+        let mut paths = Vec::new();
+        for name in ["a.cpp", "b.cpp", "c.cpp"] {
+            let path = root.join(name);
+            std::fs::write(&path, format!("{name} 猫🙂\r\n")).unwrap();
+            let path = std::fs::canonicalize(path).unwrap();
+            app.open(&path).unwrap();
+            paths.push(path);
+        }
+        app.documents.drain(..2);
+        app.active = 0;
+        app.sync_pane();
+        (app, paths)
+    }
+    fn hold(app: &mut App) -> mpsc::SyncSender<Result<Target, String>> {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        app.navigation.pending = Some(Pending {
+            receiver,
+            context: app.navigation_context(),
+            closed: None,
+            intent: OpenIntent::Focus,
+        });
+        sender
+    }
+    fn finish(app: &mut App) {
+        let until = Instant::now() + Duration::from_secs(3);
+        while app.navigation.pending.is_some() {
+            assert!(Instant::now() < until, "{}", app.message);
+            app.poll_navigation();
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    #[test]
+    fn repeated_history_travel_retains_actual_slot_and_only_latest_destination_commits() {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths) = three(root.path());
+        let sender = hold(&mut app);
+        let original = app.navigation.pending.as_ref().unwrap().context.clone();
+        app.navigate_history(Direction::Back);
+        app.navigate_history(Direction::Back);
+        for _ in 0..32 {
+            app.navigate_history(Direction::Back);
+        }
+        assert_eq!(app.doc().path.as_deref(), Some(paths[2].as_path()));
+        assert!(app.navigation.pending.as_ref().unwrap().context == original);
+        assert!(app.can_navigate_back());
+        assert!(!app.can_navigate_forward());
+        sender.send(Err("Retired held file load".into())).unwrap();
+        app.poll_navigation();
+        finish(&mut app);
+        assert_eq!(app.doc().path.as_deref(), Some(paths[0].as_path()));
+        assert!(!app.can_navigate_back());
+        assert!(app.can_navigate_forward());
+        assert_eq!(app.documents.len(), 2);
+        assert!(
+            app.documents
+                .iter()
+                .all(|doc| doc.path.as_deref() != Some(paths[1].as_path()))
+        );
+    }
+    #[test]
+    fn queued_history_context_cannot_revive_after_edit_undo_or_input_pane_round_trip() {
+        for keyboard in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let (mut app, paths) = three(root.path());
+            let sender = hold(&mut app);
+            app.navigate_history(Direction::Back);
+            let id = app.doc().id;
+            let before = app.doc().text.to_string();
+            let cursor = app.doc().cursor;
+            if keyboard {
+                app.navigation_input_interaction();
+                app.focus = Focus::Explorer;
+                app.focus = Focus::Editor;
+            } else {
+                app.doc_mut().insert("dirty", false);
+                app.doc_mut().undo();
+                assert_eq!(app.doc().cursor, cursor);
+            }
+            sender
+                .send(Ok(Target::Loaded(Box::new(
+                    Document::open_existing(&paths[0]).unwrap(),
+                ))))
+                .unwrap();
+            app.poll_navigation();
+            assert!(app.navigation.pending.is_none());
+            assert_eq!(app.documents.len(), 1);
+            assert_eq!(app.doc().id, id);
+            assert_eq!(app.doc().text.to_string(), before);
+            assert!(app.can_navigate_back());
+            assert!(!app.can_navigate_forward());
+            assert_eq!(std::fs::read(&paths[2]).unwrap(), before.as_bytes());
+            if !keyboard {
+                app.doc_mut().redo();
+                assert_eq!(app.doc().text.to_string(), "dirty".to_owned() + &before);
+            }
+        }
+    }
+    #[test]
+    fn failed_closed_resource_load_preserves_committed_stack_and_unsaved_source() {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths) = three(root.path());
+        app.doc_mut().insert("dirty", false);
+        app.observe_navigation(Reason::Ordinary);
+        let id = app.doc().id;
+        let before = app.doc().text.to_string();
+        std::fs::remove_file(&paths[1]).unwrap();
+        app.navigate_history(Direction::Back);
+        finish(&mut app);
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), before);
+        assert!(app.doc().dirty());
+        assert!(app.can_navigate_back());
+        assert!(!app.can_navigate_forward());
+        assert!(app.message.contains("history retained"));
+        app.doc_mut().undo();
+        assert_eq!(
+            app.doc().text.to_string(),
+            before.trim_start_matches("dirty")
+        );
+    }
+    #[test]
+    fn loader_capture_budget_rejects_before_dispatch_and_preserves_redo() {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths) = three(root.path());
+        app.doc_mut().insert("dirty", false);
+        app.doc_mut().undo();
+        let before = app.doc().text.to_string();
+        for _ in 0..128 {
+            app.documents.push(Document::from_text(""));
+        }
+        app.navigate_history(Direction::Back);
+        assert!(app.navigation.pending.is_none());
+        assert_eq!(app.doc().path.as_deref(), Some(paths[2].as_path()));
+        assert!(app.can_navigate_back());
+        assert!(!app.can_navigate_forward());
+        assert!(app.message.contains("128 models"));
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "dirty".to_owned() + &before);
+        assert_ne!(
+            std::fs::read(&paths[2]).unwrap(),
+            app.doc().text.to_string().as_bytes()
+        );
+    }
+    #[test]
+    fn exhausted_interaction_fence_never_wraps_or_installs_a_held_old_reply() {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths) = three(root.path());
+        let sender = hold(&mut app);
+        let id = app.doc().id;
+        app.navigation.interaction = u64::MAX - 1;
+        app.navigation_input_interaction();
+        app.navigation_input_interaction();
+        assert_eq!(app.navigation.interaction, u64::MAX);
+        app.navigate_history(Direction::Back);
+        assert!(app.message.contains("restart the editor"));
+        sender
+            .send(Ok(Target::Loaded(Box::new(
+                Document::open_existing(&paths[0]).unwrap(),
+            ))))
+            .unwrap();
+        app.poll_navigation();
+        assert_eq!(app.documents.len(), 1);
+        assert_eq!(app.doc().id, id);
+        assert!(!app.can_navigate_back());
+        assert!(!app.can_navigate_forward());
+    }
+    #[test]
+    fn duplicate_held_reopen_preserves_only_the_current_original_request() {
+        for invalidation in [0, 1, 2] {
+            let root = tempfile::tempdir().unwrap();
+            let source = root.path().join("source.cpp");
+            let target = root.path().join("target.cpp");
+            std::fs::write(&source, "source 猫🙂\r\n").unwrap();
+            std::fs::write(&target, "target 猫🙂\r\n").unwrap();
+            let mut app = App::new(root.path().into(), Profile::Linux);
+            app.open(&source).unwrap();
+            let id = app.doc().id;
+            let before = app.doc().text.to_string();
+            let closed = Closed {
+                id: 1,
+                path: target.clone(),
+                row: 0,
+                column: 0,
+            };
+            app.navigation.closed.push(closed.clone());
+            let (sender, receiver) = mpsc::sync_channel(1);
+            let context = app.navigation_context();
+            app.navigation.pending = Some(Pending {
+                receiver,
+                context: context.clone(),
+                closed: Some(closed),
+                intent: OpenIntent::Focus,
+            });
+            assert!(app.duplicate_reopen_pending());
+            if invalidation == 1 {
+                app.doc_mut().insert("dirty", false);
+                app.doc_mut().undo();
+            } else if invalidation == 2 {
+                app.navigation_input_interaction();
+            }
+            assert_eq!(app.duplicate_reopen_pending(), invalidation == 0);
+            app.execute("workbench.action.reopenClosedEditor", Value::Null);
+            assert!(app.navigation.pending.as_ref().unwrap().context == context);
+            sender
+                .send(Ok(Target::Loaded(Box::new(
+                    Document::open_existing(&target).unwrap(),
+                ))))
+                .unwrap();
+            app.poll_navigation();
+            assert!(app.navigation.pending.is_none());
+            if invalidation == 0 {
+                assert_eq!(
+                    app.doc().path,
+                    Some(std::fs::canonicalize(&target).unwrap())
+                );
+                assert!(app.navigation.closed.is_empty());
+            } else {
+                assert_eq!(app.doc().id, id);
+                assert_eq!(app.doc().text.to_string(), before);
+                assert_eq!(app.navigation.closed.len(), 1);
+                if invalidation == 1 {
+                    app.doc_mut().redo();
+                    assert_eq!(app.doc().text.to_string(), "dirty".to_owned() + &before);
+                }
+            }
+            assert_eq!(std::fs::read(&source).unwrap(), before.as_bytes());
+            assert_eq!(
+                std::fs::read(&target).unwrap(),
+                "target 猫🙂\r\n".as_bytes()
+            );
+        }
+    }
 }
 impl OpenIntent {
     pub(super) fn validate(&self, doc: &Document) -> Result<()> {
@@ -63,6 +305,13 @@ impl OpenIntent {
                     app.doc_mut().insert("{\n}\n", false);
                 }
             }
+            Self::History(_) => {}
+        }
+        if matches!(
+            self,
+            Self::Location(_) | Self::Search(_) | Self::Debug { .. }
+        ) {
+            app.observe_navigation(super::navigation_history::Reason::Jump);
         }
     }
 }
@@ -73,13 +322,14 @@ struct Closed {
     row: usize,
     column: usize,
 }
-#[derive(PartialEq)]
-struct Context {
+#[derive(Clone, PartialEq)]
+pub(super) struct Context {
     workspace: PathBuf,
     focus: Focus,
     pane: Option<u64>,
-    document: Option<(u64, u64, usize)>,
+    document: Option<(u64, u64, u64, u64, usize, Option<usize>)>,
     generation: u64,
+    interaction: u64,
 }
 enum Target {
     Existing(PathBuf),
@@ -96,18 +346,27 @@ pub(super) struct State {
     closed: Vec<Closed>,
     sequence: u64,
     generation: u64,
+    interaction: u64,
     pending: Option<Pending>,
 }
 impl App {
-    fn navigation_context(&self) -> Context {
+    pub(super) fn navigation_context(&self) -> Context {
         Context {
             workspace: self.workspace.root.clone(),
             focus: self.focus.clone(),
             pane: self.panes.get(self.active_pane).map(|pane| pane.id),
-            document: self
-                .active_document()
-                .map(|doc| (doc.id, doc.revision, doc.cursor)),
+            document: self.active_document().map(|doc| {
+                (
+                    doc.id,
+                    doc.revision,
+                    doc.text_epoch(),
+                    doc.save_generation(),
+                    doc.cursor,
+                    doc.anchor,
+                )
+            }),
             generation: self.navigation.generation,
+            interaction: self.navigation.interaction,
         }
     }
     pub fn configure_recents(&mut self, root: Option<&Path>) {
@@ -117,7 +376,37 @@ impl App {
         self.recent_files.finish()
     }
     pub(super) fn cancel_navigation(&mut self) {
-        self.navigation.generation = self.navigation.generation.wrapping_add(1);
+        self.navigation.generation = self.navigation.generation.saturating_add(1);
+        self.history_navigation_cancelled();
+    }
+    pub(super) fn navigation_input_interaction(&mut self) {
+        self.navigation.interaction = self.navigation.interaction.saturating_add(1);
+        self.cancel_navigation();
+    }
+    pub(super) fn history_loader_busy(&self) -> bool {
+        self.navigation.pending.is_some()
+    }
+    pub(super) fn duplicate_reopen_pending(&self) -> bool {
+        self.navigation_channel_available()
+            && self.prompt.is_none()
+            && self.modal.is_none()
+            && self.navigation.pending.as_ref().is_some_and(|pending| {
+                matches!(pending.intent, OpenIntent::Focus)
+                    && pending.closed.as_ref().is_some_and(|closed| {
+                        self.navigation
+                            .closed
+                            .last()
+                            .is_some_and(|latest| latest.id == closed.id)
+                    })
+                    && pending.context == self.navigation_context()
+            })
+    }
+    pub(super) fn navigation_channel_available(&self) -> bool {
+        self.navigation.generation < u64::MAX && self.navigation.interaction < u64::MAX
+    }
+    pub(super) fn open_history_resource(&mut self, travel: super::navigation_history::Travel) {
+        let path = travel.resource().unwrap().to_owned();
+        self.open_navigation_mode(path, None, false, OpenIntent::History(travel));
     }
     pub(super) fn remember_active_file(&mut self) {
         if let Some(path) = self.active_document().and_then(|doc| doc.path.clone()) {
@@ -210,10 +499,18 @@ impl App {
             return Ok(false);
         };
         intent.validate(doc)?;
-        if self.focus_existing_navigation(path) {
-            intent.apply(self);
+        if let OpenIntent::History(travel) = intent {
+            let document = doc.id;
+            self.apply_history_target(travel, document)?;
             return Ok(true);
         }
+        let suspended = self.suspend_navigation_observation();
+        if self.focus_existing_navigation(path) {
+            intent.apply(self);
+            self.resume_navigation_observation(suspended, super::navigation_history::Reason::Jump);
+            return Ok(true);
+        }
+        self.resume_navigation_observation(suspended, super::navigation_history::Reason::Ordinary);
         Ok(false)
     }
     pub(super) fn open_hidden_aware(&mut self, path: PathBuf, intent: OpenIntent) {
@@ -239,6 +536,9 @@ impl App {
                 return;
             }
             Err(error) => {
+                if let OpenIntent::History(travel) = &intent {
+                    self.history_travel_failed(travel);
+                }
                 self.message = format!("Navigation target rejected: {error:#}");
                 return;
             }
@@ -248,7 +548,35 @@ impl App {
             self.message = "A recent file is still loading; retry shortly".into();
             return;
         }
-        self.cancel_navigation();
+        if !matches!(intent, OpenIntent::History(_)) {
+            self.cancel_navigation();
+        }
+        if !self.navigation_channel_available() {
+            if let OpenIntent::History(travel) = &intent {
+                self.history_travel_failed(travel);
+            }
+            self.message = "Navigation interaction limit reached; restart the editor".into();
+            return;
+        }
+        if self
+            .documents
+            .len()
+            .saturating_add(self.hidden_documents.len())
+            > 128
+            || self
+                .documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .filter_map(|doc| doc.path.as_ref())
+                .any(|path| path.as_os_str().len() > 4096)
+        {
+            if let OpenIntent::History(travel) = &intent {
+                self.history_travel_failed(travel);
+            }
+            self.message =
+                "File navigation loading supports at most 128 models with 4 KiB paths".into();
+            return;
+        }
         let context = self.navigation_context();
         let (sender, receiver) = mpsc::sync_channel(1);
         let existing: Vec<_> = self
@@ -293,7 +621,7 @@ impl App {
             self.message = format!("Recent files unavailable: {error}");
         }
         let Some(pending) = &self.navigation.pending else {
-            return changed;
+            return self.dispatch_queued_history() || changed;
         };
         let result = match pending.receiver.try_recv() {
             Ok(result) => result,
@@ -306,7 +634,10 @@ impl App {
             || self.prompt.is_some()
             || self.modal.is_some()
         {
-            return changed;
+            if let OpenIntent::History(travel) = &pending.intent {
+                self.history_travel_failed(travel);
+            }
+            return self.dispatch_queued_history() || changed;
         }
         let result = result
             .map_err(anyhow::Error::msg)
@@ -324,12 +655,20 @@ impl App {
                             .focus_existing_intent(doc.path.as_ref().unwrap(), &pending.intent)?
                         {
                             pending.intent.validate(&doc)?;
+                            if let OpenIntent::History(travel) = &pending.intent {
+                                return self.install_history_document(travel, *doc);
+                            }
                             self.settings.apply(&mut doc);
                             if let Some(closed) = &pending.closed {
                                 doc.move_to(doc.position_at(closed.row, closed.column), false);
                             }
+                            let suspended = self.suspend_navigation_observation();
                             self.install_open_document(*doc);
                             pending.intent.apply(self);
+                            self.resume_navigation_observation(
+                                suspended,
+                                super::navigation_history::Reason::Jump,
+                            );
                         }
                     }
                 }
@@ -337,9 +676,12 @@ impl App {
                 Ok(())
             });
         if let Err(error) = result {
+            if let OpenIntent::History(travel) = &pending.intent {
+                self.history_travel_failed(travel);
+            }
             self.message = format!("File could not be opened (history retained): {error:#}");
         }
-        changed
+        self.dispatch_queued_history() || changed
     }
 }
 

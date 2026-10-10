@@ -506,12 +506,22 @@ impl App {
         if start > end {
             bail!("Reversed location range")
         }
+        let previous = self.suspend_navigation_observation();
         if let Some(doc) = loaded {
             let mut doc = *doc;
             self.settings.apply(&mut doc);
             self.install_open_document(doc);
         } else {
-            self.open_with_intent(&path, navigation::OpenIntent::Location(range))?;
+            let result = self.open_with_intent(&path, navigation::OpenIntent::Location(range));
+            self.resume_navigation_observation(
+                previous,
+                if result.is_ok() {
+                    navigation_history::Reason::Jump
+                } else {
+                    navigation_history::Reason::Ordinary
+                },
+            );
+            result?;
             self.message = "Extension location opened".into();
             return Ok(());
         }
@@ -520,6 +530,7 @@ impl App {
         if start != end {
             self.doc_mut().move_to(end, true);
         }
+        self.resume_navigation_observation(previous, navigation_history::Reason::Jump);
         self.message = "Extension location opened".into();
         Ok(())
     }
@@ -550,6 +561,7 @@ impl App {
             }
             self.doc_mut().clear_secondary();
             self.doc_mut().move_to(start, false);
+            self.observe_navigation(navigation_history::Reason::Jump);
             Ok(())
         })();
         self.cancel_extension_provider();
