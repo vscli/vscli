@@ -193,6 +193,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/settings_persistence_pty.py target/debug/vscli
+      - name: Run native save automation workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/save_automation_pty.py target/debug/vscli
       - name: Run automatic parameter hint workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
