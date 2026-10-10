@@ -516,8 +516,56 @@ def run():
 
         app = Editor(root, root)
         app.send(CTRL_P)
+        wait_screen(app, "Go to File")
         app.send("main.rs")
+
+        def quick_open_result_ready():
+            app.read()
+            lines = app.screen.text().splitlines()
+            titles = [index for index, line in enumerate(lines) if "Go to File" in line]
+            if len(titles) != 1:
+                return False
+            row = titles[0]
+            title = lines[row]
+            if "┌" not in title or "┐" not in title or row + 3 >= len(lines):
+                return False
+            left, right = title.index("┌"), title.rindex("┐")
+            # Default selection is the first result, not the query text or an
+            # Explorer/tab label that happens to contain the same filename.
+            return lines[row + 3][left + 1:right].strip(" │") == "main.rs"
+
+        try:
+            eventually(quick_open_result_ready)
+        except AssertionError as error:
+            raise AssertionError(f"Quick Open selected main.rs result:\n{app.screen.text()}") from error
         app.send(b"\r")
+
+        def quick_open_editor_ready():
+            app.read()
+            snapshot = app.screen.text()
+            if "Go to File" in snapshot or "Opening recent file…" in snapshot:
+                return False
+            lines = snapshot.splitlines()
+            status = [line for line in lines if " | " in line and "Ln " in line]
+            if len(status) != 1 or status[0].split("|")[0].strip() != "main.rs":
+                return False
+            strips = [(row, line.index("1 ·")) for row, line in enumerate(lines)
+                      if "1 ·" in line]
+            if len(strips) != 1:
+                return False
+            row, left = strips[0]
+            if not re.fullmatch(r"1 ·\s*main\.rs", lines[row][left:].strip()):
+                return False
+            # A real retained file model must have published its source text
+            # below the unique tab strip before any edit can cancel its loader.
+            body = [line[left:] for line in lines[row + 1:]]
+            return (any(re.fullmatch(r"\s*2\s+fn main\(\) \{\s*", line) for line in body)
+                    and any(re.fullmatch(r'\s*3\s+println!\("hello"\);\s*', line) for line in body))
+
+        try:
+            eventually(quick_open_editor_ready)
+        except AssertionError as error:
+            raise AssertionError(f"Quick Open main.rs editor publication:\n{app.screen.text()}") from error
         app.send(CTRL_A)
         app.paste("opened via quick open\n")
         app.send(CTRL_S)
