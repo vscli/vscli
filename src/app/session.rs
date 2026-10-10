@@ -16,12 +16,25 @@ struct ModelContext {
     path: Option<PathBuf>,
     selections: Vec<crate::document::Selection>,
 }
+// A geometry-only change does not touch membership proof or model epochs.
+// Retain exact layout revision identity so a pending restore cannot replace a
+// newer layout, including equal-generation independently prepared forks.
+struct LayoutContext(Option<crate::editor_layout::Geometry>);
+impl PartialEq for LayoutContext {
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (Some(a), Some(b)) => a.same_revision(b),
+            _ => false, // Unexpected projection failure never authorizes restore.
+        }
+    }
+}
 #[derive(PartialEq)]
 struct Context {
     epoch: u64,
     workspace: PathBuf,
     documents: Vec<ModelContext>,
     groups: UiProof,
+    layout: LayoutContext,
     fallback: bool,
     panes: Vec<(u64, u64)>,
     active: usize,
@@ -94,6 +107,14 @@ impl App {
                 })
                 .collect(),
             groups: self.editor_groups.proof(),
+            layout: LayoutContext(
+                self.editor_layout
+                    .project(
+                        ratatui::layout::Rect::default(),
+                        self.editor_layout.groups().first().copied(),
+                    )
+                    .ok(),
+            ),
             fallback: self.group_fallback,
             panes: self.panes.iter().map(|p| (p.id, p.document)).collect(),
             active: self.active,
@@ -190,9 +211,19 @@ impl App {
         let mut ids = Vec::new();
         let mut paths = std::collections::HashSet::new();
         let mut groups = Vec::new();
+        let mut sticky = Vec::new();
+        let mut retained_groups = Vec::new();
+        let all_groups = self
+            .editor_groups
+            .groups()
+            .iter()
+            .map(|group| group.id())
+            .collect::<Vec<_>>();
+        self.editor_layout.validate(&all_groups)?;
         for group in self.editor_groups.groups() {
             let mut tabs = Vec::new();
             let mut tab_ids = Vec::new();
+            let mut flags = Vec::new();
             for tab in group.tabs() {
                 let doc = self
                     .documents
@@ -224,6 +255,7 @@ impl App {
                 };
                 tabs.push(SavedTab { file, view });
                 tab_ids.push(tab.id());
+                flags.push(tab.is_sticky());
             }
             if tabs.is_empty() {
                 continue;
@@ -250,6 +282,8 @@ impl App {
                 active,
                 recent,
             });
+            sticky.push(flags);
+            retained_groups.push(group.id());
         }
         layout.active_pane = layout.active_group;
         layout.active_file = layout
@@ -257,6 +291,18 @@ impl App {
             .get(layout.active_pane)
             .map_or(0, |pane| pane.file);
         layout.groups = Some(groups);
+        layout.sticky = Some(sticky);
+        // Omitted dirty/untitled-only leaves are removed on a bounded clone.
+        // Surviving nested axes/weights are retained; saved leaves use only
+        // the retained appearance indices, never native identity numbers.
+        let mut tree = self.editor_layout.clone();
+        for group in all_groups {
+            if !retained_groups.contains(&group) {
+                let plan = tree.prepare_remove(group)?;
+                tree.commit(plan)?;
+            }
+        }
+        layout.tree = tree.export(&retained_groups)?;
         layout.validate()?;
         Ok(layout)
     }
@@ -448,9 +494,26 @@ impl App {
                 })
                 .collect::<Vec<_>>();
             engine.import(&imported, layout.active_group)?;
+            let sticky = layout.sticky.as_ref().expect("normalized sticky flags");
+            let group_ids = engine
+                .groups()
+                .iter()
+                .map(|group| group.id())
+                .collect::<Vec<_>>();
+            for ((group, saved), flags) in group_ids.iter().zip(saved_groups).zip(sticky) {
+                // Ordered prefix promotion preserves saved tab order and MRU.
+                // Every allocation/counter change is still on the staged engine.
+                for (tab, flag) in saved.tabs.iter().zip(flags).take_while(|(_, flag)| **flag) {
+                    let member = engine
+                        .memberships(file_ids[tab.file])
+                        .find(|member| member.group == *group)
+                        .ok_or_else(|| anyhow::anyhow!("Imported sticky membership missing"))?;
+                    engine.set_sticky(member, *flag)?;
+                }
+            }
             let editor_layout = self.prepare_import_group_layout(
                 &engine,
-                None,
+                layout.tree.as_ref(),
                 if layout.horizontal {
                     crate::editor_layout::Axis::Rows
                 } else {
@@ -942,6 +1005,8 @@ mod tests {
             active_group: 1,
             horizontal: true,
             groups: Some(groups),
+            tree: None,
+            sticky: None,
         }
         .normalized()
         .unwrap();
@@ -1015,6 +1080,8 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let mut restored = grouped_fixture(root.path());
         restored.layout.groups = None;
+        restored.layout.tree = None;
+        restored.layout.sticky = None;
         restored.layout.active_group = 0;
         let expected = restored.layout.normalized().unwrap();
         let mut app = App::new(root.path().into(), Profile::Linux);
@@ -1205,6 +1272,7 @@ mod tests {
 #[cfg(test)]
 mod combined_tests {
     use super::*;
+    use crate::document::Selection;
     use std::fs;
     fn until(app: &mut App, condition: impl Fn(&App) -> bool) {
         let deadline = Instant::now() + Duration::from_secs(10);
@@ -1360,5 +1428,595 @@ exports.activate = context => context.subscriptions.push(vscode.commands.registe
         assert_eq!(app.doc().text, "preserved\r\n");
         assert!(!app.doc().dirty());
         app.finish_session().unwrap();
+    }
+    fn nested_session_app(root: &Path) -> (App, [PathBuf; 3], [u64; 3]) {
+        use crate::editor_layout::{Axis, SavedNode};
+        let root = fs::canonicalize(root).unwrap();
+        let paths = [root.join("a.txt"), root.join("b.txt"), root.join("c.txt")];
+        for path in &paths {
+            fs::write(path, "猫🙂 value\r\nnext\r\n").unwrap();
+        }
+        let mut app = App::new(root, Profile::Linux);
+        app.open(&paths[0]).unwrap();
+        until(&mut app, |app| {
+            app.active_document()
+                .is_some_and(|doc| doc.path.as_ref() == Some(&paths[0]))
+        });
+        let a = app.doc().id;
+        app.doc_mut().set_selections(vec![Selection {
+            cursor: 6,
+            anchor: Some(3),
+            desired_column: None,
+        }]);
+        app.open(&paths[1]).unwrap();
+        until(&mut app, |app| {
+            app.active_document()
+                .is_some_and(|doc| doc.path.as_ref() == Some(&paths[1]))
+        });
+        let b = app.doc().id;
+        app.execute("workbench.action.pinEditor", serde_json::Value::Null);
+        assert!(app.editor_groups.active_membership().is_some_and(|member| {
+            app.editor_groups
+                .group(member.group)
+                .unwrap()
+                .tabs()
+                .iter()
+                .any(|tab| tab.id() == member.tab && tab.is_sticky())
+        }));
+        app.open(&paths[0]).unwrap();
+        until(&mut app, |app| app.doc().id == a);
+        app.execute("workbench.action.splitEditorRight", serde_json::Value::Null);
+        assert_eq!(app.editor_groups.groups().len(), 2);
+        app.doc_mut().set_selections(vec![Selection {
+            cursor: 5,
+            anchor: None,
+            desired_column: None,
+        }]);
+        app.doc_mut().top = 1;
+        app.execute("workbench.action.splitEditorDown", serde_json::Value::Null);
+        assert_eq!(app.editor_groups.groups().len(), 3);
+        app.open(&paths[2]).unwrap();
+        until(&mut app, |app| {
+            app.active_document()
+                .is_some_and(|doc| doc.path.as_ref() == Some(&paths[2]))
+        });
+        let c = app.doc().id;
+        app.doc_mut().set_selections(vec![Selection {
+            cursor: 3,
+            anchor: Some(1),
+            desired_column: None,
+        }]);
+        app.execute("workbench.action.pinEditor", serde_json::Value::Null);
+        let ids = app
+            .editor_groups
+            .groups()
+            .iter()
+            .map(|group| group.id())
+            .collect::<Vec<_>>();
+        let tree = SavedNode::Split {
+            axis: Axis::Columns,
+            first_weight: 3,
+            second_weight: 7,
+            first: Box::new(SavedNode::Leaf { group: 0 }),
+            second: Box::new(SavedNode::Split {
+                axis: Axis::Rows,
+                first_weight: 2,
+                second_weight: 5,
+                first: Box::new(SavedNode::Leaf { group: 1 }),
+                second: Box::new(SavedNode::Leaf { group: 2 }),
+            }),
+        };
+        let plan = app.editor_layout.prepare_import(&ids, Some(&tree)).unwrap();
+        app.commit_editor_layout_plan(plan).unwrap();
+        app.focus_pane(0);
+        (app, paths, [a, b, c])
+    }
+    fn reopened_session(layout: &Layout) -> crate::session::Restored {
+        crate::session::Restored {
+            layout: layout.clone(),
+            documents: layout
+                .files
+                .iter()
+                .map(|file| Document::open(&file.path).unwrap())
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn schema_three_fresh_restore_retains_nested_sticky_views_with_new_ids_and_shared_undo() {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths, source_ids) = nested_session_app(root.path());
+        let saved = app.capture_session().unwrap();
+        assert_eq!(
+            saved.sticky,
+            Some(vec![vec![true, false], vec![false], vec![true, false]])
+        );
+        let prior_groups = app
+            .editor_groups
+            .groups()
+            .iter()
+            .map(|group| group.id())
+            .collect::<Vec<_>>();
+        let old_members = app
+            .editor_groups
+            .groups()
+            .iter()
+            .flat_map(|group| {
+                group
+                    .tabs()
+                    .iter()
+                    .map(|tab| crate::editor_groups::Membership {
+                        group: group.id(),
+                        tab: tab.id(),
+                        document: tab.document(),
+                    })
+            })
+            .collect::<Vec<_>>();
+        let restored = reopened_session(&saved);
+        for _ in 0..8 {
+            if app.editor_groups.active_membership().is_none() {
+                break;
+            }
+            app.execute(
+                "workbench.action.closeActivePinnedEditor",
+                serde_json::Value::Null,
+            );
+            assert!(app.modal.is_none());
+        }
+        assert!(app.documents.is_empty());
+        assert!(app.editor_groups.groups().is_empty());
+        app.install_session(restored).unwrap();
+        assert_eq!(app.capture_session().unwrap(), saved);
+        assert!(
+            app.editor_groups
+                .groups()
+                .iter()
+                .all(|group| !prior_groups.contains(&group.id()))
+        );
+        assert!(
+            old_members
+                .iter()
+                .all(|member| !app.editor_groups.membership_current(*member))
+        );
+        assert!(
+            app.documents
+                .iter()
+                .all(|doc| !source_ids.contains(&doc.id))
+        );
+        assert!(
+            app.editor_groups
+                .groups()
+                .iter()
+                .flat_map(|group| group.tabs())
+                .all(|tab| !tab.is_preview())
+        );
+        let a = app
+            .documents
+            .iter()
+            .find(|doc| doc.path.as_ref() == Some(&paths[0]))
+            .unwrap()
+            .id;
+        let memberships = app.editor_groups.memberships(a).collect::<Vec<_>>();
+        assert_eq!(memberships.len(), 3);
+        app.focus_tab(memberships[0]).unwrap();
+        let original = app.doc().text.to_string();
+        let epoch = app.doc().text_epoch();
+        app.doc_mut().insert("λ", false);
+        let changed = app.doc().text.to_string();
+        app.focus_tab(memberships[1]).unwrap();
+        assert_eq!(app.doc().id, a);
+        assert_eq!(app.doc().text.to_string(), changed);
+        assert!(app.doc().dirty());
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), original);
+        assert!(!app.doc().dirty());
+        assert!(app.doc().text_epoch() > epoch);
+        app.focus_tab(memberships[2]).unwrap();
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), changed);
+        app.doc_mut().undo();
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂 value\r\nnext\r\n".as_bytes());
+        }
+    }
+
+    #[test]
+    fn schema_three_capture_prunes_dirty_outer_group_but_keeps_inner_axis_weights_and_live_proofs()
+    {
+        use crate::editor_layout::{Axis, SavedNode};
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths, ids) = nested_session_app(root.path());
+        let first = app.editor_groups.groups()[0].id();
+        let a = app
+            .editor_groups
+            .memberships(ids[0])
+            .find(|member| member.group == first)
+            .unwrap();
+        app.focus_tab(a).unwrap();
+        app.execute(
+            "workbench.action.closeActiveEditor",
+            serde_json::Value::Null,
+        );
+        assert_eq!(app.doc().id, ids[1]);
+        app.doc_mut().insert("dirty 猫", false);
+        let context = app.session_context();
+        let engine = app.editor_groups.clone();
+        let tree = app.editor_layout.clone();
+        let saved = app.capture_session().unwrap();
+        assert_eq!(saved.files.len(), 2);
+        assert!(saved.files.iter().all(|file| file.path != paths[1]));
+        assert_eq!(saved.active_group, 0);
+        assert_eq!(
+            saved.tree,
+            Some(SavedNode::Split {
+                axis: Axis::Rows,
+                first_weight: 2,
+                second_weight: 5,
+                first: Box::new(SavedNode::Leaf { group: 0 }),
+                second: Box::new(SavedNode::Leaf { group: 1 })
+            })
+        );
+        assert_eq!(saved.sticky, Some(vec![vec![false], vec![true, false]]));
+        assert_eq!(app.editor_groups, engine);
+        assert_eq!(app.editor_layout, tree);
+        assert!(app.session_context() == context);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text, "猫🙂 value\r\nnext\r\n");
+        app.doc_mut().redo();
+        assert!(app.doc().dirty());
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂 value\r\nnext\r\n".as_bytes());
+        }
+    }
+
+    #[test]
+    fn schema_three_capture_prunes_dirty_inner_leaf_without_reweighting_surviving_outer_split() {
+        use crate::editor_layout::{Axis, SavedNode};
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths, ids) = nested_session_app(root.path());
+        let keep = app.editor_groups.groups()[1].id();
+        let removed = app
+            .editor_groups
+            .memberships(ids[0])
+            .filter(|member| member.group != keep)
+            .collect::<Vec<_>>();
+        for member in removed {
+            app.focus_tab(member).unwrap();
+            app.execute(
+                "workbench.action.closeActiveEditor",
+                serde_json::Value::Null,
+            );
+        }
+        let member = app.editor_groups.memberships(ids[0]).next().unwrap();
+        app.focus_tab(member).unwrap();
+        app.doc_mut().insert("dirty🙂", false);
+        let context = app.session_context();
+        let saved = app.capture_session().unwrap();
+        assert_eq!(
+            saved.tree,
+            Some(SavedNode::Split {
+                axis: Axis::Columns,
+                first_weight: 3,
+                second_weight: 7,
+                first: Box::new(SavedNode::Leaf { group: 0 }),
+                second: Box::new(SavedNode::Leaf { group: 1 })
+            })
+        );
+        assert_eq!(saved.sticky, Some(vec![vec![true], vec![true]]));
+        assert!(app.session_context() == context);
+        assert_eq!(app.editor_groups.groups().len(), 3);
+        assert!(saved.files.iter().all(|file| file.path != paths[0]));
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂 value\r\nnext\r\n".as_bytes());
+        }
+    }
+
+    #[test]
+    fn schema_three_invalid_late_metadata_never_configures_models_or_changes_authority() {
+        let root = tempfile::tempdir().unwrap();
+        let (app, paths, _) = nested_session_app(root.path());
+        let saved = app.capture_session().unwrap();
+        let mut target = App::new(root.path().into(), Profile::Linux);
+        let context = target.session_context();
+        for mode in 0..3 {
+            let mut bad = saved.clone();
+            let expected = match mode {
+                0 => {
+                    let crate::editor_layout::SavedNode::Split { second, .. } =
+                        bad.tree.as_mut().unwrap()
+                    else {
+                        unreachable!()
+                    };
+                    let crate::editor_layout::SavedNode::Split { second, .. } = second.as_mut()
+                    else {
+                        unreachable!()
+                    };
+                    **second = crate::editor_layout::SavedNode::Leaf { group: 0 };
+                    "Invalid or duplicate layout group index"
+                }
+                1 => {
+                    bad.sticky.as_mut().unwrap()[2] = vec![false, true];
+                    "Invalid session sticky prefix"
+                }
+                _ => {
+                    bad.groups.as_mut().unwrap()[2].tabs[1].file = 32;
+                    "Invalid or duplicate session group file"
+                }
+            };
+            let mut calls = 0;
+            let result = target.install_session_with(reopened_session(&bad), |_, _| {
+                calls += 1;
+                Ok(())
+            });
+            assert_eq!(result.unwrap_err().to_string(), expected);
+            assert_eq!(calls, 0);
+            assert!(target.documents.is_empty());
+            assert!(target.session_context() == context);
+        }
+        target.install_session(reopened_session(&saved)).unwrap();
+        assert_eq!(target.capture_session().unwrap(), saved);
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂 value\r\nnext\r\n".as_bytes());
+        }
+    }
+
+    #[test]
+    fn schema_three_admission_refusal_keeps_empty_models_layout_views_and_counter_proofs() {
+        let root = tempfile::tempdir().unwrap();
+        let (source, paths, _) = nested_session_app(root.path());
+        let saved = source.capture_session().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let context = app.session_context();
+        let engine = app.editor_groups.clone();
+        let layout = app.editor_layout.clone();
+        app.editor_groups.fail_next_recent_reservation();
+        let error = app.install_session(reopened_session(&saved)).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("Cannot reserve editor MRU storage"),
+            "{error:#}"
+        );
+        assert!(app.documents.is_empty());
+        assert_eq!(app.editor_groups, engine);
+        assert_eq!(app.editor_layout, layout);
+        assert!(app.session_context() == context);
+        app.install_session(reopened_session(&saved)).unwrap();
+        assert_eq!(app.capture_session().unwrap(), saved);
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂 value\r\nnext\r\n".as_bytes());
+        }
+    }
+
+    #[test]
+    fn schema_three_recovery_append_keeps_live_nested_modes_views_and_dirty_redo() {
+        let root = tempfile::tempdir().unwrap();
+        let (source, paths, _) = nested_session_app(root.path());
+        let saved = source.capture_session().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.open(&paths[0]).unwrap();
+        until(&mut app, |app| {
+            app.active_document()
+                .is_some_and(|doc| doc.path.as_ref() == Some(&paths[0]))
+        });
+        let a = app.doc().id;
+        app.doc_mut().insert("recovered🙂", false);
+        app.doc_mut().undo();
+        app.execute("workbench.action.pinEditor", serde_json::Value::Null);
+        app.execute("workbench.action.splitEditorDown", serde_json::Value::Null);
+        let extra = root.path().join("preview.txt");
+        fs::write(&extra, "preview 猫🙂\r\n").unwrap();
+        app.install_preview_document(
+            Document::open(&extra).unwrap(),
+            crate::editor_groups::OpenMode::Preview,
+        )
+        .unwrap();
+        let preview = app.editor_groups.active_membership().unwrap();
+        let before_layout = app.editor_layout.clone();
+        let before_groups = app.editor_groups.clone();
+        let before_models = app
+            .documents
+            .iter()
+            .map(|doc| {
+                (
+                    doc.id,
+                    doc.text.to_string(),
+                    doc.text_epoch(),
+                    doc.save_generation(),
+                    doc.selections(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let mut restored = reopened_session(&saved);
+        restored
+            .documents
+            .retain(|doc| doc.path.as_ref() != Some(&paths[0]));
+        app.install_session(restored).unwrap();
+        assert_eq!(app.editor_layout, before_layout);
+        assert_eq!(app.editor_groups.groups()[0], before_groups.groups()[0]);
+        assert!(app.editor_groups.membership_current(preview));
+        assert!(
+            app.editor_groups
+                .group(preview.group)
+                .unwrap()
+                .tabs()
+                .iter()
+                .find(|tab| tab.id() == preview.tab)
+                .unwrap()
+                .is_preview()
+        );
+        assert_eq!(app.editor_groups.active_membership(), Some(preview));
+        for (id, text, epoch, generation, selections) in before_models {
+            let doc = app.documents.iter().find(|doc| doc.id == id).unwrap();
+            assert_eq!(doc.text.to_string(), text);
+            assert_eq!(doc.text_epoch(), epoch);
+            assert_eq!(doc.save_generation(), generation);
+            assert_eq!(doc.selections(), selections);
+        }
+        let member = app.editor_groups.memberships(a).next().unwrap();
+        app.focus_tab(member).unwrap();
+        app.doc_mut().redo();
+        assert_eq!(
+            app.doc().text.to_string(),
+            "recovered🙂猫🙂 value\r\nnext\r\n"
+        );
+        assert!(app.doc().dirty());
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂 value\r\nnext\r\n".as_bytes());
+        }
+        assert_eq!(fs::read(extra).unwrap(), "preview 猫🙂\r\n".as_bytes());
+    }
+
+    #[test]
+    fn schema_three_layout_revision_context_rejects_geometry_only_changes_and_equal_generation_forks()
+     {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, _, _) = nested_session_app(root.path());
+        let before = app.session_context();
+        let document = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        let selections = app.doc().selections();
+        let memberships = app.editor_groups.proof();
+        let plan = app.editor_layout.prepare_reset().unwrap();
+        app.commit_editor_layout_plan(plan).unwrap();
+        assert!(app.session_context() != before);
+        assert_eq!(app.doc().id, document);
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(app.editor_groups.proof(), memberships);
+        let context = app.session_context();
+        let ids = app
+            .editor_groups
+            .groups()
+            .iter()
+            .map(|group| group.id())
+            .collect::<Vec<_>>();
+        let exported = app.editor_layout.export(&ids).unwrap();
+        let original = app.editor_layout.clone();
+        let mut foreign = crate::editor_layout::Layout::default();
+        while foreign.generation() + 1 < original.generation() {
+            let mut changed = exported.clone().unwrap();
+            let crate::editor_layout::SavedNode::Split { first_weight, .. } = &mut changed else {
+                unreachable!()
+            };
+            *first_weight = u32::try_from(foreign.generation() + 2).unwrap();
+            let plan = foreign.prepare_import(&ids, Some(&changed)).unwrap();
+            foreign.commit(plan).unwrap();
+        }
+        let plan = foreign.prepare_import(&ids, exported.as_ref()).unwrap();
+        foreign.commit(plan).unwrap();
+        assert_eq!(foreign.generation(), original.generation());
+        assert_eq!(foreign.export(&ids).unwrap(), exported);
+        // Equal generations and saved topology still have independent revision
+        // identity; the context must not substitute numeric equality for it.
+        app.editor_layout = foreign;
+        assert!(app.session_context() != context);
+        app.editor_layout = original;
+        assert!(app.session_context() == context);
+    }
+
+    #[test]
+    fn schema_three_held_real_save_capture_and_recovery_append_do_not_retire_snapshot_owner() {
+        use crate::save_worker::{GatePoint, Worker as SaveWorker};
+        use std::sync::mpsc::TryRecvError;
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths, ids) = nested_session_app(root.path());
+        let saved = app.capture_session().unwrap();
+        app.doc_mut().insert("authorized λ", false);
+        let written = app.doc().text.to_string();
+        let origin = app.doc().id;
+        assert_eq!(origin, ids[0]);
+        let (worker, entered, release) =
+            SaveWorker::fixture_gated(vec![GatePoint::BeforeCommit, GatePoint::BeforeFinish]);
+        app.replace_save_worker_fixture(worker);
+        app.execute("workbench.action.files.save", serde_json::Value::Null);
+        let wait = |app: &mut App, point| {
+            let deadline = Instant::now() + Duration::from_secs(4);
+            loop {
+                app.poll();
+                match entered.try_recv() {
+                    Ok(actual) => {
+                        assert_eq!(actual, point);
+                        break;
+                    }
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => {
+                        panic!("save gate disconnected: {}", app.message)
+                    }
+                }
+                assert!(Instant::now() < deadline, "{}", app.message);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        };
+        wait(&mut app, GatePoint::BeforeCommit);
+        assert!(app.saves_pending());
+        let before_epoch = app.doc().text_epoch();
+        let before_generation = app.doc().save_generation();
+        let snapshot = app.capture_session().unwrap();
+        assert!(snapshot.files.iter().all(|file| file.path != paths[0]));
+        assert!(app.saves_pending());
+        let mut restored = reopened_session(&saved);
+        restored.documents.clear(); // Existing retained models are authoritative.
+        app.install_session(restored).unwrap();
+        assert!(app.saves_pending());
+        assert_eq!(app.doc().id, origin);
+        assert_eq!(app.doc().text_epoch(), before_epoch);
+        app.doc_mut().insert("newer🙂", false);
+        let newer = app.doc().text.to_string();
+        release.try_send(()).unwrap();
+        wait(&mut app, GatePoint::BeforeFinish);
+        assert!(app.saves_pending());
+        assert_eq!(fs::read_to_string(&paths[0]).unwrap(), written);
+        release.try_send(()).unwrap();
+        until(&mut app, |app| !app.saves_pending());
+        assert_eq!(app.doc().id, origin);
+        assert_eq!(app.doc().text.to_string(), newer);
+        assert!(app.doc().dirty());
+        assert_eq!(app.doc().save_generation(), before_generation + 1);
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), written);
+        assert!(!app.doc().dirty());
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), newer);
+        assert_eq!(fs::read_to_string(&paths[0]).unwrap(), written);
+        for path in &paths[1..] {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂 value\r\nnext\r\n".as_bytes());
+        }
+    }
+    #[test]
+    fn schema_three_all_dirty_capture_does_not_publish_empty_over_previous_session() {
+        let root = tempfile::tempdir().unwrap();
+        let (mut app, paths, ids) = nested_session_app(root.path());
+        let previous = app.capture_session().unwrap();
+        assert_eq!(previous.files.len(), 3);
+        for id in ids {
+            let member = app.editor_groups.memberships(id).next().unwrap();
+            app.focus_tab(member).unwrap();
+            app.doc_mut().insert("unsaved🙂", false);
+        }
+        let live = app.session_context();
+        let groups = app.editor_groups.clone();
+        let layout = app.editor_layout.clone();
+        let captured = app.capture_session().unwrap();
+        assert!(captured.files.is_empty());
+        assert_eq!(captured.groups, Some(Vec::new()));
+        assert_eq!(captured.tree, None);
+        assert_eq!(captured.sticky, Some(Vec::new()));
+        assert!(!app.session.explicit_empty);
+        assert_eq!(app.session_snapshot().unwrap(), None);
+        assert!(app.session_context() == live);
+        assert_eq!(app.editor_groups, groups);
+        assert_eq!(app.editor_layout, layout);
+        for path in paths {
+            assert_eq!(fs::read(path).unwrap(), "猫🙂 value\r\nnext\r\n".as_bytes());
+        }
+        for id in ids {
+            let member = app.editor_groups.memberships(id).next().unwrap();
+            app.focus_tab(member).unwrap();
+            app.doc_mut().undo();
+            assert!(!app.doc().dirty());
+            app.doc_mut().redo();
+            assert!(app.doc().dirty());
+        }
     }
 }

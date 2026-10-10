@@ -93,20 +93,29 @@ navigation-history recording, so later Back/Forward remains usable.
 
 ## Clean-file session continuity
 
-Session schema 2 records an ordered clean-file table, ordered groups and tabs,
-each tab's view, each group's active tab and recent-tab order, active group and
-flat split orientation. Current schema 2 does not retain mixed topology or resized
-ratios; schema 3 integration is pending. Restore reads each unique file once, installs shared native
-documents and allocates fresh runtime group/tab identities after validation.
-It retains inactive-tab views as well as visible views.
+The schema-3 candidate records an ordered clean-file table, groups and tabs, each
+membership's view, active tabs/group, recent-tab order, nested axes/integer weights
+and per-tab sticky flags. Flags must form each group's ordered sticky prefix. Restore
+reads each unique file once and stages fresh native document/group/tab/split identities,
+views and tree before publication. Preview memberships restore committed; their mode
+remains transient.
 
-Schema 1 remains readable. Its complete global file order becomes the first
-group; additional legacy panes become groups containing their visible file
-and recorded view. The previously active pane selects the active group. Since
-schema 1 stored no historical group-tab usage, migration initializes recent
-order with the active tab followed by the remaining file order. Reading v1
-does not overwrite its metadata; replacement occurs only when a complete,
-valid schema-2 snapshot is successfully published.
+Strict schemas 1 and 2 remain readable without accepting new tree, sticky or preview
+fields. Schema 1's complete global file order becomes the first group; additional
+legacy panes become groups containing their visible file and recorded view. The
+previous active pane selects the active group, and recent order starts with its active
+tab followed by file order. Older flat orientations normalize to a native flat tree
+with nonsticky committed tabs. Reading or failed migration does not overwrite the
+original slot. Only successful atomic publication installs a complete schema-3 encoding.
+The complete write envelope, including tree/workspace/sticky flags, must fit the 1 MiB
+limit. An already legal legacy slot remains readable if its new encoding is too large.
+
+Capture omits dirty/untitled tabs and prunes their empty leaves on a bounded clone;
+surviving topology/weights remain. It never changes live layout/views or pending saves.
+All-dirty capture does not erase a previous clean session. Existing recovery retains
+its live topology, mode and view authority; appended clean files do not replace those
+with the saved layout. Fourteen new backend/App integrity tests and clean nested
+restart checks pass locally; platform evidence remains pending.
 
 Clean metadata is bounded to 32 distinct files, four groups, 128 selections per
 view and 1 MiB of serialized metadata; restore reads at most 128 MiB of file
@@ -237,10 +246,10 @@ multi-model promotion permanently disables further preview admission for that
 instance, preserving Undo-clean models and Redo after a counter failure.
 
 Disabling preview commits existing previews; enabling it again does not demote
-historical tabs. Session schema 2 restores clean memberships committed, including
-previous previews. Preview mode is transient in this slice; sticky/tab-mode
-persistence, complete settings/open policies and full workspace parity remain
-pending.
+historical tabs. Session schema 3 restores clean memberships committed, including
+previous previews, while separately restoring saved sticky prefixes. Preview mode
+remains transient; platform qualification, complete settings/open policies
+and full workspace parity remain pending.
 
 Local qualification on the main-based preview branch: 890 all-target Rust tests
 across 50 reports pass, with 20 optional integrations ignored. This includes nine

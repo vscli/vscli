@@ -84,10 +84,14 @@ passes 80 launches / 3,200 keys, including a focused repeat, with mixed results
 and no editor ranking or active-sticky performance claim. Fresh platform CI
 remains required before merge. Mouse-close gestures and physical terminal/key delivery are unqualified.
 
-Sticky state is transient; clean-session restoration commits historical tabs and
-does not persist stickiness. Nested/resizable layouts, graphical sticky rows,
-double-click behavior, mouse closing, arbitrary upstream editor types and complete
-VS Code workbench parity remain outside this subset. Native editing and these
+The schema-3 candidate preserves sticky prefixes for clean memberships together with
+nested axes/integer weights. Preview modes still restore committed; strict older
+schemas restore nonsticky. Dirty/untitled recovery remains independent. Fourteen
+new backend/App integrity tests pass locally, separately from the
+existing sticky behavior evidence. Keyboard nested resizing is described in
+[the layout contract](EDITOR_LAYOUT.md). Graphical sticky rows, double-click behavior,
+mouse closing, arbitrary upstream editor types and complete VS Code workbench parity
+remain outside this subset. Native editing and these
 settings/commands require no JavaScript runtime.
 
 Primary pinned source: [editor command registrations](https://github.com/microsoft/vscode/blob/912bb683695358a54ae0c670461738984cbb5b95/src/vs/workbench/browser/parts/editor/editorCommands.ts#L1167-L1218).
