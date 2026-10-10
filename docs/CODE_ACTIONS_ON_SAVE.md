@@ -118,3 +118,9 @@ The [routine-editing comparison](PERFORMANCE.md#native-code-actions-on-save-core
 passes 40 interleaved launches/1,600 keys without failures, with mixed observations
 and no speed ranking. Fresh Linux/macOS/Windows checks still require qualification. These local results establish named supported workflows, not full
 upstream save parity.
+
+A guarded filesystem save that detects an external edit keeps its actionable
+`Save failed` notice when a later watcher reports the identical conflict. The
+notice is deduplicated only for the originating document, path, text epoch and
+save generation; dirty buffers, foreign disk bytes and Undo/Redo remain intact.
+A gated regression reproduces the prior overwrite with the fix disabled.

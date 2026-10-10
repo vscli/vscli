@@ -1,8 +1,51 @@
 use super::*;
-use crate::watch::{CONTENT, DiskChange, DiskJob, INDEX, ReadRequest};
+use crate::watch::{CONTENT, DiskChange, DiskJob, INDEX, Notice, ReadRequest, SaveConflictProof};
 use std::time::{Duration, Instant};
 
 impl App {
+    /// The save worker already observed this exact disk conflict. Retain its
+    /// proof so a later duplicate watcher notice cannot erase the more
+    /// actionable save failure. Other models and newer epochs remain separate.
+    pub(super) fn retain_save_conflict_notice(
+        &mut self,
+        snapshot: &crate::document::SaveSnapshot,
+        error: &str,
+    ) {
+        if !error.starts_with("File changed on disk") {
+            return;
+        }
+        let Some(path) = snapshot
+            .source_path()
+            .filter(|path| *path == snapshot.target())
+        else {
+            return;
+        };
+        if let Some(doc) = self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .find(|doc| {
+                doc.id == snapshot.document_id()
+                    && doc.path.as_deref() == snapshot.source_path()
+                    && doc.revision == snapshot.revision()
+                    && doc.saved_revision == snapshot.saved_revision()
+                    && doc.text_epoch() == snapshot.text_epoch()
+                    && doc.save_generation() == snapshot.save_generation()
+            })
+        {
+            self.watch.notices.insert(
+                doc.id,
+                Notice {
+                    text: format!("Save failed; unsaved work retained: {error}"),
+                    save_conflict: Some(SaveConflictProof {
+                        path: path.to_owned(),
+                        text_epoch: doc.text_epoch(),
+                        save_generation: doc.save_generation(),
+                    }),
+                },
+            );
+        }
+    }
     /// Fence earlier disk snapshots without abandoning their actual worker.
     /// The next read uses the latest model proofs after that worker settles.
     pub(super) fn invalidate_disk_watch_publications(&mut self) -> Result<()> {
@@ -130,7 +173,13 @@ impl App {
                 self.watch.pending |= CONTENT;
                 continue;
             }
-            let notice = match result.content {
+            let preserve_save_failure = self.watch.notices.get(&doc.id).is_some_and(|notice| {
+                notice
+                    .save_conflict
+                    .as_ref()
+                    .is_some_and(|proof| proof.current(doc))
+            });
+            let (notice, conflict) = match result.content {
                 Ok(DiskChange::Unchanged) => {
                     self.watch.notices.remove(&doc.id);
                     continue;
@@ -145,21 +194,46 @@ impl App {
                     changed = true;
                     continue;
                 }
-                Ok(DiskChange::Changed(Some(_))) => format!(
-                    "{} changed on disk; unsaved edits retained. Save As or compare before reloading",
-                    doc.name()
+                Ok(DiskChange::Changed(Some(_))) => (
+                    format!(
+                        "{} changed on disk; unsaved edits retained. Save As or compare before reloading",
+                        doc.name()
+                    ),
+                    true,
                 ),
                 Ok(DiskChange::Changed(None)) => {
+                    changed |= doc.saved_revision != u64::MAX;
                     doc.saved_revision = u64::MAX;
-                    format!(
-                        "{} was removed from disk; buffer retained. Save As to preserve it",
-                        doc.name()
+                    (
+                        format!(
+                            "{} was removed from disk; buffer retained. Save As to preserve it",
+                            doc.name()
+                        ),
+                        true,
                     )
                 }
-                Err(error) => format!("Cannot refresh {}: {error}; buffer retained", doc.name()),
+                Err(error) => (
+                    format!("Cannot refresh {}: {error}; buffer retained", doc.name()),
+                    false,
+                ),
             };
-            if self.watch.notices.get(&doc.id) != Some(&notice) {
-                self.watch.notices.insert(doc.id, notice.clone());
+            if conflict && preserve_save_failure {
+                continue;
+            }
+            if self
+                .watch
+                .notices
+                .get(&doc.id)
+                .map(|existing| &existing.text)
+                != Some(&notice)
+            {
+                self.watch.notices.insert(
+                    doc.id,
+                    Notice {
+                        text: notice.clone(),
+                        save_conflict: None,
+                    },
+                );
                 self.message = notice;
                 changed = true;
             }
@@ -187,6 +261,111 @@ mod tests {
             assert!(start.elapsed() < Duration::from_secs(6), "{}", app.message);
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+    #[test]
+    fn later_identical_disk_conflict_preserves_actual_save_failure_and_model_history() {
+        for deleted in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join("source.cpp");
+            let original = "猫🙂 original\r\n";
+            let foreign = "FOREIGN猫🙂\r\n";
+            std::fs::write(&path, original).unwrap();
+            let mut app = App::new(root.path().into(), Profile::Linux);
+            app.open(&path).unwrap();
+            let id = app.doc().id;
+            app.doc_mut().insert("DIRTY", false);
+            let text = app.doc().text.clone();
+            let selections = app.doc().selections();
+            let epoch = app.doc().text_epoch();
+            if deleted {
+                std::fs::remove_file(&path).unwrap();
+            } else {
+                std::fs::write(&path, foreign).unwrap();
+            }
+            app.request_native_save(None).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(8);
+            while app.saves_pending() {
+                app.poll_native_saves();
+                assert!(Instant::now() < deadline, "{}", app.message);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            assert!(app.message.starts_with("Save failed"), "{}", app.message);
+            assert!(app.message.contains("changed on disk"));
+            let failure = app.message.clone();
+            for _ in 0..2 {
+                let release = hold_sampled_disk_reply(&mut app);
+                release.send(()).unwrap();
+                drain_retained_job(&mut app);
+                assert_eq!(app.message, failure);
+            }
+            assert_eq!(app.doc().id, id);
+            assert_eq!(app.doc().text, text);
+            assert_eq!(app.doc().selections(), selections);
+            assert_eq!(app.doc().text_epoch(), epoch);
+            assert!(app.doc().dirty());
+            if deleted {
+                assert!(!path.exists());
+            } else {
+                assert_eq!(std::fs::read(&path).unwrap(), foreign.as_bytes());
+            }
+            app.doc_mut().undo();
+            assert_eq!(app.doc().text.to_string(), original);
+            app.doc_mut().redo();
+            assert_eq!(app.doc().text, text);
+            if deleted {
+                assert!(!path.exists());
+            } else {
+                assert_eq!(std::fs::read(&path).unwrap(), foreign.as_bytes());
+            }
+        }
+    }
+
+    #[test]
+    fn newer_edit_and_another_document_receive_fresh_disk_conflict_notices() {
+        let (_directory, mut app, path) = clean_fixture("original 猫🙂\r\n");
+        app.doc_mut().insert("DIRTY", false);
+        let snapshot = app.doc().capture_save(path.clone()).unwrap();
+        let error = "File changed on disk; existing bytes preserved";
+        app.retain_save_conflict_notice(&snapshot, error);
+        app.message = format!("Save failed; unsaved work retained: {error}");
+        let failure = app.message.clone();
+        std::fs::write(&path, "foreign 猫🙂\r\n").unwrap();
+        app.doc_mut().insert("NEW", false);
+        let expected = app.doc().text.clone();
+        let release = hold_sampled_disk_reply(&mut app);
+        release.send(()).unwrap();
+        drain_retained_job(&mut app);
+        assert_ne!(app.message, failure);
+        assert!(
+            app.message
+                .contains("changed on disk; unsaved edits retained")
+        );
+        assert_eq!(app.doc().text, expected);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "foreign 猫🙂\r\n");
+
+        let (_other_directory, mut app, path) = clean_fixture("A 猫🙂\r\n");
+        app.doc_mut().insert("DIRTY A", false);
+        let snapshot = app.doc().capture_save(path.clone()).unwrap();
+        app.retain_save_conflict_notice(&snapshot, error);
+        let a_id = app.doc().id;
+        let a_text = app.doc().text.clone();
+        app.message = failure.clone();
+        let other = path.with_file_name("other.cpp");
+        std::fs::write(&other, "B 猫🙂\r\n").unwrap();
+        app.documents.push(Document::open(&other).unwrap());
+        app.active = 1;
+        app.doc_mut().insert("DIRTY B", false);
+        let b_text = app.doc().text.clone();
+        std::fs::write(&other, "foreign B\r\n").unwrap();
+        let release = hold_sampled_disk_reply(&mut app);
+        release.send(()).unwrap();
+        drain_retained_job(&mut app);
+        assert_ne!(app.message, failure);
+        assert!(app.message.starts_with("other.cpp changed on disk"));
+        assert_eq!(app.doc().text, b_text);
+        assert_eq!(app.documents[0].id, a_id);
+        assert_eq!(app.documents[0].text, a_text);
+        assert_eq!(std::fs::read_to_string(other).unwrap(), "foreign B\r\n");
     }
     #[test]
     fn external_reload_undo_dirty_conflict_and_live_index() {
