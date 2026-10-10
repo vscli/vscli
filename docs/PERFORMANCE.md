@@ -544,3 +544,51 @@ python3 scripts/bench_editor.py --compare-vscli /path/to/pr59/vscli \
   --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
   --output target/benchmarks/native-outline-single-line.json
 ```
+
+## Native Breadcrumbs core baseline: 2026-10-10
+
+The [ordinary-file run](benchmarks/2026-10-10-native-breadcrumbs.json) and
+[single-line run](benchmarks/2026-10-10-native-breadcrumbs-single-line.json)
+compare source `d677ebd` with the preserved PR #60 Outline executable. Each row
+has five interleaved launches and 200 serial key samples: 30 successful trials
+and 1,200 keys, with zero failures. No build, test suite or reference editor ran
+concurrently. The Linux x86_64 i9-13900H host had 20 logical CPUs and a 120 × 40
+terminal; CPU frequency, scheduling and thermal state were uncontrolled.
+
+| File / executable | Startup median ms | Key median ms | Key p95 ms | Key p99 ms | Sampled tree RSS median MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 KiB multiline / PR #60 | 4.455 | 0.268 | 0.606 | 0.909 | 12.50 |
+| 10 KiB multiline / Breadcrumbs | 5.713 | 0.197 | 0.501 | 0.751 | 12.48 |
+| 1 MiB multiline / PR #60 | 8.966 | 0.345 | 1.123 | 1.262 | 13.67 |
+| 1 MiB multiline / Breadcrumbs | 7.365 | 0.319 | 0.737 | 0.933 | 13.65 |
+| 1 MiB single line / PR #60 | 9.161 | 0.209 | 0.488 | 0.786 | 13.47 |
+| 1 MiB single line / Breadcrumbs | 9.596 | 0.213 | 0.490 | 0.795 | 13.61 |
+
+The candidate's observed multiline key medians and tails were lower, while its
+single-line key measurements and two startup medians were higher. These mixed
+observations establish no overall speedup, causal regression or editor ranking.
+Five startup samples cannot establish startup tails; pooled key samples are not
+independent launches. Sampled RSS is not peak memory. Short 0.3-second idle
+windows are insufficient for sustained CPU claims.
+
+This is warm-cache ASCII plain-text editing with isolated settings/data and no
+language server, extensions or recovery. Breadcrumbs file labels are enabled by
+default in the candidate, with no symbol provider; Outline remains disabled.
+The baseline predates Breadcrumbs. The experiment measures ordinary core editing
+and the new default file-trail presentation, rather than active symbol refresh,
+provider contention, large projects or filesystem dropdowns. Timings include
+the Python cell oracle and exclude physical input and graphical terminal painting.
+Actual clangd and optional-host Breadcrumbs correctness have separate evidence.
+Both reports retain binary and fixture hashes; the candidate executable SHA256
+is `f970fc2d68ce9fe8115ef3ccf67088e5b831d3a62e8dc92fd737ed2ec974ec7d`.
+
+Reproduce with a saved PR #60 native release executable:
+
+```sh
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr60/vscli \
+  --sizes 10240 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/native-breadcrumbs.json
+python3 scripts/bench_editor.py --compare-vscli /path/to/pr60/vscli \
+  --single-line --sizes 1048576 --trials 5 --keys 40 --idle-seconds 0.3 \
+  --output target/benchmarks/native-breadcrumbs-single-line.json
+```
