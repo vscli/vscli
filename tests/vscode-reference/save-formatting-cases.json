@@ -1,0 +1,6 @@
+[
+  {"name":"explicit-file-unicode-crlf","format":"edit","autosave":"off","sourceAction":false,"text":"猫🙂\r\nlet value=1;\r\n","typed":"λ🙂","commands":["type","workbench.action.files.save","undo","redo"]},
+  {"name":"explicit-null-no-extra-undo","format":"null","autosave":"off","sourceAction":false,"text":"猫🙂\r\nlet value=1;\r\n","typed":"λ🙂","commands":["type","workbench.action.files.save","undo","redo"]},
+  {"name":"after-delay-skips-formatter","format":"edit","autosave":"afterDelay","sourceAction":false,"text":"猫🙂\r\nlet value=1;\r\n","typed":"λ🙂","commands":["type"]},
+  {"name":"source-action-before-file-format","format":"edit","autosave":"off","sourceAction":true,"text":"猫🙂\r\nlet value=1;\r\n","typed":"λ🙂","commands":["type","workbench.action.files.save","undo","redo"]}
+]

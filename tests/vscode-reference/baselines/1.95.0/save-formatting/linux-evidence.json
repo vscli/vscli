@@ -1,0 +1,1119 @@
+[
+  {
+    "name": "explicit-file-unicode-crlf",
+    "scope": "Named synthetic formatter/source-action APIs, original commands, exact text/disk/selection/dirty projection; file mode only. Not unchanged formatter extension, native save-participant parity, timeout behavior or entire undo ecosystem qualification",
+    "setup": {
+      "effective": {
+        "formatOnSave": true,
+        "formatOnSaveMode": "file",
+        "autoSave": "off",
+        "autoSaveDelay": 500,
+        "codeActionsOnSave": {}
+      },
+      "warmEditCount": 2,
+      "warmReturnType": "array",
+      "before": {
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "selections": [
+          [
+            2,
+            0,
+            2,
+            0
+          ]
+        ],
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      "after": {
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "selections": [
+          [
+            2,
+            0,
+            2,
+            0
+          ]
+        ],
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      "scope": "One public execute-format-provider readiness call; edits not applied; exact unchanged target proof; no readiness retry"
+    },
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 22,
+          "cursor": 22
+        },
+        "disk": "猫🙂\r\nlet value = 1;\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value = 1;\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 22,
+          "cursor": 22
+        },
+        "disk": "猫🙂\r\nlet value = 1;\r\nλ🙂"
+      }
+    ],
+    "steps": [
+      {
+        "action": "type",
+        "settlement": {
+          "elapsedMs": 106,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "workbench.action.files.save",
+        "acknowledgement": {
+          "elapsedMs": 0,
+          "event": {
+            "phase": "target",
+            "version": 4,
+            "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+            "dirty": false,
+            "disk": "猫🙂\r\nlet value = 1;\r\nλ🙂"
+          }
+        },
+        "settlement": {
+          "elapsedMs": 105,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "undo",
+        "settlement": {
+          "elapsedMs": 106,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "redo",
+        "settlement": {
+          "elapsedMs": 102,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      }
+    ],
+    "callbacks": [
+      {
+        "phase": "setup",
+        "kind": "format",
+        "sameDocument": true,
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "options": {
+          "tabSize": 2,
+          "insertSpaces": true
+        },
+        "cancelledAtInvocation": false,
+        "result": "edit"
+      },
+      {
+        "phase": "target",
+        "kind": "format",
+        "sameDocument": true,
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "options": {
+          "tabSize": 2,
+          "insertSpaces": true
+        },
+        "cancelledAtInvocation": false,
+        "result": "edit"
+      }
+    ],
+    "saved": [
+      {
+        "phase": "target",
+        "version": 4,
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "disk": "猫🙂\r\nlet value = 1;\r\nλ🙂"
+      }
+    ],
+    "changes": [
+      {
+        "phase": "target",
+        "version": 2,
+        "text": "猫🙂\r\nlet value=1;\r\nλ",
+        "dirty": false,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 19,
+            "rangeLength": 0,
+            "text": "λ"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 2,
+        "text": "猫🙂\r\nlet value=1;\r\nλ",
+        "dirty": true,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 20,
+            "rangeLength": 0,
+            "text": "🙂"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 4,
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 15,
+            "rangeLength": 0,
+            "text": " "
+          },
+          {
+            "rangeOffset": 14,
+            "rangeLength": 0,
+            "text": " "
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 4,
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 4,
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 5,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "reason": 1,
+        "changes": [
+          {
+            "rangeOffset": 16,
+            "rangeLength": 1,
+            "text": ""
+          },
+          {
+            "rangeOffset": 14,
+            "rangeLength": 1,
+            "text": ""
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 5,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 6,
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": true,
+        "reason": 2,
+        "changes": [
+          {
+            "rangeOffset": 15,
+            "rangeLength": 0,
+            "text": " "
+          },
+          {
+            "rangeOffset": 14,
+            "rangeLength": 0,
+            "text": " "
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 6,
+        "text": "猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      }
+    ],
+    "executeApiListed": false,
+    "commandInventory": [
+      "redo",
+      "type",
+      "undo",
+      "workbench.action.files.save"
+    ]
+  },
+  {
+    "name": "explicit-null-no-extra-undo",
+    "scope": "Named synthetic formatter/source-action APIs, original commands, exact text/disk/selection/dirty projection; file mode only. Not unchanged formatter extension, native save-participant parity, timeout behavior or entire undo ecosystem qualification",
+    "setup": {
+      "effective": {
+        "formatOnSave": true,
+        "formatOnSaveMode": "file",
+        "autoSave": "off",
+        "autoSaveDelay": 500,
+        "codeActionsOnSave": {}
+      },
+      "warmEditCount": 0,
+      "warmReturnType": "undefined",
+      "before": {
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "selections": [
+          [
+            2,
+            0,
+            2,
+            0
+          ]
+        ],
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      "after": {
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "selections": [
+          [
+            2,
+            0,
+            2,
+            0
+          ]
+        ],
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      "scope": "One public execute-format-provider readiness call; edits not applied; exact unchanged target proof; no readiness retry"
+    },
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": true,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      }
+    ],
+    "steps": [
+      {
+        "action": "type",
+        "settlement": {
+          "elapsedMs": 102,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "workbench.action.files.save",
+        "acknowledgement": {
+          "elapsedMs": 0,
+          "event": {
+            "phase": "target",
+            "version": 3,
+            "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+            "dirty": false,
+            "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+          }
+        },
+        "settlement": {
+          "elapsedMs": 103,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "undo",
+        "settlement": {
+          "elapsedMs": 102,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "redo",
+        "settlement": {
+          "elapsedMs": 107,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      }
+    ],
+    "callbacks": [
+      {
+        "phase": "setup",
+        "kind": "format",
+        "sameDocument": true,
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "options": {
+          "tabSize": 2,
+          "insertSpaces": true
+        },
+        "cancelledAtInvocation": false,
+        "result": "null"
+      },
+      {
+        "phase": "target",
+        "kind": "format",
+        "sameDocument": true,
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "options": {
+          "tabSize": 2,
+          "insertSpaces": true
+        },
+        "cancelledAtInvocation": false,
+        "result": "null"
+      }
+    ],
+    "saved": [
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      }
+    ],
+    "changes": [
+      {
+        "phase": "target",
+        "version": 2,
+        "text": "猫🙂\r\nlet value=1;\r\nλ",
+        "dirty": false,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 19,
+            "rangeLength": 0,
+            "text": "λ"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 2,
+        "text": "猫🙂\r\nlet value=1;\r\nλ",
+        "dirty": true,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 20,
+            "rangeLength": 0,
+            "text": "🙂"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 4,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "reason": 1,
+        "changes": [
+          {
+            "rangeOffset": 19,
+            "rangeLength": 3,
+            "text": ""
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 4,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": true,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 5,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "reason": 2,
+        "changes": [
+          {
+            "rangeOffset": 19,
+            "rangeLength": 0,
+            "text": "λ🙂"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 5,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      }
+    ],
+    "executeApiListed": false,
+    "commandInventory": [
+      "redo",
+      "type",
+      "undo",
+      "workbench.action.files.save"
+    ]
+  },
+  {
+    "name": "after-delay-skips-formatter",
+    "scope": "Named synthetic formatter/source-action APIs, original commands, exact text/disk/selection/dirty projection; file mode only. Not unchanged formatter extension, native save-participant parity, timeout behavior or entire undo ecosystem qualification",
+    "setup": {
+      "effective": {
+        "formatOnSave": true,
+        "formatOnSaveMode": "file",
+        "autoSave": "afterDelay",
+        "autoSaveDelay": 500,
+        "codeActionsOnSave": {}
+      },
+      "warmEditCount": 2,
+      "warmReturnType": "array",
+      "before": {
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "selections": [
+          [
+            2,
+            0,
+            2,
+            0
+          ]
+        ],
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      "after": {
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "selections": [
+          [
+            2,
+            0,
+            2,
+            0
+          ]
+        ],
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      "scope": "One public execute-format-provider readiness call; edits not applied; exact unchanged target proof; no readiness retry"
+    },
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "files.autoSave.afterDelay",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      }
+    ],
+    "steps": [
+      {
+        "action": "type",
+        "settlement": {
+          "elapsedMs": 105,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "files.autoSave.afterDelay",
+        "acknowledgement": {
+          "elapsedMs": 415,
+          "event": {
+            "phase": "target",
+            "version": 3,
+            "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+            "dirty": false,
+            "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+          }
+        },
+        "settlement": {
+          "elapsedMs": 104,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      }
+    ],
+    "callbacks": [
+      {
+        "phase": "setup",
+        "kind": "format",
+        "sameDocument": true,
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "options": {
+          "tabSize": 2,
+          "insertSpaces": true
+        },
+        "cancelledAtInvocation": false,
+        "result": "edit"
+      }
+    ],
+    "saved": [
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "disk": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      }
+    ],
+    "changes": [
+      {
+        "phase": "target",
+        "version": 2,
+        "text": "猫🙂\r\nlet value=1;\r\nλ",
+        "dirty": false,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 19,
+            "rangeLength": 0,
+            "text": "λ"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 2,
+        "text": "猫🙂\r\nlet value=1;\r\nλ",
+        "dirty": true,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 20,
+            "rangeLength": 0,
+            "text": "🙂"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      }
+    ],
+    "executeApiListed": false,
+    "commandInventory": [
+      "type"
+    ]
+  },
+  {
+    "name": "source-action-before-file-format",
+    "scope": "Named synthetic formatter/source-action APIs, original commands, exact text/disk/selection/dirty projection; file mode only. Not unchanged formatter extension, native save-participant parity, timeout behavior or entire undo ecosystem qualification",
+    "setup": {
+      "effective": {
+        "formatOnSave": true,
+        "formatOnSaveMode": "file",
+        "autoSave": "off",
+        "autoSaveDelay": 500,
+        "codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        }
+      },
+      "warmEditCount": 2,
+      "warmReturnType": "array",
+      "before": {
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "selections": [
+          [
+            2,
+            0,
+            2,
+            0
+          ]
+        ],
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      "after": {
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "selections": [
+          [
+            2,
+            0,
+            2,
+            0
+          ]
+        ],
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      "scope": "One public execute-format-provider readiness call; edits not applied; exact unchanged target proof; no readiness retry"
+    },
+    "observations": [
+      {
+        "action": "initial",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "dirty": false,
+        "primary": {
+          "anchor": 18,
+          "cursor": 18
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "type",
+        "resource": "main.txt",
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 20,
+          "cursor": 20
+        },
+        "disk": "猫🙂\r\nlet value=1;\r\n"
+      },
+      {
+        "action": "workbench.action.files.save",
+        "resource": "main.txt",
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 31,
+          "cursor": 31
+        },
+        "disk": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂"
+      },
+      {
+        "action": "undo",
+        "resource": "main.txt",
+        "text": "imported 猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "primary": {
+          "anchor": 29,
+          "cursor": 29
+        },
+        "disk": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂"
+      },
+      {
+        "action": "redo",
+        "resource": "main.txt",
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "primary": {
+          "anchor": 31,
+          "cursor": 31
+        },
+        "disk": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂"
+      }
+    ],
+    "steps": [
+      {
+        "action": "type",
+        "settlement": {
+          "elapsedMs": 103,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "workbench.action.files.save",
+        "acknowledgement": {
+          "elapsedMs": 0,
+          "event": {
+            "phase": "target",
+            "version": 5,
+            "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+            "dirty": false,
+            "disk": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂"
+          }
+        },
+        "settlement": {
+          "elapsedMs": 103,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "undo",
+        "settlement": {
+          "elapsedMs": 101,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      },
+      {
+        "action": "redo",
+        "settlement": {
+          "elapsedMs": 104,
+          "scope": "Command or actual didSave acknowledged, then minimum100ms/50ms unchanged public state; no preferred output predicate or target retry"
+        }
+      }
+    ],
+    "callbacks": [
+      {
+        "phase": "setup",
+        "kind": "format",
+        "sameDocument": true,
+        "version": 1,
+        "text": "猫🙂\r\nlet value=1;\r\n",
+        "options": {
+          "tabSize": 2,
+          "insertSpaces": true
+        },
+        "cancelledAtInvocation": false,
+        "result": "edit"
+      },
+      {
+        "phase": "target",
+        "kind": "sourceAction",
+        "only": "source.organizeImports",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂"
+      },
+      {
+        "phase": "target",
+        "kind": "format",
+        "sameDocument": true,
+        "version": 4,
+        "text": "imported 猫🙂\r\nlet value=1;\r\nλ🙂",
+        "options": {
+          "tabSize": 2,
+          "insertSpaces": true
+        },
+        "cancelledAtInvocation": false,
+        "result": "edit"
+      }
+    ],
+    "saved": [
+      {
+        "phase": "target",
+        "version": 5,
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "disk": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂"
+      }
+    ],
+    "changes": [
+      {
+        "phase": "target",
+        "version": 2,
+        "text": "猫🙂\r\nlet value=1;\r\nλ",
+        "dirty": false,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 19,
+            "rangeLength": 0,
+            "text": "λ"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 2,
+        "text": "猫🙂\r\nlet value=1;\r\nλ",
+        "dirty": true,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 3,
+        "text": "猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 20,
+            "rangeLength": 0,
+            "text": "🙂"
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 4,
+        "text": "imported 猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 0,
+            "rangeLength": 0,
+            "text": "imported "
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 5,
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": [
+          {
+            "rangeOffset": 24,
+            "rangeLength": 0,
+            "text": " "
+          },
+          {
+            "rangeOffset": 23,
+            "rangeLength": 0,
+            "text": " "
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 5,
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 5,
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 6,
+        "text": "imported 猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": false,
+        "reason": 1,
+        "changes": [
+          {
+            "rangeOffset": 25,
+            "rangeLength": 1,
+            "text": ""
+          },
+          {
+            "rangeOffset": 23,
+            "rangeLength": 1,
+            "text": ""
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 6,
+        "text": "imported 猫🙂\r\nlet value=1;\r\nλ🙂",
+        "dirty": true,
+        "reason": null,
+        "changes": []
+      },
+      {
+        "phase": "target",
+        "version": 7,
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": true,
+        "reason": 2,
+        "changes": [
+          {
+            "rangeOffset": 24,
+            "rangeLength": 0,
+            "text": " "
+          },
+          {
+            "rangeOffset": 23,
+            "rangeLength": 0,
+            "text": " "
+          }
+        ]
+      },
+      {
+        "phase": "target",
+        "version": 7,
+        "text": "imported 猫🙂\r\nlet value = 1;\r\nλ🙂",
+        "dirty": false,
+        "reason": null,
+        "changes": []
+      }
+    ],
+    "executeApiListed": false,
+    "commandInventory": [
+      "redo",
+      "type",
+      "undo",
+      "workbench.action.files.save"
+    ]
+  }
+]
