@@ -33,7 +33,7 @@ jobs:
       - name: Capture exact input hashes and candidate revision
         shell: bash
         run: |
-          mkdir -p target/save-actions-readiness
+          mkdir -p target/save-actions-readiness target/vscode-reference/cache
           git rev-parse HEAD > target/save-actions-readiness/candidate-revision.txt
           node -e 'const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");const root="tests/vscode-reference-save-actions-readiness-candidate";const expected=JSON.parse(fs.readFileSync(path.join(root,"source-sha256.json")));for(const [name,wanted]of Object.entries(expected)){const actual=crypto.createHash("sha256").update(fs.readFileSync(path.join(root,name))).digest("hex");if(actual!==wanted)throw Error("Source hash differs: "+name);}fs.writeFileSync("target/save-actions-readiness/verified-source-sha256.json",JSON.stringify(expected,null,2)+"\n");'
       - name: Observe pinned original save targets (Linux)

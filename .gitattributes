@@ -9,3 +9,5 @@ vendor/unicode-segmentation/tests/testdata/mod.rs whitespace=-blank-at-eof
 tests/fixtures/vscode-cpp-configuration/** -text
 # Differential captures embed hashes of both reference sources and recorded data.
 tests/vscode-reference/** -text
+# Isolated readiness captures verify the same exact input bytes on every runner.
+tests/vscode-reference-save-actions-readiness-candidate/** -text
