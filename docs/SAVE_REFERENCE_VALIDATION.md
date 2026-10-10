@@ -47,3 +47,14 @@ ordinary CI still use their previous behavior in this validation change.
 Trusted current-head admission, native legacy-boolean normalization and explicit
 stable default/CI adoption remain subsequent qualification steps. These results
 do not establish full native save or extension parity.
+
+The offline `tests/stage_save_actions_reference.py` helper creates a fresh,
+disjoint source/output snapshot for current CI admission. Generated Node
+dependencies are excluded from the declared source package; every available raw
+output file is copied, including failed prefixes and unexpected names. The
+strict success reader still rejects incomplete or extra result inventories.
+Original output remains independently available for upload if staging refuses.
+Six Python integrity checks pass, including byte-exact staging of all 270 genuine
+files, retained synthetic failures, overlap/overwrite refusal and bounded reads;
+the symlink check qualifies the POSIX path. Staging itself never certifies source,
+revision, readiness or successful target behavior.
