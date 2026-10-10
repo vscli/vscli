@@ -111,3 +111,7 @@ Save As/hidden-target participant ownership require separate implementation and
 qualification. Each valid participant batch is atomic; an entire asynchronous
 participant chain is not an all-stage rollback or a single Undo transaction.
 This milestone does not establish full VS Code parity.
+
+## Long workspace paths and visible save notices
+
+The save receipt now displays a workspace-relative path for ordinary in-workspace targets. The macOS PR64 failure saved the expected raw bytes but its absolute temporary path consumed the status row before the formatter-failure notice. The terminal fixture now exercises a deliberately long workspace path at its existing width, retaining exact-byte and committed didSave checks and requiring the complete failure notice. Fresh local and platform qualification remains required; outside-workspace paths and arbitrarily long notices still use the terminal display bounds.

@@ -227,7 +227,11 @@ def run():
             assert sum(event["kind"] == "format-replied" and event.get("noop", False) for event in trace) == 2
         print("PASS: original Ctrl+S formats exact Unicode/CRLF bytes; separate Undo/Redo and null formatting preserve history and committed LSP text")
 
-        with editor(root, "b", mode="failure") as (app, source, case):
+        # Exercise a macOS-shaped long workspace path at the existing width;
+        # participant error notices must survive the successful save receipt.
+        long_root = root / ("workspace-" + "x" * 100)
+        long_root.mkdir()
+        with editor(long_root, "b", mode="failure") as (app, source, case):
             dirty(app, case)
             saved(app, source, case, RAW)
             wait_screen(app, "Saved", "Formatting skipped", "fixture failure")

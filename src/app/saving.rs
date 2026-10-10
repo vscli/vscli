@@ -589,7 +589,8 @@ impl App {
                                     commit.path.display()
                                 );
                             } else {
-                                self.message = format!("Saved {}", commit.path.display());
+                                self.message =
+                                    format!("Saved {}", self.workspace.relative(&commit.path));
                                 self.recent_files.touch(commit.path.clone());
                                 for doc in
                                     self.documents.iter_mut().chain(&mut self.hidden_documents)
