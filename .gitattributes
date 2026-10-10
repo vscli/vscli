@@ -13,3 +13,5 @@ tests/vscode-reference/** -text
 tests/vscode-reference-save-actions-readiness-candidate/** -text
 # Preserve immutable remote terminal logs, including Windows CRLF blank lines.
 tests/vscode-reference/observations/**/capture.log whitespace=cr-at-eol
+
+tests/vscode-reference-save-actions-migration-diagnostics-candidate/** -text

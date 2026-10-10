@@ -7,3 +7,5 @@
 __pycache__/
 /tests/vscode-reference/node_modules/
 /tests/vscode-reference-save-actions-readiness-candidate/node_modules/
+
+tests/vscode-reference-save-actions-migration-diagnostics-candidate/node_modules/
