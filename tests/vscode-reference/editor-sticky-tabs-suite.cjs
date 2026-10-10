@@ -5,6 +5,14 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const corpus = require('./editor-sticky-tabs-cases.json');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+const fixtureFileNames = new Set(corpus.files.map(file => file.name));
+// Inputs are canonical filesystem paths. Native path.relative accepts Windows
+// drive/root case and separator variants while preserving exact fixture names.
+function fixtureFileResource(workspace, filename, paths = path) {
+  const relative = paths.relative(workspace, filename).split(paths.sep).join('/');
+  assert.ok(fixtureFileNames.has(relative), `Editor escaped sticky resource inventory: ${relative}`);
+  return relative;
+}
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const scope = 'Independent sticky-prefix/preview membership, original pin/unpin/protected and forced clean Close/batches, per-profile close policy, public groups/views/identities/events and unchanged Unicode CRLF disks; no graphical mouse or dirty dialog';
 const sources = ['editor-sticky-tabs-cases.json', 'editor-sticky-tabs-run.cjs',
@@ -69,9 +77,7 @@ async function observe() {
   };
   const resource = uri => {
     assert.equal(uri.scheme, 'file', 'Non-file editor escaped the clean sticky fixture');
-    const relative = path.relative(workspace, fs.realpathSync(uri.fsPath)).split(path.sep).join('/');
-    assert.ok(Object.hasOwn(files, relative), `Editor escaped sticky resource inventory: ${relative}`);
-    return relative;
+    return fixtureFileResource(workspace, fs.realpathSync(uri.fsPath));
   };
   const editorState = editor => {
     const document = editor.document, text = document.getText();
@@ -97,9 +103,18 @@ async function observe() {
     assert.ok(vscode.window.visibleTextEditors.length <= 4 && vscode.workspace.textDocuments.length <= 128);
     const visible = vscode.window.visibleTextEditors.map(editorState).sort((a, b) => a.viewColumn - b.viewColumn);
     const active = vscode.window.activeTextEditor ? editorState(vscode.window.activeTextEditor) : null;
+    // Validate every bounded file model, including hidden ones. Use the same
+    // strict classification as tabs/events instead of comparing canonical path
+    // strings (Windows drive/root casing can differ). Preserve first-match
+    // semantics without allocating public identity ordinals during this pass.
+    const fileDocuments = new Map();
+    for (const document of vscode.workspace.textDocuments) {
+      if (document.uri.scheme !== 'file') continue;
+      const name = resource(document.uri);
+      if (!fileDocuments.has(name)) fileDocuments.set(name, document);
+    }
     const documents = corpus.files.map(file => {
-      const document = vscode.workspace.textDocuments.find(doc => doc.uri.scheme === 'file'
-        && fs.realpathSync(doc.uri.fsPath) === path.join(workspace, file.name));
+      const document = fileDocuments.get(file.name);
       return { resource: file.name, loaded: Boolean(document), documentObject: document ? documentId(document) : null,
         text: document ? document.getText() : fs.readFileSync(path.join(workspace, file.name), 'utf8'),
         dirty: document?.isDirty ?? false, version: document?.version ?? null,
@@ -251,6 +266,8 @@ exports.run = async () => {
     throw error;
   }
 };
+
+exports.fixtureFileResource = fixtureFileResource;
 
 if (require.main === module) {
   const test = require('node:test');
