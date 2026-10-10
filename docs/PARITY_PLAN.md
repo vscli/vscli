@@ -12,11 +12,14 @@ engineering judgment, not a measured ranking of VS Code feature popularity.
 
 ## Evidence and current work
 
-Merged source extends through [PR #65](https://github.com/vscli/vscli/pull/65),
-including native source actions on save after all six required platform checks.
-Priority 6 is under separate qualification: [group tabs #66](https://github.com/vscli/vscli/pull/66)
-and the stacked draft [preview tabs #67](https://github.com/vscli/vscli/pull/67).
-Neither pending PR is a main-branch feature or completed workspace continuity.
+Merged source extends through [group tabs #66](https://github.com/vscli/vscli/pull/66),
+including native source actions on save in #65. All six required checks passed
+on the reviewed group-tabs head in
+[CI run 38044018036](https://github.com/vscli/vscli/actions/runs/38044018036).
+Priority 6 continues with the main-based draft
+[preview tabs #67](https://github.com/vscli/vscli/pull/67), under separate corrected
+platform qualification. Preview source inclusion is not completed workspace
+continuity or a merged main-branch feature.
 Sticky tabs and nested layouts follow these slices; their prepared sources and
 reference observations are not shipped editor behavior.
 Source inclusion is separate from a CI result or complete workflow qualification. Behavioral comparisons target
