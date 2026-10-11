@@ -11,6 +11,7 @@ const { createConfiguration } = require('./configuration.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
+const { createWorkspaceScope } = require('./workspace-scope.cjs');
 const { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument } = types;
 
 function supported(name, values) {
@@ -28,17 +29,25 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter(), saved = new EventEmitter();
   const configuration = createConfiguration();
-  let active, workspaceFolder, activation, generation = -1;
+  let active, workspaceRoot, activation, generation = -1;
   const facades = new Map(), owned = new Map();
   const mementos = createMementos(request, sessionOptions.session, sessionOptions.extensionState);
   const documentServices = createDocumentServices(request, sessionOptions, {
-    generation: () => generation, root: () => workspaceFolder?.uri.fsPath,
+    generation: () => generation, root: () => workspaceRoot,
     document: id => documents.get(id), editor: id => active?.document._snapshot.id === id ? active : undefined,
   });
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
   const promptBudget = { pending: 0, bytes: 0 };
   const fileSystem = filesystem.createFileSystem({ assertOwner, track });
+  const workspaceScope = createWorkspaceScope({ Uri, EventEmitter, pathCaseSensitive: fileSystem.pathCaseSensitive });
+  function workspace(values) {
+    // Preserve getters so callers receive the latest native folder metadata.
+    for (const key of ['workspaceFolders', 'rootPath', 'name', 'workspaceFile', 'getWorkspaceFolder', 'asRelativePath']) {
+      Object.defineProperty(values, key, Object.getOwnPropertyDescriptor(workspaceScope.api, key));
+    }
+    return supported('workspace', values);
+  }
   function assertOwner(owner) {
     if (owner && activation && !activation.accepts(owner)) throw new Error(`Extension owner is not active: ${owner}`);
   }
@@ -203,11 +212,9 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       showWarningMessage: message,
       showErrorMessage: message,
     }),
-    workspace: supported('workspace', {
+    workspace: workspace({
       ...fileSystem.forOwner(''),
       get textDocuments() { return [...documents.values()]; },
-      get workspaceFolders() { return workspaceFolder ? [workspaceFolder] : undefined; },
-      get rootPath() { return workspaceFolder?.uri.fsPath; },
       onDidChangeTextDocument: changed.event,
       onDidOpenTextDocument: opened.event,
       onDidCloseTextDocument: closed.event,
@@ -262,12 +269,10 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           showWarningMessage: (text, ...items) => messageFor(owner, text, ...items),
           showErrorMessage: (text, ...items) => messageFor(owner, text, ...items),
         }),
-        workspace: supported('workspace', {
+        workspace: workspace({
           ...fileSystem.forOwner(owner),
           openTextDocument: services.openTextDocument,
           get textDocuments() { return [...documents.values()]; },
-          get workspaceFolders() { return workspaceFolder ? [workspaceFolder] : undefined; },
-          get rootPath() { return workspaceFolder?.uri.fsPath; },
           onDidChangeTextDocument: event(owner, changed.event),
           onDidOpenTextDocument: event(owner, opened.event),
           onDidCloseTextDocument: event(owner, closed.event),
@@ -289,7 +294,12 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       return facade;
     },
     configure(root, schema, layers) {
-      workspaceFolder = { uri: Uri.file(root), name: require('node:path').basename(root), index: 0 };
+      const uri = Uri.file(root), name = require('node:path').basename(root);
+      // Trust/events are deliberately unexposed until a native authority exists;
+      // this private false sentinel is not a workspace security policy.
+      workspaceScope.publish({ generation: workspaceScope.generation + 1, trusted: false,
+        workspace: { name, folders: [{ uri, name }] } }, { emit: false });
+      workspaceRoot = root;
       configuration.initialize(schema, layers);
     },
   };

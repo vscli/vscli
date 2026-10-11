@@ -22,6 +22,10 @@ exports.activate=context=>{
  context.subscriptions.push(vscode.commands.registerCommand('filesystem.write',async()=>{
   const doc=await vscode.workspace.openTextDocument(vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri,'input.txt'));
   const editor=await vscode.window.showTextDocument(doc,{preview:false});
+  assert.equal(vscode.workspace.getWorkspaceFolder(doc.uri),vscode.workspace.workspaceFolders[0]);
+  assert.equal(vscode.workspace.asRelativePath(doc.uri),'input.txt');
+  assert.equal(vscode.workspace.name,vscode.workspace.workspaceFolders[0].name);
+  assert.equal(vscode.workspace.workspaceFile,undefined);
   assert(await editor.edit(edit=>edit.insert(new vscode.Position(1,0),'dirty ')));
   let saves=0;context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(()=>saves++));
   await vscode.workspace.fs.writeFile(doc.uri,new TextEncoder().encode('external\r\ndisk'));

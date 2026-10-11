@@ -316,6 +316,10 @@ impl Client {
             ("api.cjs", include_str!("../extension-host/api.cjs")),
             ("uri.cjs", include_str!("../extension-host/uri.cjs")),
             (
+                "workspace-scope.cjs",
+                include_str!("../extension-host/workspace-scope.cjs"),
+            ),
+            (
                 "document-types.cjs",
                 include_str!("../extension-host/document-types.cjs"),
             ),

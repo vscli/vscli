@@ -1,0 +1,84 @@
+{
+  "version": "1.141.0",
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "sources": [
+    {
+      "path": "src/vs/workbench/api/common/extHostWorkspace.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostWorkspace.ts",
+      "bytes": 51488,
+      "sha256": "4195dc64e15b4ec80c5e6892012b3acbbd06fd6e66d9171a7ea4a3399c55a21d"
+    },
+    {
+      "path": "src/vs/platform/workspace/common/workspace.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/platform/workspace/common/workspace.ts",
+      "bytes": 15030,
+      "sha256": "dec44bb8e4e02b3b17c95986a7f1a7f622bdb3176fa81090eee9f3ec0ba1f6ef"
+    },
+    {
+      "path": "src/vs/base/common/resources.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/resources.ts",
+      "bytes": 15053,
+      "sha256": "d9035c23736ebee9d42878496d6f682c8993cdadab01ae3ffa4046c0ea39c01b"
+    },
+    {
+      "path": "src/vs/base/common/extpath.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/extpath.ts",
+      "bytes": 11892,
+      "sha256": "0c8ee50b4d29423eb2d400850a6dc156fc9a6da0db0d4859e606c2bd38e1dbc3"
+    },
+    {
+      "path": "src/vs/base/common/path.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/path.ts",
+      "bytes": 43987,
+      "sha256": "3ee9852efa3c404fbb5b8015b9633f5b17b38b9ed619cfbbc38a89d2169dbacf"
+    },
+    {
+      "path": "src/vscode-dts/vscode.d.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.d.ts",
+      "bytes": 742274,
+      "sha256": "a4321528e86dcdcb8450287f2a263055c46a622119cdb186de85ac3b19ce9608"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHost.api.impl.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHost.api.impl.ts",
+      "bytes": 133853,
+      "sha256": "a5329ce4e987afa0d2b823461e8a7b83e0bdc6a739245334ad730644f55b2879"
+    },
+    {
+      "path": "src/vs/workbench/api/test/browser/extHostWorkspace.test.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/test/browser/extHostWorkspace.test.ts",
+      "bytes": 54199,
+      "sha256": "af44f8596f732fe47b39c9a0dade083a50d93259860732eb8ad74f92f0ea459b"
+    },
+    {
+      "path": "LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/LICENSE.txt",
+      "bytes": 1088,
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9"
+    },
+    {
+      "path": "src/vs/base/common/ternarySearchTree.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/ternarySearchTree.ts",
+      "bytes": 19648,
+      "sha256": "00a3d559f421ed6a77547b7435a202197e16ad39ac63c9a8e26703d18916c2bd"
+    },
+    {
+      "path": "src/vs/base/common/uri.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/uri.ts",
+      "bytes": 23307,
+      "sha256": "65bc6eefd07704297435d71a9da87dec1ca9103c0575bf29ce00f291a24114c9"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostFileSystemInfo.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostFileSystemInfo.ts",
+      "bytes": 2083,
+      "sha256": "35e439c6dfcc25d771c944ab3a6741e5221bafbad761fa3087c66f4a047d6d06"
+    },
+    {
+      "path": "src/vs/base/common/strings.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/strings.ts",
+      "bytes": 92501,
+      "sha256": "41a86465c9bb64edc600a7950596c73aa71fd901568f3075b69e6865753587ab"
+    }
+  ]
+}
