@@ -63,6 +63,11 @@ retires all remaining flags, including those retained outside its queue. This
 does not cancel an already authorized physical disk commit or release an
 occupied worker early. The existing session and command-origin checks still
 apply independently.
+Admitting additional packages into a running selected cohort creates lifetimes
+only for the new owners, after activation request admission succeeds. It preserves
+existing and retired flags. A real activation regression opens a hidden Unicode/
+CRLF document through the added extension, awaits its native save and verifies
+the actual saved generation and exact file bytes without opening an editor.
 
 Three native regressions and the complete 831-test native library suite pass:
 owner failure/reactivation and isolation, registry/client-drop retirement, and a

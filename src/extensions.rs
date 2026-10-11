@@ -640,6 +640,7 @@ impl Client {
             "extensions":additions, "activate":targets, "extensionState":extension_state}),
         )?;
         self.surfaces.commit_declarations(declarations);
+        self.owner_lifetimes.admit_selected(&packages);
         self.packages = packages;
         self.identity = self
             .packages
