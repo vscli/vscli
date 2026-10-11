@@ -161,6 +161,7 @@ pub(super) fn resolved(path: &Path, workspace: &Path) -> Result<PathBuf> {
 }
 impl App {
     pub(super) fn cancel_extension_services(&mut self) {
+        self.cancel_extension_file_search();
         if let Some((token, _)) = self.pending_workspace_transaction() {
             self.cancel_workspace_transaction(token);
         }
@@ -177,7 +178,8 @@ impl App {
             if let Some((token, _)) = self.pending_workspace_transaction() {
                 self.cancel_workspace_transaction(token);
             }
-            let changed = self.poll_workspace_transactions();
+            let changed =
+                self.poll_extension_file_search(None) | self.poll_workspace_transactions();
             if let Some(token) = self
                 .workspace_transaction_completion()
                 .map(|done| done.token)
@@ -220,7 +222,10 @@ impl App {
         for service in host.queued_services().filter(|service| {
             !matches!(
                 service.operation,
-                Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+                Operation::State(_)
+                    | Operation::Save(_)
+                    | Operation::WorkspaceApply(_)
+                    | Operation::FindFiles(..)
             )
         }) {
             let key = (service.request.session, service.id.clone());
@@ -230,6 +235,10 @@ impl App {
                 let context = Context::capture(self);
                 self.extension_services.contexts.insert(key, context);
             }
+        }
+        let file_search_changed = self.poll_extension_file_search(Some(host));
+        if self.file_search_pending() || file_search_changed {
+            return file_search_changed;
         }
         if let Some((token, origin)) = self.pending_workspace_transaction() {
             let valid = host.service().is_some_and(|service| {
@@ -374,13 +383,19 @@ impl App {
         let validation = host.service_valid(&service).and_then(|()| {
             if !matches!(
                 service.operation,
-                Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+                Operation::State(_)
+                    | Operation::Save(_)
+                    | Operation::WorkspaceApply(_)
+                    | Operation::FindFiles(..)
             ) {
                 Context::check_budget(self)?;
             }
             if !matches!(
                 service.operation,
-                Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+                Operation::State(_)
+                    | Operation::Save(_)
+                    | Operation::WorkspaceApply(_)
+                    | Operation::FindFiles(..)
             ) && !self
                 .extension_services
                 .contexts
@@ -391,7 +406,10 @@ impl App {
             }
             if !matches!(
                 service.operation,
-                Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+                Operation::State(_)
+                    | Operation::Save(_)
+                    | Operation::WorkspaceApply(_)
+                    | Operation::FindFiles(..)
             ) && (self.prompt.is_some() || self.modal.is_some())
             {
                 bail!("Native document service cannot replace an active prompt or modal");
@@ -403,6 +421,14 @@ impl App {
             return true;
         }
         match &service.operation {
+            Operation::FindFiles(..) => {
+                if let Err(error) = self.start_extension_file_search(service.clone())
+                    && let Err(answer_error) = host.answer_service(&service, Err(error))
+                {
+                    self.message =
+                        format!("Native file discovery refusal reply retained: {answer_error:#}");
+                }
+            }
             Operation::WorkspaceApply(capture) => {
                 if let Err(error) = self.start_workspace_transaction(capture.clone()) {
                     let mut reason = format!("{error:#}");

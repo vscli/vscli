@@ -5,7 +5,7 @@ const path = require('node:path');
 const NATIVE_COMMANDS = Object.freeze(['undo', 'redo', 'editor.action.selectAll', 'cursorLeft', 'cursorRight', 'cursorUp', 'cursorDown', 'cursorHome', 'cursorEnd', 'cursorTop', 'cursorBottom']);
 function createDocumentServices(request, options, model) {
   let pending = 0, queuedBytes = 0;
-  async function call(owner, method, args) {
+  async function call(owner, method, args, controls) {
     if (!owner) throw new Error('Native document services require an extension owner');
     if (pending >= 8) throw new Error('Native document service queue limit reached');
     const bytes = Buffer.byteLength(JSON.stringify(args));
@@ -13,7 +13,7 @@ function createDocumentServices(request, options, model) {
     pending++; queuedBytes += bytes;
     let released = false;
     const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; } };
-    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit'].includes(method) ? { retained: false, onTerminal: release } : undefined;
+    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
     try { return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
     finally { if (!lifecycle?.retained) release(); }
   }

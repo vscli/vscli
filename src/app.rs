@@ -5,6 +5,7 @@ mod completion_edits;
 mod debugger;
 mod editor_layout;
 mod extension_activation;
+mod extension_file_search;
 mod extension_management;
 mod extension_prompts;
 mod extension_providers;
@@ -543,6 +544,7 @@ pub struct App {
     pub documents: Vec<Document>,
     pub(crate) hidden_documents: Vec<Document>,
     extension_services: extension_services::State,
+    extension_file_search: extension_file_search::State,
     workspace_transactions: workspace_transactions::State,
     extension_providers: extension_providers::State,
     actions: actions::State,
@@ -627,6 +629,7 @@ pub struct App {
 }
 impl Drop for App {
     fn drop(&mut self) {
+        self.settle_extension_file_search();
         self.settle_workspace_transactions();
         self.shutdown_extensions();
         self.shutdown_language_services();
@@ -656,6 +659,7 @@ impl App {
             documents: Vec::new(),
             hidden_documents: Vec::new(),
             extension_services: extension_services::State::default(),
+            extension_file_search: extension_file_search::State::default(),
             workspace_transactions: workspace_transactions::State::default(),
             extension_providers: extension_providers::State::default(),
             actions: actions::State::default(),

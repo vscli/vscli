@@ -10,6 +10,7 @@ const { createPrompts } = require('./prompts.cjs');
 const { createSurfaces } = require('./surfaces.cjs');
 const { createConfiguration } = require('./configuration.cjs');
 const { createWorkspaceEdits } = require('./workspace-edits.cjs');
+const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
@@ -49,6 +50,13 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
     refactoringPolicy: () => ({ identity: workspaceEditConfigurationIdentity,
       autoSave: configuration.get('files.refactoring').get('autoSave', true) }),
+  });
+  const fileSearch = createFileSearch(documentServices.call, {
+    unowned: callers.unowned,
+    cancel: (owner, request) => notify('cancelNativeFindFiles', { session: sessionOptions.session, owner, request }),
+  }, {
+    captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
+    workspace: () => ({ root: workspaceRoot, identity: workspaceEditConfigurationIdentity }),
   });
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
@@ -228,7 +236,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     });
   }
   const api = supported('vscode', {
-    ...types, ...providerTypes, ...diagnosticTypes, ...surfaces.types,
+    ...types, ...providerTypes, ...diagnosticTypes, ...surfaces.types, RelativePattern,
     FileSystemError: filesystem.FileSystemError, FileType: filesystem.FileType,
     FilePermission: filesystem.FilePermission, FileChangeType: filesystem.FileChangeType,
     version: '1.95.0',
@@ -311,6 +319,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           openTextDocument: services.openTextDocument,
           // Root enables this only after the native grouped transaction gateway qualifies.
           ...(sessionOptions.workspaceEdits ? workspaceEdits.forOwner(owner) : {}),
+          ...(sessionOptions.findFiles ? fileSearch.forOwner(owner) : {}),
           get textDocuments() { return [...documents.values()]; },
           onDidChangeTextDocument: event(owner, changed.event),
           onDidOpenTextDocument: event(owner, opened.event),

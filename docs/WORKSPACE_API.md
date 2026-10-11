@@ -43,3 +43,7 @@ parity claim. Full extension API compatibility remains incomplete.
 - [Workspace implementation](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostWorkspace.ts)
 - [URI resource calculations](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/resources.ts)
 - [URI segment lookup](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/ternarySearchTree.ts)
+
+Selected extensions can also use native `workspace.findFiles` and shared
+`RelativePattern` values. See [file discovery](NATIVE_FILE_SEARCH.md) for default
+exclusions, cancellation, bounds and qualification.

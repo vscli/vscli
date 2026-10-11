@@ -997,3 +997,7 @@ saved sticky prefix; older schemas restore nonsticky. Dirty/untitled recovery re
 independent. Mouse close gestures and graphical sticky-row layouts remain outside
 this candidate. Schema-3 integrity and session checks pass locally; platform
 qualification remains pending. See [scope and evidence](STICKY_TABS.md).
+
+Selected extensions can discover local files with `workspace.findFiles`, including
+`RelativePattern` directories, configured exclusions and cancellation. See
+[file discovery](NATIVE_FILE_SEARCH.md) for supported behavior and limits.

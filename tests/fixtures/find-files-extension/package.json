@@ -1,0 +1,26 @@
+{
+  "publisher": "fixture",
+  "name": "find-files",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "find.query",
+        "title": "Files search scopes"
+      },
+      {
+        "command": "find.cancel",
+        "title": "Files search cancellation"
+      },
+      {
+        "command": "find.dirty",
+        "title": "Files verify dirty identity"
+      },
+      {
+        "command": "find.clean",
+        "title": "Files verify clean identity"
+      }
+    ]
+  }
+}

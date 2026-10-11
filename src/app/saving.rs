@@ -1022,6 +1022,7 @@ impl App {
     /// capture the final saved baseline. Unapproved work is retired; an already
     /// authorized commit still publishes its receipt to the original model.
     pub fn settle_persistence(&mut self) {
+        self.settle_extension_file_search();
         self.settle_workspace_transactions();
         self.saving.shutting_down = true;
         self.saving.latest = None;

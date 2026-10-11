@@ -211,6 +211,7 @@ pub struct Client {
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
     workspace_edit_context: Option<crate::app::workspace_transactions::CaptureContext>,
+    file_search_context: Option<crate::workspace_file_search::Context>,
     owner_lifetimes: owner_lifetimes::OwnerLifetimes,
     state_store: Option<crate::extension_state::Store>,
     // Drop the process before deleting its embedded runtime files on Windows.
@@ -425,6 +426,10 @@ impl Client {
                 "workspace-edits.cjs",
                 include_str!("../extension-host/workspace-edits.cjs"),
             ),
+            (
+                "workspace-files.cjs",
+                include_str!("../extension-host/workspace-files.cjs"),
+            ),
             ("host.cjs", include_str!("../extension-host/host.cjs")),
         ] {
             std::fs::write(runtime.path().join(name), source)?;
@@ -446,6 +451,7 @@ impl Client {
             providers: providers::State::default(),
             services: services::empty_queue(),
             workspace_edit_context: None,
+            file_search_context: None,
             owner_lifetimes: owner_lifetimes::OwnerLifetimes::new(&packages),
             state_store,
             process,
@@ -475,7 +481,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "workspaceEdits": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -879,7 +885,8 @@ impl Client {
                     | "nativeCommand"
                     | "nativeStateWrite"
                     | "nativeDocumentSave"
-                    | "nativeWorkspaceApplyEdit" => {
+                    | "nativeWorkspaceApplyEdit"
+                    | "nativeFindFiles" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_service_with_models(
@@ -891,6 +898,13 @@ impl Client {
                         ) {
                             self.process
                                 .send(json!({"id":id,"error":{"message":services::bounded_error(&error)}}))?;
+                        }
+                    }
+                    "cancelNativeFindFiles" => {
+                        if let Err(error) = self.cancel_native_file_search(message["params"].take())
+                        {
+                            messages
+                                .push(format!("File discovery cancellation rejected: {error:#}"));
                         }
                     }
                     "diagnosticCollections" => {

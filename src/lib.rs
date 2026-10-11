@@ -55,3 +55,5 @@ pub mod recent;
 
 pub mod session;
 pub mod signature;
+
+pub(crate) mod workspace_file_search;

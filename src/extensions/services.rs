@@ -32,6 +32,10 @@ pub(crate) enum Operation {
     Open(Open),
     Save(Save),
     WorkspaceApply(Arc<crate::app::workspace_transactions::Capture>),
+    FindFiles(
+        Arc<crate::workspace_file_search::Capture>,
+        Arc<std::sync::atomic::AtomicBool>,
+    ),
     Show(Show),
     Command(Command),
     State(StatePatch),
@@ -84,6 +88,8 @@ impl NativeService {
             SAVE_SERVICE_LIFETIME
         } else if matches!(self.operation, Operation::WorkspaceApply(_)) {
             Duration::from_secs(5)
+        } else if matches!(self.operation, Operation::FindFiles(..)) {
+            Duration::from_secs(10)
         } else {
             SERVICE_LIFETIME
         };
@@ -93,7 +99,7 @@ impl NativeService {
         Ok(())
     }
 }
-pub(super) fn bounded_error(error: &anyhow::Error) -> String {
+pub(crate) fn bounded_error(error: &anyhow::Error) -> String {
     let mut text = format!("{error:#}");
     let mut end = text.len().min(4096);
     while !text.is_char_boundary(end) {
@@ -107,7 +113,37 @@ fn save_wait_origin_matches(pending: &Pending, request: &Request) -> bool {
         || pending.method == "activate" && pending.owner.is_none()
         || pending.owner.as_deref() == request.command_owner.as_deref()
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FileSearchCancel {
+    session: u64,
+    owner: String,
+    request: String,
+}
 impl Client {
+    pub(crate) fn set_file_search_context(
+        &mut self,
+        context: Option<crate::workspace_file_search::Context>,
+    ) {
+        self.file_search_context = context;
+    }
+    pub(crate) fn cancel_native_file_search(&mut self, params: Value) -> Result<()> {
+        if serde_json::to_vec(&params)?.len() > 1024 {
+            bail!("File discovery cancellation exceeds bounds");
+        }
+        let request: FileSearchCancel = serde_json::from_value(params)?;
+        self.validate_native_origin(request.session, &request.owner, None, None)?;
+        // Only this exact native-admitted request owns the cancellation flag.
+        if let Some(service) = self.services.iter().find(|service| {
+            service.id == request.request
+                && service.request.session == request.session
+                && service.request.owner == request.owner
+        }) && let Operation::FindFiles(_, flag) = &service.operation
+        {
+            flag.store(true, std::sync::atomic::Ordering::Release);
+        }
+        Ok(())
+    }
     pub(crate) fn set_workspace_edit_context(
         &mut self,
         context: Option<crate::app::workspace_transactions::CaptureContext>,
@@ -164,6 +200,16 @@ impl Client {
         )?;
         let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         let operation = match method {
+            "nativeFindFiles" => {
+                let context = self
+                    .file_search_context
+                    .clone()
+                    .context("Native file discovery context unavailable")?;
+                let capture =
+                    crate::workspace_file_search::Capture::new(context, &request.args, started)?;
+                request.args = Value::Null;
+                Operation::FindFiles(capture, Arc::new(std::sync::atomic::AtomicBool::new(false)))
+            }
             "nativeWorkspaceApplyEdit" => {
                 use crate::app::workspace_transactions::{Origin, capture_workspace_transaction};
                 let context = self
@@ -249,7 +295,10 @@ impl Client {
         };
         if !matches!(
             operation,
-            Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+            Operation::State(_)
+                | Operation::Save(_)
+                | Operation::WorkspaceApply(_)
+                | Operation::FindFiles(..)
         ) && request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service request; retry");
@@ -355,7 +404,10 @@ impl Client {
         }
         if !matches!(
             service.operation,
-            Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+            Operation::State(_)
+                | Operation::Save(_)
+                | Operation::WorkspaceApply(_)
+                | Operation::FindFiles(..)
         ) && service.request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service completion; retry");
@@ -371,7 +423,7 @@ impl Client {
             self.validate_native_origin(service.request.session, &service.request.owner, None, None)
         } else if matches!(
             service.operation,
-            Operation::State(_) | Operation::WorkspaceApply(_)
+            Operation::State(_) | Operation::WorkspaceApply(_) | Operation::FindFiles(..)
         ) {
             // Receipt already authorized the exact origin. An accepted durable
             // patch may outlive that command; never bind it to a later command.
@@ -468,6 +520,77 @@ pub(super) fn empty_queue() -> VecDeque<NativeService> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn file_search_cancellation_requires_exact_owner_session_request_and_operation() {
+        use std::sync::atomic::Ordering;
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let document = Document::from_text("dirty 猫🙂\r\n");
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[document],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let context = crate::workspace_file_search::Context::new(
+            directory.path().into(),
+            Arc::new(Vec::new()),
+            0,
+        )
+        .unwrap();
+        client.set_file_search_context(Some(context));
+        let args = json!({"session":client.session,"owner":owner,"args":{
+            "include":{"pattern":"**/*.rs","baseUri":null},
+            "exclude":{"mode":"none","pattern":null},"maxResults":null}});
+        client
+            .queue_service("nativeFindFiles", json!("search-original"), args)
+            .unwrap();
+        let service = client.service().unwrap().clone();
+        let Operation::FindFiles(_, flag) = &service.operation else {
+            panic!("wrong operation");
+        };
+        for params in [
+            json!({"session":client.session,"owner":owner,"request":"another-request"}),
+            json!({"session":client.session+1,"owner":owner,"request":"search-original"}),
+            json!({"session":client.session,"owner":"unknown.owner","request":"search-original"}),
+            json!({"session":client.session,"owner":owner,"request":"search-original","extra":true}),
+        ] {
+            let _ = client.cancel_native_file_search(params);
+            assert!(!flag.load(Ordering::Acquire));
+        }
+        client
+            .cancel_native_file_search(json!({"session":client.session,"owner":owner,
+            "request":"search-original"}))
+            .unwrap();
+        assert!(flag.load(Ordering::Acquire));
+        client
+            .answer_service(&service, Ok(json!({"uris":[],"cancelled":true})))
+            .unwrap();
+        client
+            .queue_service(
+                "nativeStateWrite",
+                json!("state-original"),
+                json!({
+            "session":client.session,"owner":owner,"args":{
+                "scope":"global","key":"test","remove":false,"value":true}}),
+            )
+            .unwrap();
+        let state = client.service().unwrap().clone();
+        client
+            .cancel_native_file_search(json!({"session":client.session,"owner":owner,
+            "request":"state-original"}))
+            .unwrap();
+        assert!(matches!(
+            client.service().unwrap().operation,
+            Operation::State(_)
+        ));
+        assert!(client.service_valid(&state).is_ok());
+    }
     #[test]
     fn queued_native_save_keeps_original_caller_lifetime_across_reactivation() {
         let directory = tempfile::tempdir().unwrap();
