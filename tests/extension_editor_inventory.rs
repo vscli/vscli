@@ -219,7 +219,10 @@ fn visible_editor_group_close_updates_survivor_column_then_empty_workbench_inven
     );
     assert!(app.panes.is_empty());
     assert!(app.active_document().is_none());
-    assert!(app.editor_groups().groups().is_empty());
+    assert_eq!(app.editor_groups().groups().len(), 1);
+    assert!(app.editor_groups().groups()[0].tabs().is_empty());
+    assert!(app.editor_groups().active_membership().is_none());
+    assert_eq!(app.editor_layout().groups().len(), 1);
     unchanged(&root);
     app.execute("vscli.extensions.stop", Value::Null);
 }

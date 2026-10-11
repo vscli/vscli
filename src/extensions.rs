@@ -3,6 +3,7 @@ mod decorations;
 mod diagnostics;
 pub(crate) mod editor_inventory;
 pub(crate) mod editor_state;
+pub(crate) mod editor_tabs;
 mod owner_lifetimes;
 mod prompts;
 pub(crate) mod providers;
@@ -198,12 +199,21 @@ struct Edit {
 pub struct Prepared {
     storage_root: Option<PathBuf>,
     editor_inventory: Option<editor_inventory::Inventory>,
+    editor_tabs: Option<editor_tabs::Inventory>,
     mirror: MirrorState,
     state: Value,
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
     activation: Option<Vec<String>>,
 }
 impl Prepared {
+    pub(crate) fn with_editor_tabs(mut self, inventory: editor_tabs::Inventory) -> Result<Self> {
+        let wire = inventory.wire()?;
+        self.state["tabs"] = wire.clone();
+        self.mirror.tabs_stamp = wire;
+        self.mirror.tabs = Some(inventory.clone());
+        self.editor_tabs = Some(inventory);
+        Ok(self)
+    }
     /// Select lazy roots; omitted roots preserve explicit eager startup.
     pub fn with_activation(mut self, ids: Vec<String>) -> Result<Self> {
         if ids.len() > MAX_PACKAGES {
@@ -227,6 +237,7 @@ pub struct ActivationRequest {
 }
 pub struct Client {
     editor_inventory: Option<editor_inventory::Inventory>,
+    editor_tabs: Option<editor_tabs::Inventory>,
     decorations: decorations::Registry,
     diagnostics: diagnostics::State,
     providers: providers::State,
@@ -263,6 +274,15 @@ pub struct Client {
     titles: HashMap<(String, String), String>,
 }
 impl Client {
+    pub(crate) fn set_editor_tabs(&mut self, inventory: editor_tabs::Inventory) {
+        if self.editor_tabs.is_some() {
+            self.editor_tabs = Some(inventory);
+        }
+    }
+    /// Admission uses the last accepted mirror, never a newer unpublished cohort.
+    pub(crate) fn editor_tabs(&self) -> Option<&editor_tabs::Inventory> {
+        self.mirror.tabs.as_ref()
+    }
     pub fn start(
         node: &str,
         extension: &Path,
@@ -309,6 +329,7 @@ impl Client {
         Ok(Prepared {
             storage_root: None,
             editor_inventory: None,
+            editor_tabs: None,
             mirror,
             state,
             configuration: settings.extension_layers().clone(),
@@ -446,6 +467,14 @@ impl Client {
                 "editor-snippets.cjs",
                 include_str!("../extension-host/editor-snippets.cjs"),
             ),
+            (
+                "editor-tabs.cjs",
+                include_str!("../extension-host/editor-tabs.cjs"),
+            ),
+            (
+                "tab-inputs.cjs",
+                include_str!("../extension-host/tab-inputs.cjs"),
+            ),
             ("memento.cjs", include_str!("../extension-host/memento.cjs")),
             (
                 "surfaces.cjs",
@@ -505,6 +534,7 @@ impl Client {
         )?;
         let mut client = Self {
             editor_inventory: prepared.editor_inventory,
+            editor_tabs: prepared.editor_tabs,
             diagnostics: diagnostics::State::default(),
             decorations: decorations::Registry::default(),
             providers: providers::State::default(),
@@ -546,7 +576,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -838,21 +868,36 @@ impl Client {
             .as_ref()
             .map(|inventory| inventory.stamp(&refs))
             .transpose()?;
+        let tabs_stamp = self
+            .editor_tabs
+            .as_ref()
+            .map(editor_tabs::Inventory::wire)
+            .transpose()?;
         if MirrorState::stamp_refs(&refs, active) != self.mirror.last_stamp
             || !self.mirror.api_selections.is_empty()
             || !self.mirror.api_editor_selections.is_empty()
             || editor_stamp
                 .as_ref()
                 .is_some_and(|stamp| *stamp != self.mirror.editor_stamp)
+            || tabs_stamp
+                .as_ref()
+                .is_some_and(|stamp| *stamp != self.mirror.tabs_stamp)
         {
-            let (mut next, mut state) =
-                self.mirror
-                    .next_refs_with_editor_stamp(&refs, active, editor_stamp.as_ref())?;
+            let (mut next, mut state) = self.mirror.next_refs_with_inventory_stamps(
+                &refs,
+                active,
+                editor_stamp.as_ref(),
+                tabs_stamp.as_ref(),
+            )?;
             if let Some(inventory) = &self.editor_inventory {
                 state["editors"] = inventory.wire(&refs, &next.api_editor_selections)?;
                 state["activeEditor"] = json!(inventory.active);
                 next.editors = inventory.frames.clone();
                 next.api_editor_selections.clear();
+            }
+            if let Some(stamp) = tabs_stamp {
+                state["tabs"] = stamp;
+                next.tabs = self.editor_tabs.clone();
             }
             self.process
                 .send(json!({"method":"state", "params":state}))?;
@@ -1041,7 +1086,8 @@ impl Client {
                     | "nativeEditorOptions"
                     | "nativeEditorReveal"
                     | "nativeEditorDecorations"
-                    | "nativeEditorInsertSnippet" => {
+                    | "nativeEditorInsertSnippet"
+                    | "nativeTabsClose" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_service_with_models(
@@ -1286,6 +1332,8 @@ impl Client {
 }
 #[derive(Clone, Default)]
 struct MirrorState {
+    tabs_stamp: Value,
+    tabs: Option<editor_tabs::Inventory>,
     editor_stamp: Value,
     editors: Vec<editor_inventory::Frame>,
     api_editor_selections: HashSet<String>,
@@ -1323,14 +1371,27 @@ impl MirrorState {
         active: Option<&Document>,
         editor_stamp: Option<&Value>,
     ) -> Result<(Self, Value)> {
+        self.next_refs_with_inventory_stamps(documents, active, editor_stamp, None)
+    }
+    fn next_refs_with_inventory_stamps(
+        &self,
+        documents: &[&Document],
+        active: Option<&Document>,
+        editor_stamp: Option<&Value>,
+        tabs_stamp: Option<&Value>,
+    ) -> Result<(Self, Value)> {
         check_mirror_budget(documents)?;
-        let viewport_only = editor_stamp.is_some_and(|stamp| {
-            !self.editor_stamp.is_null()
-                && Self::stamp_refs(documents, active) == self.last_stamp
-                && self.api_selections.is_empty()
-                && self.api_editor_selections.is_empty()
-                && Self::show_editor_stamp(stamp) == Self::show_editor_stamp(&self.editor_stamp)
+        let tabs_unchanged = tabs_stamp.map_or(self.tabs_stamp.is_null(), |stamp| {
+            Self::show_tabs_stamp(stamp) == Self::show_tabs_stamp(&self.tabs_stamp)
         });
+        let viewport_only = tabs_unchanged
+            && editor_stamp.is_some_and(|stamp| {
+                !self.editor_stamp.is_null()
+                    && Self::stamp_refs(documents, active) == self.last_stamp
+                    && self.api_selections.is_empty()
+                    && self.api_editor_selections.is_empty()
+                    && Self::show_editor_stamp(stamp) == Self::show_editor_stamp(&self.editor_stamp)
+            });
         // Only publish the new baseline after the transport accepts the update.
         let mut next = self.clone();
         let state = next.state(documents, active)?;
@@ -1340,6 +1401,9 @@ impl MirrorState {
         if let Some(stamp) = editor_stamp {
             next.editor_stamp = stamp.clone();
         }
+        if let Some(stamp) = tabs_stamp {
+            next.tabs_stamp = stamp.clone();
+        }
         Ok((next, state))
     }
     fn show_editor_stamp(stamp: &Value) -> Value {
@@ -1348,6 +1412,26 @@ impl MirrorState {
             for editor in editors {
                 if let Some(editor) = editor.as_object_mut() {
                     editor.remove("visibleRanges");
+                }
+            }
+        }
+        stamp
+    }
+    /// Presentation flags do not retarget showTextDocument. Keep exact group
+    /// and tab lifetimes, resource identity, order and active membership; only
+    /// independent labels/dirty/pin/preview metadata may span this interval.
+    fn show_tabs_stamp(stamp: &Value) -> Value {
+        let mut stamp = stamp.clone();
+        if let Some(groups) = stamp["groups"].as_array_mut() {
+            for group in groups {
+                if let Some(tabs) = group["tabs"].as_array_mut() {
+                    for tab in tabs {
+                        if let Some(tab) = tab.as_object_mut() {
+                            for field in ["label", "isDirty", "isPinned", "isPreview"] {
+                                tab.remove(field);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1602,6 +1686,89 @@ mod tests {
             !next.show_generation_current(Some(third.generation)),
             "source ABA"
         );
+    }
+    #[test]
+    fn tab_metadata_preserves_show_interval_but_actual_membership_changes_retire_it() {
+        let docs = [Document::from_text("猫🙂\r\n")];
+        let mut groups = crate::editor_groups::Groups::with_empty_group();
+        let member = groups.open(docs[0].id).unwrap().active.unwrap();
+        let mut inventory = editor_tabs::Inventory::default();
+        inventory.observe(&groups, &[&docs[0]]).unwrap();
+        let tabs = inventory.wire().unwrap();
+        let stamp = json!({"activeEditor":"editor-1","editors":[{
+            "id":"editor-1","document":docs[0].id,"viewColumn":1,
+            "selections":[],"options":{"tabSize":4},"visibleRanges":[]}]});
+        let (first, _) = MirrorState::default()
+            .next_refs_with_inventory_stamps(&[&docs[0]], docs.first(), Some(&stamp), Some(&tabs))
+            .unwrap();
+        let mut measured = stamp.clone();
+        measured["editors"][0]["visibleRanges"] =
+            json!([{"start":{"line":0,"character":0},"end":{"line":1,"character":0}}]);
+        let (second, _) = first
+            .next_refs_with_inventory_stamps(
+                &[&docs[0]],
+                docs.first(),
+                Some(&measured),
+                Some(&tabs),
+            )
+            .unwrap();
+        assert!(second.show_generation_current(Some(first.generation)));
+        groups.set_sticky(member, true).unwrap();
+        inventory.observe(&groups, &[&docs[0]]).unwrap();
+        let changed_tabs = inventory.wire().unwrap();
+        assert_ne!(changed_tabs, tabs);
+        let (third, state) = second
+            .next_refs_with_inventory_stamps(
+                &[&docs[0]],
+                docs.first(),
+                Some(&stamp),
+                Some(&changed_tabs),
+            )
+            .unwrap();
+        assert!(third.show_generation_current(Some(first.generation)));
+        assert!(third.show_generation_current(Some(second.generation)));
+        assert_eq!(third.tabs_stamp, changed_tabs);
+        // A new shared membership retires old Show requests even if the test's
+        // visible-editor/document stamp has not advanced yet.
+        groups.split_active().unwrap();
+        inventory.observe(&groups, &[&docs[0]]).unwrap();
+        let topology = inventory.wire().unwrap();
+        let (fourth, _) = third
+            .next_refs_with_inventory_stamps(
+                &[&docs[0]],
+                docs.first(),
+                Some(&measured),
+                Some(&topology),
+            )
+            .unwrap();
+        assert!(!fourth.show_generation_current(Some(third.generation)));
+        assert!(!fourth.show_generation_current(Some(first.generation)));
+        assert_eq!(state["documents"][0]["version"], 1);
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+        assert!(!docs[0].dirty());
+    }
+    #[test]
+    fn prepared_tab_inventory_contains_real_empty_group_and_original_published_proof() {
+        let groups = crate::editor_groups::Groups::with_empty_group();
+        let mut inventory = editor_tabs::Inventory::default();
+        inventory.observe(&groups, &[]).unwrap();
+        let expected = inventory.wire().unwrap();
+        let prepared = Client::prepare(&[], 0, &Settings::default())
+            .unwrap()
+            .with_editor_tabs(inventory)
+            .unwrap();
+        assert_eq!(prepared.state["tabs"], expected);
+        assert_eq!(prepared.mirror.tabs_stamp, expected);
+        assert_eq!(prepared.state["tabs"]["groups"][0]["tabs"], json!([]));
+        let id = expected["groups"][0]["id"].as_str().unwrap().to_owned();
+        let capture = prepared
+            .mirror
+            .tabs
+            .as_ref()
+            .unwrap()
+            .capture_published("groups", &[id])
+            .unwrap();
+        assert!(capture.current(prepared.editor_tabs.as_ref().unwrap(), &groups));
     }
     #[test]
     fn editor_state_mirrors_inactive_selections_language_and_command_kind_without_text_version() {

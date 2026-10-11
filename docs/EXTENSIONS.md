@@ -127,6 +127,16 @@ Rust all-target tests, four actual selected-host/App workflows and four new
 terminal journeys pass. See [editor snippets](EDITOR_SNIPPETS_API.md)
 for byte/range/mirror limits, clipboard workers and remaining choice/nesting gaps.
 
+`window.tabGroups` exposes actual native groups and all their text tabs, including
+inactive tabs and separate shared-document memberships. Frozen public objects and
+getter arrays retain identity through ordinary metadata updates; tab/group events
+follow document/editor mirror publication. `close` supports tabs, groups and
+homogeneous arrays, using real Save/Discard/Cancel and untitled Save As. Tab
+preserveFocus restores the original surviving group; the pinned upstream group
+close ignores that flag. Welcome retains one actual empty group. All seven stable
+TabInput constructors are exported; diff, custom editor, webview, notebook and
+terminal tab backends remain outstanding. See [tab behavior and evidence](EDITOR_TABS_API.md).
+
 `workspace.openTextDocument(pathOrFileUri)` reads an existing regular UTF-8 file on a bounded native worker. It returns the same shared document object already retained for that path, including dirty or deleted backing files. Opening a new model alone creates no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden models share the host's existing 4 MiB total mirror budget with visible tabs. Models remain native-owned after host stop or failure. Showing or natively opening one moves its Document identity and undo history into the tab store; native watching and settings also include retained hidden models. Dirty hidden models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean hidden models are excluded from clean-session layout metadata.
 
 `window.showTextDocument(documentOrFile, options)` and its positional view-column

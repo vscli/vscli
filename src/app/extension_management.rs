@@ -194,6 +194,7 @@ impl App {
             &self.documents,
             &self.hidden_documents,
         )?
+        .with_editor_tabs(self.extension_editor_tabs.clone())?
         .with_storage_root(self.extension_services.config_root.clone());
         if let Some(activation) = activation {
             prepared = prepared.with_activation(activation)?;

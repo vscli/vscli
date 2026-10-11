@@ -123,6 +123,99 @@ pub(super) struct State {
     autosave_now: Option<std::time::Instant>,
 }
 impl App {
+    pub(super) fn tab_close_generation(&self) -> u64 {
+        self.saving.close_generation
+    }
+
+    pub(super) fn tab_close_pending(
+        &self,
+        member: crate::editor_groups::Membership,
+        generation: u64,
+    ) -> bool {
+        if self.saving.close_generation != generation {
+            return false;
+        }
+        let owns = |continuation: &Option<Continuation>| {
+            continuation.as_ref().is_some_and(|continuation| {
+                continuation.membership == Some(member)
+                    && continuation.generation == generation
+                    && matches!(continuation.action, AfterSave::Close)
+            })
+        };
+        (self.close_membership == Some(member)
+            && matches!(self.modal, Some(Modal::Confirm(AfterSave::Close))))
+            || (matches!(self.pending, Some(AfterSave::Close))
+                && self.saving.save_as_origin.as_ref().is_some_and(|origin| {
+                    origin.membership == Some(member) && origin.service.is_none()
+                }))
+            || self
+                .saving
+                .active
+                .as_ref()
+                .is_some_and(|active| owns(&active.continuation))
+            || self
+                .saving
+                .latest
+                .as_ref()
+                .is_some_and(|intent| owns(&intent.continuation))
+    }
+
+    /// Retire only this API caller's close interest. A save already authorized
+    /// by the user still publishes its actual disk receipt to the native model.
+    pub(super) fn retire_api_tab_close(
+        &mut self,
+        member: crate::editor_groups::Membership,
+        generation: u64,
+    ) {
+        if self.saving.close_generation != generation {
+            return;
+        }
+        if self.close_membership == Some(member) {
+            self.close_membership = None;
+            if matches!(self.modal, Some(Modal::Confirm(AfterSave::Close))) {
+                self.modal = None;
+            }
+        }
+        if matches!(self.pending, Some(AfterSave::Close))
+            && self
+                .saving
+                .save_as_origin
+                .as_ref()
+                .is_some_and(|origin| origin.membership == Some(member) && origin.service.is_none())
+        {
+            self.pending = None;
+            self.saving.save_as_origin = None;
+            if self
+                .prompt
+                .as_ref()
+                .is_some_and(|prompt| matches!(prompt.kind, PromptKind::SaveAs))
+            {
+                self.prompt = None;
+            }
+        }
+        for continuation in self
+            .saving
+            .active
+            .as_mut()
+            .map(|active| &mut active.continuation)
+            .into_iter()
+            .chain(
+                self.saving
+                    .latest
+                    .as_mut()
+                    .map(|intent| &mut intent.continuation),
+            )
+        {
+            if continuation.as_ref().is_some_and(|continuation| {
+                continuation.membership == Some(member)
+                    && continuation.generation == generation
+                    && matches!(continuation.action, AfterSave::Close)
+            }) {
+                *continuation = None;
+            }
+        }
+    }
+
     #[cfg(test)]
     pub(super) fn replace_save_worker_fixture(&mut self, worker: Worker) {
         assert!(self.saving.active.is_none());
@@ -888,6 +981,9 @@ impl App {
                     {
                         if !self.close_target_eligible(member, continuation.eligibility) {
                             self.reject_protected_close(member, true);
+                            return;
+                        }
+                        if self.defer_api_tab_close_after_save(member, continuation.generation) {
                             return;
                         }
                         self.finish_tab_close_eligible(member, continuation.eligibility);

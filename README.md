@@ -22,6 +22,9 @@ symbols supply a guarded sibling picker.
 [Editor groups](docs/EDITOR_GROUPS.md) retain independent tabs, historical views
 and MRU closing. Native previews support Keep Editor and permanent edit promotion;
 delayed Save→Close targets the original tab.
+[Public extension tabs](docs/EDITOR_TABS_API.md) expose the actual groups and
+inactive/shared text tabs, change events and native Save/Discard/Cancel closes.
+Welcome and the last-tab close retain one real empty group without creating a file.
 The Breadcrumbs toggle now saves its root setting through
 [native background settings persistence](docs/SETTINGS_PERSISTENCE.md), preserving
 comments and guarding unsaved settings buffers.

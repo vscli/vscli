@@ -33,6 +33,17 @@ impl App {
             .panes
             .get(self.active_pane)
             .map(|pane| (pane.document, pane.id));
+        if self.group_fallback {
+            self.extension_editor_tabs.invalidate();
+        } else if let Err(error) = self
+            .extension_editor_tabs
+            .observe(&self.editor_groups, &refs)
+        {
+            self.extension_editor_tabs.invalidate();
+            if self.extension_host.is_some() {
+                self.message = format!("Extension tab inventory paused: {error:#}");
+            }
+        }
         if let Err(error) = self
             .extension_editor_inventory
             .observe(&refs, &views, active)
@@ -72,6 +83,7 @@ impl App {
         };
         self.refresh_extension_editor_inventory();
         host.set_editor_inventory(self.extension_editor_inventory.clone());
+        host.set_editor_tabs(self.extension_editor_tabs.clone());
         if self.extension_packages.is_empty() {
             self.extension_packages = host.packages.clone();
         }
@@ -203,6 +215,7 @@ impl App {
         self.refresh_extension_editor_inventory();
         if let Some(host) = &mut self.extension_host {
             host.set_editor_inventory(self.extension_editor_inventory.clone());
+            host.set_editor_tabs(self.extension_editor_tabs.clone());
             if self
                 .activation
                 .owners

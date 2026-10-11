@@ -931,6 +931,7 @@ impl App {
         self.refresh_extension_editor_inventory();
         if let Some(host) = &mut self.extension_host {
             host.set_editor_inventory(self.extension_editor_inventory.clone());
+            host.set_editor_tabs(self.extension_editor_tabs.clone());
             let additions = packages
                 .iter()
                 .filter(|package| !host.packages.iter().any(|old| old.id == package.id))

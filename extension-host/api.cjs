@@ -16,6 +16,8 @@ const { createTextContentProviders } = require('./text-content-providers.cjs');
 const editorPresentation = require('./editor-presentation.cjs');
 const {createEditorDecorations} = require('./editor-decorations.cjs');
 const {createEditorSnippets} = require('./editor-snippets.cjs');
+const {createEditorTabs} = require('./editor-tabs.cjs');
+const tabInputs = require('./tab-inputs.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
@@ -150,6 +152,11 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     enabled:sessionOptions.editorSnippets===true,call:documentServices.call,
     captureEditor:(owner,document,base)=>documentServices.editorServiceSource(owner,document,base,'editorSnippets'),
   });
+  const editorTabs = createEditorTabs({
+    enabled:sessionOptions.editorTabs===true,call:documentServices.call,
+    captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
+    bindEvent:(owner,source)=>event(owner,source),
+  });
   function track(owner, disposable) {
     try { assertOwner(owner); } catch (error) { disposable.dispose(); throw error; }
     if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }
@@ -246,6 +253,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     // A newer notification can arrive before an edit promise callback runs.
     if (state.generation <= generation) return;
     const inventory = validateEditorInventory(state);
+    const tabPlan = sessionOptions.editorTabs===true ? editorTabs.prepare(state.tabs) : undefined;
     generation = state.generation;
     const changes = [];
     const previousVisible = visibleEditors, previousActive = active;
@@ -383,6 +391,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       visibleEditors = active ? [active] : [];
     }
     const changedVisible = previousVisible.length !== visibleEditors.length || previousVisible.some(value=>!visibleEditors.includes(value));
+    const fireTabs = tabPlan ? editorTabs.publish(tabPlan) : undefined;
     providers.documentChanged();
     diagnostics.documentChanged();
     textContentProviders.documentChanged();
@@ -390,6 +399,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     for (const fire of changes) fire();
     if (changedVisible) visibleChanged.fire(visibleEditors.slice());
     if (active !== previousActive) activeChanged.fire(active);
+    fireTabs?.();
   }
   function editorFor(id, document, owner = '', base = undefined, nativeId = undefined) {
     const privateState = base ? editorStates.get(base) : {document,id,nativeId,alive:true,actual:[new Selection(0,0,0,0)],wire:[],initialized:false,overlay:undefined,viewColumn:undefined,presentation:editorPresentation.createEditorPresentation()};
@@ -470,7 +480,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return result;
   }
   const api = supported('vscode', {
-    ...types, ...providerTypes, ...diagnosticTypes, ...surfaces.types, RelativePattern,
+    ...types, ...providerTypes, ...diagnosticTypes, ...surfaces.types, ...tabInputs, RelativePattern,
     ...decorations.types,
     FileSystemError: filesystem.FileSystemError, FileType: filesystem.FileType,
     FilePermission: filesystem.FilePermission, FileChangeType: filesystem.FileChangeType,
@@ -480,6 +490,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
     ExtensionMode: Object.freeze({ Production: 1, Development: 2, Test: 3 }),
     window: supported('window', {
+      tabGroups:editorTabs.forOwner(''),
       ...createPrompts(request, sessionOptions.session, '', promptBudget),
       ...surfaces.forExtension(''),
       ...decorations.forOwner(''),
@@ -535,6 +546,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           state?.presentation.retire(owner);
         }
         callers.retire(owner);
+        editorTabs.disposeOwner(owner);
         decorations.disposeOwner(owner);
         if (sessionOptions.languageProviders) providers.disposeOwner(owner);
         diagnostics.disposeOwner(owner);
@@ -562,6 +574,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         languages: supported('languages', { ...diagnostics.forOwner(owner), ...(sessionOptions.languageProviders ? providers.forOwner(owner) : {}),
           ...(sessionOptions.documentLanguage ? {setTextDocumentLanguage:(document,language)=>documentServices.setTextDocumentLanguage(owner,document,language)} : {}) }),
         window: supported('window', {
+          tabGroups:editorTabs.forOwner(owner),
           ...createPrompts(request, sessionOptions.session, owner, promptBudget),
           showTextDocument: services.showTextDocument,
           ...surfaces.forExtension(owner),

@@ -31,6 +31,11 @@ pub(crate) struct Request {
 pub(crate) enum Operation {
     Open(Open),
     Save(Save),
+    TabsClose {
+        capture: Arc<super::editor_tabs::Capture>,
+        preserve_focus: bool,
+        context: super::editor_state::Context,
+    },
     WorkspaceApply(Arc<crate::app::workspace_transactions::Capture>),
     FindFiles(
         Arc<crate::workspace_file_search::Capture>,
@@ -43,6 +48,26 @@ pub(crate) enum Operation {
     Show(Show),
     Command(Command),
     State(StatePatch),
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct TabsCloseArgs {
+    kind: String,
+    ids: Vec<String>,
+    preserve_focus: bool,
+}
+impl TabsCloseArgs {
+    fn parse(value: Value) -> Result<Self> {
+        let args: Self = serde_json::from_value(value)?;
+        if !matches!(args.kind.as_str(), "tabs" | "groups")
+            || args.ids.is_empty()
+            || args.ids.len() > 512
+            || args.ids.iter().any(|id| id.is_empty() || id.len() > 128)
+        {
+            bail!("Invalid native tab close kind or identifiers");
+        }
+        Ok(args)
+    }
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -94,7 +119,10 @@ pub(crate) struct NativeService {
 }
 impl NativeService {
     pub fn fresh(&self) -> Result<()> {
-        let lifetime = if matches!(self.operation, Operation::Save(_)) {
+        let lifetime = if matches!(
+            self.operation,
+            Operation::Save(_) | Operation::TabsClose { .. }
+        ) {
             SAVE_SERVICE_LIFETIME
         } else if matches!(self.operation, Operation::WorkspaceApply(_)) {
             Duration::from_secs(5)
@@ -221,6 +249,25 @@ impl Client {
         )?;
         let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         let operation = match method {
+            "nativeTabsClose" => {
+                let args = TabsCloseArgs::parse(request.args.clone())?;
+                let context = self
+                    .editor_state_context
+                    .clone()
+                    .context("Native tab close context is unavailable")?;
+                // Never capture a newer candidate inventory under the host
+                // handles of the last transport-accepted mirror.
+                let capture = self
+                    .editor_tabs()
+                    .context("Native tab inventory is unavailable")?
+                    .capture_published(&args.kind, &args.ids)?;
+                request.args = Value::Null;
+                Operation::TabsClose {
+                    capture: Arc::new(capture),
+                    preserve_focus: args.preserve_focus,
+                    context,
+                }
+            }
             "nativeDocumentLanguage"
             | "nativeEditorSelections"
             | "nativeEditorOptions"
@@ -347,6 +394,7 @@ impl Client {
             operation,
             Operation::State(_)
                 | Operation::Save(_)
+                | Operation::TabsClose { .. }
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
                 | Operation::UntitledOpen(_)
@@ -400,7 +448,10 @@ impl Client {
                 current.id == service.id
                     && current.request.session == service.request.session
                     && current.request.owner == service.request.owner
-                    && matches!(current.operation, Operation::Save(_))
+                    && matches!(
+                        current.operation,
+                        Operation::Save(_) | Operation::TabsClose { .. }
+                    )
             })
             .context("Document save service no longer pending")?;
         if waiting {
@@ -418,8 +469,10 @@ impl Client {
     }
     pub(super) fn document_save_command_waiting(&self, command: u64) -> bool {
         self.services.iter().any(|service| {
-            matches!(service.operation, Operation::Save(_))
-                && service.request.session == self.session
+            matches!(
+                service.operation,
+                Operation::Save(_) | Operation::TabsClose { .. }
+            ) && service.request.session == self.session
                 && service.request.command == Some(command)
                 && service
                     .save_path_wait
@@ -464,6 +517,7 @@ impl Client {
             service.operation,
             Operation::State(_)
                 | Operation::Save(_)
+                | Operation::TabsClose { .. }
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
                 | Operation::UntitledOpen(_)
@@ -487,7 +541,10 @@ impl Client {
         {
             bail!("Native service is no longer pending");
         }
-        if matches!(service.operation, Operation::Save(_)) {
+        if matches!(
+            service.operation,
+            Operation::Save(_) | Operation::TabsClose { .. }
+        ) {
             self.validate_native_origin(service.request.session, &service.request.owner, None, None)
         } else if matches!(
             service.operation,
@@ -524,7 +581,10 @@ impl Client {
         }) {
             bail!("Native service response no longer pending");
         }
-        if matches!(service.operation, Operation::Save(_)) {
+        if matches!(
+            service.operation,
+            Operation::Save(_) | Operation::TabsClose { .. }
+        ) {
             self.set_document_save_path_wait(service, false)?;
         }
         let message = match result {
@@ -732,6 +792,166 @@ mod tests {
         }
     }
 
+    #[test]
+    fn tab_close_dto_is_strict_bounded_and_preserves_original_order() {
+        let args =
+            TabsCloseArgs::parse(json!({"kind":"tabs","ids":["b","a","b"],"preserveFocus":true}))
+                .unwrap();
+        assert_eq!(args.ids, ["b", "a", "b"]);
+        assert!(args.preserve_focus);
+        let max = vec!["x".repeat(128); 512];
+        assert!(
+            TabsCloseArgs::parse(json!({"kind":"groups","ids":max,"preserveFocus":false})).is_ok()
+        );
+        for invalid in [
+            json!({"kind":"tabs","ids":[],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":[""],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":["x".repeat(129)],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":vec!["x";513],"preserveFocus":false}),
+            json!({"kind":"views","ids":["x"],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":[1],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":["x"],"preserveFocus":0}),
+            json!({"kind":"tabs","ids":["x"]}),
+            json!({"kind":"tabs","ids":["x"],"preserveFocus":false,"generation":1}),
+        ] {
+            assert!(TabsCloseArgs::parse(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn tab_close_admits_only_published_inventory_and_retains_exact_human_wait_and_caller() {
+        use std::sync::atomic::Ordering;
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let document = Document::from_text("dirty 猫🙂\r\n");
+        let newer = Document::from_text("unpublished\r\n");
+        let mut groups = crate::editor_groups::Groups::with_empty_group();
+        let original_member = groups.open(document.id).unwrap().active.unwrap();
+        let mut published = super::super::editor_tabs::Inventory::default();
+        published.observe(&groups, &[&document]).unwrap();
+        let old_id = published.wire().unwrap()["groups"][0]["tabs"][0]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        client.editor_tabs = Some(published.clone());
+        client.mirror.tabs = Some(published.clone());
+        let layers = Arc::new(Vec::new());
+        client.set_editor_state_context(Some(
+            super::super::editor_state::Context::new(directory.path().into(), layers.clone(), 7)
+                .unwrap(),
+        ));
+        groups.open(newer.id).unwrap();
+        let mut candidate = published;
+        candidate.observe(&groups, &[&document, &newer]).unwrap();
+        let newer_id = candidate.wire().unwrap()["groups"][0]["tabs"][1]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        client.set_editor_tabs(candidate);
+        let owner = client.packages[0].id.clone();
+        let old_clock = Instant::now() - Duration::from_secs(45);
+        for command in [900, 901] {
+            client.pending.insert(
+                command,
+                Pending {
+                    owner: Some(owner.clone()),
+                    method: "execute".into(),
+                    started: old_clock,
+                },
+            );
+        }
+        let args = |ids: Vec<String>| json!({"session":client.session,"owner":owner,"command":900,"commandOwner":owner,"generation":0,"args":{"kind":"tabs","ids":ids,"preserveFocus":true}});
+        let accepted = args(vec![old_id.clone(), old_id.clone()]);
+        let unpublished = args(vec![newer_id]);
+        assert!(
+            client
+                .queue_service("nativeTabsClose", json!("unpublished"), unpublished)
+                .is_err()
+        );
+        assert!(client.services.is_empty());
+        client
+            .queue_service("nativeTabsClose", json!("original-close"), accepted.clone())
+            .unwrap();
+        let original = client.service().unwrap().clone();
+        let Operation::TabsClose {
+            capture,
+            preserve_focus,
+            context,
+        } = &original.operation
+        else {
+            panic!("wrong operation")
+        };
+        assert_eq!(capture.ids(), &[old_id.clone(), old_id]);
+        assert_eq!(capture.memberships(), &[original_member]);
+        assert!(*preserve_focus);
+        assert!(context.current(directory.path(), &layers, 7));
+        assert!(original.request.args.is_null());
+        assert!(
+            client.service_valid(&original).is_ok(),
+            "global mirror generation does not authorize tab close"
+        );
+        client.set_document_save_path_wait(&original, true).unwrap();
+        assert!(client.document_save_command_waiting(900));
+        assert!(!client.document_save_command_waiting(901));
+        let start = client.service().unwrap().save_path_wait;
+        client.set_document_save_path_wait(&original, true).unwrap();
+        assert_eq!(client.service().unwrap().save_path_wait, start);
+        client.services.front_mut().unwrap().save_path_wait =
+            Some(Instant::now() - Duration::from_secs(301));
+        assert!(!client.document_save_command_waiting(900));
+        client.expire_document_save_path_waits();
+        assert!(client.pending[&900].started > old_clock);
+        assert_eq!(client.pending[&901].started, old_clock);
+        let reset = client.pending[&900].started;
+        client
+            .set_document_save_path_wait(&original, false)
+            .unwrap();
+        assert_eq!(client.pending[&900].started, reset);
+        let mut timed = original.clone();
+        timed.started = Instant::now() - Duration::from_secs(359);
+        assert!(timed.fresh().is_ok());
+        timed.started = Instant::now() - Duration::from_secs(360);
+        assert!(timed.fresh().is_err());
+        for index in 1..8 {
+            client
+                .queue_service(
+                    "nativeTabsClose",
+                    json!(format!("close-{index}")),
+                    accepted.clone(),
+                )
+                .unwrap();
+        }
+        assert!(
+            client
+                .queue_service("nativeTabsClose", json!("overflow"), accepted)
+                .is_err()
+        );
+        assert_eq!(client.services.len(), 8);
+        client
+            .register_activation(&json!([{"id":owner,"state":"failed"}]))
+            .unwrap();
+        client
+            .register_activation(&json!([{"id":owner,"state":"active"}]))
+            .unwrap();
+        assert!(original.caller_retired.load(Ordering::Acquire));
+        assert!(
+            client.service_valid(&original).is_err(),
+            "same-owner reactivation must not renew an admitted close"
+        );
+        client.session += 1;
+        assert!(client.service_valid(&original).is_err());
+        assert_eq!(client.services.len(), 8);
+    }
     #[test]
     fn file_search_cancellation_requires_exact_owner_session_request_and_operation() {
         use std::sync::atomic::Ordering;

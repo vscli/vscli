@@ -147,6 +147,7 @@ pub(super) struct State {
     job: Option<Job>,
     contexts: std::collections::HashMap<(u64, String), Context>,
     pub(super) editor_state_completed: Option<super::extension_editor_state::Completed>,
+    pub(super) tabs_completed: Option<super::extension_editor_tabs::Completed>,
     shown_completed: Option<ShownCompleted>,
 }
 struct ShownCompleted {
@@ -169,6 +170,7 @@ pub(super) fn resolved(path: &Path, workspace: &Path) -> Result<PathBuf> {
 }
 impl App {
     pub(super) fn cancel_extension_services(&mut self) {
+        self.retire_extension_tab_close();
         self.cancel_extension_file_search();
         self.cancel_virtual_documents();
         if let Some((token, _)) = self.pending_workspace_transaction() {
@@ -183,6 +185,7 @@ impl App {
     }
     pub(super) fn poll_extension_services(&mut self) -> bool {
         let Some(mut host) = self.extension_host.take() else {
+            self.retire_extension_tab_close();
             self.extension_services.shown_completed = None;
             self.extension_services.contexts.clear();
             if let Some((token, _)) = self.pending_workspace_transaction() {
@@ -241,6 +244,7 @@ impl App {
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
                     | Operation::EditorState(_)
+                    | Operation::TabsClose { .. }
             )
         }) {
             let key = (service.request.session, service.id.clone());
@@ -254,6 +258,10 @@ impl App {
         let editor_changed = self.poll_editor_state_completion(host);
         if self.extension_services.editor_state_completed.is_some() || editor_changed {
             return editor_changed;
+        }
+        let tabs_changed = self.poll_extension_tab_close(host);
+        if self.extension_services.tabs_completed.is_some() || tabs_changed {
+            return tabs_changed;
         }
         let shown_changed = self.poll_shown_editor_completion(host);
         if self.extension_services.shown_completed.is_some() || shown_changed {
@@ -418,6 +426,7 @@ impl App {
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
                     | Operation::EditorState(_)
+                    | Operation::TabsClose { .. }
             ) {
                 Context::check_budget(self)?;
             }
@@ -431,6 +440,7 @@ impl App {
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
                     | Operation::EditorState(_)
+                    | Operation::TabsClose { .. }
             ) && !self
                 .extension_services
                 .contexts
@@ -449,6 +459,7 @@ impl App {
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
                     | Operation::EditorState(_)
+                    | Operation::TabsClose { .. }
             ) && (self.prompt.is_some() || self.modal.is_some())
             {
                 bail!("Native document service cannot replace an active prompt or modal");
@@ -460,6 +471,7 @@ impl App {
             return true;
         }
         match &service.operation {
+            Operation::TabsClose { .. } => self.start_extension_tab_close(host, service.clone()),
             Operation::EditorState(_) => self.start_editor_state_service(host, service.clone()),
             Operation::UntitledOpen(_)
             | Operation::VirtualOpen(_)
@@ -664,6 +676,7 @@ impl App {
                 let result = self.show_extension_document(host, show);
                 self.refresh_extension_editor_inventory();
                 host.set_editor_inventory(self.extension_editor_inventory.clone());
+                host.set_editor_tabs(self.extension_editor_tabs.clone());
                 let result = result.and_then(|mut value| {
                     if let Some(view) = value["view"].as_u64() {
                         value
@@ -969,6 +982,7 @@ impl App {
         }
         self.refresh_extension_editor_inventory();
         host.set_editor_inventory(self.extension_editor_inventory.clone());
+        host.set_editor_tabs(self.extension_editor_tabs.clone());
         // The full authoritative mirror is queued before the promise settles.
         let result = result.and_then(|value| {
             host.sync_with_hidden(&self.documents, &self.hidden_documents, self.active)?;
@@ -994,6 +1008,7 @@ impl App {
         }
         self.refresh_extension_editor_inventory();
         host.set_editor_inventory(self.extension_editor_inventory.clone());
+        host.set_editor_tabs(self.extension_editor_tabs.clone());
         if let Err(error) =
             host.sync_with_hidden(&self.documents, &self.hidden_documents, self.active)
         {

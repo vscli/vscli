@@ -8,6 +8,7 @@ mod extension_activation;
 mod extension_editor_presentation;
 mod extension_editor_snippets;
 mod extension_editor_state;
+mod extension_editor_tabs;
 mod extension_file_search;
 mod extension_management;
 mod extension_prompts;
@@ -529,6 +530,7 @@ struct ClosingGroup {
 
 pub struct App {
     extension_editor_inventory: crate::extensions::editor_inventory::Inventory,
+    extension_editor_tabs: crate::extensions::editor_tabs::Inventory,
     extension_editor_viewports: extension_editor_presentation::Viewports,
     pub panes: Vec<Pane>,
     pub active_pane: usize,
@@ -646,16 +648,28 @@ impl Drop for App {
 impl App {
     pub fn new(root: PathBuf, profile: Profile) -> Self {
         let entries = directory_entries(&root);
+        let editor_groups = crate::editor_groups::Groups::with_empty_group();
+        let mut editor_layout = crate::editor_layout::Layout::default();
+        let group = editor_groups
+            .active_group()
+            .expect("native workbench starts with one actual group");
+        let plan = editor_layout
+            .prepare_flat(&[group], crate::editor_layout::Axis::Columns)
+            .expect("initial one-group layout is bounded and valid");
+        editor_layout
+            .commit(plan)
+            .expect("initial layout plan owns its unchanged origin");
         Self {
             extension_editor_inventory: crate::extensions::editor_inventory::Inventory::default(),
+            extension_editor_tabs: crate::extensions::editor_tabs::Inventory::default(),
             extension_editor_viewports: extension_editor_presentation::Viewports::default(),
             panes: Vec::new(),
             active_pane: 0,
             pane_areas: Vec::new(),
             horizontal_split: false,
             next_pane_id: 2,
-            editor_groups: crate::editor_groups::Groups::default(),
-            editor_layout: crate::editor_layout::Layout::default(),
+            editor_groups,
+            editor_layout,
             editor_presentation: crate::editor_presentation::Presentation::default(),
             editor_geometry_inputs: None,
             pending_editor_resize: None,

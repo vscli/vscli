@@ -175,10 +175,13 @@ The group-tab PR passed all six protected checks on its reviewed head and is
 merged on main. Windows ConPTY, graphical input and every upstream tab policy are
 not qualified by these Unix terminal checks.
 
-The final upstream close retains one empty active group. VSCLI's welcome
-workbench has zero engine groups and no document. This is an explicit internal
-layout boundary: absent editor/text and unchanged disk behavior may be compared,
-while the group inventories differ. The raw observation is preserved.
+The original reference milestone recorded an internal final-close difference:
+upstream retained one empty active group, while VSCLI retained zero engine groups.
+Those raw observations and legacy offline engine replays are preserved. The live
+native App now starts with and retains one actual empty group and layout leaf;
+it creates no document. Empty clean sessions restart at welcome without a phantom
+tab. See the later [public tab API milestone](EDITOR_TABS_API.md) for current
+inventory, close, session and terminal evidence.
 
 At the original group-tab milestone, sticky/pinned modes, preview policies and
 nested resizing remained follow-ups. The later sections below describe sticky and
@@ -306,8 +309,9 @@ The legacy rename restrictions remain in place.
 
 The strict consumer verifies the complete actual 39-file source-matched sticky
 baseline before native replay. It compares all 18 cases, 65 target snapshots and
-91 setup states. Four named final-empty-group observations preserve the upstream
-one-empty-group/native-zero-group boundary explicitly; no target is removed.
+91 setup states. Four named final-empty-group observations preserve the historical
+upstream-one/native-zero boundary in the legacy offline engine; no target is
+removed. Current App empty-group behavior has separate public tab API evidence.
 Versions/object allocation and callback scheduling remain raw evidence outside
 native equality. The observer hashes the selected executable, not an entire
 installation. See the [reference contract](../tests/vscode-reference/editor-sticky-tabs.README.md).

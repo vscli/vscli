@@ -75,6 +75,15 @@ wrapping/folding range projection, preview tabs, sparse empty groups and broader
 upstream option/reveal fidelity remain outstanding. The full stable API order
 above remains active.
 
+[Public text tabs and groups](EDITOR_TABS_API.md) now include all inventory/event/
+close overloads, native Save/Discard/Cancel and untitled Save As, original caller
+retirement, and a real empty welcome group. All 641 host and 1,304 Rust all-target
+tests, five selected-host/App cases and 30 terminal journeys pass. Seven stable
+TabInput value classes are exported; their diff/custom/webview/notebook/terminal
+backends remain outstanding. The next language-provider batch adds complete
+families with native navigation, workspace symbols, rename and formatting;
+registration alone will not count as delivered behavior.
+
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;
 placeholder methods and invented successful responses do not count as coverage.

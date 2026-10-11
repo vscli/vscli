@@ -259,6 +259,7 @@ impl App {
         }
         self.refresh_extension_editor_inventory();
         host.set_editor_inventory(self.extension_editor_inventory.clone());
+        host.set_editor_tabs(self.extension_editor_tabs.clone());
         if done.result.is_none() {
             let result =
                 host.service_valid(&done.service)
@@ -284,6 +285,7 @@ impl App {
             }
             self.refresh_extension_editor_inventory();
             host.set_editor_inventory(self.extension_editor_inventory.clone());
+            host.set_editor_tabs(self.extension_editor_tabs.clone());
         }
         if let Err(error) =
             host.sync_with_hidden(&self.documents, &self.hidden_documents, self.active)

@@ -292,7 +292,7 @@ impl App {
             .map_or(0, |pane| pane.file);
         layout.groups = Some(groups);
         layout.sticky = Some(sticky);
-        // Omitted dirty/untitled-only leaves are removed on a bounded clone.
+        // Omitted empty/dirty/untitled-only leaves are removed on a bounded clone.
         // Surviving nested axes/weights are retained; saved leaves use only
         // the retained appearance indices, never native identity numbers.
         let mut tree = self.editor_layout.clone();
@@ -493,6 +493,9 @@ impl App {
                     recent: group.recent.clone(),
                 })
                 .collect::<Vec<_>>();
+            // The strict clean-session wire omits empty groups. Native import
+            // retains its real Welcome group for an empty wire inventory; its
+            // layout is prepared from those actual IDs, never an active tab.
             engine.import(&imported, layout.active_group)?;
             let sticky = layout.sticky.as_ref().expect("normalized sticky flags");
             let group_ids = engine
@@ -1564,7 +1567,12 @@ exports.activate = context => context.subscriptions.push(vscode.commands.registe
             assert!(app.modal.is_none());
         }
         assert!(app.documents.is_empty());
-        assert!(app.editor_groups.groups().is_empty());
+        assert_eq!(app.editor_groups.groups().len(), 1);
+        assert!(app.editor_groups.groups()[0].tabs().is_empty());
+        assert!(app.editor_groups.active_membership().is_none());
+        app.editor_layout
+            .validate(&[app.editor_groups.groups()[0].id()])
+            .unwrap();
         app.install_session(restored).unwrap();
         assert_eq!(app.capture_session().unwrap(), saved);
         assert!(
@@ -2018,5 +2026,126 @@ exports.activate = context => context.subscriptions.push(vscode.commands.registe
             app.doc_mut().redo();
             assert!(app.doc().dirty());
         }
+    }
+    #[test]
+    fn native_welcome_owns_real_empty_group_and_leaf_without_serializing_a_phantom_tab() {
+        for profile in [Profile::Linux, Profile::Macos, Profile::Windows] {
+            let root = tempfile::tempdir().unwrap();
+            let app = App::new(root.path().into(), profile);
+            let group = &app.editor_groups.groups()[0];
+            let id = group.id();
+            assert_eq!(app.editor_groups.groups().len(), 1);
+            assert_eq!(app.editor_groups.active_group(), Some(id));
+            assert!(group.tabs().is_empty());
+            assert!(group.active().is_none());
+            assert!(app.editor_groups.active_membership().is_none());
+            assert!(app.documents.is_empty());
+            assert!(app.hidden_documents.is_empty());
+            assert!(app.panes.is_empty());
+            assert!(app.active_document().is_none());
+            assert_eq!(app.editor_layout.groups(), vec![id]);
+            assert_eq!(
+                app.editor_layout.export(&[id]).unwrap(),
+                Some(crate::editor_layout::SavedNode::Leaf { group: 0 })
+            );
+            let groups = app.editor_groups.clone();
+            let tree = app.editor_layout.clone();
+            let wire = app.capture_session().unwrap();
+            assert!(wire.files.is_empty());
+            assert!(wire.panes.is_empty());
+            assert_eq!(wire.groups, Some(Vec::new()));
+            assert_eq!(wire.sticky, Some(Vec::new()));
+            assert_eq!(wire.tree, None);
+            assert_eq!(app.session_snapshot().unwrap(), None);
+            assert_eq!(app.editor_groups, groups);
+            assert_eq!(app.editor_layout, tree);
+        }
+        // Offline pinned traces retain their previously qualified zero-group mode.
+        assert!(crate::editor_groups::Groups::default().groups().is_empty());
+    }
+
+    #[test]
+    fn empty_clean_session_import_keeps_native_group_layout_identity_and_no_active_tab() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let engine = app.editor_groups.clone();
+        let tree = app.editor_layout.clone();
+        let wire = app.capture_session().unwrap();
+        app.install_session(crate::session::Restored {
+            layout: wire.clone(),
+            documents: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(app.editor_groups, engine);
+        assert_eq!(app.editor_layout, tree);
+        assert!(app.documents.is_empty());
+        assert!(app.panes.is_empty());
+        assert!(app.editor_groups.groups()[0].active().is_none());
+        assert_eq!(app.capture_session().unwrap(), wire);
+        assert_eq!(app.session_snapshot().unwrap(), Some(wire));
+    }
+
+    #[test]
+    fn explicit_final_clean_close_persists_empty_wire_and_restart_keeps_actual_welcome_group() {
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("config");
+        let file = root.path().join("kept.cpp");
+        let text = "猫🙂 kept\r\nlast\r\n";
+        fs::write(&file, text).unwrap();
+        let configured = |restore| {
+            let mut app = App::new(root.path().into(), Profile::Linux);
+            app.configure_session(Some(&config), restore).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(4);
+            loop {
+                app.poll_session();
+                if app.session.ready
+                    && app.session.automatic.is_none()
+                    && app.session.pending.is_none()
+                {
+                    break app;
+                }
+                assert!(Instant::now() < deadline, "{}", app.message);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+        };
+        let mut prior = configured(false);
+        prior.open(&file).unwrap();
+        prior.doc_mut().move_to(2, false);
+        prior.finish_session().unwrap();
+        let mut app = configured(true);
+        assert_eq!(app.documents.len(), 1);
+        let initial_group = app.editor_groups.groups()[0].id();
+        app.open(&file).unwrap();
+        assert_eq!(app.editor_groups.groups()[0].id(), initial_group);
+        app.doc_mut().insert("dirty ", false);
+        app.execute("undo", Value::Null);
+        assert_eq!(app.doc().text.to_string(), text);
+        assert!(!app.doc().dirty());
+        let before = app.capture_session().unwrap();
+        assert_eq!(before.files.len(), 1);
+        app.execute("workbench.action.closeActiveEditor", Value::Null);
+        assert!(app.modal.is_none());
+        assert!(app.documents.is_empty());
+        assert!(app.panes.is_empty());
+        assert_eq!(app.editor_groups.groups().len(), 1);
+        assert_eq!(app.editor_groups.groups()[0].id(), initial_group);
+        assert!(app.editor_groups.groups()[0].active().is_none());
+        app.editor_layout.validate(&[initial_group]).unwrap();
+        let wire = app.capture_session().unwrap();
+        assert!(wire.files.is_empty());
+        assert_eq!(wire.groups, Some(Vec::new()));
+        assert_eq!(wire.tree, None);
+        assert_eq!(app.session_snapshot().unwrap(), Some(wire.clone()));
+        app.finish_session().unwrap();
+        let mut restarted = configured(true);
+        assert_eq!(restarted.capture_session().unwrap(), wire);
+        assert!(restarted.documents.is_empty());
+        assert!(restarted.panes.is_empty());
+        let id = restarted.editor_groups.groups()[0].id();
+        assert_eq!(restarted.editor_groups.active_group(), Some(id));
+        assert!(restarted.editor_groups.groups()[0].active().is_none());
+        restarted.editor_layout.validate(&[id]).unwrap();
+        restarted.finish_session().unwrap();
+        assert_eq!(fs::read(file).unwrap(), text.as_bytes());
     }
 }
