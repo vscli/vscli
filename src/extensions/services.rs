@@ -679,3 +679,6 @@ mod tests {
         assert!(client.service_valid(&expired).is_err());
     }
 }
+
+#[cfg(test)]
+mod save_wait_poll_tests;

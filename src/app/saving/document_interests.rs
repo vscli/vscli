@@ -187,6 +187,33 @@ pub(in crate::app) struct Interests {
 }
 
 impl App {
+    /// Ages only an existing exact live human-path lease for actual poll tests.
+    /// Does not create an interest, authorize a worker, or manufacture a receipt.
+    #[cfg(test)]
+    pub(crate) fn fixture_age_document_save_path(
+        &mut self,
+        session: u64,
+        request: &str,
+        age: Duration,
+    ) -> Result<()> {
+        let started = Instant::now()
+            .checked_sub(age)
+            .context("Fixture path clock underflow")?;
+        let entry = self
+            .saving
+            .document_interests
+            .entries
+            .iter_mut()
+            .find(|entry| {
+                entry.caller.session == session
+                    && entry.caller.request == request
+                    && !entry.retired
+                    && matches!(entry.location, Location::Path)
+            })
+            .context("Fixture requires the exact live Path interest")?;
+        entry.started = started;
+        Ok(())
+    }
     /// Specific-model native admission; does not focus, promote, clone models,
     /// display a prompt or attach Close/Quit. Caller/mirror authority is a
     /// mandatory prerequisite supplied by the internal native service gateway.

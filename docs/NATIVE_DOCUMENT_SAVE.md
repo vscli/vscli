@@ -101,3 +101,17 @@ identity assertion and active-file status before typing.
 public delegation and closed-document behavior to stable VS Code 1.141.0,
 commit `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`. No local upstream instance
 was run; broader upstream runtime and platform qualification remain outstanding.
+
+Five additional real App/two-extension host regressions qualify Save As deadline
+handling using deterministically aged actual native clocks. Caller B saves under
+originating command A; A survives more than its ordinary 30-second command limit
+without renewing the human wait, while an unrelated stalled B command still
+times out. Escape and actual path acceptance reset only A's clock once. Aging
+both the exact service wait and App Path interest beyond 300 seconds expires the
+prompt, returns false and cannot renew it or write later. Acceptance verifies the
+actual joined native worker, generation, Unicode/CRLF disk bytes and Undo/Redo.
+Removing the native origin-protection guard makes the first regression fail at
+the exact original-command timeout oracle. These tests do not represent 300
+seconds of wall-clock runtime or additional terminal/platform qualification.
+The combined native library suite passes 837 tests; formatting and strict locked
+all-target Clippy pass.
