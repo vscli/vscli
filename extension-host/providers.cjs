@@ -2,8 +2,7 @@
 const { Position, Uri, Disposable } = require('./api-types.cjs');
 const coordinates = require('./coordinates.cjs');
 const { snapshotTextEdit } = require('./edit-values.cjs');
-const { createActions } = require('./code-actions.cjs');
-const { CodeActionKind } = require('./code-action-types.cjs');
+const { createActions, kindValue } = require('./code-actions.cjs');
 const signatureTypes = require('./signatures.cjs');
 const symbolTypes = require('./symbols.cjs');
 const { CancellationTokenSource, SnippetString } = require('./provider-types.cjs');
@@ -166,7 +165,12 @@ function createProviders(options) {
         if (metadata !== undefined) {
           if (!metadata || typeof metadata !== 'object' || Object.keys(metadata).some(key => !['providedCodeActionKinds','documentation'].includes(key))) throw new Error('Unsupported code action metadata');
           if (metadata.documentation !== undefined) throw new Error('Code action provider documentation is unsupported');
-          if (metadata.providedCodeActionKinds !== undefined) actionKinds = require('./code-actions.cjs').array(metadata.providedCodeActionKinds,32).map(kind => { if (!(kind instanceof CodeActionKind)) throw new Error('Code action metadata requires CodeActionKind'); return kind.value; });
+          const providedKinds = metadata.providedCodeActionKinds;
+          if (providedKinds !== undefined) actionKinds = require('./code-actions.cjs').array(providedKinds,32).map(kind => {
+            // A public CodeActionKind is mutable and deliberately unvalidated.
+            // Capture its value once; only bounded primitive strings reach Rust.
+            return kindValue(kind);
+          });
         }
       }
       if (type === 'signature' && triggers.length === 1 && triggers[0] && typeof triggers[0] === 'object') {

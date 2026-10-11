@@ -1,6 +1,17 @@
 'use strict';
 const { Uri, Selection } = require('./api-types.cjs');
 const { CodeActionKind, snapshotWorkspaceEdit } = require('./code-action-types.cjs');
+// Constructor fidelity deliberately permits arbitrary/mutable values. The
+// native boundary admits only detached strings and rejects oversized strings
+// by their constant-time UTF-16 length before measuring UTF-8 bytes.
+function kindText(value) {
+  if(typeof value!=='string' || value.length>128 || Buffer.byteLength(value)>128) throw new Error('Code action kind requires a string of at most 128 UTF-8 bytes');
+  return value;
+}
+function kindValue(kind) {
+  if(!(kind instanceof CodeActionKind)) throw new Error('Code action kind requires CodeActionKind');
+  return kindText(kind.value);
+}
 function array(value,max) {
   if (!Array.isArray(value)) throw new Error('Code action result requires an array'); const count = value.length;
   if (!Number.isSafeInteger(count) || count < 0 || count > max) throw new Error(`Code action array exceeds ${max} entries`);
@@ -31,7 +42,11 @@ function createActions(options) {
     if(JSON.stringify(options.range(selected,call.document))!==JSON.stringify(range)) throw new Error('Code action selection differs from requested range');
     const context = params.actionContext || {};
     if(Object.keys(context).some(key=>!['only','triggerKind'].includes(key)) || ![1,2].includes(context.triggerKind??1)) throw new Error('Unsupported code action context');
-    const only = context.only===undefined ? undefined : new CodeActionKind(options.text(context.only,128));
+    const requestedKind = context.only;
+    call.actionOnly = requestedKind===undefined ? undefined : kindText(requestedKind) || undefined;
+    // Empty requests have no kind restriction, as in the pinned adapter. Keep
+    // native authorization separate from the mutable public context object.
+    const only = call.actionOnly===undefined ? undefined : new CodeActionKind(call.actionOnly);
     const diagnostics = options.diagnostics ? options.diagnostics(call.document,selected) : [];
     return [call.document,selected,{diagnostics,only,triggerKind:context.triggerKind??1},call.source.token];
   }
@@ -61,8 +76,10 @@ function createActions(options) {
     if(!value||typeof value!=='object') throw new Error('Invalid code action');
     const result={title:options.text(value.title,1024)};
     const kind=value.kind,isPreferred=value.isPreferred,disabled=value.disabled,command=value.command,edit=value.edit;
-    if(kind!==undefined) { if(!(kind instanceof CodeActionKind)) throw new Error('Code action kind requires CodeActionKind'); result.kind=kind.value; }
-    if(only && (!kind||!only.contains(kind))) return null;
+    if(kind!==undefined) result.kind=kindValue(kind);
+    // Filtering consumes the detached, validated wire value. Public getters or
+    // mutable CodeActionKind methods cannot broaden the original native request.
+    if(only!==undefined && (result.kind===undefined || !(result.kind===only || result.kind.startsWith(only+'.')))) return null;
     if(isPreferred!==undefined) {if(typeof isPreferred!=='boolean')throw new Error('Invalid code action preferred flag');result.isPreferred=isPreferred;}
     if(disabled!==undefined) result.disabled={reason:options.text(disabled.reason,4096)};
     if(command!==undefined) result.disabled={reason:edit!==undefined?'Combined extension edit-and-command actions are unsupported':'Extension code action commands are unsupported'};
@@ -71,11 +88,11 @@ function createActions(options) {
     } else if(!call.entry.resolves) result.disabled={reason:'Code action contains no supported edit'};
     return result;
   }
-  function normalize(values,call,context) {
+  function normalize(values,call) {
     const original=values===undefined||values===null?[]:array(values,300), result=[], originals=[]; let bytes=0;
     for(const value of original) {
       const before=result.length;
-      try { const normalized=row(value,call,context?.only); if(normalized){result.push(normalized);originals.push(value);} }
+      try { const normalized=row(value,call,call.actionOnly); if(normalized){result.push(normalized);originals.push(value);} }
       catch(error) { result.push({title:'Unsupported code action',disabled:{reason:String(error.message).slice(0,4096)}}); originals.push(value); }
       if(result.length>before)bytes+=Buffer.byteLength(JSON.stringify(result.at(-1)));
       if(bytes>1024*1024)throw new Error('Code action source exceeds1 MiB');
@@ -108,4 +125,4 @@ function createActions(options) {
   }
   return {args,normalize,retain,lookup,resolved,retire,clear,has:(id,item)=>{purge();return cached.get(id)===item;},purge,count:()=>{purge();return cached.size;},assertWorkspace};
 }
-module.exports={createActions,array,assertWorkspace};
+module.exports={createActions,array,assertWorkspace,kindValue};

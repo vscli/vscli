@@ -30,6 +30,7 @@ behavioral compatibility.
 | Edit value objects | TextEdit, SnippetTextEdit, WorkspaceEdit, NotebookEdit and related notebook/EOL values; ordered append/reference semantics and shared facade identity | Twenty-one value tests, four adapter/facade regressions and all 286 host tests pass; native code-action and actual sample/provider/queue terminal checks pass. Evidence and limits are recorded in [edit API](EDIT_API.md). General workspace.applyEdit and file/snippet/notebook/EOL/confirmation backends remain outstanding. |
 | ES5 value subclasses | Exact shared call/apply helper on the 25 already-exported classes decorated in pinned upstream; preserves constructor identities and private initialization | Seven focused tests and all 293 host tests pass, with 134 native extension-related tests, build/formatting/strict Clippy, and actual terminal legacy WorkspaceEdit/TextEdit application plus CRLF save/Undo. Undecorated classes stay unchanged; this does not correct every existing constructor difference. See [source receipts](../extension-host/es5-class-compat.provenance.json). |
 | Extension caller lifetime | Private caller scope independent of command origin; registered callbacks, Thenables and result getters retain their original owner lease and receiver; stale descendants cannot borrow replacement leases | Twenty-six focused tests and all 319 host tests pass, including three regressions that fail on the unfixed code; 134 native extension-related tests and actual provider/surface/filesystem/document terminal workflows pass. Build/formatting/strict Clippy pass. See [caller ownership](EXTENSION_CALLERS.md) for resource limits and remaining qualification. |
+| Code-action values | Source-derived mutable CodeActionKind values/constants, coercion/containment and owned CodeAction.kind; native kind validation and request filtering remain independent | Thirteen focused tests and all 332 host tests, 134 native extension-related tests, five native code-action integration tests and actual sample/edit-integrity/queue terminal checks pass. Build/formatting/strict Clippy pass; see [code-action values](CODE_ACTION_VALUES_API.md) for filtering differences and unsupported backends. |
 | Other API surfaces | Existing partial document/editor, configuration, state, command, diagnostic, provider and native UI adapters | Existing focused documents describe their implemented subsets. Full API compatibility and arbitrary real-extension compatibility remain incomplete. |
 
 Cancellation follows the pinned source lifecycle: an already-canceled parent
@@ -61,6 +62,5 @@ public classes. This matters for extensions compiled to older JavaScript.
 Position, Range and Selection are each decorated; Disposable is actually
 constructed so private state is initialized. CancellationTokenSource,
 EventEmitter, Uri and the newer undecorated edit/notebook types keep upstream's
-class-call behavior. Existing bounded symbol/diagnostic constructors and frozen
-CodeActionKind instances still need their own fidelity work; decorating a class
-does not qualify all of its behavior.
+class-call behavior. Existing bounded symbol/diagnostic constructors still need
+their own fidelity work; decorating a class does not qualify all of its behavior.
