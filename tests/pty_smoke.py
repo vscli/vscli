@@ -198,7 +198,7 @@ class SupervisedProcess:
 
 
 class Editor:
-    def __init__(self, root, *args, recovery=False, enhanced=False, extra_env=None, auto_lsp=False):
+    def __init__(self, root, *args, recovery=False, enhanced=False, extra_env=None, auto_lsp=False, mouse=False):
         self.master, self.slave = pty.openpty()
         os.set_blocking(self.master, False)
         self.pending_input = bytearray()
@@ -209,7 +209,9 @@ class Editor:
             os.setsid()
             fcntl.ioctl(0, termios.TIOCSCTTY, 0)
 
-        options = ["--no-mouse", "--keymap", "linux"]
+        options = ["--keymap", "linux"]
+        if not mouse:
+            options += ["--no-mouse"]
         if not auto_lsp and "--lsp" not in args and "--no-lsp" not in args:
             options += ["--no-lsp"]
         self.config_directory = None
@@ -241,7 +243,11 @@ class Editor:
         self.screen = Screen()
         self.enhanced = enhanced
         try:
-            eventually(lambda: self.read() and b"VSCLI" in self.output)
+            # A file-backed editor starts with its tabs, without a branded title
+            # row. Wait for the completed workbench status in either state.
+            eventually(lambda: self.read() and (
+                "UTF-8" in self.screen.text() or "No open editors" in self.screen.text()
+            ))
         except AssertionError:
             self.process.kill()
             self.process.wait(timeout=3)

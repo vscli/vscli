@@ -64,31 +64,11 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         return;
     }
     let rows = Layout::vertical([
-        Constraint::Length(1),
         Constraint::Min(1),
         Constraint::Length(1),
         Constraint::Length(1),
     ])
     .split(area);
-    app.tab_area = rows[0];
-    let mut tabs = vec![Span::styled(
-        " VSCLI ",
-        Style::default()
-            .fg(colors.accent)
-            .add_modifier(Modifier::BOLD),
-    )];
-    let workspace = app.workspace.root.file_name().map_or_else(
-        || app.workspace.root.to_string_lossy(),
-        |name| name.to_string_lossy(),
-    );
-    tabs.push(Span::styled(
-        format!(" · {}", group_tabs::bounded_label(&workspace)),
-        Style::default().fg(colors.muted),
-    ));
-    frame.render_widget(
-        Paragraph::new(Line::from(tabs)).style(Style::default().bg(colors.panel)),
-        rows[0],
-    );
     let columns = Layout::horizontal([
         Constraint::Length(if app.sidebar && area.width >= 60 {
             26
@@ -97,7 +77,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         }),
         Constraint::Min(1),
     ])
-    .split(rows[1]);
+    .split(rows[0]);
     if columns[0].width > 0 {
         draw_explorer(frame, app, columns[0]);
     } else {
@@ -134,7 +114,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     frame.render_widget(
         Paragraph::new(format!(" {}", clean(&app.message)))
             .style(Style::default().fg(colors.muted)),
-        rows[2],
+        rows[1],
     );
     let status = if let Some(doc) = app.active_document() {
         format!(
@@ -173,9 +153,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     };
     frame.render_widget(
         Paragraph::new(status).style(Style::default().bg(colors.selection).fg(colors.foreground)),
-        rows[3],
+        rows[2],
     );
-    draw_extension_status(frame, app, rows[3]);
+    draw_extension_status(frame, app, rows[2]);
     draw_signature(frame, app);
     draw_suggestions(frame, app);
     if app.prompt.is_none() && app.modal.is_none() {
@@ -2388,6 +2368,34 @@ mod tests {
         app.modal = Some(Modal::Inspector);
         terminal.draw(|frame| draw(frame, &mut app)).unwrap();
         assert_eq!(app.outline_area, Rect::default());
+    }
+
+    #[test]
+    fn group_tabs_and_breadcrumbs_start_at_top_after_resize_without_a_title_row() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("header-free.txt");
+        std::fs::write(&file, "alpha\r\nbeta\r\n").unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        app.open(&file).unwrap();
+        let identity = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        for (width, height) in [(110, 32), (50, 12), (80, 24)] {
+            app.event(crossterm::event::Event::Resize(width, height));
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+            let buffer = terminal.backend().buffer();
+            let first_row: String = (0..width).map(|x| buffer[(x, 0)].symbol()).collect();
+            assert!(first_row.contains("header-free.txt"));
+            assert!(!first_row.contains("VSCLI"));
+            assert!(!app.tab_hits.is_empty());
+            assert!(app.tab_hits.iter().all(|hit| hit.area.y == 0));
+            assert_eq!(app.breadcrumbs_area.y, 1);
+            assert_eq!(app.editor_area.y, 2);
+            assert_eq!(app.editor_area.bottom(), height - 2);
+            assert_eq!(app.doc().id, identity);
+            assert_eq!(app.doc().text_epoch(), epoch);
+            assert_eq!(app.doc().text.to_string(), "alpha\r\nbeta\r\n");
+        }
     }
 
     #[test]

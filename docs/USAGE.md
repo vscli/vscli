@@ -39,7 +39,7 @@ Useful options:
 
 New documents and files without line breaks use CRLF on Windows and LF on Unix. Existing LF/CRLF content determines the document's line ending for subsequent insertion; opening does not rewrite file bytes. Mixed-line-ending selection and `files.eol` settings migration remain unqualified.
 
-The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary text entry, grapheme-aware horizontal movement, visual-column vertical movement, keyboard/mouse selection, undo/redo, indentation, comments, line deletion, literal find, replace all, and go to line.
+The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary text entry, grapheme-aware horizontal movement, visual-column vertical movement, keyboard/mouse selection, undo/redo, indentation, comments, line deletion, literal find, replace all, and go to line. Editor groups start at the top of the workbench with their tabs and breadcrumbs; there is no separate VSCLI title row.
 
 Save and Save As now persist on a background native worker. You can keep typing
 or switch editors while an authorized save finishes: the captured text reaches
