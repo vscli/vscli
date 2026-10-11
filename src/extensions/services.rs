@@ -39,6 +39,7 @@ pub(crate) enum Operation {
     UntitledOpen(Arc<super::untitled::Capture>),
     VirtualOpen(Arc<super::text_content::Capture>),
     VirtualChange(Arc<super::text_content::Capture>),
+    EditorState(Arc<super::editor_state::Capture>),
     Show(Show),
     Command(Command),
     State(StatePatch),
@@ -170,7 +171,9 @@ impl Client {
             bail!("Native extension service queue limit reached");
         }
         let payload_bytes = serde_json::to_vec(&params)?.len();
-        let limit = if matches!(
+        let limit = if method == "nativeEditorSelections" {
+            1024 * 1024
+        } else if matches!(
             method,
             "nativeWorkspaceApplyEdit"
                 | "nativeUntitledDocumentOpen"
@@ -209,6 +212,16 @@ impl Client {
         )?;
         let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         let operation = match method {
+            "nativeDocumentLanguage" | "nativeEditorSelections" => {
+                let capture = self.capture_editor_state(
+                    &request.args,
+                    method == "nativeDocumentLanguage",
+                    documents,
+                    hidden,
+                )?;
+                request.args = Value::Null;
+                Operation::EditorState(capture)
+            }
             "nativeUntitledDocumentOpen" => {
                 let capture = self.capture_untitled(&request.args, documents, hidden)?;
                 request.args = Value::Null;
@@ -262,6 +275,7 @@ impl Client {
                         .context("Workspace target is not retained")?;
                     if mirror.revision != doc.revision
                         || mirror.text_epoch != doc.text_epoch()
+                        || mirror.language_epoch != doc.language_epoch()
                         || mirror.eol != doc.eol
                     {
                         bail!("Workspace target changed before native receipt");
@@ -272,6 +286,7 @@ impl Client {
                         path: doc.path.clone(),
                         revision: mirror.revision,
                         text_epoch: mirror.text_epoch,
+                        language_epoch: mirror.language_epoch,
                         version: mirror.version,
                     });
                 }
@@ -327,6 +342,7 @@ impl Client {
                 | Operation::UntitledOpen(_)
                 | Operation::VirtualOpen(_)
                 | Operation::VirtualChange(_)
+                | Operation::EditorState(_)
         ) && request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service request; retry");
@@ -439,6 +455,7 @@ impl Client {
                 | Operation::UntitledOpen(_)
                 | Operation::VirtualOpen(_)
                 | Operation::VirtualChange(_)
+                | Operation::EditorState(_)
         ) && service.request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service completion; retry");
@@ -460,6 +477,7 @@ impl Client {
                 | Operation::UntitledOpen(_)
                 | Operation::VirtualOpen(_)
                 | Operation::VirtualChange(_)
+                | Operation::EditorState(_)
         ) {
             // Receipt already authorized the exact origin. An accepted durable
             // patch may outlive that command; never bind it to a later command.

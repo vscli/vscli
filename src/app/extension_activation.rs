@@ -199,6 +199,11 @@ impl App {
                 &id.to_ascii_lowercase(),
             )
     }
+    pub(super) fn registered_document_language(&self, language: &str) -> bool {
+        self.activation.catalog.iter().any(|(id, metadata)| {
+            self.extension_enabled(id) && metadata.languages.contains(language)
+        })
+    }
     pub fn extension_activation_notices(&self) -> &[String] {
         &self.activation.notices
     }
@@ -930,6 +935,13 @@ impl App {
                 .cloned()
                 .collect();
             let request = ActivationRequest {
+                registered_languages: plan
+                    .ordered
+                    .iter()
+                    .flat_map(|item| item.languages.iter())
+                    .filter(|id| id.len() <= 128 && !id.contains('\0'))
+                    .cloned()
+                    .collect(),
                 surface_declarations: declarations,
                 additions,
                 targets,
@@ -1125,6 +1137,7 @@ mod tests {
                 sha256: None,
             },
             dependencies: BTreeSet::new(),
+            languages: BTreeSet::new(),
             events: BTreeSet::new(),
             unsupported_events: BTreeSet::new(),
             commands: BTreeMap::new(),

@@ -51,6 +51,16 @@ impl App {
         } else {
             None
         });
+        host.set_editor_state_context(if self.settings_error.is_none() {
+            crate::extensions::editor_state::Context::new(
+                self.workspace.root.clone(),
+                self.settings.extension_layers().clone(),
+                self.settings_profile_generation(),
+            )
+            .ok()
+        } else {
+            None
+        });
         let result = host.poll_with_hidden(
             &mut self.documents,
             &mut self.hidden_documents,

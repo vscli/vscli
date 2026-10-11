@@ -44,6 +44,7 @@ pub struct Request {
     pub document_id: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub(crate) language_epoch: u64,
     pub(crate) server: Arc<()>,
     pub(crate) sync_version: i64,
     pub cursor: usize,
@@ -87,6 +88,8 @@ struct Synced {
     id: u64,
     revision: u64,
     text_epoch: u64,
+    language_epoch: u64,
+    language: String,
     version: i64,
     path: PathBuf,
 }
@@ -467,12 +470,20 @@ impl Client {
             let Some(path) = &doc.path else {
                 continue;
             };
-            let lang = language(path);
+            let lang = doc.language_override().unwrap_or_else(|| language(path));
             if lang != self.language && !(self.language == "cpp" && lang == "c") {
                 continue;
             }
             let uri = file_uri(path)?;
             open.push(uri.clone());
+            // Language changes are distinct server document lifetimes even when
+            // content/version remain untouched or metadata changed A→B→A.
+            if self.synced.get(&uri).is_some_and(|old| {
+                old.language != lang || old.language_epoch != doc.language_epoch()
+            }) {
+                self.notify("textDocument/didClose", json!({"textDocument":{"uri":uri}}))?;
+                self.synced.remove(&uri);
+            }
             match self.synced.get(&uri) {
                 None => {
                     let version = self.allocate_document_version()?;
@@ -483,6 +494,8 @@ impl Client {
                             id: doc.id,
                             revision: doc.revision,
                             text_epoch: doc.text_epoch(),
+                            language_epoch: doc.language_epoch(),
+                            language: lang.into(),
                             version,
                             path: path.clone(),
                         },
@@ -501,6 +514,8 @@ impl Client {
                             id: doc.id,
                             revision: doc.revision,
                             text_epoch: doc.text_epoch(),
+                            language_epoch: doc.language_epoch(),
+                            language: lang.into(),
                             version,
                             path: path.clone(),
                         },
@@ -543,6 +558,7 @@ impl Client {
                     && synced.id == publication.snapshot.id
                     && synced.revision == publication.snapshot.revision
                     && synced.text_epoch == publication.snapshot.text_epoch
+                    && synced.language_epoch == doc.language_epoch()
                     && synced.version == publication.snapshot.version
             })
     }
@@ -595,6 +611,7 @@ impl Client {
                 && synced.id == request.document_id
                 && synced.revision == request.revision
                 && synced.text_epoch == request.text_epoch
+                && synced.language_epoch == request.language_epoch
                 && synced.version == request.sync_version
                 && request.workspace.get(&request.path).is_none_or(|snapshot| {
                     snapshot.id == synced.id
@@ -716,6 +733,13 @@ impl Client {
             .synced
             .get(&uri)
             .context("This language server does not handle this file type")?;
+        if synced.language_epoch != doc.language_epoch()
+            || synced.language != doc.language_override().unwrap_or_else(|| language(&path))
+        {
+            bail!(
+                "Document language has not been synchronized; retry after language synchronization"
+            );
+        }
         if (formatting || method == "textDocument/codeAction")
             && (synced.id != doc.id
                 || synced.path != path
@@ -797,6 +821,7 @@ impl Client {
                 document_id: doc.id,
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
+                language_epoch: doc.language_epoch(),
                 server: self.identity.clone(),
                 sync_version,
                 cursor: doc.cursor,
@@ -946,6 +971,7 @@ impl Client {
                 document_id: 0,
                 revision: 0,
                 text_epoch: 0,
+                language_epoch: 0,
                 server: self.identity.clone(),
                 sync_version: 0,
                 cursor: 0,
@@ -1512,7 +1538,7 @@ pub(crate) mod formatting_tests {
     use super::*;
     const PEER: &str = r#"
 import json,sys
-held={}; calls=[]; cancellations=[]
+held={}; calls=[]; cancellations=[]; lifecycle=[]
 def send(message):
     data=json.dumps(message).encode()
     sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(data)).encode()+data)
@@ -1530,12 +1556,13 @@ while True:
     method,ident,params=message.get('method'),message.get('id'),message.get('params',{})
     if method=='initialize':
         reply({'id':ident,'result':{'capabilities':{'textDocumentSync':1,'documentFormattingProvider':json.loads(sys.argv[1])}}})
+    elif method in ['textDocument/didOpen','textDocument/didChange','textDocument/didClose']: lifecycle.append({'method':method,'params':params})
     elif method=='textDocument/formatting':
         held[ident]=params; calls.append({'id':ident,'params':params}); notice('held-%d'%ident)
     elif method=='$/cancelRequest': cancellations.append(params['id']); notice('ignored-cancel-%d'%params['id'])
     elif method=='fixture/message': send(params)
     elif method=='fixture/ack': notice('ack')
-    elif method=='fixture/state': notice('formatter-state:'+json.dumps({'calls':calls,'cancellations':cancellations}))
+    elif method=='fixture/state': notice('formatter-state:'+json.dumps({'calls':calls,'cancellations':cancellations,'lifecycle':lifecycle}))
     elif method=='fixture/release':
         held.pop(params['id'],None)
         if params.get('fail'): reply({'id':params['id'],'error':{'code':-32603,'message':params.get('message','fixture formatting failed')}})
@@ -1629,6 +1656,71 @@ while True:
         (root, doc)
     }
 
+    #[test]
+    fn language_override_reopens_server_document_and_metadata_aba_retires_held_reply() {
+        let (root, mut doc) = fixture();
+        doc.insert("dirty ", false);
+        let mut client = start(root.path(), &doc);
+        let id = doc.id;
+        let revision = doc.revision;
+        let epoch = doc.text_epoch();
+        let token = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, token);
+        let original = client.pending[&token].clone();
+        doc.set_language_override(Some("c".into())).unwrap();
+        assert!(
+            client
+                .request("textDocument/hover", &doc, json!({}))
+                .is_err()
+        );
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(!client.request_current(&original));
+        let wire = state(&mut client);
+        let lifecycle = wire["lifecycle"].as_array().unwrap();
+        assert_eq!(lifecycle.len(), 3);
+        assert_eq!(lifecycle[0]["method"], "textDocument/didOpen");
+        assert_eq!(lifecycle[0]["params"]["textDocument"]["languageId"], "cpp");
+        assert_eq!(lifecycle[1]["method"], "textDocument/didClose");
+        assert_eq!(lifecycle[2]["params"]["textDocument"]["languageId"], "c");
+        assert!(
+            lifecycle[2]["params"]["textDocument"]["version"]
+                .as_i64()
+                .unwrap()
+                > original.sync_version
+        );
+        doc.set_language_override(Some("python".into())).unwrap();
+        doc.set_language_override(Some("c".into())).unwrap();
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert_eq!(state(&mut client)["lifecycle"].as_array().unwrap().len(), 5);
+        assert!(!client.request_current(&original));
+        assert!(
+            !client.formatting_available(),
+            "actual held callback keeps its slot"
+        );
+        client
+            .notify("fixture/release", json!({"id":token}))
+            .unwrap();
+        let events = until(&mut client, |client, _| client.formatting_available());
+        assert!(events.iter().any(|event| matches!(event, Event::FormattingResult(reply,Ok(_)) if reply.token==token && !client.request_current(reply))));
+        assert_eq!(
+            (doc.id, doc.revision, doc.text_epoch()),
+            (id, revision, epoch)
+        );
+        assert!(doc.dirty());
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂 original\r\n");
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "dirty 猫🙂 original\r\n");
+        assert_eq!(
+            std::fs::read(doc.path.as_ref().unwrap()).unwrap(),
+            "猫🙂 original\r\n".as_bytes()
+        );
+        // An override to a language this server does not handle closes it.
+        doc.set_language_override(Some("python".into())).unwrap();
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(client.synced.is_empty());
+        assert_eq!(state(&mut client)["lifecycle"].as_array().unwrap().len(), 6);
+    }
     #[test]
     fn shared_manual_save_formatter_lane_has_exact_params_and_typed_results() {
         let (root, mut doc) = fixture();

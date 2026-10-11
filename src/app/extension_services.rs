@@ -14,6 +14,7 @@ const MAX_BYTES: usize = 4 * 1024 * 1024;
 struct DocumentContext {
     id: u64,
     epoch: u64,
+    language_epoch: u64,
     revision: u64,
     saved: u64,
     path: Option<PathBuf>,
@@ -101,6 +102,7 @@ impl Context {
                     .map(|d| DocumentContext {
                         id: d.id,
                         epoch: d.text_epoch(),
+                        language_epoch: d.language_epoch(),
                         revision: d.revision,
                         saved: d.saved_revision,
                         path: d.path.clone(),
@@ -144,6 +146,7 @@ pub(super) struct State {
     pub epoch: u64,
     job: Option<Job>,
     contexts: std::collections::HashMap<(u64, String), Context>,
+    pub(super) editor_state_completed: Option<super::extension_editor_state::Completed>,
 }
 pub(super) fn resolved(path: &Path, workspace: &Path) -> Result<PathBuf> {
     let path = if path.is_absolute() {
@@ -231,6 +234,7 @@ impl App {
                     | Operation::UntitledOpen(_)
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
+                    | Operation::EditorState(_)
             )
         }) {
             let key = (service.request.session, service.id.clone());
@@ -240,6 +244,10 @@ impl App {
                 let context = Context::capture(self);
                 self.extension_services.contexts.insert(key, context);
             }
+        }
+        let editor_changed = self.poll_editor_state_completion(host);
+        if self.extension_services.editor_state_completed.is_some() || editor_changed {
+            return editor_changed;
         }
         let virtual_changed = self.poll_virtual_documents(Some(host));
         if self.virtual_documents_pending() || virtual_changed {
@@ -399,6 +407,7 @@ impl App {
                     | Operation::UntitledOpen(_)
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
+                    | Operation::EditorState(_)
             ) {
                 Context::check_budget(self)?;
             }
@@ -411,6 +420,7 @@ impl App {
                     | Operation::UntitledOpen(_)
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
+                    | Operation::EditorState(_)
             ) && !self
                 .extension_services
                 .contexts
@@ -428,6 +438,7 @@ impl App {
                     | Operation::UntitledOpen(_)
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
+                    | Operation::EditorState(_)
             ) && (self.prompt.is_some() || self.modal.is_some())
             {
                 bail!("Native document service cannot replace an active prompt or modal");
@@ -439,6 +450,7 @@ impl App {
             return true;
         }
         match &service.operation {
+            Operation::EditorState(_) => self.start_editor_state_service(host, service.clone()),
             Operation::UntitledOpen(_)
             | Operation::VirtualOpen(_)
             | Operation::VirtualChange(_) => {
@@ -1128,7 +1140,7 @@ exports.activate = async context => {
         let revision = dirty.revision;
         let text = dirty.text.to_string();
         let mut other = Document::default();
-        other.secondary = vec![crate::document::Selection::caret(0); 8191];
+        other.secondary = vec![crate::document::Selection::caret(0); 8190];
         let mut app = App::new(root.path().into(), Profile::Linux);
         app.hidden_documents = vec![dirty, other];
         let extension =
@@ -1143,6 +1155,9 @@ exports.activate = async context => {
         let mut host =
             crate::extensions::Client::start_prepared("node", &extension, root.path(), prepared)
                 .unwrap();
+        app.hidden_documents[1]
+            .secondary
+            .push(crate::document::Selection::caret(0));
         let owner = host.packages[0].id.clone();
         let session = host.session;
         host.queue_service("nativeStateWrite",json!("held-state"),json!({"session":session,"owner":owner,"args":{"scope":"global","key":"first","remove":false,"value":true}})).unwrap();
@@ -1188,11 +1203,17 @@ exports.activate = async context => {
             .send(Ok(Output::State(json!({"first":true}))))
             .unwrap();
         app.poll_extension_services();
-        // Hidden selection changes do not alter mirror generations: receipt
-        // context rejection must do the work, rather than a stale wire version.
+        // Hidden selection changes now also publish new mirror generations.
+        // The original over-budget context remains refused independently of
+        // that additional wire guard, even after selections fit again.
         for _ in 0..2 {
             let host = app.extension_host.as_ref().unwrap();
-            host.service_valid(host.service().unwrap()).unwrap();
+            let service = host.service().unwrap();
+            assert!(
+                app.extension_services.contexts[&(service.request.session, service.id.clone())]
+                    .snapshot
+                    .is_none()
+            );
             app.poll_extension_services();
             assert!(app.extension_services.job.is_none());
             assert!(app.documents.is_empty());
@@ -1321,7 +1342,7 @@ exports.activate = async context => {
             "node",
             &extension,
             root.path(),
-            &app.documents,
+            &app.documents[..128],
             0,
             &app.settings,
         )

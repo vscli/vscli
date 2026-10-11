@@ -140,10 +140,11 @@ function wireBudget(result) {
   if (Buffer.byteLength(JSON.stringify(result)) > MAX_RESULT_BYTES) throw new Error('Language provider result exceeds 1 MiB');
 }
 function createProviders(options) {
+  const languageEpoch = document => options.languageEpoch?.(document) ?? 0;
   const entries = new Map(), calls = new Map(), completions = new Map();
   let nextId = 0, nextHandle = 0, registryEpoch = 0;
   const actions = createActions({ ...options, text, range, position, current: item => {
-    if (entries.get(item.entry.id) !== item.entry || item.epoch !== registryEpoch || item.document.isClosed || item.document.version !== item.version) return false;
+    if (entries.get(item.entry.id) !== item.entry || item.epoch !== registryEpoch || item.document.isClosed || item.document.version !== item.version || languageEpoch(item.document) !== item.languageEpoch) return false;
     try { actions.assertWorkspace(item.workspace, options); return true; } catch { return false; }
   } });
   const signatures = signatureTypes.createSignatures({ ...options, position, assertCurrent,
@@ -191,12 +192,12 @@ function createProviders(options) {
     }]));
   }
   function assertCurrent(call) {
-    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (['completion','codeaction','signature','symbols'].includes(call.entry.type) && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version) throw new Error('Language provider result became stale or canceled');
+    if (call.source.token.isCancellationRequested || entries.get(call.entry.id) !== call.entry || (['completion','codeaction','signature','symbols'].includes(call.entry.type) && registryEpoch !== call.epoch) || call.document.isClosed || call.document.version !== call.version || languageEpoch(call.document) !== call.languageEpoch) throw new Error('Language provider result became stale or canceled');
     if (['signature','symbols'].includes(call.entry.type) && (options.document(call.documentId) !== call.document || call.document.uri.toString() !== call.uri)) throw new Error(call.entry.type === 'signature' ? 'Signature document identity changed' : 'Document symbol identity changed');
     if (call.workspace) actions.assertWorkspace(call.workspace, options);
   }
   function purgeCompletions() {
-    for (const [id, cached] of completions) if (Date.now() - cached.started >= 6000 || cached.document.isClosed || cached.document.version !== cached.version || entries.get(cached.entry.id) !== cached.entry) completions.delete(id);
+    for (const [id, cached] of completions) if (Date.now() - cached.started >= 6000 || cached.document.isClosed || cached.document.version !== cached.version || languageEpoch(cached.document) !== cached.languageEpoch || entries.get(cached.entry.id) !== cached.entry) completions.delete(id);
   }
   function retainCompletions(entry, call, originals, result, request) {
     purgeCompletions();
@@ -209,7 +210,7 @@ function createProviders(options) {
     const staged = result.items.map((item, index) => {
       if (nextHandle >= Number.MAX_SAFE_INTEGER) throw new Error('Completion handle exhausted');
       const handle = ++nextHandle;
-      return [handle, { entry, document: call.document, version: call.version, request,
+      return [handle, { entry, document: call.document, version: call.version, languageEpoch: call.languageEpoch, request,
         original: originals[index], snapshot: JSON.stringify(item), bytes: Buffer.byteLength(JSON.stringify(item)), started: Date.now() }];
     });
     for (let index = 0; index < staged.length; index++) { completions.set(...staged[index]); result.items[index]._vscliCompletionHandle = staged[index][0]; }
@@ -229,7 +230,7 @@ function createProviders(options) {
     if (calls.size >= MAX_PENDING) throw new Error('Language provider invocation limit reached');
     const callId = params.request === undefined ? Symbol() : params.request;
     if (typeof callId !== 'symbol' && (!Number.isSafeInteger(callId) || callId < 1 || calls.has(callId))) throw new Error('Invalid or duplicate provider request ID');
-    const source = new CancellationTokenSource(), call = { source, entry, document, documentId: params.document, uri: document.uri.toString(), version: document.version, epoch: registryEpoch };
+    const source = new CancellationTokenSource(), call = { source, entry, document, documentId: params.document, uri: document.uri.toString(), version: document.version, languageEpoch: languageEpoch(document), epoch: registryEpoch };
     calls.set(callId, call); accepted(call);
     let args;
     try {
@@ -293,7 +294,7 @@ function createProviders(options) {
     if (params.session !== options.session || !cached || cached.entry !== entry || entry.owner !== params.owner || cached.request !== params.origin || cached.version !== params.version || options.document(params.document) !== cached.document) throw new Error('Stale completion resolve handle, owner, or document');
     if (calls.size >= MAX_PENDING) throw new Error('Language provider invocation limit reached');
     if (!Number.isSafeInteger(params.request) || params.request < 1 || calls.has(params.request)) throw new Error('Invalid or duplicate provider request ID');
-    const source = new CancellationTokenSource(), call = { source, entry, document: cached.document, version: cached.version, epoch: registryEpoch, completionOrigin: cached.request };
+    const source = new CancellationTokenSource(), call = { source, entry, document: cached.document, version: cached.version, languageEpoch: cached.languageEpoch, epoch: registryEpoch, completionOrigin: cached.request };
     calls.set(params.request, call);
     let timer;
     const work = Promise.resolve().then(() => invokeResult(entry, () => entry.provider.resolveCompletionItem(cached.original, source.token))).then(resultCallback(entry, value => {
@@ -321,7 +322,7 @@ function createProviders(options) {
     const cached = actions.lookup(params,entry);
     if (calls.size >= MAX_PENDING) throw new Error('Language provider invocation limit reached');
     if (!Number.isSafeInteger(params.request) || params.request < 1 || calls.has(params.request)) throw new Error('Invalid or duplicate provider request ID');
-    const source = new CancellationTokenSource(), call = {source,entry,document:cached.document,version:cached.version,epoch:cached.epoch,workspace:cached.workspace,actionOrigin:cached.origin};
+    const source = new CancellationTokenSource(), call = {source,entry,document:cached.document,version:cached.version,languageEpoch:cached.languageEpoch,epoch:cached.epoch,workspace:cached.workspace,actionOrigin:cached.origin};
     assertCurrent(call); calls.set(params.request,call); let timer;
     const work = Promise.resolve().then(() => { assertCurrent(call); return invokeResult(entry, () => entry.provider.resolveCodeAction(cached.original,source.token)); }).then(resultCallback(entry, value => {
       assertCurrent(call); if (!actions.has(params.handle,cached)) throw new Error('Code action resolve handle retired');
@@ -343,7 +344,7 @@ function createProviders(options) {
     if (!call || call.entry.owner !== params.owner) return false;
     call.source.cancel(); return true;
   }
-  function documentChanged() { purgeCompletions(); actions.purge(); signatures.purge(); for (const { source, document, version } of calls.values()) if (document.isClosed || document.version !== version) source.cancel();
+  function documentChanged() { purgeCompletions(); actions.purge(); signatures.purge(); for (const call of calls.values()) if (call.document.isClosed || call.document.version !== call.version || languageEpoch(call.document) !== call.languageEpoch) call.source.cancel();
     for (const call of calls.values()) if (call.workspace) { try { actions.assertWorkspace(call.workspace, options); } catch { call.source.cancel(); } } }
 
   function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }

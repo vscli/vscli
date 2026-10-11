@@ -576,6 +576,7 @@ impl Document {
             associated_path: self.associated_path.clone(),
             api_created_untitled: self.api_created_untitled,
             language_override: self.language_override.clone(),
+            language_epoch: self.language_epoch,
             revision: self.revision,
             saved_revision: self.saved_revision,
             disk_content: self.disk_content.clone(),

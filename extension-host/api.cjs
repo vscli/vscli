@@ -31,11 +31,11 @@ function supported(name, values) {
 }
 
 function createApi(sendRequest, notify, sessionOptions = {}) {
-  const documents = new Map(), editors = new Map(), commands = new Map();
+  const documents = new Map(), editors = new Map(), commands = new Map(), editorStates = new WeakMap();
   const workspaceEditMirrors = new Map(), documentMirrorRecords = new WeakMap();
   let workspaceEditConfigurationIdentity = {};
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
-  const activeChanged = new EventEmitter(), saved = new EventEmitter();
+  const activeChanged = new EventEmitter(), saved = new EventEmitter(), selectionChanged = new EventEmitter();
   const configuration = createConfiguration();
   let active, workspaceRoot, activation, generation = -1;
   const facades = new Map(), owned = new Map();
@@ -48,6 +48,17 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     snapshotFor: document => documentMirrorRecords.get(document),
     document: id => documents.get(id), editor: id => active?.document._snapshot.id === id ? active : undefined,
     openVirtual: (owner,uri) => textContentProviders.open(owner,uri),
+    editorCurrent: document => {
+      const source = documentMirrorRecords.get(document);
+      return !!source && editorStates.get(editors.get(source.document))?.document === document;
+    },
+    stageSelections: (owner, document, values) => {
+      const source = documentMirrorRecords.get(document), state = editorStates.get(editors.get(source.document));
+      const overlay = { owner, values }; state.overlay = overlay;
+      return () => { if (state.overlay === overlay) state.overlay = undefined; };
+    },
+    selectionFailure: (owner,error) => notify('message',{session:sessionOptions.session,owner,
+      text:`Editor selection update failed: ${String(error.message || error).slice(0,1024)}`}),
   });
   // Runtime-private mirror authority is captured before user value getters.
   const workspaceEdits = createWorkspaceEdits(documentServices.call, {
@@ -111,7 +122,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     try { assertOwner(params.owner); return sendRequest(method, params, lifecycle); }
     catch (error) { return Promise.reject(error); }
   }
-  const providers = createProviders({ session: sessionOptions.session, notify, track, bindProvider: callers.bindProvider, bindProviderResult: callers.bindProviderResult, invokeProviderResult: callers.invokeProviderResult, document: id => documents.get(id), diagnostics: (document,range) => diagnostics.currentDiagnostics(document,range) });
+  const providers = createProviders({ session: sessionOptions.session, notify, track, bindProvider: callers.bindProvider, bindProviderResult: callers.bindProviderResult, invokeProviderResult: callers.invokeProviderResult, document: id => documents.get(id), languageEpoch: document => documentMirrorRecords.get(document)?.languageEpoch, diagnostics: (document,range) => diagnostics.currentDiagnostics(document,range) });
   const diagnostics = createDiagnostics({ session: sessionOptions.session, notify, track, assertOwner, document: key => {
     for (const document of documents.values()) if (document._snapshot.uri === key) return document;
   } });
@@ -230,17 +241,53 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           rangeOffset: 0, rangeLength: previous.canonicalText.length, text: canonicalText,
         }] }));
       }
+      const languageChanged = previous && !transition && previous.languageId !== metadata.languageId;
+      if (languageChanged) {
+        const languageDocument = document;
+        changes.push(() => {
+          const current = documentMirrorRecords.get(languageDocument);
+          if (!current || current.isClosed) return;
+          const live = { ...languageDocument._snapshot };
+          languageDocument._snapshot = { ...live, languageId: previous.languageId };
+          try { closed.fire(languageDocument); }
+          finally { languageDocument._snapshot = { ...live, languageId: metadata.languageId }; }
+          opened.fire(languageDocument);
+        });
+      }
       if (previous && Number.isSafeInteger(snapshot.savedGeneration) && snapshot.savedGeneration > previous.savedGeneration) {
         const savedDocument = document;
         changes.push(() => saved.fire(savedDocument));
       }
       const record = Object.freeze({ document: snapshot.id, version: snapshot.version, uri: snapshot.uri, model: document, text,
-        isReadonly: snapshot.isReadonly === true, languageId: snapshot.languageId, isDirty: snapshot.isDirty === true,
+        isReadonly: snapshot.isReadonly === true, languageId: metadata.languageId, isDirty: snapshot.isDirty === true,
+        languageEpoch: Number.isSafeInteger(snapshot.languageEpoch) && snapshot.languageEpoch >= 0 ? snapshot.languageEpoch
+          : (previous?.languageEpoch ?? 0) + (languageChanged ? 1 : 0),
         savedGeneration: Number.isSafeInteger(snapshot.savedGeneration) ? snapshot.savedGeneration : previous?.savedGeneration ?? 0,
         isClosed: false, metadata, canonicalText, eol,
         end: text === previous?.text ? previous.end : sourceEnd(text) });
       workspaceEditMirrors.set(snapshot.id, record); documentMirrorRecords.set(document, record);
       if (!editors.has(snapshot.id)) editors.set(snapshot.id, editorFor(snapshot.id, document));
+      const liveEditorState = editorStates.get(editors.get(snapshot.id));
+      if (previous && (previous.model !== document || previous.version !== record.version || previous.languageEpoch !== record.languageEpoch)) liveEditorState.overlay = undefined;
+      const nativeSelections = snapshot.selections ?? (snapshot.id === state.active ? state.selections : undefined);
+      if (nativeSelections !== undefined) {
+        const base = editors.get(snapshot.id), editorState = editorStates.get(base);
+        if (!Array.isArray(nativeSelections) || nativeSelections.length > 10000) throw new Error('Invalid native editor selection snapshot');
+        const wire = nativeSelections.map(value => ({anchor:coordinates.position(value.anchor,'Mirror selection'),active:coordinates.position(value.active,'Mirror selection')}));
+        if (!wire.length) wire.push({anchor:{line:0,character:0},active:{line:0,character:0}});
+        const changedSelection = editorState.initialized && (wire.length !== editorState.wire.length || wire.some((value,index) => {
+          const old = editorState.wire[index];
+          return value.anchor.line !== old.anchor.line || value.anchor.character !== old.anchor.character || value.active.line !== old.active.line || value.active.character !== old.active.character;
+        }));
+        editorState.overlay = undefined; editorState.initialized = true; editorState.wire = wire;
+        editorState.actual = wire.map(value => new Selection(value.anchor,value.active));
+        base._selections = editorState.actual;
+        if (changedSelection) {
+          const kind = snapshot.selectionKind ?? state.selectionKind;
+          const eventValue = {textEditor:base,selections:editorState.actual.slice(),kind:[1,2,3].includes(kind)?kind:undefined};
+          changes.push(() => selectionChanged.fire(eventValue));
+        }
+      }
     }
     for (const [id, document] of documents) {
       if (!present.has(id)) {
@@ -250,7 +297,6 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     }
     const previousActive = active;
     active = editors.get(state.active);
-    if (active) active._selections = state.selections.map(s => new Selection(s.anchor, s.active));
     providers.documentChanged();
     diagnostics.documentChanged();
     textContentProviders.documentChanged();
@@ -259,10 +305,19 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     if (active !== previousActive) activeChanged.fire(active);
   }
   function editorFor(id, document, owner = '') {
-    return supported('TextEditor', {
+    const initial = editorStates.get(editors.get(id));
+    let result;
+    const selected = () => {
+      const current = editorStates.get(editors.get(id));
+      const state = current?.document === document ? current : editorStates.get(result);
+      return state.overlay?.values || state.actual;
+    };
+    result = supported('TextEditor', {
       document, _selections: [new Selection(0, 0, 0, 0)],
-      get selection() { return (owner ? (editors.get(id)?._selections || this._selections) : this._selections)[0]; },
-      get selections() { return (owner ? (editors.get(id)?._selections || this._selections) : this._selections).slice(); },
+      get selection() { return selected()[0]; },
+      set selection(value) { documentServices.setEditorSelections(owner || callers.currentOwner(),document,value,true); },
+      get selections() { return selected().slice(); },
+      set selections(value) { documentServices.setEditorSelections(owner || callers.currentOwner(),document,value,false); },
       edit(callback, options) {
         try {
           assertOwner(owner);
@@ -307,12 +362,15 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         return request('edit', { session: sessionOptions.session, owner, document: id, version, edits }).then(result => result.applied);
       },
     });
+    editorStates.set(result,{document,id,actual:initial?.actual || [new Selection(0,0,0,0)],wire:[],initialized:false,overlay:undefined});
+    return result;
   }
   const api = supported('vscode', {
     ...types, ...providerTypes, ...diagnosticTypes, ...surfaces.types, RelativePattern,
     FileSystemError: filesystem.FileSystemError, FileType: filesystem.FileType,
     FilePermission: filesystem.FilePermission, FileChangeType: filesystem.FileChangeType,
     version: '1.95.0',
+    TextEditorSelectionChangeKind: Object.freeze({Keyboard:1,Mouse:2,Command:3}),
     ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
     ExtensionMode: Object.freeze({ Production: 1, Development: 2, Test: 3 }),
     window: supported('window', {
@@ -321,6 +379,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       get activeTextEditor() { return active; },
       get visibleTextEditors() { return active ? [active] : []; },
       onDidChangeActiveTextEditor: activeChanged.event,
+      onDidChangeTextEditorSelection: selectionChanged.event,
       showInformationMessage: message,
       showWarningMessage: message,
       showErrorMessage: message,
@@ -359,6 +418,10 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         for (const cleanup of [() => fileWatchers.disposeOwner(owner), () => fileSystem.disposeOwnerWatches(owner)]) {
           try { cleanup(); } catch (error) { console.error(error); }
         }
+        for (const base of editors.values()) {
+          const state = editorStates.get(base);
+          if (state?.overlay?.owner === owner) state.overlay = undefined;
+        }
         callers.retire(owner);
         if (sessionOptions.languageProviders) providers.disposeOwner(owner);
         diagnostics.disposeOwner(owner);
@@ -374,14 +437,17 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       const scopedEditors = new WeakMap();
       function scopedEditor(base) {
         if (!base) return undefined;
-        if (!scopedEditors.has(base.document)) scopedEditors.set(base.document, editorFor(base.document._snapshot.id, base.document, owner));
-        return scopedEditors.get(base.document);
+        const source = editorStates.get(base);
+        if (!source) return undefined;
+        if (!scopedEditors.has(source.document)) scopedEditors.set(source.document, editorFor(source.id, source.document, owner));
+        return scopedEditors.get(source.document);
       }
       const services = documentServices.forOwner(owner, scopedEditor);
       // The native document objects are shared; only request-producing editor handles are scoped.
       const facade = supported('vscode', {
         ...api,
-        languages: supported('languages', { ...diagnostics.forOwner(owner), ...(sessionOptions.languageProviders ? providers.forOwner(owner) : {}) }),
+        languages: supported('languages', { ...diagnostics.forOwner(owner), ...(sessionOptions.languageProviders ? providers.forOwner(owner) : {}),
+          ...(sessionOptions.documentLanguage ? {setTextDocumentLanguage:(document,language)=>documentServices.setTextDocumentLanguage(owner,document,language)} : {}) }),
         window: supported('window', {
           ...createPrompts(request, sessionOptions.session, owner, promptBudget),
           showTextDocument: services.showTextDocument,
@@ -389,6 +455,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           get activeTextEditor() { return scopedEditor(active); },
           get visibleTextEditors() { return active ? [scopedEditor(active)] : []; },
           onDidChangeActiveTextEditor: event(owner, activeChanged.event, scopedEditor),
+          onDidChangeTextEditorSelection: event(owner,selectionChanged.event,value=>({...value,textEditor:scopedEditor(value.textEditor)})),
           showInformationMessage: (text, ...items) => messageFor(owner, text, ...items),
           showWarningMessage: (text, ...items) => messageFor(owner, text, ...items),
           showErrorMessage: (text, ...items) => messageFor(owner, text, ...items),

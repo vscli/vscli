@@ -38,6 +38,13 @@ public close/open/save transitions and metadata recovery. New workflow delivery
 can advance without changing constructor/export figures or implying an overall
 compatibility percentage.
 
+Delivered editor-state integration adds
+[language switching and selection setters/events](EDITOR_STATE_API.md), with
+language metadata lifetimes that retire obsolete language-provider and LSP work
+without changing text versions or history. Each milestone's evidence below is
+updated after actual host/native/terminal execution; authored tests alone do not
+count as delivered qualification.
+
 ## Implementation and evidence
 
 | Surface | Implemented behavior | Evidence and remaining qualification |
@@ -61,6 +68,7 @@ compatibility percentage.
 | Filesystem watchers | Public create/change/delete events, ignore flags, string/RelativePattern scopes, custom provider watch routing, shared local OS workers and original caller cleanup | All 482 host tests pass, including seven real OS backend tests, 12 glob cases, eight facade/provider/shared-session cases and retired cleanup. Actual selected-host and keyboard PTY workflows preserve dirty buffers, native Undo and disk bytes. All 1,173 Rust all-target tests (876 library; 23 ignored), build/formatting and strict Clippy pass. OS coalescing, upstream/platform fidelity and remote/multi-root backends remain outstanding; see [watchers](FILE_WATCHERS_API.md). |
 | Virtual text documents | Custom-scheme content-provider registration/open/show/change route; shared native URI identity, clean LF-normalized refresh and read-only edit/save protection | All 503 host tests and 1,185 Rust all-target tests pass (886 library; 23 ignored). Two actual selected-host workflows, the public keyboard PTY, build/formatting and strict Clippy pass; see [virtual documents](VIRTUAL_DOCUMENTS_API.md) for limits and outstanding backends. |
 | API-created untitled documents | Content/language/noarg and explicit untitled URI opens; retained resource cache, fresh naming, initial Undo baseline, associated create-only saves, public close/open/save transitions and recovery | All 524 host tests and 1,197 Rust all-target tests pass (894 library; 23 ignored), including four actual selected-host/App workflows. Three new untitled PTY journeys, four existing public-save PTYs and the virtual-document PTY pass; build/formatting/strict Clippy pass. Encoding, writable custom resources, full label formatting and upstream/platform fidelity remain outstanding; see [untitled documents](UNTITLED_DOCUMENTS_API.md). |
+| Document language and editor selections | Public language switching with same-object close/open events, explicit language-aware native settings/LSP; selection setters, clamping, inactive editors and confirmed scoped selection events | All 542 host tests and 1,220 Rust all-target tests pass (913 library; 23 ignored), including fifteen editor-state host cases, three provider lifetime cases, nineteen native library cases and four actual selected-host/App workflows. Two new PTY workflows and eight save/untitled/virtual regressions, build/formatting/strict Clippy pass. Full shared-pane public editor inventory, selection kind provenance and other editor APIs remain outstanding; see [editor state](EDITOR_STATE_API.md). |
 | Other API surfaces | Existing partial document/editor, configuration, state, command, diagnostic, provider and native UI adapters | Existing focused documents describe their implemented subsets. Full API compatibility and arbitrary real-extension compatibility remain incomplete. |
 
 Cancellation follows the pinned source lifecycle: an already-canceled parent

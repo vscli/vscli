@@ -23,12 +23,12 @@ function captureWorkspace(params, options) {
   for (const target of array(params.workspace,128)) {
     const document = options.document(target.document);
     if (!document || document.isClosed || document.version !== target.version || document._snapshot.uri !== target.uri || captured.has(target.uri)) throw new Error('Code action workspace snapshot became stale');
-    captured.set(target.uri,{document,version:target.version,uri:target.uri});
+    captured.set(target.uri,{document,version:target.version,uri:target.uri,languageEpoch:options.languageEpoch?.(document) ?? 0});
   }
   return captured;
 }
 function assertWorkspace(workspace, options) {
-  for (const target of workspace.values()) if (target.document.isClosed || target.document.version !== target.version || options.document(target.document._snapshot.id) !== target.document || target.document._snapshot.uri !== target.uri) throw new Error('Code action workspace changed or closed');
+  for (const target of workspace.values()) if (target.document.isClosed || target.document.version !== target.version || (options.languageEpoch?.(target.document) ?? 0) !== target.languageEpoch || options.document(target.document._snapshot.id) !== target.document || target.document._snapshot.uri !== target.uri) throw new Error('Code action workspace changed or closed');
 }
 function createActions(options) {
   const cached = new Map(); let nextHandle = 0;
@@ -108,7 +108,7 @@ function createActions(options) {
     if(bytes>2*1024*1024)throw new Error('Code action cache exceeds2 MiB');
     const staged=[];
     for(const {row,index}of eligible) {if(nextHandle>=Number.MAX_SAFE_INTEGER)throw new Error('Code action handle exhausted');const handle=++nextHandle;
-      staged.push([handle,{entry:call.entry,document:call.document,version:call.version,epoch:call.epoch,workspace:call.workspace,origin,original:originals[index],snapshot:JSON.stringify(row),bytes:Buffer.byteLength(JSON.stringify(row)),started:Date.now()}]);row._vscliCodeActionHandle=handle;}
+      staged.push([handle,{entry:call.entry,document:call.document,version:call.version,languageEpoch:call.languageEpoch,epoch:call.epoch,workspace:call.workspace,origin,original:originals[index],snapshot:JSON.stringify(row),bytes:Buffer.byteLength(JSON.stringify(row)),started:Date.now()}]);row._vscliCodeActionHandle=handle;}
     for(const pair of staged)cached.set(...pair);
   }
   function lookup(params,entry) {

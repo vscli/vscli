@@ -12,16 +12,16 @@ function createNativeRequests(send, origin, timers = globalThis) {
     if (!Number.isSafeInteger(nextId + 1)) return Promise.reject(new Error('Extension request identity exhausted'));
     const save = method === 'nativeDocumentSave', applyEdit = method === 'nativeWorkspaceApplyEdit';
     const findFiles = method === 'nativeFindFiles';
-    const virtual = method === 'nativeVirtualDocumentOpen' || method === 'nativeVirtualDocumentChange' || method === 'nativeUntitledDocumentOpen';
+    const virtual = method === 'nativeVirtualDocumentOpen' || method === 'nativeVirtualDocumentChange' || method === 'nativeUntitledDocumentOpen' || method === 'nativeDocumentLanguage' || method === 'nativeEditorSelections';
     const retained = save || applyEdit || findFiles || virtual;
     const context = origin();
-    if (method === 'prompt' || ['nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
+    if (method === 'prompt' || ['nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
       if (context?.active && Number.isSafeInteger(context.id)) params = { ...params, command: context.id, commandOwner: context.owner };
     }
     const id = `host-${++nextId}`;
     const frame = { id, method, params };
     let bytes = 0;
-    if (['nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeCommand'].includes(method)) {
+    if (['nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeCommand'].includes(method)) {
       try {
         const encoded = JSON.stringify(frame);
         if (encoded.length > 2 * 1024 * 1024) throw new Error('Native document service wire payload limit reached');

@@ -884,6 +884,51 @@ impl App {
 mod tests {
     use super::*;
     #[test]
+    fn native_popup_and_cached_labels_retire_on_metadata_language_aba() {
+        use super::super::signature_help::metadata_tests::{
+            assert_source_and_redo, fixture, response,
+        };
+        let (_root, mut app) = fixture();
+        let id = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        let selections = app.doc().selections();
+        app.request_suggestions(json!({}));
+        let (request, value) = response(&mut app, "textDocument/completion");
+        app.native_suggestion_response(request, value).unwrap();
+        assert!(app.suggestion_acceptable());
+        assert!(app.suggestion_model().is_some());
+        app.doc_mut()
+            .set_language_override(Some("c".into()))
+            .unwrap();
+        app.doc_mut()
+            .set_language_override(Some("cpp".into()))
+            .unwrap();
+        assert!(!app.suggestion_acceptable());
+        assert!(app.suggestion_model().is_none());
+        app.execute_suggestion_command("acceptSelectedSuggestion");
+        assert!(app.suggestions.popup.is_none());
+        assert_eq!(app.doc().selections(), selections);
+        // A cached native label cohort holds only the server identity. Its
+        // captured editor context must still reject a second metadata ABA.
+        app.suggestions.cached = Some(Cached {
+            source: Fence::Native(app.lsp.as_ref().unwrap().identity()),
+            model: Model::parse(json!([{"label":"nativeCached"}]), "").unwrap(),
+            context: Context::capture(&app),
+            started: Instant::now(),
+        });
+        assert!(app.suggestion_model().is_some());
+        app.doc_mut()
+            .set_language_override(Some("c".into()))
+            .unwrap();
+        app.doc_mut()
+            .set_language_override(Some("cpp".into()))
+            .unwrap();
+        assert!(app.suggestion_model().is_none());
+        assert!(app.poll_suggestions());
+        assert!(app.suggestions.cached.is_none());
+        assert_source_and_redo(&mut app, id, epoch);
+    }
+    #[test]
     fn identifier_prefix_retains_the_utf8_byte_bound_across_rope_chunks() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("prefix.rs");

@@ -180,6 +180,7 @@ pub struct ViewState {
     snippet_generation: u64,
     pairs: typing::Pairs,
     folding: folding::View,
+    editor_owner: std::sync::Arc<()>,
 }
 #[derive(Clone)]
 pub(crate) struct ByteChange {
@@ -323,6 +324,14 @@ impl PreparedVirtualContent {
     }
 }
 
+/// Exact retained editor view authority, independent of focus and numeric-ID ABA.
+#[derive(Clone)]
+pub(crate) struct EditorViewProof {
+    document: u64,
+    id: u64,
+    owner: std::sync::Arc<()>,
+}
+
 pub struct Document {
     pub id: u64,
     pub text: Rope,
@@ -335,6 +344,7 @@ pub struct Document {
     associated_path: Option<PathBuf>,
     api_created_untitled: bool,
     language_override: Option<String>,
+    language_epoch: u64,
     pub revision: u64,
     pub saved_revision: u64,
     pub disk_content: Option<Rope>,
@@ -424,6 +434,7 @@ impl Document {
         }
         let next = self.other_views.remove(&id).unwrap_or_else(|| {
             let mut view = self.view.clone();
+            view.editor_owner = std::sync::Arc::new(());
             view.cursor_history.clear();
             view.snippet = None;
             view.pairs = typing::Pairs::default();
@@ -519,6 +530,7 @@ impl Document {
             associated_path: None,
             api_created_untitled: false,
             language_override: None,
+            language_epoch: 0,
             revision: 0,
             saved_revision: 0,
             disk_content: None,
@@ -662,6 +674,19 @@ impl Document {
     pub fn language_override(&self) -> Option<&str> {
         self.language_override.as_deref()
     }
+    pub(crate) fn check_language_override(&self, language: Option<&str>) -> Result<()> {
+        if language
+            .is_some_and(|value| value.is_empty() || value.len() > 128 || value.contains('\0'))
+        {
+            bail!("Document language identifier exceeds bounds");
+        }
+        if self.language_override.as_deref() != language {
+            self.language_epoch
+                .checked_add(1)
+                .context("Document language lifetime exhausted")?;
+        }
+        Ok(())
+    }
     pub fn set_language_override(&mut self, language: Option<String>) -> Result<()> {
         if language
             .as_ref()
@@ -670,12 +695,78 @@ impl Document {
             bail!("Document language identifier exceeds bounds");
         }
         if self.language_override != language {
+            let epoch = self
+                .language_epoch
+                .checked_add(1)
+                .context("Document language lifetime exhausted")?;
             self.retire_typing_pairs();
             self.retire_folding_policy();
             self.language_override = language;
+            self.language_epoch = epoch;
         }
         Ok(())
     }
+    pub(crate) fn language_epoch(&self) -> u64 {
+        self.language_epoch
+    }
+    pub(crate) fn editor_view_identity(&self) -> EditorViewProof {
+        EditorViewProof {
+            document: self.id,
+            id: self.active_view,
+            owner: self.view.editor_owner.clone(),
+        }
+    }
+    pub(crate) fn editor_view_stamp(&self) -> (u64, usize) {
+        (
+            self.active_view,
+            std::sync::Arc::as_ptr(&self.view.editor_owner) as usize,
+        )
+    }
+    pub(crate) fn editor_view_active_current(&self, proof: &EditorViewProof) -> bool {
+        self.active_view == proof.id && self.editor_view_current(proof)
+    }
+    pub(crate) fn editor_view_current(&self, proof: &EditorViewProof) -> bool {
+        if proof.document != self.id {
+            return false;
+        }
+        let view = if proof.id == self.active_view {
+            Some(&self.view)
+        } else {
+            self.other_views.get(&proof.id)
+        };
+        view.is_some_and(|view| std::sync::Arc::ptr_eq(&view.editor_owner, &proof.owner))
+    }
+    pub(crate) fn set_editor_selections(
+        &mut self,
+        proof: &EditorViewProof,
+        selections: Vec<Selection>,
+    ) -> Result<()> {
+        if !self.editor_view_current(proof) || selections.is_empty() || selections.len() > 4096 {
+            bail!("Editor view retired or selection bounds exceeded");
+        }
+        let previous = self.active_view;
+        if proof.id != previous {
+            // Both views already exist; this swaps ownership without allocating
+            // or creating a replacement view, then restores the active one.
+            std::mem::swap(
+                &mut self.view,
+                self.other_views
+                    .get_mut(&proof.id)
+                    .expect("checked retained view"),
+            );
+            self.active_view = proof.id;
+        }
+        self.set_selections(selections);
+        if proof.id != previous {
+            std::mem::swap(
+                &mut self.view,
+                self.other_views.get_mut(&proof.id).expect("retained view"),
+            );
+            self.active_view = previous;
+        }
+        Ok(())
+    }
+
     fn ensure_writable(&self) -> Result<()> {
         if self.is_read_only() {
             bail!("Virtual documents are read-only");
@@ -2944,5 +3035,134 @@ mod api_untitled_tests {
         }
         assert!(Document::from_untitled(None, "bad\0", None, None).is_err());
         assert!(Document::from_untitled(None, "", Some("".into()), None).is_err());
+    }
+}
+
+#[cfg(test)]
+mod editor_state_tests {
+    use super::*;
+    #[test]
+    fn retained_inactive_selection_update_preserves_active_sibling_and_redo() {
+        let mut doc = Document::from_text("α😀\r\n猫\r\n");
+        doc.activate_view(1);
+        doc.insert("!", false);
+        doc.undo();
+        doc.set_selections(vec![Selection {
+            cursor: 1,
+            anchor: Some(2),
+            desired_column: None,
+        }]);
+        let original = doc.editor_view_identity();
+        doc.activate_view(2);
+        doc.move_to(5, false);
+        let sibling = doc.selections();
+        let before = (
+            doc.id,
+            doc.text.to_string(),
+            doc.revision,
+            doc.text_epoch(),
+            doc.saved_revision,
+            doc.save_generation(),
+            doc.dirty(),
+        );
+        doc.set_editor_selections(&original, vec![Selection::caret(6)])
+            .unwrap();
+        assert_eq!(doc.active_view, 2);
+        assert_eq!(doc.selections(), sibling);
+        assert_eq!(doc.view_state(Some(1)).cursor, 6);
+        assert_eq!(
+            (
+                doc.id,
+                doc.text.to_string(),
+                doc.revision,
+                doc.text_epoch(),
+                doc.saved_revision,
+                doc.save_generation(),
+                doc.dirty()
+            ),
+            before
+        );
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "!α😀\r\n猫\r\n");
+        doc.undo();
+        assert_eq!(doc.text.to_string(), before.1);
+    }
+    #[test]
+    fn recreated_view_cannot_reuse_selection_authority() {
+        let mut doc = Document::from_text("abcd");
+        doc.activate_view(5);
+        let proof = doc.editor_view_identity();
+        doc.activate_view(6);
+        doc.remove_view(5);
+        doc.display_view(5);
+        let current = doc.selections();
+        assert!(!doc.editor_view_current(&proof));
+        assert!(
+            doc.set_editor_selections(&proof, vec![Selection::caret(4)])
+                .is_err()
+        );
+        assert_eq!(doc.selections(), current);
+        let new = doc.editor_view_identity();
+        doc.set_editor_selections(&new, vec![Selection::caret(4)])
+            .unwrap();
+        assert_eq!(doc.cursor, 4);
+    }
+    #[test]
+    fn language_clock_aba_noop_and_exhaustion_preserve_text_save_and_redo() {
+        let mut doc = Document::from_virtual("sample:/readonly".into(), "猫😀\r\n").unwrap();
+        let initial = (
+            doc.id,
+            doc.text.to_string(),
+            doc.revision,
+            doc.text_epoch(),
+            doc.saved_revision,
+            doc.save_generation(),
+            doc.dirty(),
+        );
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        let cpp = doc.language_epoch();
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        assert_eq!(doc.language_epoch(), cpp);
+        doc.set_language_override(Some("python".into())).unwrap();
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        assert!(doc.language_epoch() > cpp);
+        assert_eq!(
+            (
+                doc.id,
+                doc.text.to_string(),
+                doc.revision,
+                doc.text_epoch(),
+                doc.saved_revision,
+                doc.save_generation(),
+                doc.dirty()
+            ),
+            initial
+        );
+        doc.language_epoch = u64::MAX;
+        assert!(doc.set_language_override(Some("python".into())).is_err());
+        assert_eq!(doc.language_override(), Some("cpp"));
+        assert!(doc.undo.is_empty() && doc.redo.is_empty());
+        let proof = doc.editor_view_identity();
+        doc.set_editor_selections(&proof, vec![Selection::caret(1)])
+            .unwrap();
+        assert_eq!(doc.cursor, 1);
+        assert_eq!(doc.text.to_string(), initial.1);
+        assert!(doc.is_read_only());
+        let mut editable = Document::from_text("α😀\r\n");
+        editable.insert("changed", false);
+        let edited = editable.text.to_string();
+        editable.undo();
+        let source = editable.text.to_string();
+        let epoch = editable.text_epoch();
+        editable.set_language_override(Some("cpp".into())).unwrap();
+        editable
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        editable.set_language_override(Some("cpp".into())).unwrap();
+        assert_eq!(editable.text_epoch(), epoch);
+        editable.redo();
+        assert_eq!(editable.text.to_string(), edited);
+        editable.undo();
+        assert_eq!(editable.text.to_string(), source);
     }
 }

@@ -493,6 +493,8 @@ mod tests {
             Mirror {
                 revision: docs[0].revision,
                 text_epoch: docs[0].text_epoch(),
+                language_epoch: docs[0].language_epoch(),
+                editor_view: docs[0].editor_view_identity(),
                 save_generation: 0,
                 uri: "preview-test:/sample.cpp".into(),
                 eol: docs[0].eol.clone(),

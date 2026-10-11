@@ -1,5 +1,5 @@
 'use strict';
-const { Uri, TextDocument, Range } = require('./api-types.cjs');
+const { Uri, TextDocument, Range, Selection } = require('./api-types.cjs');
 const coordinates = require('./coordinates.cjs');
 const path = require('node:path');
 const uriFrom = Uri.from, uriFormat = Uri.prototype.toString, uriParse = Uri.parse;
@@ -15,7 +15,7 @@ function createDocumentServices(request, options, model) {
     pending++; queuedBytes += bytes;
     let released = false;
     const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; } };
-    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
+    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
     try { return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
     finally { if (!lifecycle?.retained) release(); }
   }
@@ -121,6 +121,66 @@ function createDocumentServices(request, options, model) {
     }
     return { openTextDocument, showTextDocument };
   }
+  function currentSource(document) {
+    const source = model.snapshotFor(document);
+    if (!source || source.isClosed || model.snapshot(source.document)?.model !== document) throw new Error('Document is no longer open');
+    return source;
+  }
+  function recheckSource(source) {
+    const current = currentSource(source.model);
+    if (current.document !== source.document || current.version !== source.version || current.uri !== source.uri || current.languageEpoch !== source.languageEpoch)
+      throw new Error('Native editor source changed during argument capture');
+  }
+  async function setTextDocumentLanguage(owner, document, language) {
+    const guard = model.captureCaller(owner), source = currentSource(document);
+    if (!options.documentLanguage) throw new Error('Native document language changes are not implemented by this host');
+    if (typeof language !== 'string' || !language || language.length > 128 || Buffer.byteLength(language) > 128 || language.includes('\0')) throw new TypeError('Document language must be a nonempty string of at most 128 bytes');
+    guard(); recheckSource(source);
+    const result = await call(owner, 'nativeDocumentLanguage', { document: source.document, version: source.version, language });
+    guard();
+    const current = currentSource(document);
+    if (result?.document !== source.document || current.uri !== source.uri || current.languageId !== language) throw new Error('Native document language mirror was not published before acknowledgement');
+    return document;
+  }
+  function setEditorSelections(owner, document, input, single) {
+    const guard = model.captureCaller(owner), source = currentSource(document);
+    if (!options.editorSelections) throw new Error('Native editor selection changes are not implemented by this host');
+    if (!model.editorCurrent(document)) throw new Error('Text editor is no longer available');
+    let values;
+    if (single) {
+      if (!(input instanceof Selection)) throw new TypeError('selection must be a Selection');
+      values = [input];
+    } else {
+      if (!Array.isArray(input)) throw new TypeError('selections must be an array of Selection values');
+      const length = input.length;
+      if (!Number.isInteger(length) || length < 0 || length > 10000) throw new RangeError('Editor selection count exceeds 10000');
+      values = [];
+      for (let i = 0; i < length; i++) {
+        const value = input[i];
+        if (!(value instanceof Selection)) throw new TypeError('selections must contain only Selection values');
+        values.push(value);
+      }
+      if (!values.length) values.push(new Selection(0,0,0,0));
+    }
+    const selections = [];
+    for (const value of values) {
+      const anchor = value.anchor, active = value.active;
+      selections.push({ anchor: coordinates.position(anchor, 'Selection'), active: coordinates.position(active, 'Selection') });
+    }
+    guard(); recheckSource(source);
+    if (!model.editorCurrent(document)) throw new Error('Text editor is no longer available');
+    // Presentation only. Native source/selection authority remains the captured
+    // primitive DTO and actual mirrored receipt, never the assigned objects.
+    const rollback = model.stageSelections(owner, document, values);
+    call(owner, 'nativeEditorSelections', { document: source.document, version: source.version, selections }).then(result => {
+      guard();
+      const current = currentSource(document);
+      if (result?.document !== source.document || current.uri !== source.uri || !model.editorCurrent(document)) throw new Error('Native editor selection mirror was not published before acknowledgement');
+    }).catch(error => {
+      rollback();
+      try { model.selectionFailure(owner, error); } catch { /* Reporting cannot produce an unhandled rejection. */ }
+    });
+  }
   async function saveDocument(owner, document) {
     const guard = model.captureCaller(owner);
     const source = model.snapshotFor(document);
@@ -149,7 +209,7 @@ function createDocumentServices(request, options, model) {
     guard();
     return result;
   }
-  return { forOwner, saveDocument, call, execute(owner, id, args) {
+  return { forOwner, saveDocument, setTextDocumentLanguage, setEditorSelections, call, execute(owner, id, args) {
     if (!NATIVE_COMMANDS.includes(id)) return Promise.reject(new Error(`Native command delegation is not implemented: ${id}`));
     if (args.length) return Promise.reject(new Error(`Native command arguments are not implemented: ${id}`));
     return call(owner, 'nativeCommand', { id });

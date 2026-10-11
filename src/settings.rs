@@ -913,10 +913,11 @@ impl Settings {
     }
 
     pub fn apply(&self, doc: &mut crate::document::Document) {
-        let language = doc
-            .path
-            .as_deref()
-            .map_or("plaintext", crate::languages::language);
+        let language = doc.language_override().unwrap_or_else(|| {
+            doc.path
+                .as_deref()
+                .map_or("plaintext", crate::languages::language)
+        });
         let tab_size = self
             .value("editor.tabSize", language)
             .and_then(Value::as_u64)
@@ -925,8 +926,7 @@ impl Settings {
             .value("editor.insertSpaces", language)
             .and_then(Value::as_bool)
             .unwrap_or(true);
-        doc.set_indentation(tab_size, insert_spaces);
-        doc.line_numbers = match self
+        let line_numbers = match self
             .value("editor.lineNumbers", language)
             .and_then(Value::as_str)
         {
@@ -935,6 +935,8 @@ impl Settings {
             Some("interval") => LineNumbers::Interval,
             _ => LineNumbers::On,
         };
+        doc.set_indentation(tab_size, insert_spaces);
+        doc.line_numbers = line_numbers;
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2597,5 +2599,34 @@ mod sticky_close_policy_tests {
                 invalid
             );
         }
+    }
+    #[test]
+    fn explicit_document_language_controls_settings_without_changing_text_history() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        std::fs::write(&path, r#"{"editor.tabSize":4,"[cpp]":{"editor.tabSize":2},"[python]":{"editor.tabSize":8,"editor.insertSpaces":false,"editor.lineNumbers":"relative"}}"#).unwrap();
+        let settings = Settings::load_editor(&[path]).unwrap();
+        let mut doc = crate::document::Document::from_text("猫🙂\r\noriginal\r\n");
+        doc.path = Some(root.path().join("original.cpp"));
+        doc.insert("dirty ", false);
+        let id = doc.id;
+        let version = doc.revision;
+        let epoch = doc.text_epoch();
+        settings.apply(&mut doc);
+        assert_eq!(doc.tab_size, 2);
+        doc.set_language_override(Some("python".into())).unwrap();
+        settings.apply(&mut doc);
+        assert_eq!(doc.tab_size, 8);
+        assert!(!doc.insert_spaces);
+        assert!(matches!(doc.line_numbers, LineNumbers::Relative));
+        assert_eq!(
+            (doc.id, doc.revision, doc.text_epoch()),
+            (id, version, epoch)
+        );
+        assert!(doc.dirty());
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂\r\noriginal\r\n");
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "dirty 猫🙂\r\noriginal\r\n");
     }
 }

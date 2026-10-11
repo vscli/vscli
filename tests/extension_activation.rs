@@ -90,6 +90,7 @@ fn lazy_selected_snapshot_and_append_share_exports_native_identity_versions_and_
     activate(
         &mut app,
         ActivationRequest {
+            registered_languages: Default::default(),
             surface_declarations: Default::default(),
             additions: vec![],
             targets: vec!["test.a".into()],
@@ -99,6 +100,7 @@ fn lazy_selected_snapshot_and_append_share_exports_native_identity_versions_and_
     activate(
         &mut app,
         ActivationRequest {
+            registered_languages: Default::default(),
             surface_declarations: Default::default(),
             additions: vec![b],
             targets: vec!["test.b".into()],
@@ -120,6 +122,7 @@ fn lazy_selected_snapshot_and_append_share_exports_native_identity_versions_and_
     activate(
         &mut app,
         ActivationRequest {
+            registered_languages: Default::default(),
             surface_declarations: Default::default(),
             additions: vec![],
             targets: vec!["test.a".into()],
@@ -166,6 +169,7 @@ fn failed_lazy_activation_keeps_prior_commands_and_discards_partial_owner_regist
     activate(
         &mut app,
         ActivationRequest {
+            registered_languages: Default::default(),
             surface_declarations: Default::default(),
             additions: vec![b],
             targets: vec!["test.b".into()],

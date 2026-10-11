@@ -933,6 +933,17 @@ custom-resource backends.
 
 ## Native extension language providers
 
+Selected extensions can change a retained document's language using
+`languages.setTextDocumentLanguage`, assign `TextEditor.selection` or
+`TextEditor.selections`, and listen to `window.onDidChangeTextEditorSelection`.
+Language changes preserve text, dirty state and Undo/Redo, and update native syntax,
+language settings and automatic server selection. Selection positions clamp to
+actual UTF-16 document bounds; an empty array becomes one origin selection.
+Changing an inactive editor's selections preserves focus. Language identifiers
+must be native builtins or actual registered extension contributions. Current
+public editor inventory still exposes one editor per document, so full split-view
+identity remains outstanding. See [behavior, limits and evidence](EDITOR_STATE_API.md).
+
 A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). The highest-scoring matching provider wins, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Completion requests automatically after identifier typing or registered trigger characters; parameter hints use automatic triggers/retriggers and local overload navigation as described above.
 
 Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. Definitions and references reuse dirty/shared buffers and load closed files asynchronously. Completion uses the nonmodal caret popup with Up/Down selection, Tab/Enter acceptance and Escape cancellation; native snippet placeholder Tab retains precedence. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Completion resolution and linked snippet fields with atomic import edits are supported. Completion commands, workspace symbol providers and provider aggregation remain unsupported. See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).

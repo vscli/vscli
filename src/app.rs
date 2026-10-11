@@ -5,6 +5,7 @@ mod completion_edits;
 mod debugger;
 mod editor_layout;
 mod extension_activation;
+mod extension_editor_state;
 mod extension_file_search;
 mod extension_management;
 mod extension_prompts;
@@ -784,10 +785,11 @@ impl App {
                             );
                         }
                         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
-                            let language = doc
-                                .path
-                                .as_deref()
-                                .map_or("plaintext", crate::languages::language);
+                            let language = doc.language_override().unwrap_or_else(|| {
+                                doc.path
+                                    .as_deref()
+                                    .map_or("plaintext", crate::languages::language)
+                            });
                             if previous.typing(language) != self.settings.typing(language) {
                                 doc.retire_typing_pairs();
                             }

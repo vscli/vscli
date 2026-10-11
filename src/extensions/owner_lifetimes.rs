@@ -144,6 +144,7 @@ exports.activate = async () => {
             .capture("lifetime.first")
             .unwrap();
         let request = ActivationRequest {
+            registered_languages: Default::default(),
             surface_declarations: Default::default(),
             additions: vec![added],
             targets: vec!["lifetime.added".into()],

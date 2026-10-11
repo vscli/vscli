@@ -11,6 +11,7 @@ pub struct MirrorSnapshot {
     pub path: Option<PathBuf>,
     pub revision: u64,
     pub text_epoch: u64,
+    pub language_epoch: u64,
     pub version: u64,
 }
 #[derive(Clone, Debug)]
@@ -22,6 +23,7 @@ pub struct Ticket {
     pub document: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub language_epoch: u64,
     pub version: u64,
     pub workspace: Arc<Vec<MirrorSnapshot>>,
 }
@@ -190,6 +192,7 @@ impl Client {
             && ticket.document == doc.id
             && ticket.revision == doc.revision
             && ticket.text_epoch == doc.text_epoch()
+            && ticket.language_epoch == doc.language_epoch()
             && self.service_document_current(doc, ticket.version)
     }
     pub(crate) fn request_language_provider(
@@ -276,6 +279,7 @@ impl Client {
                 path: document.path.clone(),
                 revision: document.revision,
                 text_epoch: document.text_epoch(),
+                language_epoch: document.language_epoch(),
                 version: mirror.version,
             });
         }
@@ -297,6 +301,7 @@ impl Client {
                     document.path == target.path
                         && document.revision == target.revision
                         && document.text_epoch() == target.text_epoch
+                        && document.language_epoch() == target.language_epoch
                         && self.mirror.mirrors.get(&document.id).is_some_and(|mirror| {
                             mirror.version == target.version
                                 && mirror.uri == target.uri
@@ -357,6 +362,7 @@ impl Client {
             document: doc.id,
             revision: doc.revision,
             text_epoch: doc.text_epoch(),
+            language_epoch: doc.language_epoch(),
             version: mirror.version,
             workspace,
         };
@@ -676,6 +682,54 @@ mod tests {
             assert!(Instant::now() < deadline, "No signature reply for {id}");
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    #[test]
+    fn held_provider_ticket_refuses_language_metadata_aba_without_text_version_changes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.cpp");
+        std::fs::write(&path, "猫🙂 original\r\n").unwrap();
+        let mut doc = Document::open(&path).unwrap();
+        doc.insert("dirty ", false);
+        let id = doc.id;
+        let revision = doc.revision;
+        let epoch = doc.text_epoch();
+        let package = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![doc];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        assert!(client.provider_ticket_current(&ticket, &docs[0]));
+        docs[0]
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        docs[0].set_language_override(Some("cpp".into())).unwrap();
+        client.sync_with_hidden(&docs, &[], 0).unwrap();
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        assert_eq!(client.mirror.mirrors[&id].version, ticket.version);
+        assert_eq!(
+            (docs[0].id, docs[0].revision, docs[0].text_epoch()),
+            (id, revision, epoch)
+        );
+        docs[0].undo();
+        assert_eq!(docs[0].text.to_string(), "猫🙂 original\r\n");
+        docs[0].redo();
+        assert_eq!(docs[0].text.to_string(), "dirty 猫🙂 original\r\n");
+        assert_eq!(std::fs::read(path).unwrap(), "猫🙂 original\r\n".as_bytes());
     }
     #[test]
     fn symbols_wire_depth_preserves_sixteen_levels_without_widening_other_kinds() {

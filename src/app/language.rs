@@ -218,6 +218,7 @@ impl App {
             || self.doc().id != request.document_id
             || self.doc().revision != request.revision
             || self.doc().text_epoch() != request.text_epoch
+            || self.doc().language_epoch() != request.language_epoch
             || self.doc().path.as_ref() != Some(&request.path)
             || self
                 .lsp

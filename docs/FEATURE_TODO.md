@@ -55,6 +55,14 @@ identity. Initial Undo, fresh resource naming, public close/open/save ordering,
 associated create-only saves and recovery pass local host/native tests and actual
 terminal workflows. Encoding and full untitled presentation fidelity remain later work.
 
+Current editor-state integration adds
+[document language switching and editor selection setters/events](EDITOR_STATE_API.md).
+Language-only changes retain text versions and history while retiring obsolete
+provider/LSP lifetimes; selections preserve direction and native UTF-16 bounds.
+The public editor inventory still needs independent identities for every shared
+pane, full visible editors/view columns, selection source kinds and editor options,
+visible ranges and decorations. The full stable API order above remains active.
+
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;
 placeholder methods and invented successful responses do not count as coverage.
