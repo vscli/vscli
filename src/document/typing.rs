@@ -561,6 +561,8 @@ impl Document {
         options: TypingOptions,
         grouped: bool,
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         if ch == '\0' {
             bail!("NUL-containing text is unsupported");
         }
@@ -802,6 +804,8 @@ impl Document {
         Ok(())
     }
     fn commit_typing(&mut self, mut plan: Plan, options: TypingOptions) -> Result<()> {
+        self.ensure_writable()?;
+
         plan.changes.sort_by_key(|(range, _)| range.start);
         self.validate_typing_size(&plan.changes)?;
         if plan.selections.is_empty() || plan.selections.len() > CURSORS {
@@ -831,6 +835,8 @@ impl Document {
         edits: Vec<super::indentation::Edit>,
         options: TypingOptions,
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         let mut order = (0..edits.len()).collect::<Vec<_>>();
         order.sort_by_key(|index| edits[*index].range.start);
         let mut selections = vec![Selection::caret(0); edits.len()];
@@ -854,6 +860,8 @@ impl Document {
         )
     }
     fn typing_newline(&mut self, options: TypingOptions, keep_position: bool) -> Result<()> {
+        self.ensure_writable()?;
+
         let selections = self.smart_selections()?;
         let mut session = super::indentation::Session::new();
         // Reserve ordinary leading-indent work before optional lexical scans.
@@ -877,6 +885,8 @@ impl Document {
         Ok(())
     }
     pub fn backspace_with_options(&mut self, options: TypingOptions, word: bool) -> Result<()> {
+        self.ensure_writable()?;
+
         let selections = self.smart_selections()?;
         if word || self.in_snippet() || options.delete == PairHandling::Never {
             self.prepare_typing_options(options);

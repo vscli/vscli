@@ -115,3 +115,8 @@ the exact original-command timeout oracle. These tests do not represent 300
 seconds of wall-clock runtime or additional terminal/platform qualification.
 The combined native library suite passes 837 tests; formatting and strict locked
 all-target Clippy pass.
+
+Readonly [virtual text-content provider documents](VIRTUAL_DOCUMENTS_API.md)
+return false from public save; native Save and Save As refuse before a path prompt
+or persistence capture. Their refresh is provider-owned and creates no save
+receipt or disk file. Writable custom filesystem persistence remains outstanding.

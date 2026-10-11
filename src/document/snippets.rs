@@ -160,6 +160,8 @@ impl Document {
         mut additional: Vec<(Range<usize>, String)>,
         expand: impl FnOnce(&Document, &Whitespace<'_>) -> Result<Expansion>,
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         if additional.len() >= 4096 || primary.start > primary.end || primary.end > self.len() {
             bail!("Invalid completion range or edit count exceeds 4096");
         }
@@ -344,6 +346,8 @@ impl Document {
         user_command: bool,
         mut expand: impl FnMut(&Document, &Selection, usize, &Whitespace<'_>) -> Result<Expansion>,
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         let mut selections: Vec<_> = self.selections().into_iter().enumerate().collect();
         selections.sort_by_key(|(_, s)| s.range().start);
         if !user_command {
@@ -486,6 +490,8 @@ impl Document {
     }
 
     pub fn step_snippet(&mut self, backwards: bool) -> Result<bool> {
+        self.ensure_writable()?;
+
         if !self.in_snippet() {
             self.cancel_snippet();
             return Ok(false);

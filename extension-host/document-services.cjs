@@ -13,7 +13,7 @@ function createDocumentServices(request, options, model) {
     pending++; queuedBytes += bytes;
     let released = false;
     const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; } };
-    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
+    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
     try { return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
     finally { if (!lifecycle?.retained) release(); }
   }
@@ -22,7 +22,8 @@ function createDocumentServices(request, options, model) {
       let filename;
       if (typeof input === 'string') filename = path.resolve(model.root() || '.', input);
       else if (input instanceof Uri && input.scheme === 'file') filename = input.fsPath;
-      else throw new Error('VSCLI openTextDocument supports file paths and file URIs; untitled content and other schemes are not implemented');
+      else if (Uri.isUri(input) && options.virtualDocuments && model.openVirtual) return model.openVirtual(owner,input);
+      else throw new Error('VSCLI openTextDocument supports file paths and registered virtual URIs; untitled content options are not implemented');
       if (!filename || Buffer.byteLength(filename) > 16 * 1024) throw new Error('Document path exceeds 16 KiB');
       const result = await call(owner, 'nativeDocumentOpen', { path: filename });
       const document = model.document(result.document);

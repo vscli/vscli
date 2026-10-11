@@ -40,6 +40,15 @@ notebooks; the remaining API order above is unchanged. See
 [file discovery](NATIVE_FILE_SEARCH.md) and [watchers](FILE_WATCHERS_API.md). A milestone advances a named
 workflow, not the overall compatibility percentage or constructor export count.
 
+Current delivered integration: [virtual text content providers](VIRTUAL_DOCUMENTS_API.md)
+connect custom URI registration, open/show and change callbacks to retained
+read-only native models. Public host/App and keyboard terminal workflows pass,
+with readonly save/edit refusal and original dirty-file Undo/Redo preserved. Next
+document backends include untitled content options, writable custom filesystem
+documents and scheme activation. Current workflow progress is tracked in
+[the extension API workstream](EXTENSION_API.md#live-workflow-progress), separately
+from the frozen declaration/export audit.
+
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;
 placeholder methods and invented successful responses do not count as coverage.

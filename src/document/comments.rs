@@ -126,6 +126,8 @@ impl Document {
         })
     }
     pub fn comment_lines(&mut self, operation: CommentOperation) -> Result<()> {
+        self.ensure_writable()?;
+
         let Some(token) = self.comment_delimiters().0 else {
             // The pinned line command delegates to block commenting when the
             // language has only block delimiters, irrespective of toggle mode.
@@ -240,6 +242,8 @@ impl Document {
         })
     }
     pub fn toggle_block_comment(&mut self) -> Result<()> {
+        self.ensure_writable()?;
+
         self.block_comments(false)
     }
     fn block_comments(&mut self, line_mode: bool) -> Result<()> {
@@ -399,6 +403,8 @@ impl Document {
         mut changes: Vec<(Range<usize>, String)>,
         targets: Vec<Target>,
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         if changes.is_empty() {
             return Ok(());
         }

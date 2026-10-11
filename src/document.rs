@@ -311,6 +311,18 @@ fn validate_snapshot_path(path: &Path, canonical: bool) -> Result<()> {
     Ok(())
 }
 
+/// Bounded, normalized provider content prepared away from input/rendering.
+/// Its Rope is private so publication cannot receive an unchecked source.
+#[derive(Debug)]
+pub struct PreparedVirtualContent {
+    text: Rope,
+}
+impl PreparedVirtualContent {
+    pub fn len_bytes(&self) -> usize {
+        self.text.len_bytes()
+    }
+}
+
 pub struct Document {
     pub id: u64,
     pub text: Rope,
@@ -318,6 +330,8 @@ pub struct Document {
     active_view: u64,
     other_views: std::collections::HashMap<u64, ViewState>,
     pub path: Option<PathBuf>,
+    virtual_uri: Option<String>,
+    language_override: Option<String>,
     pub revision: u64,
     pub saved_revision: u64,
     pub disk_content: Option<Rope>,
@@ -497,6 +511,8 @@ impl Document {
             active_view: 0,
             other_views: std::collections::HashMap::new(),
             path: None,
+            virtual_uri: None,
+            language_override: None,
             revision: 0,
             saved_revision: 0,
             disk_content: None,
@@ -516,6 +532,138 @@ impl Document {
             typing_context: typing::ContextCache::default(),
             language_configuration: None,
         }
+    }
+
+    /// A provider-owned resource. Content uses the provider API's LF line model.
+    pub fn from_virtual(uri: String, content: &str) -> Result<Self> {
+        let scheme = uri.split_once(':').map(|(scheme, _)| scheme);
+        if uri.len() > 4096
+            || uri.contains('\0')
+            || !scheme.is_some_and(|scheme| {
+                !scheme.is_empty()
+                    && scheme.as_bytes()[0].is_ascii_alphabetic()
+                    && scheme
+                        .bytes()
+                        .all(|ch| ch.is_ascii_alphanumeric() || b"+-.".contains(&ch))
+                    && !scheme.eq_ignore_ascii_case("file")
+                    && !scheme.eq_ignore_ascii_case("untitled")
+            })
+        {
+            bail!("Virtual document requires a bounded non-file resource URI");
+        }
+        let mut document = Self::from_rope(Self::prepare_virtual_content(content)?.text);
+        document.virtual_uri = Some(uri);
+        document.eol = "\n".into();
+        Ok(document)
+    }
+
+    pub fn virtual_uri(&self) -> Option<&str> {
+        self.virtual_uri.as_deref()
+    }
+    pub fn is_read_only(&self) -> bool {
+        self.virtual_uri.is_some()
+    }
+    pub fn language_override(&self) -> Option<&str> {
+        self.language_override.as_deref()
+    }
+    pub fn set_language_override(&mut self, language: Option<String>) -> Result<()> {
+        if language
+            .as_ref()
+            .is_some_and(|value| value.is_empty() || value.len() > 128 || value.contains('\0'))
+        {
+            bail!("Document language identifier exceeds bounds");
+        }
+        if self.language_override != language {
+            self.retire_typing_pairs();
+            self.retire_folding_policy();
+            self.language_override = language;
+        }
+        Ok(())
+    }
+    fn ensure_writable(&self) -> Result<()> {
+        if self.is_read_only() {
+            bail!("Virtual documents are read-only");
+        }
+        Ok(())
+    }
+    pub fn prepare_virtual_content(content: &str) -> Result<PreparedVirtualContent> {
+        if content.len() as u64 > MAX_FILE_BYTES || content.contains('\0') {
+            bail!("Virtual content exceeds 32 MiB or contains NUL");
+        }
+        let mut builder = ropey::RopeBuilder::new();
+        let mut parts = content.split('\r');
+        builder.append(parts.next().unwrap_or_default());
+        for part in parts {
+            builder.append("\n");
+            builder.append(part.strip_prefix('\n').unwrap_or(part));
+        }
+        Ok(PreparedVirtualContent {
+            text: builder.finish(),
+        })
+    }
+
+    /// Replace provider content without recording a user edit or save receipt.
+    pub fn refresh_virtual_content(&mut self, content: &str) -> Result<bool> {
+        if !self.is_read_only() {
+            bail!("Resource is not a virtual document");
+        }
+        self.refresh_virtual_prepared(Self::prepare_virtual_content(content)?)
+    }
+
+    /// Publish worker-prepared content against the current retained views.
+    pub fn refresh_virtual_prepared(&mut self, prepared: PreparedVirtualContent) -> Result<bool> {
+        if !self.is_read_only() {
+            bail!("Resource is not a virtual document");
+        }
+        let next = prepared.text;
+        if next == self.text {
+            return Ok(false);
+        }
+        let next_revision = self
+            .next_revision
+            .checked_add(1)
+            .context("Document revision exhausted")?;
+        let epoch = self
+            .text_epoch
+            .checked_add(1)
+            .context("Document text epoch exhausted")?;
+        let change = ByteChange {
+            range: 0..self.text.len_bytes(),
+            added: next.len_bytes(),
+        };
+        self.text = next;
+        self.revision = self.next_revision;
+        self.next_revision = next_revision;
+        self.saved_revision = self.revision;
+        self.text_epoch = epoch;
+        self.disk_content = None;
+        self.eol = "\n".into();
+        self.undo.clear();
+        self.redo.clear();
+        self.typing = None;
+        self.typing_context = typing::ContextCache::default();
+        self.byte_changes.clear();
+        self.byte_changes.push_back((epoch, change));
+        self.folding_changes.clear();
+        self.folding_policy = crate::folding_controller::Lifetime::default();
+        let len = self.len();
+        let last_row = self.line_count() - 1;
+        for view in std::iter::once(&mut self.view).chain(self.other_views.values_mut()) {
+            view.cursor = view.cursor.min(len);
+            view.anchor = view.anchor.map(|pos| pos.min(len));
+            for selection in &mut view.secondary {
+                selection.cursor = selection.cursor.min(len);
+                selection.anchor = selection.anchor.map(|pos| pos.min(len));
+                selection.desired_column = None;
+            }
+            view.top = view.top.min(last_row);
+            view.desired_column = None;
+            view.cursor_history.clear();
+            view.snippet = None;
+            view.pairs = typing::Pairs::default();
+            view.folding = folding::View::default();
+        }
+        Ok(true)
     }
 
     pub fn open(path: &Path) -> Result<Self> {
@@ -547,6 +695,10 @@ impl Document {
 
     /// Apply a disk reload as one undoable edit, retaining document and view identity.
     pub fn reload_content(&mut self, next: Rope) {
+        if self.is_read_only() {
+            return;
+        }
+
         let prefix = self
             .text
             .chars()
@@ -578,7 +730,11 @@ impl Document {
             .as_ref()
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "Untitled".into())
+            .unwrap_or_else(|| {
+                self.virtual_uri
+                    .clone()
+                    .unwrap_or_else(|| "Untitled".into())
+            })
     }
     pub fn dirty(&self) -> bool {
         self.revision != self.saved_revision
@@ -586,7 +742,7 @@ impl Document {
     /// Public document state differs from a clean Untitled tab after Undo:
     /// once edited, its content has still never been persisted to a resource.
     pub fn api_dirty(&self) -> bool {
-        self.dirty() || (self.path.is_none() && self.text_epoch != 0)
+        self.dirty() || (self.path.is_none() && self.virtual_uri.is_none() && self.text_epoch != 0)
     }
     pub fn len(&self) -> usize {
         self.text.len_chars()
@@ -731,6 +887,10 @@ impl Document {
         self.typing = None;
     }
     pub fn insert(&mut self, text: &str, typing: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         if !self.secondary.is_empty() {
             let group = typing
                 && !text.contains(['\n', '\r'])
@@ -778,6 +938,10 @@ impl Document {
         };
     }
     pub fn newline(&mut self) {
+        if self.is_read_only() {
+            return;
+        }
+
         if !self.secondary.is_empty() {
             self.replace_cursors(|doc, selection| {
                 let row = doc.text.char_to_line(selection.range().start);
@@ -801,6 +965,10 @@ impl Document {
         self.insert(&format!("{}{}", self.eol, indent), false);
     }
     pub fn undo(&mut self) {
+        if self.is_read_only() {
+            return;
+        }
+
         // Grouped entries require the App to validate every peer first.
         if self
             .workspace_history(WorkspaceHistoryDirection::Undo)
@@ -815,6 +983,10 @@ impl Document {
         }
     }
     pub fn redo(&mut self) {
+        if self.is_read_only() {
+            return;
+        }
+
         if self
             .workspace_history(WorkspaceHistoryDirection::Redo)
             .is_some()
@@ -1029,6 +1201,10 @@ impl Document {
         self.move_to_inner(if self.cursor == first { start } else { first }, select);
     }
     pub fn backspace(&mut self, word: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         if !self.secondary.is_empty() {
             self.delete_cursors(false, word);
             return;
@@ -1044,6 +1220,10 @@ impl Document {
         self.delete_range(range);
     }
     pub fn delete(&mut self, word: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         if !self.secondary.is_empty() {
             self.delete_cursors(true, word);
             return;
@@ -1059,6 +1239,10 @@ impl Document {
         self.delete_range(range);
     }
     pub fn delete_range(&mut self, range: Range<usize>) {
+        if self.is_read_only() {
+            return;
+        }
+
         if range.is_empty() {
             return;
         }
@@ -1093,6 +1277,10 @@ impl Document {
         }
     }
     pub fn delete_line(&mut self) {
+        if self.is_read_only() {
+            return;
+        }
+
         let rows = self.all_selected_rows();
         let columns: Vec<_> = self
             .selections()
@@ -1165,6 +1353,10 @@ impl Document {
         rows.into_iter().collect()
     }
     pub fn transform_lines(&mut self, outdent: bool, comment: Option<bool>) {
+        if self.is_read_only() {
+            return;
+        }
+
         let rows = self.all_selected_rows();
         let prefix = match self
             .path
@@ -1214,6 +1406,10 @@ impl Document {
         self.apply_changes(changes);
     }
     pub fn apply_changes(&mut self, mut changes: Vec<(Range<usize>, String)>) {
+        if self.is_read_only() {
+            return;
+        }
+
         if changes.is_empty() {
             return;
         }
@@ -1265,6 +1461,10 @@ impl Document {
         }
     }
     pub fn replace_all(&mut self, query: &str, replacement: &str) -> usize {
+        if self.is_read_only() {
+            return 0;
+        }
+
         if query.is_empty() {
             return 0;
         }
@@ -1285,6 +1485,8 @@ impl Document {
     /// Capture an ordinary save or Save As without resolving or reading paths.
     /// The worker must validate aliases, destination baseline and file identity.
     pub fn capture_save(&self, target: PathBuf) -> Result<SaveSnapshot> {
+        self.ensure_writable()?;
+
         validate_snapshot_path(&target, false)?;
         if let Some(path) = &self.path {
             validate_snapshot_path(path, false)?;
@@ -1317,6 +1519,8 @@ impl Document {
     /// Authorize only the exact captured model state. Undo cannot restore the
     /// monotonic text epoch, even when its bytes and revision match the capture.
     pub fn check_save_snapshot(&self, snapshot: &SaveSnapshot) -> Result<()> {
+        self.ensure_writable()?;
+
         if self.id != snapshot.document_id
             || self.path != snapshot.source_path
             || self.revision != snapshot.revision
@@ -1336,6 +1540,8 @@ impl Document {
         snapshot: &SaveSnapshot,
         canonical_destination: PathBuf,
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         validate_snapshot_path(&canonical_destination, true)?;
         if canonical_destination.file_name() != snapshot.target.file_name() {
             bail!("Save receipt destination does not match the captured filename");
@@ -1362,6 +1568,8 @@ impl Document {
         Ok(())
     }
     pub fn save(&mut self) -> Result<()> {
+        self.ensure_writable()?;
+
         let path = self
             .path
             .clone()
@@ -1369,6 +1577,8 @@ impl Document {
         self.save_to(&path, false)
     }
     pub fn save_to(&mut self, path: &Path, overwrite: bool) -> Result<()> {
+        self.ensure_writable()?;
+
         self.save_to_with_before_persist(path, overwrite, |_| {})
     }
     fn save_to_with_before_persist(
@@ -1377,6 +1587,8 @@ impl Document {
         overwrite: bool,
         before_persist: impl FnOnce(&Path),
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         let save_generation = self
             .save_generation
             .checked_add(1)
@@ -2325,5 +2537,192 @@ mod tests {
             fs::metadata(target).unwrap().permissions().mode() & 0o777,
             0o640
         );
+    }
+}
+
+#[cfg(test)]
+mod virtual_document_tests {
+    use super::*;
+    use crate::editing_profile::TypingOptions;
+
+    fn state(doc: &Document) -> (String, Vec<Selection>, u64, u64, u64, u64, usize, usize) {
+        (
+            doc.text.to_string(),
+            doc.selections(),
+            doc.revision,
+            doc.saved_revision,
+            doc.text_epoch(),
+            doc.save_generation(),
+            doc.undo.len(),
+            doc.redo.len(),
+        )
+    }
+
+    #[test]
+    fn virtual_edits_and_save_refuse_before_source_or_selection_changes() {
+        let mut doc = Document::from_virtual("test:α".into(), "α😀\r\nβ\rγ").unwrap();
+        assert_eq!(doc.text.to_string(), "α😀\nβ\nγ");
+        assert_eq!(doc.virtual_uri(), Some("test:α"));
+        assert!(doc.is_read_only());
+        assert!(!doc.dirty());
+        assert!(!doc.api_dirty());
+        assert_eq!(doc.eol, "\n");
+        assert_eq!(doc.name(), "test:α");
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        assert_eq!(doc.language_override(), Some("cpp"));
+        doc.set_selections(vec![
+            Selection {
+                cursor: 1,
+                anchor: Some(4),
+                desired_column: None,
+            },
+            Selection::caret(5),
+        ]);
+        let original = state(&doc);
+        doc.insert("bad", false);
+        doc.newline();
+        doc.backspace(false);
+        doc.delete(false);
+        doc.delete_range(0..2);
+        doc.delete_line();
+        doc.transform_lines(false, Some(true));
+        doc.apply_changes(vec![(0..1, "bad".into())]);
+        assert_eq!(doc.replace_all("α", "bad"), 0);
+        doc.replace_cursors(|_, _| panic!("Readonly expansion must not execute"));
+        doc.delete_cursors(true, false);
+        doc.insert_line(true);
+        doc.copy_lines(false);
+        doc.move_lines(false);
+        doc.reload_content(Rope::from_str("disk"));
+        doc.undo();
+        doc.redo();
+        let options = TypingOptions::default();
+        assert!(doc.type_character('(', options, true).is_err());
+        assert!(doc.newline_with_options(options).is_err());
+        assert!(doc.line_break_with_options(options).is_err());
+        assert!(doc.backspace_with_options(options, false).is_err());
+        assert!(doc.comment_lines(CommentOperation::Toggle).is_err());
+        assert!(doc.toggle_block_comment().is_err());
+        let template = crate::snippet::Template::parse("${1:bad}$0").unwrap();
+        assert!(doc.insert_snippet(&template, &Default::default()).is_err());
+        assert!(
+            doc.insert_snippet_command(&template, &Default::default())
+                .is_err()
+        );
+        assert!(
+            doc.insert_snippet_command_resolved(&template, |_, _, _, _, _| {
+                panic!("Readonly resolver must not execute")
+            })
+            .is_err()
+        );
+        assert!(doc.step_snippet(false).is_err());
+        assert!(
+            doc.apply_completion_edits(0..1, vec![], |_, _| {
+                panic!("Readonly completion must not execute")
+            })
+            .is_err()
+        );
+        assert!(doc.capture_workspace_source().is_err());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("untouched.txt");
+        fs::write(&path, "sentinel").unwrap();
+        assert!(doc.save().unwrap_err().to_string().contains("read-only"));
+        assert!(doc.save_to(&path, true).is_err());
+        assert!(doc.capture_save(path.clone()).is_err());
+        // Even a receipt whose public source identity has been forged cannot
+        // turn a provider model into a file-backed model.
+        let mut ordinary = Document::from_text("ordinary");
+        ordinary.id = doc.id;
+        let snapshot = ordinary.capture_save(path.clone()).unwrap();
+        assert!(doc.check_save_snapshot(&snapshot).is_err());
+        assert!(
+            doc.publish_save(&snapshot, fs::canonicalize(&path).unwrap())
+                .is_err()
+        );
+        assert_eq!(fs::read_to_string(path).unwrap(), "sentinel");
+        assert_eq!(state(&doc), original);
+        assert!(doc.path.is_none());
+        assert!(doc.disk_content.is_none());
+        // Navigation remains available.
+        doc.move_to(0, false);
+        assert_eq!(doc.cursor, 0);
+    }
+
+    #[test]
+    fn provider_refresh_retains_shared_identity_and_clamps_all_views_without_undo() {
+        let mut doc = Document::from_virtual("test:shared".into(), "α😀\r\nlong line").unwrap();
+        doc.activate_view(11);
+        doc.set_selections(vec![Selection {
+            cursor: doc.len(),
+            anchor: Some(3),
+            desired_column: Some(20),
+        }]);
+        doc.activate_view(22);
+        doc.set_selections(vec![Selection::caret(8), Selection::caret(5)]);
+        doc.top = 99;
+        let id = doc.id;
+        let old_epoch = doc.text_epoch();
+        let generation = doc.save_generation();
+        let prepared = Document::prepare_virtual_content("猫\r\n").unwrap();
+        // Publication uses the live views, not those at worker submission.
+        doc.move_to(9, false);
+        assert!(doc.refresh_virtual_prepared(prepared).unwrap());
+        assert_eq!(doc.text.to_string(), "猫\n");
+        assert_eq!(doc.id, id);
+        assert_eq!(doc.active_view, 22);
+        assert!(doc.text_epoch() > old_epoch);
+        assert_eq!(doc.save_generation(), generation);
+        assert_eq!(doc.revision, doc.saved_revision);
+        assert!(!doc.api_dirty());
+        assert_eq!(doc.view_state(Some(11)).cursor, 2);
+        assert_eq!(doc.view_state(Some(11)).anchor, Some(2));
+        assert!(
+            doc.selections()
+                .iter()
+                .all(|selection| selection.cursor <= 2)
+        );
+        assert!(doc.top < doc.line_count());
+        assert!(doc.undo.is_empty());
+        assert!(doc.redo.is_empty());
+        let refreshed = state(&doc);
+        assert!(!doc.refresh_virtual_content("猫\n").unwrap());
+        doc.undo();
+        doc.redo();
+        assert_eq!(state(&doc), refreshed);
+        assert!(doc.refresh_virtual_content("bad\0").is_err());
+        assert_eq!(state(&doc), refreshed);
+    }
+
+    #[test]
+    fn virtual_refresh_counter_refusal_and_bad_metadata_are_atomic() {
+        for counter in [false, true] {
+            let mut doc = Document::from_virtual("test:bounded".into(), "old😀").unwrap();
+            doc.move_to(3, true);
+            if counter {
+                doc.text_epoch = u64::MAX;
+            } else {
+                doc.next_revision = u64::MAX;
+            }
+            let original = state(&doc);
+            assert!(doc.refresh_virtual_content("new").is_err());
+            assert_eq!(state(&doc), original);
+            assert_eq!(doc.virtual_uri(), Some("test:bounded"));
+        }
+        for uri in [
+            "file:///tmp/test",
+            "untitled:test",
+            "1bad:value",
+            "missing",
+            "test:\0",
+        ] {
+            assert!(Document::from_virtual(uri.into(), "content").is_err());
+        }
+        let mut doc = Document::from_virtual("test:language".into(), "content").unwrap();
+        doc.set_language_override(Some("rust".into())).unwrap();
+        assert!(doc.set_language_override(Some("".into())).is_err());
+        assert_eq!(doc.language_override(), Some("rust"));
+        let mut ordinary = Document::from_text("source");
+        assert!(ordinary.refresh_virtual_content("provider").is_err());
+        assert_eq!(ordinary.text.to_string(), "source");
     }
 }

@@ -923,6 +923,14 @@ metadata requires root `files.refactoring.autoSave: false` until that autosave
 backend is implemented. See [native workspace edits](NATIVE_WORKSPACE_EDITS.md)
 for limits, failure behavior and remaining edit backends.
 
+Selected extensions can register `workspace.registerTextDocumentContentProvider`
+for a custom URI scheme, then open and show its content in a native read-only tab.
+Provider change events refresh the same document; cached content remains after
+provider disposal. Editing and saving return false, and native Save opens no
+Save As prompt. This supports generated previews without creating files. See
+[virtual text documents](VIRTUAL_DOCUMENTS_API.md) for limits and remaining
+custom-resource backends.
+
 ## Native extension language providers
 
 A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). The highest-scoring matching provider wins, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Completion requests automatically after identifier typing or registered trigger characters; parameter hints use automatic triggers/retriggers and local overload navigation as described above.

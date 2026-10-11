@@ -10,7 +10,7 @@ const callbackMethods = Object.freeze([
   'provideDocumentSymbols', 'provideSignatureHelp', 'getChildren', 'getTreeItem',
   'onDidChangeTreeData', 'watch', 'stat', 'readDirectory', 'createDirectory',
   'readFile', 'writeFile', 'delete', 'rename', 'copy', 'open', 'close', 'read', 'write',
-  'onDidChangeFile',
+  'onDidChangeFile', 'provideTextDocumentContent', 'onDidChange',
 ]);
 
 // Value-object constructors remain shared and unchanged. Only listeners created

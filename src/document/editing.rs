@@ -93,6 +93,10 @@ impl Document {
         self.cancel_invalid_snippet();
     }
     pub fn replace_cursors(&mut self, text: impl Fn(&Self, &Selection) -> String) {
+        if self.is_read_only() {
+            return;
+        }
+
         self.normalize_selections();
         let replacements: Vec<_> = self
             .selections()
@@ -129,6 +133,10 @@ impl Document {
         self.normalize_selections();
     }
     pub(super) fn delete_cursors(&mut self, right: bool, word: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         let original = self.snapshot();
         let selections = self.selections();
         let mut expanded = Vec::new();
@@ -322,6 +330,10 @@ impl Document {
         );
     }
     pub fn insert_line(&mut self, above: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         let original = self.snapshot();
         let rows = self.all_selected_rows();
         let mut cursors = Vec::new();
@@ -370,6 +382,10 @@ impl Document {
         groups
     }
     pub fn copy_lines(&mut self, down: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         let original = self.snapshot();
         let selections = self.selections();
         let mut changes = Vec::new();
@@ -426,6 +442,10 @@ impl Document {
         self.set_selections(selections);
     }
     pub fn move_lines(&mut self, down: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         let original = self.snapshot();
         let groups = self.line_groups();
         let targets: Vec<_> = self

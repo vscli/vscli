@@ -162,6 +162,7 @@ pub(super) fn resolved(path: &Path, workspace: &Path) -> Result<PathBuf> {
 impl App {
     pub(super) fn cancel_extension_services(&mut self) {
         self.cancel_extension_file_search();
+        self.cancel_virtual_documents();
         if let Some((token, _)) = self.pending_workspace_transaction() {
             self.cancel_workspace_transaction(token);
         }
@@ -178,8 +179,9 @@ impl App {
             if let Some((token, _)) = self.pending_workspace_transaction() {
                 self.cancel_workspace_transaction(token);
             }
-            let changed =
-                self.poll_extension_file_search(None) | self.poll_workspace_transactions();
+            let changed = self.poll_extension_file_search(None)
+                | self.poll_virtual_documents(None)
+                | self.poll_workspace_transactions();
             if let Some(token) = self
                 .workspace_transaction_completion()
                 .map(|done| done.token)
@@ -226,6 +228,8 @@ impl App {
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
+                    | Operation::VirtualOpen(_)
+                    | Operation::VirtualChange(_)
             )
         }) {
             let key = (service.request.session, service.id.clone());
@@ -235,6 +239,10 @@ impl App {
                 let context = Context::capture(self);
                 self.extension_services.contexts.insert(key, context);
             }
+        }
+        let virtual_changed = self.poll_virtual_documents(Some(host));
+        if self.virtual_documents_pending() || virtual_changed {
+            return virtual_changed;
         }
         let file_search_changed = self.poll_extension_file_search(Some(host));
         if self.file_search_pending() || file_search_changed {
@@ -387,6 +395,8 @@ impl App {
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
+                    | Operation::VirtualOpen(_)
+                    | Operation::VirtualChange(_)
             ) {
                 Context::check_budget(self)?;
             }
@@ -396,6 +406,8 @@ impl App {
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
+                    | Operation::VirtualOpen(_)
+                    | Operation::VirtualChange(_)
             ) && !self
                 .extension_services
                 .contexts
@@ -410,6 +422,8 @@ impl App {
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
+                    | Operation::VirtualOpen(_)
+                    | Operation::VirtualChange(_)
             ) && (self.prompt.is_some() || self.modal.is_some())
             {
                 bail!("Native document service cannot replace an active prompt or modal");
@@ -421,6 +435,11 @@ impl App {
             return true;
         }
         match &service.operation {
+            Operation::VirtualOpen(_) | Operation::VirtualChange(_) => {
+                if let Err(error) = self.start_virtual_document(host, service.clone()) {
+                    self.answer_native_service(host, &service, Err(error));
+                }
+            }
             Operation::FindFiles(..) => {
                 if let Err(error) = self.start_extension_file_search(service.clone())
                     && let Err(answer_error) = host.answer_service(&service, Err(error))
@@ -445,6 +464,15 @@ impl App {
                 }
             }
             Operation::Save(save) => {
+                if self
+                    .documents
+                    .iter()
+                    .chain(&self.hidden_documents)
+                    .any(|doc| doc.id == save.document && doc.is_read_only())
+                {
+                    self.answer_native_service(host, &service, Ok(Value::Bool(false)));
+                    return true;
+                }
                 let result = (|| -> Result<()> {
                     let doc = self
                         .documents

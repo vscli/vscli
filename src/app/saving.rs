@@ -395,6 +395,7 @@ impl App {
         let doc = self
             .active_document()
             .context("Open a document before saving")?;
+        ensure!(!doc.is_read_only(), "Virtual documents are read-only");
         if doc.path.is_none() {
             self.pending = after;
             self.save_as();
@@ -1023,6 +1024,7 @@ impl App {
     /// authorized commit still publishes its receipt to the original model.
     pub fn settle_persistence(&mut self) {
         self.settle_extension_file_search();
+        self.settle_virtual_documents();
         self.settle_workspace_transactions();
         self.saving.shutting_down = true;
         self.saving.latest = None;

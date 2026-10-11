@@ -354,6 +354,7 @@ pub(crate) fn capture_workspace_transaction(
         );
         let mut models = documents.iter().chain(hidden).filter(|doc| doc.id == id);
         let doc = models.next().context("Workspace target was closed")?;
+        ensure!(!doc.is_read_only(), "Virtual documents are read-only");
         ensure!(
             models.next().is_none(),
             "Ambiguous retained workspace target"
@@ -594,6 +595,7 @@ impl App {
                 .chain(&self.hidden_documents)
                 .filter(|doc| doc.id == item.document());
             let doc = models.next().context("Workspace target was closed")?;
+            ensure!(!doc.is_read_only(), "Virtual documents are read-only");
             ensure!(
                 models.next().is_none() && item.current(doc),
                 "Workspace source/history/baseline changed before publication"

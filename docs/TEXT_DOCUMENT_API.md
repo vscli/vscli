@@ -26,8 +26,9 @@ for retained local/untitled documents. True follows actual persistence and share
 mirror publication; native Save As cancellation returns false. Closed documents,
 retired callers, external conflicts and ambiguous outcomes reject. Hidden or
 inactive saves preserve focus; newer postauthorization edits remain dirty.
-Virtual/custom filesystem saves and complete save-participant parity remain
-outstanding. The save gateway has separate ownership, host and native evidence.
+[Virtual content-provider documents](VIRTUAL_DOCUMENTS_API.md) open and refresh
+as readonly models; their save returns false without a Save As prompt. Writable
+custom filesystem saves and complete save-participant parity remain outstanding. The save gateway has separate ownership, host and native evidence.
 Installed language `wordPattern` and `languages.setLanguageConfiguration`
 integration, broader encodings/BOM handling, public object reflection and full
 upstream runtime comparison remain outstanding. A zero-width regex that cannot

@@ -36,6 +36,8 @@ pub(crate) enum Operation {
         Arc<crate::workspace_file_search::Capture>,
         Arc<std::sync::atomic::AtomicBool>,
     ),
+    VirtualOpen(Arc<super::text_content::Capture>),
+    VirtualChange(Arc<super::text_content::Capture>),
     Show(Show),
     Command(Command),
     State(StatePatch),
@@ -167,7 +169,12 @@ impl Client {
             bail!("Native extension service queue limit reached");
         }
         let payload_bytes = serde_json::to_vec(&params)?.len();
-        let limit = if method == "nativeWorkspaceApplyEdit" {
+        let limit = if matches!(
+            method,
+            "nativeWorkspaceApplyEdit"
+                | "nativeVirtualDocumentOpen"
+                | "nativeVirtualDocumentChange"
+        ) {
             2 * 1024 * 1024
         } else {
             72 * 1024
@@ -200,6 +207,17 @@ impl Client {
         )?;
         let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         let operation = match method {
+            "nativeVirtualDocumentOpen" | "nativeVirtualDocumentChange" => {
+                let change = method == "nativeVirtualDocumentChange";
+                let capture =
+                    self.capture_text_content(&request.args, change, documents, hidden)?;
+                request.args = Value::Null;
+                if change {
+                    Operation::VirtualChange(capture)
+                } else {
+                    Operation::VirtualOpen(capture)
+                }
+            }
             "nativeFindFiles" => {
                 let context = self
                     .file_search_context
@@ -299,6 +317,8 @@ impl Client {
                 | Operation::Save(_)
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
+                | Operation::VirtualOpen(_)
+                | Operation::VirtualChange(_)
         ) && request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service request; retry");
@@ -408,6 +428,8 @@ impl Client {
                 | Operation::Save(_)
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
+                | Operation::VirtualOpen(_)
+                | Operation::VirtualChange(_)
         ) && service.request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service completion; retry");
@@ -423,7 +445,11 @@ impl Client {
             self.validate_native_origin(service.request.session, &service.request.owner, None, None)
         } else if matches!(
             service.operation,
-            Operation::State(_) | Operation::WorkspaceApply(_) | Operation::FindFiles(..)
+            Operation::State(_)
+                | Operation::WorkspaceApply(_)
+                | Operation::FindFiles(..)
+                | Operation::VirtualOpen(_)
+                | Operation::VirtualChange(_)
         ) {
             // Receipt already authorized the exact origin. An accepted durable
             // patch may outlive that command; never bind it to a later command.

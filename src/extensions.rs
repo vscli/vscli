@@ -5,6 +5,7 @@ mod prompts;
 pub(crate) mod providers;
 pub(crate) mod services;
 mod surfaces;
+pub(crate) mod text_content;
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
 pub use prompts::{MAX_PROMPT_TEXT, NativePrompt, PromptType};
@@ -213,6 +214,7 @@ pub struct Client {
     workspace_edit_context: Option<crate::app::workspace_transactions::CaptureContext>,
     file_search_context: Option<crate::workspace_file_search::Context>,
     owner_lifetimes: owner_lifetimes::OwnerLifetimes,
+    text_content_registry: text_content::Registry,
     state_store: Option<crate::extension_state::Store>,
     // Drop the process before deleting its embedded runtime files on Windows.
     process: Process,
@@ -442,6 +444,10 @@ impl Client {
                 "local-file-watcher.cjs",
                 include_str!("../extension-host/local-file-watcher.cjs"),
             ),
+            (
+                "text-content-providers.cjs",
+                include_str!("../extension-host/text-content-providers.cjs"),
+            ),
             ("host.cjs", include_str!("../extension-host/host.cjs")),
         ] {
             std::fs::write(runtime.path().join(name), source)?;
@@ -464,6 +470,7 @@ impl Client {
             services: services::empty_queue(),
             workspace_edit_context: None,
             file_search_context: None,
+            text_content_registry: text_content::Registry::default(),
             owner_lifetimes: owner_lifetimes::OwnerLifetimes::new(&packages),
             state_store,
             process,
@@ -493,7 +500,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -802,7 +809,8 @@ impl Client {
         else {
             return Ok(false);
         };
-        if edit.version != mirror.version
+        if doc.is_read_only()
+            || edit.version != mirror.version
             || doc.revision != mirror.revision
             || doc.text_epoch() != mirror.text_epoch
             || doc.eol != mirror.eol
@@ -898,7 +906,9 @@ impl Client {
                     | "nativeStateWrite"
                     | "nativeDocumentSave"
                     | "nativeWorkspaceApplyEdit"
-                    | "nativeFindFiles" => {
+                    | "nativeFindFiles"
+                    | "nativeVirtualDocumentOpen"
+                    | "nativeVirtualDocumentChange" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_service_with_models(
@@ -910,6 +920,15 @@ impl Client {
                         ) {
                             self.process
                                 .send(json!({"id":id,"error":{"message":services::bounded_error(&error)}}))?;
+                        }
+                    }
+                    "textContentProviders" => {
+                        if let Err(error) =
+                            self.register_text_content_providers(message["params"].take())
+                        {
+                            messages.push(format!(
+                                "Text content provider registry rejected: {error:#}"
+                            ));
                         }
                     }
                     "cancelNativeFindFiles" => {
@@ -1135,7 +1154,7 @@ struct MirrorState {
 }
 impl MirrorState {
     fn stamp_refs(documents: &[&Document], active: Option<&Document>) -> Value {
-        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.dirty(), d.eol])).collect::<Vec<_>>(),
+        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.virtual_uri(), d.language_override(), d.dirty(), d.eol])).collect::<Vec<_>>(),
             "active": active.map(|d| d.id), "selections": active.map(selections)})
     }
     #[cfg(test)]
@@ -1187,7 +1206,7 @@ impl MirrorState {
             }
             mirror.save_generation = doc.save_generation();
             let mut snapshot = json!({"savedGeneration": mirror.save_generation, "id":doc.id, "uri":uri, "version":mirror.version,
-                "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.api_dirty(),
+                "languageId":doc.language_override().unwrap_or_else(||doc.path.as_deref().map_or("plaintext", lsp::language)), "isDirty":doc.api_dirty(), "isReadonly":doc.is_read_only(),
                 "eol":if doc.eol == "\r\n" {2} else {1}, "encoding":"utf8"});
             if needs_text {
                 snapshot["text"] = doc.text.to_string().into();
@@ -1205,6 +1224,9 @@ impl MirrorState {
     }
 }
 fn document_uri(doc: &Document) -> Result<String> {
+    if let Some(uri) = doc.virtual_uri() {
+        return Ok(uri.to_owned());
+    }
     doc.path
         .as_deref()
         .map_or_else(|| Ok(format!("untitled:vscli-{}", doc.id)), lsp::file_uri)

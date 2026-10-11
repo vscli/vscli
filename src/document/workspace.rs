@@ -88,7 +88,8 @@ impl WorkspaceSource {
         &self.eol
     }
     pub(crate) fn current(&self, doc: &Document) -> bool {
-        self.document == doc.id
+        !doc.is_read_only()
+            && self.document == doc.id
             && self.path == doc.path
             && self.eol == doc.eol
             && self.revision == doc.revision
@@ -307,6 +308,8 @@ impl WorkspaceCommit<'_> {
 }
 impl Document {
     pub(crate) fn capture_workspace_source(&self) -> Result<WorkspaceSource> {
+        self.ensure_writable()?;
+
         ensure!(
             self.text.len_bytes() as u64 <= MAX_FILE_BYTES
                 && matches!(self.eol.as_str(), "\n" | "\r\n"),
@@ -382,6 +385,8 @@ impl Document {
         group: Arc<WorkspaceHistoryGroup>,
         available: usize,
     ) -> Result<WorkspaceCommit<'a>> {
+        self.ensure_writable()?;
+
         ensure!(
             prepared.changed() && prepared.current(self),
             "Workspace source changed before publication"
@@ -433,6 +438,8 @@ impl Document {
         direction: WorkspaceHistoryDirection,
         available: usize,
     ) -> Result<WorkspaceCommit<'a>> {
+        self.ensure_writable()?;
+
         ensure!(
             self.workspace_history_current(group, direction),
             "Workspace history peer changed; undo its independent edit first"
@@ -564,6 +571,8 @@ impl Document {
             active_view: self.active_view,
             other_views: self.other_views.clone(),
             path: self.path.clone(),
+            virtual_uri: self.virtual_uri.clone(),
+            language_override: self.language_override.clone(),
             revision: self.revision,
             saved_revision: self.saved_revision,
             disk_content: self.disk_content.clone(),

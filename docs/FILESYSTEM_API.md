@@ -31,8 +31,9 @@ capabilities with that owner. Readonly providers reject mutations. Queued calls
 retain provider identity and cannot silently switch to a replacement provider.
 Provider change events are filtered by scheme and copied into bounded URI
 snapshots. Public watchers now route those events through actual provider watch
-registrations; native virtual document routing remains outstanding. See
-[filesystem watchers](FILE_WATCHERS_API.md).
+registrations; writable filesystem-provider document routing remains outstanding.
+Separate readonly text-content providers now support [native virtual documents](VIRTUAL_DOCUMENTS_API.md).
+See [filesystem watchers](FILE_WATCHERS_API.md).
 
 Admission is bounded to 64 occupied operations and 64 MiB of admitted write
 buffers. Slots remain occupied until the actual promise settles. Mutations
@@ -49,7 +50,7 @@ writes preserve a dirty native model, undo/redo and host-independent recovery,
 without inventing save events. Formatting and strict Clippy checks pass.
 
 Outstanding qualification includes trash (`useTrash: true` rejects explicitly),
-virtual editors, automatic scheme activation, document
+writable filesystem-provider editors, automatic scheme activation, document
 links, remote authorities, actual Windows/macOS behavior, provider errors and
 filesystem races. Local rename with `overwrite: false` checks destination
 existence before rename; atomic exclusion against another OS process is not

@@ -12,6 +12,7 @@ const { createConfiguration } = require('./configuration.cjs');
 const { createWorkspaceEdits } = require('./workspace-edits.cjs');
 const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
 const { createFileWatchers } = require('./file-watchers.cjs');
+const { createTextContentProviders } = require('./text-content-providers.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
@@ -42,6 +43,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const documentServices = createDocumentServices(request, sessionOptions, {
     generation: () => generation, root: () => workspaceRoot, callerOwner: callers.currentOwner,
     document: id => documents.get(id), editor: id => active?.document._snapshot.id === id ? active : undefined,
+    openVirtual: (owner,uri) => textContentProviders.open(owner,uri),
   });
   // Runtime-private mirror authority is captured before user value getters.
   const workspaceEdits = createWorkspaceEdits(documentServices.call, {
@@ -69,6 +71,14 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     configuration:()=>configuration.get('files'),
     diagnostic:(owner,error)=>notify('message',{session:sessionOptions.session,owner,
       text:`Filesystem watcher failed: ${String(error.message || error).slice(0,1024)}`}),
+  });
+  const textContentProviders = createTextContentProviders({
+    session:sessionOptions.session,notify,call:documentServices.call,track,unowned:callers.unowned,
+    captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
+    bindProvider:callers.bindProvider,bindProviderResult:callers.bindProviderResult,
+    invokeProviderResult:callers.invokeProviderResult,bindProviderCleanup:callers.bindProviderCleanup,
+    mirrors:()=>workspaceEditMirrors.values(),mirror:id=>workspaceEditMirrors.get(id),
+    diagnostic:(owner,error)=>notify('message',{session:sessionOptions.session,owner,text:`Virtual document refresh failed: ${error.message}`}),
   });
   const workspaceScope = createWorkspaceScope({ Uri, EventEmitter, pathCaseSensitive: fileSystem.pathCaseSensitive });
   function workspace(values) {
@@ -178,7 +188,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         }
         if (Number.isSafeInteger(snapshot.savedGeneration) && snapshot.savedGeneration > previousSaved) changes.push(() => saved.fire(document));
       }
-      workspaceEditMirrors.set(snapshot.id, Object.freeze({ document: snapshot.id, version: snapshot.version, uri: snapshot.uri, model: document }));
+      workspaceEditMirrors.set(snapshot.id, Object.freeze({ document: snapshot.id, version: snapshot.version, uri: snapshot.uri, model: document,
+        text: typeof snapshot.text === 'string' ? snapshot.text : workspaceEditMirrors.get(snapshot.id)?.text, isReadonly: snapshot.isReadonly === true }));
       if (!editors.has(snapshot.id)) editors.set(snapshot.id, editorFor(snapshot.id, document));
     }
     for (const [id, document] of documents) {
@@ -193,6 +204,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     if (active) active._selections = state.selections.map(s => new Selection(s.anchor, s.active));
     providers.documentChanged();
     diagnostics.documentChanged();
+    textContentProviders.documentChanged();
     // All mirrors must reflect the new state before any extension callback runs.
     for (const fire of changes) fire();
     if (active !== previousActive) activeChanged.fire(active);
@@ -281,7 +293,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; fileWatchers.refresh(); }, commandSnapshot, assertOwner,
+    api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; fileWatchers.refresh(); }, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.
     runWithOwner: callers.run, currentCallerOwner: callers.currentOwner,
@@ -300,6 +312,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         for (const disposable of [...(owned.get(owner) || [])]) {
           try { disposable.dispose(); } catch (error) { console.error(error); }
         }
+        textContentProviders.disposeOwner(owner);
         owned.delete(owner); facades.delete(owner);
       });
     },
@@ -334,6 +347,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           // Root enables this only after the native grouped transaction gateway qualifies.
           ...(sessionOptions.workspaceEdits ? workspaceEdits.forOwner(owner) : {}),
           ...(sessionOptions.findFiles ? fileSearch.forOwner(owner) : {}),
+          ...(sessionOptions.virtualDocuments ? textContentProviders.forOwner(owner) : {}),
           get textDocuments() { return [...documents.values()]; },
           onDidChangeTextDocument: event(owner, changed.event),
           onDidOpenTextDocument: event(owner, opened.event),

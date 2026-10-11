@@ -28,6 +28,7 @@ mod settings_persistence;
 mod signature_help;
 mod sticky_tabs;
 mod suggestions;
+mod virtual_documents;
 mod workspace_edits;
 pub(crate) mod workspace_transactions;
 
@@ -545,6 +546,7 @@ pub struct App {
     pub(crate) hidden_documents: Vec<Document>,
     extension_services: extension_services::State,
     extension_file_search: extension_file_search::State,
+    virtual_documents: virtual_documents::State,
     workspace_transactions: workspace_transactions::State,
     extension_providers: extension_providers::State,
     actions: actions::State,
@@ -630,6 +632,7 @@ pub struct App {
 impl Drop for App {
     fn drop(&mut self) {
         self.settle_extension_file_search();
+        self.settle_virtual_documents();
         self.settle_workspace_transactions();
         self.shutdown_extensions();
         self.shutdown_language_services();
@@ -660,6 +663,7 @@ impl App {
             hidden_documents: Vec::new(),
             extension_services: extension_services::State::default(),
             extension_file_search: extension_file_search::State::default(),
+            virtual_documents: virtual_documents::State::default(),
             workspace_transactions: workspace_transactions::State::default(),
             extension_providers: extension_providers::State::default(),
             actions: actions::State::default(),
@@ -1002,7 +1006,7 @@ impl App {
             .documents
             .iter()
             .chain(&self.hidden_documents)
-            .find(|doc| doc.path == d.path)
+            .find(|doc| same_document_resource(doc, &d))
             .unwrap_or(&d);
         intent.validate(target)?;
         self.settings.apply(&mut d);
@@ -1019,20 +1023,24 @@ impl App {
             .documents
             .iter()
             .chain(&self.hidden_documents)
-            .find(|old| old.path == d.path)
+            .find(|old| same_document_resource(old, &d))
             .map_or(d.id, |old| old.id);
         self.can_admit_editor(id)?;
         let mut d = if let Some(index) = self
             .hidden_documents
             .iter()
-            .position(|doc| doc.path == d.path)
+            .position(|doc| same_document_resource(doc, &d))
         {
             self.hidden_documents.remove(index)
         } else {
             d
         };
         let configuration_error = self.configure_document_language(&mut d).err();
-        if let Some(index) = self.documents.iter().position(|old| old.path == d.path) {
+        if let Some(index) = self
+            .documents
+            .iter()
+            .position(|old| same_document_resource(old, &d))
+        {
             self.active = index;
         } else {
             self.documents.push(d);
@@ -1255,9 +1263,10 @@ impl App {
         ])
     }
     pub fn language(&self) -> &str {
-        self.active_document()
-            .and_then(|d| d.path.as_deref())
-            .map_or("plaintext", crate::lsp::language)
+        self.active_document().map_or("plaintext", |d| {
+            d.language_override()
+                .unwrap_or_else(|| d.path.as_deref().map_or("plaintext", crate::lsp::language))
+        })
     }
 
     pub fn event(&mut self, event: Event) {
@@ -2168,6 +2177,10 @@ impl App {
             )
     }
     fn save_as(&mut self) {
+        if self.active_document().is_some_and(Document::is_read_only) {
+            self.message = "Virtual documents are read-only".into();
+            return;
+        }
         self.capture_save_as_origin();
         let path = self
             .doc()
@@ -3144,9 +3157,54 @@ fn clipboard_command(name: &str, args: &[&str], input: Option<&str>) -> Option<S
     }
 }
 
+fn same_document_resource(left: &Document, right: &Document) -> bool {
+    left.id == right.id
+        || left
+            .virtual_uri()
+            .is_some_and(|uri| right.virtual_uri() == Some(uri))
+        || left
+            .path
+            .as_ref()
+            .is_some_and(|path| right.path.as_ref() == Some(path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fallback_virtual_tabs_keep_untitled_and_distinct_resource_identities() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.group_fallback = true;
+        let mut ordinary = Document::from_text("ordinary 猫");
+        ordinary.insert("dirty ", false);
+        let original_id = ordinary.id;
+        app.install_open_document(ordinary).unwrap();
+        let first = Document::from_virtual("test:/first.cpp".into(), "first").unwrap();
+        let first_id = first.id;
+        app.install_open_document(first).unwrap();
+        let second = Document::from_virtual("test:/second.cpp".into(), "second").unwrap();
+        let second_id = second.id;
+        app.install_open_document(second).unwrap();
+        assert_eq!(app.documents.len(), 3);
+        assert_eq!(app.doc().id, second_id);
+        app.install_open_document(
+            Document::from_virtual("test:/first.cpp".into(), "replacement").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(app.doc().id, first_id);
+        assert_eq!(app.doc().text.to_string(), "first");
+        let ordinary = app
+            .documents
+            .iter_mut()
+            .find(|doc| doc.id == original_id)
+            .unwrap();
+        assert_eq!(ordinary.text.to_string(), "dirty ordinary 猫");
+        assert!(ordinary.dirty());
+        ordinary.undo();
+        assert_eq!(ordinary.text.to_string(), "ordinary 猫");
+    }
+
     #[test]
     fn actual_mru_reservation_refusal_does_not_publish_new_untitled_or_touch_original_redo() {
         let root = tempfile::tempdir().unwrap();

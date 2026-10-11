@@ -215,19 +215,21 @@ impl App {
         self.refresh_document_language_configurations();
     }
     pub(super) fn configure_document_language(&self, doc: &mut Document) -> Result<()> {
-        let language = doc
-            .path
-            .as_deref()
-            .map_or("plaintext", crate::languages::language);
+        let language = doc.language_override().unwrap_or_else(|| {
+            doc.path
+                .as_deref()
+                .map_or("plaintext", crate::languages::language)
+        });
         doc.set_language_configuration(self.language_configuration(language))
     }
     pub(super) fn refresh_document_language_configurations(&mut self) {
         let catalog = Arc::clone(&self.activation.language_configurations);
         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
-            let language = doc
-                .path
-                .as_deref()
-                .map_or("plaintext", crate::languages::language);
+            let language = doc.language_override().unwrap_or_else(|| {
+                doc.path
+                    .as_deref()
+                    .map_or("plaintext", crate::languages::language)
+            });
             if let Err(error) = doc.set_language_configuration(catalog.for_language(language)) {
                 self.message = format!("Native language configuration rejected: {error:#}");
             }
