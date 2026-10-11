@@ -162,6 +162,7 @@ struct Mirror {
     text_epoch: u64,
     save_generation: u64,
     uri: String,
+    eol: String,
     version: u64,
 }
 struct Pending {
@@ -314,6 +315,14 @@ impl Client {
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
             ("uri.cjs", include_str!("../extension-host/uri.cjs")),
+            (
+                "document-types.cjs",
+                include_str!("../extension-host/document-types.cjs"),
+            ),
+            (
+                "document-types.LICENSE.txt",
+                include_str!("../extension-host/document-types.LICENSE.txt"),
+            ),
             (
                 "filesystem.cjs",
                 include_str!("../extension-host/filesystem.cjs"),
@@ -717,6 +726,7 @@ impl Client {
         if edit.version != mirror.version
             || doc.revision != mirror.revision
             || doc.text_epoch() != mirror.text_epoch
+            || doc.eol != mirror.eol
             || document_uri(doc)? != mirror.uri
         {
             return Ok(false);
@@ -1028,7 +1038,7 @@ struct MirrorState {
 }
 impl MirrorState {
     fn stamp_refs(documents: &[&Document], active: Option<&Document>) -> Value {
-        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.dirty()])).collect::<Vec<_>>(),
+        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.dirty(), d.eol])).collect::<Vec<_>>(),
             "active": active.map(|d| d.id), "selections": active.map(selections)})
     }
     #[cfg(test)]
@@ -1055,27 +1065,33 @@ impl MirrorState {
         for doc in documents {
             let uri = document_uri(doc)?;
             let needs_text = self.mirrors.get(&doc.id).is_none_or(|old| {
-                old.revision != doc.revision || old.text_epoch != doc.text_epoch()
+                old.revision != doc.revision
+                    || old.text_epoch != doc.text_epoch()
+                    || old.eol != doc.eol
             });
             let mirror = self.mirrors.entry(doc.id).or_insert_with(|| Mirror {
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
                 save_generation: doc.save_generation(),
                 uri: uri.clone(),
+                eol: doc.eol.clone(),
                 version: 1,
             });
             if mirror.revision != doc.revision
                 || mirror.text_epoch != doc.text_epoch()
                 || mirror.uri != uri
+                || mirror.eol != doc.eol
             {
                 mirror.version += 1;
                 mirror.revision = doc.revision;
                 mirror.text_epoch = doc.text_epoch();
                 mirror.uri = uri.clone();
+                mirror.eol = doc.eol.clone();
             }
             mirror.save_generation = doc.save_generation();
             let mut snapshot = json!({"savedGeneration": mirror.save_generation, "id":doc.id, "uri":uri, "version":mirror.version,
-                "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.api_dirty()});
+                "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.api_dirty(),
+                "eol":if doc.eol == "\r\n" {2} else {1}, "encoding":"utf8"});
             if needs_text {
                 snapshot["text"] = doc.text.to_string().into();
             }
@@ -1174,6 +1190,29 @@ mod tests {
         assert_eq!(redone["documents"][0]["version"], 4);
     }
     #[test]
+    fn mirror_eol_metadata_is_versioned_without_modifying_document_or_disk() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("eol.txt");
+        let original = "猫🙂\r\nsecond\nthird";
+        std::fs::write(&file, original).unwrap();
+        let mut docs = vec![Document::open_existing(&file).unwrap()];
+        let (first, initial) = MirrorState::default().next(&docs, 0).unwrap();
+        assert_eq!(initial["documents"][0]["eol"], 2);
+        assert_eq!(initial["documents"][0]["encoding"], "utf8");
+        let stamp = MirrorState::stamp_refs(&[&docs[0]], Some(&docs[0]));
+        let revision = docs[0].revision;
+        docs[0].eol = "\n".into();
+        assert_ne!(stamp, MirrorState::stamp_refs(&[&docs[0]], Some(&docs[0])));
+        let (_, updated) = first.next(&docs, 0).unwrap();
+        assert_eq!(updated["documents"][0]["version"], 2);
+        assert_eq!(updated["documents"][0]["eol"], 1);
+        assert_eq!(updated["documents"][0]["text"], original);
+        assert_eq!(updated["documents"][0]["isDirty"], false);
+        assert_eq!(docs[0].revision, revision);
+        assert_eq!(docs[0].text.to_string(), original);
+        assert_eq!(std::fs::read_to_string(file).unwrap(), original);
+    }
+    #[test]
     fn path_dirty_and_lifecycle_updates_preserve_content_identity() {
         let directory = tempfile::tempdir().unwrap();
         let mut docs = vec![Document::from_text("original")];
@@ -1253,6 +1292,26 @@ mod tests {
             edits: Vec::new(),
         };
         assert!(!client.apply_edit(edit, &mut documents).unwrap());
+        let original_eol = documents[0].eol.clone();
+        documents[0].eol = "\r\n".into();
+        let stale_eol_edit = Edit {
+            session: client.session,
+            owner: client.packages[0].id.clone(),
+            document: documents[0].id,
+            version: 1,
+            edits: vec![
+                serde_json::from_value(json!({
+                    "range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},
+                    "newText":"stale eol"
+                }))
+                .unwrap(),
+            ],
+        };
+        assert!(!client.service_document_current(&documents[0], 1));
+        assert!(!client.apply_edit(stale_eol_edit, &mut documents).unwrap());
+        assert_eq!(documents[0].text.to_string(), "original");
+        documents[0].eol = original_eol;
+        assert!(client.service_document_current(&documents[0], 1));
         documents[0].insert("transient", false);
         documents[0].undo();
         let edit = Edit {

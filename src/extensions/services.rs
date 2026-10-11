@@ -191,6 +191,7 @@ impl Client {
                 && mirror.revision == document.revision
                 && mirror.text_epoch == document.text_epoch()
                 && document_uri(document).ok().as_ref() == Some(&mirror.uri)
+                && mirror.eol == document.eol
         })
     }
     pub(crate) fn state_store(&self) -> Option<Store> {

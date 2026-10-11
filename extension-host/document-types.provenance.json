@@ -1,0 +1,61 @@
+{
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "stable": "1.141.0",
+  "sources": [
+    {
+      "source": "src/vs/workbench/api/common/extHostDocumentData.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostDocumentData.ts",
+      "bytes": 9548,
+      "sha256": "668a26c798489c0f32f4edcb6b24f974edc641010a9047d4eba30639ca8aeb5f"
+    },
+    {
+      "source": "src/vs/editor/common/core/wordHelper.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/core/wordHelper.ts",
+      "bytes": 4791,
+      "sha256": "6f91676884dab09a935c7567a5ef9f8beec241aa0fe326e9af06f6336be102a4"
+    },
+    {
+      "source": "src/vs/editor/common/config/editorOptions.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/config/editorOptions.ts",
+      "bytes": 255399,
+      "sha256": "29fa642612773b8472a2e95f09bbd6bba020bdac7efffaf3e36fa726f3251ab4"
+    },
+    {
+      "source": "src/vscode-dts/vscode.d.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.d.ts",
+      "bytes": 742274,
+      "sha256": "a4321528e86dcdcb8450287f2a263055c46a622119cdb186de85ac3b19ce9608"
+    },
+    {
+      "source": "LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/LICENSE.txt",
+      "bytes": 1088,
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9"
+    },
+    {
+      "source": "src/vs/base/common/strings.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/strings.ts",
+      "bytes": 92501,
+      "sha256": "41a86465c9bb64edc600a7950596c73aa71fd901568f3075b69e6865753587ab"
+    },
+    {
+      "source": "src/vs/editor/common/model/mirrorTextModel.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/model/mirrorTextModel.ts",
+      "bytes": 5777,
+      "sha256": "a311bb48313769775d92891b133e845be1fbff9b1ac15663b187fad6bd5bd219"
+    },
+    {
+      "source": "src/vs/editor/common/model/prefixSumComputer.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/model/prefixSumComputer.ts",
+      "bytes": 8010,
+      "sha256": "fedb3db3b26886f036179d6265d1b88cd7d11806cf1cfc2c144d590d1c4f2214"
+    },
+    {
+      "source": "src/vs/workbench/api/browser/mainThreadDocuments.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/browser/mainThreadDocuments.ts",
+      "bytes": 12689,
+      "sha256": "1439b6a7fa1609f5600edace375866638f851cb8e679046360f453a398c31bda"
+    }
+  ],
+  "qualification": "Source preparation only; no Node/native/VSCode execution."
+}

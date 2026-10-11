@@ -13,7 +13,7 @@ test('document coordinates use UTF-16 and preserve CRLF line boundaries', () => 
   assert.equal(doc.getText(new Range(0, 1, 0, 3)), '🙂');
   assert.equal(doc.lineAt(1).firstNonWhitespaceCharacterIndex, 2);
   assert.deepEqual(doc.lineAt(0).rangeIncludingLineBreak.end, new Position(1, 0));
-  assert.throws(() => doc.lineAt(3), RangeError);
+  assert.throws(() => doc.lineAt(3), /^Error: Illegal value for `line`$/);
 });
 
 test('selection retains direction while ranges normalize endpoints', () => {
@@ -32,7 +32,7 @@ test('positions beyond the final line clamp to EOF and valid ranges retain ident
   assert.equal(document.offsetAt(new Position(100, 0)), 10);
   const range = new Range(0, 1, 1, 2);
   assert.equal(document.validateRange(range), range);
-  assert.throws(() => document.validatePosition({ line: 1, character: 0 }), /Invalid position/);
+  assert.throws(() => document.validatePosition({ line: 1, character: 0 }), /^Error: Invalid argument$/);
 });
 
 test('file URI round trips spaces Unicode and reserved filename characters', () => {

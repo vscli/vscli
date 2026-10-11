@@ -189,6 +189,7 @@ impl Client {
                         mirror.version == entry.version
                             && mirror.revision == document.revision
                             && mirror.text_epoch == document.text_epoch()
+                            && mirror.eol == document.eol
                     })
             })
             .flat_map(|entry| entry.items.iter())

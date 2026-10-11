@@ -249,73 +249,7 @@ class EventEmitter {
   }
 }
 
-class TextDocument {
-  constructor(snapshot) { this._update(snapshot); }
-  _update(snapshot) {
-    const text = Object.hasOwn(snapshot, 'text') ? snapshot.text : this._text;
-    if (typeof text !== 'string') throw new Error('A new document requires its text snapshot');
-    const previousUri = this._snapshot?.uri;
-    this._snapshot = { ...this._snapshot, ...snapshot };
-    if (text !== this._text) {
-      this._text = text;
-      this._lines = text.split(/\r\n|\r|\n/);
-      this._starts = [0];
-      for (const match of text.matchAll(/\r\n|\r|\n/g)) this._starts.push(match.index + match[0].length);
-    }
-    if (snapshot.uri !== previousUri) this._uri = Uri.parse(snapshot.uri);
-  }
-  get uri() { return this._uri; }
-  get fileName() { return this.uri.fsPath; }
-  get languageId() { return this._snapshot.languageId; }
-  get version() { return this._snapshot.version; }
-  get isDirty() { return this._snapshot.isDirty; }
-  get isClosed() { return !!this._snapshot.isClosed; }
-  get isUntitled() { return this.uri.scheme === 'untitled'; }
-  get eol() { return this._text.includes('\r\n') ? 2 : 1; }
-  get lineCount() { return this._lines.length; }
-  getText(range) {
-    if (!range) return this._text;
-    range = this.validateRange(range);
-    return this._text.slice(this.offsetAt(range.start), this.offsetAt(range.end));
-  }
-  validatePosition(position) {
-    if (!(position instanceof Position)) throw new TypeError('Invalid position');
-    if (position.line >= this.lineCount) {
-      return new Position(this.lineCount - 1, this._lines[this.lineCount - 1].length);
-    }
-    const character = Math.min(position.character, this._lines[position.line].length);
-    return character === position.character ? position : new Position(position.line, character);
-  }
-  validateRange(range) {
-    if (!(range instanceof Range)) throw new TypeError('Invalid range');
-    const start = this.validatePosition(range.start), end = this.validatePosition(range.end);
-    return start === range.start && end === range.end ? range : new Range(start, end);
-  }
-  offsetAt(position) {
-    position = this.validatePosition(position);
-    return this._starts[position.line] + position.character;
-  }
-  positionAt(offset) {
-    offset = Math.max(0, Math.min(Math.floor(offset), this._text.length));
-    let low = 0, high = this._starts.length;
-    while (low + 1 < high) {
-      const middle = (low + high) >>> 1;
-      if (this._starts[middle] > offset) high = middle;
-      else low = middle;
-    }
-    return new Position(low, Math.min(offset - this._starts[low], this._lines[low].length));
-  }
-  lineAt(position) {
-    const line = typeof position === 'number' ? position : position.line;
-    if (!Number.isInteger(line) || line < 0 || line >= this.lineCount) throw new RangeError('Invalid line number');
-    const text = this._lines[line];
-    const range = new Range(line, 0, line, text.length);
-    const index = text.search(/\S/);
-    return { lineNumber: line, text, range,
-      rangeIncludingLineBreak: line + 1 < this.lineCount ? new Range(line, 0, line + 1, 0) : range,
-      firstNonWhitespaceCharacterIndex: index < 0 ? text.length : index,
-      isEmptyOrWhitespace: index < 0 };
-  }
-}
+const { TextDocument } = require('./document-types.cjs')
+  .createDocumentTypes({ Position, Range, Uri });
 
 module.exports = { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument };

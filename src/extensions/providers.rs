@@ -264,6 +264,7 @@ impl Client {
                 .context("Workspace target is not mirrored")?;
             if mirror.revision != document.revision
                 || mirror.text_epoch != document.text_epoch()
+                || mirror.eol != document.eol
                 || !ids.insert(document.id)
                 || !uris.insert(&mirror.uri)
             {
@@ -301,6 +302,7 @@ impl Client {
                                 && mirror.uri == target.uri
                                 && mirror.revision == target.revision
                                 && mirror.text_epoch == target.text_epoch
+                                && mirror.eol == document.eol
                         })
                 })
         })
