@@ -13,19 +13,19 @@ function createNativeRequests(send, origin, timers = globalThis) {
     const save = method === 'nativeDocumentSave', applyEdit = method === 'nativeWorkspaceApplyEdit';
     const findFiles = method === 'nativeFindFiles';
     const virtual = method === 'nativeVirtualDocumentOpen' || method === 'nativeVirtualDocumentChange' || method === 'nativeUntitledDocumentOpen' || method === 'nativeDocumentLanguage' || method === 'nativeEditorSelections';
-    const editorOperation = method === 'nativeEditorSelections' || method === 'nativeDocumentShow' || method === 'nativeEditorOptions' || method === 'nativeEditorReveal' || method === 'nativeEditorDecorations';
+    const editorOperation = method === 'nativeEditorSelections' || method === 'nativeDocumentShow' || method === 'nativeEditorOptions' || method === 'nativeEditorReveal' || method === 'nativeEditorDecorations' || method === 'nativeEditorInsertSnippet';
     const retained = save || applyEdit || findFiles || virtual || editorOperation;
     const expectedEditor = method !== 'nativeDocumentShow' && editorOperation ? params.args?.editor : undefined;
-    const decoration = method === 'nativeEditorDecorations';
-    const expectedKey = decoration ? params.args?.key : undefined, expectedDocument = decoration ? params.args?.document : undefined;
+    const decoration = method === 'nativeEditorDecorations', snippetOperation = method === 'nativeEditorInsertSnippet';
+    const expectedKey = decoration ? params.args?.key : undefined, expectedDocument = decoration || snippetOperation ? params.args?.document : undefined;
     const context = origin();
-    if (method === 'prompt' || ['nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
+    if (method === 'prompt' || ['nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
       if (context?.active && Number.isSafeInteger(context.id)) params = { ...params, command: context.id, commandOwner: context.owner };
     }
     const id = `host-${++nextId}`;
     const frame = { id, method, params };
     let bytes = 0;
-    if (['nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeCommand'].includes(method)) {
+    if (['nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeCommand'].includes(method)) {
       try {
         const encoded = JSON.stringify(frame);
         if (encoded.length > 2 * 1024 * 1024) throw new Error('Native document service wire payload limit reached');
@@ -36,7 +36,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     // Only internal document-services supplies this exact callback object.
     if (retained && lifecycle) lifecycle.retained = true;
     return new Promise((resolve, reject) => {
-      const call = { resolve, reject, save, applyEdit, findFiles, virtual, editorOperation, expectedEditor, expectedKey, expectedDocument, decoration, bytes, terminal: retained ? lifecycle?.onTerminal : undefined, timer: undefined };
+      const call = { resolve, reject, save, applyEdit, findFiles, virtual, editorOperation, expectedEditor, expectedKey, expectedDocument, decoration, snippetOperation, bytes, terminal: retained ? lifecycle?.onTerminal : undefined, timer: undefined };
       function release() {
         if (pending.get(id) !== call) return;
         pending.delete(id); serviceBytes -= call.bytes; timers.clearTimeout(call.timer);
@@ -72,7 +72,12 @@ function createNativeRequests(send, origin, timers = globalThis) {
     if (call.findFiles && (hasResult === hasError || (hasResult && !isFindFilesResult(message.result)) ||
         (hasError && (!message.error || typeof message.error.message !== 'string'
           || message.error.message.length > 4096 || Buffer.byteLength(message.error.message) > 4096)))) return false;
-    if ((call.virtual || call.editorOperation) && (hasResult === hasError || (hasResult && (!message.result ||
+    if (call.snippetOperation && (hasResult === hasError || (hasResult && (!message.result ||
+        Object.keys(message.result).length !== 3 || message.result.document !== call.expectedDocument ||
+        message.result.editor !== call.expectedEditor || typeof message.result.applied !== 'boolean')) ||
+        (hasError && (!message.error || typeof message.error.message !== 'string' ||
+          message.error.message.length > 4096 || Buffer.byteLength(message.error.message) > 4096)))) return false;
+    if (!call.snippetOperation && (call.virtual || call.editorOperation) && (hasResult === hasError || (hasResult && (!message.result ||
         !Number.isSafeInteger(message.result.document) || message.result.document <= 0 || (call.decoration && message.result.document !== call.expectedDocument) ||
         (Object.hasOwn(message.result,'editor') ? (!call.editorOperation || Object.keys(message.result).length !== (call.decoration ? 3 : 2) || (call.decoration && (typeof message.result.key !== 'string' || !message.result.key || message.result.key !== call.expectedKey)) || typeof message.result.editor !== 'string' || !message.result.editor || message.result.editor.length > 128 || Buffer.byteLength(message.result.editor) > 128 || (call.expectedEditor !== undefined && message.result.editor !== call.expectedEditor)) : (Object.keys(message.result).length !== 1 || call.expectedEditor !== undefined)))) ||
         (hasError && (!message.error || typeof message.error.message !== 'string'

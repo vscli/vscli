@@ -23,6 +23,7 @@ pub use folding::{
 pub(crate) mod graphemes;
 mod indentation;
 mod snippets;
+pub(crate) use snippets::SnippetOptions;
 mod typing;
 pub(crate) mod workspace;
 pub(crate) use workspace::{
@@ -155,6 +156,12 @@ impl Selection {
 struct Snapshot {
     history_identity: std::sync::Arc<()>,
     workspace_group: Option<std::sync::Arc<WorkspaceHistoryGroup>>,
+    api_history: Option<std::sync::Arc<()>>,
+    api_open: bool,
+    api_closed: bool,
+    api_owner: std::sync::Arc<()>,
+    api_language_epoch: u64,
+    api_saved_generation: u64,
     text: Rope,
     cursor: usize,
     anchor: Option<usize>,
@@ -1129,6 +1136,12 @@ impl Document {
         Snapshot {
             history_identity: std::sync::Arc::new(()),
             workspace_group: None,
+            api_history: None,
+            api_open: false,
+            api_closed: false,
+            api_owner: self.view.editor_owner.clone(),
+            api_language_epoch: self.language_epoch,
+            api_saved_generation: self.save_generation,
             text: self.text.clone(),
             cursor: self.cursor,
             anchor: self.anchor,
@@ -1143,7 +1156,16 @@ impl Document {
         }
     }
     fn checkpoint(&mut self) {
-        self.undo.push(self.snapshot());
+        let mut snapshot = self.snapshot();
+        if let Some(previous) = self.undo.last()
+            && previous.api_open
+            && self.api_history_current(previous, &snapshot.api_owner, self.active_view)
+            && self.api_group_changes(previous.api_history.as_ref()) < 4096
+        {
+            snapshot.api_history = previous.api_history.clone();
+            snapshot.api_open = true;
+        }
+        self.undo.push(snapshot);
         if self.undo.len() > HISTORY_LIMIT {
             self.undo.remove(0);
         }
@@ -1157,6 +1179,37 @@ impl Document {
     }
     pub fn break_group(&mut self) {
         self.typing = None;
+        if let Some(snapshot) = self.undo.last_mut() {
+            snapshot.api_open = false;
+            snapshot.api_closed = true;
+        }
+    }
+    fn api_history_current(
+        &self,
+        snapshot: &Snapshot,
+        owner: &std::sync::Arc<()>,
+        view: u64,
+    ) -> bool {
+        snapshot.workspace_group.is_none()
+            && snapshot.view_id == view
+            && std::sync::Arc::ptr_eq(&snapshot.api_owner, owner)
+            && snapshot.api_language_epoch == self.language_epoch
+            && snapshot.api_saved_generation == self.save_generation
+    }
+    fn api_group_changes(&self, group: Option<&std::sync::Arc<()>>) -> usize {
+        let Some(group) = group else {
+            return self.undo.last().map_or(0, |s| s.changes.len());
+        };
+        self.undo
+            .iter()
+            .rev()
+            .take_while(|s| {
+                s.api_history
+                    .as_ref()
+                    .is_some_and(|g| std::sync::Arc::ptr_eq(g, group))
+            })
+            .map(|s| s.changes.len())
+            .sum()
     }
     pub fn insert(&mut self, text: &str, typing: bool) {
         if self.is_read_only() {
@@ -1249,10 +1302,36 @@ impl Document {
             return;
         }
         self.break_group();
-        if let Some(s) = self.undo.pop() {
-            self.redo.push(self.reverse_snapshot(&s));
-            self.restore(s);
+        let Some(last) = self.undo.last() else {
+            return;
+        };
+        let count = last.api_history.as_ref().map_or(1, |group| {
+            self.undo
+                .iter()
+                .rev()
+                .take_while(|s| {
+                    s.api_history
+                        .as_ref()
+                        .is_some_and(|g| std::sync::Arc::ptr_eq(g, group))
+                })
+                .count()
+        });
+        let first = self.undo.len() - count;
+        let extra = self.undo[first + 1..].iter().map(|s| s.changes.len()).sum();
+        if self.undo[first].changes.try_reserve(extra).is_err() || self.redo.try_reserve(1).is_err()
+        {
+            return;
         }
+        let mut combined = self.undo.remove(first);
+        for later in self.undo.drain(first..) {
+            combined.changes.extend(later.changes);
+            combined.after_selections = later.after_selections;
+        }
+        if count > 1 {
+            combined.after_selections = None;
+        }
+        self.redo.push(self.reverse_snapshot(&combined));
+        self.restore(combined);
     }
     pub fn redo(&mut self) {
         if self.is_read_only() {
@@ -1282,6 +1361,12 @@ impl Document {
         Snapshot {
             history_identity: std::sync::Arc::new(()),
             workspace_group: target.workspace_group.clone(),
+            api_history: target.api_history.clone(),
+            api_open: false,
+            api_closed: true,
+            api_owner: view.editor_owner.clone(),
+            api_language_epoch: self.language_epoch,
+            api_saved_generation: self.save_generation,
             text: self.text.clone(),
             cursor: primary.map_or(view.cursor, |s| s.cursor),
             anchor: primary.map_or(view.anchor, |s| s.anchor),
@@ -1324,10 +1409,14 @@ impl Document {
             self.other_views.get_mut(&s.view_id)
         };
         if let Some(view) = view {
-            if view.pairs.generation == s.pairs.generation {
+            if std::sync::Arc::ptr_eq(&view.editor_owner, &s.api_owner)
+                && view.pairs.generation == s.pairs.generation
+            {
                 view.pairs = s.pairs;
             }
-            if view.snippet_generation == s.snippet_generation {
+            if std::sync::Arc::ptr_eq(&view.editor_owner, &s.api_owner)
+                && view.snippet_generation == s.snippet_generation
+            {
                 if let (Some(previous), Some(current)) = (&mut s.snippet, &view.snippet) {
                     previous.retain_removed_from(current);
                 }
@@ -1700,6 +1789,12 @@ impl Document {
         }
         self.checkpoint();
         self.break_group();
+        self.apply_ordered_changes_without_checkpoint(changes);
+    }
+    fn apply_ordered_changes_without_checkpoint(
+        &mut self,
+        changes: impl DoubleEndedIterator<Item = (Range<usize>, String, bool)> + ExactSizeIterator,
+    ) {
         for (r, text, force_move) in changes.rev() {
             let added = self.record_change(r.clone(), &text, force_move);
             self.cursor = map_position(self.cursor, &r, added);

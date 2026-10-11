@@ -6,6 +6,7 @@ mod debugger;
 mod editor_layout;
 mod extension_activation;
 mod extension_editor_presentation;
+mod extension_editor_snippets;
 mod extension_editor_state;
 mod extension_file_search;
 mod extension_management;

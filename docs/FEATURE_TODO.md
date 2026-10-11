@@ -65,9 +65,12 @@ selection routing and showTextDocument column/preserveFocus overloads.
 [Editor presentation](EDITOR_PRESENTATION_API.md) adds shared indentation and
 per-pane styles, measured UTF-16 visible ranges, scoped events and all four reveal
 modes. [Editor decorations](EDITOR_DECORATIONS_API.md) adds per-view range/type
-lifetimes, edit-aware UTF-16 markers and native colors/common styles. Rich
-decoration hover/attachments/CSS and `TextEditor.insertSnippet` remain editor API
-work. Selection source kinds,
+lifetimes, edit-aware UTF-16 markers and native colors/common styles.
+[Public editor snippet insertion](EDITOR_SNIPPETS_API.md) adds bounded overloads,
+options and an exact native view bridge; all 617 host and 1,279 Rust all-target
+tests, four actual selected-host/App workflows and four new terminal journeys pass.
+Rich decoration hover/attachments/CSS, snippet choice menus and command-driven nested-session
+merge remain editor API work. Selection source kinds,
 wrapping/folding range projection, preview tabs, sparse empty groups and broader
 upstream option/reveal fidelity remain outstanding. The full stable API order
 above remains active.

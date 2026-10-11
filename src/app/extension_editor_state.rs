@@ -4,11 +4,12 @@ use crate::extensions::{
     editor_state::{Capture, Change},
     services::{NativeService, Operation},
 };
-use anyhow::{Context as _, ensure};
+use anyhow::{Context as _, bail, ensure};
 
 pub(super) struct Completed {
     service: NativeService,
     result: Option<Result<Value, String>>,
+    clipboard: super::extension_editor_snippets::ClipboardState,
 }
 impl App {
     fn known_document_language(&self, host: &crate::extensions::Client, language: &str) -> bool {
@@ -142,6 +143,7 @@ impl App {
             "Editor state aggregate selection budget exceeded"
         );
         match &capture.change {
+            Change::Snippet(_) => bail!("Snippet service needs its retained insertion state"),
             Change::Language(language) => {
                 ensure!(
                     self.known_document_language(host, language),
@@ -235,6 +237,7 @@ impl App {
         self.extension_services.editor_state_completed = Some(Completed {
             service,
             result: None,
+            clipboard: Default::default(),
         });
         self.poll_editor_state_completion(host);
     }
@@ -260,7 +263,13 @@ impl App {
             let result =
                 host.service_valid(&done.service)
                     .and_then(|()| match &done.service.operation {
-                        Operation::EditorState(capture) => self.apply_editor_state(host, capture),
+                        Operation::EditorState(capture) => {
+                            if matches!(capture.change, Change::Snippet(_)) {
+                                self.apply_extension_snippet(host, capture, &mut done.clipboard)
+                            } else {
+                                self.apply_editor_state(host, capture)
+                            }
+                        }
                         _ => Err(anyhow::anyhow!("Invalid editor state service")),
                     });
             match result {

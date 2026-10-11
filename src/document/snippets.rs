@@ -151,6 +151,27 @@ impl ViewState {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct SnippetOptions {
+    pub undo_stop_before: bool,
+    pub undo_stop_after: bool,
+    pub keep_whitespace: bool,
+}
+impl Default for SnippetOptions {
+    fn default() -> Self {
+        Self {
+            undo_stop_before: true,
+            undo_stop_after: true,
+            keep_whitespace: false,
+        }
+    }
+}
+struct PreparedInsertion {
+    changes: Vec<(Range<usize>, String)>,
+    markers: Vec<Option<Placeholder>>,
+    final_cursors: Vec<Selection>,
+}
+
 impl Document {
     /// Validate and expand a completion against the original model, then commit
     /// its primary replacement and imports as one undoable transaction.
@@ -341,6 +362,194 @@ impl Document {
         })
     }
 
+    /// Public array insertion replaces an existing snippet session. Preparation
+    /// borrows the original source; no view or history changes precede admission.
+    #[allow(clippy::too_many_arguments)] // Separate source, mirror, and selection admission limits.
+    pub(crate) fn insert_editor_snippet_resolved(
+        &mut self,
+        proof: &EditorViewProof,
+        template: &Template,
+        selections: Vec<Selection>,
+        options: SnippetOptions,
+        max_bytes: usize,
+        max_selections: usize,
+        mut resolve: impl FnMut(
+            &Document,
+            &Selection,
+            usize,
+            &str,
+            Option<&str>,
+        ) -> Result<Option<String>>,
+    ) -> Result<()> {
+        self.ensure_writable()?;
+        anyhow::ensure!(
+            self.editor_view_current(proof),
+            "Snippet editor view retired"
+        );
+        anyhow::ensure!(
+            !selections.is_empty() && selections.len() <= 4096,
+            "Snippet selection count exceeds bounds"
+        );
+        anyhow::ensure!(
+            selections
+                .iter()
+                .all(|s| s.cursor <= self.len() && s.anchor.is_none_or(|a| a <= self.len())),
+            "Invalid snippet selection"
+        );
+        let mut fragments = crate::snippet::ApiFragments::default();
+        let PreparedInsertion {
+            changes,
+            markers,
+            final_cursors,
+        } = self.prepare_snippet_insertion(
+            false,
+            selections,
+            true,
+            max_bytes,
+            &mut |doc, selection, index, whitespace| {
+                let mut resolver =
+                    |name: &str, indent: Option<&str>| resolve(doc, selection, index, name, indent);
+                template.expand_api_fragment(
+                    &mut resolver,
+                    whitespace,
+                    options.keep_whitespace,
+                    &mut fragments,
+                )
+            },
+        )?;
+        let mut session = Session {
+            markers,
+            active: 0,
+            edited: false,
+        };
+        session.workspace_metadata()?;
+        let groups = session.groups();
+        let limit = max_selections.min(4096);
+        let mut counts = BTreeMap::new();
+        for marker in session.markers.iter().flatten() {
+            let count = counts.entry(marker.index).or_insert(0usize);
+            *count += 1;
+            anyhow::ensure!(
+                *count <= limit,
+                "Snippet placeholder selection budget exceeded"
+            );
+        }
+        let output = if let Some(first) = groups.first() {
+            session.active = *first;
+            session.selections()
+        } else {
+            final_cursors
+        };
+        anyhow::ensure!(
+            !output.is_empty() && output.len() <= limit,
+            "Snippet output selection budget exceeded"
+        );
+        self.next_revision
+            .checked_add(1)
+            .context("Snippet revision exhausted")?;
+        self.text_epoch
+            .checked_add(changes.len() as u64)
+            .context("Snippet text epoch exhausted")?;
+        let target = if proof.id == self.active_view {
+            &self.view
+        } else {
+            self.other_views
+                .get(&proof.id)
+                .context("Snippet editor view retired")?
+        };
+        anyhow::ensure!(
+            target.secondary.len() < 4096 && self.secondary.len() < 4096,
+            "Snippet retained view selection budget exceeded"
+        );
+        let next_generation = target
+            .snippet_generation
+            .checked_add(1)
+            .context("Snippet session generation exhausted")?;
+        let mut original = self.snapshot();
+        original.view_id = proof.id;
+        original.cursor = target.cursor;
+        original.anchor = target.anchor;
+        original.secondary = target.secondary.clone();
+        original.api_owner = target.editor_owner.clone();
+        original.snippet = target.snippet.clone();
+        original.snippet_generation = target.snippet_generation;
+        original.pairs = target.pairs.clone();
+        let join = !options.undo_stop_before
+            && self.undo.last().is_some_and(|s| {
+                !s.api_closed && self.api_history_current(s, &original.api_owner, proof.id)
+            });
+        let group = if join {
+            self.undo
+                .last()
+                .and_then(|s| s.api_history.clone())
+                .unwrap_or_else(|| std::sync::Arc::new(()))
+        } else {
+            std::sync::Arc::new(())
+        };
+        if join {
+            anyhow::ensure!(
+                self.api_group_changes(self.undo.last().and_then(|s| s.api_history.as_ref()))
+                    .checked_add(changes.len())
+                    .is_some_and(|n| n <= 4096),
+                "Snippet Undo group change budget exceeded"
+            );
+        }
+        self.undo
+            .try_reserve(1)
+            .context("Snippet Undo allocation failed")?;
+        original
+            .changes
+            .try_reserve(changes.len())
+            .context("Snippet history allocation failed")?;
+        self.byte_changes
+            .try_reserve(changes.len().min(257))
+            .context("Snippet journal allocation failed")?;
+        // Every fallible operation is above this point. The captured retained
+        // view is activated without a user navigation/history boundary.
+        let changed_source = !changes.is_empty();
+        let previous_boundary = self.undo.last().map(|s| (s.api_open, s.api_closed));
+        self.display_view(proof.id);
+        self.typing = None;
+        self.snippet = None;
+        self.snippet_generation = next_generation;
+        if changed_source {
+            if join {
+                if let Some(previous) = self.undo.last_mut() {
+                    previous.api_history = Some(group.clone());
+                }
+            } else if let Some(previous) = self.undo.last_mut() {
+                previous.api_open = false;
+                previous.api_closed = true;
+            }
+            self.undo.push(original);
+            if self.undo.len() > HISTORY_LIMIT {
+                self.undo.remove(0);
+            }
+            self.redo.clear();
+            self.apply_ordered_changes_without_checkpoint(
+                changes.into_iter().map(|(r, text)| (r, text, false)),
+            );
+        }
+        self.set_selections(output);
+        if !groups.is_empty() && session.active != 0 {
+            self.snippet = Some(session);
+        }
+        if changed_source && let Some(snapshot) = self.undo.last_mut() {
+            snapshot.api_history = Some(group);
+            snapshot.api_open = !options.undo_stop_after;
+            snapshot.api_closed = options.undo_stop_after;
+        } else if let Some(snapshot) = self.undo.last_mut() {
+            if options.undo_stop_before || options.undo_stop_after {
+                snapshot.api_open = false;
+                snapshot.api_closed = true;
+            } else if let Some((open, closed)) = previous_boundary {
+                snapshot.api_open = open;
+                snapshot.api_closed = closed;
+            }
+        }
+        Ok(())
+    }
+
     fn insert_snippet_inner(
         &mut self,
         user_command: bool,
@@ -348,13 +557,77 @@ impl Document {
     ) -> Result<()> {
         self.ensure_writable()?;
 
-        let mut selections: Vec<_> = self.selections().into_iter().enumerate().collect();
+        let PreparedInsertion {
+            changes,
+            markers,
+            final_cursors,
+        } = self.prepare_snippet_insertion(
+            user_command,
+            self.selections(),
+            false,
+            MAX_FILE_BYTES as usize,
+            &mut expand,
+        )?;
+        let original = self.snapshot();
+        self.cancel_snippet();
+        self.snippet_generation += 1;
+        self.apply_changes(changes);
+        if self.revision != original.revision {
+            self.replace_undo_snapshot(original);
+        }
+        let mut session = Session {
+            markers,
+            active: 0,
+            edited: false,
+        };
+        if let Some(first) = session.groups().first().copied() {
+            session.active = first;
+            self.set_selections(session.selections());
+            if first != 0 {
+                self.snippet = Some(session);
+            }
+        } else {
+            self.set_selections(final_cursors);
+        }
+        Ok(())
+    }
+
+    fn prepare_snippet_insertion(
+        &self,
+        user_command: bool,
+        selections: Vec<Selection>,
+        strict: bool,
+        maximum: usize,
+        expand: &mut impl FnMut(&Document, &Selection, usize, &Whitespace<'_>) -> Result<Expansion>,
+    ) -> Result<PreparedInsertion> {
+        let mut selections: Vec<_> = selections.into_iter().enumerate().collect();
         selections.sort_by_key(|(_, s)| s.range().start);
-        if !user_command {
+        if !user_command && !strict {
             for (index, (ordinal, _)) in selections.iter_mut().enumerate() {
                 *ordinal = index;
             }
         }
+        // Precompute the maximum admissible expansion from the original
+        // non-overlapping ranges, before resolving any variable/template.
+        let mut previous_end = 0;
+        let mut removed = 0usize;
+        for (_, selection) in &selections {
+            let range = selection.range();
+            anyhow::ensure!(
+                range.start >= previous_end && range.end <= self.len(),
+                "Overlapping or invalid snippet selections"
+            );
+            previous_end = range.end;
+            removed = removed
+                .checked_add(self.text.slice(range).len_bytes())
+                .context("Snippet source byte overflow")?;
+        }
+        let expansion_budget = maximum
+            .min(MAX_FILE_BYTES as usize)
+            .checked_add(removed)
+            .and_then(|n| n.checked_sub(self.text.len_bytes()))
+            .context("Snippet final document exceeds byte budget")?
+            .min(MAX_FILE_BYTES as usize);
         let mut end = 0;
         let mut shift = 0isize;
         let mut changes = Vec::new();
@@ -364,7 +637,8 @@ impl Document {
         let mut total_markers = 0usize;
         let mut model_offsets = Vec::new();
         let mut api_offset_delta = 0isize;
-        for (ordinal, selection) in selections {
+        for (file_index, (ordinal, selection)) in selections.into_iter().enumerate() {
+            let output_ordinal = if strict { file_index } else { ordinal };
             let range = selection.range();
             if range.start < end || range.end > self.len() {
                 bail!("Overlapping or invalid snippet selections");
@@ -385,14 +659,18 @@ impl Document {
                 &Whitespace {
                     leading: &leading,
                     eol: &self.eol,
-                    tab_size: self.tab_size,
+                    tab_size: if strict {
+                        self.indent_size()
+                    } else {
+                        self.tab_size
+                    },
                     insert_spaces: self.insert_spaces,
                     fragment_only: !user_command,
                 },
             )?;
             total_bytes = total_bytes.saturating_add(expanded.text.len());
-            if total_bytes > MAX_FILE_BYTES as usize {
-                bail!("Combined snippet expansion exceeds 32 MiB");
+            if total_bytes > expansion_budget {
+                bail!("Combined snippet expansion exceeds admitted final byte budget");
             }
             let start = range.start.saturating_add_signed(shift);
             let inserted = expanded.text.chars().count();
@@ -416,7 +694,7 @@ impl Document {
                     },
                     |offsets| offsets.ranges,
                 );
-                model_offsets.push((ordinal, start, api_offset_delta, offsets));
+                model_offsets.push((output_ordinal, start, api_offset_delta, offsets));
             }
             if !user_command {
                 api_offset_delta += raw_utf16 as isize - actual_utf16 as isize;
@@ -424,18 +702,32 @@ impl Document {
             for mut marker in expanded.placeholders {
                 marker.range.start += start;
                 marker.range.end += start;
-                marker_groups[ordinal].push(marker);
+                marker_groups[output_ordinal].push(marker);
                 total_markers += 1;
             }
             if total_markers > 10_000 {
                 bail!("Combined snippet expansion exceeds 10,000 markers");
             }
-            final_cursors[ordinal] = Selection::caret(start + inserted);
+            final_cursors[output_ordinal] = Selection::caret(start + inserted);
             shift += inserted as isize - range.len() as isize;
             if !range.is_empty() || !expanded.text.is_empty() {
                 changes.push((range, expanded.text));
             }
         }
+        let removed = changes
+            .iter()
+            .map(|(r, _)| self.text.slice(r.clone()).len_bytes())
+            .sum::<usize>();
+        let final_bytes = self
+            .text
+            .len_bytes()
+            .checked_sub(removed)
+            .and_then(|n| n.checked_add(total_bytes))
+            .context("Snippet result byte overflow")?;
+        anyhow::ensure!(
+            final_bytes <= maximum.min(MAX_FILE_BYTES as usize),
+            "Snippet final document exceeds byte budget"
+        );
         if !model_offsets.is_empty() {
             // Resolve the reference's post-normalization offsets against the
             // complete staged model, including unchanged text after a snippet.
@@ -453,8 +745,8 @@ impl Document {
                 }
             }
         }
-        // Offset calculation follows file order, but sessions follow the
-        // original selection order so the user's primary cursor stays primary.
+        // Public array sessions follow file order. User commands preserve
+        // their original primary selection independently of resolver ordinals.
         let mut markers = Vec::with_capacity(total_markers);
         for group in marker_groups {
             let base_id = markers.len();
@@ -465,28 +757,28 @@ impl Document {
                 markers.push(Some(marker));
             }
         }
-        let original = self.snapshot();
-        self.cancel_snippet();
-        self.snippet_generation += 1;
-        self.apply_changes(changes);
-        if self.revision != original.revision {
-            self.replace_undo_snapshot(original);
+        if strict && !markers.is_empty() && !markers.iter().flatten().any(|m| m.index == 0) {
+            let end = final_cursors
+                .last()
+                .context("Snippet requires a target")?
+                .cursor;
+            anyhow::ensure!(
+                markers.len() < 10_000,
+                "Combined snippet expansion exceeds 10,000 markers"
+            );
+            markers.push(Some(Placeholder {
+                index: 0,
+                range: end..end,
+                choices: Vec::new(),
+                transform: None,
+                parents: Vec::new(),
+            }));
         }
-        let mut session = Session {
+        Ok(PreparedInsertion {
+            changes,
             markers,
-            active: 0,
-            edited: false,
-        };
-        if let Some(first) = session.groups().first().copied() {
-            session.active = first;
-            self.set_selections(session.selections());
-            if first != 0 {
-                self.snippet = Some(session);
-            }
-        } else {
-            self.set_selections(final_cursors);
-        }
-        Ok(())
+            final_cursors,
+        })
     }
 
     pub fn step_snippet(&mut self, backwards: bool) -> Result<bool> {
@@ -780,5 +1072,571 @@ mod tests {
         assert_eq!(doc.text.to_string(), "cat cat");
         doc.undo();
         assert_eq!(doc.text.to_string(), "x x");
+    }
+}
+
+#[cfg(test)]
+mod editor_snippet_tests {
+    use super::*;
+
+    fn insert(
+        doc: &mut Document,
+        template: &str,
+        selections: Vec<Selection>,
+        options: SnippetOptions,
+    ) -> Result<()> {
+        let proof = doc.editor_view_identity();
+        doc.insert_editor_snippet_resolved(
+            &proof,
+            &Template::parse(template)?,
+            selections,
+            options,
+            4 * 1024 * 1024,
+            4096,
+            |_, _, _, _, _| Ok(None),
+        )
+    }
+
+    #[test]
+    fn explicit_ranges_link_unicode_fields_and_keep_shared_crlf_views() {
+        let mut doc = Document::from_text("cat 猫\r\ncat 🙂\r\n");
+        doc.activate_view(1);
+        doc.move_to(doc.len(), false);
+        let sibling = doc.selections();
+        doc.activate_view(2);
+        doc.display_view(1);
+        let proof = doc.editor_view_identity_for(2).unwrap();
+        let second = doc.line_start(1);
+        let id = doc.id;
+        doc.insert_editor_snippet_resolved(
+            &proof,
+            &Template::parse("${1:犬}-$1-${2:🙂}$0").unwrap(),
+            vec![
+                Selection {
+                    cursor: 3,
+                    anchor: Some(0),
+                    desired_column: None,
+                },
+                Selection {
+                    cursor: second,
+                    anchor: Some(second + 3),
+                    desired_column: None,
+                },
+            ],
+            SnippetOptions::default(),
+            4096,
+            4096,
+            |_, _, _, _, _| Ok(None),
+        )
+        .unwrap();
+        assert_eq!(doc.active_view, 2);
+        assert_eq!(doc.id, id);
+        assert_eq!(doc.text.to_string(), "犬-犬-🙂 猫\r\n犬-犬-🙂 🙂\r\n");
+        assert_eq!(doc.selections().len(), 4);
+        doc.insert("x", true);
+        assert_eq!(doc.text.to_string(), "x-x-🙂 猫\r\nx-x-🙂 🙂\r\n");
+        doc.step_snippet(false).unwrap();
+        assert_eq!(doc.selections().len(), 2);
+        doc.display_view(1);
+        assert!(!doc.in_snippet());
+        assert_eq!(doc.cursor, doc.len());
+        doc.display_view(2);
+        doc.undo();
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "cat 猫\r\ncat 🙂\r\n");
+        doc.display_view(1);
+        assert_eq!(doc.selections(), sibling);
+        doc.redo();
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "x-x-🙂 猫\r\nx-x-🙂 🙂\r\n");
+    }
+
+    #[test]
+    fn keep_whitespace_preserves_fragment_and_model_eol() {
+        for (keep, expected) in [
+            (false, "  first\r\n    childtail\r\n"),
+            (true, "  first\r\n  childtail\r\n"),
+        ] {
+            let mut doc = Document::from_text("  tail\r\n");
+            doc.activate_view(1);
+            insert(
+                &mut doc,
+                "first\n  child$0",
+                vec![Selection::caret(2)],
+                SnippetOptions {
+                    keep_whitespace: keep,
+                    ..SnippetOptions::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(doc.text.to_string(), expected);
+            assert_eq!(doc.cursor, if keep { 16 } else { 18 });
+            doc.undo();
+            assert_eq!(doc.text.to_string(), "  tail\r\n");
+            doc.redo();
+            assert_eq!(doc.text.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn all_undo_stop_combinations_have_explicit_source_owned_boundaries() {
+        for before in [false, true] {
+            for after in [false, true] {
+                let mut doc = Document::from_text("base");
+                doc.activate_view(1);
+                doc.move_to(4, false);
+                doc.insert("P", true);
+                insert(
+                    &mut doc,
+                    "A",
+                    vec![Selection::caret(5)],
+                    SnippetOptions {
+                        undo_stop_before: before,
+                        undo_stop_after: after,
+                        keep_whitespace: false,
+                    },
+                )
+                .unwrap();
+                doc.insert("B", true);
+                assert_eq!(doc.text.to_string(), "basePAB");
+                assert_eq!(doc.cursor, 7);
+                doc.undo();
+                let expected = match (before, after) {
+                    (_, true) => "basePA",
+                    (true, false) => "baseP",
+                    (false, false) => "base",
+                };
+                assert_eq!(doc.text.to_string(), expected);
+                doc.redo();
+                assert_eq!(doc.text.to_string(), "basePAB");
+                assert_eq!(doc.cursor, 7);
+            }
+        }
+    }
+
+    #[test]
+    fn adjacent_open_api_group_and_native_typing_redo_restores_actual_final_caret() {
+        let mut doc = Document::from_text("  tail\r\n");
+        doc.activate_view(1);
+        doc.move_to(2, false);
+        doc.activate_view(2);
+        doc.move_to(doc.len(), false);
+        doc.activate_view(1);
+        let options = SnippetOptions {
+            undo_stop_before: false,
+            undo_stop_after: false,
+            keep_whitespace: false,
+        };
+        insert(&mut doc, "A", vec![Selection::caret(2)], options).unwrap();
+        insert(&mut doc, "B", vec![Selection::caret(3)], options).unwrap();
+        doc.insert("C", true);
+        assert_eq!(doc.text.to_string(), "  ABCtail\r\n");
+        assert_eq!(doc.cursor, 5);
+        doc.display_view(2);
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "  tail\r\n");
+        assert_eq!(doc.active_view, 2);
+        assert_eq!(doc.cursor, doc.len());
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "  ABCtail\r\n");
+        assert_eq!(doc.cursor, doc.len());
+        doc.display_view(1);
+        assert_eq!(doc.cursor, 5);
+    }
+
+    #[test]
+    fn late_resolution_budget_overlap_and_retired_view_refuse_without_effects() {
+        let mut doc = Document::from_text("猫🙂\r\nline\r\n");
+        doc.activate_view(1);
+        doc.move_to(1, true);
+        doc.insert("!", false);
+        doc.undo();
+        doc.activate_view(2);
+        let proof = doc.editor_view_identity_for(1).unwrap();
+        let state = (
+            doc.text.clone(),
+            doc.selections(),
+            doc.revision,
+            doc.text_epoch,
+            doc.save_generation,
+            doc.undo.len(),
+            doc.redo.len(),
+            doc.active_view,
+        );
+        let selections = vec![Selection::caret(0), Selection::caret(3)];
+        assert!(
+            doc.insert_editor_snippet_resolved(
+                &proof,
+                &Template::parse("$VALUE").unwrap(),
+                selections.clone(),
+                SnippetOptions::default(),
+                4096,
+                4096,
+                |_, _, index, _, _| {
+                    if index == 1 {
+                        bail!("late failure")
+                    }
+                    Ok(Some("x".into()))
+                }
+            )
+            .is_err()
+        );
+        assert!(
+            doc.insert_editor_snippet_resolved(
+                &proof,
+                &Template::parse("longlong").unwrap(),
+                selections.clone(),
+                SnippetOptions::default(),
+                4,
+                4096,
+                |_, _, _, _, _| Ok(None)
+            )
+            .is_err()
+        );
+        assert!(
+            doc.insert_editor_snippet_resolved(
+                &proof,
+                &Template::parse("$1-$1-$2-$2").unwrap(),
+                selections,
+                SnippetOptions::default(),
+                4096,
+                2,
+                |_, _, _, _, _| Ok(None)
+            )
+            .is_err()
+        );
+        assert!(
+            doc.insert_editor_snippet_resolved(
+                &proof,
+                &Template::parse("x").unwrap(),
+                vec![
+                    Selection {
+                        cursor: 3,
+                        anchor: Some(0),
+                        desired_column: None
+                    },
+                    Selection {
+                        cursor: 4,
+                        anchor: Some(2),
+                        desired_column: None
+                    }
+                ],
+                SnippetOptions::default(),
+                4096,
+                4096,
+                |_, _, _, _, _| Ok(None)
+            )
+            .is_err()
+        );
+        assert_eq!(
+            (
+                doc.text.clone(),
+                doc.selections(),
+                doc.revision,
+                doc.text_epoch,
+                doc.save_generation,
+                doc.undo.len(),
+                doc.redo.len(),
+                doc.active_view
+            ),
+            state
+        );
+        doc.redo();
+        assert!(doc.text.to_string().contains('!'));
+        doc.remove_view(1);
+        doc.display_view(1);
+        assert!(
+            doc.insert_editor_snippet_resolved(
+                &proof,
+                &Template::parse("x").unwrap(),
+                vec![Selection::caret(0)],
+                SnippetOptions::default(),
+                4096,
+                4096,
+                |_, _, _, _, _| Ok(None)
+            )
+            .is_err()
+        );
+        let mut virtual_doc = Document::from_virtual("readonly:test".into(), "猫").unwrap();
+        virtual_doc.activate_view(1);
+        assert!(
+            insert(
+                &mut virtual_doc,
+                "x",
+                vec![Selection::caret(0)],
+                SnippetOptions::default()
+            )
+            .is_err()
+        );
+        assert_eq!(virtual_doc.text.to_string(), "猫");
+    }
+
+    #[test]
+    fn duplicate_empty_insertions_and_original_variable_ordinals_are_admitted() {
+        let mut doc = Document::from_text("abcd");
+        doc.activate_view(1);
+        let proof = doc.editor_view_identity();
+        doc.insert_editor_snippet_resolved(
+            &proof,
+            &Template::parse("$INDEX").unwrap(),
+            vec![
+                Selection::caret(3),
+                Selection::caret(0),
+                Selection::caret(0),
+            ],
+            SnippetOptions::default(),
+            4096,
+            4096,
+            |_, _, index, _, _| Ok(Some(index.to_string())),
+        )
+        .unwrap();
+        assert_eq!(doc.text.to_string(), "12abc0d");
+        assert_eq!(
+            doc.selections(),
+            vec![
+                Selection::caret(1),
+                Selection::caret(2),
+                Selection::caret(6)
+            ]
+        );
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "abcd");
+    }
+
+    #[test]
+    fn reversed_input_resolves_original_indices_but_shares_file_first_defaults() {
+        let mut doc = Document::from_text("abcd");
+        doc.activate_view(1);
+        let proof = doc.editor_view_identity();
+        doc.insert_editor_snippet_resolved(
+            &proof,
+            &Template::parse("${1:$CURSOR_INDEX}-$CURSOR_INDEX").unwrap(),
+            vec![Selection::caret(3), Selection::caret(0)],
+            SnippetOptions::default(),
+            4096,
+            4096,
+            |_, _, index, _, _| Ok(Some(index.to_string())),
+        )
+        .unwrap();
+        assert_eq!(doc.text.to_string(), "1-1abc1-0d");
+        assert_eq!(
+            doc.selections(),
+            vec![
+                Selection {
+                    cursor: 1,
+                    anchor: Some(0),
+                    desired_column: None
+                },
+                Selection {
+                    cursor: 7,
+                    anchor: Some(6),
+                    desired_column: None
+                }
+            ]
+        );
+        doc.step_snippet(false).unwrap();
+        // Array fragments form one snippet, with a single implicit final stop.
+        assert_eq!(
+            doc.selections(),
+            vec![Selection {
+                cursor: 9,
+                anchor: Some(9),
+                desired_column: None
+            }]
+        );
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "abcd");
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "1-1abc1-0d");
+    }
+
+    #[test]
+    fn language_save_and_view_boundaries_do_not_join_prior_history() {
+        for boundary in 0..3 {
+            let mut doc = Document::from_text("base");
+            doc.activate_view(1);
+            doc.move_to(4, false);
+            let options = SnippetOptions {
+                undo_stop_before: false,
+                undo_stop_after: false,
+                keep_whitespace: false,
+            };
+            insert(&mut doc, "A", vec![Selection::caret(4)], options).unwrap();
+            match boundary {
+                0 => {
+                    doc.set_language_override(Some("cpp".into())).unwrap();
+                }
+                1 => {
+                    doc.save_generation += 1;
+                }
+                _ => {
+                    doc.activate_view(2);
+                    doc.activate_view(1);
+                }
+            }
+            insert(&mut doc, "B", vec![Selection::caret(5)], options).unwrap();
+            doc.undo();
+            assert_eq!(doc.text.to_string(), "baseA");
+            doc.undo();
+            assert_eq!(doc.text.to_string(), "base");
+        }
+    }
+}
+
+#[cfg(test)]
+mod editor_snippet_admission_tests {
+    use super::*;
+    fn api(doc: &mut Document, text: &str, options: SnippetOptions) -> Result<()> {
+        let proof = doc.editor_view_identity();
+        let selections = doc.selections();
+        doc.insert_editor_snippet_resolved(
+            &proof,
+            &Template::parse(text)?,
+            selections,
+            options,
+            4096,
+            4096,
+            |_, _, _, _, _| Ok(None),
+        )
+    }
+    #[test]
+    fn empty_snippet_applies_undo_stops_without_creating_history() {
+        for stops in [false, true] {
+            let mut doc = Document::from_text("base");
+            doc.activate_view(1);
+            doc.move_to(4, false);
+            let open = SnippetOptions {
+                undo_stop_before: false,
+                undo_stop_after: false,
+                keep_whitespace: false,
+            };
+            api(&mut doc, "A", open).unwrap();
+            let epoch = doc.text_epoch;
+            let revision = doc.revision;
+            let count = doc.undo.len();
+            api(
+                &mut doc,
+                "",
+                SnippetOptions {
+                    undo_stop_before: stops,
+                    undo_stop_after: stops,
+                    keep_whitespace: false,
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                (doc.text_epoch, doc.revision, doc.undo.len()),
+                (epoch, revision, count)
+            );
+            doc.insert("B", true);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), if stops { "baseA" } else { "base" });
+        }
+    }
+    #[test]
+    fn expanded_byte_admission_stops_before_next_variable_resolution() {
+        let mut doc = Document::from_text("abcd");
+        doc.activate_view(1);
+        let proof = doc.editor_view_identity();
+        let original = (
+            doc.text.clone(),
+            doc.selections(),
+            doc.revision,
+            doc.text_epoch,
+            doc.undo.len(),
+        );
+        let mut resolved = 0;
+        assert!(
+            doc.insert_editor_snippet_resolved(
+                &proof,
+                &Template::parse("$VALUE").unwrap(),
+                vec![Selection::caret(0), Selection::caret(4)],
+                SnippetOptions::default(),
+                5,
+                4096,
+                |_, _, _, _, _| {
+                    resolved += 1;
+                    Ok(Some("xx".into()))
+                }
+            )
+            .is_err()
+        );
+        assert_eq!(resolved, 1);
+        assert_eq!(
+            (
+                doc.text.clone(),
+                doc.selections(),
+                doc.revision,
+                doc.text_epoch,
+                doc.undo.len()
+            ),
+            original
+        );
+    }
+    #[test]
+    fn counter_exhaustion_refuses_before_source_view_or_history_publication() {
+        for counter in 0..3 {
+            let mut doc = Document::from_text("猫\r\n");
+            doc.activate_view(1);
+            doc.activate_view(2);
+            let proof = doc.editor_view_identity_for(1).unwrap();
+            match counter {
+                0 => doc.next_revision = u64::MAX,
+                1 => doc.text_epoch = u64::MAX,
+                _ => doc.other_views.get_mut(&1).unwrap().snippet_generation = u64::MAX,
+            }
+            let original = (
+                doc.text.clone(),
+                doc.selections(),
+                doc.revision,
+                doc.text_epoch,
+                doc.save_generation,
+                doc.active_view,
+                doc.undo.len(),
+                doc.redo.len(),
+            );
+            assert!(
+                doc.insert_editor_snippet_resolved(
+                    &proof,
+                    &Template::parse("${1:x}").unwrap(),
+                    vec![Selection::caret(0)],
+                    SnippetOptions::default(),
+                    4096,
+                    4096,
+                    |_, _, _, _, _| Ok(None)
+                )
+                .is_err()
+            );
+            assert_eq!(
+                (
+                    doc.text.clone(),
+                    doc.selections(),
+                    doc.revision,
+                    doc.text_epoch,
+                    doc.save_generation,
+                    doc.active_view,
+                    doc.undo.len(),
+                    doc.redo.len()
+                ),
+                original
+            );
+        }
+    }
+    #[test]
+    fn public_array_insert_replaces_previous_session_without_nested_merge() {
+        let mut doc = Document::default();
+        doc.activate_view(1);
+        api(&mut doc, "${1:outer}-${2:end}$0", SnippetOptions::default()).unwrap();
+        api(
+            &mut doc,
+            "${1:inner}-${2:next}$0",
+            SnippetOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(doc.text.to_string(), "inner-next-end");
+        doc.step_snippet(false).unwrap();
+        assert_eq!(doc.selected_text().as_deref(), Some("next"));
+        doc.step_snippet(false).unwrap();
+        assert_eq!(doc.selection(), None);
     }
 }

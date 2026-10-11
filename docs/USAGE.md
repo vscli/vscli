@@ -219,7 +219,16 @@ rollback and removal are reflected on the next invocation. Contributed paths
 must remain inside the package. User, workspace and installed files share the
 128-file, 4096-snippet and 16 MiB read limits; warnings leave valid catalogs usable.
 
-Choice menus, nested snippet merging and extension API insertion are still unfinished.
+Enabled extensions can call `await editor.insertSnippet(new vscode.SnippetString(template), where, options)`
+through the native parser. Omitted/falsy `where` or `[]` uses that editor's private
+selections; explicit positions/ranges and arrays are supported. Successful native
+insertion focuses the addressed pane and leaves files unsaved. Omitted options
+default both undo flags true; `{keepWhitespace: true}` leaves omitted undo flags
+false, so specify them explicitly when needed. Host/native tests and four new
+terminal journeys pass. See [editor snippets](EDITOR_SNIPPETS_API.md) for limits
+and the separately scoped evidence.
+
+Choice menus and command-driven nested snippet merging remain unfinished.
 Completion snippets use native linked fields; see [IntelliSense](COMPLETIONS.md). Unsupported regex
 constructs fail explicitly. See [snippet evidence and limits](SNIPPETS.md).
 

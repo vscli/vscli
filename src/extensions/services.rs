@@ -177,7 +177,10 @@ impl Client {
             bail!("Native extension service queue limit reached");
         }
         let payload_bytes = serde_json::to_vec(&params)?.len();
-        let limit = if matches!(method, "nativeEditorSelections" | "nativeEditorDecorations") {
+        let limit = if matches!(
+            method,
+            "nativeEditorSelections" | "nativeEditorDecorations" | "nativeEditorInsertSnippet"
+        ) {
             1024 * 1024
         } else if matches!(
             method,
@@ -222,7 +225,8 @@ impl Client {
             | "nativeEditorSelections"
             | "nativeEditorOptions"
             | "nativeEditorReveal"
-            | "nativeEditorDecorations" => {
+            | "nativeEditorDecorations"
+            | "nativeEditorInsertSnippet" => {
                 let capture =
                     self.capture_editor_operation(&request.args, method, documents, hidden)?;
                 request.args = Value::Null;

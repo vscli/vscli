@@ -15,6 +15,7 @@ const { createFileWatchers } = require('./file-watchers.cjs');
 const { createTextContentProviders } = require('./text-content-providers.cjs');
 const editorPresentation = require('./editor-presentation.cjs');
 const {createEditorDecorations} = require('./editor-decorations.cjs');
+const {createEditorSnippets} = require('./editor-snippets.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
@@ -144,6 +145,10 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
     captureEditor:(owner,document,base)=>documentServices.editorServiceSource(owner,document,base,'editorDecorations'),
     diagnostic:(owner,error)=>notify('message',{session:sessionOptions.session,owner,text:`Editor decorations update failed: ${String(error.message || error).slice(0,1024)}`}),
+  });
+  const editorSnippets = createEditorSnippets({
+    enabled:sessionOptions.editorSnippets===true,call:documentServices.call,
+    captureEditor:(owner,document,base)=>documentServices.editorServiceSource(owner,document,base,'editorSnippets'),
   });
   function track(owner, disposable) {
     try { assertOwner(owner); } catch (error) { disposable.dispose(); throw error; }
@@ -397,6 +402,10 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       ownerGuard(); documentServices.setEditorOptions(owner || callers.currentOwner(),document,value,field,original());
     });
     result = supported('TextEditor', {
+      insertSnippet(snippet,where,options) {
+        try {ownerGuard();return editorSnippets.insertSnippet(owner || callers.currentOwner(),document,original(),snippet,where,options);}
+        catch(error) {return Promise.reject(error);}
+      },
       document, get viewColumn() { return privateState.viewColumn; }, _selections: [new Selection(0, 0, 0, 0)],
       get options() { return optionValues; },
       set options(value) { ownerGuard(); documentServices.setEditorOptions(owner || callers.currentOwner(),document,value,undefined,original()); },

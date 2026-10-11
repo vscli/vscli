@@ -41,6 +41,7 @@ pub mod settings;
 pub mod settings_write;
 pub mod settings_writer;
 pub mod snippet;
+pub(crate) mod snippet_clipboard;
 pub mod suggestions;
 pub mod symbols;
 pub mod syntax;

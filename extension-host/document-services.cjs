@@ -16,7 +16,7 @@ function createDocumentServices(request, options, model) {
     pending++; queuedBytes += bytes;
     let released = false;
     const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; } };
-    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
+    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
     try { return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
     finally { if (!lifecycle?.retained) release(); }
   }

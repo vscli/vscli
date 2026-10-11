@@ -442,6 +442,10 @@ impl Client {
                 "editor-decorations.cjs",
                 include_str!("../extension-host/editor-decorations.cjs"),
             ),
+            (
+                "editor-snippets.cjs",
+                include_str!("../extension-host/editor-snippets.cjs"),
+            ),
             ("memento.cjs", include_str!("../extension-host/memento.cjs")),
             (
                 "surfaces.cjs",
@@ -542,7 +546,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -1036,7 +1040,8 @@ impl Client {
                     | "nativeEditorSelections"
                     | "nativeEditorOptions"
                     | "nativeEditorReveal"
-                    | "nativeEditorDecorations" => {
+                    | "nativeEditorDecorations"
+                    | "nativeEditorInsertSnippet" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_service_with_models(

@@ -116,6 +116,17 @@ edits and Undo/Redo without creating history entries or changing saved bytes.
 Hover/attachments, gutter images, overview rulers and richer CSS remain display
 gaps. See [decoration behavior, bounds and evidence](EDITOR_DECORATIONS_API.md).
 
+`TextEditor.insertSnippet(snippet, where?, options?)` targets the exact visible
+editor, including an inactive shared pane, and native insertion focuses that pane.
+Omitted/falsy locations or `[]` use its private selections; positions/ranges and
+arrays supply explicit targets. Omitted options default both undo flags true;
+when an options object is supplied, missing flags are false. `keepWhitespace`
+defaults false. The guarded native receipt follows mirror/events; the host never
+inserts simulated text. Seventeen focused host cases, all 617 host tests, 1,279
+Rust all-target tests, four actual selected-host/App workflows and four new
+terminal journeys pass. See [editor snippets](EDITOR_SNIPPETS_API.md)
+for byte/range/mirror limits, clipboard workers and remaining choice/nesting gaps.
+
 `workspace.openTextDocument(pathOrFileUri)` reads an existing regular UTF-8 file on a bounded native worker. It returns the same shared document object already retained for that path, including dirty or deleted backing files. Opening a new model alone creates no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden models share the host's existing 4 MiB total mirror budget with visible tabs. Models remain native-owned after host stop or failure. Showing or natively opening one moves its Document identity and undo history into the tab store; native watching and settings also include retained hidden models. Dirty hidden models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean hidden models are excluded from clean-session layout metadata.
 
 `window.showTextDocument(documentOrFile, options)` and its positional view-column
@@ -252,6 +263,7 @@ The API reference target for this initial experiment is VS Code 1.95.0; the expo
 - Command registration/disposal/execution, contribution titles in the native palette, single-message notifications without choices, and the bounded native Quick Pick/Input Box subset described above.
 - Visible/active editors with shared documents and independent pane handles; selection setters/events, resolved options/events, measured visible ranges/events and native revealRange. Synchronous document text, lines, UTF-16 position/offset conversion, ranges, URIs and document lifecycle/change events.
 - `TextEditor.edit` replace/insert/delete on open native buffers. Rust validates identity, version, UTF-16 boundaries, overlapping ranges, the 4,096-edit count limit, and size before one native undoable transaction. Stale requests resolve `false`; malformed transactions reject without partial changes.
+- `TextEditor.insertSnippet` has a private view-specific native bridge with retained acknowledgement and source/caller guards. Host/native and four new terminal workflows pass; see [the separate API contract](EDITOR_SNIPPETS_API.md).
 - A single workspace folder and configuration reads from extension-declared defaults, imported user settings, and workspace `.vscode/settings.json`, including language overrides, `inspect`, and live change events.
 
 Document versions increase across edits and undo/redo observations. Native text epochs detect intervening text changes even when edit followed by undo restores the same revision before one host poll; stale extension edits reject and the next mirror publishes a new version. Cursor-only updates still reuse cached text. State generations reject outdated document notifications. All mirrors are updated before document event callbacks run. Protocol v4 tags command registries and edits with their session and package owner and sends document text only for new or changed document revisions; selection, dirty-state, and path updates reuse cached text. Ordered state notifications precede edit acknowledgements, and the native baseline advances only after a message is queued successfully. Changed text still uses full snapshots rather than edit deltas; the total mirrored text budget is 4 MiB, transport frames are limited to 16 MiB, and pending requests and concurrent shim command calls are capped at 64 with a 30-second native timeout. An idle host receives a heartbeat every five seconds; a missing reply uses the same timeout. One process failure, stalled callback or timeout stops the entire selected cohort; restart remains explicit. Crossing a host limit stops or rejects extension work while preserving native buffers.

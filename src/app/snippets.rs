@@ -39,6 +39,10 @@ impl App {
             }
         };
         if template.uses_variable("CLIPBOARD") {
+            if crate::snippet_clipboard::Worker::occupied() {
+                self.message = "A snippet clipboard worker is still occupied".into();
+                return;
+            }
             let (sender, receiver) = mpsc::sync_channel(1);
             let pending = Pending {
                 receiver,

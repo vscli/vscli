@@ -1,0 +1,106 @@
+{
+ "publisher": "fixture",
+ "name": "editor-snippets",
+ "version": "1.0.0",
+ "main": "extension.cjs",
+ "contributes": {
+  "commands": [
+   {
+    "command": "editorSnippets.linked",
+    "title": "Editor snippets linked builder"
+   },
+   {
+    "command": "editorSnippets.typed",
+    "title": "Editor snippets verify linked typing"
+   },
+   {
+    "command": "editorSnippets.field2",
+    "title": "Editor snippets verify second field"
+   },
+   {
+    "command": "editorSnippets.back",
+    "title": "Editor snippets verify back field"
+   },
+   {
+    "command": "editorSnippets.escaped",
+    "title": "Editor snippets verify escaped field"
+   },
+   {
+    "command": "editorSnippets.q",
+    "title": "Editor snippets verify single field typing"
+   },
+   {
+    "command": "editorSnippets.textTyped",
+    "title": "Editor snippets verify typed history"
+   },
+   {
+    "command": "editorSnippets.expanded",
+    "title": "Editor snippets verify expansion history"
+   },
+   {
+    "command": "editorSnippets.dirty",
+    "title": "Editor snippets verify dirty history"
+   },
+   {
+    "command": "editorSnippets.clean",
+    "title": "Editor snippets verify clean history"
+   },
+   {
+    "command": "editorSnippets.inactive",
+    "title": "Editor snippets inactive range"
+   },
+   {
+    "command": "editorSnippets.first",
+    "title": "Editor snippets show first pane"
+   },
+   {
+    "command": "editorSnippets.overloads",
+    "title": "Editor snippets location overloads"
+   },
+   {
+    "command": "editorSnippets.arrayUndo",
+    "title": "Editor snippets verify array undo"
+   },
+   {
+    "command": "editorSnippets.arrayFinal",
+    "title": "Editor snippets verify array final"
+   },
+   {
+    "command": "editorSnippets.reentrant",
+    "title": "Editor snippets reentrant source"
+   },
+   {
+    "command": "editorSnippets.retiredReadonly",
+    "title": "Editor snippets retired and readonly"
+   },
+   {
+    "command": "editorSnippets.optionsPrepare",
+    "title": "Editor snippets prepare options"
+   },
+   {
+    "command": "editorSnippets.optionsDefault",
+    "title": "Editor snippets default whitespace"
+   },
+   {
+    "command": "editorSnippets.optionsInitial",
+    "title": "Editor snippets verify options initial"
+   },
+   {
+    "command": "editorSnippets.optionsKeep",
+    "title": "Editor snippets keep whitespace"
+   },
+   {
+    "command": "editorSnippets.optionsGrouped",
+    "title": "Editor snippets false undo stops"
+   },
+   {
+    "command": "editorSnippets.optionsTyped",
+    "title": "Editor snippets verify options typing"
+   },
+   {
+    "command": "editorSnippets.optionsOriginal",
+    "title": "Editor snippets restore protected original"
+   }
+  ]
+ }
+}

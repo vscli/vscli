@@ -88,7 +88,27 @@ struct DecorationsArgs {
     key: String,
     decorations: Vec<crate::decorations::DecorationInput>,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct SnippetArgs {
+    document: u64,
+    version: u64,
+    editor: String,
+    snippet: String,
+    ranges: Vec<lsp::Range>,
+    undo_stop_before: bool,
+    undo_stop_after: bool,
+    keep_whitespace: bool,
+}
+pub(crate) struct Snippet {
+    pub(crate) template: crate::snippet::Template,
+    pub(crate) ranges: Vec<lsp::Range>,
+    pub(crate) options: crate::document::SnippetOptions,
+    pub(crate) source_current: bool,
+    pub(crate) original_selections: Vec<Selection>,
+}
 pub(crate) enum Change {
+    Snippet(Snippet),
     Language(String),
     Selections(Vec<EditorSelection>),
     Options(crate::document::EditorOptionsPatch),
@@ -226,7 +246,33 @@ impl Client {
             .clone()
             .context("Editor state context unavailable")?;
         let language = method == "nativeDocumentLanguage";
-        let (document, version, change, editor) = if method == "nativeEditorDecorations" {
+        let snippet = method == "nativeEditorInsertSnippet";
+        let (document, version, mut change, editor) = if snippet {
+            let args: SnippetArgs = serde_json::from_value(args.clone())?;
+            ensure!(
+                args.snippet.len() <= 64 * 1024
+                    && !args.ranges.is_empty()
+                    && args.ranges.len() <= 4096,
+                "Snippet source or range count exceeds bounds"
+            );
+            let template = crate::snippet::Template::parse(&args.snippet)?;
+            (
+                args.document,
+                args.version,
+                Change::Snippet(Snippet {
+                    template,
+                    ranges: args.ranges,
+                    options: crate::document::SnippetOptions {
+                        undo_stop_before: args.undo_stop_before,
+                        undo_stop_after: args.undo_stop_after,
+                        keep_whitespace: args.keep_whitespace,
+                    },
+                    source_current: false,
+                    original_selections: Vec::new(),
+                }),
+                Some(args.editor),
+            )
+        } else if method == "nativeEditorDecorations" {
             let args: DecorationsArgs = serde_json::from_value(args.clone())?;
             ensure!(
                 args.decorations.len() <= 4096,
@@ -301,8 +347,9 @@ impl Client {
             .chain(hidden)
             .find(|doc| doc.id == document)
             .context("Editor state document is not retained")?;
+        ensure!(version != 0, "Invalid snippet/document version");
         ensure!(
-            version != 0 && self.service_document_current(doc, version),
+            snippet || self.service_document_current(doc, version),
             "Editor state source changed before receipt"
         );
         let mirror = self
@@ -311,7 +358,7 @@ impl Client {
             .get(&document)
             .context("Editor model is not mirrored")?;
         ensure!(
-            mirror.language_epoch == doc.language_epoch(),
+            snippet || mirror.language_epoch == doc.language_epoch(),
             "Original mirrored document language changed before receipt"
         );
         let view = if language {
@@ -335,6 +382,27 @@ impl Client {
         };
         let uri = document_uri(doc)?;
         ensure!(uri.len() <= 4096, "Editor state URI exceeds 4096 bytes");
+        if let Change::Snippet(requested) = &mut change {
+            requested.source_current = self.service_document_current(doc, version)
+                && mirror.language_epoch == doc.language_epoch();
+            let state = doc.view_state(Some(view.view_id()));
+            ensure!(
+                state.secondary.len() < 4096,
+                "Snippet source selections exceed bounds"
+            );
+            requested.original_selections.push(Selection {
+                cursor: state.cursor,
+                anchor: state.anchor,
+                desired_column: None,
+            });
+            requested
+                .original_selections
+                .extend(state.secondary.iter().map(|s| Selection {
+                    cursor: s.cursor,
+                    anchor: s.anchor,
+                    desired_column: None,
+                }));
+        }
         Ok(Arc::new(Capture {
             document,
             change,
