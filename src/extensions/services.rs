@@ -349,6 +349,8 @@ impl Client {
                 | Operation::VirtualChange(_)
                 | Operation::EditorState(_)
         ) && request.generation != Some(self.mirror.generation)
+            && !(matches!(operation, Operation::Show(_))
+                && self.mirror.show_generation_current(request.generation))
         {
             bail!("Native document state changed before service request; retry");
         }
@@ -462,6 +464,10 @@ impl Client {
                 | Operation::VirtualChange(_)
                 | Operation::EditorState(_)
         ) && service.request.generation != Some(self.mirror.generation)
+            && !(matches!(service.operation, Operation::Show(_))
+                && self
+                    .mirror
+                    .show_generation_current(service.request.generation))
         {
             bail!("Native document state changed before service completion; retry");
         }

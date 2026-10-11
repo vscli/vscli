@@ -826,11 +826,12 @@ impl Client {
                 .as_ref()
                 .is_some_and(|stamp| *stamp != self.mirror.editor_stamp)
         {
-            let (mut next, mut state) = self.mirror.next_refs(&refs, active)?;
+            let (mut next, mut state) =
+                self.mirror
+                    .next_refs_with_editor_stamp(&refs, active, editor_stamp.as_ref())?;
             if let Some(inventory) = &self.editor_inventory {
                 state["editors"] = inventory.wire(&refs, &next.api_editor_selections)?;
                 state["activeEditor"] = json!(inventory.active);
-                next.editor_stamp = editor_stamp.expect("explicit inventory stamp");
                 next.editors = inventory.frames.clone();
                 next.api_editor_selections.clear();
             }
@@ -1244,6 +1245,10 @@ struct MirrorState {
     api_editor_selections: HashSet<String>,
     mirrors: HashMap<u64, Mirror>,
     generation: u64,
+    // A measured viewport does not change the source or editor identity used by
+    // showTextDocument. Retain only the contiguous generation interval for that
+    // case; source, selections, options, and membership changes reset it.
+    show_generation_floor: u64,
     last_stamp: Value,
     api_selections: HashSet<u64>,
 }
@@ -1264,11 +1269,48 @@ impl MirrorState {
         documents: &[&Document],
         active: Option<&Document>,
     ) -> Result<(Self, Value)> {
+        self.next_refs_with_editor_stamp(documents, active, None)
+    }
+    fn next_refs_with_editor_stamp(
+        &self,
+        documents: &[&Document],
+        active: Option<&Document>,
+        editor_stamp: Option<&Value>,
+    ) -> Result<(Self, Value)> {
         check_mirror_budget(documents)?;
+        let viewport_only = editor_stamp.is_some_and(|stamp| {
+            !self.editor_stamp.is_null()
+                && Self::stamp_refs(documents, active) == self.last_stamp
+                && self.api_selections.is_empty()
+                && self.api_editor_selections.is_empty()
+                && Self::show_editor_stamp(stamp) == Self::show_editor_stamp(&self.editor_stamp)
+        });
         // Only publish the new baseline after the transport accepts the update.
         let mut next = self.clone();
         let state = next.state(documents, active)?;
+        if viewport_only {
+            next.show_generation_floor = self.show_generation_floor;
+        }
+        if let Some(stamp) = editor_stamp {
+            next.editor_stamp = stamp.clone();
+        }
         Ok((next, state))
+    }
+    fn show_editor_stamp(stamp: &Value) -> Value {
+        let mut stamp = stamp.clone();
+        if let Some(editors) = stamp["editors"].as_array_mut() {
+            for editor in editors {
+                if let Some(editor) = editor.as_object_mut() {
+                    editor.remove("visibleRanges");
+                }
+            }
+        }
+        stamp
+    }
+    fn show_generation_current(&self, generation: Option<u64>) -> bool {
+        generation.is_some_and(|generation| {
+            generation >= self.show_generation_floor && generation <= self.generation
+        })
     }
     fn state(&mut self, documents: &[&Document], active: Option<&Document>) -> Result<Value> {
         if documents.iter().map(|d| d.text.len_bytes()).sum::<usize>() > MAX_DOCUMENT_BYTES {
@@ -1323,6 +1365,7 @@ impl MirrorState {
         let ids: HashSet<_> = documents.iter().map(|d| d.id).collect();
         self.mirrors.retain(|id, _| ids.contains(id));
         self.generation += 1;
+        self.show_generation_floor = self.generation;
         self.last_stamp = Self::stamp_refs(documents, active);
         Ok(
             json!({"generation":self.generation, "documents":snapshots, "active":active.map(|d|d.id),
@@ -1449,6 +1492,71 @@ fn selections_for(doc: &Document, view: Option<u64>) -> Vec<Value> {
 mod tests {
     use super::*;
     use std::fs;
+    #[test]
+    fn show_generation_tolerates_only_contiguous_measured_viewport_updates() {
+        let mut docs = [Document::from_text("dirty 猫🙂\r\n")];
+        let stamp = json!({"activeEditor":"editor-1","editors":[{
+            "id":"editor-1","document":docs[0].id,"viewColumn":1,
+            "selections":[],"options":{"tabSize":4},"visibleRanges":[]}]});
+        let (first, _) = MirrorState::default()
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&stamp))
+            .unwrap();
+        let mut measured = stamp.clone();
+        measured["editors"][0]["visibleRanges"] =
+            json!([{"start":{"line":0,"character":0},"end":{"line":1,"character":0}}]);
+        let (second, _) = first
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&measured))
+            .unwrap();
+        assert!(second.show_generation_current(Some(first.generation)));
+        measured["editors"][0]["visibleRanges"] = json!([]);
+        let (third, _) = second
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&measured))
+            .unwrap();
+        assert!(third.show_generation_current(Some(first.generation)));
+        assert!(!third.show_generation_current(None));
+        assert!(!third.show_generation_current(Some(0)));
+        assert!(!third.show_generation_current(Some(third.generation + 1)));
+        for (field, value) in [
+            ("id", json!("editor-replaced")),
+            ("viewColumn", json!(2)),
+            ("options", json!({"tabSize":8})),
+            (
+                "selections",
+                json!([{"anchor":{"line":0,"character":0},"active":{"line":0,"character":1}}]),
+            ),
+        ] {
+            let mut changed = measured.clone();
+            changed["editors"][0][field] = value;
+            let (next, _) = third
+                .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&changed))
+                .unwrap();
+            assert!(
+                !next.show_generation_current(Some(third.generation)),
+                "{field}"
+            );
+        }
+        let mut changed = measured.clone();
+        changed["activeEditor"] = Value::Null;
+        let (next, _) = third
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&changed))
+            .unwrap();
+        assert!(!next.show_generation_current(Some(third.generation)));
+        let mut api = third.clone();
+        api.api_editor_selections.insert("editor-1".into());
+        let (next, _) = api
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&measured))
+            .unwrap();
+        assert!(!next.show_generation_current(Some(third.generation)));
+        docs[0].insert("X", false);
+        docs[0].undo();
+        let (next, _) = third
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&measured))
+            .unwrap();
+        assert!(
+            !next.show_generation_current(Some(third.generation)),
+            "source ABA"
+        );
+    }
     #[test]
     fn editor_state_mirrors_inactive_selections_language_and_command_kind_without_text_version() {
         let mut documents = vec![Document::from_text("α😀\r\n"), Document::from_text("other")];

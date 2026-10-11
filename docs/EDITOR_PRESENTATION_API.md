@@ -49,6 +49,13 @@ dimensions. Resizing or replacing a native view retires its old measurements.
 Only a subsequent actual frame can supply new dimensions. Presentation metadata
 does not authorize mouse or document hits.
 
+`showTextDocument` accepts prior mirror generations only across a contiguous
+series of measured-visible-range-only publications. A source, membership,
+editor identity, focus, selection or options change resets that allowance.
+Native source/version/view/context checks still apply at admission and completion;
+measuring a newly shown pane therefore does not spuriously invalidate the next
+Show request.
+
 Reveal supports Default, InCenter, InCenterIfOutsideViewport and AtTop. Native
 positions are clamped to the retained model; horizontal scrolling accounts for
 actual tab stops and grapheme widths. Explicit scrolling survives redraw without
