@@ -29,14 +29,15 @@ Work in this order:
    contributed surfaces; record presentation differences explicitly.
 7. Real extension workflows and cross-extension interactions for every subsystem.
 
-Current usable milestone: public local file discovery with `workspace.findFiles`,
+Current usable milestone: public filesystem watchers and local file discovery
+with `workspace.findFiles`,
 public document saves and retained-document text
 `workspace.applyEdit` now reach actual native workers, with shared mirrors/events
 before success and grouped workspace Undo/Redo. Next edit backends include unopened
 resources, file create/rename/delete, snippets, EOL changes, annotations and
 notebooks; the remaining API order above is unchanged. See
 [native workspace edits](NATIVE_WORKSPACE_EDITS.md) and
-[file discovery](NATIVE_FILE_SEARCH.md). A milestone advances a named
+[file discovery](NATIVE_FILE_SEARCH.md) and [watchers](FILE_WATCHERS_API.md). A milestone advances a named
 workflow, not the overall compatibility percentage or constructor export count.
 
 Native Rust editing must stay usable without JavaScript. Optional compatibility

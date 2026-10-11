@@ -123,10 +123,18 @@ function createCallerContext(assertOwner) {
       return value;
     }), undefined, []);
   }
+  function bindProviderCleanup(provider, callback) {
+    const scope = resultScope(provider);
+    // Cleanup may run after retirement. Keep its ORIGINAL scope so API calls
+    // still reject stale authority, but permit releasing foreign OS resources.
+    return function (...args) {
+      return storage.run(scope, () => Reflect.apply(callback, this, args));
+    };
+  }
   return Object.freeze({
     run(owner, call) { return invoke(capture(owner), call, undefined, []); },
     currentOwner() { const scope = storage.getStore(); assertCurrent(scope); return scope.owner; },
-    bind, bindEvent, bindProvider, bindProviderResult, invokeProviderResult, assertInherited,
+    bind, bindEvent, bindProvider, bindProviderResult, bindProviderCleanup, invokeProviderResult, assertInherited,
     unowned(call) { return storage.run(undefined, call); },
     bindAsync(owner, callback) {
       const scope = owner ? capture(owner) : undefined;

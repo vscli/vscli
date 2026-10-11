@@ -1001,3 +1001,9 @@ qualification remains pending. See [scope and evidence](STICKY_TABS.md).
 Selected extensions can discover local files with `workspace.findFiles`, including
 `RelativePattern` directories, configured exclusions and cancellation. See
 [file discovery](NATIVE_FILE_SEARCH.md) for supported behavior and limits.
+
+Selected extensions can subscribe to external file creation, changes and deletion
+with `workspace.createFileSystemWatcher`, using workspace globs or explicit
+`RelativePattern` bases. Matching watches share local OS workers, recursive
+watches honor `files.watcherExclude`, and disposing a watcher stops delivery.
+See [filesystem watcher behavior and bounds](FILE_WATCHERS_API.md).

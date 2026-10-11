@@ -428,3 +428,17 @@ test('filesystem directory name admission rejects oversized source strings and r
   rows = [['猫🙂', a.FileType.File | a.FileType.SymbolicLink]];
   assert.deepEqual(await b.workspace.fs.readDirectory(uri), rows);
 });
+
+test('provider resource cleanup executes after retirement under original stale scope without new API authority', () => {
+  const callers = createCallerContext(() => {});
+  const provider = callers.run('provider', () => callers.bindProvider('provider', {}));
+  let cleaned = 0;
+  const cleanup = callers.bindProviderCleanup(provider, () => {
+    cleaned++;
+    assert.throws(() => callers.assertInherited(), /retired|stale/);
+  });
+  callers.retire('provider');
+  callers.run('provider', () => {}); // A replacement owner does not renew the cleanup's old scope.
+  callers.run('other', cleanup);
+  assert.equal(cleaned, 1);
+});

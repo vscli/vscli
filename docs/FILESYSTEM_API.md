@@ -29,8 +29,10 @@ Provider registration validates the required methods, prevents duplicate
 schemes, tracks the registering owner and disposes its event subscription and
 capabilities with that owner. Readonly providers reject mutations. Queued calls
 retain provider identity and cannot silently switch to a replacement provider.
-Provider change events are filtered by scheme and retained internally; native
-virtual document routing and public watcher integration remain outstanding.
+Provider change events are filtered by scheme and copied into bounded URI
+snapshots. Public watchers now route those events through actual provider watch
+registrations; native virtual document routing remains outstanding. See
+[filesystem watchers](FILE_WATCHERS_API.md).
 
 Admission is bounded to 64 occupied operations and 64 MiB of admitted write
 buffers. Slots remain occupied until the actual promise settles. Mutations
@@ -47,7 +49,7 @@ writes preserve a dirty native model, undo/redo and host-independent recovery,
 without inventing save events. Formatting and strict Clippy checks pass.
 
 Outstanding qualification includes trash (`useTrash: true` rejects explicitly),
-virtual editors and provider watches, automatic scheme activation, document
+virtual editors, automatic scheme activation, document
 links, remote authorities, actual Windows/macOS behavior, provider errors and
 filesystem races. Local rename with `overwrite: false` checks destination
 existence before rename; atomic exclusion against another OS process is not

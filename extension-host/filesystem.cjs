@@ -122,7 +122,7 @@ const diskProvider = {
   },
 };
 
-function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => value, bindProvider = (_owner, value) => value, invokeProviderResult, bindProviderResult } = {}) {
+function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => value, bindProvider = (_owner, value) => value, invokeProviderResult, bindProviderResult, bindProviderCleanup } = {}) {
   const changed = new EventEmitter();
   const providers = new Map([['file', { impl: diskProvider, readonly: false, caseSensitive: process.platform === 'linux', builtin: true }]]);
   // Retain admission until actual completion, including never-settling providers.
@@ -322,7 +322,7 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
         if (typeof scheme !== 'string' || !/^[A-Za-z][A-Za-z0-9+.-]*$/.test(scheme)) throw new TypeError('Invalid filesystem scheme');
         if (providers.has(scheme)) throw new Error(`a provider for the scheme '${scheme}' is already registered`);
         // Reserve before evaluating extension-owned option getters or events.
-        const entry = { impl: provider, owner, readonly: false, caseSensitive: false };
+        const entry = { impl: provider, owner, readonly: false, caseSensitive: false, watches: new Set() };
         providers.set(scheme, entry);
         // Retain subscription ownership. Native document/watch event routing is a
         // separate integration step; these events must not mutate editor mirrors.
@@ -332,10 +332,24 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
           subscription = provider.onDidChangeFile(events => {
           if (providers.get(scheme) !== entry) return;
           const valid = [];
+          if (!Array.isArray(events) || events.length > 4096) throw new Error('Filesystem event batch exceeds 4096 entries');
+          let bytes = 0;
           for (const event of events) {
-            if (event.uri.scheme !== scheme) continue;
-            if (![FileChangeType.Changed, FileChangeType.Created, FileChangeType.Deleted].includes(event.type)) throw new Error('Unknown FileChangeType');
-            valid.push({ uri: event.uri, type: event.type });
+            const source = event.uri, type = event.type;
+            if (!Uri.isUri(source)) throw new TypeError('Filesystem events require URIs');
+            const fields = {};
+            for (const key of ['scheme','authority','path','query','fragment']) {
+              const value = source[key];
+              if (typeof value !== 'string' || Buffer.byteLength(value) > 4096 || value.includes('\0'))
+                throw new TypeError('Filesystem event URI exceeds bounds');
+              fields[key] = value;
+            }
+            if (fields.scheme !== scheme) continue;
+            if (![FileChangeType.Changed, FileChangeType.Created, FileChangeType.Deleted].includes(type)) throw new Error('Unknown FileChangeType');
+            const uri = Uri.from(fields, true);
+            bytes += Buffer.byteLength(uri.toString()) + 16;
+            if (bytes > 2 * 1024 * 1024) throw new Error('Filesystem event batch exceeds 2 MiB');
+            valid.push({ uri, type });
           }
           assertOwner(owner);
           if (providers.get(scheme) !== entry) return;
@@ -344,6 +358,7 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
           assertOwner(owner);
           if (providers.get(scheme) !== entry) throw FileSystemError.Unavailable('Filesystem registration changed');
           registration = new Disposable(() => {
+            for (const watch of [...entry.watches]) watch.dispose();
             if (providers.get(scheme) === entry) providers.delete(scheme);
             subscription.dispose();
           });
@@ -359,6 +374,52 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
       },
     };
   }
-  return { forOwner, onDidChangeFiles: changed.event, pathCaseSensitive: scheme => providers.get(scheme)?.caseSensitive };
+  function watchProvider(owner, uri, options, listener) {
+    assertOwner(owner);
+    const entry = lookup(uri);
+    if (entry.builtin) throw FileSystemError.Unavailable('Local watching uses the OS watcher backend');
+    const inProvider = callback => bindProviderResult ? bindProviderResult(entry.impl, callback)() : callback();
+    let child, cleanup, releaseChild, subscription, watch;
+    try {
+      inProvider(() => {
+        child = entry.impl.watch(uri, options);
+        cleanup = child?.dispose;
+        if (typeof cleanup !== 'function') throw FileSystemError.Unavailable('Filesystem watch must return a Disposable');
+      });
+      releaseChild = bindProviderCleanup ? bindProviderCleanup(entry.impl, () => Reflect.apply(cleanup, child, []))
+        : () => inProvider(() => Reflect.apply(cleanup, child, []));
+      assertOwner(owner);
+      if (providers.get(uri.scheme) !== entry) throw FileSystemError.Unavailable('Filesystem provider changed during watch');
+      subscription = changed.event(events => {
+        if (providers.get(uri.scheme) !== entry) return;
+        for (const event of events) if (event.uri.scheme === uri.scheme) listener(event);
+      });
+      watch = new Disposable(() => {
+        // Stop delivery even when foreign cleanup throws; retain cleanup for retry.
+        subscription.dispose();
+        releaseChild();
+        entry.watches.delete(watch);
+      });
+      entry.watches.add(watch);
+      return watch;
+    } catch (error) {
+      subscription?.dispose();
+      if (typeof cleanup === 'function') {
+        try { if (releaseChild) releaseChild(); else inProvider(() => Reflect.apply(cleanup, child, [])); } catch { /* original admission error */ }
+      }
+      throw error;
+    }
+  }
+  function disposeOwnerWatches(owner) {
+    const errors = [];
+    for (const entry of providers.values()) if (entry.owner === owner) {
+      for (const watch of [...entry.watches]) {
+        try { watch.dispose(); } catch (error) { errors.push(error); }
+      }
+    }
+    if (errors.length) throw new AggregateError(errors, 'Provider watcher cleanup failed');
+  }
+  return { forOwner, watchProvider, disposeOwnerWatches, onDidChangeFiles: changed.event,
+    pathCaseSensitive: scheme => providers.get(scheme)?.caseSensitive };
 }
 module.exports = { createFileSystem, FileSystemError, FileType, FilePermission, FileChangeType };

@@ -11,6 +11,7 @@ const { createSurfaces } = require('./surfaces.cjs');
 const { createConfiguration } = require('./configuration.cjs');
 const { createWorkspaceEdits } = require('./workspace-edits.cjs');
 const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
+const { createFileWatchers } = require('./file-watchers.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
@@ -61,7 +62,14 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
   const promptBudget = { pending: 0, bytes: 0 };
-  const fileSystem = filesystem.createFileSystem({ assertOwner, track, bindProvider: callers.bindProvider, invokeProviderResult: callers.invokeProviderResult, bindProviderResult: callers.bindProviderResult });
+  const fileSystem = filesystem.createFileSystem({ assertOwner, track, bindProvider: callers.bindProvider, invokeProviderResult: callers.invokeProviderResult, bindProviderResult: callers.bindProviderResult, bindProviderCleanup: callers.bindProviderCleanup });
+  const fileWatchers = createFileWatchers({
+    captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
+    track,event,unowned:callers.unowned,fileSystem,workspaceRoot:()=>workspaceRoot,
+    configuration:()=>configuration.get('files'),
+    diagnostic:(owner,error)=>notify('message',{session:sessionOptions.session,owner,
+      text:`Filesystem watcher failed: ${String(error.message || error).slice(0,1024)}`}),
+  });
   const workspaceScope = createWorkspaceScope({ Uri, EventEmitter, pathCaseSensitive: fileSystem.pathCaseSensitive });
   function workspace(values) {
     // Preserve getters so callers receive the latest native folder metadata.
@@ -273,7 +281,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; }, commandSnapshot, assertOwner,
+    api, sync, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; fileWatchers.refresh(); }, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.
     runWithOwner: callers.run, currentCallerOwner: callers.currentOwner,
@@ -283,10 +291,15 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     surfaceAction: surfaces.action, treeEvent: surfaces.treeEvent,
     disposeOwner(owner) {
       return callers.unowned(() => {
+        for (const cleanup of [() => fileWatchers.disposeOwner(owner), () => fileSystem.disposeOwnerWatches(owner)]) {
+          try { cleanup(); } catch (error) { console.error(error); }
+        }
         callers.retire(owner);
         if (sessionOptions.languageProviders) providers.disposeOwner(owner);
         diagnostics.disposeOwner(owner);
-        for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
+        for (const disposable of [...(owned.get(owner) || [])]) {
+          try { disposable.dispose(); } catch (error) { console.error(error); }
+        }
         owned.delete(owner); facades.delete(owner);
       });
     },
@@ -316,6 +329,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         }),
         workspace: workspace({
           ...fileSystem.forOwner(owner),
+          ...fileWatchers.forOwner(owner),
           openTextDocument: services.openTextDocument,
           // Root enables this only after the native grouped transaction gateway qualifies.
           ...(sessionOptions.workspaceEdits ? workspaceEdits.forOwner(owner) : {}),
@@ -350,6 +364,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       workspaceRoot = root;
       configuration.initialize(schema, layers);
       workspaceEditConfigurationIdentity = {};
+      fileWatchers.refresh();
     },
   };
 }

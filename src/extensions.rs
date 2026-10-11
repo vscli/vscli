@@ -430,6 +430,18 @@ impl Client {
                 "workspace-files.cjs",
                 include_str!("../extension-host/workspace-files.cjs"),
             ),
+            (
+                "file-watchers.cjs",
+                include_str!("../extension-host/file-watchers.cjs"),
+            ),
+            (
+                "watcher-glob.cjs",
+                include_str!("../extension-host/watcher-glob.cjs"),
+            ),
+            (
+                "local-file-watcher.cjs",
+                include_str!("../extension-host/local-file-watcher.cjs"),
+            ),
             ("host.cjs", include_str!("../extension-host/host.cjs")),
         ] {
             std::fs::write(runtime.path().join(name), source)?;
