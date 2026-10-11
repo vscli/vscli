@@ -23,6 +23,23 @@ new behavior without changing those counts. There is no measured overall API
 compatibility percentage. The frozen declaration audit is a separate source
 snapshot, not a live implementation dashboard.
 
+The separate committed-runtime-name check currently finds **123 of 421 unique
+runtime declaration names (29.22%)** in shipped commit `a03528d`. It excludes
+322 type-only declarations and collapses repeated overload names. This measures
+name presence only: constructors, members, overload behavior and native backends
+remain unqualified by this check. It is not a percentage of implemented or fully
+compatible API behavior. Language-provider registrations separately cover 8 of
+32 stable families; their existing implementations still have documented limits.
+To inspect any committed revision without counting unfinished working-tree code:
+
+```sh
+python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api-surface.json
+```
+
+The development audit uses Node to inspect the real facade over an empty
+activation registry. It loads no extensions, opens no editor and invokes no API
+operation. Native editor startup has no dependency on this script or Node.
+
 ## Live workflow progress
 
 The declaration/export audit is frozen evidence of API shape, not a live count of
