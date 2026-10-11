@@ -330,6 +330,10 @@ impl Client {
                 include_str!("../extension-host/diagnostics.cjs"),
             ),
             (
+                "cancellation.cjs",
+                include_str!("../extension-host/cancellation.cjs"),
+            ),
+            (
                 "provider-types.cjs",
                 include_str!("../extension-host/provider-types.cjs"),
             ),

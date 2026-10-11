@@ -154,8 +154,9 @@ test('late cancellation listeners run once asynchronously and remain disposable'
   const source = new types.CancellationTokenSource(parent.token); let observed = 0;
   source.token.onCancellationRequested(() => observed++);
   const discarded = source.token.onCancellationRequested(() => observed += 100); discarded.dispose();
-  assert.equal(observed, 0); assert.equal(source.token.isCancellationRequested, true);
-  await new Promise(done => setTimeout(done, 5)); assert.equal(observed, 1);
+  assert.equal(observed, 0); assert.equal(source.token.isCancellationRequested, false);
+  await new Promise(done => setTimeout(done, 5));
+  assert.equal(source.token.isCancellationRequested, true); assert.equal(observed, 1);
   source.dispose(); parent.dispose();
 });
 

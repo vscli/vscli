@@ -1,6 +1,7 @@
 'use strict';
 // Original, bounded compatibility values; native code validates wire results.
-const { Position, Range, Disposable, EventEmitter } = require('./api-types.cjs');
+const { Position, Range } = require('./api-types.cjs');
+const { CancellationTokenSource } = require('./cancellation.cjs');
 function enumeration(names) { return Object.freeze(Object.fromEntries(names.map((name, index) => [name, index]))); }
 const CompletionItemKind = enumeration(['Text','Method','Function','Constructor','Field','Variable','Class','Interface','Module','Property','Unit','Value','Enum','Keyword','Snippet','Color','File','Reference','Folder','EnumMember','Constant','Struct','Event','Operator','TypeParameter']);
 const SymbolKind = enumeration(['File','Module','Namespace','Package','Class','Method','Property','Field','Constructor','Enum','Interface','Function','Variable','Constant','String','Number','Boolean','Array','Object','Key','Null','EnumMember','Struct','Event','Operator','TypeParameter']);
@@ -68,24 +69,6 @@ class SymbolInformation {
 class ParameterInformation { constructor(label, documentation) { this.label = label; if (documentation !== undefined) this.documentation = documentation; } }
 class SignatureInformation { constructor(label, documentation) { this.label = label; this.parameters = []; if (documentation !== undefined) this.documentation = documentation; } }
 class SignatureHelp { constructor() { this.signatures = []; this.activeSignature = 0; this.activeParameter = 0; } }
-class CancellationTokenSource {
-  constructor(parent) {
-    const emitter = new EventEmitter();
-    let canceled = false;
-    const event = (listener, thisArg, disposables) => {
-      if (!canceled) return emitter.event(listener, thisArg, disposables);
-      const timer = setTimeout(() => listener.call(thisArg, undefined), 0);
-      const result = new Disposable(() => clearTimeout(timer));
-      if (disposables) disposables.push(result);
-      return result;
-    };
-    this.token = Object.freeze({ get isCancellationRequested() { return canceled; }, onCancellationRequested: event });
-    this.cancel = () => { if (!canceled) { canceled = true; emitter.fire(undefined); emitter.dispose(); } };
-    const parentListener = parent?.onCancellationRequested(this.cancel);
-    if (parent?.isCancellationRequested) this.cancel();
-    this.dispose = (cancel = false) => { if (cancel) this.cancel(); parentListener?.dispose(); emitter.dispose(); };
-  }
-}
 const CompletionTriggerKind = Object.freeze({ Invoke: 0, TriggerCharacter: 1, TriggerForIncompleteCompletions: 2 });
 const SignatureHelpTriggerKind = Object.freeze({ Invoke: 1, TriggerCharacter: 2, ContentChange: 3 });
 
