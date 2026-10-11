@@ -1,5 +1,6 @@
 'use strict';
 const types = require('./api-types.cjs');
+const coordinates = require('./coordinates.cjs');
 const diagnosticTypes = require('./diagnostic-types.cjs');
 const { createDiagnostics } = require('./diagnostics.cjs');
 const providerTypes = require('./provider-types.cjs');
@@ -149,17 +150,29 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         const version = document.version;
         const edits = [];
         let valid = true;
+        const validatePosition = value => {
+          const point = coordinates.position(value, 'Edit');
+          return document.validatePosition(new Position(point.line, point.character));
+        };
+        const validateRange = value => {
+          if (!(value instanceof Range)) throw new TypeError('Invalid range');
+          const bounds = coordinates.range(value, 'Edit');
+          return document.validateRange(new Range(bounds.start, bounds.end));
+        };
         const add = (range, newText) => {
           if (!valid) throw new Error('TextEditorEdit is only valid during its callback');
           if (typeof newText !== 'string') throw new TypeError('Edit text must be a string');
           if (edits.length >= 4096) throw new Error('Extension edit count limit exceeded');
-          edits.push({ range, newText });
+          edits.push({ range: coordinates.range(range, 'Edit'), newText });
         };
         const builder = supported('TextEditorEdit', {
-          replace: (range, text) => add(document.validateRange(range), text),
-          insert: (position, text) => add(new Range(document.validatePosition(position), document.validatePosition(position)), text),
+          replace: (range, text) => add(validateRange(range), text),
+          insert: (position, text) => {
+            const point = validatePosition(position);
+            add(new Range(point, point), text);
+          },
           delete: range => {
-            const validRange = document.validateRange(range);
+            const validRange = validateRange(range);
             if (!validRange.isEmpty) add(validRange, '');
           },
         });

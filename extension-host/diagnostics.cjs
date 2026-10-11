@@ -1,5 +1,6 @@
 'use strict';
-const { Uri, Position, Disposable, EventEmitter } = require('./api-types.cjs');
+const { Uri, Disposable, EventEmitter } = require('./api-types.cjs');
+const coordinates = require('./coordinates.cjs');
 const MAX_BYTES = 2 * 1024 * 1024, MAX_DIAGNOSTICS = 5000, MAX_RESOURCES = 128, MAX_COLLECTIONS = 64;
 function text(value, limit = 4096) {
   if (typeof value !== 'string' || Buffer.byteLength(value) > limit) throw new TypeError('Diagnostic text exceeds its budget or has invalid type');
@@ -10,8 +11,7 @@ function uriKey(uri) {
   return text(uri.toString(), 4096);
 }
 function position(value, document) {
-  const pos = new Position(value?.line, value?.character);
-  if (pos.line > 0x7fffffff || pos.character > 0x7fffffff) throw new Error('Diagnostic coordinates exceed LSP uinteger bounds');
+  const pos = coordinates.position(value, 'Diagnostic');
   if (document) {
     const line = document.lineAt(pos.line).text;
     if (pos.character > line.length || (pos.character > 0 && pos.character < line.length && /[\uD800-\uDBFF]/.test(line[pos.character - 1]) && /[\uDC00-\uDFFF]/.test(line[pos.character]))) throw new Error('Diagnostic position is outside the document or splits UTF-16');

@@ -1,5 +1,6 @@
 'use strict';
 const { Position, Uri, Disposable } = require('./api-types.cjs');
+const coordinates = require('./coordinates.cjs');
 const { createActions } = require('./code-actions.cjs');
 const { CodeActionKind } = require('./code-action-types.cjs');
 const signatureTypes = require('./signatures.cjs');
@@ -46,7 +47,8 @@ function score(entries, document) {
   }));
 }
 function position(value, document) {
-  const result = new Position(value?.line, value?.character);
+  const admitted = coordinates.position(value, 'Provider');
+  const result = new Position(admitted.line, admitted.character);
   if (document) {
     const line = document.lineAt(result.line).text;
     if (result.character > line.length || (result.character > 0 && result.character < line.length && /[\uD800-\uDBFF]/.test(line[result.character - 1]) && /[\uDC00-\uDFFF]/.test(line[result.character]))) {

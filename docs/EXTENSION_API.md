@@ -16,6 +16,7 @@ behavioral compatibility.
 | --- | --- | --- |
 | `SnippetString` | All public builder methods; nested callback numbering; choices; variable defaults; exact source transfer into completion results | Six local host tests and ordinary provider/framed-host tests pass. Native nested navigation, choice UI, variable expansion and `TextEditor.insertSnippet` remain outstanding; see [snippets](SNIPPETS.md). |
 | `CancellationTokenSource` | Lazy stable token identity; cancel once; disposal; parent propagation; active and late subscribers; receiver binding; individually disposable late callbacks | Twenty local lifecycle/facade tests and ordinary provider/framed-host tests pass. Source comparisons cover pinned 1.95 and 1.141. The host reports active-listener exceptions to stderr; upstream telemetry/error-handler behavior is not qualified. |
+| `Position`, `Range`, `Selection`, `Disposable`, `EventEmitter` | Public overloads, unchanged-object identity, readonly getters, JSON forms, disposal retry/order and event delivery/removal/reentrancy | Eighteen value/lifecycle tests plus four native-boundary regressions pass. ES5 inheritance, emitter monitoring and upstream global error routing remain outstanding. URI and document API completeness are separate work. |
 | Other API surfaces | Existing partial document/editor, configuration, state, command, diagnostic, provider and native UI adapters | Existing focused documents describe their implemented subsets. Full API compatibility and arbitrary real-extension compatibility remain incomplete. |
 
 Cancellation follows the pinned source lifecycle: an already-canceled parent
@@ -23,6 +24,13 @@ propagates on the next timer turn; disposing an unaccessed source leaves its tok
 uncanceled. Cancellation is advisory: it never releases a native provider slot
 while the actual callback remains pending. Existing owner, generation and
 document-version guards remain authoritative.
+
+Public `Range` JSON uses the upstream two-position array. Native edit and
+selection messages explicitly project `{start, end}` objects instead. Public
+`Position` values match upstream's permissive JavaScript constructor; native
+provider, diagnostic and edit boundaries independently require finite nonnegative
+LSP integers. Rejected edits and diagnostic batches preserve the current document
+and previously published diagnostics.
 
 Comparison sources:
 

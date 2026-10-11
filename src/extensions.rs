@@ -314,6 +314,10 @@ impl Client {
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
             (
+                "coordinates.cjs",
+                include_str!("../extension-host/coordinates.cjs"),
+            ),
+            (
                 "code-action-types.cjs",
                 include_str!("../extension-host/code-action-types.cjs"),
             ),

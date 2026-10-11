@@ -1,5 +1,6 @@
 'use strict';
 const { Uri, TextDocument, Range } = require('./api-types.cjs');
+const coordinates = require('./coordinates.cjs');
 const path = require('node:path');
 const NATIVE_COMMANDS = Object.freeze(['undo', 'redo', 'editor.action.selectAll', 'cursorLeft', 'cursorRight', 'cursorUp', 'cursorDown', 'cursorHome', 'cursorEnd', 'cursorTop', 'cursorBottom']);
 function createDocumentServices(request, options, model) {
@@ -37,7 +38,7 @@ function createDocumentServices(request, options, model) {
       const document = input instanceof TextDocument ? input : await openTextDocument(input);
       if (document.isClosed || model.document(document._snapshot.id) !== document) throw new Error('Document is no longer open');
       const result = await call(owner, 'nativeDocumentShow', { document: document._snapshot.id, version: document.version,
-        selection: options.selection ? { start: options.selection.start, end: options.selection.end } : null });
+        selection: options.selection ? coordinates.range(options.selection, 'Selection') : null });
       const shown = model.editor(result.document);
       if (!shown || shown.document !== document) throw new Error('Native editor mirror was not available before show acknowledgement');
       return editor(shown);
