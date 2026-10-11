@@ -73,6 +73,7 @@ pub(crate) struct NativeService {
     pub operation: Operation,
     pub started: Instant,
     save_origin: Option<Mirror>,
+    save_path_wait: Option<Instant>,
 }
 impl NativeService {
     pub fn fresh(&self) -> Result<()> {
@@ -86,6 +87,11 @@ impl NativeService {
         }
         Ok(())
     }
+}
+fn save_wait_origin_matches(pending: &Pending, request: &Request) -> bool {
+    pending.method == "initialize"
+        || pending.method == "activate" && pending.owner.is_none()
+        || pending.owner.as_deref() == request.command_owner.as_deref()
 }
 impl Client {
     pub(crate) fn queue_service(&mut self, method: &str, id: Value, params: Value) -> Result<()> {
@@ -163,8 +169,69 @@ impl Client {
             operation,
             started: Instant::now(),
             save_origin,
+            save_path_wait: None,
         });
         Ok(())
+    }
+    // Exact service-owned human wait; caller owner and originating command
+    // owner can differ. No unrelated pending command receives a deadline reset.
+    pub(crate) fn set_document_save_path_wait(
+        &mut self,
+        service: &NativeService,
+        waiting: bool,
+    ) -> Result<()> {
+        let current = self
+            .services
+            .front_mut()
+            .filter(|current| {
+                current.id == service.id
+                    && current.request.session == service.request.session
+                    && current.request.owner == service.request.owner
+                    && matches!(current.operation, Operation::Save(_))
+            })
+            .context("Document save service no longer pending")?;
+        if waiting {
+            if current.save_path_wait.is_none() {
+                current.save_path_wait = Some(Instant::now());
+            }
+        } else if current.save_path_wait.take().is_some()
+            && let Some(command) = current.request.command
+            && let Some(pending) = self.pending.get_mut(&command)
+            && save_wait_origin_matches(pending, &current.request)
+        {
+            pending.started = Instant::now();
+        }
+        Ok(())
+    }
+    pub(super) fn document_save_command_waiting(&self, command: u64) -> bool {
+        self.services.iter().any(|service| {
+            matches!(service.operation, Operation::Save(_))
+                && service.request.session == self.session
+                && service.request.command == Some(command)
+                && service
+                    .save_path_wait
+                    .is_some_and(|started| started.elapsed() < super::prompts::PROMPT_LIFETIME)
+                && self
+                    .pending
+                    .get(&command)
+                    .is_some_and(|pending| save_wait_origin_matches(pending, &service.request))
+        })
+    }
+    pub(super) fn expire_document_save_path_waits(&mut self) {
+        for service in &mut self.services {
+            if service
+                .save_path_wait
+                .is_some_and(|started| started.elapsed() >= super::prompts::PROMPT_LIFETIME)
+            {
+                service.save_path_wait = None;
+                if let Some(command) = service.request.command
+                    && let Some(pending) = self.pending.get_mut(&command)
+                    && save_wait_origin_matches(pending, &service.request)
+                {
+                    pending.started = Instant::now();
+                }
+            }
+        }
     }
     pub(crate) fn queued_services(&self) -> impl Iterator<Item = &NativeService> {
         self.services.iter()
@@ -213,6 +280,9 @@ impl Client {
                 && request.request.owner == service.request.owner
         }) {
             bail!("Native service response no longer pending");
+        }
+        if matches!(service.operation, Operation::Save(_)) {
+            self.set_document_save_path_wait(service, false)?;
         }
         let message = match result {
             Ok(result) => json!({"id":id,"result":result}),
@@ -281,6 +351,105 @@ pub(super) fn empty_queue() -> VecDeque<NativeService> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn exact_save_as_service_wait_pauses_and_resets_only_its_original_command() {
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let document = Document::from_text("猫🙂 unsaved\r\n");
+        let document_id = document.id;
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[document],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let old = Instant::now() - Duration::from_secs(45);
+        client.pending.insert(
+            900,
+            Pending {
+                owner: Some(owner.clone()),
+                method: "execute".into(),
+                started: old,
+            },
+        );
+        client.pending.insert(
+            901,
+            Pending {
+                owner: Some(owner.clone()),
+                method: "execute".into(),
+                started: old,
+            },
+        );
+        let version = client.mirror.mirrors[&document_id].version;
+        client
+            .queue_service(
+                "nativeDocumentSave",
+                json!("save-wait"),
+                json!({"session":client.session,"owner":owner,
+            "command":900,"commandOwner":owner,"generation":client.mirror.generation,
+            "args":{"document":document_id,"version":version}}),
+            )
+            .unwrap();
+        let service = client.service().unwrap().clone();
+        client.set_document_save_path_wait(&service, true).unwrap();
+        assert!(client.document_save_command_waiting(900));
+        assert!(!client.document_save_command_waiting(901));
+        let original_wait = client.service().unwrap().save_path_wait;
+        client.set_document_save_path_wait(&service, true).unwrap();
+        assert_eq!(
+            client.service().unwrap().save_path_wait,
+            original_wait,
+            "poll must not renew human wait"
+        );
+        client.services.front_mut().unwrap().save_path_wait =
+            Some(Instant::now() - Duration::from_secs(301));
+        assert!(!client.document_save_command_waiting(900));
+        client.expire_document_save_path_waits();
+        assert!(client.service().unwrap().save_path_wait.is_none());
+        client.set_document_save_path_wait(&service, false).unwrap();
+        assert!(client.pending[&900].started > old);
+        assert_eq!(client.pending[&901].started, old);
+        let resumed = client.pending[&900].started;
+        client.set_document_save_path_wait(&service, false).unwrap();
+        assert_eq!(
+            client.pending[&900].started, resumed,
+            "no waiting lease means no additional reset"
+        );
+        let mut stale = service;
+        stale.id = "old-service".into();
+        assert!(client.set_document_save_path_wait(&stale, true).is_err());
+        assert_eq!(client.pending[&900].started, resumed);
+    }
+    #[test]
+    fn save_human_wait_keeps_registered_caller_separate_from_origin() {
+        let request: Request = serde_json::from_value(json!({"session":1,"owner":"callee.b",
+            "command":9,"commandOwner":"origin.a","args":{"document":1,"version":1}}))
+        .unwrap();
+        let started = Instant::now();
+        let original = Pending {
+            owner: Some("origin.a".into()),
+            method: "execute".into(),
+            started,
+        };
+        assert!(save_wait_origin_matches(&original, &request));
+        let callee = Pending {
+            owner: Some("callee.b".into()),
+            method: "execute".into(),
+            started,
+        };
+        assert!(!save_wait_origin_matches(&callee, &request));
+        let initialization = Pending {
+            owner: None,
+            method: "initialize".into(),
+            started,
+        };
+        assert!(save_wait_origin_matches(&initialization, &request));
+    }
     #[test]
     fn save_dto_rejects_unknown_and_invalid_version_types_without_open_show_coercion() {
         use super::Save;

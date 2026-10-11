@@ -311,7 +311,10 @@ impl App {
         if matches!(service.operation, Operation::Save(_))
             && self.document_save_caller_pending(service.request.session, &service.id)
         {
-            if host.service_valid(&service).is_err() {
+            let waiting = self.document_save_path_pending(service.request.session, &service.id);
+            if host.set_document_save_path_wait(&service, waiting).is_err()
+                || host.service_valid(&service).is_err()
+            {
                 self.retire_document_save_callers(service.request.session, &service.request.owner);
             }
             return false;
@@ -370,6 +373,11 @@ impl App {
                                 self.begin_document_save_path_prompt(interest, save.document)
                             {
                                 self.retire_document_save_interest(interest);
+                                return Err(error);
+                            }
+                            if let Err(error) = host.set_document_save_path_wait(&service, true) {
+                                self.retire_document_save_interest(interest);
+                                self.retire_document_save_prompt(interest);
                                 return Err(error);
                             }
                         }

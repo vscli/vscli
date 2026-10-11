@@ -128,10 +128,14 @@ function createDocumentTypes({ Position, Range, Uri }) {
     save() {
       if (this.isClosed) return Promise.reject(new Error('Document has been closed'));
       if (typeof this._hooks.save !== 'function') return Promise.reject(new Error('Native document save acknowledgement gateway is not configured'));
-      return Promise.resolve().then(() => this._hooks.save(this)).then(value => {
-        if (typeof value !== 'boolean') throw new Error('Invalid native document save acknowledgement');
-        return value;
-      });
+      try {
+        // Acquire private caller and source identity at invocation, not a later
+        // microtask which could see another version after synchronous typing.
+        return Promise.resolve(this._hooks.save(this)).then(value => {
+          if (typeof value !== 'boolean') throw new Error('Invalid native document save acknowledgement');
+          return value;
+        });
+      } catch (error) { return Promise.reject(error); }
     }
     getText(range) {
       if (!range) {

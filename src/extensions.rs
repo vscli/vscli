@@ -414,6 +414,10 @@ impl Client {
                 "activation.cjs",
                 include_str!("../extension-host/activation.cjs"),
             ),
+            (
+                "native-requests.cjs",
+                include_str!("../extension-host/native-requests.cjs"),
+            ),
             ("host.cjs", include_str!("../extension-host/host.cjs")),
         ] {
             std::fs::write(runtime.path().join(name), source)?;
@@ -1060,12 +1064,14 @@ impl Client {
             }
         }
         self.expire_prompts()?;
+        self.expire_document_save_path_waits();
         self.expire_language_providers()?;
         if self.process.exited() {
             bail!("Extension process exited\n{}", self.process.stderr_tail());
         }
         if self.pending.iter().any(|(id, p)| {
             p.started.elapsed() > Duration::from_secs(30)
+                && !self.document_save_command_waiting(*id)
                 && !self
                     .prompts
                     .iter()

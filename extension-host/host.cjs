@@ -16,8 +16,8 @@ const { createActivation } = require('./activation.cjs');
 // Console output from extensions must never corrupt the protocol stream.
 global.console = new Console(process.stderr, process.stderr);
 const MAX = 16 * 1024 * 1024;
-let buffer = Buffer.alloc(0), nextId = 0, initialized = false, ready = false, runtime, activation, session, root, configuration, activating = 0, activationBusy = false, languageProviders = false;
-const pending = new Map(), packages = [];
+let buffer = Buffer.alloc(0), initialized = false, ready = false, runtime, activation, session, root, configuration, activating = 0, activationBusy = false, languageProviders = false;
+const packages = [];
 function send(message) {
   const body = Buffer.from(JSON.stringify(message));
   if (body.length > MAX || process.stdout.writableLength + body.length > 64 * 1024 * 1024) {
@@ -26,20 +26,8 @@ function send(message) {
   process.stdout.write(`Content-Length: ${body.length}\r\n\r\n`);
   process.stdout.write(body);
 }
-function request(method, params) {
-  if (method === 'prompt' || ['nativeDocumentOpen', 'nativeDocumentShow', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
-    const context = execution.getStore();
-    if (context?.active && Number.isSafeInteger(context.id)) params = { ...params, command: context.id, commandOwner: context.owner };
-  }
-  if (pending.size >= 64) return Promise.reject(new Error('Extension request limit exceeded'));
-  const id = `host-${++nextId}`;
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Native request timed out: ${method}`)); }, method === 'prompt' ? 360000 : 5000);
-    pending.set(id, { resolve, reject, timer });
-    try { send({ id, method, params }); }
-    catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
-  });
-}
+const nativeRequests = require('./native-requests.cjs').createNativeRequests(send, () => execution.getStore());
+const request = nativeRequests.request;
 const originalLoad = Module._load;
 Module._load = function(name, parent, isMain) {
   if (name === 'vscode') {
@@ -158,11 +146,7 @@ function snapshot() {
 }
 async function dispatch(message) {
   if (!message.method) {
-    const call = pending.get(message.id);
-    if (!call) return;
-    pending.delete(message.id); clearTimeout(call.timer);
-    if (message.error) call.reject(new Error(message.error.message));
-    else call.resolve(message.result);
+    nativeRequests.settle(message);
     return;
   }
   let result = null;
@@ -277,4 +261,4 @@ process.stdin.on('data', chunk => {
     }
   } catch (error) { console.error(error); process.exit(1); }
 });
-process.stdin.on('end', () => process.exit(0));
+process.stdin.on('end', () => { nativeRequests.shutdown(); process.exit(0); });

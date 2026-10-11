@@ -21,11 +21,13 @@ opening, shared identity, native edit/undo/redo, host crash, recovery/save and
 Memento restart workflows pass; the filesystem dirty-buffer workflow also
 passes. Formatting and strict Clippy pass.
 
-`TextDocument.save()` still rejects explicitly because its public acknowledgement
-hook is not connected. The [native foundation](NATIVE_DOCUMENT_SAVE.md) now
-captures exact model/caller interests and real persistence receipts. It never
-writes around the native save pipeline, returns invented success or clears
-dirty text optimistically.
+`TextDocument.save()` now uses the [native save gateway](NATIVE_DOCUMENT_SAVE.md)
+for retained local/untitled documents. True follows actual persistence and shared
+mirror publication; native Save As cancellation returns false. Closed documents,
+retired callers, external conflicts and ambiguous outcomes reject. Hidden or
+inactive saves preserve focus; newer postauthorization edits remain dirty.
+Virtual/custom filesystem saves and complete save-participant parity remain
+outstanding. The save gateway has separate ownership, host and native evidence.
 Installed language `wordPattern` and `languages.setLanguageConfiguration`
 integration, broader encodings/BOM handling, public object reflection and full
 upstream runtime comparison remain outstanding. A zero-width regex that cannot

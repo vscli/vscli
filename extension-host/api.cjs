@@ -35,7 +35,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const callers = createCallerContext(owner => { assertActiveOwner(owner); sessionOptions.assertOwner?.(owner); });
   const mementos = createMementos(request, sessionOptions.session, sessionOptions.extensionState);
   const documentServices = createDocumentServices(request, sessionOptions, {
-    generation: () => generation, root: () => workspaceRoot,
+    generation: () => generation, root: () => workspaceRoot, callerOwner: callers.currentOwner,
     document: id => documents.get(id), editor: id => active?.document._snapshot.id === id ? active : undefined,
   });
   const reserved = new Set(sessionOptions.reservedCommands || []);
@@ -65,8 +65,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       return callers.unowned(() => operation(params));
     } catch (error) { return Promise.reject(error); }
   }
-  function request(method, params) {
-    try { assertOwner(params.owner); return sendRequest(method, params); }
+  function request(method, params, lifecycle) {
+    try { assertOwner(params.owner); return sendRequest(method, params, lifecycle); }
     catch (error) { return Promise.reject(error); }
   }
   const providers = createProviders({ session: sessionOptions.session, notify, track, bindProvider: callers.bindProvider, bindProviderResult: callers.bindProviderResult, invokeProviderResult: callers.invokeProviderResult, document: id => documents.get(id), diagnostics: (document,range) => diagnostics.currentDiagnostics(document,range) });
@@ -132,7 +132,12 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       const previousSaved = document?._snapshot.savedGeneration || 0;
       const previousEnd = typeof snapshot.text === 'string' && document?.positionAt(previous.length);
       if (!document) {
-        document = new TextDocument(snapshot);
+        document = new TextDocument(snapshot, { save: document => {
+          // Shared documents acquire the invoking callback/timer owner NOW.
+          // The facade which first constructed this mirror is not authority.
+          const owner = callers.currentOwner();
+          return documentServices.saveDocument(owner, document);
+        } });
         documents.set(snapshot.id, document);
         changes.push(() => opened.fire(document));
       } else {

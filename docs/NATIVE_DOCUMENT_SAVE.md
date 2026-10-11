@@ -1,4 +1,11 @@
-# Extension document save foundation
+# Extension document saves
+
+Public `TextDocument.save()` now routes the retained shared document through the
+native save controller. It captures the invoking extension's private caller
+lease, document ID and exposed version synchronously. The facade that first
+opened the document does not own later callers. Callback ownership and the
+originating command are independent; retired callers cannot reuse a replacement
+lease or receive successful acknowledgement from an old invocation.
 
 The internal `nativeDocumentSave` service connects one retained native document
 ID/version to the existing asynchronous save controller. Admission captures the
@@ -21,12 +28,33 @@ only that exact admission, and a service-tagged intent/worker cannot run without
 its matching caller interest. Existing manual/autosave/close/quit saves keep
 ordinary native ownership and require no JavaScript runtime.
 
-The public JavaScript `TextDocument.save()` hook is still unconnected at this
-foundation milestone. Trusted callback caller lookup, shared-document service
-admission, exact originating-command human-wait suspension and actual public
-host/terminal qualification belong to the next slice. Virtual/custom filesystem
-saves, broader encodings and all upstream save participants remain incomplete.
-Service FIFO can delay later extension document operations.
+The promise returns true only after the actual worker finishes and joins, the
+original model receives its receipt, and the same shared JavaScript document
+receives a greater save generation. `onDidSaveTextDocument` precedes true.
+Sequential clean saves also use native persistence, advance the generation and
+preserve text version, selections and Undo/Redo. Native Save As cancellation
+returns false; closed documents, external-write conflicts and ambiguous backend
+outcomes reject. Newer text typed after authorization remains dirty even when
+the earlier captured content was saved successfully.
+
+Save As suspends only the exact originating command during its bounded human
+wait. Repeated polls do not renew it; acceptance, cancellation or expiry resumes
+that command's clock once. Timer/event callbacks can save without an originating
+command. The public hook requires a live extension caller; core editing and
+ordinary native saving remain usable without Node.
+
+Save shares the eight-call document-service budget and the 64-request host
+budget. A 360-second acknowledgement timeout rejects with an unknown outcome
+while retaining occupied capacity until the exact terminal reply. Malformed
+replies cannot release capacity, reset clocks or retry the operation. Native
+response backpressure retains the original receipt. Host shutdown never undoes
+an already authorized disk commit. Service FIFO can delay later extension
+document operations; command/preauthorization deadlines can still end a caller
+while an authorized physical worker remains occupied.
+
+Virtual/custom filesystem saves, broader encodings and all upstream save
+participants remain incomplete. Existing first-save participant limitations
+remain; this is not complete save-lifecycle or extension API compatibility.
 
 Local qualification: fourteen real-worker native ownership/integrity tests and
 all 812 native library tests pass, with formatting, strict all-target locked
@@ -42,5 +70,30 @@ observes exactly one false reply after release and a real ping. The same test
 fails against the original removal-before-send implementation at the receipt
 retention oracle. It also preserves the hidden Unicode/CRLF model, Undo/Redo,
 active editor and disk bytes. This exercises the internal protocol; public
-TextDocument.save and human command-wait behavior remain separate qualification.
+TextDocument.save and human command-wait behavior have separate tests.
 No local VS Code instance or CI investigation was used.
+
+Public gateway qualification: eleven host tests and all 360 host tests pass.
+Three negative controls fail on the unfixed implementation: alternating identity
+getters, retirement/reacquisition during metadata access, and retirement while a
+true reply is held. A real two-extension framed host tests independent caller
+and command origins, timer/event/provider callbacks, newer dirty publication,
+repeated clean saves and didSave ordering. Its parent supplies synthetic native
+state; physical disk evidence is separate. The native library suite passes 828
+tests, including exact service human-wait and caller/origin matching tests.
+Formatting, strict locked all-target Clippy and the native build pass.
+
+Four actual native CLI PTY sessions pass with an absolute Node path, empty PATH
+and no language server: repeated clean save/Redo, inactive A save while B is
+dirty, untitled cancellation/acceptance/Undo, and external-conflict recovery plus
+closed-document rejection. They verify exact Unicode/CRLF file bytes, shared
+identity, didSave-before-true and restored terminal state; fixture JavaScript
+calls the API and observes state, never writes document files. Existing shared
+hidden-document/recovery/Memento and native save-automation terminal journeys
+also pass. The inactive fixture waits for the post-acknowledgement shared
+identity assertion and active-file status before typing.
+
+[Source receipts](../extension-host/document-save.provenance.json) pin the
+public delegation and closed-document behavior to stable VS Code 1.141.0,
+commit `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`. No local upstream instance
+was run; broader upstream runtime and platform qualification remain outstanding.

@@ -342,6 +342,15 @@ impl App {
         entry.location = location;
         Ok(())
     }
+    pub(in crate::app) fn document_save_path_pending(&self, session: u64, request: &str) -> bool {
+        self.saving.document_interests.entries.iter().any(|entry| {
+            entry.caller.session == session
+                && entry.caller.request == request
+                && !entry.retired
+                && matches!(entry.location, Location::Path)
+                && entry.started.elapsed() < PATH_WAIT
+        })
+    }
     pub(in crate::app) fn document_save_caller_pending(&self, session: u64, request: &str) -> bool {
         self.saving
             .document_interests
