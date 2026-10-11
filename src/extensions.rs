@@ -1,5 +1,6 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
 mod diagnostics;
+pub(crate) mod editor_inventory;
 pub(crate) mod editor_state;
 mod owner_lifetimes;
 mod prompts;
@@ -178,6 +179,8 @@ struct Pending {
 }
 #[derive(Deserialize)]
 struct Edit {
+    #[serde(default)]
+    editor: Option<String>,
     session: u64,
     owner: String,
     document: u64,
@@ -186,6 +189,7 @@ struct Edit {
 }
 pub struct Prepared {
     storage_root: Option<PathBuf>,
+    editor_inventory: Option<editor_inventory::Inventory>,
     mirror: MirrorState,
     state: Value,
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
@@ -214,6 +218,7 @@ pub struct ActivationRequest {
     pub owner: Option<String>,
 }
 pub struct Client {
+    editor_inventory: Option<editor_inventory::Inventory>,
     diagnostics: diagnostics::State,
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
@@ -294,6 +299,7 @@ impl Client {
         let (mirror, state) = MirrorState::default().next_refs(&refs, documents.get(active))?;
         Ok(Prepared {
             storage_root: None,
+            editor_inventory: None,
             mirror,
             state,
             configuration: settings.extension_layers().clone(),
@@ -477,6 +483,7 @@ impl Client {
             root,
         )?;
         let mut client = Self {
+            editor_inventory: prepared.editor_inventory,
             diagnostics: diagnostics::State::default(),
             providers: providers::State::default(),
             services: services::empty_queue(),
@@ -803,10 +810,26 @@ impl Client {
         let refs: Vec<_> = documents.iter().chain(hidden).collect();
         let active = documents.get(active);
         check_mirror_budget(&refs)?;
+        let editor_stamp = self
+            .editor_inventory
+            .as_ref()
+            .map(|inventory| inventory.stamp(&refs))
+            .transpose()?;
         if MirrorState::stamp_refs(&refs, active) != self.mirror.last_stamp
             || !self.mirror.api_selections.is_empty()
+            || !self.mirror.api_editor_selections.is_empty()
+            || editor_stamp
+                .as_ref()
+                .is_some_and(|stamp| *stamp != self.mirror.editor_stamp)
         {
-            let (next, state) = self.mirror.next_refs(&refs, active)?;
+            let (mut next, mut state) = self.mirror.next_refs(&refs, active)?;
+            if let Some(inventory) = &self.editor_inventory {
+                state["editors"] = inventory.wire(&refs, &next.api_editor_selections)?;
+                state["activeEditor"] = json!(inventory.active);
+                next.editor_stamp = editor_stamp.expect("explicit inventory stamp");
+                next.editors = inventory.frames.clone();
+                next.api_editor_selections.clear();
+            }
             self.process
                 .send(json!({"method":"state", "params":state}))?;
             self.mirror = next;
@@ -846,6 +869,10 @@ impl Client {
             return Ok(false);
         };
         if doc.is_read_only()
+            || match &edit.editor {
+                Some(editor) => editor.len() > 128 || !self.editor_view_live(editor, doc),
+                None => self.editor_inventory_explicit(),
+            }
             || edit.version != mirror.version
             || doc.revision != mirror.revision
             || doc.text_epoch() != mirror.text_epoch
@@ -916,7 +943,11 @@ impl Client {
     ) -> Result<Vec<String>> {
         let mut messages = Vec::new();
         let refs = documents.iter().chain(hidden.iter()).collect::<Vec<_>>();
-        match check_mirror_budget(&refs) {
+        match check_mirror_budget(&refs).and_then(|()| {
+            self.editor_inventory
+                .as_ref()
+                .map_or(Ok(()), |inventory| inventory.validate(&refs))
+        }) {
             Ok(()) => {
                 self.sync_with_hidden(documents, hidden, active)?;
                 if self.mirror_suspended {
@@ -1202,6 +1233,9 @@ impl Client {
 }
 #[derive(Clone, Default)]
 struct MirrorState {
+    editor_stamp: Value,
+    editors: Vec<editor_inventory::Frame>,
+    api_editor_selections: HashSet<String>,
     mirrors: HashMap<u64, Mirror>,
     generation: u64,
     last_stamp: Value,
@@ -1350,10 +1384,14 @@ fn check_mirror_budget(documents: &[&Document]) -> Result<()> {
     Ok(())
 }
 fn selections(doc: &Document) -> Vec<Value> {
+    selections_for(doc, None)
+}
+fn selections_for(doc: &Document, view: Option<u64>) -> Vec<Value> {
     // Scan each requested physical line prefix once, retaining caller order.
     // Aggregate source admission precedes calls from transport preparation.
-    let selections = std::iter::once((doc.anchor.unwrap_or(doc.cursor), doc.cursor))
-        .chain(doc.secondary.iter().map(|selection| {
+    let view = doc.view_state(view);
+    let selections = std::iter::once((view.anchor.unwrap_or(view.cursor), view.cursor))
+        .chain(view.secondary.iter().map(|selection| {
             (
                 selection.anchor.unwrap_or(selection.cursor),
                 selection.cursor,
@@ -1599,6 +1637,7 @@ mod tests {
         )
         .unwrap();
         let edit = |session, owner| Edit {
+            editor: None,
             session,
             owner,
             document: documents[0].id,
@@ -1614,6 +1653,7 @@ mod tests {
                 .unwrap()
         );
         let edit = Edit {
+            editor: None,
             session: client.session,
             owner: "unknown.owner".into(),
             document: documents[0].id,
@@ -1624,6 +1664,7 @@ mod tests {
         let original_eol = documents[0].eol.clone();
         documents[0].eol = "\r\n".into();
         let stale_eol_edit = Edit {
+            editor: None,
             session: client.session,
             owner: client.packages[0].id.clone(),
             document: documents[0].id,
@@ -1644,6 +1685,7 @@ mod tests {
         documents[0].insert("transient", false);
         documents[0].undo();
         let edit = Edit {
+            editor: None,
             session: client.session,
             owner: client.packages[0].id.clone(),
             document: documents[0].id,

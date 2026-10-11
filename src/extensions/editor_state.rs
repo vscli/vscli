@@ -59,6 +59,8 @@ struct SelectionArgs {
     document: u64,
     version: u64,
     selections: Vec<EditorSelection>,
+    #[serde(default)]
+    editor: Option<String>,
 }
 pub(crate) enum Change {
     Language(String),
@@ -67,6 +69,7 @@ pub(crate) enum Change {
 pub(crate) struct Capture {
     pub(crate) document: u64,
     pub(crate) change: Change,
+    pub(crate) editor: Option<String>,
     context: Context,
     uri: String,
     revision: u64,
@@ -91,7 +94,14 @@ impl Capture {
             && doc.eol == self.eol
             && document_uri(doc).ok().as_ref() == Some(&self.uri)
             && (!matches!(self.change, Change::Selections(_))
-                || doc.editor_view_active_current(&self.view))
+                || if self.editor.is_some() {
+                    doc.editor_view_current(&self.view)
+                } else {
+                    doc.editor_view_active_current(&self.view)
+                })
+    }
+    pub(crate) fn view_id(&self) -> u64 {
+        self.view.view_id()
     }
     pub(crate) fn apply_selections(&self, doc: &mut Document) -> Result<bool> {
         let Change::Selections(requested) = &self.change else {
@@ -177,7 +187,7 @@ impl Client {
             .editor_state_context
             .clone()
             .context("Editor state context unavailable")?;
-        let (document, version, change) = if language {
+        let (document, version, change, editor) = if language {
             let args: LanguageArgs = serde_json::from_value(args.clone())?;
             ensure!(
                 !args.language.is_empty()
@@ -185,7 +195,12 @@ impl Client {
                     && !args.language.contains('\0'),
                 "Invalid document language identifier"
             );
-            (args.document, args.version, Change::Language(args.language))
+            (
+                args.document,
+                args.version,
+                Change::Language(args.language),
+                None,
+            )
         } else {
             let array = args
                 .get("selections")
@@ -200,6 +215,7 @@ impl Client {
                 args.document,
                 args.version,
                 Change::Selections(args.selections),
+                args.editor,
             )
         };
         let doc = documents
@@ -217,22 +233,41 @@ impl Client {
             .get(&document)
             .context("Editor model is not mirrored")?;
         ensure!(
-            mirror.language_epoch == doc.language_epoch()
-                && (language || doc.editor_view_active_current(&mirror.editor_view)),
-            "Original mirrored editor view changed before receipt"
+            mirror.language_epoch == doc.language_epoch(),
+            "Original mirrored document language changed before receipt"
         );
+        let view = if language {
+            mirror.editor_view.clone()
+        } else if let Some(editor) = &editor {
+            ensure!(
+                !editor.is_empty() && editor.len() <= 128 && !editor.contains('\0'),
+                "Invalid native editor identifier"
+            );
+            self.editor_view_source(editor, doc)?
+        } else {
+            ensure!(
+                !self.editor_inventory_explicit(),
+                "Explicit native editor identifier is required"
+            );
+            ensure!(
+                doc.editor_view_active_current(&mirror.editor_view),
+                "Original mirrored editor view changed before receipt"
+            );
+            mirror.editor_view.clone()
+        };
         let uri = document_uri(doc)?;
         ensure!(uri.len() <= 4096, "Editor state URI exceeds 4096 bytes");
         Ok(Arc::new(Capture {
             document,
             change,
+            editor,
             context,
             uri,
             revision: doc.revision,
             epoch: doc.text_epoch(),
             language_epoch: doc.language_epoch(),
             eol: doc.eol.clone(),
-            view: mirror.editor_view.clone(),
+            view,
         }))
     }
 }
@@ -244,6 +279,7 @@ mod tests {
         Capture {
             document: doc.id,
             change,
+            editor: None,
             context: Context::new(PathBuf::from("/workspace"), Arc::default(), 1).unwrap(),
             uri: document_uri(doc).unwrap(),
             revision: doc.revision,
@@ -314,6 +350,61 @@ mod tests {
         assert_eq!(doc.text.to_string(), format!("!{original}"));
         doc.undo();
         assert_eq!(doc.text.to_string(), original);
+    }
+    #[test]
+    fn explicit_inactive_view_capture_clamps_without_retargeting_and_rejects_recreation() {
+        let mut doc = Document::from_text("α😀\r\n猫z\r\n");
+        doc.activate_view(11);
+        doc.insert("!", false);
+        doc.undo();
+        let mut request = capture(
+            &doc,
+            selections(json!({"document":doc.id,"version":1,
+            "editor":"editor-original","selections":[
+            {"anchor":{"line":0,"character":2},"active":{"line":0,"character":3}},
+            {"anchor":{"line":1,"character":9999},"active":{"line":1,"character":0}}]})),
+        );
+        request.editor = Some("editor-original".into());
+        doc.activate_view(12);
+        doc.move_to(4, false);
+        let sibling = doc.selections();
+        let source = (
+            doc.text.to_string(),
+            doc.revision,
+            doc.text_epoch(),
+            doc.saved_revision,
+            doc.save_generation(),
+            doc.dirty(),
+        );
+        assert!(request.current(&doc, Path::new("/workspace"), &request.context.settings, 1));
+        request.apply_selections(&mut doc).unwrap();
+        assert_eq!(doc.editor_view_stamp().0, 12);
+        assert_eq!(doc.selections(), sibling);
+        let target = doc.view_state(Some(11));
+        assert_eq!((target.anchor, target.cursor), (Some(1), 2));
+        assert_eq!(
+            (target.secondary[0].anchor, target.secondary[0].cursor),
+            (Some(6), 4)
+        );
+        assert_eq!(
+            (
+                doc.text.to_string(),
+                doc.revision,
+                doc.text_epoch(),
+                doc.saved_revision,
+                doc.save_generation(),
+                doc.dirty()
+            ),
+            source
+        );
+        doc.remove_view(11);
+        doc.display_view(11);
+        doc.display_view(12);
+        assert!(!request.current(&doc, Path::new("/workspace"), &request.context.settings, 1));
+        assert!(request.apply_selections(&mut doc).is_err());
+        assert_eq!(doc.selections(), sibling);
+        doc.redo();
+        assert_eq!(doc.text.to_string(), format!("!{}", source.0));
     }
     #[test]
     fn source_undo_language_and_view_aba_retire_original_capture() {

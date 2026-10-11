@@ -78,18 +78,65 @@ impl App {
                 ),
             "Original editor state source or scope changed"
         );
-        let total_selections = self
+        if let Some(editor) = &capture.editor {
+            ensure!(
+                host.editor_view_live(editor, doc),
+                "Original visible native editor retired"
+            );
+        }
+        let model_selections = self
             .documents
             .iter()
             .chain(&self.hidden_documents)
             .map(|doc| doc.secondary.len() + 1)
             .sum::<usize>();
-        let prospective_selections = match &capture.change {
-            Change::Selections(requested) => total_selections
-                .saturating_sub(doc.secondary.len() + 1)
-                .saturating_add(requested.len()),
-            Change::Language(_) => total_selections,
+        let explicit = host.editor_inventory_explicit();
+        ensure!(
+            !explicit || self.panes.len() <= 4,
+            "Visible editor inventory exceeds four groups"
+        );
+        let pane_selections = if explicit {
+            self.panes
+                .iter()
+                .map(|pane| {
+                    self.documents
+                        .iter()
+                        .find(|doc| doc.id == pane.document)
+                        .and_then(|doc| doc.editor_selection_count_for(pane.id))
+                        .context("Visible native editor view retired")
+                })
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .sum::<usize>()
+        } else {
+            0
         };
+        let mut prospective_selections = model_selections.saturating_add(pane_selections);
+        if let Change::Selections(requested) = &capture.change {
+            let target_count = doc
+                .editor_selection_count_for(capture.view_id())
+                .context("Captured editor view retired")?;
+            // Models mirror their internally active view; the visible inventory
+            // additionally mirrors every pane. An inactive sibling only changes
+            // its own pane entry, while the current model view changes both.
+            if doc.editor_view_stamp().0 == capture.view_id() {
+                prospective_selections = prospective_selections
+                    .saturating_sub(target_count)
+                    .saturating_add(requested.len());
+            }
+            if explicit {
+                ensure!(
+                    self.panes
+                        .iter()
+                        .any(|pane| pane.document == capture.document
+                            && pane.id == capture.view_id()),
+                    "Captured visible editor retired"
+                );
+                prospective_selections = prospective_selections
+                    .saturating_sub(target_count)
+                    .saturating_add(requested.len());
+            }
+        }
         ensure!(
             prospective_selections <= 16_384,
             "Editor state aggregate selection budget exceeded"
@@ -133,10 +180,18 @@ impl App {
                     .find(|doc| doc.id == capture.document)
                     .expect("validated retained model");
                 capture.apply_selections(doc)?;
-                host.mark_api_selections(capture.document);
+                if let Some(editor) = &capture.editor {
+                    host.mark_api_editor_selections(editor);
+                } else {
+                    host.mark_api_selections(capture.document);
+                }
             }
         }
-        Ok(json!({"document":capture.document}))
+        Ok(if let Some(editor) = &capture.editor {
+            json!({"document":capture.document,"editor":editor})
+        } else {
+            json!({"document":capture.document})
+        })
     }
     pub(super) fn start_editor_state_service(
         &mut self,
@@ -169,6 +224,8 @@ impl App {
         if !exact {
             return true;
         }
+        self.refresh_extension_editor_inventory();
+        host.set_editor_inventory(self.extension_editor_inventory.clone());
         if let Err(error) =
             host.sync_with_hidden(&self.documents, &self.hidden_documents, self.active)
         {

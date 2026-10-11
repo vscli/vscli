@@ -182,11 +182,17 @@ impl App {
         if packages.windows(2).any(|pair| pair[0].id == pair[1].id) {
             anyhow::bail!("Duplicate selected extension");
         }
+        self.refresh_extension_editor_inventory();
         let mut prepared = crate::extensions::Client::prepare_with_hidden(
             &self.documents,
             &self.hidden_documents,
             self.active,
             &self.settings,
+        )?
+        .with_editor_inventory(
+            self.extension_editor_inventory.clone(),
+            &self.documents,
+            &self.hidden_documents,
         )?
         .with_storage_root(self.extension_services.config_root.clone());
         if let Some(activation) = activation {

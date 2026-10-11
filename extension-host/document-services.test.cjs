@@ -32,8 +32,8 @@ test('hidden open mirrors before events and promise; show reuses identity and na
   await api.commands.executeCommand('undo');
   assert.equal(calls[2][1].generation, 3); assert.equal(calls[2][1].owner, 'test.owner');
   const count = calls.length;
-  await assert.rejects(api.window.showTextDocument('/new/file', { preserveFocus: true }), /preserveFocus/);
-  await assert.rejects(api.window.showTextDocument('/new/file', { viewColumn: api.ViewColumn.One }), /active editor group/);
+  await assert.rejects(api.window.showTextDocument('/new/file', { preserveFocus: 'yes' }), /preserveFocus/);
+  await assert.rejects(api.window.showTextDocument('/new/file', { viewColumn: api.ViewColumn.Five }), /viewColumn/);
   await assert.rejects(api.workspace.openTextDocument({ content: 'no' }), /untitled/);
   await assert.rejects(api.commands.executeCommand('undo', 1), /arguments/);
   await assert.rejects(api.commands.executeCommand('workbench.action.tasks.runTask'), /unregistered/);

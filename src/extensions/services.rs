@@ -56,11 +56,17 @@ pub(crate) struct Open {
     pub path: String,
 }
 #[derive(Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct Show {
     pub document: u64,
     pub version: u64,
     pub selection: Option<lsp::Range>,
+    #[serde(default)]
+    pub view_column: Option<i32>,
+    #[serde(default)]
+    pub preserve_focus: bool,
+    #[serde(default)]
+    pub preview: Option<bool>,
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]

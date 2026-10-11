@@ -928,7 +928,9 @@ impl App {
             .map(|item| item.package.clone())
             .collect();
         let targets = vec![owner.to_owned()];
+        self.refresh_extension_editor_inventory();
         if let Some(host) = &mut self.extension_host {
+            host.set_editor_inventory(self.extension_editor_inventory.clone());
             let additions = packages
                 .iter()
                 .filter(|package| !host.packages.iter().any(|old| old.id == package.id))

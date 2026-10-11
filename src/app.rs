@@ -526,6 +526,7 @@ struct ClosingGroup {
 }
 
 pub struct App {
+    extension_editor_inventory: crate::extensions::editor_inventory::Inventory,
     pub panes: Vec<Pane>,
     pub active_pane: usize,
     pub pane_areas: Vec<Rect>,
@@ -643,6 +644,7 @@ impl App {
     pub fn new(root: PathBuf, profile: Profile) -> Self {
         let entries = directory_entries(&root);
         Self {
+            extension_editor_inventory: crate::extensions::editor_inventory::Inventory::default(),
             panes: Vec::new(),
             active_pane: 0,
             pane_areas: Vec::new(),

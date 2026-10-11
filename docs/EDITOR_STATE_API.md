@@ -65,12 +65,13 @@ journeys and the virtual-document journey pass again. Native build, formatting
 and strict all-target locked Clippy pass. This is local Linux qualification; it
 does not establish upstream runtime parity or Windows/macOS behavior.
 
-Native mirrors admit 128 models, 10,000 selections per model and 16,384 total
-selections. Typed editor-state mutations admit at most 4,096 selections per model
-and retain the same aggregate limit. Native buffers outside these limits remain usable. Language
-identifiers are bounded to 128 UTF-8 bytes. Current public editor inventory is
-still one editor per document and one visible active editor; full shared-pane
-editor identities and view columns are outstanding. Native keyboard/mouse kind
+Native mirrors admit 128 models, 10,000 selections per model/view and 16,384 total
+selections across model and visible-pane copies. Typed editor-state mutations admit
+at most 4,096 selections per target and retain the same aggregate limit. Native
+buffers outside these limits remain usable. Language identifiers are bounded to
+128 UTF-8 bytes. The subsequent [editor inventory milestone](EDITOR_INVENTORY_API.md)
+adds distinct shared-pane identities, all visible editors, view columns and exact
+inactive-pane selection routing. Native keyboard/mouse kind
 provenance, visible ranges/options/decorations, richer language providers,
 remote/custom editor backends and upstream/platform fidelity remain work toward
 the full extension API goal. Local behavior and source comparison do not establish

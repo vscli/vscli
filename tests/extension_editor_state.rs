@@ -7,7 +7,7 @@ use std::{
 };
 use vscli::{
     app::{App, PromptKind},
-    extensions::Client,
+    extensions::Package,
     keys::Profile,
     recovery::Recovery,
 };
@@ -57,18 +57,9 @@ fn ready(root: &Path) -> App {
     assert_eq!(app.doc().text.to_string(), DIRTY);
     let extension =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/editor-state-extension");
-    let node = std::env::var("VSCLI_EXTENSION_NODE").unwrap_or_else(|_| "node".into());
-    app.extension_host = Some(
-        Client::start(
-            &node,
-            &extension,
-            root,
-            &app.documents,
-            app.active,
-            &app.settings,
-        )
-        .unwrap(),
-    );
+    app.extension_node = std::env::var("VSCLI_EXTENSION_NODE").unwrap_or_else(|_| "node".into());
+    app.start_extension_packages(vec![Package::read(&extension).unwrap()])
+        .unwrap();
     until(&mut app, |app| {
         app.extension_host.as_ref().is_some_and(|host| {
             host.ready

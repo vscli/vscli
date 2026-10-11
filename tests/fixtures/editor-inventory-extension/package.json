@@ -1,0 +1,19 @@
+{
+  "publisher": "fixture",
+  "name": "editor-inventory",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "contributes": {"commands": [
+    {"command": "editorInventory.shared", "title": "Editor inventory shared panes"},
+    {"command": "editorInventory.focusLanguage", "title": "Editor inventory focus and language"},
+    {"command": "editorInventory.replace", "title": "Editor inventory replace second pane"},
+    {"command": "editorInventory.inactive", "title": "Editor inventory inactive pane"},
+    {"command": "editorInventory.retired", "title": "Editor inventory retired editor"},
+    {"command": "editorInventory.original", "title": "Editor inventory show original"},
+    {"command": "editorInventory.armMovement", "title": "Editor inventory arm movement"},
+    {"command": "editorInventory.clean", "title": "Editor inventory original clean"},
+    {"command": "editorInventory.dirty", "title": "Editor inventory original dirty"},
+    {"command": "editorInventory.columns", "title": "Editor inventory verify closed group"},
+    {"command": "editorInventory.empty", "title": "Editor inventory verify empty"}
+  ]}
+}

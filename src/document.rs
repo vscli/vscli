@@ -331,6 +331,11 @@ pub(crate) struct EditorViewProof {
     id: u64,
     owner: std::sync::Arc<()>,
 }
+impl EditorViewProof {
+    pub(crate) fn view_id(&self) -> u64 {
+        self.id
+    }
+}
 
 pub struct Document {
     pub id: u64,
@@ -710,17 +715,44 @@ impl Document {
         self.language_epoch
     }
     pub(crate) fn editor_view_identity(&self) -> EditorViewProof {
-        EditorViewProof {
+        self.editor_view_identity_for(self.active_view)
+            .expect("active view retained")
+    }
+    pub(crate) fn editor_view_identity_for(&self, id: u64) -> Option<EditorViewProof> {
+        let view = if id == self.active_view {
+            Some(&self.view)
+        } else {
+            self.other_views.get(&id)
+        }?;
+        Some(EditorViewProof {
             document: self.id,
-            id: self.active_view,
-            owner: self.view.editor_owner.clone(),
+            id,
+            owner: view.editor_owner.clone(),
+        })
+    }
+    pub(crate) fn editor_view_stamp_for(&self, id: u64) -> Option<(u64, usize)> {
+        let proof = self.editor_view_identity_for(id)?;
+        Some((id, std::sync::Arc::as_ptr(&proof.owner) as usize))
+    }
+    pub(crate) fn editor_selection_count_for(&self, id: u64) -> Option<usize> {
+        let view = if id == self.active_view {
+            Some(&self.view)
+        } else {
+            self.other_views.get(&id)
+        }?;
+        Some(view.secondary.len() + 1)
+    }
+    pub(crate) fn reserve_editor_view(&mut self, id: u64) -> Result<()> {
+        if id != self.active_view && !self.other_views.contains_key(&id) {
+            self.other_views
+                .try_reserve(1)
+                .context("Cannot reserve native editor view")?;
         }
+        Ok(())
     }
     pub(crate) fn editor_view_stamp(&self) -> (u64, usize) {
-        (
-            self.active_view,
-            std::sync::Arc::as_ptr(&self.view.editor_owner) as usize,
-        )
+        self.editor_view_stamp_for(self.active_view)
+            .expect("active view retained")
     }
     pub(crate) fn editor_view_active_current(&self, proof: &EditorViewProof) -> bool {
         self.active_view == proof.id && self.editor_view_current(proof)
@@ -3086,6 +3118,33 @@ mod editor_state_tests {
         assert_eq!(doc.text.to_string(), "!α😀\r\n猫\r\n");
         doc.undo();
         assert_eq!(doc.text.to_string(), before.1);
+    }
+    #[test]
+    fn exact_view_accessors_never_fabricate_missing_authority_or_change_active_view() {
+        let mut doc = Document::from_text("α😀\r\nsecond");
+        doc.activate_view(1);
+        doc.set_selections(vec![Selection::caret(1), Selection::caret(5)]);
+        let original = doc.editor_view_identity();
+        let stamp = doc.editor_view_stamp();
+        doc.activate_view(2);
+        doc.move_to(2, false);
+        let sibling = doc.selections();
+        assert_eq!(doc.editor_view_stamp_for(1), Some(stamp));
+        assert_eq!(doc.editor_selection_count_for(1), Some(2));
+        assert_eq!(doc.editor_view_identity_for(1).unwrap().view_id(), 1);
+        assert!(doc.editor_view_current(&original));
+        assert!(doc.editor_view_identity_for(99).is_none());
+        assert!(doc.editor_view_stamp_for(99).is_none());
+        assert!(doc.editor_selection_count_for(99).is_none());
+        assert_eq!(doc.active_view, 2);
+        assert_eq!(doc.selections(), sibling);
+        doc.remove_view(1);
+        assert!(doc.editor_view_stamp_for(1).is_none());
+        doc.display_view(1);
+        assert_ne!(doc.editor_view_stamp(), stamp);
+        assert!(!doc.editor_view_current(&original));
+        assert_eq!(doc.text.to_string(), "α😀\r\nsecond");
+        assert!(!doc.dirty());
     }
     #[test]
     fn recreated_view_cannot_reuse_selection_authority() {

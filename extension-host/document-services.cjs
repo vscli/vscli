@@ -15,7 +15,7 @@ function createDocumentServices(request, options, model) {
     pending++; queuedBytes += bytes;
     let released = false;
     const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; } };
-    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
+    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
     try { return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
     finally { if (!lifecycle?.retained) release(); }
   }
@@ -100,23 +100,33 @@ function createDocumentServices(request, options, model) {
       guard();
       return document;
     }
-    async function showTextDocument(input, options = undefined, preserveFocus = undefined) {
-      if (preserveFocus !== undefined) throw new Error('Positional showTextDocument view-column overload is not implemented');
-      if (options !== undefined && (options === null || typeof options !== 'object' || Array.isArray(options))) throw new Error('showTextDocument requires supported options');
-      options ||= {};
-      for (const key of Object.keys(options)) {
-        if (!['selection', 'preview', 'preserveFocus', 'viewColumn'].includes(key)) throw new Error(`showTextDocument option is not implemented: ${key}`);
+    async function showTextDocument(input, columnOrOptions = undefined, preserveFocus = undefined) {
+      const guard = model.captureCaller(owner), originalSource = input instanceof TextDocument ? currentSource(input) : undefined;
+      let viewColumn = -1, preview, selection;
+      if (typeof columnOrOptions === 'number') {
+        viewColumn = columnOrOptions;
+      } else if (columnOrOptions !== undefined) {
+        if (columnOrOptions === null || typeof columnOrOptions !== 'object' || Array.isArray(columnOrOptions)) throw new TypeError('showTextDocument requires supported options');
+        const rawColumn = columnOrOptions.viewColumn, rawPreserve = columnOrOptions.preserveFocus;
+        preview = columnOrOptions.preview; selection = columnOrOptions.selection;
+        viewColumn = rawColumn ?? -1; preserveFocus = rawPreserve;
       }
-      if (options.preview !== undefined && options.preview !== false) throw new Error('Preview editor tabs are not implemented');
-      if (options.preserveFocus !== undefined && options.preserveFocus !== false) throw new Error('showTextDocument preserveFocus is not implemented');
-      if (options.viewColumn !== undefined && options.viewColumn !== -1) throw new Error('showTextDocument supports only the active editor group');
-      if (options.selection !== undefined && !(options.selection instanceof Range)) throw new Error('showTextDocument selection must be a Range');
+      if (!Number.isInteger(viewColumn) || ![-2,-1,1,2,3,4].includes(viewColumn)) throw new Error('showTextDocument viewColumn supports Active, Beside, or native groups 1..4');
+      if (preserveFocus !== undefined && typeof preserveFocus !== 'boolean') throw new TypeError('showTextDocument preserveFocus must be a boolean');
+      if (preview !== undefined && preview !== false) throw new Error('Preview editor tabs are not implemented');
+      if (selection !== undefined && !(selection instanceof Range)) throw new TypeError('showTextDocument selection must be a Range');
+      const range = selection === undefined ? null : coordinates.range(selection,'Selection');
+      guard(); if (originalSource) recheckSource(originalSource);
       const document = input instanceof TextDocument ? input : await openTextDocument(input);
-      if (document.isClosed || model.document(document._snapshot.id) !== document) throw new Error('Document is no longer open');
-      const result = await call(owner, 'nativeDocumentShow', { document: document._snapshot.id, version: document.version,
-        selection: options.selection ? coordinates.range(options.selection, 'Selection') : null });
-      const shown = model.editor(result.document);
-      if (!shown || shown.document !== document) throw new Error('Native editor mirror was not available before show acknowledgement');
+      guard();
+      const source = currentSource(document);
+      const result = await call(owner,'nativeDocumentShow',{document:source.document,version:source.version,selection:range,viewColumn,preserveFocus:preserveFocus ?? false});
+      guard();
+      const current = currentSource(document);
+      if (result?.document !== source.document || current.uri !== source.uri) throw new Error('Native editor mirror was not available before show acknowledgement');
+      const shown = model.editor(source.document,result.editor), state = model.editorSnapshot(shown);
+      if (!shown || state?.document !== document || !model.editorCurrent(shown)) throw new Error('Native editor mirror was not available before show acknowledgement');
+      guard();
       return editor(shown);
     }
     return { openTextDocument, showTextDocument };
@@ -142,10 +152,10 @@ function createDocumentServices(request, options, model) {
     if (result?.document !== source.document || current.uri !== source.uri || current.languageId !== language) throw new Error('Native document language mirror was not published before acknowledgement');
     return document;
   }
-  function setEditorSelections(owner, document, input, single) {
-    const guard = model.captureCaller(owner), source = currentSource(document);
+  function setEditorSelections(owner, document, input, single, base) {
+    const guard = model.captureCaller(owner), source = currentSource(document), editorState = model.editorSnapshot(base);
     if (!options.editorSelections) throw new Error('Native editor selection changes are not implemented by this host');
-    if (!model.editorCurrent(document)) throw new Error('Text editor is no longer available');
+    if (editorState?.document !== document || !model.editorCurrent(base)) throw new Error('Text editor is no longer available');
     let values;
     if (single) {
       if (!(input instanceof Selection)) throw new TypeError('selection must be a Selection');
@@ -168,14 +178,15 @@ function createDocumentServices(request, options, model) {
       selections.push({ anchor: coordinates.position(anchor, 'Selection'), active: coordinates.position(active, 'Selection') });
     }
     guard(); recheckSource(source);
-    if (!model.editorCurrent(document)) throw new Error('Text editor is no longer available');
+    if (editorState?.document !== document || !model.editorCurrent(base)) throw new Error('Text editor is no longer available');
     // Presentation only. Native source/selection authority remains the captured
     // primitive DTO and actual mirrored receipt, never the assigned objects.
-    const rollback = model.stageSelections(owner, document, values);
-    call(owner, 'nativeEditorSelections', { document: source.document, version: source.version, selections }).then(result => {
+    const rollback = model.stageSelections(owner, base, values);
+    call(owner, 'nativeEditorSelections', { document: source.document, version: source.version, selections,
+      ...(editorState.nativeId === undefined ? {} : {editor:editorState.nativeId}) }).then(result => {
       guard();
       const current = currentSource(document);
-      if (result?.document !== source.document || current.uri !== source.uri || !model.editorCurrent(document)) throw new Error('Native editor selection mirror was not published before acknowledgement');
+      if (result?.document !== source.document || current.uri !== source.uri || !model.editorCurrent(base) || (editorState.nativeId !== undefined && result.editor !== editorState.nativeId)) throw new Error('Native editor selection mirror was not published before acknowledgement');
     }).catch(error => {
       rollback();
       try { model.selectionFailure(owner, error); } catch { /* Reporting cannot produce an unhandled rejection. */ }

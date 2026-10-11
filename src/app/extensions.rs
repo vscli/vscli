@@ -1,5 +1,46 @@
 use super::*;
 impl App {
+    pub(super) fn refresh_extension_editor_inventory(&mut self) {
+        let views = self
+            .panes
+            .iter()
+            .map(|pane| {
+                let column = if self.group_fallback {
+                    self.panes
+                        .iter()
+                        .position(|candidate| candidate.id == pane.id)
+                        .unwrap_or(0)
+                        + 1
+                } else {
+                    self.editor_groups
+                        .groups()
+                        .iter()
+                        .position(|group| group.id().value() == pane.id)
+                        .unwrap_or(0)
+                        + 1
+                };
+                (pane.document, pane.id, column)
+            })
+            .collect::<Vec<_>>();
+        let refs = self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .collect::<Vec<_>>();
+        let active = self
+            .panes
+            .get(self.active_pane)
+            .map(|pane| (pane.document, pane.id));
+        if let Err(error) = self
+            .extension_editor_inventory
+            .observe(&refs, &views, active)
+        {
+            self.extension_editor_inventory.invalidate();
+            if self.extension_host.is_some() {
+                self.message = format!("Extension editor inventory paused: {error:#}");
+            }
+        }
+    }
     pub(super) fn poll_extensions(&mut self) -> bool {
         // Publish readiness only after the accepted-start worker releases its
         // operation slot. Otherwise a ready UI can reject the very next action.
@@ -9,6 +50,8 @@ impl App {
         let Some(mut host) = self.extension_host.take() else {
             return self.poll_extension_services();
         };
+        self.refresh_extension_editor_inventory();
+        host.set_editor_inventory(self.extension_editor_inventory.clone());
         if self.extension_packages.is_empty() {
             self.extension_packages = host.packages.clone();
         }
@@ -135,7 +178,9 @@ impl App {
         }
     }
     pub(super) fn execute_extension_now(&mut self, command: &str, args: Option<Value>) {
+        self.refresh_extension_editor_inventory();
         if let Some(host) = &mut self.extension_host {
+            host.set_editor_inventory(self.extension_editor_inventory.clone());
             if self
                 .activation
                 .owners

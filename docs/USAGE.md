@@ -571,6 +571,15 @@ Enabled command extensions can show a native single-selection Quick Pick or Inpu
 
 Extensions can read an existing file through `workspace.openTextDocument` without opening a tab, then display the same native document with `showTextDocument`. Hidden models retain identity, undo, file watching and dirty recovery. Global/workspace Memento state persists under the native configuration root, separately from imported profiles. A small explicit set of movement, selection and undo/redo commands can be delegated to the native editor. See [supported options, service bounds and qualification](EXTENSIONS.md#native-documents-commands-and-persistent-state); unsupported file schemes, preview tabs, save/task delegation and cloud state sync reject explicitly.
 
+Selected extensions receive distinct editor handles for each visible native pane,
+including two panes sharing the same document and Undo history. `showTextDocument`
+supports Active/Beside, existing columns 1–4, the next reachable column and
+`preserveFocus`; the positional column overload is supported too. Selection setters
+can target an inactive visible pane without changing focus. Closing or hiding an
+editor retires its handle; reopening the same file returns a new one. Visible,
+active and view-column events follow the native inventory, including an empty
+workbench. See [editor inventory and remaining limits](EDITOR_INVENTORY_API.md).
+
 ## Recent files and reopening closed editors
 
 **Ctrl+R** on Linux, Windows and macOS opens **Open Recent File**. The native picker

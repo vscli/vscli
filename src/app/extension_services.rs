@@ -147,6 +147,11 @@ pub(super) struct State {
     job: Option<Job>,
     contexts: std::collections::HashMap<(u64, String), Context>,
     pub(super) editor_state_completed: Option<super::extension_editor_state::Completed>,
+    shown_completed: Option<ShownCompleted>,
+}
+struct ShownCompleted {
+    service: NativeService,
+    result: Result<Value, String>,
 }
 pub(super) fn resolved(path: &Path, workspace: &Path) -> Result<PathBuf> {
     let path = if path.is_absolute() {
@@ -178,6 +183,7 @@ impl App {
     }
     pub(super) fn poll_extension_services(&mut self) -> bool {
         let Some(mut host) = self.extension_host.take() else {
+            self.extension_services.shown_completed = None;
             self.extension_services.contexts.clear();
             if let Some((token, _)) = self.pending_workspace_transaction() {
                 self.cancel_workspace_transaction(token);
@@ -248,6 +254,10 @@ impl App {
         let editor_changed = self.poll_editor_state_completion(host);
         if self.extension_services.editor_state_completed.is_some() || editor_changed {
             return editor_changed;
+        }
+        let shown_changed = self.poll_shown_editor_completion(host);
+        if self.extension_services.shown_completed.is_some() || shown_changed {
+            return shown_changed;
         }
         let virtual_changed = self.poll_virtual_documents(Some(host));
         if self.virtual_documents_pending() || virtual_changed {
@@ -652,7 +662,30 @@ impl App {
             }
             Operation::Show(show) => {
                 let result = self.show_extension_document(host, show);
-                self.answer_native_service(host, &service, result);
+                self.refresh_extension_editor_inventory();
+                host.set_editor_inventory(self.extension_editor_inventory.clone());
+                let result = result.and_then(|mut value| {
+                    if let Some(view) = value["view"].as_u64() {
+                        value
+                            .as_object_mut()
+                            .context("Invalid shown editor receipt")?
+                            .remove("view");
+                        if host.editor_inventory_explicit() {
+                            let editor = self
+                                .extension_editor_inventory
+                                .id_for_view(show.document, view)
+                                .context("Shown native editor inventory is absent")?;
+                            value["editor"] = editor.into();
+                        }
+                    }
+                    Ok(value)
+                });
+                self.extension_services.shown_completed = Some(ShownCompleted {
+                    service: service.clone(),
+                    result: result
+                        .map_err(|error| crate::extensions::services::bounded_error(&error)),
+                });
+                self.poll_shown_editor_completion(host);
             }
             Operation::Command(command) => {
                 let result = if self.active_document().is_none() || self.focus != Focus::Editor {
@@ -709,16 +742,35 @@ impl App {
             }
         }
     }
+    /// Show is staged jointly with bounded native membership/layout changes.
+    /// `{view}` is private receipt metadata; the gateway replaces it with the
+    /// published opaque editor identity after mirroring, never before.
     fn show_extension_document(
         &mut self,
         host: &crate::extensions::Client,
         show: &crate::extensions::services::Show,
     ) -> Result<Value> {
+        use crate::editor_groups::Change;
+        use crate::editor_layout::Direction;
+        if show.preview == Some(true) {
+            bail!("Preview showTextDocument is not supported by this native backend yet");
+        }
+        if self.group_fallback {
+            bail!(
+                "Native editor views are unavailable while recovered buffers exceed the group limit"
+            );
+        }
+        if show
+            .view_column
+            .is_some_and(|column| !matches!(column, -2 | -1 | 1..=4))
+        {
+            bail!("Native viewColumn requires Active, Beside or columns 1–4");
+        }
         let doc = self
             .documents
             .iter()
             .chain(&self.hidden_documents)
-            .find(|d| d.id == show.document)
+            .find(|doc| doc.id == show.document)
             .context("Document is no longer open")?;
         if !host.service_document_current(doc, show.version) {
             bail!("Document changed before showTextDocument; retry");
@@ -732,36 +784,176 @@ impl App {
                 if start > end {
                     bail!("Selection range is reversed");
                 }
-                Ok((start, end))
+                Ok(crate::document::Selection {
+                    anchor: Some(start),
+                    cursor: end,
+                    desired_column: None,
+                })
             })
             .transpose()?;
-        self.can_admit_editor(show.document)?;
-        if !self.group_fallback {
-            self.open_preview_model(show.document, crate::editor_groups::OpenMode::Committed)?;
-        } else if let Some(index) = self
+        let previous_group = self.editor_groups.active_group();
+        let previous_focus = self.focus.clone();
+        let mut groups = self.editor_groups.clone();
+        let mut change = Change::default();
+        let mut topology = None;
+        let target = if groups.groups().is_empty() {
+            if show.view_column.is_some_and(|column| column > 1) {
+                bail!("Sparse native viewColumn requires unsupported empty intermediate groups");
+            }
+            let opened = groups.open(show.document)?;
+            let target = opened
+                .active
+                .context("Native show did not admit an editor")?
+                .group;
+            topology = Some(opened.clone());
+            change = opened;
+            target
+        } else {
+            let active = groups
+                .active_group()
+                .context("Native active group is unavailable")?;
+            let (existing, source) = match show.view_column.unwrap_or(-1) {
+                -1 => (Some(active), active),
+                -2 => (self.native_show_right_group(active)?, active),
+                column => {
+                    let ordinal = column as usize - 1;
+                    if ordinal > groups.groups().len() {
+                        bail!(
+                            "Sparse native viewColumn requires unsupported empty intermediate groups"
+                        );
+                    }
+                    (
+                        groups.groups().get(ordinal).map(|group| group.id()),
+                        groups.groups().last().expect("nonempty groups").id(),
+                    )
+                }
+            };
+            let target = if let Some(existing) = existing {
+                existing
+            } else {
+                groups.focus_group(source)?;
+                let split = groups.split_active()?;
+                let target = split
+                    .active
+                    .context("Native side group was not created")?
+                    .group;
+                topology = Some(split.clone());
+                change.created_groups = split.created_groups.clone();
+                change.changed = true;
+                let temporary = split.active.expect("validated split");
+                let opened = groups.open_in_group(target, show.document)?;
+                change.inserted.extend(opened.inserted);
+                change.promoted.extend(opened.promoted);
+                if temporary.document == show.document {
+                    change.inserted.push(temporary);
+                } else {
+                    // The copied editor exists only in staged Groups. Removing
+                    // it here never closes a live source view or dirty model.
+                    groups.close(temporary)?;
+                }
+                target
+            };
+            if topology.is_none() {
+                let opened = groups.open_in_group(target, show.document)?;
+                change = opened;
+            }
+            target
+        };
+        if show.preserve_focus
+            && let Some(previous) = previous_group
+        {
+            let focused = groups.focus_group(previous)?;
+            change.changed |= focused.changed;
+        }
+        change.active = groups.active_membership();
+        // Showing in a new group is an ordinary open, not the explicit Split
+        // command's source-view copy operation. Shared new views start at origin.
+        if topology.is_some() {
+            change.previous = None;
+        }
+        let layout = self.prepare_group_layout(
+            &groups,
+            topology.as_ref().unwrap_or(&change),
+            topology
+                .as_ref()
+                .and_then(|change| change.previous.map(|_| Direction::Right)),
+        )?;
+        let hidden = self
             .hidden_documents
             .iter()
-            .position(|d| d.id == show.document)
-        {
-            let doc = self.hidden_documents.remove(index);
-            self.install_open_document(doc)?;
-        } else {
-            self.active = self
+            .position(|doc| doc.id == show.document);
+        if hidden.is_some() {
+            self.documents
+                .try_reserve(1)
+                .context("Cannot reserve shown model storage")?;
+        }
+        let doc = self
+            .documents
+            .iter_mut()
+            .chain(&mut self.hidden_documents)
+            .find(|doc| doc.id == show.document)
+            .expect("validated retained model");
+        doc.reserve_editor_view(target.value())?;
+        // All Result-returning admission is complete before ownership moves.
+        let old_view = doc.editor_view_stamp().0;
+        doc.display_view(target.value());
+        doc.display_view(old_view);
+        self.publish_group_layout(groups, layout);
+        if let Some(hidden) = hidden {
+            self.documents.push(self.hidden_documents.remove(hidden));
+        }
+        self.apply_group_change(change);
+        if let Some(selection) = selection {
+            let doc = self
                 .documents
-                .iter()
-                .position(|d| d.id == show.document)
-                .unwrap();
-            self.focus = Focus::Editor;
-            self.sync_pane();
+                .iter_mut()
+                .find(|doc| doc.id == show.document)
+                .expect("published shown model");
+            let view = doc
+                .editor_view_identity_for(target.value())
+                .expect("prepared target view");
+            doc.set_editor_selections(&view, vec![selection])
+                .expect("prevalidated view and selection");
         }
-        if let Some((start, end)) = selection {
-            self.doc_mut().clear_secondary();
-            self.doc_mut().move_to(start, false);
-            self.doc_mut().move_to(end, true);
-            self.sync_pane();
-        }
+        self.focus = if show.preserve_focus {
+            previous_focus
+        } else {
+            Focus::Editor
+        };
         self.remember_active_file();
-        Ok(serde_json::json!({"document":show.document}))
+        Ok(serde_json::json!({"document":show.document,"view":target.value()}))
+    }
+    fn native_show_right_group(
+        &self,
+        active: crate::editor_groups::GroupId,
+    ) -> Result<Option<crate::editor_groups::GroupId>> {
+        // Bounded logical geometry chooses the nearest right-hand group. This
+        // is not a rendered hit map and does not access source/editor content.
+        let geometry = self
+            .editor_layout
+            .project(Rect::new(0, 0, 4096, 4096), Some(active))?;
+        let origin = geometry
+            .placement(active)
+            .context("Native active group geometry unavailable")?
+            .outer;
+        Ok(geometry
+            .placements()
+            .iter()
+            .flatten()
+            .filter(|candidate| {
+                candidate.group != active
+                    && candidate.outer.x >= origin.right()
+                    && candidate.outer.y < origin.bottom()
+                    && candidate.outer.bottom() > origin.y
+            })
+            .min_by_key(|candidate| {
+                (
+                    candidate.outer.x - origin.right(),
+                    (u32::from(candidate.outer.y) * 2 + u32::from(candidate.outer.height))
+                        .abs_diff(u32::from(origin.y) * 2 + u32::from(origin.height)),
+                )
+            })
+            .map(|candidate| candidate.group))
     }
     fn answer_native_service(
         &mut self,
@@ -775,6 +967,8 @@ impl App {
         if service.request.session != host.session {
             return false;
         }
+        self.refresh_extension_editor_inventory();
+        host.set_editor_inventory(self.extension_editor_inventory.clone());
         // The full authoritative mirror is queued before the promise settles.
         let result = result.and_then(|value| {
             host.sync_with_hidden(&self.documents, &self.hidden_documents, self.active)?;
@@ -786,6 +980,60 @@ impl App {
         } else {
             true
         }
+    }
+    fn poll_shown_editor_completion(&mut self, host: &mut crate::extensions::Client) -> bool {
+        let Some(done) = self.extension_services.shown_completed.take() else {
+            return false;
+        };
+        if done.service.request.session != host.session
+            || !host
+                .service()
+                .is_some_and(|pending| pending.id == done.service.id)
+        {
+            return true;
+        }
+        self.refresh_extension_editor_inventory();
+        host.set_editor_inventory(self.extension_editor_inventory.clone());
+        if let Err(error) =
+            host.sync_with_hidden(&self.documents, &self.hidden_documents, self.active)
+        {
+            self.message = format!("Shown editor mirror receipt retained: {error:#}");
+            self.extension_services.shown_completed = Some(done);
+            return false;
+        }
+        let result = host
+            .completed_show_owner_valid(&done.service)
+            .and_then(|()| {
+                let value = done.result.clone().map_err(anyhow::Error::msg)?;
+                if let Some(editor) = value["editor"].as_str() {
+                    let document = value["document"]
+                        .as_u64()
+                        .context("Invalid shown document receipt")?;
+                    let doc = self
+                        .documents
+                        .iter()
+                        .chain(&self.hidden_documents)
+                        .find(|doc| doc.id == document)
+                        .context("Original shown model retired")?;
+                    let proof = host.editor_view_source(editor, doc)?;
+                    anyhow::ensure!(
+                        host.editor_id_for_document(document, proof.view_id())
+                            .as_deref()
+                            == Some(editor),
+                        "Original shown editor retired before acknowledgement"
+                    );
+                }
+                Ok(value)
+            });
+        if let Err(error) = host.answer_service(&done.service, result) {
+            self.message = format!("Shown editor acknowledgement retained: {error:#}");
+            self.extension_services.shown_completed = Some(done);
+            return false;
+        }
+        self.extension_services
+            .contexts
+            .remove(&(done.service.request.session, done.service.id));
+        true
     }
 }
 
@@ -957,6 +1205,9 @@ exports.activate = async context => {
             &crate::extensions::services::Show {
                 document: id,
                 version: 1,
+                view_column: None,
+                preserve_focus: false,
+                preview: None,
                 selection: Some(crate::lsp::Range {
                     start: crate::lsp::Position {
                         line: 0,
@@ -976,6 +1227,382 @@ exports.activate = async context => {
         assert_eq!(app.doc().view_state(Some(first_pane)).cursor, first_cursor);
         assert_eq!(app.doc().text.to_string(), "α😀\r\nsecond");
         app.extension_host = Some(host);
+    }
+    #[test]
+    fn native_show_beside_preserves_focus_shared_dirty_identity_and_redo() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("a.txt");
+        std::fs::write(&file, "α😀\r\nsecond").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.install_open_document(Document::open_existing(&file).unwrap())
+            .unwrap();
+        let id = app.doc().id;
+        let end = app.doc().len();
+        app.doc_mut().move_to(end, false);
+        app.doc_mut().insert("!", false);
+        app.doc_mut().move_to(0, false);
+        app.doc_mut().insert("x", false);
+        app.doc_mut().undo();
+        app.doc_mut().set_selections(vec![
+            crate::document::Selection::caret(3),
+            crate::document::Selection::caret(6),
+        ]);
+        let source_group = app.panes[0].id;
+        let source_selections = app.doc().selections();
+        let source = (
+            app.doc().text.to_string(),
+            app.doc().revision,
+            app.doc().text_epoch(),
+            app.doc().saved_revision,
+            app.doc().save_generation(),
+            app.doc().dirty(),
+        );
+        app.focus = Focus::Explorer;
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let prepared = crate::extensions::Client::prepare_with_hidden(
+            &app.documents,
+            &app.hidden_documents,
+            app.active,
+            &app.settings,
+        )
+        .unwrap();
+        let host =
+            crate::extensions::Client::start_prepared("node", &extension, root.path(), prepared)
+                .unwrap();
+        let show = crate::extensions::services::Show {
+            document: id,
+            version: 1,
+            selection: Some(crate::lsp::Range {
+                start: crate::lsp::Position {
+                    line: 0,
+                    character: 1,
+                },
+                end: crate::lsp::Position {
+                    line: 0,
+                    character: 3,
+                },
+            }),
+            view_column: Some(-2),
+            preserve_focus: true,
+            preview: Some(false),
+        };
+        let result = app.show_extension_document(&host, &show).unwrap();
+        let target = result["view"].as_u64().unwrap();
+        assert_ne!(target, source_group);
+        assert_eq!(app.panes.len(), 2);
+        assert_eq!(app.documents.len(), 1);
+        assert!(app.hidden_documents.is_empty());
+        assert_eq!(app.panes[app.active_pane].id, source_group);
+        assert!(matches!(app.focus, Focus::Explorer));
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().selections(), source_selections);
+        let target_view = app.doc().view_state(Some(target));
+        assert_eq!((target_view.anchor, target_view.cursor), (Some(1), 2));
+        assert!(target_view.secondary.is_empty());
+        assert_eq!(
+            (
+                app.doc().text.to_string(),
+                app.doc().revision,
+                app.doc().text_epoch(),
+                app.doc().saved_revision,
+                app.doc().save_generation(),
+                app.doc().dirty()
+            ),
+            source
+        );
+        // Beside reuses the existing right-hand group, rather than adding a third.
+        let repeat = app.show_extension_document(&host, &show).unwrap();
+        assert_eq!(repeat["view"], target);
+        assert_eq!(app.panes.len(), 2);
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), format!("x{}", source.0));
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), source.0);
+        assert_eq!(std::fs::read_to_string(file).unwrap(), "α😀\r\nsecond");
+    }
+    #[test]
+    fn show_hidden_model_column_and_failed_admissions_are_atomic() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.install_open_document(Document::from_text("first"))
+            .unwrap();
+        let first = app.doc().id;
+        app.doc_mut().move_to(3, false);
+        app.hidden_documents
+            .push(Document::from_text("α😀\r\nsecond"));
+        let hidden = app.hidden_documents[0].id;
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let prepared = crate::extensions::Client::prepare_with_hidden(
+            &app.documents,
+            &app.hidden_documents,
+            app.active,
+            &app.settings,
+        )
+        .unwrap();
+        let host =
+            crate::extensions::Client::start_prepared("node", &extension, root.path(), prepared)
+                .unwrap();
+        let original = app.editor_groups.proof();
+        let first_selections = app.doc().selections();
+        let mut show = crate::extensions::services::Show {
+            document: hidden,
+            version: 1,
+            selection: None,
+            view_column: Some(4),
+            preserve_focus: false,
+            preview: Some(false),
+        };
+        for (column, preview) in [
+            (Some(4), Some(false)),
+            (Some(0), Some(false)),
+            (Some(2), Some(true)),
+        ] {
+            show.view_column = column;
+            show.preview = preview;
+            assert!(app.show_extension_document(&host, &show).is_err());
+            assert!(app.editor_groups.proof_current(&original));
+            assert_eq!(app.documents.len(), 1);
+            assert_eq!(app.hidden_documents.len(), 1);
+            assert_eq!(app.doc().id, first);
+            assert_eq!(app.doc().selections(), first_selections);
+        }
+        show.view_column = Some(2);
+        show.preview = Some(false);
+        show.preserve_focus = true;
+        let result = app.show_extension_document(&host, &show).unwrap();
+        assert_eq!(app.panes.len(), 2);
+        assert_eq!(app.documents.len(), 2);
+        assert!(app.hidden_documents.is_empty());
+        assert_eq!(app.doc().id, first);
+        assert_eq!(app.doc().selections(), first_selections);
+        let target = app.documents.iter().find(|doc| doc.id == hidden).unwrap();
+        assert_eq!(
+            target
+                .editor_view_identity_for(result["view"].as_u64().unwrap())
+                .unwrap()
+                .view_id(),
+            result["view"].as_u64().unwrap()
+        );
+        assert_eq!(target.text.to_string(), "α😀\r\nsecond");
+        assert!(!target.dirty());
+        let original = app.editor_groups.proof();
+        show.view_column = Some(1);
+        show.selection = Some(crate::lsp::Range {
+            start: crate::lsp::Position {
+                line: 0,
+                character: 2,
+            },
+            end: crate::lsp::Position {
+                line: 0,
+                character: 3,
+            },
+        });
+        assert!(app.show_extension_document(&host, &show).is_err());
+        assert!(app.editor_groups.proof_current(&original));
+        assert_eq!(app.doc().id, first);
+        assert_eq!(app.doc().selections(), first_selections);
+    }
+    fn paused_shown_editor_receipt() -> (tempfile::TempDir, App) {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("receipt.txt");
+        std::fs::write(&path, "α😀\r\nsecond\r\n").unwrap();
+        let extension = root.path().join("receipt-extension");
+        std::fs::create_dir(&extension).unwrap();
+        std::fs::write(extension.join("package.json"), r#"{"publisher":"test","name":"show-receipt","version":"1.0.0","main":"extension.cjs","contributes":{"commands":[{"command":"receipt.show","title":"Show exact receipt"}]}}"#).unwrap();
+        std::fs::write(
+            extension.join("extension.cjs"),
+            r#"
+const vscode = require('vscode');
+exports.activate = context => {
+  context.subscriptions.push(vscode.commands.registerCommand('receipt.show', async () => {
+    const original = vscode.window.activeTextEditor.document;
+    try {
+      const editor = await vscode.window.showTextDocument(original, {
+        viewColumn: vscode.ViewColumn.Beside, preserveFocus: true, preview: false,
+      });
+      if (editor.document !== original) throw new Error('Shared model identity changed');
+      await vscode.window.showInformationMessage('receipt-ack column=' + editor.viewColumn);
+    } catch (error) {
+      await vscode.window.showInformationMessage('receipt-rejected ' + error.message);
+    }
+  }));
+};
+"#,
+        )
+        .unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.install_open_document(Document::open_existing(&path).unwrap())
+            .unwrap();
+        let end = app.doc().len();
+        app.doc_mut().move_to(end, false);
+        app.doc_mut().insert("!", false);
+        app.doc_mut().move_to(0, false);
+        app.doc_mut().insert("x", false);
+        app.doc_mut().undo();
+        // The initial model and its one visible pane each have 8,192
+        // selections. Admission is exactly valid; a new origin pane adds one
+        // selection and pauses only the post-Show mirror, after publication.
+        app.doc_mut().secondary = vec![crate::document::Selection::caret(0); 8191];
+        Context::check_budget(&app).unwrap();
+        app.start_extension_packages(vec![crate::extensions::Package::read(&extension).unwrap()])
+            .unwrap();
+        until(&mut app, |app| {
+            app.extension_host.as_ref().is_some_and(|host| host.ready)
+        });
+        app.execute("receipt.show", Value::Null);
+        until(&mut app, |app| {
+            app.extension_services.shown_completed.is_some()
+        });
+        assert_eq!(app.panes.len(), 2);
+        assert_eq!(app.documents.len(), 1);
+        assert!(app.hidden_documents.is_empty());
+        assert!(Context::check_budget(&app).is_err());
+        assert!(app.message.contains("Shown editor mirror receipt retained"));
+        let receipt = app.extension_services.shown_completed.as_ref().unwrap();
+        assert!(receipt.result.as_ref().unwrap()["editor"].is_string());
+        assert!(
+            app.extension_host
+                .as_ref()
+                .unwrap()
+                .editor_inventory_explicit()
+        );
+        assert_eq!(
+            app.extension_host.as_ref().unwrap().service().unwrap().id,
+            receipt.service.id
+        );
+        (root, app)
+    }
+    fn shown_receipt_source(app: &App) -> (u64, String, u64, u64, u64, u64, bool) {
+        let doc = &app.documents[0];
+        (
+            doc.id,
+            doc.text.to_string(),
+            doc.revision,
+            doc.text_epoch(),
+            doc.saved_revision,
+            doc.save_generation(),
+            doc.dirty(),
+        )
+    }
+    #[test]
+    fn retained_show_receipt_resumes_mirror_without_replaying_native_show() {
+        let (root, mut app) = paused_shown_editor_receipt();
+        let source = shown_receipt_source(&app);
+        let group_proof = app.editor_groups.proof();
+        let receipt = app.extension_services.shown_completed.as_ref().unwrap();
+        let original_editor = receipt.result.as_ref().unwrap()["editor"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let request = receipt.service.id.clone();
+        for _ in 0..3 {
+            app.poll_extension_services();
+            assert!(app.editor_groups.proof_current(&group_proof));
+            assert_eq!(app.panes.len(), 2);
+            let receipt = app.extension_services.shown_completed.as_ref().unwrap();
+            assert_eq!(receipt.service.id, request);
+            assert_eq!(receipt.result.as_ref().unwrap()["editor"], original_editor);
+            assert_eq!(shown_receipt_source(&app), source);
+        }
+        // This is an intentional user selection reduction, not a source edit.
+        app.doc_mut().clear_secondary();
+        until(&mut app, |app| app.message == "receipt-ack column=2");
+        assert!(app.extension_services.shown_completed.is_none());
+        assert!(app.extension_host.as_ref().unwrap().service().is_none());
+        assert!(app.editor_groups.proof_current(&group_proof));
+        assert_eq!(app.panes.len(), 2);
+        let target = app.panes[1].id;
+        assert_eq!(
+            app.extension_host
+                .as_ref()
+                .unwrap()
+                .editor_id_for_document(source.0, target),
+            Some(original_editor)
+        );
+        assert_eq!(shown_receipt_source(&app), source);
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), format!("x{}", source.1));
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), source.1);
+        assert_eq!(
+            std::fs::read_to_string(root.path().join("receipt.txt")).unwrap(),
+            "α😀\r\nsecond\r\n"
+        );
+    }
+    #[test]
+    fn retained_show_receipt_visibility_aba_rejects_replacement_editor_acknowledgement() {
+        let (root, mut app) = paused_shown_editor_receipt();
+        let source = shown_receipt_source(&app);
+        let original_editor = app
+            .extension_services
+            .shown_completed
+            .as_ref()
+            .unwrap()
+            .result
+            .as_ref()
+            .unwrap()["editor"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let original_target = app
+            .editor_groups
+            .memberships(source.0)
+            .find(|member| member.group.value() == app.panes[1].id)
+            .unwrap();
+        // These real membership transitions are deliberately unpolled: the
+        // App-owned inventory must retire A's handle even when mirrors coalesce.
+        app.focus_pane(1);
+        app.install_open_document(Document::from_text("other猫\r\n"))
+            .unwrap();
+        let other = app.doc().id;
+        app.focus_tab(original_target).unwrap();
+        app.focus_pane(0);
+        let replacement = app
+            .extension_editor_inventory
+            .id_for_view(source.0, original_target.group.value())
+            .unwrap();
+        assert_ne!(replacement, original_editor);
+        app.doc_mut().clear_secondary();
+        let group_proof = app.editor_groups.proof();
+        until(&mut app, |app| app.message.contains("receipt-rejected"));
+        assert!(
+            app.message
+                .contains("Original editor is no longer published"),
+            "{}",
+            app.message
+        );
+        assert!(app.extension_services.shown_completed.is_none());
+        assert!(app.extension_host.as_ref().unwrap().service().is_none());
+        assert!(app.editor_groups.proof_current(&group_proof));
+        assert_eq!(app.panes.len(), 2);
+        assert_eq!(app.documents.len(), 2);
+        assert_eq!(
+            app.extension_host
+                .as_ref()
+                .unwrap()
+                .editor_id_for_document(source.0, original_target.group.value()),
+            Some(replacement)
+        );
+        assert_eq!(shown_receipt_source(&app), source);
+        assert_eq!(
+            app.documents
+                .iter()
+                .find(|doc| doc.id == other)
+                .unwrap()
+                .text
+                .to_string(),
+            "other猫\r\n"
+        );
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), format!("x{}", source.1));
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), source.1);
+        assert_eq!(
+            std::fs::read_to_string(root.path().join("receipt.txt")).unwrap(),
+            "α😀\r\nsecond\r\n"
+        );
     }
     #[test]
     fn hidden_dirty_recovery_preserves_native_undo_baseline_without_clean_hidden_models() {

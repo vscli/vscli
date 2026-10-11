@@ -84,7 +84,7 @@ exports.activate=context=>{
  register('inactive',async()=>{
   originalState(dirty);
   const other=await v.workspace.openTextDocument(v.Uri.joinPath(root,'b.txt'));
-  const otherEditor=await v.window.showTextDocument(other,{preview:false}),before=points(otherEditor.selections),version=other.version;
+  const otherEditor=await v.window.showTextDocument(other,{preview:false,viewColumn:-2}),before=points(otherEditor.selections),version=other.version;
   await assign(originalEditor,[new v.Selection(1,4,1,1)],[[1,4,1,1]],true);
   assert.strictEqual(v.window.activeTextEditor,otherEditor);assert.strictEqual(otherEditor.document,other);
   assert.deepEqual(points(otherEditor.selections),before);assert.equal(other.version,version);assert.equal(other.getText(),'other\r\n');assert.equal(other.isDirty,false);
@@ -93,15 +93,15 @@ exports.activate=context=>{
  });
  register('armMovement',async()=>{
   assert.deepEqual(points(originalEditor.selections),[[1,4,1,1]]);
-  const editor=await v.window.showTextDocument(original,{preview:false});assert.strictEqual(editor,originalEditor);originalState(dirty);
+  const editor=await v.window.showTextDocument(original,{preview:false,viewColumn:1});assert.strictEqual(editor,originalEditor);originalState(dirty);
   movement=true;await v.window.showInformationMessage('API native movement armed');
  });
- register('original',async()=>{const editor=await v.window.showTextDocument(original,{preview:false});assert.strictEqual(editor,originalEditor);originalState(dirty);await v.window.showInformationMessage('API editor state original;identity=true;dirty=true');});
+ register('original',async()=>{const editor=await v.window.showTextDocument(original,{preview:false,viewColumn:1});assert.strictEqual(editor,originalEditor);originalState(dirty);await v.window.showInformationMessage('API editor state original;identity=true;dirty=true');});
  register('clean',()=>{originalState(initial);return v.window.showInformationMessage('API editor state original undo;clean=true');});
  register('dirty',()=>{originalState(dirty);return v.window.showInformationMessage('API editor state original redo;dirty=true');});
  register('prepareSave',async()=>{
   originalState(dirty);options=await v.workspace.openTextDocument({language:'cpp',content:initial});
-  await v.window.showTextDocument(options,{preview:false});await switchLanguage(options,'python');
+  await v.window.showTextDocument(options,{preview:false,viewColumn:-2});await switchLanguage(options,'python');
   assert.equal(options.isUntitled,true);assert.equal(options.isDirty,true);
   await v.window.showInformationMessage('API language save prepared;python=true;CRLF=true');
  });

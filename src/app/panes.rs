@@ -41,6 +41,7 @@ impl App {
             self.pane_areas.clear();
             self.editor_area = Rect::default();
         }
+        self.refresh_extension_editor_inventory();
     }
     pub(super) fn apply_group_change(&mut self, change: Change) {
         for member in &change.inserted {
@@ -296,6 +297,7 @@ impl App {
             self.pane_areas.clear();
             self.active_pane = 0;
             self.editor_area = Rect::default();
+            self.refresh_extension_editor_inventory();
             return;
         };
         if self.panes.is_empty() {
@@ -319,6 +321,7 @@ impl App {
         }
         let view = self.panes[self.active_pane].id;
         self.doc_mut().activate_view(view);
+        self.refresh_extension_editor_inventory();
     }
     pub(super) fn focus_tab(&mut self, member: Membership) -> Result<()> {
         self.breadcrumbs_ui_command("vscli.focusTab");

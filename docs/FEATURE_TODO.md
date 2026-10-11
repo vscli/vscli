@@ -59,9 +59,11 @@ Current editor-state integration adds
 [document language switching and editor selection setters/events](EDITOR_STATE_API.md).
 Language-only changes retain text versions and history while retiring obsolete
 provider/LSP lifetimes; selections preserve direction and native UTF-16 bounds.
-The public editor inventory still needs independent identities for every shared
-pane, full visible editors/view columns, selection source kinds and editor options,
-visible ranges and decorations. The full stable API order above remains active.
+The subsequent [editor inventory milestone](EDITOR_INVENTORY_API.md) adds independent
+identities for shared panes, all visible editors, view columns, exact inactive-pane
+selection routing and showTextDocument column/preserveFocus overloads. Selection
+source kinds, editor options, visible ranges, decorations, preview tabs and sparse
+empty groups remain outstanding. The full stable API order above remains active.
 
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;

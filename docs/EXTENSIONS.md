@@ -101,7 +101,19 @@ F1 lists registered commands. Manifest keybindings retain their original combina
 
 `workspace.openTextDocument(pathOrFileUri)` reads an existing regular UTF-8 file on a bounded native worker. It returns the same shared document object already retained for that path, including dirty or deleted backing files. Opening a new model alone creates no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden models share the host's existing 4 MiB total mirror budget with visible tabs. Models remain native-owned after host stop or failure. Showing or natively opening one moves its Document identity and undo history into the tab store; native watching and settings also include retained hidden models. Dirty hidden models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean hidden models are excluded from clean-session layout metadata.
 
-`window.showTextDocument(documentOrFile, options)` displays the model in the active native editor group. The implemented options are `selection` (a strictly validated UTF-16 Range), `preview: false`, `preserveFocus: false`, and `viewColumn: ViewColumn.Active`. Omitted options use a permanent tab in the active group. Unsupported options reject before opening a file or changing focus. Selection applies only to the target view; other shared pane selections remain intact. Untitled content/language overloads, other URI schemes, preview tabs, preserve-focus behavior, positional view-column overloads, and separate extension editor handles for every pane remain unsupported.
+`window.showTextDocument(documentOrFile, options)` and its positional view-column
+overload display the retained model in native groups. Supported options include
+`selection` (a strictly validated UTF-16 Range), `preview: false`, boolean
+`preserveFocus`, and `viewColumn` Active/Beside, existing columns 1–4 or the next
+reachable column. Beside reuses a right-hand group or creates one; preserveFocus
+retains the original group/focus and returns the actual shown editor. Omitted
+options use a permanent tab in the active group. Selection applies only to the
+target view. Separate public editor handles share document identity and history
+across panes, and inactive visible editors can receive selections. Preview tabs,
+sparse columns requiring empty groups and configured downward Beside placement
+remain unsupported. See [editor inventory](EDITOR_INVENTORY_API.md) for bounds,
+lifetime/event behavior and qualification, and [untitled documents](UNTITLED_DOCUMENTS_API.md)
+for content/language opens.
 
 Extensions may delegate these native commands without arguments: `undo`, `redo`, `editor.action.selectAll`, `cursorLeft`, `cursorRight`, `cursorUp`, `cursorDown`, `cursorHome`, `cursorEnd`, `cursorTop` and `cursorBottom`. The focused native editor is required. Native mirror updates precede acknowledgements and promise callbacks. Other built-in commands, including task/shell execution and save, explicitly reject through this API; native UI commands remain available normally.
 
@@ -227,7 +239,16 @@ The API reference target for this initial experiment is VS Code 1.95.0; the expo
 
 Document versions increase across edits and undo/redo observations. Native text epochs detect intervening text changes even when edit followed by undo restores the same revision before one host poll; stale extension edits reject and the next mirror publishes a new version. Cursor-only updates still reuse cached text. State generations reject outdated document notifications. All mirrors are updated before document event callbacks run. Protocol v4 tags command registries and edits with their session and package owner and sends document text only for new or changed document revisions; selection, dirty-state, and path updates reuse cached text. Ordered state notifications precede edit acknowledgements, and the native baseline advances only after a message is queued successfully. Changed text still uses full snapshots rather than edit deltas; the total mirrored text budget is 4 MiB, transport frames are limited to 16 MiB, and pending requests and concurrent shim command calls are capped at 64 with a 30-second native timeout. An idle host receives a heartbeat every five seconds; a missing reply uses the same timeout. One process failure, stalled callback or timeout stops the entire selected cohort; restart remains explicit. Crossing a host limit stops or rejects extension work while preserving native buffers.
 
-Unsupported service APIs throw explicit errors. Browser-only packages, proposed APIs, providers beyond the seven language adapters, webviews, notebooks, custom editors, workspace edits, settings writes, SecretStorage/cloud synchronization, unsupported activation events, extension menus, and built-in commands outside the documented delegation list remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. Local VSIX installation and rollback are implemented; native Open VSX registry workflows are described above.
+Unsupported service APIs throw explicit errors. Browser-only packages, proposed APIs,
+providers beyond the documented language adapters, webviews, notebooks, custom
+editors, richer workspace-edit backends, settings writes, SecretStorage/cloud
+synchronization, unsupported activation events, extension menus and built-in
+commands outside the documented delegation list remain unsupported. The standard
+App/CLI mirrors all visible native editors with independent split-pane handles;
+remaining editor APIs and presentation limits are tracked in
+[editor inventory](EDITOR_INVENTORY_API.md). Package engine ranges and native module
+ABI compatibility remain unqualified. Local VSIX installation and rollback are
+implemented; native Open VSX registry workflows are described above.
 
 ## Session limits and failure behavior
 

@@ -31,11 +31,12 @@ function supported(name, values) {
 }
 
 function createApi(sendRequest, notify, sessionOptions = {}) {
-  const documents = new Map(), editors = new Map(), commands = new Map(), editorStates = new WeakMap();
+  const documents = new Map(), editors = new Map(), explicitEditors = new Map(), commands = new Map(), editorStates = new WeakMap();
+  let visibleEditors = [], explicitInventory = false;
   const workspaceEditMirrors = new Map(), documentMirrorRecords = new WeakMap();
   let workspaceEditConfigurationIdentity = {};
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
-  const activeChanged = new EventEmitter(), saved = new EventEmitter(), selectionChanged = new EventEmitter();
+  const activeChanged = new EventEmitter(), visibleChanged = new EventEmitter(), columnChanged = new EventEmitter(), saved = new EventEmitter(), selectionChanged = new EventEmitter();
   const configuration = createConfiguration();
   let active, workspaceRoot, activation, generation = -1;
   const facades = new Map(), owned = new Map();
@@ -46,15 +47,19 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
     snapshot: id => workspaceEditMirrors.get(id), snapshots: () => workspaceEditMirrors.values(),
     snapshotFor: document => documentMirrorRecords.get(document),
-    document: id => documents.get(id), editor: id => active?.document._snapshot.id === id ? active : undefined,
+    document: id => documents.get(id),
+    editor: (id, nativeId) => nativeId === undefined
+      ? (!explicitInventory && editorStates.get(active)?.id === id ? active : undefined)
+      : explicitEditors.get(nativeId),
     openVirtual: (owner,uri) => textContentProviders.open(owner,uri),
-    editorCurrent: document => {
-      const source = documentMirrorRecords.get(document);
-      return !!source && editorStates.get(editors.get(source.document))?.document === document;
+    editorSnapshot: base => editorStates.get(base),
+    editorCurrent: base => {
+      const state = editorStates.get(base);
+      return !!state?.alive && (state.nativeId === undefined ? !explicitInventory && editors.get(state.id) === base : explicitEditors.get(state.nativeId) === base)
+        && workspaceEditMirrors.get(state.id)?.model === state.document;
     },
-    stageSelections: (owner, document, values) => {
-      const source = documentMirrorRecords.get(document), state = editorStates.get(editors.get(source.document));
-      const overlay = { owner, values }; state.overlay = overlay;
+    stageSelections: (owner, base, values) => {
+      const state = editorStates.get(base), overlay = { owner, values }; state.overlay = overlay;
       return () => { if (state.overlay === overlay) state.overlay = undefined; };
     },
     selectionFailure: (owner,error) => notify('message',{session:sessionOptions.session,owner,
@@ -185,11 +190,47 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     }
     return new Position(line, text.length - start);
   }
+  function mirrorSelections(base, nativeSelections, kind, changes) {
+    const state = editorStates.get(base);
+    const wire = nativeSelections.map(value => ({anchor:coordinates.position(value.anchor,'Mirror selection'),active:coordinates.position(value.active,'Mirror selection')}));
+    if (!wire.length) wire.push({anchor:{line:0,character:0},active:{line:0,character:0}});
+    const changed = state.initialized && (wire.length !== state.wire.length || wire.some((value,index) => {
+      const old = state.wire[index];
+      return value.anchor.line !== old.anchor.line || value.anchor.character !== old.anchor.character || value.active.line !== old.active.line || value.active.character !== old.active.character;
+    }));
+    state.overlay = undefined; state.initialized = true; state.wire = wire;
+    state.actual = wire.map(value => new Selection(value.anchor,value.active));
+    base._selections = state.actual;
+    if (changed) {
+      const eventValue = {textEditor:base,selections:state.actual.slice(),kind:[1,2,3].includes(kind)?kind:undefined};
+      changes.push(() => selectionChanged.fire(eventValue));
+    }
+  }
+  function retireEditor(base) {
+    const state = editorStates.get(base);
+    if (state) { state.alive = false; state.overlay = undefined; }
+  }
+  function validateEditorInventory(state) {
+    if (!Object.hasOwn(state,'editors')) return undefined;
+    if (!Array.isArray(state.editors) || state.editors.length > 4) throw new Error('Invalid native editor inventory');
+    const ids = new Set(), documents = new Set(state.documents.map(value=>value.id));
+    for (const entry of state.editors) {
+      if (!entry || typeof entry.id !== 'string' || !entry.id || entry.id.includes('\0') || entry.id.length > 128 || Buffer.byteLength(entry.id) > 128 || ids.has(entry.id) ||
+          !Number.isSafeInteger(entry.document) || entry.document <= 0 || !documents.has(entry.document) || !Number.isInteger(entry.viewColumn) || entry.viewColumn < 1 || entry.viewColumn > 4 ||
+          !Array.isArray(entry.selections) || entry.selections.length > 10000) throw new Error('Invalid native editor inventory');
+      ids.add(entry.id);
+      for (const value of entry.selections) { coordinates.position(value.anchor,'Mirror selection'); coordinates.position(value.active,'Mirror selection'); }
+    }
+    if (state.activeEditor !== null && (typeof state.activeEditor !== 'string' || !ids.has(state.activeEditor))) throw new Error('Invalid native active editor');
+    return state.editors;
+  }
   function sync(state) {
     // A newer notification can arrive before an edit promise callback runs.
     if (state.generation <= generation) return;
+    const inventory = validateEditorInventory(state);
     generation = state.generation;
     const changes = [];
+    const previousVisible = visibleEditors, previousActive = active;
     const present = new Set(state.documents.map(snapshot => snapshot.id));
     function retireDocument(document, record) {
       // Stable ExtHostDocumentData.dispose retains URI/text while closing the
@@ -209,7 +250,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       const metadata = Object.freeze({ ...previous?.metadata, ...snapshot, text, isClosed: false });
       if (transition) {
         retireDocument(document, previous);
-        documents.delete(snapshot.id); editors.delete(snapshot.id);
+        documents.delete(snapshot.id); retireEditor(editors.get(snapshot.id)); editors.delete(snapshot.id);
         document = undefined;
       }
       if (!document) {
@@ -266,68 +307,87 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         isClosed: false, metadata, canonicalText, eol,
         end: text === previous?.text ? previous.end : sourceEnd(text) });
       workspaceEditMirrors.set(snapshot.id, record); documentMirrorRecords.set(document, record);
-      if (!editors.has(snapshot.id)) editors.set(snapshot.id, editorFor(snapshot.id, document));
-      const liveEditorState = editorStates.get(editors.get(snapshot.id));
-      if (previous && (previous.model !== document || previous.version !== record.version || previous.languageEpoch !== record.languageEpoch)) liveEditorState.overlay = undefined;
-      const nativeSelections = snapshot.selections ?? (snapshot.id === state.active ? state.selections : undefined);
-      if (nativeSelections !== undefined) {
-        const base = editors.get(snapshot.id), editorState = editorStates.get(base);
-        if (!Array.isArray(nativeSelections) || nativeSelections.length > 10000) throw new Error('Invalid native editor selection snapshot');
-        const wire = nativeSelections.map(value => ({anchor:coordinates.position(value.anchor,'Mirror selection'),active:coordinates.position(value.active,'Mirror selection')}));
-        if (!wire.length) wire.push({anchor:{line:0,character:0},active:{line:0,character:0}});
-        const changedSelection = editorState.initialized && (wire.length !== editorState.wire.length || wire.some((value,index) => {
-          const old = editorState.wire[index];
-          return value.anchor.line !== old.anchor.line || value.anchor.character !== old.anchor.character || value.active.line !== old.active.line || value.active.character !== old.active.character;
-        }));
-        editorState.overlay = undefined; editorState.initialized = true; editorState.wire = wire;
-        editorState.actual = wire.map(value => new Selection(value.anchor,value.active));
-        base._selections = editorState.actual;
-        if (changedSelection) {
-          const kind = snapshot.selectionKind ?? state.selectionKind;
-          const eventValue = {textEditor:base,selections:editorState.actual.slice(),kind:[1,2,3].includes(kind)?kind:undefined};
-          changes.push(() => selectionChanged.fire(eventValue));
+      if (!inventory) {
+        if (!editors.has(snapshot.id)) editors.set(snapshot.id, editorFor(snapshot.id, document));
+        const base = editors.get(snapshot.id), live = editorStates.get(base);
+        if (previous && (previous.model !== document || previous.version !== record.version || previous.languageEpoch !== record.languageEpoch)) live.overlay = undefined;
+        const selections = snapshot.selections ?? (snapshot.id === state.active ? state.selections : undefined);
+        if (selections !== undefined) {
+          if (!Array.isArray(selections) || selections.length > 10000) throw new Error('Invalid native editor selection snapshot');
+          mirrorSelections(base,selections,snapshot.selectionKind ?? state.selectionKind,changes);
         }
       }
+
     }
     for (const [id, document] of documents) {
       if (!present.has(id)) {
         retireDocument(document, workspaceEditMirrors.get(id));
-        documents.delete(id); editors.delete(id); workspaceEditMirrors.delete(id);
+        documents.delete(id); retireEditor(editors.get(id)); editors.delete(id); workspaceEditMirrors.delete(id);
       }
     }
-    const previousActive = active;
-    active = editors.get(state.active);
+    explicitInventory = inventory !== undefined;
+    if (explicitInventory) {
+      for (const base of editors.values()) retireEditor(base);
+      editors.clear();
+      const presentEditors = new Set();
+      visibleEditors = inventory.map(entry => {
+        presentEditors.add(entry.id);
+        const document = documents.get(entry.document);
+        let base = explicitEditors.get(entry.id), privateState = editorStates.get(base);
+        if (!base || privateState.document !== document) {
+          retireEditor(base);
+          base = editorFor(entry.document,document,'',undefined,entry.id);
+          explicitEditors.set(entry.id,base); privateState = editorStates.get(base);
+        }
+        if (privateState.viewColumn !== undefined && privateState.viewColumn !== entry.viewColumn) {
+          const eventValue = {textEditor:base,viewColumn:entry.viewColumn};
+          changes.push(()=>columnChanged.fire(eventValue));
+        }
+        privateState.viewColumn = entry.viewColumn;
+        mirrorSelections(base,entry.selections,entry.selectionKind,changes);
+        return base;
+      });
+      for (const [id,base] of explicitEditors) if (!presentEditors.has(id)) { retireEditor(base); explicitEditors.delete(id); }
+      active = explicitEditors.get(state.activeEditor);
+    } else {
+      for (const base of explicitEditors.values()) retireEditor(base);
+      explicitEditors.clear();
+      active = editors.get(state.active);
+      visibleEditors = active ? [active] : [];
+    }
+    const changedVisible = previousVisible.length !== visibleEditors.length || previousVisible.some(value=>!visibleEditors.includes(value));
     providers.documentChanged();
     diagnostics.documentChanged();
     textContentProviders.documentChanged();
     // All mirrors must reflect the new state before any extension callback runs.
     for (const fire of changes) fire();
+    if (changedVisible) visibleChanged.fire(visibleEditors.slice());
     if (active !== previousActive) activeChanged.fire(active);
   }
-  function editorFor(id, document, owner = '') {
-    const initial = editorStates.get(editors.get(id));
+  function editorFor(id, document, owner = '', base = undefined, nativeId = undefined) {
+    const privateState = base ? editorStates.get(base) : {document,id,nativeId,alive:true,actual:[new Selection(0,0,0,0)],wire:[],initialized:false,overlay:undefined,viewColumn:undefined};
+    const ownerGuard = owner ? callers.bind(owner,()=>assertOwner(owner)) : ()=>assertOwner(owner);
     let result;
-    const selected = () => {
-      const current = editorStates.get(editors.get(id));
-      const state = current?.document === document ? current : editorStates.get(result);
-      return state.overlay?.values || state.actual;
-    };
+    const selected = () => privateState.overlay?.values || privateState.actual;
+    const original = () => base || result;
+    const current = () => privateState.alive && (privateState.nativeId === undefined ? !explicitInventory && editors.get(id) === original() : explicitEditors.get(privateState.nativeId) === original());
     result = supported('TextEditor', {
-      document, _selections: [new Selection(0, 0, 0, 0)],
+      document, get viewColumn() { return privateState.viewColumn; }, _selections: [new Selection(0, 0, 0, 0)],
       get selection() { return selected()[0]; },
-      set selection(value) { documentServices.setEditorSelections(owner || callers.currentOwner(),document,value,true); },
+      set selection(value) { ownerGuard(); documentServices.setEditorSelections(owner || callers.currentOwner(),document,value,true,original()); },
       get selections() { return selected().slice(); },
-      set selections(value) { documentServices.setEditorSelections(owner || callers.currentOwner(),document,value,false); },
+      set selections(value) { ownerGuard(); documentServices.setEditorSelections(owner || callers.currentOwner(),document,value,false,original()); },
       edit(callback, options) {
         try {
-          assertOwner(owner);
+          ownerGuard();
           const record = documentMirrorRecords.get(document);
           if (!record || record.isClosed || workspaceEditMirrors.get(id)?.model !== document) throw new Error('Document is no longer open');
+          if (!current()) throw new Error('Text editor is no longer available');
         } catch (error) { return Promise.reject(error); }
         if (options && (options.undoStopBefore === false || options.undoStopAfter === false)) {
           return Promise.reject(new Error('VSCLI does not yet support grouped extension undo stops'));
         }
-        const version = documentMirrorRecords.get(document).version;
+        const capturedSource = documentMirrorRecords.get(document), version = capturedSource.version;
         const edits = [];
         let valid = true;
         const validatePosition = value => {
@@ -358,11 +418,16 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         });
         try { callback(builder); } catch (error) { return Promise.reject(error); }
         finally { valid = false; }
-        // State notifications are processed before the native acknowledgement.
-        return request('edit', { session: sessionOptions.session, owner, document: id, version, edits }).then(result => result.applied);
+        // Callback/getter reentrancy cannot borrow a replacement pane.
+        try {
+          ownerGuard();
+          if (!current() || workspaceEditMirrors.get(id)?.model !== document || documentMirrorRecords.get(document)?.version !== version || documentMirrorRecords.get(document)?.languageEpoch !== capturedSource.languageEpoch) throw new Error('Text editor source changed during edit capture');
+        } catch (error) { return Promise.reject(error); }
+        return request('edit', { session: sessionOptions.session, owner, document: id, version, edits,
+          ...(privateState.nativeId === undefined ? {} : {editor:privateState.nativeId}) }).then(result => { ownerGuard(); return result.applied; });
       },
     });
-    editorStates.set(result,{document,id,actual:initial?.actual || [new Selection(0,0,0,0)],wire:[],initialized:false,overlay:undefined});
+    editorStates.set(result,privateState);
     return result;
   }
   const api = supported('vscode', {
@@ -377,9 +442,11 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       ...createPrompts(request, sessionOptions.session, '', promptBudget),
       ...surfaces.forExtension(''),
       get activeTextEditor() { return active; },
-      get visibleTextEditors() { return active ? [active] : []; },
+      get visibleTextEditors() { return visibleEditors.slice(); },
       onDidChangeActiveTextEditor: activeChanged.event,
       onDidChangeTextEditorSelection: selectionChanged.event,
+      onDidChangeVisibleTextEditors: visibleChanged.event,
+      onDidChangeTextEditorViewColumn: columnChanged.event,
       showInformationMessage: message,
       showWarningMessage: message,
       showErrorMessage: message,
@@ -418,7 +485,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         for (const cleanup of [() => fileWatchers.disposeOwner(owner), () => fileSystem.disposeOwnerWatches(owner)]) {
           try { cleanup(); } catch (error) { console.error(error); }
         }
-        for (const base of editors.values()) {
+        for (const base of [...editors.values(),...explicitEditors.values()]) {
           const state = editorStates.get(base);
           if (state?.overlay?.owner === owner) state.overlay = undefined;
         }
@@ -439,8 +506,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         if (!base) return undefined;
         const source = editorStates.get(base);
         if (!source) return undefined;
-        if (!scopedEditors.has(source.document)) scopedEditors.set(source.document, editorFor(source.id, source.document, owner));
-        return scopedEditors.get(source.document);
+        if (!scopedEditors.has(base)) scopedEditors.set(base, editorFor(source.id, source.document, owner, base));
+        return scopedEditors.get(base);
       }
       const services = documentServices.forOwner(owner, scopedEditor);
       // The native document objects are shared; only request-producing editor handles are scoped.
@@ -453,9 +520,11 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           showTextDocument: services.showTextDocument,
           ...surfaces.forExtension(owner),
           get activeTextEditor() { return scopedEditor(active); },
-          get visibleTextEditors() { return active ? [scopedEditor(active)] : []; },
+          get visibleTextEditors() { return visibleEditors.map(scopedEditor); },
           onDidChangeActiveTextEditor: event(owner, activeChanged.event, scopedEditor),
           onDidChangeTextEditorSelection: event(owner,selectionChanged.event,value=>({...value,textEditor:scopedEditor(value.textEditor)})),
+          onDidChangeVisibleTextEditors: event(owner,visibleChanged.event,value=>value.map(scopedEditor)),
+          onDidChangeTextEditorViewColumn: event(owner,columnChanged.event,value=>({...value,textEditor:scopedEditor(value.textEditor)})),
           showInformationMessage: (text, ...items) => messageFor(owner, text, ...items),
           showWarningMessage: (text, ...items) => messageFor(owner, text, ...items),
           showErrorMessage: (text, ...items) => messageFor(owner, text, ...items),
