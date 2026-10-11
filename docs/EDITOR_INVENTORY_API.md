@@ -80,7 +80,11 @@ adds native options, measured visible ranges, scoped events and revealRange,
 with separate bounds and terminal presentation differences. The
 [decoration milestone](EDITOR_DECORATIONS_API.md) adds per-view overlays and
 permits Show requests across measured-range-only publications while preserving
-source, membership, options, selections and context checks. Native keyboard/mouse
+source, membership, options, selections and context checks. Public file opens and
+native command delegation use the same contiguous presentation-only generation
+interval. A measured viewport update cannot by itself reject open, Undo or Redo;
+source edit/Undo ABA, editor identity, selections, column, caller and command
+ownership still retire the original request. Native keyboard/mouse
 selection-kind provenance, remote/custom editors and broader event/runtime/platform
 fidelity remain unqualified. This milestone does not establish complete editor or
 extension API parity.

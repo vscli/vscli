@@ -354,8 +354,10 @@ impl Client {
                 | Operation::VirtualChange(_)
                 | Operation::EditorState(_)
         ) && request.generation != Some(self.mirror.generation)
-            && !(matches!(operation, Operation::Show(_))
-                && self.mirror.show_generation_current(request.generation))
+            && !(matches!(
+                operation,
+                Operation::Open(_) | Operation::Show(_) | Operation::Command(_)
+            ) && self.mirror.show_generation_current(request.generation))
         {
             bail!("Native document state changed before service request; retry");
         }
@@ -469,10 +471,12 @@ impl Client {
                 | Operation::VirtualChange(_)
                 | Operation::EditorState(_)
         ) && service.request.generation != Some(self.mirror.generation)
-            && !(matches!(service.operation, Operation::Show(_))
-                && self
-                    .mirror
-                    .show_generation_current(service.request.generation))
+            && !(matches!(
+                service.operation,
+                Operation::Open(_) | Operation::Show(_) | Operation::Command(_)
+            ) && self
+                .mirror
+                .show_generation_current(service.request.generation))
         {
             bail!("Native document state changed before service completion; retry");
         }
@@ -590,6 +594,144 @@ pub(super) fn empty_queue() -> VecDeque<NativeService> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn native_open_and_commands_tolerate_display_only_but_reject_source_editor_and_origin_changes()
+    {
+        for (method, args) in [
+            ("nativeDocumentOpen", json!({"path":"next.cpp"})),
+            ("nativeCommand", json!({"id":"cursorRight"})),
+        ] {
+            let directory = tempfile::tempdir().unwrap();
+            let extension =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+            let mut doc = Document::from_text("猫🙂 original\r\n");
+            let mut client = Client::start(
+                "node",
+                &extension,
+                directory.path(),
+                &[],
+                0,
+                &Settings::default(),
+            )
+            .unwrap();
+            let owner = client.packages[0].id.clone();
+            client.pending.insert(
+                900,
+                Pending {
+                    owner: Some(owner.clone()),
+                    method: "execute".into(),
+                    started: Instant::now(),
+                },
+            );
+            let stamp = json!({"activeEditor":"editor-1","editors":[{
+                "id":"editor-1","document":doc.id,"viewColumn":1,
+                "selections":[],"options":{"tabSize":4},"visibleRanges":[]}]});
+            let (initial, _) = client
+                .mirror
+                .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&stamp))
+                .unwrap();
+            let generation = initial.generation;
+            let mut measured = stamp.clone();
+            measured["editors"][0]["visibleRanges"] =
+                json!([{"start":{"line":0,"character":0},"end":{"line":1,"character":0}}]);
+            let (next, _) = initial
+                .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&measured))
+                .unwrap();
+            assert!(next.generation > generation);
+            client.mirror = next;
+            let request = json!({"session":client.session,"owner":owner,"command":900,"commandOwner":owner,"generation":generation,"args":args});
+            client
+                .queue_service(method, json!("original"), request.clone())
+                .unwrap();
+            let original = client.service().unwrap().clone();
+            assert!(client.service_valid(&original).is_ok(), "{method}");
+            for (field, value) in [
+                ("command", json!(901)),
+                ("owner", json!("other.owner")),
+                ("commandOwner", json!("other.owner")),
+                ("session", json!(client.session + 1)),
+                ("generation", json!(client.mirror.generation + 1)),
+                ("generation", json!(generation - 1)),
+            ] {
+                let mut invalid = request.clone();
+                invalid[field] = value;
+                assert!(
+                    client
+                        .queue_service(method, json!("invalid"), invalid)
+                        .is_err(),
+                    "{method} {field}"
+                );
+            }
+            measured["editors"][0]["visibleRanges"] = json!([]);
+            let (next, _) = client
+                .mirror
+                .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&measured))
+                .unwrap();
+            client.mirror = next;
+            assert!(
+                client.service_valid(&original).is_ok(),
+                "{method}: contiguous viewport ABA remains presentation-only"
+            );
+            let command = client.pending.remove(&900).unwrap();
+            assert!(
+                client.service_valid(&original).is_err(),
+                "{method}: original command remains required"
+            );
+            client.pending.insert(900, command);
+            let session = client.session;
+            client.session += 1;
+            assert!(client.service_valid(&original).is_err());
+            client.session = session;
+            let baseline = client.mirror.clone();
+            for (field, value) in [
+                ("id", json!("editor-replaced")),
+                ("viewColumn", json!(2)),
+                ("document", json!(doc.id + 1)),
+                (
+                    "selections",
+                    json!([{"anchor":{"line":0,"character":0},"active":{"line":0,"character":1}}]),
+                ),
+            ] {
+                let mut changed = measured.clone();
+                changed["editors"][0][field] = value;
+                let (next, _) = baseline
+                    .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&changed))
+                    .unwrap();
+                client.mirror = next;
+                assert!(
+                    client.service_valid(&original).is_err(),
+                    "{method}: native editor {field} is outside the interval"
+                );
+                assert!(
+                    client
+                        .queue_service(method, json!("changed-editor"), request.clone())
+                        .is_err()
+                );
+            }
+            client.mirror = baseline;
+            doc.insert("X", false);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), "猫🙂 original\r\n");
+            let (changed, _) = client
+                .mirror
+                .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&measured))
+                .unwrap();
+            client.mirror = changed;
+            assert!(
+                client.service_valid(&original).is_err(),
+                "{method}: source ABA retires completion"
+            );
+            assert!(
+                client
+                    .queue_service(method, json!("stale-source"), request)
+                    .is_err()
+            );
+            assert_eq!(client.services.len(), 1);
+            assert_eq!(client.service().unwrap().id, "original");
+        }
+    }
+
     #[test]
     fn file_search_cancellation_requires_exact_owner_session_request_and_operation() {
         use std::sync::atomic::Ordering;
@@ -972,9 +1114,18 @@ mod tests {
         );
         let service = client.service().unwrap().clone();
         assert!(client.service_valid(&service).is_ok());
-        client.mirror.generation += 1;
+        let original_mirror = client.mirror.clone();
+        let changed_document = Document::from_text("real source change 猫🙂\r\n");
+        let (changed, _) = client
+            .mirror
+            .next_refs(&[&changed_document], Some(&changed_document))
+            .unwrap();
+        assert!(changed.generation > original_mirror.generation);
+        assert!(!changed.show_generation_current(service.request.generation));
+        client.mirror = changed;
         assert!(client.service_valid(&service).is_err());
-        client.mirror.generation -= 1;
+        client.mirror = original_mirror;
+        assert!(client.service_valid(&service).is_ok());
         let mut expired = service;
         expired.started = Instant::now() - SERVICE_LIFETIME;
         assert!(client.service_valid(&expired).is_err());
