@@ -1,5 +1,6 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
 mod diagnostics;
+mod owner_lifetimes;
 mod prompts;
 pub(crate) mod providers;
 pub(crate) mod services;
@@ -209,6 +210,7 @@ pub struct Client {
     diagnostics: diagnostics::State,
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
+    owner_lifetimes: owner_lifetimes::OwnerLifetimes,
     state_store: Option<crate::extension_state::Store>,
     // Drop the process before deleting its embedded runtime files on Windows.
     process: Process,
@@ -438,6 +440,7 @@ impl Client {
             diagnostics: diagnostics::State::default(),
             providers: providers::State::default(),
             services: services::empty_queue(),
+            owner_lifetimes: owner_lifetimes::OwnerLifetimes::new(&packages),
             state_store,
             process,
             _runtime: runtime,
@@ -686,6 +689,7 @@ impl Client {
                 bail!("Invalid extension activation registry");
             }
         }
+        self.owner_lifetimes.publish(&states);
         for (owner, state) in &states {
             if matches!(state.as_str(), "failed" | "disposed") {
                 self.surfaces.remove_owner(owner);

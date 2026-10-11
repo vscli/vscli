@@ -6,6 +6,10 @@ lease, document ID and exposed version synchronously. The facade that first
 opened the document does not own later callers. Callback ownership and the
 originating command are independent; retired callers cannot reuse a replacement
 lease or receive successful acknowledgement from an old invocation.
+Queued native services also retain their original
+[selected-owner lifetime](EXTENSION_CALLERS.md): failure followed by same-ID
+reactivation cannot renew an earlier save's authority. Already authorized native
+persistence still retains its worker and publishes the genuine receipt.
 
 The internal `nativeDocumentSave` service connects one retained native document
 ID/version to the existing asynchronous save controller. Admission captures the

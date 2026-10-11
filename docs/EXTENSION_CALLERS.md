@@ -51,6 +51,26 @@ and retired-listener behavior are native adaptations, separate from upstream
 runtime qualification.
 
 Caller ownership is a prerequisite for shared-document request methods. Native
-`TextDocument.save` acknowledgement remains outstanding; no save success is
-inferred from caller context, a clean flag, a status message or a file write in
-JavaScript. The native Rust editor continues to work without Node.
+[`TextDocument.save`](NATIVE_DOCUMENT_SAVE.md) now uses actual joined persistence
+receipts and shared mirror publication; caller context alone does not establish
+save success. The native Rust editor continues to work without Node.
+
+Native queued services also capture a selected owner's private retirement flag
+at receipt. Failed/disposed activation retires that flag irreversibly; explicit
+reactivation receives a different flag. A queued request cannot regain authority
+merely because its owner ID becomes active again. Dropping the native client
+retires all remaining flags, including those retained outside its queue. This
+does not cancel an already authorized physical disk commit or release an
+occupied worker early. The existing session and command-origin checks still
+apply independently.
+
+Three native regressions and the complete 831-test native library suite pass:
+owner failure/reactivation and isolation, registry/client-drop retirement, and a
+real optional-host Client whose queued save remains rejected after reactivation
+while a newly admitted save receives fresh authority. These do not establish
+individual in-process hot unloading, broader extension shutdown parity, or
+upstream/platform qualification.
+Formatting, strict locked all-target Clippy and the native build pass. The four
+public-save terminal workflows pass with these native lifetime checks enabled,
+preserving exact Unicode/CRLF disk bytes, shared identity, Undo/Redo and terminal
+restoration.

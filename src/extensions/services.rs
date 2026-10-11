@@ -74,6 +74,7 @@ pub(crate) struct NativeService {
     pub started: Instant,
     save_origin: Option<Mirror>,
     save_path_wait: Option<Instant>,
+    pub(crate) caller_retired: Arc<std::sync::atomic::AtomicBool>,
 }
 impl NativeService {
     pub fn fresh(&self) -> Result<()> {
@@ -163,6 +164,7 @@ impl Client {
         } else {
             None
         };
+        let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         self.services.push_back(NativeService {
             id,
             request,
@@ -170,6 +172,7 @@ impl Client {
             started: Instant::now(),
             save_origin,
             save_path_wait: None,
+            caller_retired,
         });
         Ok(())
     }
@@ -241,6 +244,12 @@ impl Client {
     }
     pub(crate) fn service_valid(&self, service: &NativeService) -> Result<()> {
         service.fresh()?;
+        if service
+            .caller_retired
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            bail!("Original native caller lifetime has retired");
+        }
         if !matches!(service.operation, Operation::State(_) | Operation::Save(_))
             && service.request.generation != Some(self.mirror.generation)
         {
@@ -351,6 +360,73 @@ pub(super) fn empty_queue() -> VecDeque<NativeService> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn queued_native_save_keeps_original_caller_lifetime_across_reactivation() {
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let document = Document::from_text("original 猫🙂\r\n");
+        let document_id = document.id;
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[document],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let version = client.mirror.mirrors[&document_id].version;
+        let args = json!({"session":client.session,"owner":owner,
+            "args":{"document":document_id,"version":version}});
+        client
+            .queue_service("nativeDocumentSave", json!("original-save"), args.clone())
+            .unwrap();
+        let original = client.service().unwrap().clone();
+        assert!(client.service_valid(&original).is_ok());
+        client
+            .register_activation(&json!([{"id":owner,"state":"failed"}]))
+            .unwrap();
+        assert!(client.service_valid(&original).is_err());
+        client
+            .register_activation(&json!([{"id":owner,"state":"active"}]))
+            .unwrap();
+        assert!(!client.owner_retired(&owner));
+        assert!(
+            client.service_valid(&original).is_err(),
+            "an owner string cannot renew a queued caller"
+        );
+        client
+            .answer_service(&original, Err(anyhow::anyhow!("original caller retired")))
+            .unwrap();
+        client
+            .queue_service("nativeDocumentSave", json!("replacement-save"), args)
+            .unwrap();
+        let replacement = client.service().unwrap().clone();
+        assert!(client.service_valid(&replacement).is_ok());
+        assert!(!Arc::ptr_eq(
+            &original.caller_retired,
+            &replacement.caller_retired
+        ));
+        assert!(
+            original
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        assert!(
+            !replacement
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        drop(client);
+        assert!(
+            replacement
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+    }
+
     #[test]
     fn exact_save_as_service_wait_pauses_and_resets_only_its_original_command() {
         let directory = tempfile::tempdir().unwrap();
