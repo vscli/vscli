@@ -10,6 +10,7 @@ const { createSurfaces } = require('./surfaces.cjs');
 const { createConfiguration } = require('./configuration.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
+const filesystem = require('./filesystem.cjs');
 const { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument } = types;
 
 function supported(name, values) {
@@ -37,6 +38,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
   const promptBudget = { pending: 0, bytes: 0 };
+  const fileSystem = filesystem.createFileSystem({ assertOwner, track });
   function assertOwner(owner) {
     if (owner && activation && !activation.accepts(owner)) throw new Error(`Extension owner is not active: ${owner}`);
   }
@@ -185,6 +187,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   }
   const api = supported('vscode', {
     ...types, ...providerTypes, ...diagnosticTypes, ...surfaces.types,
+    FileSystemError: filesystem.FileSystemError, FileType: filesystem.FileType,
+    FilePermission: filesystem.FilePermission, FileChangeType: filesystem.FileChangeType,
     version: '1.95.0',
     EndOfLine: Object.freeze({ LF: 1, CRLF: 2 }),
     ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
@@ -200,6 +204,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       showErrorMessage: message,
     }),
     workspace: supported('workspace', {
+      ...fileSystem.forOwner(''),
       get textDocuments() { return [...documents.values()]; },
       get workspaceFolders() { return workspaceFolder ? [workspaceFolder] : undefined; },
       get rootPath() { return workspaceFolder?.uri.fsPath; },
@@ -258,6 +263,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           showErrorMessage: (text, ...items) => messageFor(owner, text, ...items),
         }),
         workspace: supported('workspace', {
+          ...fileSystem.forOwner(owner),
           openTextDocument: services.openTextDocument,
           get textDocuments() { return [...documents.values()]; },
           get workspaceFolders() { return workspaceFolder ? [workspaceFolder] : undefined; },
