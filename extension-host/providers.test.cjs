@@ -290,3 +290,35 @@ test('completion normalization getters cannot publish retired lists or resolved 
     assert.equal(providers.pendingCount(), 0);
   }
 });
+
+
+test('formatting and completion reject EOL, snippet and annotated edits without partial results', () => {
+  const { document } = fixture(), selected = new Range(0, 1, 0, 3);
+  const ordinary = types.TextEdit.replace(selected, 'valid');
+  const annotated = types.TextEdit.replace(selected, 'annotated'); annotated.annotationId = 'review';
+  for (const unsupported of [types.TextEdit.setEndOfLine(2), annotated, types.SnippetTextEdit.replace(selected, new types.SnippetString('$1'))]) {
+    assert.throws(() => normalize('formatting', [ordinary, unsupported], document), /unsupported|Unsupported/);
+    assert.throws(() => normalize('completion', [{ label: 'unsafe', textEdit: unsupported }], document), /unsupported|Unsupported/);
+    assert.throws(() => normalize('completion', [{ label: 'unsafe', additionalTextEdits: [ordinary, unsupported] }], document), /unsupported|Unsupported/);
+  }
+  assert.equal(document.getText(), '猫🙂x\r\nsecond'); assert.equal(document.version, 3); assert(document.isDirty);
+});
+
+test('completion captures one edit and one primitive text value for both insertion representations', () => {
+  const { document } = fixture(); let editReads = 0, textReads = 0;
+  const value = { range: new Range(0, 1, 0, 3), get newText() { textReads++; return textReads === 1 ? 'same' : 'torn'; } };
+  const item = { label: 'single', get textEdit() { editReads++; return editReads === 1 ? value : types.TextEdit.setEndOfLine(2); } };
+  const result = normalize('completion', [item], document).items[0];
+  assert.equal(editReads, 1); assert.equal(textReads, 1);
+  assert.equal(result.insertText, 'same'); assert.equal(result.textEdit.newText, 'same');
+});
+
+test('edit constructors and enums retain shared identity across extension facades', () => {
+  const { createApi } = require('./api.cjs');
+  const values = require('./edit-values.cjs');
+  const runtime = createApi(() => {}, () => {}, { session: 7 });
+  for (const api of [runtime.api, runtime.forExtension('edit.identity')]) {
+    for (const name of ['TextEdit', 'WorkspaceEdit', 'SnippetTextEdit', 'NotebookEdit', 'NotebookRange', 'NotebookCellData', 'NotebookData', 'NotebookCellKind', 'EndOfLine']) assert.equal(api[name], values[name], name);
+    assert.equal(api.EndOfLine[2], 'CRLF'); assert.equal(api.NotebookCellKind[1], 'Markup');
+  }
+});

@@ -314,6 +314,14 @@ impl Client {
                 include_str!("../extension-host/api-types.cjs"),
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
+            (
+                "edit-types.cjs",
+                include_str!("../extension-host/edit-types.cjs"),
+            ),
+            (
+                "edit-values.cjs",
+                include_str!("../extension-host/edit-values.cjs"),
+            ),
             ("uri.cjs", include_str!("../extension-host/uri.cjs")),
             (
                 "workspace-scope.cjs",

@@ -1,6 +1,7 @@
 'use strict';
 const { Position, Uri, Disposable } = require('./api-types.cjs');
 const coordinates = require('./coordinates.cjs');
+const { snapshotTextEdit } = require('./edit-values.cjs');
 const { createActions } = require('./code-actions.cjs');
 const { CodeActionKind } = require('./code-action-types.cjs');
 const signatureTypes = require('./signatures.cjs');
@@ -80,7 +81,10 @@ function uri(value) {
   if (!(value instanceof Uri) || value.scheme !== 'file' || value.query || value.fragment || value.authority && value.authority !== 'localhost') throw new Error('Provider locations require a local file URI');
   return text(value.toString(), 4096);
 }
-function edit(value, document) { return { range: range(value.range, document), newText: text(value.newText, 4 * 1024 * 1024) }; }
+function edit(value, document) {
+  const captured = snapshotTextEdit(value);
+  return { range: range(captured.range, document), newText: text(captured.newText, 4 * 1024 * 1024) };
+}
 function normalize(type, value, document) {
   if (value === undefined || value === null) return null;
   switch (type) {
@@ -94,11 +98,14 @@ function normalize(type, value, document) {
         if (item.kind !== undefined) result.kind = kind(item.kind, 24);
         for (const key of ['detail','sortText','filterText']) if (item[key] !== undefined) result[key] = text(item[key]);
         if (item.documentation !== undefined) result.documentation = documentation(item.documentation);
-        if (item.textEdit === undefined && item.insertText !== undefined && typeof item.insertText !== 'string' && !(item.insertText instanceof SnippetString)) throw new Error('Completion insertText requires a string or SnippetString');
-        const insertion = item.textEdit !== undefined ? item.textEdit.newText : item.insertText === undefined ? result.label : typeof item.insertText === 'string' ? item.insertText : item.insertText.value;
+        const suppliedEdit = item.textEdit;
+        const capturedEdit = suppliedEdit === undefined ? undefined : edit(suppliedEdit, document);
+        const insertText = capturedEdit === undefined ? item.insertText : undefined;
+        if (capturedEdit === undefined && insertText !== undefined && typeof insertText !== 'string' && !(insertText instanceof SnippetString)) throw new Error('Completion insertText requires a string or SnippetString');
+        const insertion = capturedEdit !== undefined ? capturedEdit.newText : insertText === undefined ? result.label : typeof insertText === 'string' ? insertText : insertText.value;
         result.insertText = text(insertion, 65536);
-        if (item.textEdit === undefined && item.insertText && typeof item.insertText === 'object') result.insertTextFormat = 2;
-        if (item.textEdit !== undefined) result.textEdit = edit(item.textEdit, document);
+        if (capturedEdit === undefined && insertText && typeof insertText === 'object') result.insertTextFormat = 2;
+        if (capturedEdit !== undefined) result.textEdit = capturedEdit;
         else if (item.range !== undefined) result.textEdit = { range: range(item.range, document), newText: result.insertText };
         if (item.additionalTextEdits !== undefined) result.additionalTextEdits = list(item.additionalTextEdits, 4096).map(value => edit(value, document));
         return result;

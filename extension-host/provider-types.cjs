@@ -17,12 +17,7 @@ class CompletionItem { constructor(label, kind) { this.label = label; if (kind !
 class CompletionList { constructor(items = [], isIncomplete = false) { this.items = items; this.isIncomplete = isIncomplete; } }
 class Hover { constructor(contents, range) { this.contents = Array.isArray(contents) ? contents : [contents]; if (range !== undefined) this.range = range; } }
 class Location { constructor(uri, rangeOrPosition) { this.uri = uri; this.range = rangeOrPosition instanceof Position ? new Range(rangeOrPosition, rangeOrPosition) : rangeOrPosition; } }
-class TextEdit {
-  constructor(range, newText) { this.range = range; this.newText = newText; }
-  static replace(range, newText) { return new TextEdit(range, newText); }
-  static insert(position, newText) { return new TextEdit(new Range(position, position), newText); }
-  static delete(range) { return new TextEdit(range, ''); }
-}
+const { TextEdit, SnippetTextEdit, NotebookEdit, NotebookRange, NotebookCellData, NotebookData, NotebookCellKind, EndOfLine } = require('./edit-values.cjs');
 class DocumentSymbol {
   constructor(name, detail, kind, range, selectionRange) {
     Object.assign(this, { name, detail, kind, range, selectionRange, children: [] });
@@ -73,4 +68,4 @@ const CompletionTriggerKind = Object.freeze({ Invoke: 0, TriggerCharacter: 1, Tr
 const SignatureHelpTriggerKind = Object.freeze({ Invoke: 1, TriggerCharacter: 2, ContentChange: 3 });
 
 const { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit } = require('./code-action-types.cjs');
-module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, SymbolTag, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };
+module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, SymbolTag, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, SnippetTextEdit, NotebookEdit, NotebookRange, NotebookCellData, NotebookData, NotebookCellKind, EndOfLine, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };
