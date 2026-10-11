@@ -1,5 +1,6 @@
 'use strict';
 const { es5ClassCompat } = require('./es5-class-compat.cjs');
+const { bindCurrentListener } = require('./caller-context.cjs');
 
 // Coordinate/disposable overload semantics and event delivery order follow
 // Microsoft VS Code 1.95.0 (912bb683695358a54ae0c670461738984cbb5b95)
@@ -218,7 +219,7 @@ class EventEmitter {
     this._delivery = undefined;
     this.event = (listener, thisArg, disposables) => {
       if (this._disposed) return new Disposable(() => {});
-      const entry = { listener, thisArg: thisArg || undefined };
+      const entry = { listener: bindCurrentListener(listener), thisArg: thisArg || undefined };
       this._listeners.add(entry);
       const disposable = new Disposable(() => this._listeners.delete(entry));
       if (Array.isArray(disposables)) disposables.push(disposable);

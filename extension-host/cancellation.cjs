@@ -1,4 +1,5 @@
 'use strict';
+const { bindCurrentListener } = require('./caller-context.cjs');
 
 // Source-guided adaptation of VS Code 1.95's cancellation lifecycle (MIT).
 // Copyright (c) Microsoft Corporation. All rights reserved.
@@ -42,7 +43,7 @@ const noneEvent = () => noopDisposable;
 // Match the pinned shortcut event: scheduled on the next timer turn, bound
 // receiver, individually disposable, and no registration in the third argument.
 const canceledEvent = Object.freeze(function (listener, thisArgs) {
-  const timer = setTimeout(listener.bind(thisArgs), 0);
+  const timer = setTimeout(bindCurrentListener(listener).bind(thisArgs), 0);
   return disposable(() => clearTimeout(timer));
 });
 
@@ -57,7 +58,8 @@ class CancellationSignal {
     this.disposed = false;
     this.event = (listener, thisArgs, disposables) => {
       if (this.disposed) return noopDisposable;
-      const entry = { listener: thisArgs ? listener.bind(thisArgs) : listener, sequence: ++this.next };
+      const bound = bindCurrentListener(listener);
+      const entry = { listener: thisArgs ? bound.bind(thisArgs) : bound, sequence: ++this.next };
       this.listeners.add(entry);
       const result = disposable(() => {
         this.listeners.delete(entry);

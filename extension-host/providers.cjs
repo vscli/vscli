@@ -150,11 +150,14 @@ function createProviders(options) {
   const signatures = signatureTypes.createSignatures({ ...options, position, assertCurrent,
     registered: (entry, epoch) => entries.get(entry.id) === entry && registryEpoch === epoch });
   const symbols = symbolTypes.createSymbols(options);
+  const resultCallback = (entry, callback) => options.bindProviderResult?.(entry.provider, callback) ?? callback;
+  const invokeResult = (entry, callback) => options.invokeProviderResult ? options.invokeProviderResult(entry.provider, callback) : callback();
   function snapshot() { return [...entries.values()].map(({ id, owner, type, selector, triggers, retriggers, resolves, actionKinds }) => ({ id, owner, type, selector, triggers, resolves, ...(type === 'signature' ? {retriggers} : {}), ...(actionKinds ? {actionKinds} : {}) })); }
   function publish() { registryEpoch++; completions.clear(); actions.clear(); signatures.clear(); for (const call of calls.values()) if (call.completionOrigin !== undefined || call.actionOrigin !== undefined || ['signature','symbols'].includes(call.entry.type)) call.source.cancel(); options.notify('languageProviders', { session: options.session, providers: snapshot() }); }
   function forOwner(owner) {
     return Object.fromEntries(Object.entries(METHODS).map(([type, [registration, method]]) => [registration, (documentSelector, provider, ...triggers) => {
       if (entries.size >= MAX_PROVIDERS) throw new Error('Extension language provider limit reached');
+      provider = options.bindProvider?.(owner, provider) ?? provider;
       if (!provider || typeof provider[method] !== 'function') throw new TypeError(`Provider requires ${method}`);
       let actionKinds, retriggers = [];
       if (type === 'codeaction') {
@@ -245,7 +248,7 @@ function createProviders(options) {
       }
     } catch (error) { calls.delete(callId); source.dispose(); throw error; }
     let timer;
-    const work = Promise.resolve().then(() => { assertCurrent(call); const callback = entry.provider[entry.method]; if (['signature','symbols'].includes(entry.type)) assertCurrent(call); return callback.apply(entry.provider, args); }).then(value => {
+    const work = Promise.resolve().then(() => { assertCurrent(call); const callback = entry.provider[entry.method]; if (['signature','symbols'].includes(entry.type)) assertCurrent(call); return invokeResult(entry, () => callback.apply(entry.provider, args)); }).then(resultCallback(entry, value => {
       assertCurrent(call);
       let originals, input = value;
       if (entry.type === 'completion' && value !== undefined && value !== null) {
@@ -266,7 +269,7 @@ function createProviders(options) {
       wireBudget(result);
       assertCurrent(call);
       return result;
-    }).catch(error => {
+    })).catch(error => {
       actions.retire(callId,entry.owner);
       for (const [id, cached] of completions) if (cached.request === callId) completions.delete(id);
       if (entry.type === 'signature') signatures.retire({session:options.session,owner:entry.owner,request:callId});
@@ -289,7 +292,7 @@ function createProviders(options) {
     const source = new CancellationTokenSource(), call = { source, entry, document: cached.document, version: cached.version, epoch: registryEpoch, completionOrigin: cached.request };
     calls.set(params.request, call);
     let timer;
-    const work = Promise.resolve().then(() => entry.provider.resolveCompletionItem(cached.original, source.token)).then(value => {
+    const work = Promise.resolve().then(() => invokeResult(entry, () => entry.provider.resolveCompletionItem(cached.original, source.token))).then(resultCallback(entry, value => {
       assertCurrent(call);
       if (completions.get(params.handle) !== cached) throw new Error('Completion resolve became stale or canceled');
       const result = normalize('completion', [value === undefined || value === null ? cached.original : value], cached.document).items[0];
@@ -302,7 +305,7 @@ function createProviders(options) {
       assertCurrent(call);
       if (completions.get(params.handle) !== cached) throw new Error('Completion resolve became stale or canceled');
       return result;
-    }).finally(() => { calls.delete(params.request); source.dispose(); clearTimeout(timer); });
+    })).finally(() => { calls.delete(params.request); source.dispose(); clearTimeout(timer); });
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => { reject(new Error('Language provider deadline exceeded')); source.cancel(); }, options.timeoutMs || 5000); });
     let listener;
     const canceled = new Promise((_, reject) => { listener = source.token.onCancellationRequested(() => reject(new Error('Language provider invocation canceled'))); });
@@ -316,11 +319,11 @@ function createProviders(options) {
     if (!Number.isSafeInteger(params.request) || params.request < 1 || calls.has(params.request)) throw new Error('Invalid or duplicate provider request ID');
     const source = new CancellationTokenSource(), call = {source,entry,document:cached.document,version:cached.version,epoch:cached.epoch,workspace:cached.workspace,actionOrigin:cached.origin};
     assertCurrent(call); calls.set(params.request,call); let timer;
-    const work = Promise.resolve().then(() => { assertCurrent(call); return entry.provider.resolveCodeAction(cached.original,source.token); }).then(value => {
+    const work = Promise.resolve().then(() => { assertCurrent(call); return invokeResult(entry, () => entry.provider.resolveCodeAction(cached.original,source.token)); }).then(resultCallback(entry, value => {
       assertCurrent(call); if (!actions.has(params.handle,cached)) throw new Error('Code action resolve handle retired');
       const result = actions.resolved(value,cached,call,params.handle); wireBudget(result); assertCurrent(call);
       if (!actions.has(params.handle,cached)) throw new Error('Code action resolve handle retired'); return result;
-    }).finally(() => {calls.delete(params.request);source.dispose();clearTimeout(timer);});
+    })).finally(() => {calls.delete(params.request);source.dispose();clearTimeout(timer);});
     const timeout = new Promise((_,reject) => {timer=setTimeout(() => {reject(new Error('Language provider deadline exceeded'));source.cancel();},options.timeoutMs||5000);});
     let listener; const canceled = new Promise((_,reject) => {listener=source.token.onCancellationRequested(() => reject(new Error('Language provider invocation canceled')));});
     return Promise.race([work,timeout,canceled]).finally(() => {clearTimeout(timer);listener.dispose();});

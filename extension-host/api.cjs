@@ -1,5 +1,6 @@
 'use strict';
 const types = require('./api-types.cjs');
+const { createCallerContext } = require('./caller-context.cjs');
 const coordinates = require('./coordinates.cjs');
 const diagnosticTypes = require('./diagnostic-types.cjs');
 const { createDiagnostics } = require('./diagnostics.cjs');
@@ -31,6 +32,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const configuration = createConfiguration();
   let active, workspaceRoot, activation, generation = -1;
   const facades = new Map(), owned = new Map();
+  const callers = createCallerContext(owner => { assertActiveOwner(owner); sessionOptions.assertOwner?.(owner); });
   const mementos = createMementos(request, sessionOptions.session, sessionOptions.extensionState);
   const documentServices = createDocumentServices(request, sessionOptions, {
     generation: () => generation, root: () => workspaceRoot,
@@ -39,7 +41,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
   const promptBudget = { pending: 0, bytes: 0 };
-  const fileSystem = filesystem.createFileSystem({ assertOwner, track });
+  const fileSystem = filesystem.createFileSystem({ assertOwner, track, bindProvider: callers.bindProvider, invokeProviderResult: callers.invokeProviderResult, bindProviderResult: callers.bindProviderResult });
   const workspaceScope = createWorkspaceScope({ Uri, EventEmitter, pathCaseSensitive: fileSystem.pathCaseSensitive });
   function workspace(values) {
     // Preserve getters so callers receive the latest native folder metadata.
@@ -48,19 +50,31 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     }
     return supported('workspace', values);
   }
-  function assertOwner(owner) {
+  function assertActiveOwner(owner) {
     if (owner && activation && !activation.accepts(owner)) throw new Error(`Extension owner is not active: ${owner}`);
+  }
+  function assertOwner(owner) {
+    callers.assertInherited();
+    assertActiveOwner(owner);
+  }
+  function coreOperation(operation, params) {
+    try {
+      callers.assertInherited();
+      // Internal cancellation/release listeners cannot acquire a user lease.
+      // Keep the host's separate command-origin ALS unchanged.
+      return callers.unowned(() => operation(params));
+    } catch (error) { return Promise.reject(error); }
   }
   function request(method, params) {
     try { assertOwner(params.owner); return sendRequest(method, params); }
     catch (error) { return Promise.reject(error); }
   }
-  const providers = createProviders({ session: sessionOptions.session, notify, track, document: id => documents.get(id), diagnostics: (document,range) => diagnostics.currentDiagnostics(document,range) });
+  const providers = createProviders({ session: sessionOptions.session, notify, track, bindProvider: callers.bindProvider, bindProviderResult: callers.bindProviderResult, invokeProviderResult: callers.invokeProviderResult, document: id => documents.get(id), diagnostics: (document,range) => diagnostics.currentDiagnostics(document,range) });
   const diagnostics = createDiagnostics({ session: sessionOptions.session, notify, track, assertOwner, document: key => {
     for (const document of documents.values()) if (document._snapshot.uri === key) return document;
   } });
   const surfaces = createSurfaces(notify, sessionOptions.session, track,
-    (owner, id, args) => commandsFor(owner).executeCommand(id, ...args), owner => { assertOwner(owner); sessionOptions.assertOwner?.(owner); });
+    (owner, id, args) => commandsFor(owner).executeCommand(id, ...args), owner => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }, callers);
   function track(owner, disposable) {
     try { assertOwner(owner); } catch (error) { disposable.dispose(); throw error; }
     if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }
@@ -73,7 +87,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   }
   function event(owner, source, transform = value => value) {
     return (listener, thisArg, disposables) => {
-      const result = track(owner, source(value => listener.call(thisArg, transform(value))));
+      const result = track(owner, callers.run(owner, () => source(callers.bind(owner, value => listener.call(thisArg, transform(value))))));
       if (disposables) disposables.push(result);
       return result;
     };
@@ -88,7 +102,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         if (reserved.has(id) || id.startsWith('cursor')) throw new Error(`Native command is reserved: ${id}`);
         if (commands.has(id)) throw new Error(`Duplicate command: ${id}; registered by ${commands.get(id).owner}`);
         if (commands.size >= 1024) throw new Error('Extension command limit reached');
-        commands.set(id, { owner, callback: (...args) => callback.apply(thisArg, args) });
+        commands.set(id, { owner, callback: callers.bindAsync(owner, (...args) => callback.apply(thisArg, args)) });
         const disposable = track(owner, new Disposable(() => { commands.delete(id); publishCommands(); }));
         publishCommands();
         return disposable;
@@ -155,6 +169,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       get selection() { return (owner ? (editors.get(id)?._selections || this._selections) : this._selections)[0]; },
       get selections() { return (owner ? (editors.get(id)?._selections || this._selections) : this._selections).slice(); },
       edit(callback, options) {
+        try { assertOwner(owner); } catch (error) { return Promise.reject(error); }
         if (options && (options.undoStopBefore === false || options.undoStopAfter === false)) {
           return Promise.reject(new Error('VSCLI does not yet support grouped extension undo stops'));
         }
@@ -232,17 +247,22 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, providerSnapshot: providers.snapshot, provideLanguage: providers.provide, resolveLanguageCompletion: providers.resolveCompletion, resolveLanguageCodeAction: providers.resolveAction, cancelLanguageProvider: providers.cancel, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
+    api, sync, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
+    // Private runtime hooks, intentionally absent from the vscode facade.
+    runWithOwner: callers.run, currentCallerOwner: callers.currentOwner,
     contextForExtension(owner) { return { ...mementos.forOwner(owner), extension: activation?.extension(owner) }; },
     mergeExtensionState: mementos.merge,
-    configureSurfaces: surfaces.configure, treeChildren: surfaces.treeChildren,
+    configureSurfaces: surfaces.configure, treeChildren: params => coreOperation(surfaces.treeChildren, params),
     surfaceAction: surfaces.action, treeEvent: surfaces.treeEvent,
     disposeOwner(owner) {
-      if (sessionOptions.languageProviders) providers.disposeOwner(owner);
-      diagnostics.disposeOwner(owner);
-      for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
-      owned.delete(owner); facades.delete(owner);
+      return callers.unowned(() => {
+        callers.retire(owner);
+        if (sessionOptions.languageProviders) providers.disposeOwner(owner);
+        diagnostics.disposeOwner(owner);
+        for (const disposable of [...(owned.get(owner) || [])]) disposable.dispose();
+        owned.delete(owner); facades.delete(owner);
+      });
     },
     forExtension(owner) {
       if (facades.has(owner)) return facades.get(owner);

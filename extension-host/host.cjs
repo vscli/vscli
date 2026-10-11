@@ -122,10 +122,10 @@ function activationHooks() {
       const origin = inherited ? (inherited.active ? inherited : undefined) : (batch?.active ? batch : undefined);
       activating++;
       try {
-        return await inExecution(origin?.id ?? null, origin?.owner ?? item.id, async () => {
+        return await inExecution(origin?.id ?? null, origin?.owner ?? item.id, () => runtime.runWithOwner(item.id, async () => {
           item.extension = require(item.entry);
           return typeof item.extension.activate === 'function' ? await item.extension.activate(context) : item.extension;
-        });
+        }));
       } finally { activating--; }
     },
     failed(item) {
@@ -140,7 +140,7 @@ function activationHooks() {
       }
     },
     listenerError: error => console.error(error),
-    async deactivate(item) { try { await item.extension?.deactivate?.(); } finally { dispose(item); } },
+    async deactivate(item) { try { await runtime.runWithOwner(item.id, () => item.extension?.deactivate?.()); } finally { dispose(item); } },
   };
 }
 async function activateBatch(message, targets) {

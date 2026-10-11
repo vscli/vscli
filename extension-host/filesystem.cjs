@@ -122,7 +122,7 @@ const diskProvider = {
   },
 };
 
-function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => value } = {}) {
+function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => value, bindProvider = (_owner, value) => value, invokeProviderResult, bindProviderResult } = {}) {
   const changed = new EventEmitter();
   const providers = new Map([['file', { impl: diskProvider, readonly: false, caseSensitive: process.platform === 'linux', builtin: true }]]);
   // Retain admission until actual completion, including never-settling providers.
@@ -141,7 +141,39 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
       assertOwner(entry.owner);
       if (providers.get(args[0].scheme) !== entry) throw FileSystemError.Unavailable('Filesystem provider was disposed');
     }
-    return entry.impl[method](...args);
+    if (entry.builtin || !invokeProviderResult) return entry.impl[method](...args);
+    const result = invokeProviderResult(entry.impl, () => entry.impl[method](...args));
+    // Snapshot only provider-owned outputs under the exact registering lease.
+    // Input URIs/options remain evaluated by the requester, not this provider.
+    const fileType = value => {
+      if (!Number.isInteger(value) || value < 0 || value > 0xFFFFFFFF) throw new TypeError('Invalid filesystem result type');
+      return value;
+    };
+    if (method === 'stat') return result.then(bindProviderResult(entry.impl, stat => {
+      const type = stat.type, ctime = stat.ctime, mtime = stat.mtime, size = stat.size, permissions = stat.permissions;
+      if (!Number.isFinite(ctime) || !Number.isFinite(mtime) || !Number.isFinite(size) || size < 0) throw new TypeError('Invalid filesystem stat metadata');
+      if (permissions !== undefined) fileType(permissions);
+      return { type: fileType(type), ctime, mtime, size, permissions };
+    }));
+    if (method === 'readFile') return result.then(bindProviderResult(entry.impl, byteSnapshot));
+    if (method === 'readDirectory') return result.then(bindProviderResult(entry.impl, rows => {
+      if (!Array.isArray(rows)) throw new TypeError('Filesystem directory results must be arrays');
+      const count = rows.length;
+      if (!Number.isSafeInteger(count) || count < 0 || count > 65536) throw FileSystemError.Unavailable('Filesystem directory result exceeds 65536 entries');
+      const entries = []; let bytes = 0;
+      for (let index = 0; index < count; index++) {
+        const row = rows[index], name = row[0], type = row[1];
+        if (typeof name !== 'string') throw new TypeError('Filesystem directory names must be strings');
+        if (name.length > 8 * 1024 * 1024) throw FileSystemError.Unavailable('Filesystem directory result exceeds 8 MiB');
+        fileType(type);
+        bytes += Buffer.byteLength(name) + 16;
+        if (bytes > 8 * 1024 * 1024) throw FileSystemError.Unavailable('Filesystem directory result exceeds 8 MiB');
+        entries.push([name, type]);
+      }
+      if (rows.length !== count) throw FileSystemError.Unavailable('Filesystem directory result changed during normalization');
+      return entries;
+    }));
+    return result;
   }
   function parent(uri) {
     let directory;
@@ -190,7 +222,8 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
     } else {
       if (previous?.type & FileType.Directory) await invoke(targetEntry, 'delete', target, { recursive: true });
       await mkdirp(targetEntry, parent(target));
-      const bytes = byteSnapshot(await invoke(sourceEntry, 'readFile', source));
+      const raw = await invoke(sourceEntry, 'readFile', source);
+      const bytes = sourceEntry.builtin || !invokeProviderResult ? byteSnapshot(raw) : raw;
       await invoke(targetEntry, 'writeFile', target, bytes, { create: true, overwrite });
     }
   }
@@ -252,7 +285,10 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
         return { type: stat.type, ctime: stat.ctime, mtime: stat.mtime, size: stat.size, permissions: stat.permissions === FilePermission.Readonly ? FilePermission.Readonly : undefined };
       }, 0, [uri]),
       readDirectory: uri => operation(owner, false, async () => (await invoke(lookup(uri), 'readDirectory', uri)).slice(), 0, [uri]),
-      readFile: uri => operation(owner, false, async () => byteSnapshot(await invoke(lookup(uri), 'readFile', uri)), 0, [uri]),
+      readFile: uri => operation(owner, false, async () => {
+        const entry = lookup(uri), raw = await invoke(entry, 'readFile', uri);
+        return entry.builtin || !invokeProviderResult ? byteSnapshot(raw) : raw;
+      }, 0, [uri]),
       createDirectory: uri => operation(owner, true, () => mkdirp(lookup(uri, true), uri), 0, [uri]),
       writeFile(uri, content) {
         if (!(content instanceof Uint8Array)) return Promise.reject(new TypeError('File content must be a Uint8Array'));
@@ -277,6 +313,7 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
       fs,
       registerFileSystemProvider(scheme, provider, options = {}) {
         assertOwner(owner);
+        provider = bindProvider(owner, provider);
         if (!provider) throw new Error('MISSING provider');
         for (const method of ['watch', 'stat', 'readDirectory', 'createDirectory', 'readFile', 'writeFile', 'delete', 'rename']) {
           if (typeof provider[method] !== 'function') throw new Error(`Provider does NOT implement ${method}`);
