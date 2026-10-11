@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 // Original, bounded compatibility values; native code validates wire results.
 const { Position, Range } = require('./api-types.cjs');
 const { CancellationTokenSource } = require('./cancellation.cjs');
@@ -68,4 +69,7 @@ const CompletionTriggerKind = Object.freeze({ Invoke: 0, TriggerCharacter: 1, Tr
 const SignatureHelpTriggerKind = Object.freeze({ Invoke: 1, TriggerCharacter: 2, ContentChange: 3 });
 
 const { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit } = require('./code-action-types.cjs');
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [MarkdownString, CompletionItem, CompletionList, Hover, Location, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp]) es5ClassCompat(value);
+
 module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, SymbolTag, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, SnippetTextEdit, NotebookEdit, NotebookRange, NotebookCellData, NotebookData, NotebookCellKind, EndOfLine, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };

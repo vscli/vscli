@@ -315,6 +315,10 @@ impl Client {
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
             (
+                "es5-class-compat.cjs",
+                include_str!("../extension-host/es5-class-compat.cjs"),
+            ),
+            (
                 "edit-types.cjs",
                 include_str!("../extension-host/edit-types.cjs"),
             ),

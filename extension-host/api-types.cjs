@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 
 // Coordinate/disposable overload semantics and event delivery order follow
 // Microsoft VS Code 1.95.0 (912bb683695358a54ae0c670461738984cbb5b95)
@@ -248,6 +249,9 @@ class EventEmitter {
     this._delivery = undefined;
   }
 }
+
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [Position, Range, Selection, Disposable]) es5ClassCompat(value);
 
 const { TextDocument } = require('./document-types.cjs')
   .createDocumentTypes({ Position, Range, Uri });

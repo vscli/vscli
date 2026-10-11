@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 
 // Source-guided compatibility implementation (MIT).
 /*
@@ -64,5 +65,8 @@ class SnippetString {
     return this;
   }
 }
+
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [SnippetString]) es5ClassCompat(value);
 
 module.exports = { SnippetString };

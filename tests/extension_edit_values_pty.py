@@ -25,6 +25,12 @@ def fixture(root):
     }))
     (extension / 'extension.cjs').write_text(r"""
 const vscode = require('vscode'); const assert = require('node:assert/strict');
+function LegacyWorkspace() { return vscode.WorkspaceEdit.call(this); }
+LegacyWorkspace.prototype = Object.create(vscode.WorkspaceEdit.prototype);
+LegacyWorkspace.prototype.constructor = LegacyWorkspace;
+function LegacyTextEdit(range, text) { return vscode.TextEdit.apply(this, [range, text]); }
+LegacyTextEdit.prototype = Object.create(vscode.TextEdit.prototype);
+LegacyTextEdit.prototype.constructor = LegacyTextEdit;
 exports.activate = context => {
  context.subscriptions.push(vscode.commands.registerCommand('edits.inspect', () => {
   const document = vscode.window.activeTextEditor.document;
@@ -39,8 +45,10 @@ exports.activate = context => {
    bad.edit.set(document.uri, [vscode.TextEdit.setEndOfLine(vscode.EndOfLine.LF)]);
    assert.equal(bad.edit.get(document.uri).length, 2);
    const good = new vscode.CodeAction('Apply ordinary text edit', vscode.CodeActionKind.QuickFix);
-   good.edit = new vscode.WorkspaceEdit();
-   good.edit.set(document.uri, [vscode.TextEdit.replace(new vscode.Range(1,0,1,6), 'SECOND')]);
+   good.edit = new LegacyWorkspace();
+   good.edit.set(document.uri, [new LegacyTextEdit(new vscode.Range(1,0,1,6), 'SECOND')]);
+   assert(good.edit instanceof vscode.WorkspaceEdit);
+   assert(good.edit.get(document.uri)[0] instanceof vscode.TextEdit);
    return [bad, good];
   },
  }, {providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]}));

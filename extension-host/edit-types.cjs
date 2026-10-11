@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 // Derived from Microsoft VS Code 1.141.0 commit
 // 2a59476c9bfcb90b3ddc372c36762471b7dfad1c, extHostTypes/{textEdit,
 // snippetTextEdit,workspaceEdit,notebooks}.ts.
@@ -229,21 +230,7 @@ function createEditTypes({ Position, Range, Uri, SnippetString }) {
     if (captured.current() !== captured.generation) throw new Error('Workspace edit changed during normalization');
     return { generation: captured.generation, resources: [...resources.values()], unsupported, current: captured.current };
   }
-  // The three decorated upstream classes retain ES5 subclass .call/.apply.
-  function es5Compat(target) {
-    return Object.assign(target, {
-      apply(...args) {
-        if (!args.length) return Reflect.construct(target, []);
-        return Reflect.construct(target, args.length === 1 ? [] : args[1], args[0].constructor);
-      },
-      call(...args) {
-        if (!args.length) return Reflect.construct(target, []);
-        const [receiver, ...rest] = args;
-        return Reflect.construct(target, rest, receiver.constructor);
-      },
-    });
-  }
-  for (const target of [TextEdit, WorkspaceEdit, NotebookEdit]) es5Compat(target);
+  for (const target of [TextEdit, WorkspaceEdit, NotebookEdit]) es5ClassCompat(target);
   const EndOfLine = Object.freeze({ LF: 1, CRLF: 2, 1: 'LF', 2: 'CRLF' });
   return { TextEdit, SnippetTextEdit, NotebookEdit, NotebookRange, NotebookCellData, NotebookData, NotebookCellKind, EndOfLine, WorkspaceEdit, snapshotWorkspaceEdit, snapshotTextEdit, captureWorkspaceEntries };
 }

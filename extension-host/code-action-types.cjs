@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 const { WorkspaceEdit, snapshotWorkspaceEdit } = require('./edit-values.cjs');
 class CodeActionKind {
   constructor(value) { if (typeof value !== 'string' || Buffer.byteLength(value) > 128) throw new TypeError('Invalid code action kind'); this.value = value; Object.freeze(this); }
@@ -9,4 +10,7 @@ class CodeActionKind {
 for (const [name, value] of Object.entries({ Empty:'', QuickFix:'quickfix', Refactor:'refactor', RefactorExtract:'refactor.extract', RefactorInline:'refactor.inline', RefactorMove:'refactor.move', RefactorRewrite:'refactor.rewrite', Source:'source', SourceOrganizeImports:'source.organizeImports', SourceFixAll:'source.fixAll', Notebook:'notebook' })) Object.defineProperty(CodeActionKind, name, { value: new CodeActionKind(value), enumerable: true });
 const CodeActionTriggerKind = Object.freeze({ Invoke:1, Automatic:2 });
 class CodeAction { constructor(title, kind) { this.title = title; if (kind !== undefined) this.kind = kind; } }
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [CodeActionKind, CodeAction]) es5ClassCompat(value);
+
 module.exports = { CodeAction,CodeActionKind,CodeActionTriggerKind,WorkspaceEdit,snapshotWorkspaceEdit };

@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 
 // Consumer/error/provider contracts follow VS Code stable 1.141.0,
 // 2a59476c9bfcb90b3ddc372c36762471b7dfad1c, extHostFileSystemConsumer.ts,
@@ -38,6 +39,9 @@ class FileSystemError extends Error {
   static NoPermissions(message) { return new FileSystemError(message, codes.NoPermissions, FileSystemError.NoPermissions); }
   static Unavailable(message) { return new FileSystemError(message, codes.Unavailable, FileSystemError.Unavailable); }
 }
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [FileSystemError]) es5ClassCompat(value);
+
 function normalizeError(error) {
   if (error instanceof FileSystemError) return error;
   if (!(error instanceof Error)) return new FileSystemError(String(error));

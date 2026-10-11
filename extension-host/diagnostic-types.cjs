@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 const { Range } = require('./api-types.cjs');
 const { Location } = require('./provider-types.cjs');
 const DiagnosticSeverity = Object.freeze({ Error: 0, Warning: 1, Information: 2, Hint: 3 });
@@ -15,4 +16,7 @@ class DiagnosticRelatedInformation {
     this.location = location; this.message = message;
   }
 }
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [Diagnostic, DiagnosticRelatedInformation]) es5ClassCompat(value);
+
 module.exports = { Diagnostic, DiagnosticSeverity, DiagnosticTag, DiagnosticRelatedInformation };

@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 const { Disposable, EventEmitter, Uri } = require('./api-types.cjs');
 const limits = Object.freeze({ channels: 32, status: 64, views: 8, children: 256, handles: 1024, updateBytes: 65536 });
 function text(value, max, name, empty = true) {
@@ -13,6 +14,9 @@ class TreeItem {
     this.collapsibleState = collapsibleState;
   }
 }
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [ThemeColor, TreeItem]) es5ClassCompat(value);
+
 const enums = Object.freeze({ StatusBarAlignment: Object.freeze({ Left: 1, Right: 2 }),
   TreeItemCollapsibleState: Object.freeze({ None: 0, Collapsed: 1, Expanded: 2 }), ThemeColor, TreeItem });
 function createSurfaces(notify, session, track, execute, assertOwner = () => {}) {
