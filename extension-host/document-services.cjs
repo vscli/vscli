@@ -1,6 +1,7 @@
 'use strict';
 const { Uri, TextDocument, Range, Selection } = require('./api-types.cjs');
 const coordinates = require('./coordinates.cjs');
+const {normalizeOptions}=require('./editor-presentation.cjs');
 const path = require('node:path');
 const uriFrom = Uri.from, uriFormat = Uri.prototype.toString, uriParse = Uri.parse;
 const uriFilePath = Object.getOwnPropertyDescriptor(Uri.prototype, 'fsPath').get;
@@ -15,7 +16,7 @@ function createDocumentServices(request, options, model) {
     pending++; queuedBytes += bytes;
     let released = false;
     const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; } };
-    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
+    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow', 'nativeEditorOptions', 'nativeEditorReveal'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
     try { return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
     finally { if (!lifecycle?.retained) release(); }
   }
@@ -192,6 +193,35 @@ function createDocumentServices(request, options, model) {
       try { model.selectionFailure(owner, error); } catch { /* Reporting cannot produce an unhandled rejection. */ }
     });
   }
+  function editorServiceSource(owner,document,base,capability) {
+    const guard=model.captureCaller(owner),source=currentSource(document),state=model.editorSnapshot(base);
+    if(!options[capability])throw new Error('Native editor presentation service is not implemented by this host');
+    if(state?.document!==document||state.nativeId===undefined||!model.editorCurrent(base))throw new Error('Text editor is no longer available');
+    const recheck=()=>{guard();recheckSource(source);if(!model.editorCurrent(base))throw new Error('Text editor is no longer available');};
+    const accept=result=>{
+      guard();const current=currentSource(document);
+      if(result?.document!==source.document||result.editor!==state.nativeId||current.uri!==source.uri||!model.editorCurrent(base))throw new Error('Native editor presentation mirror was not published before acknowledgement');
+    };
+    return {source,state,recheck,accept};
+  }
+  function setEditorOptions(owner,document,input,field,base) {
+    const captured=editorServiceSource(owner,document,base,'editorOptions');
+    const normalized=normalizeOptions(input,model.editorOptions(base),field);
+    captured.recheck();
+    if(!Object.keys(normalized.update).length)return;
+    const rollback=model.stageOptions(owner,base,normalized.optimistic);
+    call(owner,'nativeEditorOptions',{document:captured.source.document,version:captured.source.version,editor:captured.state.nativeId,options:normalized.update})
+      .then(captured.accept).catch(error=>{rollback();try{model.presentationFailure(owner,error);}catch{/* No unhandled error from reporting. */}});
+  }
+  function revealEditorRange(owner,document,range,revealType,base) {
+    const captured=editorServiceSource(owner,document,base,'editorReveal');
+    if(!(range instanceof Range))throw new TypeError('revealRange requires a Range');
+    const bounds=coordinates.range(range,'Reveal range'),kind=revealType||0;
+    if(!Number.isInteger(kind)||kind<0||kind>3)throw new TypeError('Invalid TextEditorRevealType');
+    captured.recheck();
+    call(owner,'nativeEditorReveal',{document:captured.source.document,version:captured.source.version,editor:captured.state.nativeId,range:bounds,revealType:kind})
+      .then(captured.accept).catch(error=>{try{model.presentationFailure(owner,error);}catch{/* No unhandled error from reporting. */}});
+  }
   async function saveDocument(owner, document) {
     const guard = model.captureCaller(owner);
     const source = model.snapshotFor(document);
@@ -220,7 +250,7 @@ function createDocumentServices(request, options, model) {
     guard();
     return result;
   }
-  return { forOwner, saveDocument, setTextDocumentLanguage, setEditorSelections, call, execute(owner, id, args) {
+  return { forOwner, saveDocument, setTextDocumentLanguage, setEditorSelections, setEditorOptions, revealEditorRange, call, execute(owner, id, args) {
     if (!NATIVE_COMMANDS.includes(id)) return Promise.reject(new Error(`Native command delegation is not implemented: ${id}`));
     if (args.length) return Promise.reject(new Error(`Native command arguments are not implemented: ${id}`));
     return call(owner, 'nativeCommand', { id });

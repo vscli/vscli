@@ -583,6 +583,8 @@ impl Document {
             eol: self.eol.clone(),
             tab_size: self.tab_size,
             insert_spaces: self.insert_spaces,
+            indent_size: self.indent_size,
+            editor_defaults: self.editor_defaults,
             line_numbers: self.line_numbers,
             undo: Vec::new(),
             redo: Vec::new(),

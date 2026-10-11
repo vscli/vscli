@@ -11,6 +11,7 @@ pub(crate) struct Frame {
     uri: String,
     stamp: (u64, usize),
     proof: EditorViewProof,
+    visible_ranges: Value,
 }
 
 #[derive(Clone, Default)]
@@ -27,6 +28,14 @@ impl Inventory {
             .iter()
             .find(|frame| frame.document == document && frame.view == view)
             .map(|frame| frame.id.clone())
+    }
+    pub(crate) fn set_visible_ranges(&mut self, ranges: &[(String, Value)]) {
+        for frame in &mut self.frames {
+            frame.visible_ranges = ranges
+                .iter()
+                .find(|(id, _)| *id == frame.id)
+                .map_or_else(|| json!([]), |(_, ranges)| ranges.clone());
+        }
     }
     pub(crate) fn invalidate(&mut self) {
         self.frames.clear();
@@ -89,6 +98,7 @@ impl Inventory {
                 uri,
                 stamp,
                 proof,
+                visible_ranges: old.map_or_else(|| json!([]), |frame| frame.visible_ranges.clone()),
             });
         }
         let active = active.and_then(|(document, view)| {
@@ -143,7 +153,9 @@ impl Inventory {
                     .find(|doc| doc.id == frame.document)
                     .context("Visible model retired")?;
                 let mut value = json!({"id":frame.id,"document":frame.document,
-                "viewColumn":frame.column,"selections":selections_for(doc,Some(frame.view))});
+                "viewColumn":frame.column,"selections":selections_for(doc,Some(frame.view)),
+                "options":doc.editor_options_for(frame.view).context("Visible editor options unavailable")?,
+                "visibleRanges":frame.visible_ranges});
                 if kinds.contains(&frame.id) {
                     value["selectionKind"] = 3.into();
                 }

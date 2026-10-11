@@ -183,13 +183,14 @@ impl Document {
                 })
                 .collect::<Vec<_>>();
             let tab = self.tab_size.clamp(1, 16);
+            let indent = self.indent_size();
             let common = active
                 .iter()
                 .map(|row| visible(&prefixes[row].indent, tab))
                 .min()
                 .unwrap_or(0)
-                / tab
-                * tab;
+                / indent
+                * indent;
             for row in active {
                 let prefix = &prefixes[&row];
                 let start = self.line_start(row);

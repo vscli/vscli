@@ -13,6 +13,7 @@ const { createWorkspaceEdits } = require('./workspace-edits.cjs');
 const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
 const { createFileWatchers } = require('./file-watchers.cjs');
 const { createTextContentProviders } = require('./text-content-providers.cjs');
+const editorPresentation = require('./editor-presentation.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
@@ -36,7 +37,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const workspaceEditMirrors = new Map(), documentMirrorRecords = new WeakMap();
   let workspaceEditConfigurationIdentity = {};
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
-  const activeChanged = new EventEmitter(), visibleChanged = new EventEmitter(), columnChanged = new EventEmitter(), saved = new EventEmitter(), selectionChanged = new EventEmitter();
+  const activeChanged = new EventEmitter(), visibleChanged = new EventEmitter(), columnChanged = new EventEmitter(), saved = new EventEmitter(), selectionChanged = new EventEmitter(), optionsChanged = new EventEmitter(), rangesChanged = new EventEmitter();
   const configuration = createConfiguration();
   let active, workspaceRoot, activation, generation = -1;
   const facades = new Map(), owned = new Map();
@@ -62,6 +63,9 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       const state = editorStates.get(base), overlay = { owner, values }; state.overlay = overlay;
       return () => { if (state.overlay === overlay) state.overlay = undefined; };
     },
+    editorOptions: base => editorStates.get(base)?.presentation.current(),
+    stageOptions: (owner,base,values) => editorStates.get(base).presentation.stage(owner,values),
+    presentationFailure: (owner,error) => notify('message',{session:sessionOptions.session,owner,text:`Editor presentation update failed: ${String(error.message || error).slice(0,1024)}`}),
     selectionFailure: (owner,error) => notify('message',{session:sessionOptions.session,owner,
       text:`Editor selection update failed: ${String(error.message || error).slice(0,1024)}`}),
   });
@@ -208,7 +212,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   }
   function retireEditor(base) {
     const state = editorStates.get(base);
-    if (state) { state.alive = false; state.overlay = undefined; }
+    if (state) { state.alive = false; state.overlay = undefined; state.presentation.retire(); }
   }
   function validateEditorInventory(state) {
     if (!Object.hasOwn(state,'editors')) return undefined;
@@ -219,6 +223,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           !Number.isSafeInteger(entry.document) || entry.document <= 0 || !documents.has(entry.document) || !Number.isInteger(entry.viewColumn) || entry.viewColumn < 1 || entry.viewColumn > 4 ||
           !Array.isArray(entry.selections) || entry.selections.length > 10000) throw new Error('Invalid native editor inventory');
       ids.add(entry.id);
+      editorPresentation.decodeOptions(entry.options); editorPresentation.decodeVisibleRanges(entry.visibleRanges);
       for (const value of entry.selections) { coordinates.position(value.anchor,'Mirror selection'); coordinates.position(value.active,'Mirror selection'); }
     }
     if (state.activeEditor !== null && (typeof state.activeEditor !== 'string' || !ids.has(state.activeEditor))) throw new Error('Invalid native active editor');
@@ -344,7 +349,16 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           changes.push(()=>columnChanged.fire(eventValue));
         }
         privateState.viewColumn = entry.viewColumn;
+        const presentation = privateState.presentation.accept(editorPresentation.decodeOptions(entry.options),editorPresentation.decodeVisibleRanges(entry.visibleRanges));
+        if (presentation.optionsChanged) {
+          const eventValue = {textEditor:base,options:{...presentation.options}};
+          changes.push(()=>optionsChanged.fire(eventValue));
+        }
         mirrorSelections(base,entry.selections,entry.selectionKind,changes);
+        if (presentation.rangesChanged) {
+          const eventValue = {textEditor:base,visibleRanges:presentation.visibleRanges};
+          changes.push(()=>rangesChanged.fire(eventValue));
+        }
         return base;
       });
       for (const [id,base] of explicitEditors) if (!presentEditors.has(id)) { retireEditor(base); explicitEditors.delete(id); }
@@ -365,14 +379,21 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     if (active !== previousActive) activeChanged.fire(active);
   }
   function editorFor(id, document, owner = '', base = undefined, nativeId = undefined) {
-    const privateState = base ? editorStates.get(base) : {document,id,nativeId,alive:true,actual:[new Selection(0,0,0,0)],wire:[],initialized:false,overlay:undefined,viewColumn:undefined};
+    const privateState = base ? editorStates.get(base) : {document,id,nativeId,alive:true,actual:[new Selection(0,0,0,0)],wire:[],initialized:false,overlay:undefined,viewColumn:undefined,presentation:editorPresentation.createEditorPresentation()};
     const ownerGuard = owner ? callers.bind(owner,()=>assertOwner(owner)) : ()=>assertOwner(owner);
     let result;
     const selected = () => privateState.overlay?.values || privateState.actual;
     const original = () => base || result;
     const current = () => privateState.alive && (privateState.nativeId === undefined ? !explicitInventory && editors.get(id) === original() : explicitEditors.get(privateState.nativeId) === original());
+    const optionValues = privateState.presentation.optionsValue((value,field)=>{
+      ownerGuard(); documentServices.setEditorOptions(owner || callers.currentOwner(),document,value,field,original());
+    });
     result = supported('TextEditor', {
       document, get viewColumn() { return privateState.viewColumn; }, _selections: [new Selection(0, 0, 0, 0)],
+      get options() { return optionValues; },
+      set options(value) { ownerGuard(); documentServices.setEditorOptions(owner || callers.currentOwner(),document,value,undefined,original()); },
+      get visibleRanges() { return privateState.presentation.visibleRanges(); },
+      revealRange(range,revealType) { ownerGuard(); documentServices.revealEditorRange(owner || callers.currentOwner(),document,range,revealType,original()); },
       get selection() { return selected()[0]; },
       set selection(value) { ownerGuard(); documentServices.setEditorSelections(owner || callers.currentOwner(),document,value,true,original()); },
       get selections() { return selected().slice(); },
@@ -435,6 +456,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     FileSystemError: filesystem.FileSystemError, FileType: filesystem.FileType,
     FilePermission: filesystem.FilePermission, FileChangeType: filesystem.FileChangeType,
     version: '1.95.0',
+    TextEditorCursorStyle:editorPresentation.TextEditorCursorStyle, TextEditorLineNumbersStyle:editorPresentation.TextEditorLineNumbersStyle, TextEditorRevealType:editorPresentation.TextEditorRevealType,
     TextEditorSelectionChangeKind: Object.freeze({Keyboard:1,Mouse:2,Command:3}),
     ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
     ExtensionMode: Object.freeze({ Production: 1, Development: 2, Test: 3 }),
@@ -445,6 +467,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       get visibleTextEditors() { return visibleEditors.slice(); },
       onDidChangeActiveTextEditor: activeChanged.event,
       onDidChangeTextEditorSelection: selectionChanged.event,
+      onDidChangeTextEditorOptions: optionsChanged.event,
+      onDidChangeTextEditorVisibleRanges: rangesChanged.event,
       onDidChangeVisibleTextEditors: visibleChanged.event,
       onDidChangeTextEditorViewColumn: columnChanged.event,
       showInformationMessage: message,
@@ -488,6 +512,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         for (const base of [...editors.values(),...explicitEditors.values()]) {
           const state = editorStates.get(base);
           if (state?.overlay?.owner === owner) state.overlay = undefined;
+          state?.presentation.retire(owner);
         }
         callers.retire(owner);
         if (sessionOptions.languageProviders) providers.disposeOwner(owner);
@@ -523,6 +548,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           get visibleTextEditors() { return visibleEditors.map(scopedEditor); },
           onDidChangeActiveTextEditor: event(owner, activeChanged.event, scopedEditor),
           onDidChangeTextEditorSelection: event(owner,selectionChanged.event,value=>({...value,textEditor:scopedEditor(value.textEditor)})),
+          onDidChangeTextEditorOptions: event(owner,optionsChanged.event,value=>({...value,textEditor:scopedEditor(value.textEditor)})),
+          onDidChangeTextEditorVisibleRanges: event(owner,rangesChanged.event,value=>({...value,textEditor:scopedEditor(value.textEditor)})),
           onDidChangeVisibleTextEditors: event(owner,visibleChanged.event,value=>value.map(scopedEditor)),
           onDidChangeTextEditorViewColumn: event(owner,columnChanged.event,value=>({...value,textEditor:scopedEditor(value.textEditor)})),
           showInformationMessage: (text, ...items) => messageFor(owner, text, ...items),

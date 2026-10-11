@@ -912,7 +912,7 @@ impl Client {
         self.request(
             "textDocument/formatting",
             doc,
-            json!({"options":{"tabSize":doc.tab_size,"insertSpaces":doc.insert_spaces}}),
+            json!({"options":{"tabSize":doc.indent_size(),"insertSpaces":doc.insert_spaces}}),
         )?;
         Ok(token)
     }
@@ -1752,8 +1752,18 @@ while True:
             .unwrap();
         let events = until(&mut client, |client, _| client.formatting_available());
         assert!(events.iter().any(|event| matches!(event,Event::FormattingResult(request,Ok(value)) if request.token == token && request.view == Some(17) && value == &replacement && client.request_current(request))));
+        let view = doc.editor_view_identity();
+        doc.apply_editor_options(
+            &view,
+            &serde_json::from_value(json!({"indentSize":2})).unwrap(),
+        )
+        .unwrap();
         let save = client.request_document_formatting(&doc).unwrap();
         held(&mut client, save);
+        assert_eq!(
+            state(&mut client)["calls"][1]["params"]["options"],
+            json!({"tabSize":2,"insertSpaces":false})
+        );
         assert!(
             client
                 .request(

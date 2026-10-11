@@ -1,0 +1,20 @@
+{
+  "publisher":"fixture", "name":"editor-presentation", "version":"1.0.0", "main":"extension.cjs",
+  "contributes":{"commands":[
+    {"command":"editorPresentation.unrendered","title":"Editor presentation unrendered ranges"},
+    {"command":"editorPresentation.rendered","title":"Editor presentation rendered ranges"},
+    {"command":"editorPresentation.shared","title":"Editor presentation shared panes"},
+    {"command":"editorPresentation.options","title":"Editor presentation native options"},
+    {"command":"editorPresentation.auto","title":"Editor presentation auto indentation"},
+    {"command":"editorPresentation.explicit","title":"Editor presentation explicit indentation"},
+    {"command":"editorPresentation.tab","title":"Editor presentation native tab changed"},
+    {"command":"editorPresentation.dirty","title":"Editor presentation verify dirty history"},
+    {"command":"editorPresentation.clean","title":"Editor presentation verify clean history"},
+    {"command":"editorPresentation.revealTop","title":"Editor presentation reveal top"},
+    {"command":"editorPresentation.revealCenter","title":"Editor presentation reveal center"},
+    {"command":"editorPresentation.revealInside","title":"Editor presentation reveal inside"},
+    {"command":"editorPresentation.revealDefault","title":"Editor presentation reveal default"},
+    {"command":"editorPresentation.armResize","title":"Editor presentation arm resize"},
+    {"command":"editorPresentation.retire","title":"Editor presentation retire second editor"}
+  ]}
+}

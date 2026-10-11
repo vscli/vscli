@@ -334,6 +334,10 @@ impl Client {
         let runtime = tempfile::tempdir()?;
         for (name, source) in [
             (
+                "editor-presentation.cjs",
+                include_str!("../extension-host/editor-presentation.cjs"),
+            ),
+            (
                 "api-types.cjs",
                 include_str!("../extension-host/api-types.cjs"),
             ),
@@ -524,7 +528,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -993,7 +997,9 @@ impl Client {
                     | "nativeUntitledDocumentOpen"
                     | "nativeVirtualDocumentChange"
                     | "nativeDocumentLanguage"
-                    | "nativeEditorSelections" => {
+                    | "nativeEditorSelections"
+                    | "nativeEditorOptions"
+                    | "nativeEditorReveal" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_service_with_models(

@@ -11,6 +11,7 @@ impl Document {
         selections
     }
     pub(super) fn assign_selections(&mut self, mut selections: Vec<Selection>) {
+        self.resume_editor_cursor_follow();
         if selections.is_empty() {
             selections.push(Selection::caret(0));
         }
@@ -41,6 +42,7 @@ impl Document {
         }
     }
     pub fn clear_secondary(&mut self) {
+        self.resume_editor_cursor_follow();
         self.secondary.clear();
         self.anchor = None;
         self.break_group();

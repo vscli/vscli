@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LineNumbers {
     #[default]
     On,
@@ -274,6 +274,8 @@ const SUPPORTED: &[&str] = &[
     "editor.defaultFormatter",
     "editor.codeActionsOnSave",
     "editor.tabSize",
+    "editor.indentSize",
+    "editor.cursorStyle",
     "editor.insertSpaces",
     "editor.lineNumbers",
     "editor.quickSuggestions",
@@ -935,8 +937,31 @@ impl Settings {
             Some("interval") => LineNumbers::Interval,
             _ => LineNumbers::On,
         };
-        doc.set_indentation(tab_size, insert_spaces);
-        doc.line_numbers = line_numbers;
+        let indent_size = self
+            .value("editor.indentSize", language)
+            .and_then(Value::as_u64)
+            .map_or(
+                crate::document::editor_options::IndentOption::default(),
+                |n| crate::document::editor_options::IndentOption::Number(n as usize),
+            );
+        let cursor_style = match self
+            .value("editor.cursorStyle", language)
+            .and_then(Value::as_str)
+        {
+            Some("block") => 2,
+            Some("underline") => 3,
+            Some("line-thin") => 4,
+            Some("block-outline") => 5,
+            Some("underline-thin") => 6,
+            _ => 1,
+        };
+        doc.set_editor_defaults(
+            tab_size,
+            indent_size,
+            insert_spaces,
+            line_numbers,
+            cursor_style,
+        );
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1016,6 +1041,14 @@ fn valid(key: &str, value: &Value) -> bool {
                     <= 16384
         }),
         "editor.tabSize" => value.as_u64().is_some_and(|n| (1..=16).contains(&n)),
+        "editor.indentSize" => {
+            value.as_str() == Some("tabSize")
+                || value.as_u64().is_some_and(|n| (1..=16).contains(&n))
+        }
+        "editor.cursorStyle" => matches!(
+            value.as_str(),
+            Some("line" | "block" | "underline" | "line-thin" | "block-outline" | "underline-thin")
+        ),
         "editor.insertSpaces"
         | "editor.quickSuggestions"
         | "editor.suggestOnTriggerCharacters"
@@ -2628,5 +2661,76 @@ mod sticky_close_policy_tests {
         assert_eq!(doc.text.to_string(), "猫🙂\r\noriginal\r\n");
         doc.redo();
         assert_eq!(doc.text.to_string(), "dirty 猫🙂\r\noriginal\r\n");
+    }
+}
+
+#[cfg(test)]
+mod editor_option_defaults_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn scoped_defaults_resolve_indent_and_preserve_explicit_view_presentation_and_history() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        std::fs::write(&path, r#"{"editor.tabSize":8,"editor.indentSize":"tabSize","editor.cursorStyle":"line","[cpp]":{"editor.tabSize":4,"editor.indentSize":2,"editor.cursorStyle":"underline-thin","editor.lineNumbers":"interval"}}"#).unwrap();
+        let settings = Settings::load_editor(std::slice::from_ref(&path)).unwrap();
+        let mut doc = crate::document::Document::from_text("α😀\r\n\t猫\r\n");
+        doc.path = Some(root.path().join("main.cpp"));
+        doc.activate_view(1);
+        doc.insert("!", false);
+        doc.undo();
+        let proof = doc.editor_view_identity();
+        let state = (
+            doc.id,
+            doc.revision,
+            doc.text_epoch(),
+            doc.save_generation(),
+            doc.selections(),
+        );
+        settings.apply(&mut doc);
+        assert_eq!(
+            doc.editor_options_for(1).unwrap(),
+            json!({"tabSize":4,"indentSize":2,"originalIndentSize":2,"insertSpaces":true,"cursorStyle":6,"lineNumbers":3})
+        );
+        doc.apply_editor_options(
+            &proof,
+            &serde_json::from_value(json!({"cursorStyle":5,"lineNumbers":0})).unwrap(),
+        )
+        .unwrap();
+        doc.set_language_override(Some("plaintext".into())).unwrap();
+        settings.apply(&mut doc);
+        assert_eq!(
+            doc.editor_options_for(1).unwrap(),
+            json!({"tabSize":8,"indentSize":8,"originalIndentSize":"tabSize","insertSpaces":true,"cursorStyle":5,"lineNumbers":0})
+        );
+        doc.activate_view(2);
+        assert_eq!(doc.editor_options_for(2).unwrap()["cursorStyle"], 1);
+        assert_eq!(doc.editor_options_for(2).unwrap()["lineNumbers"], 1);
+        doc.activate_view(1);
+        assert_eq!(
+            (
+                doc.id,
+                doc.revision,
+                doc.text_epoch(),
+                doc.save_generation(),
+                doc.selections()
+            ),
+            state
+        );
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "!α😀\r\n\t猫\r\n");
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "α😀\r\n\t猫\r\n");
+        std::fs::write(
+            &path,
+            r#"{"editor.indentSize":17,"editor.cursorStyle":"beam"}"#,
+        )
+        .unwrap();
+        let invalid = Settings::load_editor(&[path]).unwrap();
+        assert_eq!(invalid.warnings.len(), 2);
+        invalid.apply(&mut doc);
+        assert_eq!(doc.indent_size(), 4);
+        assert_eq!(doc.editor_cursor_style(), 5);
     }
 }

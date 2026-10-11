@@ -5,6 +5,7 @@ mod completion_edits;
 mod debugger;
 mod editor_layout;
 mod extension_activation;
+mod extension_editor_presentation;
 mod extension_editor_state;
 mod extension_file_search;
 mod extension_management;
@@ -527,6 +528,7 @@ struct ClosingGroup {
 
 pub struct App {
     extension_editor_inventory: crate::extensions::editor_inventory::Inventory,
+    extension_editor_viewports: extension_editor_presentation::Viewports,
     pub panes: Vec<Pane>,
     pub active_pane: usize,
     pub pane_areas: Vec<Rect>,
@@ -645,6 +647,7 @@ impl App {
         let entries = directory_entries(&root);
         Self {
             extension_editor_inventory: crate::extensions::editor_inventory::Inventory::default(),
+            extension_editor_viewports: extension_editor_presentation::Viewports::default(),
             panes: Vec::new(),
             active_pane: 0,
             pane_areas: Vec::new(),
@@ -1310,6 +1313,8 @@ impl App {
     fn event_inner(&mut self, event: Event) {
         match event {
             Event::Resize(_, _) => {
+                self.extension_editor_viewports =
+                    extension_editor_presentation::Viewports::default();
                 self.invalidate_editor_presentation();
                 self.tab_hits.clear();
                 self.welcome_actions.clear();

@@ -8,7 +8,7 @@ use anyhow::{Context as _, ensure};
 
 pub(super) struct Completed {
     service: NativeService,
-    result: Result<Value, String>,
+    result: Option<Result<Value, String>>,
 }
 impl App {
     fn known_document_language(&self, host: &crate::extensions::Client, language: &str) -> bool {
@@ -40,7 +40,7 @@ impl App {
         &mut self,
         host: &mut crate::extensions::Client,
         capture: &Capture,
-    ) -> Result<Value> {
+    ) -> Result<Option<Value>> {
         ensure!(
             self.documents
                 .len()
@@ -186,25 +186,39 @@ impl App {
                     host.mark_api_selections(capture.document);
                 }
             }
+            Change::Options(options) => {
+                let doc = self
+                    .documents
+                    .iter_mut()
+                    .find(|doc| doc.id == capture.document)
+                    .context("Editor options model retired")?;
+                doc.apply_editor_options(capture.view_proof(), options)?;
+            }
+            Change::Reveal { range, kind } => {
+                let Some(area) =
+                    self.extension_reveal_viewport(capture.document, capture.view_id())
+                else {
+                    // Keep the original bounded request until a real frame has
+                    // measured its viewport. Never invent terminal dimensions.
+                    return Ok(None);
+                };
+                self.apply_extension_reveal(capture, *range, *kind, area)?;
+            }
         }
-        Ok(if let Some(editor) = &capture.editor {
+        Ok(Some(if let Some(editor) = &capture.editor {
             json!({"document":capture.document,"editor":editor})
         } else {
             json!({"document":capture.document})
-        })
+        }))
     }
     pub(super) fn start_editor_state_service(
         &mut self,
         host: &mut crate::extensions::Client,
         service: NativeService,
     ) {
-        let result = match &service.operation {
-            Operation::EditorState(capture) => self.apply_editor_state(host, capture),
-            _ => Err(anyhow::anyhow!("Invalid editor state service")),
-        };
         self.extension_services.editor_state_completed = Some(Completed {
             service,
-            result: result.map_err(|error| crate::extensions::services::bounded_error(&error)),
+            result: None,
         });
         self.poll_editor_state_completion(host);
     }
@@ -212,7 +226,7 @@ impl App {
         &mut self,
         host: &mut crate::extensions::Client,
     ) -> bool {
-        let Some(done) = self.extension_services.editor_state_completed.take() else {
+        let Some(mut done) = self.extension_services.editor_state_completed.take() else {
             return false;
         };
         if done.service.request.session != host.session {
@@ -226,6 +240,26 @@ impl App {
         }
         self.refresh_extension_editor_inventory();
         host.set_editor_inventory(self.extension_editor_inventory.clone());
+        if done.result.is_none() {
+            let result =
+                host.service_valid(&done.service)
+                    .and_then(|()| match &done.service.operation {
+                        Operation::EditorState(capture) => self.apply_editor_state(host, capture),
+                        _ => Err(anyhow::anyhow!("Invalid editor state service")),
+                    });
+            match result {
+                Ok(None) => {
+                    self.extension_services.editor_state_completed = Some(done);
+                    return false;
+                }
+                Ok(Some(value)) => done.result = Some(Ok(value)),
+                Err(error) => {
+                    done.result = Some(Err(crate::extensions::services::bounded_error(&error)))
+                }
+            }
+            self.refresh_extension_editor_inventory();
+            host.set_editor_inventory(self.extension_editor_inventory.clone());
+        }
         if let Err(error) =
             host.sync_with_hidden(&self.documents, &self.hidden_documents, self.active)
         {
@@ -233,9 +267,12 @@ impl App {
             self.extension_services.editor_state_completed = Some(done);
             return false;
         }
-        let result = host
-            .service_valid(&done.service)
-            .and_then(|()| done.result.clone().map_err(anyhow::Error::msg));
+        let result = host.service_valid(&done.service).and_then(|()| {
+            done.result
+                .clone()
+                .expect("completed editor state receipt")
+                .map_err(anyhow::Error::msg)
+        });
         if let Err(error) = host.answer_service(&done.service, result) {
             self.message = format!("Editor state acknowledgement retained: {error:#}");
             self.extension_services.editor_state_completed = Some(done);

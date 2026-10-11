@@ -62,9 +62,28 @@ struct SelectionArgs {
     #[serde(default)]
     editor: Option<String>,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OptionsArgs {
+    document: u64,
+    version: u64,
+    editor: String,
+    options: crate::document::EditorOptionsPatch,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct RevealArgs {
+    document: u64,
+    version: u64,
+    editor: String,
+    range: lsp::Range,
+    reveal_type: u8,
+}
 pub(crate) enum Change {
     Language(String),
     Selections(Vec<EditorSelection>),
+    Options(crate::document::EditorOptionsPatch),
+    Reveal { range: lsp::Range, kind: u8 },
 }
 pub(crate) struct Capture {
     pub(crate) document: u64,
@@ -93,7 +112,7 @@ impl Capture {
             && doc.language_epoch() == self.language_epoch
             && doc.eol == self.eol
             && document_uri(doc).ok().as_ref() == Some(&self.uri)
-            && (!matches!(self.change, Change::Selections(_))
+            && (matches!(self.change, Change::Language(_))
                 || if self.editor.is_some() {
                     doc.editor_view_current(&self.view)
                 } else {
@@ -102,6 +121,9 @@ impl Capture {
     }
     pub(crate) fn view_id(&self) -> u64 {
         self.view.view_id()
+    }
+    pub(crate) fn view_proof(&self) -> &EditorViewProof {
+        &self.view
     }
     pub(crate) fn apply_selections(&self, doc: &mut Document) -> Result<bool> {
         let Change::Selections(requested) = &self.change else {
@@ -176,10 +198,10 @@ impl Client {
     pub(crate) fn set_editor_state_context(&mut self, context: Option<Context>) {
         self.editor_state_context = context;
     }
-    pub(super) fn capture_editor_state(
+    pub(super) fn capture_editor_operation(
         &self,
         args: &Value,
-        language: bool,
+        method: &str,
         documents: &[Document],
         hidden: &[Document],
     ) -> Result<Arc<Capture>> {
@@ -187,7 +209,28 @@ impl Client {
             .editor_state_context
             .clone()
             .context("Editor state context unavailable")?;
-        let (document, version, change, editor) = if language {
+        let language = method == "nativeDocumentLanguage";
+        let (document, version, change, editor) = if method == "nativeEditorOptions" {
+            let args: OptionsArgs = serde_json::from_value(args.clone())?;
+            (
+                args.document,
+                args.version,
+                Change::Options(args.options),
+                Some(args.editor),
+            )
+        } else if method == "nativeEditorReveal" {
+            let args: RevealArgs = serde_json::from_value(args.clone())?;
+            ensure!(args.reveal_type <= 3, "Invalid editor reveal type");
+            (
+                args.document,
+                args.version,
+                Change::Reveal {
+                    range: args.range,
+                    kind: args.reveal_type,
+                },
+                Some(args.editor),
+            )
+        } else if language {
             let args: LanguageArgs = serde_json::from_value(args.clone())?;
             ensure!(
                 !args.language.is_empty()

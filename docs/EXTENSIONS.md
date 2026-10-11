@@ -99,6 +99,14 @@ F1 lists registered commands. Manifest keybindings retain their original combina
 
 ## Native documents, commands and persistent state
 
+Visible `TextEditor` handles additionally expose native options and measured
+visible ranges with scoped change events. Option assignment changes shared
+indentation or the addressed pane's cursor/line-number style. `revealRange` scrolls
+that pane without changing focus or selections; unknown viewport dimensions stay
+unknown until a native frame measures them. API changes are ephemeral rather than
+settings-file writes. See [editor presentation](EDITOR_PRESENTATION_API.md) for
+auto detection, coercion, bounds, terminal shape mappings and executed evidence.
+
 `workspace.openTextDocument(pathOrFileUri)` reads an existing regular UTF-8 file on a bounded native worker. It returns the same shared document object already retained for that path, including dirty or deleted backing files. Opening a new model alone creates no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden models share the host's existing 4 MiB total mirror budget with visible tabs. Models remain native-owned after host stop or failure. Showing or natively opening one moves its Document identity and undo history into the tab store; native watching and settings also include retained hidden models. Dirty hidden models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean hidden models are excluded from clean-session layout metadata.
 
 `window.showTextDocument(documentOrFile, options)` and its positional view-column
@@ -233,7 +241,7 @@ The API reference target for this initial experiment is VS Code 1.95.0; the expo
 - Native installed snippet contributions, independently of the optional host.
 - CommonJS `require('vscode')`, explicit eager activation of up to eight packages, owned command/event registrations, extension path/URI, and extension mode. Each package receives its own API facade over shared document objects and configuration. Bundled modules resolve their package facade; modules outside selected package directories that require `vscode` are unsupported.
 - Command registration/disposal/execution, contribution titles in the native palette, single-message notifications without choices, and the bounded native Quick Pick/Input Box subset described above.
-- Active editor and selections as read-only mirrors; synchronous document text, lines, UTF-16 position/offset conversion, ranges, selections, URIs, and document lifecycle/change events.
+- Visible/active editors with shared documents and independent pane handles; selection setters/events, resolved options/events, measured visible ranges/events and native revealRange. Synchronous document text, lines, UTF-16 position/offset conversion, ranges, URIs and document lifecycle/change events.
 - `TextEditor.edit` replace/insert/delete on open native buffers. Rust validates identity, version, UTF-16 boundaries, overlapping ranges, the 4,096-edit count limit, and size before one native undoable transaction. Stale requests resolve `false`; malformed transactions reject without partial changes.
 - A single workspace folder and configuration reads from extension-declared defaults, imported user settings, and workspace `.vscode/settings.json`, including language overrides, `inspect`, and live change events.
 

@@ -594,7 +594,7 @@ fn draw_breadcrumbs_picker(frame: &mut Frame, app: &mut App) {
 
 fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
     let colors = app.theme.colors;
-    let digits = if app.doc().line_numbers == crate::settings::LineNumbers::Off {
+    let digits = if app.doc().editor_line_numbers() == crate::settings::LineNumbers::Off {
         0
     } else {
         app.doc().line_count().to_string().len().max(3) as u16
@@ -613,15 +613,17 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
     let doc = app.doc_mut();
     let row = doc.row();
     let col = doc.visual_column();
-    if row < doc.top {
-        doc.top = row;
-    } else if row >= doc.top + text_area.height as usize {
-        doc.top = row + 1 - text_area.height as usize;
-    }
-    if col < doc.left {
-        doc.left = col;
-    } else if col >= doc.left + text_area.width as usize {
-        doc.left = col + 1 - text_area.width as usize;
+    if doc.editor_cursor_following() {
+        if row < doc.top {
+            doc.top = row;
+        } else if row >= doc.top + text_area.height as usize {
+            doc.top = row + 1 - text_area.height as usize;
+        }
+        if col < doc.left {
+            doc.left = col;
+        } else if col >= doc.left + text_area.width as usize {
+            doc.left = col + 1 - text_area.width as usize;
+        }
     }
     let doc = app.doc();
     let selections: Vec<_> = doc
@@ -665,7 +667,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 f.line == row + 1
                     && f.source.as_ref().and_then(|s| s.path.as_ref()) == doc.path.as_ref()
             });
-        let label = match doc.line_numbers {
+        let label = match doc.editor_line_numbers() {
             crate::settings::LineNumbers::Off => String::new(),
             crate::settings::LineNumbers::Relative if !active => {
                 row.abs_diff(doc.row()).to_string()
@@ -797,10 +799,16 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 cell.set_style(Style::default().bg(colors.foreground).fg(colors.background));
             }
         }
-        frame.set_cursor_position((
-            text_area.x + (col - doc.left) as u16,
-            text_area.y + (doc.row() - doc.top) as u16,
-        ));
+        if row >= doc.top
+            && row - doc.top < text_area.height as usize
+            && col >= doc.left
+            && col - doc.left < text_area.width as usize
+        {
+            frame.set_cursor_position((
+                text_area.x + (col - doc.left) as u16,
+                text_area.y + (row - doc.top) as u16,
+            ));
+        }
     }
 }
 
@@ -2141,6 +2149,64 @@ fn draw_extension_modal(frame: &mut Frame, app: &mut App) {
 mod tests {
     use super::*;
     use ratatui::{Terminal, backend::TestBackend};
+    #[test]
+    fn explicit_reveal_paints_off_caret_without_scrollback_and_navigation_resumes_follow() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        app.execute(
+            "workbench.action.files.newUntitledFile",
+            serde_json::Value::Null,
+        );
+        app.doc_mut().insert(
+            "α😀\r\nfirst\r\nsecond\r\n0123456789猫tail\r\nfourth\r\n",
+            false,
+        );
+        app.doc_mut().move_to(0, false);
+        let proof = app.doc().editor_view_identity();
+        let before = (
+            app.doc().id,
+            app.doc().text.to_string(),
+            app.doc().revision,
+            app.doc().text_epoch(),
+            app.doc().save_generation(),
+            app.doc().selections(),
+            app.doc().dirty(),
+        );
+        app.doc_mut().reveal_editor_view(&proof, 3, 10).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(50, 12)).unwrap();
+        let area = Rect::new(3, 2, 30, 4);
+        for _ in 0..2 {
+            terminal
+                .draw(|frame| draw_editor(frame, &mut app, area, true))
+                .unwrap();
+            assert_eq!((app.doc().top, app.doc().left), (3, 10));
+            let text = app.editor_area;
+            assert_eq!(terminal.backend().buffer()[(text.x, text.y)].symbol(), "猫");
+        }
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().text.to_string(),
+                app.doc().revision,
+                app.doc().text_epoch(),
+                app.doc().save_generation(),
+                app.doc().selections(),
+                app.doc().dirty()
+            ),
+            before
+        );
+        app.doc_mut().move_to(1, false);
+        app.doc_mut().move_to(0, false);
+        terminal
+            .draw(|frame| draw_editor(frame, &mut app, area, true))
+            .unwrap();
+        assert_eq!((app.doc().top, app.doc().left), (0, 0));
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "");
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), before.1);
+    }
+
     #[test]
     fn completion_details_fit_editor_at_all_caret_edges_and_terminal_sizes() {
         for (width, height) in [(12, 4), (39, 24), (48, 20), (76, 24), (100, 30), (160, 40)] {

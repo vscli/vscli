@@ -40,6 +40,7 @@ impl App {
                 self.message = format!("Extension editor inventory paused: {error:#}");
             }
         }
+        self.refresh_extension_visible_ranges();
     }
     pub(super) fn poll_extensions(&mut self) -> bool {
         // Publish readiness only after the accepted-start worker releases its

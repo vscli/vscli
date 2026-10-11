@@ -12,6 +12,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 mod comments;
 mod editing;
+pub(crate) mod editor_options;
+pub(crate) use editor_options::EditorOptionsPatch;
 mod folding;
 pub use comments::CommentOperation;
 pub use folding::{
@@ -181,6 +183,9 @@ pub struct ViewState {
     pairs: typing::Pairs,
     folding: folding::View,
     editor_owner: std::sync::Arc<()>,
+    line_numbers_override: Option<crate::settings::LineNumbers>,
+    cursor_style_override: Option<u8>,
+    explicit_viewport: bool,
 }
 #[derive(Clone)]
 pub(crate) struct ByteChange {
@@ -210,6 +215,7 @@ impl PositionChange {
         }
     }
     fn map(&self, view: &mut ViewState) {
+        view.explicit_viewport = false;
         view.map_snippet(&self.range, self.added);
         view.pairs.map(&self.range, self.added);
         view.cursor = map_position(view.cursor, &self.range, self.added);
@@ -356,6 +362,8 @@ pub struct Document {
     pub eol: String,
     pub tab_size: usize,
     pub insert_spaces: bool,
+    indent_size: editor_options::IndentOption,
+    editor_defaults: editor_options::Defaults,
     pub line_numbers: crate::settings::LineNumbers,
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
@@ -440,6 +448,9 @@ impl Document {
         let next = self.other_views.remove(&id).unwrap_or_else(|| {
             let mut view = self.view.clone();
             view.editor_owner = std::sync::Arc::new(());
+            view.line_numbers_override = None;
+            view.cursor_style_override = None;
+            view.explicit_viewport = false;
             view.cursor_history.clear();
             view.snippet = None;
             view.pairs = typing::Pairs::default();
@@ -542,6 +553,8 @@ impl Document {
             eol,
             tab_size: 4,
             insert_spaces: true,
+            indent_size: editor_options::IndentOption::default(),
+            editor_defaults: editor_options::Defaults::default(),
             line_numbers: crate::settings::LineNumbers::On,
             undo: Vec::new(),
             redo: Vec::new(),
@@ -1034,10 +1047,12 @@ impl Document {
         }
     }
     pub fn indentation(&self) -> String {
+        let indent = self.indent_size();
         if self.insert_spaces {
-            " ".repeat(self.tab_size.clamp(1, 16))
+            " ".repeat(indent)
         } else {
-            "\t".into()
+            "\t".repeat(indent / self.tab_size.clamp(1, 16))
+                + &" ".repeat(indent % self.tab_size.clamp(1, 16))
         }
     }
     pub fn set_indentation(&mut self, tab_size: usize, insert_spaces: bool) {
@@ -1304,6 +1319,7 @@ impl Document {
         self.observe_folding_selection();
     }
     fn move_to_inner(&mut self, pos: usize, select: bool) {
+        self.resume_editor_cursor_follow();
         self.break_group();
         if select {
             if self.anchor.is_none() {
@@ -1620,7 +1636,7 @@ impl Document {
                     1
                 } else {
                     line.chars()
-                        .take(self.tab_size)
+                        .take(self.indent_size())
                         .take_while(|c| *c == ' ')
                         .count()
                 };

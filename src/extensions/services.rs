@@ -218,13 +218,12 @@ impl Client {
         )?;
         let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         let operation = match method {
-            "nativeDocumentLanguage" | "nativeEditorSelections" => {
-                let capture = self.capture_editor_state(
-                    &request.args,
-                    method == "nativeDocumentLanguage",
-                    documents,
-                    hidden,
-                )?;
+            "nativeDocumentLanguage"
+            | "nativeEditorSelections"
+            | "nativeEditorOptions"
+            | "nativeEditorReveal" => {
+                let capture =
+                    self.capture_editor_operation(&request.args, method, documents, hidden)?;
                 request.args = Value::Null;
                 Operation::EditorState(capture)
             }

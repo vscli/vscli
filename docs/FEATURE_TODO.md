@@ -61,9 +61,13 @@ Language-only changes retain text versions and history while retiring obsolete
 provider/LSP lifetimes; selections preserve direction and native UTF-16 bounds.
 The subsequent [editor inventory milestone](EDITOR_INVENTORY_API.md) adds independent
 identities for shared panes, all visible editors, view columns, exact inactive-pane
-selection routing and showTextDocument column/preserveFocus overloads. Selection
-source kinds, editor options, visible ranges, decorations, preview tabs and sparse
-empty groups remain outstanding. The full stable API order above remains active.
+selection routing and showTextDocument column/preserveFocus overloads.
+[Editor presentation](EDITOR_PRESENTATION_API.md) adds shared indentation and
+per-pane styles, measured UTF-16 visible ranges, scoped events and all four reveal
+modes. Decorations are next in the editor API workstream. Selection source kinds,
+wrapping/folding range projection, preview tabs, sparse empty groups and broader
+upstream option/reveal fidelity remain outstanding. The full stable API order
+above remains active.
 
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;
