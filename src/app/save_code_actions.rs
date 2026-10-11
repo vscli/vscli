@@ -348,6 +348,9 @@ impl App {
             self.action_save_current(run),
             "Save action ownership changed before mutation"
         );
+        self.check_document_save_intent(run.proof.intent)?;
+        let old_epoch = run.proof.epoch;
+        let old_revision = run.proof.revision;
         run.raw_remaining -= staged.raw_bytes;
         run.expanded_remaining -= staged.expanded_bytes;
         if staged.changes.is_empty() {
@@ -361,6 +364,7 @@ impl App {
         doc.apply_changes(staged.changes);
         run.proof.revision = doc.revision;
         run.proof.epoch = doc.text_epoch();
+        self.advance_document_save_owned_edit(run.proof.intent, old_epoch, old_revision)?;
         self.preview_edit_barrier();
         // The next family and same-poll formatter must see the owned edit. A
         // failed publication revokes this pipeline rather than saving it raw.

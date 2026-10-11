@@ -2,6 +2,7 @@ use super::*;
 use crate::extension_state::{Scope, Store};
 use std::collections::VecDeque;
 
+pub(crate) const SAVE_SERVICE_LIFETIME: Duration = Duration::from_secs(360);
 pub(crate) const SERVICE_LIFETIME: Duration = Duration::from_secs(3);
 pub(crate) const NATIVE_COMMANDS: &[&str] = &[
     "undo",
@@ -29,9 +30,16 @@ pub(crate) struct Request {
 #[derive(Clone)]
 pub(crate) enum Operation {
     Open(Open),
+    Save(Save),
     Show(Show),
     Command(Command),
     State(StatePatch),
+}
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Save {
+    pub document: u64,
+    pub version: u64,
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -64,10 +72,16 @@ pub(crate) struct NativeService {
     pub request: Request,
     pub operation: Operation,
     pub started: Instant,
+    save_origin: Option<Mirror>,
 }
 impl NativeService {
     pub fn fresh(&self) -> Result<()> {
-        if self.started.elapsed() >= SERVICE_LIFETIME {
+        let lifetime = if matches!(self.operation, Operation::Save(_)) {
+            SAVE_SERVICE_LIFETIME
+        } else {
+            SERVICE_LIFETIME
+        };
+        if self.started.elapsed() >= lifetime {
             bail!("Native extension service expired; retry");
         }
         Ok(())
@@ -104,6 +118,13 @@ impl Client {
                 }
                 Operation::Open(open)
             }
+            "nativeDocumentSave" => {
+                let save: Save = serde_json::from_value(request.args.clone())?;
+                if save.document == 0 || save.version == 0 {
+                    bail!("Invalid save model/version");
+                }
+                Operation::Save(save)
+            }
             "nativeDocumentShow" => Operation::Show(serde_json::from_value(request.args.clone())?),
             "nativeCommand" => {
                 let command: Command = serde_json::from_value(request.args.clone())?;
@@ -118,16 +139,30 @@ impl Client {
             "nativeStateWrite" => Operation::State(serde_json::from_value(request.args.clone())?),
             _ => bail!("Unknown native service"),
         };
-        if !matches!(operation, Operation::State(_))
+        if !matches!(operation, Operation::State(_) | Operation::Save(_))
             && request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service request; retry");
         }
+        let save_origin = if let Operation::Save(save) = &operation {
+            let mirror = self
+                .mirror
+                .mirrors
+                .get(&save.document)
+                .context("Save model is not mirrored")?;
+            if mirror.version != save.version || mirror.uri.len() > 4096 || mirror.eol.len() > 2 {
+                bail!("Save source mirror changed or exceeds metadata budget");
+            }
+            Some(mirror.clone())
+        } else {
+            None
+        };
         self.services.push_back(NativeService {
             id,
             request,
             operation,
             started: Instant::now(),
+            save_origin,
         });
         Ok(())
     }
@@ -139,7 +174,7 @@ impl Client {
     }
     pub(crate) fn service_valid(&self, service: &NativeService) -> Result<()> {
         service.fresh()?;
-        if !matches!(service.operation, Operation::State(_))
+        if !matches!(service.operation, Operation::State(_) | Operation::Save(_))
             && service.request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service completion; retry");
@@ -151,7 +186,9 @@ impl Client {
         {
             bail!("Native service is no longer pending");
         }
-        if matches!(service.operation, Operation::State(_)) {
+        if matches!(service.operation, Operation::Save(_)) {
+            self.validate_native_origin(service.request.session, &service.request.owner, None, None)
+        } else if matches!(service.operation, Operation::State(_)) {
             // Receipt already authorized the exact origin. An accepted durable
             // patch may outlive that command; never bind it to a later command.
             self.validate_selected_owner(service.request.session, &service.request.owner)
@@ -194,6 +231,24 @@ impl Client {
                 && mirror.eol == document.eol
         })
     }
+    pub(crate) fn service_save_document_current(
+        &self,
+        service: &NativeService,
+        document: &Document,
+    ) -> bool {
+        let Operation::Save(save) = &service.operation else {
+            return false;
+        };
+        service.save_origin.as_ref().is_some_and(|origin| {
+            document.id == save.document
+                && document.revision == origin.revision
+                && document.text_epoch() == origin.text_epoch
+                && document.save_generation() == origin.save_generation
+                && document.eol == origin.eol
+                && document_uri(document).ok().as_ref() == Some(&origin.uri)
+                && self.service_document_current(document, save.version)
+        })
+    }
     pub(crate) fn state_store(&self) -> Option<Store> {
         self.state_store.clone()
     }
@@ -226,6 +281,22 @@ pub(super) fn empty_queue() -> VecDeque<NativeService> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn save_dto_rejects_unknown_and_invalid_version_types_without_open_show_coercion() {
+        use super::Save;
+        let parsed: Save =
+            serde_json::from_value(serde_json::json!({"document":1,"version":2})).unwrap();
+        assert_eq!(parsed.document, 1);
+        assert_eq!(parsed.version, 2);
+        for invalid in [
+            serde_json::json!({"document":1,"version":2,"path":"other"}),
+            serde_json::json!({"document":1,"version":2.5}),
+            serde_json::json!({"document":1,"version":-1}),
+            serde_json::json!({"document":1}),
+        ] {
+            assert!(serde_json::from_value::<Save>(invalid).is_err());
+        }
+    }
     use super::*;
     #[test]
     fn late_reply_cannot_consume_same_request_id_in_a_replacement_session() {

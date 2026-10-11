@@ -225,7 +225,14 @@ impl App {
             return;
         }
         self.saving.formatting.active = None;
+        let intent = self
+            .saving
+            .latest
+            .as_ref()
+            .expect("current formatting intent")
+            .id;
         let result = result.map_err(anyhow::Error::msg).and_then(|edits| {
+            self.check_document_save_intent(intent)?;
             let doc = self
                 .documents
                 .iter_mut()
@@ -233,7 +240,10 @@ impl App {
                 .find(|doc| doc.id == request.document_id)
                 .ok_or_else(|| anyhow::anyhow!("Formatting model retired"))?;
             let changes = crate::save_formatting_edits::stage(doc, &edits)?;
+            let old_epoch = doc.text_epoch();
+            let old_revision = doc.revision;
             doc.apply_changes(changes);
+            self.advance_document_save_owned_edit(intent, old_epoch, old_revision)?;
             self.preview_edit_barrier();
             Ok(())
         });

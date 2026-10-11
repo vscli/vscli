@@ -79,6 +79,22 @@ pub(crate) fn read_message(reader: &mut impl BufRead) -> Result<Value> {
     Ok(serde_json::from_slice(&body)?)
 }
 
+#[cfg(test)]
+struct FixtureWriterPause {
+    entered: SyncSender<()>,
+    release: Receiver<()>,
+}
+#[cfg(test)]
+impl FixtureWriterPause {
+    fn pause(self) {
+        // A dropped observer never blocks cleanup; a held real writer has the
+        // same bounded fixture wait as the actual native persistence worker.
+        if self.entered.try_send(()).is_ok() {
+            let _ = self.release.recv_timeout(std::time::Duration::from_secs(6));
+        }
+    }
+}
+
 pub struct Process {
     child: Child,
     #[cfg(unix)]
@@ -87,6 +103,8 @@ pub struct Process {
     receiver: Receiver<std::result::Result<Value, String>>,
     queued_bytes: Arc<AtomicUsize>,
     stderr: Arc<Mutex<Vec<u8>>>,
+    #[cfg(test)]
+    fixture_writer_pause: Arc<Mutex<Option<FixtureWriterPause>>>,
 }
 impl Process {
     pub fn start(program: &str, args: &[String], root: &Path) -> Result<Self> {
@@ -127,8 +145,21 @@ impl Process {
         let errors = incoming.clone();
         let queued_bytes = Arc::new(AtomicUsize::new(0));
         let pending = queued_bytes.clone();
+        #[cfg(test)]
+        let fixture_writer_pause = Arc::new(Mutex::new(None::<FixtureWriterPause>));
+        #[cfg(test)]
+        let writer_pause = fixture_writer_pause.clone();
         std::thread::spawn(move || {
             for (outbound, reservation) in outgoing {
+                #[cfg(test)]
+                {
+                    // Dequeue has really released one queue slot; keep the
+                    // actual writer occupied before emitting frame bytes.
+                    let pause = writer_pause.lock().ok().and_then(|mut slot| slot.take());
+                    if let Some(pause) = pause {
+                        pause.pause();
+                    }
+                }
                 let body = match outbound {
                     Outbound::Bytes(body) => body,
                     Outbound::Saved { uri, committed } => match saved_body(uri, committed) {
@@ -197,7 +228,26 @@ impl Process {
             receiver,
             queued_bytes,
             stderr: stderr_tail,
+            #[cfg(test)]
+            fixture_writer_pause,
         })
+    }
+    /// Pause exactly one actual writer operation after dequeue. This changes
+    /// no queue capacity, byte reservation, framing or admission outcome.
+    #[cfg(test)]
+    pub(crate) fn fixture_gate_writer(&self) -> Result<(Receiver<()>, SyncSender<()>)> {
+        let (entered, observed) = mpsc::sync_channel(1);
+        let (release, resumed) = mpsc::sync_channel(1);
+        let mut slot = self
+            .fixture_writer_pause
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Writer fixture gate mutex poisoned"))?;
+        anyhow::ensure!(slot.is_none(), "Writer fixture gate already installed");
+        *slot = Some(FixtureWriterPause {
+            entered,
+            release: resumed,
+        });
+        Ok((observed, release))
     }
     pub fn send(&self, message: Value) -> Result<()> {
         let bytes = serde_json::to_vec(&message)?;

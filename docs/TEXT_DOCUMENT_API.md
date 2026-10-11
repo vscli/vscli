@@ -21,9 +21,11 @@ opening, shared identity, native edit/undo/redo, host crash, recovery/save and
 Memento restart workflows pass; the filesystem dirty-buffer workflow also
 passes. Formatting and strict Clippy pass.
 
-`TextDocument.save()` still rejects explicitly because its native persistence
-acknowledgement gateway is not implemented. It never writes around the native
-save pipeline, returns invented success or clears dirty text optimistically.
+`TextDocument.save()` still rejects explicitly because its public acknowledgement
+hook is not connected. The [native foundation](NATIVE_DOCUMENT_SAVE.md) now
+captures exact model/caller interests and real persistence receipts. It never
+writes around the native save pipeline, returns invented success or clears
+dirty text optimistically.
 Installed language `wordPattern` and `languages.setLanguageConfiguration`
 integration, broader encodings/BOM handling, public object reflection and full
 upstream runtime comparison remain outstanding. A zero-width regex that cannot

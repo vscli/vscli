@@ -171,6 +171,10 @@ impl App {
     pub(super) fn poll_extension_services(&mut self) -> bool {
         let Some(mut host) = self.extension_host.take() else {
             self.extension_services.contexts.clear();
+            self.retire_all_document_save_callers();
+            while let Some(completion) = self.take_document_save_completion() {
+                self.retire_document_save_prompt(completion.interest);
+            }
             if let Some(job) = &self.extension_services.job {
                 job.cancel.store(true, Ordering::Release);
             }
@@ -200,10 +204,9 @@ impl App {
         self.extension_services
             .contexts
             .retain(|key, _| pending.contains(key));
-        for service in host
-            .queued_services()
-            .filter(|service| !matches!(service.operation, Operation::State(_)))
-        {
+        for service in host.queued_services().filter(|service| {
+            !matches!(service.operation, Operation::State(_) | Operation::Save(_))
+        }) {
             let key = (service.request.session, service.id.clone());
             if !self.extension_services.contexts.contains_key(&key) {
                 // An over-budget receipt is permanently invalid too. Never
@@ -211,6 +214,69 @@ impl App {
                 let context = Context::capture(self);
                 self.extension_services.contexts.insert(key, context);
             }
+        }
+        if let Some(completion) = self.document_save_completion() {
+            self.retire_document_save_prompt(completion.interest);
+            if let Some(service) = host.service().cloned()
+                && service.request.session == completion.caller.session
+                && service.id == completion.caller.request
+                && service.request.owner == completion.caller.owner
+                && matches!(service.operation, Operation::Save(_))
+            {
+                use super::saving::document_interests::Receipt;
+                let result =
+                    if host.service_valid(&service).is_err() {
+                        let state = if completion.retired {
+                            "retired"
+                        } else {
+                            "unavailable"
+                        };
+                        Err(anyhow::anyhow!(
+                            "Document save caller {state}; native receipt retained"
+                        ))
+                    } else {
+                        match completion.receipt {
+                            Receipt::Committed {
+                                document,
+                                save_generation,
+                            } => {
+                                if document
+                                    == match &service.operation {
+                                        Operation::Save(save) => save.document,
+                                        _ => unreachable!(),
+                                    }
+                                    && self.documents.iter().chain(&self.hidden_documents).any(
+                                        |doc| {
+                                            doc.id == document
+                                                && doc.save_generation() >= save_generation
+                                        },
+                                    )
+                                {
+                                    Ok(Value::Bool(true))
+                                } else {
+                                    Err(anyhow::anyhow!(
+                                        "Disk committed but save publication is no longer retained"
+                                    ))
+                                }
+                            }
+                            Receipt::NotSaved => Ok(Value::Bool(false)),
+                            Receipt::Failed(error) => Err(anyhow::anyhow!(
+                                "Native save failed without a successful receipt: {error}"
+                            )),
+                            Receipt::CommittedButUnpublished(error) => Err(anyhow::anyhow!(
+                                "Disk committed but native model acknowledgement failed: {error}"
+                            )),
+                        }
+                    };
+                if self.answer_native_service(host, &service, result) {
+                    self.take_document_save_completion();
+                }
+            } else {
+                // The old session/FIFO no longer owns an answer; discard only
+                // its receipt interest, never an authorized native operation.
+                self.take_document_save_completion();
+            }
+            return true;
         }
         if let Some(job) = &self.extension_services.job {
             let valid = host.service_valid(&job.service).is_ok()
@@ -242,11 +308,19 @@ impl App {
         let Some(service) = host.service().cloned() else {
             return false;
         };
+        if matches!(service.operation, Operation::Save(_))
+            && self.document_save_caller_pending(service.request.session, &service.id)
+        {
+            if host.service_valid(&service).is_err() {
+                self.retire_document_save_callers(service.request.session, &service.request.owner);
+            }
+            return false;
+        }
         let validation = host.service_valid(&service).and_then(|()| {
-            if !matches!(service.operation, Operation::State(_)) {
+            if !matches!(service.operation, Operation::State(_) | Operation::Save(_)) {
                 Context::check_budget(self)?;
             }
-            if !matches!(service.operation, Operation::State(_))
+            if !matches!(service.operation, Operation::State(_) | Operation::Save(_))
                 && !self
                     .extension_services
                     .contexts
@@ -255,7 +329,7 @@ impl App {
             {
                 bail!("Native document service cancelled by newer editor context; retry");
             }
-            if !matches!(service.operation, Operation::State(_))
+            if !matches!(service.operation, Operation::State(_) | Operation::Save(_))
                 && (self.prompt.is_some() || self.modal.is_some())
             {
                 bail!("Native document service cannot replace an active prompt or modal");
@@ -267,6 +341,45 @@ impl App {
             return true;
         }
         match &service.operation {
+            Operation::Save(save) => {
+                let result = (|| -> Result<()> {
+                    let doc = self
+                        .documents
+                        .iter()
+                        .chain(&self.hidden_documents)
+                        .find(|doc| doc.id == save.document)
+                        .context("Save document is no longer retained")?;
+                    if !host.service_save_document_current(&service, doc) {
+                        bail!("Document changed before save admission; retry");
+                    }
+                    let needs_path = doc.path.is_none();
+                    if needs_path
+                        && (self.prompt.is_some() || self.modal.is_some() || self.pending.is_some())
+                    {
+                        bail!("Document Save As cannot replace another prompt/modal");
+                    }
+                    use super::saving::document_interests::{Admission, Caller};
+                    let caller =
+                        Caller::new(service.request.session, &service.id, &service.request.owner)?;
+                    match self.request_document_save_interest(caller, save.document)? {
+                        Admission::Enqueued(interest) => {
+                            self.retire_document_save_prompt(interest);
+                        }
+                        Admission::NeedsPath(interest) => {
+                            if let Err(error) =
+                                self.begin_document_save_path_prompt(interest, save.document)
+                            {
+                                self.retire_document_save_interest(interest);
+                                return Err(error);
+                            }
+                        }
+                    }
+                    Ok(())
+                })();
+                if let Err(error) = result {
+                    self.answer_native_service(host, &service, Err(error));
+                }
+            }
             Operation::Open(open) => {
                 let path = PathBuf::from(&open.path);
                 let path = if path.is_absolute() {
@@ -501,12 +614,12 @@ impl App {
         host: &mut crate::extensions::Client,
         service: &NativeService,
         result: Result<Value>,
-    ) {
+    ) -> bool {
         self.extension_services
             .contexts
             .remove(&(service.request.session, service.id.clone()));
         if service.request.session != host.session {
-            return;
+            return false;
         }
         // The full authoritative mirror is queued before the promise settles.
         let result = result.and_then(|value| {
@@ -515,6 +628,9 @@ impl App {
         });
         if let Err(error) = host.answer_service(service, result) {
             self.message = format!("Native extension service reply failed: {error:#}");
+            false
+        } else {
+            true
         }
     }
 }
@@ -1141,3 +1257,6 @@ exports.activate = async context => {
         assert!(app.hidden_documents.is_empty());
     }
 }
+
+#[cfg(test)]
+mod save_receipt_tests;

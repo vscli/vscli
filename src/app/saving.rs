@@ -6,11 +6,14 @@ use crate::{
 };
 use anyhow::{Context, ensure};
 
+pub(super) mod document_interests;
+
 const MODELS: usize = 128;
 const PATH_BYTES: usize = 512 * 1024;
 
 struct SaveAsOrigin {
     document: u64,
+    service: Option<document_interests::Interest>,
     pane: Option<u64>,
     membership: Option<crate::editor_groups::Membership>,
     eligibility: super::sticky_tabs::CloseEligibility,
@@ -52,6 +55,7 @@ pub(super) struct Intent {
     pub(super) automatic: Option<Automatic>,
     pub(super) stage: Stage,
     pub(super) notice: Option<String>,
+    service: Option<document_interests::Interest>,
 }
 impl Intent {
     pub(super) fn add_notice(&mut self, notice: impl Into<String>) {
@@ -84,6 +88,8 @@ struct ModelProof {
 }
 struct Active {
     id: u64,
+    service: Option<document_interests::Interest>,
+    intent: u64,
     snapshot: SaveSnapshot,
     models: Vec<ModelProof>,
     continuation: Option<Continuation>,
@@ -94,6 +100,7 @@ struct Active {
 #[derive(Default)]
 pub(super) struct State {
     worker: Worker,
+    document_interests: document_interests::Interests,
     active: Option<Active>,
     pub(super) latest: Option<Intent>,
     pub(super) formatting: super::save_formatting::State,
@@ -219,6 +226,7 @@ impl App {
             automatic: Some(automatic),
             stage: Stage::Actions,
             notice: None,
+            service: None,
         }) {
             self.saving.autosave.failed(&proof);
             self.message = format!("Save failed; autosave retained unsaved work: {error:#}");
@@ -373,6 +381,7 @@ impl App {
     pub(super) fn capture_save_as_origin(&mut self) {
         self.saving.save_as_origin = self.active_document().map(|doc| SaveAsOrigin {
             document: doc.id,
+            service: None,
             pane: self.panes.get(self.active_pane).map(|pane| pane.id),
             membership: self.active_tab_membership(),
             eligibility: self.captured_close_eligibility(self.active_tab_membership()),
@@ -403,12 +412,14 @@ impl App {
             automatic: None,
             stage: Stage::Actions,
             notice: None,
+            service: None,
         };
         self.enqueue_native_save(intent)
     }
     pub(super) fn request_native_save_as(&mut self, destination: PathBuf) -> Result<()> {
         let SaveAsOrigin {
             document,
+            service,
             pane,
             membership,
             eligibility,
@@ -417,6 +428,13 @@ impl App {
             .save_as_origin
             .take()
             .context("Save As origin retired; invoke Save As again")?;
+        if let Some(interest) = service {
+            let result = self.accept_document_save_path(interest, destination);
+            if result.is_err() {
+                self.retire_document_save_interest(interest);
+            }
+            return result;
+        }
         let after = self.pending.take();
         let mut continuation = self.save_continuation(after, pane, membership);
         if let Some(continuation) = &mut continuation {
@@ -430,6 +448,7 @@ impl App {
             automatic: None,
             stage: Stage::Actions,
             notice: None,
+            service: None,
         })
     }
     fn enqueue_native_save(&mut self, mut intent: Intent) -> Result<()> {
@@ -510,6 +529,12 @@ impl App {
         let Some(intent) = self.saving.latest.as_ref().cloned() else {
             return Ok(());
         };
+        // Service admission temporarily borrows the host out of App. Dispatch
+        // after it is returned; do not manufacture a missing-host authority.
+        if self.document_save_waits_for_host(intent.id) {
+            return Ok(());
+        }
+        self.check_document_save_intent(intent.id)?;
         if intent.stage != Stage::Capture
             && intent.automatic.is_none()
             && !self.saving.participant_dispatch
@@ -594,8 +619,11 @@ impl App {
             .worker
             .try_start(id, snapshot.clone(), inventory)?;
         self.saving.next_id = id;
+        self.capture_document_save_worker(intent.id, id);
         self.saving.active = Some(Active {
             id,
+            intent: intent.id,
+            service: intent.service,
             snapshot,
             models,
             continuation: intent.continuation,
@@ -626,6 +654,9 @@ impl App {
             .find(|doc| doc.id == active.snapshot.document_id())
             .context("Save document was closed")?;
         doc.check_save_snapshot(&active.snapshot)?;
+        if active.service.is_some() {
+            self.authorize_document_save_interest(active.id)?;
+        }
         if let Some(automatic) = &active.automatic {
             ensure!(
                 automatic.generation == self.saving.autosave_generation
@@ -682,7 +713,7 @@ impl App {
         Ok(())
     }
     pub(super) fn poll_native_saves(&mut self) -> bool {
-        let mut changed = false;
+        let mut changed = self.poll_document_save_interests();
         if let Some(event) = self.saving.worker.poll() {
             changed = true;
             match event {
@@ -717,6 +748,22 @@ impl App {
                                 .context("Saved model is no longer retained")
                                 .and_then(|doc| doc.publish_save(&snapshot, commit.path.clone()));
                             self.preview_edit_barrier();
+                            let receipt = match &published {
+                                Ok(()) => document_interests::Receipt::Committed {
+                                    document: snapshot.document_id(),
+                                    save_generation: self
+                                        .documents
+                                        .iter()
+                                        .chain(&self.hidden_documents)
+                                        .find(|doc| doc.id == snapshot.document_id())
+                                        .expect("published model retained")
+                                        .save_generation(),
+                                },
+                                Err(error) => document_interests::Receipt::CommittedButUnpublished(
+                                    format!("{error:#}"),
+                                ),
+                            };
+                            self.finish_document_save_interest(id, receipt);
                             if let Err(error) = published {
                                 self.message = format!(
                                     "Saved {}; newer buffer metadata retained: {error:#}",
@@ -766,6 +813,10 @@ impl App {
                             }
                         }
                         Ok(Outcome::Rejected | Outcome::Expired) => {
+                            self.finish_document_save_interest(
+                                id,
+                                document_interests::Receipt::NotSaved,
+                            );
                             self.suppress_failed_save_snapshot(&snapshot);
                             if self.saving.latest.is_none() {
                                 self.message =
@@ -773,6 +824,10 @@ impl App {
                             }
                         }
                         Err(error) => {
+                            self.finish_document_save_interest(
+                                id,
+                                document_interests::Receipt::Failed(error.clone()),
+                            );
                             self.suppress_failed_save_snapshot(&snapshot);
                             self.retain_save_conflict_notice(&snapshot, &error);
                             self.message = format!("Save failed; unsaved work retained: {error}")
@@ -939,7 +994,14 @@ impl App {
         self.pending = None;
         self.close_membership = None;
         self.closing_group = None;
-        self.saving.save_as_origin = None;
+        if let Some(interest) = self
+            .saving
+            .save_as_origin
+            .take()
+            .and_then(|origin| origin.service)
+        {
+            self.retire_document_save_interest(interest);
+        }
         self.saving.closing = None;
         if let Some(active) = self.saving.active.as_mut() {
             active.continuation = None;
@@ -965,6 +1027,7 @@ impl App {
         self.cancel_save_code_actions();
         self.cancel_save_formatting();
         self.cancel_save_continuations();
+        self.poll_document_save_interests();
         if let Some(active) = &self.saving.active
             && !active.authorized
         {

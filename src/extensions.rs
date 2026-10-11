@@ -463,6 +463,28 @@ impl Client {
         )?;
         Ok(client)
     }
+    #[cfg(test)]
+    pub(crate) fn fixture_gate_native_writer(
+        &self,
+    ) -> Result<(
+        std::sync::mpsc::Receiver<()>,
+        std::sync::mpsc::SyncSender<()>,
+    )> {
+        self.process.fixture_gate_writer()
+    }
+    #[cfg(test)]
+    pub(crate) fn fixture_native_output_barrier(&mut self) -> Result<()> {
+        self.request("ping", json!({"session":self.session}))
+    }
+    #[cfg(test)]
+    pub(crate) fn fixture_native_output_probe(&self) -> Result<()> {
+        // Real harmless notifications fill the existing transport queue. They
+        // carry no request id, register no callback, and cannot mutate models.
+        self.process
+            .send(json!({"method":"cancelLanguageProvider", "params":{
+                "session":self.session, "owner":self.packages[0].id, "request":0,
+            }}))
+    }
     fn request(&mut self, method: &str, params: Value) -> Result<()> {
         if self.pending.len() >= 64 {
             bail!("Extension request limit reached");
@@ -834,7 +856,7 @@ impl Client {
                         self.register_activation(&message["params"]["activation"])?;
                     }
                     "nativeDocumentOpen" | "nativeDocumentShow" | "nativeCommand"
-                    | "nativeStateWrite" => {
+                    | "nativeStateWrite" | "nativeDocumentSave" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
                         if let Err(error) =
