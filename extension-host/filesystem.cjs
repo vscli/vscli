@@ -48,6 +48,10 @@ function normalizeError(error) {
   return new FileSystemError(error.message, error.name);
 }
 function typeOf(stat) { return stat.isDirectory() ? FileType.Directory : stat.isFile() ? FileType.File : FileType.Unknown; }
+function byteSnapshot(value) {
+  if (!(value instanceof Uint8Array)) throw FileSystemError.Unavailable('Filesystem provider returned invalid file bytes');
+  return new Uint8Array(value);
+}
 function localPath(uri) {
   if (uri.scheme !== 'file' || !uri.path || uri.path.includes('\0')) throw FileSystemError.Unavailable('Invalid local file URI');
   if (process.platform !== 'win32' && uri.authority && uri.authority.toLowerCase() !== 'localhost') {
@@ -89,13 +93,27 @@ const diskProvider = {
     } else await disk.unlink(name);
   },
   async rename(from, to, options) {
-    if (!options.overwrite) {
-      try { await disk.lstat(localPath(to)); throw FileSystemError.FileExists(to); }
-      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    const source = localPath(from), target = localPath(to);
+    const caseRename = process.platform !== 'linux' && source.toLowerCase() === target.toLowerCase();
+    if (!caseRename) {
+      let previous;
+      try { previous = await disk.lstat(target); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (previous) {
+        if (!options.overwrite) throw FileSystemError.FileExists(to);
+        const original = await disk.lstat(source);
+        if (!original.isFile() || !previous.isFile()) await disk.rm(target, { recursive: true });
+      }
     }
-    await disk.rename(localPath(from), localPath(to));
+    await disk.rename(source, target);
   },
   async copy(from, to, options) {
+    let previous;
+    try { previous = await disk.lstat(localPath(to)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (previous) {
+      if (!options.overwrite) throw FileSystemError.FileExists(to);
+      const original = await disk.lstat(localPath(from));
+      if (!original.isFile() || !previous.isFile()) await disk.rm(localPath(to), { recursive: true });
+    }
     await disk.cp(localPath(from), localPath(to), { recursive: true, force: options.overwrite, errorOnExist: !options.overwrite, verbatimSymlinks: true });
   },
 };
@@ -128,7 +146,8 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
     return uri.with({ path: directory });
   }
   function key(uri, entry) {
-    const name = entry.caseSensitive ? uri.path : uri.path.toLowerCase();
+    const normalized = uri.scheme === 'file' ? path.resolve(localPath(uri)).replaceAll(path.sep, '/') : uri.path;
+    const name = entry.caseSensitive ? normalized : normalized.toLowerCase();
     return `${uri.scheme.toLowerCase()}://${uri.authority.toLowerCase()}${name}`;
   }
   async function mkdirp(entry, uri) {
@@ -167,33 +186,49 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
     } else {
       if (previous?.type & FileType.Directory) await invoke(targetEntry, 'delete', target, { recursive: true });
       await mkdirp(targetEntry, parent(target));
-      const bytes = new Uint8Array(await invoke(sourceEntry, 'readFile', source));
+      const bytes = byteSnapshot(await invoke(sourceEntry, 'readFile', source));
       await invoke(targetEntry, 'writeFile', target, bytes, { create: true, overwrite });
     }
   }
   async function transfer(source, target, options, move) {
     const from = lookup(source, move), to = lookup(target, true), overwrite = options?.overwrite ?? false;
     const fromKey = key(source, from), toKey = key(target, to);
+    if (source.toString() === target.toString()) return;
     await invoke(from, 'stat', source);
-    if (from === to && fromKey === toKey) return;
+    const caseRename = from === to && fromKey === toKey && source.path !== target.path && move;
+    if (from === to && fromKey === toKey && !caseRename) {
+      if (move) return;
+      throw FileSystemError.FileExists(target);
+    }
     if (from === to && toKey.startsWith(`${fromKey.replace(/\/$/, '')}/`)) throw FileSystemError.Unavailable('Cannot copy or move a folder into itself');
-    const previous = await exists(to, target);
+    if (from === to && fromKey.startsWith(`${toKey.replace(/\/$/, '')}/`)) throw FileSystemError.Unavailable('Cannot overwrite an ancestor of the source');
+    const previous = caseRename ? undefined : await exists(to, target);
     if (previous && !overwrite) throw FileSystemError.FileExists(target);
+    if (previous && overwrite && from.builtin && to.builtin) {
+      const sourcePath = await disk.realpath(localPath(source)), targetPath = await disk.realpath(localPath(target));
+      const relative = path.relative(targetPath, sourcePath);
+      if (relative === '' || relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)) {
+        throw FileSystemError.Unavailable('Cannot overwrite a filesystem alias containing the source');
+      }
+    }
     await mkdirp(to, parent(target));
     if (from === to && (move || typeof from.impl.copy === 'function')) {
       await invoke(from, move ? 'rename' : 'copy', source, target, { overwrite });
     } else {
+      if (previous && overwrite) await invoke(to, 'delete', target, { recursive: true });
       await copyTree(from, source, to, target, overwrite);
       // Delete only after all target writes actually acknowledge completion.
       if (move) await invoke(from, 'delete', source, { recursive: true });
     }
   }
-  function operation(owner, mutation, call, bytes = 0, resources = []) {
+  function operation(owner, mutation, call, bytes = 0, resources = [], prepare) {
     try {
       assertOwner(owner);
       const admitted = resources.map(uri => [uri, lookup(uri)]);
       if (pending >= MAX_PENDING || queuedBytes + bytes > MAX_QUEUED_BYTES) throw FileSystemError.Unavailable('Filesystem operation queue is full');
       pending++; queuedBytes += bytes;
+      try { prepare?.(); }
+      catch (error) { pending--; queuedBytes -= bytes; throw error; }
       const run = () => {
         assertOwner(owner);
         for (const [uri, entry] of admitted) {
@@ -213,17 +248,17 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
         return { type: stat.type, ctime: stat.ctime, mtime: stat.mtime, size: stat.size, permissions: stat.permissions === FilePermission.Readonly ? FilePermission.Readonly : undefined };
       }, 0, [uri]),
       readDirectory: uri => operation(owner, false, async () => (await invoke(lookup(uri), 'readDirectory', uri)).slice(), 0, [uri]),
-      readFile: uri => operation(owner, false, async () => new Uint8Array(await invoke(lookup(uri), 'readFile', uri)), 0, [uri]),
+      readFile: uri => operation(owner, false, async () => byteSnapshot(await invoke(lookup(uri), 'readFile', uri)), 0, [uri]),
       createDirectory: uri => operation(owner, true, () => mkdirp(lookup(uri, true), uri), 0, [uri]),
       writeFile(uri, content) {
         if (!(content instanceof Uint8Array)) return Promise.reject(new TypeError('File content must be a Uint8Array'));
         // Copy at admission; a caller mutating its array cannot corrupt a queued write.
         if (content.byteLength > MAX_QUEUED_BYTES) return Promise.reject(FileSystemError.Unavailable('Filesystem operation queue is full'));
-        const bytes = new Uint8Array(content);
+        let bytes;
         return operation(owner, true, async () => {
           const entry = lookup(uri, true); await mkdirp(entry, parent(uri));
           await invoke(entry, 'writeFile', uri, bytes, { create: true, overwrite: true });
-        }, bytes.byteLength, [uri]);
+        }, content.byteLength, [uri], () => { bytes = new Uint8Array(content); });
       },
       delete: (uri, options) => operation(owner, true, async () => {
         const entry = lookup(uri, true);
@@ -245,10 +280,15 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
         if (typeof provider.onDidChangeFile !== 'function') throw new Error('Provider does NOT implement onDidChangeFile');
         if (typeof scheme !== 'string' || !/^[A-Za-z][A-Za-z0-9+.-]*$/.test(scheme)) throw new TypeError('Invalid filesystem scheme');
         if (providers.has(scheme)) throw new Error(`a provider for the scheme '${scheme}' is already registered`);
-        const entry = { impl: provider, owner, readonly: !!options.isReadonly, caseSensitive: !!options.isCaseSensitive };
+        // Reserve before evaluating extension-owned option getters or events.
+        const entry = { impl: provider, owner, readonly: false, caseSensitive: false };
+        providers.set(scheme, entry);
         // Retain subscription ownership. Native document/watch event routing is a
         // separate integration step; these events must not mutate editor mirrors.
-        const subscription = provider.onDidChangeFile(events => {
+        let subscription, registration;
+        try {
+          entry.readonly = !!options.isReadonly; entry.caseSensitive = !!options.isCaseSensitive;
+          subscription = provider.onDidChangeFile(events => {
           if (providers.get(scheme) !== entry) return;
           const valid = [];
           for (const event of events) {
@@ -256,10 +296,25 @@ function createFileSystem({ assertOwner = () => {}, track = (_owner, value) => v
             if (![FileChangeType.Changed, FileChangeType.Created, FileChangeType.Deleted].includes(event.type)) throw new Error('Unknown FileChangeType');
             valid.push({ uri: event.uri, type: event.type });
           }
+          assertOwner(owner);
+          if (providers.get(scheme) !== entry) return;
           changed.fire(valid);
-        });
-        providers.set(scheme, entry);
-        return track(owner, new Disposable(() => { providers.delete(scheme); subscription.dispose(); }));
+          });
+          assertOwner(owner);
+          if (providers.get(scheme) !== entry) throw FileSystemError.Unavailable('Filesystem registration changed');
+          registration = new Disposable(() => {
+            if (providers.get(scheme) === entry) providers.delete(scheme);
+            subscription.dispose();
+          });
+          return track(owner, registration);
+        } catch (error) {
+          if (registration) registration.dispose();
+          else {
+            if (providers.get(scheme) === entry) providers.delete(scheme);
+            subscription?.dispose();
+          }
+          throw error;
+        }
       },
     };
   }

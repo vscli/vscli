@@ -99,6 +99,66 @@ test('disk symlinks report combined target bits, preserve links when copied and 
   await fs.delete(Uri.joinPath(uri, 'link'));
   assert.deepEqual([...await fs.readFile(Uri.joinPath(uri, 'target'))], [1]);
 });
+test('overwriting a directory replaces stale children for disk copy and rename', async t => {
+  const { fs, uri } = await local(t);
+  await fs.writeFile(Uri.joinPath(uri, 'source', 'fresh'), new Uint8Array([1]));
+  await fs.writeFile(Uri.joinPath(uri, 'target', 'stale'), new Uint8Array([2]));
+  await fs.copy(Uri.joinPath(uri, 'source'), Uri.joinPath(uri, 'target'), { overwrite: true });
+  assert.deepEqual(await fs.readDirectory(Uri.joinPath(uri, 'target')), [['fresh', FileType.File]]);
+  await fs.writeFile(Uri.joinPath(uri, 'target', 'stale'), new Uint8Array([2]));
+  await fs.rename(Uri.joinPath(uri, 'source'), Uri.joinPath(uri, 'target'), { overwrite: true });
+  assert.deepEqual(await fs.readDirectory(Uri.joinPath(uri, 'target')), [['fresh', FileType.File]]);
+  await assert.rejects(fs.stat(Uri.joinPath(uri, 'source')), { code: 'FileNotFound' });
+  await fs.copy(Uri.joinPath(uri, 'target'), Uri.joinPath(uri, 'target'), { overwrite: true });
+  assert.deepEqual(await fs.readDirectory(Uri.joinPath(uri, 'target')), [['fresh', FileType.File]]);
+});
+test('ancestor overwrite and symlink aliases reject before deleting source or destination', async t => {
+  const { fs, uri, root } = await local(t);
+  const child = Uri.joinPath(uri, 'tree', 'child'), ancestor = Uri.joinPath(uri, 'tree');
+  await fs.writeFile(Uri.joinPath(child, 'kept'), new Uint8Array([1, 2]));
+  await fs.writeFile(Uri.joinPath(ancestor, 'other'), new Uint8Array([3]));
+  for (const method of ['rename', 'copy']) await assert.rejects(fs[method](child, ancestor, { overwrite: true }), { code: 'Unavailable' });
+  if (process.platform !== 'win32') {
+    await disk.symlink('tree', path.join(root, 'alias'));
+    for (const method of ['rename', 'copy']) await assert.rejects(fs[method](Uri.joinPath(uri, 'alias', 'child'), ancestor, { overwrite: true }), { code: 'Unavailable' });
+  }
+  assert.deepEqual([...await fs.readFile(Uri.joinPath(child, 'kept'))], [1, 2]);
+  assert.deepEqual([...await fs.readFile(Uri.joinPath(ancestor, 'other'))], [3]);
+});
+test('malformed provider bytes cannot turn a cross-provider move into empty-file data loss', async () => {
+  const scope = createFileSystem().forOwner('test'), source = memory(), target = memory();
+  source.values.set('/kept', { type: FileType.File, bytes: new Uint8Array([1, 2]) });
+  source.provider.readFile = () => undefined;
+  scope.registerFileSystemProvider('mem', source.provider); scope.registerFileSystemProvider('target', target.provider);
+  await assert.rejects(scope.fs.rename(resource('/kept'), Uri.parse('target:/copy')), { code: 'Unavailable' });
+  assert.deepEqual([...source.values.get('/kept').bytes], [1, 2]);
+  assert.equal(target.values.has('/copy'), false);
+});
+test('registration reserves a scheme before extension-owned option and event callbacks run', () => {
+  const scope = createFileSystem().forOwner('test'), mem = memory(), nested = memory();
+  const options = { get isReadonly() {
+    assert.throws(() => scope.registerFileSystemProvider('mem', nested.provider), /already registered/);
+    return false;
+  } };
+  mem.provider.onDidChangeFile = () => {
+    assert.throws(() => scope.registerFileSystemProvider('mem', nested.provider), /already registered/);
+    return new Disposable(() => {});
+  };
+  const registration = scope.registerFileSystemProvider('mem', mem.provider, options);
+  assert.equal(scope.fs.isWritableFileSystem('mem'), true); registration.dispose();
+});
+test('retrying a throwing subscription disposal cannot remove a replacement provider', async () => {
+  const scope = createFileSystem().forOwner('test'), mem = memory(), nested = memory();
+  let disposed = 0;
+  mem.provider.onDidChangeFile = () => ({ dispose() { if (++disposed === 1) throw new Error('dispose failed'); } });
+  const old = scope.registerFileSystemProvider('mem', mem.provider);
+  assert.throws(() => old.dispose(), /dispose failed/);
+  scope.registerFileSystemProvider('mem', nested.provider);
+  old.dispose();
+  assert.equal(scope.fs.isWritableFileSystem('mem'), true);
+  await scope.fs.writeFile(resource('/x'), new Uint8Array([1]));
+  assert.deepEqual([...nested.values.get('/x').bytes], [1]);
+});
 test('provider registration validates completeness and ownership and releases capabilities on disposal', async () => {
   const service = createFileSystem(), { fs, registerFileSystemProvider } = service.forOwner('test');
   const mem = memory();

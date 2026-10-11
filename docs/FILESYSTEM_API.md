@@ -38,10 +38,10 @@ currently share a serial queue; reads run independently. Generic copy traversal
 is limited to 256 levels. These bounds and serialization are explicit current
 compatibility limits, not claims of upstream scheduling equality.
 
-Local evidence: 13 host tests cover real binary I/O, parent creation, symlinks,
+Local evidence: 18 host tests cover real binary I/O, parent creation, symlinks,
 overwrite rejection, readonly providers, byte isolation, disposal, replacement
 providers, failed cross-provider moves and occupied admission. The complete
-host suite passes 200 tests; all 37 native extension tests pass.
+host suite passes 223 tests (including the URI foundation); all 37 native extension tests pass.
 `tests/extension_filesystem_pty.py` passes the real terminal workflow: disk
 writes preserve a dirty native model, undo/redo and host-independent recovery,
 without inventing save events. Formatting and strict Clippy checks pass.
@@ -51,7 +51,9 @@ virtual editors and provider watches, automatic scheme activation, document
 links, remote authorities, actual Windows/macOS behavior, provider errors and
 filesystem races. Local rename with `overwrite: false` checks destination
 existence before rename; atomic exclusion against another OS process is not
-qualified. Cross-provider directory copies can leave partial destinations on
+qualified. Ancestor destinations and resolved local aliases containing the
+source reject before deletion. Directory overwrite replaces stale children.
+Cross-provider directory copies can leave partial destinations on
 failure, and cannot promise rollback or symlink preservation. Full extension
 API compatibility remains the goal, not an achieved milestone.
 

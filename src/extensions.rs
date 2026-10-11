@@ -313,6 +313,7 @@ impl Client {
                 include_str!("../extension-host/api-types.cjs"),
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
+            ("uri.cjs", include_str!("../extension-host/uri.cjs")),
             (
                 "filesystem.cjs",
                 include_str!("../extension-host/filesystem.cjs"),

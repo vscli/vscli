@@ -23,8 +23,7 @@
 // THE SOFTWARE.
 
 // Compatibility value types. Native Rust remains authoritative for edits.
-const { fileURLToPath, pathToFileURL } = require('node:url');
-const path = require('node:path');
+const { Uri } = require('./uri.cjs');
 
 class Position {
   static Min(...positions) {
@@ -186,36 +185,6 @@ class Selection extends Range {
   get active() { return this._active; }
   get isReversed() { return this.anchor === this.end; }
   toJSON() { return { start: this.start, end: this.end, active: this.active, anchor: this.anchor }; }
-}
-
-class Uri {
-  constructor(value) { this._url = new URL(value); }
-  static parse(value) { return new Uri(value); }
-  static file(value) { return new Uri(pathToFileURL(path.resolve(value))); }
-  static from(parts) {
-    const authority = parts.authority || '';
-    const encodedPath = (parts.path || '').split('/').map(encodeURIComponent).join('/');
-    const uri = new Uri(`${parts.scheme}:${authority || parts.scheme === 'file' ? `//${authority}` : ''}${encodedPath}`);
-    return uri.with({ query: parts.query || '', fragment: parts.fragment || '' });
-  }
-  static joinPath(base, ...segments) { return base.with({ path: path.posix.join(base.path, ...segments) }); }
-  get scheme() { return this._url.protocol.slice(0, -1); }
-  get authority() { return this._url.host; }
-  get path() { return decodeURIComponent(this._url.pathname); }
-  get query() { return this._url.search.slice(1); }
-  get fragment() { return decodeURIComponent(this._url.hash.slice(1)); }
-  get fsPath() { return this.scheme === 'file' ? fileURLToPath(this._url) : this.path; }
-  with(parts) {
-    const result = new Uri(this.toString());
-    if (parts.scheme !== undefined) result._url.protocol = `${parts.scheme}:`;
-    if (parts.authority !== undefined) result._url.host = parts.authority;
-    if (parts.path !== undefined) result._url.pathname = parts.path.split('/').map(encodeURIComponent).join('/');
-    if (parts.query !== undefined) result._url.search = parts.query;
-    if (parts.fragment !== undefined) result._url.hash = parts.fragment;
-    return result;
-  }
-  toString(skipEncoding = false) { return skipEncoding ? decodeURI(this._url.href) : this._url.href; }
-  toJSON() { return { scheme: this.scheme, authority: this.authority, path: this.path, query: this.query, fragment: this.fragment }; }
 }
 
 class Disposable {
