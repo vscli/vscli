@@ -1,0 +1,371 @@
+{
+  "contract": "vscli-extension-api-static-audit-v1",
+  "snapshot": "root adoption after 498c05d; source copies include attribution-only snippet update",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 5053,
+      "sha256": "bde5510161d7c9ee6bd353275fc5172390ba16aa32f7d57d7673bd9b6ded175f"
+    },
+    {
+      "path": "baseline-1.95-api-inventory.json",
+      "bytes": 1664047,
+      "sha256": "58d7509abcbf7d84082c9b88b24ba6f76f14a8a5b7de46b299930b4588404d48"
+    },
+    {
+      "path": "coverage.json",
+      "bytes": 990621,
+      "sha256": "e9dbfc4014e57f3c579ee87dd929718b45c0dd6eb58e84e174e3f8d960b77dbb"
+    },
+    {
+      "path": "current/docs/COMPATIBILITY.md",
+      "bytes": 48462,
+      "sha256": "fafb3ac2d1d8cbad3542d4c8285965258c3204448804d2b6d0c5b7091087b468"
+    },
+    {
+      "path": "current/docs/EXTENSION_API.md",
+      "bytes": 4142,
+      "sha256": "b0b037b38fed23198fbfcd264d3701ec4c9ff100ce3b1c67f003e5cd3af3f5e1"
+    },
+    {
+      "path": "current/docs/EXTENSION_PROVIDERS.md",
+      "bytes": 11834,
+      "sha256": "388880108cfe90103f80edf5efca2fdf7e056b23b10e7ab8ea75feba29b2b67d"
+    },
+    {
+      "path": "current/docs/FEATURE_TODO.md",
+      "bytes": 4046,
+      "sha256": "af397fbc07a930bbb4f3336dca25aba12b57aa5f86f8c4611ee96fa0f8f288db"
+    },
+    {
+      "path": "current/extension-host/activation-host.test.cjs",
+      "bytes": 8992,
+      "sha256": "163ffab2153fe43af166c3e788083ccb746c4a4470c1da1a2b3a75fe7ea21ad4"
+    },
+    {
+      "path": "current/extension-host/activation.cjs",
+      "bytes": 6579,
+      "sha256": "1c2bb2e5c40a9f6b7d4a08acec69488efef51ae824e7856a5d57645cdb9144ce"
+    },
+    {
+      "path": "current/extension-host/activation.test.cjs",
+      "bytes": 4370,
+      "sha256": "6429ec41ddcd9c646a80edeff13c67763d07183ad7de2dda5633d2ace45c6291"
+    },
+    {
+      "path": "current/extension-host/api-types.cjs",
+      "bytes": 15611,
+      "sha256": "83aed9c3b59b800b78390aed3fb2314b04bc9fb14e552d2db0197227b080c132"
+    },
+    {
+      "path": "current/extension-host/api-types.test.cjs",
+      "bytes": 14951,
+      "sha256": "a1cb1ab8f73cf63af24bd0de255b327bf04e72d451da5afda55dd09573970f09"
+    },
+    {
+      "path": "current/extension-host/api.cjs",
+      "bytes": 16004,
+      "sha256": "0396dc02ec74de84a41d5c8b13cb77ce368a9770aa80f533ba129dc54e367a71"
+    },
+    {
+      "path": "current/extension-host/api.test.cjs",
+      "bytes": 15252,
+      "sha256": "559f84c3dff005d1fa255f11e0731eb11762ee2ea762286cc92477518e8c30aa"
+    },
+    {
+      "path": "current/extension-host/cancellation.cjs",
+      "bytes": 5547,
+      "sha256": "97dc0002a50e5a056b71fd214d2174d6ead5142261f69f6ce2120e9091a7257f"
+    },
+    {
+      "path": "current/extension-host/cancellation.test.cjs",
+      "bytes": 11556,
+      "sha256": "104b8aaeec5523cefb814c2bebf0853db981ba6367e004ace89713b2ebc17069"
+    },
+    {
+      "path": "current/extension-host/code-action-types.cjs",
+      "bytes": 4744,
+      "sha256": "43ba4c3e6fd99f1a29348e98fd40aaac0365fdf5781edad0b2d23462a499e6a2"
+    },
+    {
+      "path": "current/extension-host/code-actions.cjs",
+      "bytes": 8904,
+      "sha256": "00d10185b1a378914f283dc1e95d79f9ca18fb8390199395c5abf64f7b11c1bb"
+    },
+    {
+      "path": "current/extension-host/code-actions.test.cjs",
+      "bytes": 13739,
+      "sha256": "c2aa4ffeaef6a0706cfa2bebaffb1b916f00cd8148a1871ccd6b536d42748fd7"
+    },
+    {
+      "path": "current/extension-host/configuration.cjs",
+      "bytes": 9231,
+      "sha256": "32dcae631efa2a194cd2697366004ee91d6a672ac5fc1e4294fca68e5c8a8f32"
+    },
+    {
+      "path": "current/extension-host/configuration.test.cjs",
+      "bytes": 8547,
+      "sha256": "c0b7b583968315f5d6135ce87814cdafae004186edc01df5272dcaf26d89f296"
+    },
+    {
+      "path": "current/extension-host/coordinate-boundaries.test.cjs",
+      "bytes": 3990,
+      "sha256": "7b2e3d5abcf09e7493979cae66b210ac6d5919f8917b470aebbaa8412810712e"
+    },
+    {
+      "path": "current/extension-host/coordinates.cjs",
+      "bytes": 927,
+      "sha256": "608cc904bc848e9b90e2297bc4786cea3c7190f842794d83c8523f7907a4ae5e"
+    },
+    {
+      "path": "current/extension-host/diagnostic-types.cjs",
+      "bytes": 1012,
+      "sha256": "136848c71ece2b5d0aa16d257a28ad6abe07003240d395ba4fe56e0e71361e36"
+    },
+    {
+      "path": "current/extension-host/diagnostics.cjs",
+      "bytes": 15442,
+      "sha256": "adec82cfda1b8fda5c3024632058cbcbdde344d3048bec937d17f0638893a0fe"
+    },
+    {
+      "path": "current/extension-host/diagnostics.test.cjs",
+      "bytes": 12773,
+      "sha256": "6d277211470e4e0d9872a2082853c55457feddb017102614d960c6299e416fbe"
+    },
+    {
+      "path": "current/extension-host/document-services.cjs",
+      "bytes": 3990,
+      "sha256": "a1b3248d0715be18d2d868402a488274b45f3f5831ecb8983afdd06f1c0bc09b"
+    },
+    {
+      "path": "current/extension-host/document-services.test.cjs",
+      "bytes": 3313,
+      "sha256": "e685494b0849c3eea8d9d1830f659b69577d84688344c9b67b7fbad91d486a73"
+    },
+    {
+      "path": "current/extension-host/fixture-evidence.test.cjs",
+      "bytes": 5179,
+      "sha256": "5d42f954a9aae8aa647b4bfe44ca059398c281f1488a9e6f8929c41d19fed2b4"
+    },
+    {
+      "path": "current/extension-host/host.cjs",
+      "bytes": 16361,
+      "sha256": "305fab4168fc0182bf72eb3677baa27124d126ce8ad119c8f2717c3f6b13891a"
+    },
+    {
+      "path": "current/extension-host/host.test.cjs",
+      "bytes": 6915,
+      "sha256": "76015b266fd18bf132c8db740f24c292e6eaf4d19ef0ebbd6398de28c89e5b16"
+    },
+    {
+      "path": "current/extension-host/memento.cjs",
+      "bytes": 4376,
+      "sha256": "a6deb1f461abdded6a933d55faebdd9296900c3590dbb27ce9c315b0e7927784"
+    },
+    {
+      "path": "current/extension-host/memento.test.cjs",
+      "bytes": 2974,
+      "sha256": "a24a80d2488af72f591dc8ee3601b8f8513a07adbd88faf2a4ecbe4329cbe76c"
+    },
+    {
+      "path": "current/extension-host/prompts.cjs",
+      "bytes": 3585,
+      "sha256": "055d137e9582c50eabaf8ddb8ebedce5bb41bc02094843061bfd16d7963127ff"
+    },
+    {
+      "path": "current/extension-host/prompts.test.cjs",
+      "bytes": 3223,
+      "sha256": "3fe599120ec9051d86d89c751f2507cd7594594caa5d034ccd93cd7c5b1f68ad"
+    },
+    {
+      "path": "current/extension-host/provider-types.cjs",
+      "bytes": 5938,
+      "sha256": "18e413b47e92495ab42b62437a6b011ca1421c696a13c3c31c27a79527318b13"
+    },
+    {
+      "path": "current/extension-host/provider-wire.test.cjs",
+      "bytes": 9790,
+      "sha256": "204f0e5bb95943c7f03f1aafbf3bff8f37b6ad22e84d5af0ce588a0b6c893934"
+    },
+    {
+      "path": "current/extension-host/providers.cjs",
+      "bytes": 27534,
+      "sha256": "9ee1c5fab0a8abdc751843000943c378d5838b3d58435f65e3451225f47dca97"
+    },
+    {
+      "path": "current/extension-host/providers.test.cjs",
+      "bytes": 22499,
+      "sha256": "a0d04eed66b7a8b4282d8c98d6428eb1397c8ff2d78c1f0f5a6189b8593a8cfb"
+    },
+    {
+      "path": "current/extension-host/signatures.cjs",
+      "bytes": 11201,
+      "sha256": "c7b5ec3deeac1e372b5412627ca433963cf0142d4fb9f8d0aae473e019fc0319"
+    },
+    {
+      "path": "current/extension-host/signatures.test.cjs",
+      "bytes": 16899,
+      "sha256": "c466d29dff9e574cca5d6691e496aaa903e08ea17870ed247c1e761fd3390902"
+    },
+    {
+      "path": "current/extension-host/snippet-string.cjs",
+      "bytes": 2946,
+      "sha256": "ac8bda9f483b64886f5774237aa882c9e5064756c603e2b45224d7b6b9299902"
+    },
+    {
+      "path": "current/extension-host/snippet-string.test.cjs",
+      "bytes": 3610,
+      "sha256": "967d701ae95b8ce0b45c714eb68e126d2957d5fc5028ed277383d25fc99e2b4c"
+    },
+    {
+      "path": "current/extension-host/surfaces.cjs",
+      "bytes": 16714,
+      "sha256": "46cc119320aabd27b28c96a21e0ee53cf08ae7080354eb922938ee7133358568"
+    },
+    {
+      "path": "current/extension-host/surfaces.test.cjs",
+      "bytes": 16768,
+      "sha256": "8a05009e244d6542e842da756cfb8d8fb2aaba052452baaf54c4fa67193a61f3"
+    },
+    {
+      "path": "current/extension-host/symbols.cjs",
+      "bytes": 4671,
+      "sha256": "1e3eb0013f32cff259e13d2a003e999d603cb8e4b34e03b39de2271db86e7c71"
+    },
+    {
+      "path": "current/extension-host/symbols.test.cjs",
+      "bytes": 10952,
+      "sha256": "296cb05fcb019eb7a0210347acfb5d05e098e6e835b33c28e60c9d357c886707"
+    },
+    {
+      "path": "current/src/app/extension_activation.rs",
+      "bytes": 54163,
+      "sha256": "27d6f3189c26b00de10d925625a2e5ff5176880fcb0cedb914c9f58c8cd14cc0"
+    },
+    {
+      "path": "current/src/app/extension_providers.rs",
+      "bytes": 73718,
+      "sha256": "4cb59de80aeb314c572070534631bcb34acb45d3616580172a7f146e3dcd9a66"
+    },
+    {
+      "path": "current/src/app/extension_services.rs",
+      "bytes": 49545,
+      "sha256": "fcc6358b1658c624e66869aa732459f456e2e9ec90cc8cf1fc37f1684442e944"
+    },
+    {
+      "path": "current/src/extensions/diagnostics.rs",
+      "bytes": 20646,
+      "sha256": "1731fe1108faa3d7b398fc146ae29dc7db584cc1c5934057bffe80c0a32a38ae"
+    },
+    {
+      "path": "current/src/extensions/prompts.rs",
+      "bytes": 19790,
+      "sha256": "d302bd7cbf106840ff2e3e9d6e4b1fdd77d30ac467e5a7a6e74dd1dbb9ac641d"
+    },
+    {
+      "path": "current/src/extensions/providers.rs",
+      "bytes": 63275,
+      "sha256": "e3f6cf18bdbaeec63598214def9d0a36b58eca0774eb394bb3bb78667756f070"
+    },
+    {
+      "path": "current/src/extensions/services.rs",
+      "bytes": 12821,
+      "sha256": "f95098ffe0c0e435b7b3e64119a63cab472421994e7f2a3cfa90409446696e18"
+    },
+    {
+      "path": "current/src/extensions/surfaces.rs",
+      "bytes": 34428,
+      "sha256": "90a26402db795f6fdb65168918b20dbb7604df6bfd603a16e62f205f5d5b9fd7"
+    },
+    {
+      "path": "current/src/extensions.rs",
+      "bytes": 50948,
+      "sha256": "bc63af06d2f8da2a69f41769fdef7308116c2401a7a61d10562929518c870a8f"
+    },
+    {
+      "path": "host-static-inventory.json",
+      "bytes": 98696,
+      "sha256": "7047d419b2bb0bc40f19780033f06a33821c74142cfa251067a159796543db98"
+    },
+    {
+      "path": "implementation-order.json",
+      "bytes": 9422,
+      "sha256": "b10b18f867f4ba02d6ecef85a10b9f1a4122853c61672981792df29555480cb6"
+    },
+    {
+      "path": "limitations.json",
+      "bytes": 8954,
+      "sha256": "5a095af1ddc2f3385b4a1d24b279dfa034a318aea851f2785e9f538c41016930"
+    },
+    {
+      "path": "namespace-summary.json",
+      "bytes": 2583,
+      "sha256": "85eafed817d67cd87bc48c06bac3b8b08c48f88199bdff3685ad7465e771057e"
+    },
+    {
+      "path": "proposed-scope.json",
+      "bytes": 56337,
+      "sha256": "8b09b674c559b711b3104e054a064c6cd67db39cf00e219b05bec9e2df1684d9"
+    },
+    {
+      "path": "provenance.json",
+      "bytes": 5697,
+      "sha256": "485d8f87842d55ba83ca665a32d791cc4815a98ef8e66be358c47ae8e78e39a7"
+    },
+    {
+      "path": "scripts/coverage.py",
+      "bytes": 11851,
+      "sha256": "b5351f425d23a09640bd8e3fdaf575e64af85bbeed89399bab7b821f7d2c7f5a"
+    },
+    {
+      "path": "scripts/inventory.py",
+      "bytes": 12275,
+      "sha256": "de58bcf92ea7179b74696296adea680df687894fa1f2054c02ff8d5e1991a5df"
+    },
+    {
+      "path": "scripts/requirements.txt",
+      "bytes": 82,
+      "sha256": "a1c07156801357f43dc308b0533a6c4283009045d4e15cb5b0918e6aef871aa6"
+    },
+    {
+      "path": "scripts/test_inventory.py",
+      "bytes": 2948,
+      "sha256": "d8cb85d58d3771e83001b1d332e69a05cf03c58dd4b6e837c4d5acc8c99b6c7a"
+    },
+    {
+      "path": "scripts/verify.py",
+      "bytes": 3539,
+      "sha256": "47813632e95c1bc3a693cfe9f39816e198d17d59f3c801ab52d6c9ec0117605f"
+    },
+    {
+      "path": "stable-api-inventory.json",
+      "bytes": 1724427,
+      "sha256": "fb094658d23fe0f4bd74e2d21a3a499e742897dd756b1f5a45a66a352c1a4427"
+    },
+    {
+      "path": "stable-vs-1.95-delta.json",
+      "bytes": 6912,
+      "sha256": "06444f163dee406ab09b4b83cc021b0a8cb3e1454782c4863b2de153c6763a0a"
+    },
+    {
+      "path": "upstream/LICENSE.txt",
+      "bytes": 1088,
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9"
+    },
+    {
+      "path": "upstream/package.json",
+      "bytes": 15690,
+      "sha256": "d7d7a4df07a1499a111ee0680546c63f249f9da4262278df209ac5821e9f5bd6"
+    },
+    {
+      "path": "upstream/vscode-1.95.0.d.ts",
+      "bytes": 689506,
+      "sha256": "3279c6be36b8408aa128417d6773803d256579c8af724923d2b477c1d694c380"
+    },
+    {
+      "path": "upstream/vscode.d.ts",
+      "bytes": 742274,
+      "sha256": "a4321528e86dcdcb8450287f2a263055c46a622119cdb186de85ac3b19ce9608"
+    }
+  ]
+}

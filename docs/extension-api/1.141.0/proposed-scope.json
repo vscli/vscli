@@ -1,0 +1,1086 @@
+{
+  "scope": "Stable public vscode.d.ts is exhaustive in this audit. Separately proposed APIs require explicit proposal opt-in, are not silently counted as stable, and are not behavior-inventoried here.",
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "proposal_files": [
+    {
+      "name": "vscode.proposed.activeComment.d.ts",
+      "git_blob_sha": "deef101dff59c58ea59e42a307bbf026d4ca284f",
+      "bytes": 1012,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.activeComment.d.ts"
+    },
+    {
+      "name": "vscode.proposed.agentEditorComments.d.ts",
+      "git_blob_sha": "912db67a41e7cbdb4921ee5af0dfc1b802519b37",
+      "bytes": 3565,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.agentEditorComments.d.ts"
+    },
+    {
+      "name": "vscode.proposed.agentSessionsWorkspace.d.ts",
+      "git_blob_sha": "278e4ccb7ac987d18286a888b71a80264a3c2c6b",
+      "bytes": 708,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.agentSessionsWorkspace.d.ts"
+    },
+    {
+      "name": "vscode.proposed.agentsWindowActivation.d.ts",
+      "git_blob_sha": "43146aa06c26e76276b44db6c4d6c42bee2e4c1e",
+      "bytes": 467,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.agentsWindowActivation.d.ts"
+    },
+    {
+      "name": "vscode.proposed.agentsWindowConfiguration.d.ts",
+      "git_blob_sha": "47fe592ab16847c50ce8ba72526ccb042575e3f3",
+      "bytes": 545,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.agentsWindowConfiguration.d.ts"
+    },
+    {
+      "name": "vscode.proposed.aiRelatedInformation.d.ts",
+      "git_blob_sha": "344a1fd9a84157bfc28ec3e7cb3a7c28198b05f7",
+      "bytes": 1857,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.aiRelatedInformation.d.ts"
+    },
+    {
+      "name": "vscode.proposed.aiSettingsSearch.d.ts",
+      "git_blob_sha": "3d3e85910badf9560ebb3c9b4c145eafce455d88",
+      "bytes": 1029,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.aiSettingsSearch.d.ts"
+    },
+    {
+      "name": "vscode.proposed.aiTextSearchProvider.d.ts",
+      "git_blob_sha": "d82f9ecc9f45d5ccf7a76e11b4e81267dcd6e118",
+      "bytes": 1622,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.aiTextSearchProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.authIssuers.d.ts",
+      "git_blob_sha": "577bf758584887bacdcc891c8b2a46941b8ecf88",
+      "bytes": 2569,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.authIssuers.d.ts"
+    },
+    {
+      "name": "vscode.proposed.authLearnMore.d.ts",
+      "git_blob_sha": "8ef8c7266d7421013b50fd73b51cf8bea4a75dc7",
+      "bytes": 628,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.authLearnMore.d.ts"
+    },
+    {
+      "name": "vscode.proposed.authProviderSpecific.d.ts",
+      "git_blob_sha": "5540c15c9a5238d68e3981a7316178982fd5c437",
+      "bytes": 1316,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.authProviderSpecific.d.ts"
+    },
+    {
+      "name": "vscode.proposed.authSession.d.ts",
+      "git_blob_sha": "5287a5e97c662b5521fc28091f1dab4f3012cfb3",
+      "bytes": 625,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.authSession.d.ts"
+    },
+    {
+      "name": "vscode.proposed.authSessionAccountIcon.d.ts",
+      "git_blob_sha": "bcee1f9a0f5e63f69eda7262ee196b7a5ac0689b",
+      "bytes": 569,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.authSessionAccountIcon.d.ts"
+    },
+    {
+      "name": "vscode.proposed.authSessionAudience.d.ts",
+      "git_blob_sha": "5ac42ac018fff3f60275330f88cc0376860ccc6c",
+      "bytes": 1377,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.authSessionAudience.d.ts"
+    },
+    {
+      "name": "vscode.proposed.authSessionExpiration.d.ts",
+      "git_blob_sha": "1d62ae506c1c27a994e2c9021044b7bb869182d2",
+      "bytes": 920,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.authSessionExpiration.d.ts"
+    },
+    {
+      "name": "vscode.proposed.authenticationChallenges.d.ts",
+      "git_blob_sha": "c3a0b67a3a682dabb604e6cf978492be5aebbbe6",
+      "bytes": 3712,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.authenticationChallenges.d.ts"
+    },
+    {
+      "name": "vscode.proposed.browser.d.ts",
+      "git_blob_sha": "a15d432b3b71a9a58c7a85f0d3de5574fc7185cd",
+      "bytes": 3039,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.browser.d.ts"
+    },
+    {
+      "name": "vscode.proposed.canonicalUriProvider.d.ts",
+      "git_blob_sha": "84ee599797d9a2e317921d5cd494911a3622ac40",
+      "bytes": 1854,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.canonicalUriProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatContextProvider.d.ts",
+      "git_blob_sha": "709bb3decad261a30ecdc4447dac351f71414c64",
+      "bytes": 7321,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatContextProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatDebug.d.ts",
+      "git_blob_sha": "367f20dd1bbb510792b60844ab28cf05516c0626",
+      "bytes": 21497,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatDebug.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatHooks.d.ts",
+      "git_blob_sha": "817ddd8762f4dac27c8152a8781e7fd2a854d1ef",
+      "bytes": 4161,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatHooks.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatInputNotification.d.ts",
+      "git_blob_sha": "e74a7bd2df8491916a1f098aca3347a4a35442da",
+      "bytes": 2918,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatInputNotification.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatOutputRenderer.d.ts",
+      "git_blob_sha": "16a26a43bed022f72aad4286364cfa9f6a324cb2",
+      "bytes": 3626,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatOutputRenderer.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatParticipantAdditions.d.ts",
+      "git_blob_sha": "2217833d54aed0cfc33266e2c8b2b5f51fec1e61",
+      "bytes": 32842,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatParticipantAdditions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatParticipantPrivate.d.ts",
+      "git_blob_sha": "02d7fb91dcd78e73e8c7f2208a0658f018235c39",
+      "bytes": 16771,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatParticipantPrivate.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatPromptFiles.d.ts",
+      "git_blob_sha": "eb77adbd1a1084837ab2d7b8f669f8ecfc20f1b8",
+      "bytes": 13619,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatPromptFiles.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatProvider.d.ts",
+      "git_blob_sha": "eb2feeaf022f458ca9f2db0fb759079db22944f2",
+      "bytes": 8574,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatReferenceBinaryData.d.ts",
+      "git_blob_sha": "df5095314e29b83562a56ab9f8b4e7c7c33f6fce",
+      "bytes": 1606,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatReferenceBinaryData.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatReferenceDiagnostic.d.ts",
+      "git_blob_sha": "713cc5888f2134478ef9974d2daa4503ba0f3161",
+      "bytes": 879,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatReferenceDiagnostic.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatSessionCustomizationProvider.d.ts",
+      "git_blob_sha": "72500ee8059d29ee0c4d1662f4706782f18b4970",
+      "bytes": 8411,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatSessionCustomizationProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatSessionsProvider.d.ts",
+      "git_blob_sha": "ed09833f593bfd8b0c40e2430312c34788362594",
+      "bytes": 29655,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatSessionsProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatStatusItem.d.ts",
+      "git_blob_sha": "aa15733eb329968fbd524c79882a568e663ad301",
+      "bytes": 1768,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatStatusItem.d.ts"
+    },
+    {
+      "name": "vscode.proposed.chatTab.d.ts",
+      "git_blob_sha": "5721dced191ff3c33673f2009fb631dd337481df",
+      "bytes": 686,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.chatTab.d.ts"
+    },
+    {
+      "name": "vscode.proposed.codeActionAI.d.ts",
+      "git_blob_sha": "f6d7817e4a1b6985448bbe932f067eb75f3c5cf3",
+      "bytes": 543,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.codeActionAI.d.ts"
+    },
+    {
+      "name": "vscode.proposed.codeActionRanges.d.ts",
+      "git_blob_sha": "350be2d553668f20283625bc7e74fe3d12564ece",
+      "bytes": 624,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.codeActionRanges.d.ts"
+    },
+    {
+      "name": "vscode.proposed.codiconDecoration.d.ts",
+      "git_blob_sha": "2a0fc4578ba6613ce1bbec0e6b4bc71146ad1940",
+      "bytes": 1397,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.codiconDecoration.d.ts"
+    },
+    {
+      "name": "vscode.proposed.commentReactor.d.ts",
+      "git_blob_sha": "25a433cd8cf898b013ccf92abed1c522ef32fa1d",
+      "bytes": 544,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.commentReactor.d.ts"
+    },
+    {
+      "name": "vscode.proposed.commentReveal.d.ts",
+      "git_blob_sha": "3aa005d0a993def85f44d2ccce1e94b5a742e98a",
+      "bytes": 1247,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.commentReveal.d.ts"
+    },
+    {
+      "name": "vscode.proposed.commentThreadApplicability.d.ts",
+      "git_blob_sha": "772771eef777656d0350f626d00cb33cf8533a43",
+      "bytes": 1482,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.commentThreadApplicability.d.ts"
+    },
+    {
+      "name": "vscode.proposed.commentingRangeHint.d.ts",
+      "git_blob_sha": "595e4f0f62a775f2ed0514aefd496d58ceec451d",
+      "bytes": 644,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.commentingRangeHint.d.ts"
+    },
+    {
+      "name": "vscode.proposed.commentsDraftState.d.ts",
+      "git_blob_sha": "ee41130910a094bcefd15451c5d8f98ee0afac94",
+      "bytes": 553,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.commentsDraftState.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribAccessibilityHelpContent.d.ts",
+      "git_blob_sha": "c04a0c65e55e4af7581e90c341df6076561235e1",
+      "bytes": 865,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribAccessibilityHelpContent.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribChatEditorInlineGutterMenu.d.ts",
+      "git_blob_sha": "a06788a2dd0486ec349c248035670b6a13f3f3e8",
+      "bytes": 426,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribChatEditorInlineGutterMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribCommentEditorActionsMenu.d.ts",
+      "git_blob_sha": "9b24bcc32ea1c3659a193b3b918090592ec51423",
+      "bytes": 432,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribCommentEditorActionsMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribCommentPeekContext.d.ts",
+      "git_blob_sha": "251df53c3a69ba931de388f28e21524e75203df2",
+      "bytes": 470,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribCommentPeekContext.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribCommentThreadAdditionalMenu.d.ts",
+      "git_blob_sha": "2e71d90a25acbe54bbdfa2b6a54ebaaa6598057d",
+      "bytes": 464,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribCommentThreadAdditionalMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribCommentsViewThreadMenus.d.ts",
+      "git_blob_sha": "9dc199c51ccfcd132747858452d0129bfe6f704f",
+      "bytes": 455,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribCommentsViewThreadMenus.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribDebugCreateConfiguration.d.ts",
+      "git_blob_sha": "c28b6b4cc422c9f0b5370f5d434f6f2b8ac696ee",
+      "bytes": 426,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribDebugCreateConfiguration.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribDiffEditorGutterToolBarMenus.d.ts",
+      "git_blob_sha": "f6fb8c9f3a69e322fc48d6c3f6f76c2264d05840",
+      "bytes": 418,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribDiffEditorGutterToolBarMenus.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribEditSessions.d.ts",
+      "git_blob_sha": "a12856915ce5e9ef149918135a6f19e2b3660cbf",
+      "bytes": 486,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribEditSessions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribEditorContentMenu.d.ts",
+      "git_blob_sha": "6b45f3468bdb48f2a4a08ece749951c8a0499248",
+      "bytes": 416,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribEditorContentMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribLabelFormatterWorkspaceTooltip.d.ts",
+      "git_blob_sha": "90814eb2211f7b4149b634f73319ffaa73f5e227",
+      "bytes": 474,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribLabelFormatterWorkspaceTooltip.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribLanguageModelToolSets.d.ts",
+      "git_blob_sha": "9059142ad9329ca02559703c6d36f976ae0c47bd",
+      "bytes": 437,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribLanguageModelToolSets.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribMenuBarHome.d.ts",
+      "git_blob_sha": "caa0ff228dabe5e61e6594ef88c1171458f1e76c",
+      "bytes": 414,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribMenuBarHome.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribMergeEditorMenus.d.ts",
+      "git_blob_sha": "6a6e5c22d33e0dbf75d966700be7ca7591cc42b6",
+      "bytes": 412,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribMergeEditorMenus.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribMultiDiffEditorMenus.d.ts",
+      "git_blob_sha": "6641a0064f5d3bf9c87da14c3d2cc830599c619a",
+      "bytes": 416,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribMultiDiffEditorMenus.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribNotebookStaticPreloads.d.ts",
+      "git_blob_sha": "b01c68ebabbd44d83c419db7ddd853d7d3a1c62e",
+      "bytes": 431,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribNotebookStaticPreloads.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribRemoteHelp.d.ts",
+      "git_blob_sha": "f577e0daa2ef531203d5adcbfab9c0c51f3a47b8",
+      "bytes": 426,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribRemoteHelp.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribShareMenu.d.ts",
+      "git_blob_sha": "e308029d4e26151c3c69463bed6c5c66f45343c9",
+      "bytes": 487,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribShareMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribSourceControlArtifactGroupMenu.d.ts",
+      "git_blob_sha": "33686d7476e79fcd85ea64cc91bb569fb85ea795",
+      "bytes": 499,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribSourceControlArtifactGroupMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribSourceControlArtifactMenu.d.ts",
+      "git_blob_sha": "68fc4940231403f0f913f26187e44580e9002e8c",
+      "bytes": 494,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribSourceControlArtifactMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribSourceControlHistoryItemMenu.d.ts",
+      "git_blob_sha": "44bfaf17b0171b28d19b3143c039d8195d9cae58",
+      "bytes": 497,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribSourceControlHistoryItemMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribSourceControlHistoryTitleMenu.d.ts",
+      "git_blob_sha": "605348a6b3095d6cf4c6374070a073e008ce7009",
+      "bytes": 491,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribSourceControlHistoryTitleMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribSourceControlInputBoxMenu.d.ts",
+      "git_blob_sha": "44da3d0a31b69798deebe20c68d9282c71155260",
+      "bytes": 486,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribSourceControlInputBoxMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribSourceControlTitleMenu.d.ts",
+      "git_blob_sha": "af1aa65e7fb34b1652ddb14bbbe35cdb14d421a4",
+      "bytes": 497,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribSourceControlTitleMenu.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribStatusBarItems.d.ts",
+      "git_blob_sha": "2e5a578de7a133a5c9b892a72708fff02742734e",
+      "bytes": 471,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribStatusBarItems.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribViewContainerTitle.d.ts",
+      "git_blob_sha": "3983df4c5090a8996bd124b113851bb371e04ede",
+      "bytes": 471,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribViewContainerTitle.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribViewsRemote.d.ts",
+      "git_blob_sha": "b1e6ca3d77b37e385a6225e2c1b180959f9ba061",
+      "bytes": 440,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribViewsRemote.d.ts"
+    },
+    {
+      "name": "vscode.proposed.contribViewsWelcome.d.ts",
+      "git_blob_sha": "616694ebb7da5b2c6e8a73daac54b91c7026d2f8",
+      "bytes": 428,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.contribViewsWelcome.d.ts"
+    },
+    {
+      "name": "vscode.proposed.css.d.ts",
+      "git_blob_sha": "3bf4c59dbae57ec83d9a55e207a47423580a1ae1",
+      "bytes": 408,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.css.d.ts"
+    },
+    {
+      "name": "vscode.proposed.customEditorDiffs.d.ts",
+      "git_blob_sha": "d8f8bda34ced6299c07914dd9370cc563d02d1c3",
+      "bytes": 3764,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.customEditorDiffs.d.ts"
+    },
+    {
+      "name": "vscode.proposed.customEditorMove.d.ts",
+      "git_blob_sha": "007d59e74b8094bd77035299cf17a70968283cd6",
+      "bytes": 1314,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.customEditorMove.d.ts"
+    },
+    {
+      "name": "vscode.proposed.dataChannels.d.ts",
+      "git_blob_sha": "edadd6373f0a4b27654172ae0b1beb9f3e9e0317",
+      "bytes": 642,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.dataChannels.d.ts"
+    },
+    {
+      "name": "vscode.proposed.debugVisualization.d.ts",
+      "git_blob_sha": "cb12eaa00e36763624ee7d82fba02616fe85840c",
+      "bytes": 5655,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.debugVisualization.d.ts"
+    },
+    {
+      "name": "vscode.proposed.defaultChatParticipant.d.ts",
+      "git_blob_sha": "bc7bcf72af72fcf39b646571bac39ba7333f734d",
+      "bytes": 1371,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.defaultChatParticipant.d.ts"
+    },
+    {
+      "name": "vscode.proposed.devDeviceId.d.ts",
+      "git_blob_sha": "0f9a62fc7db7ad0f1dfec2968432797ff3dec5bc",
+      "bytes": 514,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.devDeviceId.d.ts"
+    },
+    {
+      "name": "vscode.proposed.diffCommand.d.ts",
+      "git_blob_sha": "84f4328e0774904f8f3855974128026e1a5f05ad",
+      "bytes": 1675,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.diffCommand.d.ts"
+    },
+    {
+      "name": "vscode.proposed.diffContentOptions.d.ts",
+      "git_blob_sha": "1264ce5b31551e57cc7a6b224bb162fd68203a30",
+      "bytes": 678,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.diffContentOptions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.documentDiff.d.ts",
+      "git_blob_sha": "2e9c5320c0200d4c2baf039246cc855e5eb7984d",
+      "bytes": 4132,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.documentDiff.d.ts"
+    },
+    {
+      "name": "vscode.proposed.documentFiltersExclusive.d.ts",
+      "git_blob_sha": "7d033796355939d21e1a3d0ec288b243d7d3feca",
+      "bytes": 490,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.documentFiltersExclusive.d.ts"
+    },
+    {
+      "name": "vscode.proposed.documentSyntaxHighlighting.d.ts",
+      "git_blob_sha": "b8e47519a3e650db8b7b6ee967542fe962a8adc0",
+      "bytes": 3291,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.documentSyntaxHighlighting.d.ts"
+    },
+    {
+      "name": "vscode.proposed.editSessionIdentityProvider.d.ts",
+      "git_blob_sha": "e09d0e142b48d2313b58ef4e207ada1e198f4b82",
+      "bytes": 2621,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.editSessionIdentityProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.editorHoverVerbosityLevel.d.ts",
+      "git_blob_sha": "0661036c505817c9d37b8e80a68b4a03ef49c966",
+      "bytes": 2295,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.editorHoverVerbosityLevel.d.ts"
+    },
+    {
+      "name": "vscode.proposed.editorInsets.d.ts",
+      "git_blob_sha": "c13b4208d4280f661c82cb7d4f47131125b0baad",
+      "bytes": 821,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.editorInsets.d.ts"
+    },
+    {
+      "name": "vscode.proposed.embeddings.d.ts",
+      "git_blob_sha": "77fe5808a1dd81154bff123d2bc4dc8ef58c2820",
+      "bytes": 1207,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.embeddings.d.ts"
+    },
+    {
+      "name": "vscode.proposed.envIsConnectionMetered.d.ts",
+      "git_blob_sha": "62051fe8b04657964a280d3d69860cb3b15424ed",
+      "bytes": 785,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.envIsConnectionMetered.d.ts"
+    },
+    {
+      "name": "vscode.proposed.environmentPower.d.ts",
+      "git_blob_sha": "12ebd9bf2f237a7391d9663ba611035f3a2136b3",
+      "bytes": 5162,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.environmentPower.d.ts"
+    },
+    {
+      "name": "vscode.proposed.extensionAffinity.d.ts",
+      "git_blob_sha": "66b28e4ed127b98b1e962f3ba2affd23afc26830",
+      "bytes": 458,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.extensionAffinity.d.ts"
+    },
+    {
+      "name": "vscode.proposed.extensionRuntime.d.ts",
+      "git_blob_sha": "356587ebc95d330d5548f8ef23d14e15f435f354",
+      "bytes": 820,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.extensionRuntime.d.ts"
+    },
+    {
+      "name": "vscode.proposed.extensionsAny.d.ts",
+      "git_blob_sha": "468ffe7b78c1aa2f48f6d5144df4c6c873b5cbf7",
+      "bytes": 1545,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.extensionsAny.d.ts"
+    },
+    {
+      "name": "vscode.proposed.externalUriOpener.d.ts",
+      "git_blob_sha": "ceb28ac33ee5922e77cb690caed73e93b70573c3",
+      "bytes": 5927,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.externalUriOpener.d.ts"
+    },
+    {
+      "name": "vscode.proposed.fileSearchProvider.d.ts",
+      "git_blob_sha": "8dcfd99852b5a8de06fb3756b1e4305b72e8bb81",
+      "bytes": 3282,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.fileSearchProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.fileSearchProvider2.d.ts",
+      "git_blob_sha": "006c75f70397edfb05a550a34e026562c9ca121d",
+      "bytes": 3974,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.fileSearchProvider2.d.ts"
+    },
+    {
+      "name": "vscode.proposed.findFiles2.d.ts",
+      "git_blob_sha": "6b9916add122d8b3c04a7e60c7e9085e5c2db0fe",
+      "bytes": 4983,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.findFiles2.d.ts"
+    },
+    {
+      "name": "vscode.proposed.findTextInFiles.d.ts",
+      "git_blob_sha": "25e3ae0a39f84fb48d1e0a84910a1311580077a6",
+      "bytes": 4021,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.findTextInFiles.d.ts"
+    },
+    {
+      "name": "vscode.proposed.findTextInFiles2.d.ts",
+      "git_blob_sha": "4575ba17d0c7509983651f2cd7bf5ed4616a769f",
+      "bytes": 5806,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.findTextInFiles2.d.ts"
+    },
+    {
+      "name": "vscode.proposed.fsChunks.d.ts",
+      "git_blob_sha": "e849a174345186e5981b94ebdde0ae82adf55a33",
+      "bytes": 827,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.fsChunks.d.ts"
+    },
+    {
+      "name": "vscode.proposed.inlineCompletionsAdditions.d.ts",
+      "git_blob_sha": "da50146060c2b3e74555026bd020dcc65fef2340",
+      "bytes": 9374,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.inlineCompletionsAdditions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.interactive.d.ts",
+      "git_blob_sha": "19eae8d7f373e04d471283bdbfc6a5e2c7551ead",
+      "bytes": 489,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.interactive.d.ts"
+    },
+    {
+      "name": "vscode.proposed.interactiveWindow.d.ts",
+      "git_blob_sha": "823ee4d16780b97bd3b0b24b77ef4dd4efcffc31",
+      "bytes": 941,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.interactiveWindow.d.ts"
+    },
+    {
+      "name": "vscode.proposed.ipc.d.ts",
+      "git_blob_sha": "c30fc9cbdaf449a16cd51189cf09a13f33375946",
+      "bytes": 1273,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.ipc.d.ts"
+    },
+    {
+      "name": "vscode.proposed.languageModelCapabilities.d.ts",
+      "git_blob_sha": "e217c68d8f0cdbcb4de1f737173a907523807ae7",
+      "bytes": 1734,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.languageModelCapabilities.d.ts"
+    },
+    {
+      "name": "vscode.proposed.languageModelPricing.d.ts",
+      "git_blob_sha": "2d09642c90c429a83854d0b27ffe687dd24ce12a",
+      "bytes": 4779,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.languageModelPricing.d.ts"
+    },
+    {
+      "name": "vscode.proposed.languageModelProxy.d.ts",
+      "git_blob_sha": "6d32e6de3f886b46eb344cefff784094144ff89f",
+      "bytes": 1081,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.languageModelProxy.d.ts"
+    },
+    {
+      "name": "vscode.proposed.languageModelSystem.d.ts",
+      "git_blob_sha": "54e1da27a5b0fa6fd5039b27ad0cfe07ba033603",
+      "bytes": 856,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.languageModelSystem.d.ts"
+    },
+    {
+      "name": "vscode.proposed.languageModelThinkingPart.d.ts",
+      "git_blob_sha": "3c246500c9b2b744818c5492b39b9eefdc0a14e2",
+      "bytes": 4440,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.languageModelThinkingPart.d.ts"
+    },
+    {
+      "name": "vscode.proposed.languageModelToolResultAudience.d.ts",
+      "git_blob_sha": "07b32b02bb23e85a7282c7812b0473760722ca37",
+      "bytes": 1230,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.languageModelToolResultAudience.d.ts"
+    },
+    {
+      "name": "vscode.proposed.languageModelToolSupportsModel.d.ts",
+      "git_blob_sha": "5336f6268cee06d2071bd3f8f43d227206014c1a",
+      "bytes": 2617,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.languageModelToolSupportsModel.d.ts"
+    },
+    {
+      "name": "vscode.proposed.languageStatusText.d.ts",
+      "git_blob_sha": "d6fe4854d73b0452b5bca1046e3ce47e4f3898ca",
+      "bytes": 482,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.languageStatusText.d.ts"
+    },
+    {
+      "name": "vscode.proposed.linkPresentation.d.ts",
+      "git_blob_sha": "859cc612991b296f78af9a2605285f7e98baf54e",
+      "bytes": 3545,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.linkPresentation.d.ts"
+    },
+    {
+      "name": "vscode.proposed.mappedEditsProvider.d.ts",
+      "git_blob_sha": "ae22bc707b2a5ee67c81985db9df7355099f9180",
+      "bytes": 3684,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.mappedEditsProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.markdownAlertSyntax.d.ts",
+      "git_blob_sha": "bb02da446f0f3f8c2b40885e9df9f3f0c4178cf9",
+      "bytes": 934,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.markdownAlertSyntax.d.ts"
+    },
+    {
+      "name": "vscode.proposed.mcpServerDefinitions.d.ts",
+      "git_blob_sha": "81e75fe69d74e82bdfb4ca69d0e89b801e728118",
+      "bytes": 3302,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.mcpServerDefinitions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.mcpToolDefinitions.d.ts",
+      "git_blob_sha": "4002f03c103fc6d1713d9692cc52353f4c1c9fdf",
+      "bytes": 3354,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.mcpToolDefinitions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.multiDocumentHighlightProvider.d.ts",
+      "git_blob_sha": "e03250799f0416f08349d054f7dd61b91ec1edcd",
+      "bytes": 2555,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.multiDocumentHighlightProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.nativeWindowHandle.d.ts",
+      "git_blob_sha": "fa9c7732c0040d833fd645ebcaf63f331dd80d8a",
+      "bytes": 659,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.nativeWindowHandle.d.ts"
+    },
+    {
+      "name": "vscode.proposed.newSymbolNamesProvider.d.ts",
+      "git_blob_sha": "e01689f170be1dde03e6c7e970204632d6b3634e",
+      "bytes": 1522,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.newSymbolNamesProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookCellExecution.d.ts",
+      "git_blob_sha": "341e91a32c4dd1a54125ab2b8eb323202a63f542",
+      "bytes": 2076,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookCellExecution.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookControllerAffinityHidden.d.ts",
+      "git_blob_sha": "d35edb91f53563b224bd5363b2d1dfb7af46951c",
+      "bytes": 698,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookControllerAffinityHidden.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookDeprecated.d.ts",
+      "git_blob_sha": "85c7f21a5ff16b2fb41dcaeb22b0ffe033bf7095",
+      "bytes": 522,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookDeprecated.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookExecution.d.ts",
+      "git_blob_sha": "0b8f8b825467eb4c15241e6d92a093042093104f",
+      "bytes": 1549,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookExecution.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookKernelSource.d.ts",
+      "git_blob_sha": "1e79bf30640bf25e8a0c499a893bbf6fb1ca8839",
+      "bytes": 1524,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookKernelSource.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookLiveShare.d.ts",
+      "git_blob_sha": "2642fbba691a32c26e6ed2bbdd7497f323041e84",
+      "bytes": 956,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookLiveShare.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookMessaging.d.ts",
+      "git_blob_sha": "869a32d799d11a1df9ec005d33eae89fc106e07f",
+      "bytes": 2585,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookMessaging.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookMime.d.ts",
+      "git_blob_sha": "fb1cf089dcce94a79327e7b75a318f6426f74368",
+      "bytes": 1237,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookMime.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookReplDocument.d.ts",
+      "git_blob_sha": "d78450e944a8d19641936bf515aadb4b6d341b38",
+      "bytes": 1057,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookReplDocument.d.ts"
+    },
+    {
+      "name": "vscode.proposed.notebookVariableProvider.d.ts",
+      "git_blob_sha": "1ab099dbaf7011be7a09b55a8874858a3717c170",
+      "bytes": 2045,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.notebookVariableProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.portsAttributes.d.ts",
+      "git_blob_sha": "e3cb4b617f96a810d587743f755c4e83d6014b54",
+      "bytes": 4192,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.portsAttributes.d.ts"
+    },
+    {
+      "name": "vscode.proposed.profileContentHandlers.d.ts",
+      "git_blob_sha": "d1c3d0116408b71fd550bc5b6ec8a1a2cb9caa3b",
+      "bytes": 859,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.profileContentHandlers.d.ts"
+    },
+    {
+      "name": "vscode.proposed.quickDiffProvider.d.ts",
+      "git_blob_sha": "43f4c935993bea22424b54e7f76a7cbb818ca99c",
+      "bytes": 813,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.quickDiffProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.quickPickItemTooltip.d.ts",
+      "git_blob_sha": "a0445cda13be79bb4af809f4339519d3f8fa11e4",
+      "bytes": 752,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.quickPickItemTooltip.d.ts"
+    },
+    {
+      "name": "vscode.proposed.quickPickSortByLabel.d.ts",
+      "git_blob_sha": "fb6557364a22652358aa6a2329c35a82a8993531",
+      "bytes": 1067,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.quickPickSortByLabel.d.ts"
+    },
+    {
+      "name": "vscode.proposed.remoteCodingAgents.d.ts",
+      "git_blob_sha": "e818b76d8e2129b74487fc18c18b1f12d9e52c39",
+      "bytes": 436,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.remoteCodingAgents.d.ts"
+    },
+    {
+      "name": "vscode.proposed.resolvers.d.ts",
+      "git_blob_sha": "5135427c6809e8e1109c1028a745a0fe5ede993e",
+      "bytes": 16065,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.resolvers.d.ts"
+    },
+    {
+      "name": "vscode.proposed.scmActionButton.d.ts",
+      "git_blob_sha": "96b8b1c0e53b0e8aa2fcb251a507ebf524a596d1",
+      "bytes": 668,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.scmActionButton.d.ts"
+    },
+    {
+      "name": "vscode.proposed.scmArtifactProvider.d.ts",
+      "git_blob_sha": "539c9aa2a3d276b66db6bbcf5ae938c2f476284d",
+      "bytes": 1210,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.scmArtifactProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.scmHistoryProvider.d.ts",
+      "git_blob_sha": "ef9d93342cff5e8b77d9e2068fabede4743311cc",
+      "bytes": 3932,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.scmHistoryProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.scmMultiDiffEditor.d.ts",
+      "git_blob_sha": "49fdd4a3993da7d7e8274403ad829d7cb55396a9",
+      "bytes": 1619,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.scmMultiDiffEditor.d.ts"
+    },
+    {
+      "name": "vscode.proposed.scmProviderOptions.d.ts",
+      "git_blob_sha": "48553e3c1fa046c657254f28c523e185d4daed58",
+      "bytes": 1720,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.scmProviderOptions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.scmSelectedProvider.d.ts",
+      "git_blob_sha": "bced264e5a5bff0ffff66485a1b88b4039e8e5d6",
+      "bytes": 668,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.scmSelectedProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.scmTextDocument.d.ts",
+      "git_blob_sha": "8533c039a3f0de83ddbd84cb94d6bc6d312cd29b",
+      "bytes": 652,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.scmTextDocument.d.ts"
+    },
+    {
+      "name": "vscode.proposed.scmValidation.d.ts",
+      "git_blob_sha": "a5fad56ebc2bb67437795e15e243553844e91099",
+      "bytes": 1610,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.scmValidation.d.ts"
+    },
+    {
+      "name": "vscode.proposed.shareProvider.d.ts",
+      "git_blob_sha": "8c432341a72a6ebbf52cd1e3e15dbc952757efaf",
+      "bytes": 2302,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.shareProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.speech.d.ts",
+      "git_blob_sha": "c78a32ddfd335036e197aa85e0fc9b6fe6a4217b",
+      "bytes": 1980,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.speech.d.ts"
+    },
+    {
+      "name": "vscode.proposed.statusBarItemTooltip.d.ts",
+      "git_blob_sha": "5db0495b5a73bddf82bd93228644ad361d619950",
+      "bytes": 767,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.statusBarItemTooltip.d.ts"
+    },
+    {
+      "name": "vscode.proposed.tabInputMultiDiff.d.ts",
+      "git_blob_sha": "242ebf4adaaad8169fef127206d84553fbffaaa2",
+      "bytes": 778,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.tabInputMultiDiff.d.ts"
+    },
+    {
+      "name": "vscode.proposed.tabInputTextMerge.d.ts",
+      "git_blob_sha": "da95fd1d35bc6fa99aaaa152cb3ac8fd08c1b976",
+      "bytes": 841,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.tabInputTextMerge.d.ts"
+    },
+    {
+      "name": "vscode.proposed.taskExecutionTerminal.d.ts",
+      "git_blob_sha": "24912b369fbdabce2193bf2dd1f4562d0eada955",
+      "bytes": 528,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.taskExecutionTerminal.d.ts"
+    },
+    {
+      "name": "vscode.proposed.taskPresentationGroup.d.ts",
+      "git_blob_sha": "11f9e0374eafb36f644f6dad11a90800cd54eca9",
+      "bytes": 604,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.taskPresentationGroup.d.ts"
+    },
+    {
+      "name": "vscode.proposed.taskProblemMatcherStatus.d.ts",
+      "git_blob_sha": "d0379ff3d282bf0ed1d11bdae4f44ee91fbc6960",
+      "bytes": 1273,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.taskProblemMatcherStatus.d.ts"
+    },
+    {
+      "name": "vscode.proposed.taskRunOptions.d.ts",
+      "git_blob_sha": "4f874a3354f2ba1bb219b8e8d0277073a7b8cfa7",
+      "bytes": 815,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.taskRunOptions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.telemetry.d.ts",
+      "git_blob_sha": "cc05bc1000505b4c8f12b610652536cbf58b8d1e",
+      "bytes": 1228,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.telemetry.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalCompletionProvider.d.ts",
+      "git_blob_sha": "5aa612e3d8b6e7ee0ca330e09cfedb66fee1191b",
+      "bytes": 9203,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalCompletionProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalDataWriteEvent.d.ts",
+      "git_blob_sha": "f8044df409b3569992af84b9d0d31a69aea3c6c8",
+      "bytes": 1162,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalDataWriteEvent.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalDimensions.d.ts",
+      "git_blob_sha": "a0d28379d602798f83241a429ace6999079d84eb",
+      "bytes": 1342,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalDimensions.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalExecuteCommandEvent.d.ts",
+      "git_blob_sha": "5d28eb36a80185be57dc08cd0fbabd4874c841fa",
+      "bytes": 1785,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalExecuteCommandEvent.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalQuickFixProvider.d.ts",
+      "git_blob_sha": "b186d5bbe4f9b02fe408354dba35427212149e57",
+      "bytes": 2729,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalQuickFixProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalRemoteResolver.d.ts",
+      "git_blob_sha": "81e697dfa7615757e8617afb96223c1de769afbc",
+      "bytes": 957,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalRemoteResolver.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalSelection.d.ts",
+      "git_blob_sha": "706bcdafe104fcd8738188a97e9b9fccd8d4f26d",
+      "bytes": 601,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalSelection.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalShellEnv.d.ts",
+      "git_blob_sha": "c7c1a7b45c2a79d3ab9d18ab8bf262711793a14a",
+      "bytes": 1483,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalShellEnv.d.ts"
+    },
+    {
+      "name": "vscode.proposed.terminalTitle.d.ts",
+      "git_blob_sha": "7833a644a49b87b01a250455535f7a288861ea12",
+      "bytes": 1688,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.terminalTitle.d.ts"
+    },
+    {
+      "name": "vscode.proposed.testObserver.d.ts",
+      "git_blob_sha": "910a61428f7eec55d1426d5744acaa7ab51bb662",
+      "bytes": 5789,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.testObserver.d.ts"
+    },
+    {
+      "name": "vscode.proposed.testRelatedCode.d.ts",
+      "git_blob_sha": "3d17a26999a533691c857d11ae93cbb14ca7012b",
+      "bytes": 1482,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.testRelatedCode.d.ts"
+    },
+    {
+      "name": "vscode.proposed.textDocumentChangeReason.d.ts",
+      "git_blob_sha": "f656c304da24437ecd55c322dece33feb69e7fd8",
+      "bytes": 1019,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.textDocumentChangeReason.d.ts"
+    },
+    {
+      "name": "vscode.proposed.textEditorDiffInformation.d.ts",
+      "git_blob_sha": "e940734ad823a07f21fc1250478802e6c3e1b45f",
+      "bytes": 2882,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.textEditorDiffInformation.d.ts"
+    },
+    {
+      "name": "vscode.proposed.textSearchComplete2.d.ts",
+      "git_blob_sha": "f75db1af7539ee6eaa1438b13334e98fdd44a068",
+      "bytes": 1356,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.textSearchComplete2.d.ts"
+    },
+    {
+      "name": "vscode.proposed.textSearchProvider.d.ts",
+      "git_blob_sha": "5d4b2b50fc2c91b27ad962b11bcdb54ec9bacb79",
+      "bytes": 7532,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.textSearchProvider.d.ts"
+    },
+    {
+      "name": "vscode.proposed.textSearchProvider2.d.ts",
+      "git_blob_sha": "2db6fe26435357f1c2c25e1f21fae4ca1ce09253",
+      "bytes": 8599,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.textSearchProvider2.d.ts"
+    },
+    {
+      "name": "vscode.proposed.timeline.d.ts",
+      "git_blob_sha": "ee925aab8aaae88d0387219153fd92c44e6db38f",
+      "bytes": 5545,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.timeline.d.ts"
+    },
+    {
+      "name": "vscode.proposed.tokenInformation.d.ts",
+      "git_blob_sha": "1c783b2bdce1d76ad92cafc0d4993a231c1318f3",
+      "bytes": 786,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.tokenInformation.d.ts"
+    },
+    {
+      "name": "vscode.proposed.toolInvocationApproveCombination.d.ts",
+      "git_blob_sha": "b3f1a41f857a01e01e455bbd8b18ff8484dad4bd",
+      "bytes": 1149,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.toolInvocationApproveCombination.d.ts"
+    },
+    {
+      "name": "vscode.proposed.toolProgress.d.ts",
+      "git_blob_sha": "0d20f626cc179e9d2e901c26e9322dbb064d4cd8",
+      "bytes": 948,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.toolProgress.d.ts"
+    },
+    {
+      "name": "vscode.proposed.treeItemMarkdownLabel.d.ts",
+      "git_blob_sha": "6150fa0667ec7b3449ac534ee265b52cabf75f31",
+      "bytes": 981,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.treeItemMarkdownLabel.d.ts"
+    },
+    {
+      "name": "vscode.proposed.treeViewActiveItem.d.ts",
+      "git_blob_sha": "27eab8603f60b28c967fe972658a6f4e2146d2f6",
+      "bytes": 983,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts"
+    },
+    {
+      "name": "vscode.proposed.treeViewMarkdownMessage.d.ts",
+      "git_blob_sha": "ad4655d9bcae8b886fe254bed7aa7cb181af0ce4",
+      "bytes": 1310,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.treeViewMarkdownMessage.d.ts"
+    },
+    {
+      "name": "vscode.proposed.treeViewReveal.d.ts",
+      "git_blob_sha": "b8731e6caa2a5d3548ccefd739f4dac461418eac",
+      "bytes": 625,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.treeViewReveal.d.ts"
+    },
+    {
+      "name": "vscode.proposed.tunnelFactory.d.ts",
+      "git_blob_sha": "aa5c4b7739c7d5add55709dbabce4d5b1983ba41",
+      "bytes": 1836,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.tunnelFactory.d.ts"
+    },
+    {
+      "name": "vscode.proposed.tunnels.d.ts",
+      "git_blob_sha": "8e8497fa49d03d8ce6961b160de7e59ff6a63660",
+      "bytes": 2318,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.tunnels.d.ts"
+    },
+    {
+      "name": "vscode.proposed.valueSelectionInQuickPick.d.ts",
+      "git_blob_sha": "b6a3bf18684d02debd11a195c4d67172149c345c",
+      "bytes": 1027,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.valueSelectionInQuickPick.d.ts"
+    },
+    {
+      "name": "vscode.proposed.workspaceTrust.d.ts",
+      "git_blob_sha": "aad6987c2b5f2f586f66b4c19000b6adcf17a7b4",
+      "bytes": 2049,
+      "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.proposed.workspaceTrust.d.ts"
+    }
+  ]
+}

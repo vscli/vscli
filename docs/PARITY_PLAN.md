@@ -1,7 +1,10 @@
 # VS Code parity and user experience priorities
 
-This is the current execution plan, updated 2026-10-10. It supersedes the initial
-ordering and staffing estimates in [ROADMAP.md](ROADMAP.md). The full project
+The current feature-first backlog is in [FEATURE_TODO.md](FEATURE_TODO.md), with
+the [entire extension API](EXTENSION_API.md) now the next workstream. The audited
+plan below was updated 2026-10-10 and retains earlier priorities; it does not
+override the new extension API priority. It supersedes the original ordering and
+staffing estimates in [ROADMAP.md](ROADMAP.md). The full project
 objective and [release checklist](RELEASE_CHECKLIST.md) remain intact. A useful
 interim release does not complete VS Code parity.
 

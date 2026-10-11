@@ -65,7 +65,7 @@ The longer-term design lives in:
 1. [Completion criteria](docs/RELEASE_CHECKLIST.md): the active full-project goal and remaining release requirements.
 2. [Architecture](docs/ARCHITECTURE.md): product scope, technical decisions, process boundaries, editing model, terminal experience, and performance budgets.
 3. [Compatibility](docs/COMPATIBILITY.md): keybindings, configuration, extension execution, distribution, and a measurable compatibility contract.
-4. [Current parity plan](docs/PARITY_PLAN.md): implemented subsets, remaining scope and next priorities.
+4. [Feature backlog](docs/FEATURE_TODO.md) and [full extension API workstream](docs/EXTENSION_API.md): current priorities, implementation and evidence. The [earlier parity plan](docs/PARITY_PLAN.md) retains the broader audited gaps.
 5. [Original roadmap](docs/ROADMAP.md): feasibility experiments, release gates, initial estimates and open-source stewardship.
 
 The architecture documents describe the intended larger IDE; not every component is implemented in this alpha. Their timelines and performance budgets are planning targets, not measured results.

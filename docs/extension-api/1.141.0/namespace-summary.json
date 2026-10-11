@@ -1,0 +1,118 @@
+[
+  {
+    "declaration_count_including_overloads": 6,
+    "namespace": "vscode.authentication",
+    "statuses": {
+      "missing_runtime_surface": 6
+    }
+  },
+  {
+    "declaration_count_including_overloads": 1,
+    "namespace": "vscode.chat",
+    "statuses": {
+      "missing_runtime_surface": 1
+    }
+  },
+  {
+    "declaration_count_including_overloads": 4,
+    "namespace": "vscode.commands",
+    "statuses": {
+      "missing_runtime_surface": 1,
+      "source_present_unqualified": 3
+    }
+  },
+  {
+    "declaration_count_including_overloads": 1,
+    "namespace": "vscode.comments",
+    "statuses": {
+      "missing_runtime_surface": 1
+    }
+  },
+  {
+    "declaration_count_including_overloads": 18,
+    "namespace": "vscode.debug",
+    "statuses": {
+      "missing_runtime_surface": 18
+    }
+  },
+  {
+    "declaration_count_including_overloads": 21,
+    "namespace": "vscode.env",
+    "statuses": {
+      "missing_runtime_surface": 21
+    }
+  },
+  {
+    "declaration_count_including_overloads": 3,
+    "namespace": "vscode.extensions",
+    "statuses": {
+      "source_present_unqualified": 3
+    }
+  },
+  {
+    "declaration_count_including_overloads": 5,
+    "namespace": "vscode.l10n",
+    "statuses": {
+      "missing_runtime_surface": 5
+    }
+  },
+  {
+    "declaration_count_including_overloads": 42,
+    "namespace": "vscode.languages",
+    "statuses": {
+      "missing_runtime_surface": 29,
+      "source_present_unqualified": 13
+    }
+  },
+  {
+    "declaration_count_including_overloads": 7,
+    "namespace": "vscode.lm",
+    "statuses": {
+      "missing_runtime_surface": 7
+    }
+  },
+  {
+    "declaration_count_including_overloads": 3,
+    "namespace": "vscode.notebooks",
+    "statuses": {
+      "missing_runtime_surface": 3
+    }
+  },
+  {
+    "declaration_count_including_overloads": 2,
+    "namespace": "vscode.scm",
+    "statuses": {
+      "missing_runtime_surface": 2
+    }
+  },
+  {
+    "declaration_count_including_overloads": 8,
+    "namespace": "vscode.tasks",
+    "statuses": {
+      "missing_runtime_surface": 8
+    }
+  },
+  {
+    "declaration_count_including_overloads": 1,
+    "namespace": "vscode.tests",
+    "statuses": {
+      "missing_runtime_surface": 1
+    }
+  },
+  {
+    "declaration_count_including_overloads": 77,
+    "namespace": "vscode.window",
+    "statuses": {
+      "missing_runtime_surface": 48,
+      "source_present_unqualified": 29
+    }
+  },
+  {
+    "declaration_count_including_overloads": 52,
+    "namespace": "vscode.workspace",
+    "statuses": {
+      "missing_runtime_surface": 40,
+      "source_present_unqualified": 12
+    }
+  }
+]

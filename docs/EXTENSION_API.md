@@ -4,6 +4,12 @@ The entire public stable VS Code extension API is the current implementation
 priority. The [broad feature todo](FEATURE_TODO.md) remains the project backlog;
 CI repair and release qualification are deferred until after feature work.
 
+The [complete pinned stable inventory](extension-api/1.141.0/README.md) records
+776 declarations and 2,366 member/overload/inline-signature entries, with proposed
+APIs tracked separately. These are declaration counts, not feature counts or
+compatibility percentages. Static source presence and tested behavior have
+separate evidence; the inventory alone grants no new behavioral qualification.
+
 The existing host reports `vscode.version = '1.95.0'`. That identifier is not a
 claim of full 1.95 compatibility. The complete stable API inventory is being
 tracked separately against immutable upstream declarations, including newer
