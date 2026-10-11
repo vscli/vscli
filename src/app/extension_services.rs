@@ -161,6 +161,9 @@ pub(super) fn resolved(path: &Path, workspace: &Path) -> Result<PathBuf> {
 }
 impl App {
     pub(super) fn cancel_extension_services(&mut self) {
+        if let Some((token, _)) = self.pending_workspace_transaction() {
+            self.cancel_workspace_transaction(token);
+        }
         if let Some(job) = &self.extension_services.job {
             job.cancel.store(true, Ordering::Release);
         }
@@ -171,6 +174,16 @@ impl App {
     pub(super) fn poll_extension_services(&mut self) -> bool {
         let Some(mut host) = self.extension_host.take() else {
             self.extension_services.contexts.clear();
+            if let Some((token, _)) = self.pending_workspace_transaction() {
+                self.cancel_workspace_transaction(token);
+            }
+            let changed = self.poll_workspace_transactions();
+            if let Some(token) = self
+                .workspace_transaction_completion()
+                .map(|done| done.token)
+            {
+                self.take_workspace_transaction_completion(token);
+            }
             self.retire_all_document_save_callers();
             while let Some(completion) = self.take_document_save_completion() {
                 self.retire_document_save_prompt(completion.interest);
@@ -187,7 +200,7 @@ impl App {
             {
                 self.extension_services.job = None;
             }
-            return false;
+            return changed;
         };
         let changed = self.poll_services_with_host(&mut host);
         self.extension_host = Some(host);
@@ -205,7 +218,10 @@ impl App {
             .contexts
             .retain(|key, _| pending.contains(key));
         for service in host.queued_services().filter(|service| {
-            !matches!(service.operation, Operation::State(_) | Operation::Save(_))
+            !matches!(
+                service.operation,
+                Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+            )
         }) {
             let key = (service.request.session, service.id.clone());
             if !self.extension_services.contexts.contains_key(&key) {
@@ -215,6 +231,42 @@ impl App {
                 self.extension_services.contexts.insert(key, context);
             }
         }
+        if let Some((token, origin)) = self.pending_workspace_transaction() {
+            let valid = host.service().is_some_and(|service| {
+                service.id == origin.request
+                    && service.request.session == origin.session
+                    && service.request.owner == origin.owner
+                    && matches!(service.operation, Operation::WorkspaceApply(_))
+                    && host.service_valid(service).is_ok()
+            });
+            if !valid {
+                self.cancel_workspace_transaction(token);
+            }
+        }
+        let workspace_changed = self.poll_workspace_transactions();
+        if let Some(done) = self.workspace_transaction_completion() {
+            let token = done.token;
+            let origin = done.origin.clone();
+            let result = serde_json::json!({"applied":done.applied,"reason":done.reason.clone().unwrap_or_default()});
+            if let Some(service) = host.service().cloned().filter(|service| {
+                service.id == origin.request
+                    && service.request.session == origin.session
+                    && service.request.owner == origin.owner
+                    && matches!(service.operation, Operation::WorkspaceApply(_))
+            }) {
+                let result = host.service_valid(&service).map(|()| result);
+                if self.answer_native_service(host, &service, result) {
+                    self.take_workspace_transaction_completion(token);
+                }
+            } else if origin.session != host.session || !origin.alive() {
+                self.take_workspace_transaction_completion(token);
+            }
+            return true;
+        }
+        if self.workspace_transactions_pending() {
+            return workspace_changed;
+        }
+
         if let Some(completion) = self.document_save_completion() {
             self.retire_document_save_prompt(completion.interest);
             if let Some(service) = host.service().cloned()
@@ -320,20 +372,27 @@ impl App {
             return false;
         }
         let validation = host.service_valid(&service).and_then(|()| {
-            if !matches!(service.operation, Operation::State(_) | Operation::Save(_)) {
+            if !matches!(
+                service.operation,
+                Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+            ) {
                 Context::check_budget(self)?;
             }
-            if !matches!(service.operation, Operation::State(_) | Operation::Save(_))
-                && !self
-                    .extension_services
-                    .contexts
-                    .get(&(service.request.session, service.id.clone()))
-                    .is_some_and(|context| context.valid(self))
+            if !matches!(
+                service.operation,
+                Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+            ) && !self
+                .extension_services
+                .contexts
+                .get(&(service.request.session, service.id.clone()))
+                .is_some_and(|context| context.valid(self))
             {
                 bail!("Native document service cancelled by newer editor context; retry");
             }
-            if !matches!(service.operation, Operation::State(_) | Operation::Save(_))
-                && (self.prompt.is_some() || self.modal.is_some())
+            if !matches!(
+                service.operation,
+                Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+            ) && (self.prompt.is_some() || self.modal.is_some())
             {
                 bail!("Native document service cannot replace an active prompt or modal");
             }
@@ -344,6 +403,21 @@ impl App {
             return true;
         }
         match &service.operation {
+            Operation::WorkspaceApply(capture) => {
+                if let Err(error) = self.start_workspace_transaction(capture.clone()) {
+                    let mut reason = format!("{error:#}");
+                    let mut end = reason.len().min(4096);
+                    while !reason.is_char_boundary(end) {
+                        end -= 1;
+                    }
+                    reason.truncate(end);
+                    self.answer_native_service(
+                        host,
+                        &service,
+                        Ok(serde_json::json!({"applied":false,"reason":reason})),
+                    );
+                }
+            }
             Operation::Save(save) => {
                 let result = (|| -> Result<()> {
                     let doc = self

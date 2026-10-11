@@ -49,8 +49,10 @@ bytes and pre-existing Undo history intact; a subsequent supported action saves
 and undoes correctly. Build, formatting and strict Clippy
 pass. These checks qualify the documented subset only.
 
-Native workspace.applyEdit, file/notebook/snippet transactions,
-annotation confirmation and EOL Undo/persistence remain pending. Public object
+Public `workspace.applyEdit` now routes retained-document text transactions
+through atomic native publication and grouped Undo/Redo; see
+[native workspace edits](NATIVE_WORKSPACE_EDITS.md). File/notebook/snippet
+transactions, annotation confirmation and EOL Undo/persistence remain pending. Public object
 reflection, complete upstream runtime comparison and platform qualification also
 remain outstanding. No local VS Code instance is launched for these checks.
 

@@ -21,6 +21,10 @@ pub(crate) mod graphemes;
 mod indentation;
 mod snippets;
 mod typing;
+pub(crate) mod workspace;
+pub(crate) use workspace::{
+    WorkspaceHistoryDirection, WorkspaceHistoryGroup, WorkspaceSource, WorkspaceTextPrepared,
+};
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
@@ -146,6 +150,8 @@ impl Selection {
 
 #[derive(Clone)]
 struct Snapshot {
+    history_identity: std::sync::Arc<()>,
+    workspace_group: Option<std::sync::Arc<WorkspaceHistoryGroup>>,
     text: Rope,
     cursor: usize,
     anchor: Option<usize>,
@@ -693,6 +699,8 @@ impl Document {
     }
     fn snapshot(&self) -> Snapshot {
         Snapshot {
+            history_identity: std::sync::Arc::new(()),
+            workspace_group: None,
             text: self.text.clone(),
             cursor: self.cursor,
             anchor: self.anchor,
@@ -793,6 +801,13 @@ impl Document {
         self.insert(&format!("{}{}", self.eol, indent), false);
     }
     pub fn undo(&mut self) {
+        // Grouped entries require the App to validate every peer first.
+        if self
+            .workspace_history(WorkspaceHistoryDirection::Undo)
+            .is_some()
+        {
+            return;
+        }
         self.break_group();
         if let Some(s) = self.undo.pop() {
             self.redo.push(self.reverse_snapshot(&s));
@@ -800,6 +815,12 @@ impl Document {
         }
     }
     pub fn redo(&mut self) {
+        if self
+            .workspace_history(WorkspaceHistoryDirection::Redo)
+            .is_some()
+        {
+            return;
+        }
         self.break_group();
         if let Some(s) = self.redo.pop() {
             self.undo.push(self.reverse_snapshot(&s));
@@ -815,6 +836,8 @@ impl Document {
         let after = target.after_selections.as_ref();
         let primary = after.and_then(|selections| selections.first());
         Snapshot {
+            history_identity: std::sync::Arc::new(()),
+            workspace_group: target.workspace_group.clone(),
             text: self.text.clone(),
             cursor: primary.map_or(view.cursor, |s| s.cursor),
             anchor: primary.map_or(view.anchor, |s| s.anchor),

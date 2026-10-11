@@ -28,6 +28,7 @@ mod signature_help;
 mod sticky_tabs;
 mod suggestions;
 mod workspace_edits;
+pub(crate) mod workspace_transactions;
 
 mod session;
 mod snippet_catalogs;
@@ -542,6 +543,7 @@ pub struct App {
     pub documents: Vec<Document>,
     pub(crate) hidden_documents: Vec<Document>,
     extension_services: extension_services::State,
+    workspace_transactions: workspace_transactions::State,
     extension_providers: extension_providers::State,
     actions: actions::State,
     pub active: usize,
@@ -625,6 +627,7 @@ pub struct App {
 }
 impl Drop for App {
     fn drop(&mut self) {
+        self.settle_workspace_transactions();
         self.shutdown_extensions();
         self.shutdown_language_services();
     }
@@ -653,6 +656,7 @@ impl App {
             documents: Vec::new(),
             hidden_documents: Vec::new(),
             extension_services: extension_services::State::default(),
+            workspace_transactions: workspace_transactions::State::default(),
             extension_providers: extension_providers::State::default(),
             actions: actions::State::default(),
             active: 0,
@@ -1971,7 +1975,7 @@ impl App {
             "workbench.action.openGlobalKeybindings" => self.modal = Some(Modal::Keys),
             "vscli.keyboardInspector" => self.open_keyboard_inspector(),
             "vscli.help" => self.modal = Some(Modal::Help),
-            "undo" => self.doc_mut().undo(),
+            "undo" => self.undo_editor(),
             "vscli.settings.report" => {
                 self.modal = Some(Modal::Text {
                     title: "Settings Compatibility".into(),
@@ -1997,7 +2001,7 @@ impl App {
                     if let Err(error) = result { self.message = format!("Cannot open settings: {error:#}"); }
                 } else { self.message = "Settings location unavailable; use --settings PATH".into(); }
             }
-            "redo" => self.doc_mut().redo(),
+            "redo" => self.redo_editor(),
             "editor.action.selectAll" => self.doc_mut().select_all(),
             "expandLineSelection" => self.doc_mut().select_line(),
             "deleteLeft" => self.backspace_editor(false),

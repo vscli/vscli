@@ -29,6 +29,10 @@ pub(super) struct Pairs {
     options: Option<TypingOptions>,
 }
 impl Pairs {
+    pub(super) fn workspace_metadata(&self) -> Result<usize> {
+        anyhow::ensure!(self.marks.len() <= 10_000, "Workspace generated-pair limit");
+        Ok(self.marks.len() * std::mem::size_of::<Mark>())
+    }
     pub(super) fn map(&mut self, range: &Range<usize>, added: usize) {
         if self.marks.is_empty() {
             return;

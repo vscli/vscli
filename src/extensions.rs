@@ -210,6 +210,7 @@ pub struct Client {
     diagnostics: diagnostics::State,
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
+    workspace_edit_context: Option<crate::app::workspace_transactions::CaptureContext>,
     owner_lifetimes: owner_lifetimes::OwnerLifetimes,
     state_store: Option<crate::extension_state::Store>,
     // Drop the process before deleting its embedded runtime files on Windows.
@@ -420,6 +421,10 @@ impl Client {
                 "native-requests.cjs",
                 include_str!("../extension-host/native-requests.cjs"),
             ),
+            (
+                "workspace-edits.cjs",
+                include_str!("../extension-host/workspace-edits.cjs"),
+            ),
             ("host.cjs", include_str!("../extension-host/host.cjs")),
         ] {
             std::fs::write(runtime.path().join(name), source)?;
@@ -440,6 +445,7 @@ impl Client {
             diagnostics: diagnostics::State::default(),
             providers: providers::State::default(),
             services: services::empty_queue(),
+            workspace_edit_context: None,
             owner_lifetimes: owner_lifetimes::OwnerLifetimes::new(&packages),
             state_store,
             process,
@@ -469,7 +475,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -868,15 +874,23 @@ impl Client {
                         }
                         self.register_activation(&message["params"]["activation"])?;
                     }
-                    "nativeDocumentOpen" | "nativeDocumentShow" | "nativeCommand"
-                    | "nativeStateWrite" | "nativeDocumentSave" => {
+                    "nativeDocumentOpen"
+                    | "nativeDocumentShow"
+                    | "nativeCommand"
+                    | "nativeStateWrite"
+                    | "nativeDocumentSave"
+                    | "nativeWorkspaceApplyEdit" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
-                        if let Err(error) =
-                            self.queue_service(&method, id.clone(), message["params"].take())
-                        {
+                        if let Err(error) = self.queue_service_with_models(
+                            &method,
+                            id.clone(),
+                            message["params"].take(),
+                            documents,
+                            hidden,
+                        ) {
                             self.process
-                                .send(json!({"id":id,"error":{"message":format!("{error:#}")}}))?;
+                                .send(json!({"id":id,"error":{"message":services::bounded_error(&error)}}))?;
                         }
                     }
                     "diagnosticCollections" => {

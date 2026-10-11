@@ -21,6 +21,16 @@ impl App {
         let commands = host.commands.clone();
         let busy = host.busy();
         let diagnostics_epoch = host.diagnostics_epoch();
+        host.set_workspace_edit_context(if self.settings_error.is_none() {
+            workspace_transactions::CaptureContext::new(
+                self.settings.extension_layers().clone(),
+                self.settings_profile_generation(),
+                self.workspace.root.clone(),
+            )
+            .ok()
+        } else {
+            None
+        });
         let result = host.poll_with_hidden(
             &mut self.documents,
             &mut self.hidden_documents,

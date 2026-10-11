@@ -292,6 +292,7 @@ const SUPPORTED: &[&str] = &[
     "breadcrumbs.filePath",
     "breadcrumbs.symbolPath",
     "files.autoSave",
+    "files.refactoring.autoSave",
     "files.autoSaveDelay",
     "workbench.colorTheme",
     "workbench.editor.enablePreview",
@@ -410,6 +411,7 @@ impl Settings {
                     "workbench.editor.enablePreview"
                         | "workbench.editor.enablePreviewFromQuickOpen"
                         | "workbench.editor.preventPinnedEditorClose"
+                        | "files.refactoring.autoSave"
                 )
             {
                 self.warnings.push(format!(
@@ -968,7 +970,7 @@ fn valid(key: &str, value: &Value) -> bool {
             }
             _ => false,
         },
-        "editor.formatOnSave" => value.is_boolean(),
+        "editor.formatOnSave" | "files.refactoring.autoSave" => value.is_boolean(),
         "editor.formatOnSaveMode" => matches!(
             value.as_str(),
             Some("file" | "modifications" | "modificationsIfAvailable")

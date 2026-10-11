@@ -916,6 +916,13 @@ In the installed extensions picker, **e/d** enable or disable the selected packa
 
 Use `vscli --enable-extension publisher.name` to remember a global code grant without starting Node. `--disable-extension publisher.name --extension-scope workspace --workspace /path/to/project` writes a workspace override under the native user configuration root. Missing installed IDs and malformed existing state reject without replacing previous grants. These flags can be used without an interactive terminal.
 
+Selected extensions can use `workspace.applyEdit` for retained native text models,
+including hidden and untitled documents, with one grouped native Undo/Redo
+operation. Text transactions leave files untouched until saved. Refactoring
+metadata requires root `files.refactoring.autoSave: false` until that autosave
+backend is implemented. See [native workspace edits](NATIVE_WORKSPACE_EDITS.md)
+for limits, failure behavior and remaining edit backends.
+
 ## Native extension language providers
 
 A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). The highest-scoring matching provider wins, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Completion requests automatically after identifier typing or registered trigger characters; parameter hints use automatic triggers/retriggers and local overload navigation as described above.

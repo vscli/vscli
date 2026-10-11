@@ -10,6 +10,42 @@ pub(super) struct Session {
 }
 
 impl Session {
+    pub(super) fn workspace_metadata(&self) -> Result<usize> {
+        anyhow::ensure!(
+            self.markers.len() <= 10_000,
+            "Workspace snippet marker limit"
+        );
+        let mut bytes = self.markers.len() * std::mem::size_of::<Option<Placeholder>>();
+        for marker in self.markers.iter().flatten() {
+            anyhow::ensure!(
+                marker.parents.len() <= 64 && marker.choices.len() <= 10_000,
+                "Workspace snippet metadata count limit"
+            );
+            bytes = bytes
+                .checked_add(
+                    marker.parents.len() * std::mem::size_of::<usize>()
+                        + marker.choices.len() * std::mem::size_of::<String>(),
+                )
+                .context("Workspace snippet payload overflow")?;
+            for choice in &marker.choices {
+                bytes = bytes
+                    .checked_add(choice.len())
+                    .context("Workspace choice overflow")?;
+            }
+            if let Some(transform) = &marker.transform {
+                for field in [&transform.pattern, &transform.format, &transform.flags] {
+                    bytes = bytes
+                        .checked_add(field.len())
+                        .context("Workspace transform overflow")?;
+                }
+            }
+            anyhow::ensure!(
+                bytes <= 8 * 1024 * 1024,
+                "Workspace snippet metadata exceeds budget"
+            );
+        }
+        Ok(bytes)
+    }
     pub(super) fn retain_removed_from(&mut self, current: &Self) {
         for (previous, current) in self.markers.iter_mut().zip(&current.markers) {
             if current.is_none() {

@@ -9,6 +9,7 @@ const { createProviders } = require('./providers.cjs');
 const { createPrompts } = require('./prompts.cjs');
 const { createSurfaces } = require('./surfaces.cjs');
 const { createConfiguration } = require('./configuration.cjs');
+const { createWorkspaceEdits } = require('./workspace-edits.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
@@ -27,6 +28,8 @@ function supported(name, values) {
 
 function createApi(sendRequest, notify, sessionOptions = {}) {
   const documents = new Map(), editors = new Map(), commands = new Map();
+  const workspaceEditMirrors = new Map();
+  let workspaceEditConfigurationIdentity = {};
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter(), saved = new EventEmitter();
   const configuration = createConfiguration();
@@ -37,6 +40,15 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const documentServices = createDocumentServices(request, sessionOptions, {
     generation: () => generation, root: () => workspaceRoot, callerOwner: callers.currentOwner,
     document: id => documents.get(id), editor: id => active?.document._snapshot.id === id ? active : undefined,
+  });
+  // Runtime-private mirror authority is captured before user value getters.
+  const workspaceEdits = createWorkspaceEdits(documentServices.call, {
+    notice: (owner, text) => messageFor(owner, text),
+  }, {
+    snapshots: () => workspaceEditMirrors.values(), snapshot: id => workspaceEditMirrors.get(id),
+    captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
+    refactoringPolicy: () => ({ identity: workspaceEditConfigurationIdentity,
+      autoSave: configuration.get('files.refactoring').get('autoSave', true) }),
   });
   const reserved = new Set(sessionOptions.reservedCommands || []);
   let registrationCount = 0, commandCalls = 0;
@@ -150,12 +162,13 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         }
         if (Number.isSafeInteger(snapshot.savedGeneration) && snapshot.savedGeneration > previousSaved) changes.push(() => saved.fire(document));
       }
+      workspaceEditMirrors.set(snapshot.id, Object.freeze({ document: snapshot.id, version: snapshot.version, uri: snapshot.uri, model: document }));
       if (!editors.has(snapshot.id)) editors.set(snapshot.id, editorFor(snapshot.id, document));
     }
     for (const [id, document] of documents) {
       if (!present.has(id)) {
         document._snapshot = { ...document._snapshot, isClosed: true };
-        documents.delete(id); editors.delete(id);
+        documents.delete(id); editors.delete(id); workspaceEditMirrors.delete(id);
         changes.push(() => closed.fire(document));
       }
     }
@@ -252,7 +265,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, updateConfiguration: configuration.update, commandSnapshot, assertOwner,
+    api, sync, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; }, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.
     runWithOwner: callers.run, currentCallerOwner: callers.currentOwner,
@@ -296,6 +309,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         workspace: workspace({
           ...fileSystem.forOwner(owner),
           openTextDocument: services.openTextDocument,
+          // Root enables this only after the native grouped transaction gateway qualifies.
+          ...(sessionOptions.workspaceEdits ? workspaceEdits.forOwner(owner) : {}),
           get textDocuments() { return [...documents.values()]; },
           onDidChangeTextDocument: event(owner, changed.event),
           onDidOpenTextDocument: event(owner, opened.event),
@@ -325,6 +340,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         workspace: { name, folders: [{ uri, name }] } }, { emit: false });
       workspaceRoot = root;
       configuration.initialize(schema, layers);
+      workspaceEditConfigurationIdentity = {};
     },
   };
 }

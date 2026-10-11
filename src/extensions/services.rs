@@ -31,6 +31,7 @@ pub(crate) struct Request {
 pub(crate) enum Operation {
     Open(Open),
     Save(Save),
+    WorkspaceApply(Arc<crate::app::workspace_transactions::Capture>),
     Show(Show),
     Command(Command),
     State(StatePatch),
@@ -72,6 +73,7 @@ pub(crate) struct NativeService {
     pub request: Request,
     pub operation: Operation,
     pub started: Instant,
+    payload_bytes: usize,
     save_origin: Option<Mirror>,
     save_path_wait: Option<Instant>,
     pub(crate) caller_retired: Arc<std::sync::atomic::AtomicBool>,
@@ -80,6 +82,8 @@ impl NativeService {
     pub fn fresh(&self) -> Result<()> {
         let lifetime = if matches!(self.operation, Operation::Save(_)) {
             SAVE_SERVICE_LIFETIME
+        } else if matches!(self.operation, Operation::WorkspaceApply(_)) {
+            Duration::from_secs(5)
         } else {
             SERVICE_LIFETIME
         };
@@ -89,18 +93,59 @@ impl NativeService {
         Ok(())
     }
 }
+pub(super) fn bounded_error(error: &anyhow::Error) -> String {
+    let mut text = format!("{error:#}");
+    let mut end = text.len().min(4096);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text.truncate(end);
+    text
+}
 fn save_wait_origin_matches(pending: &Pending, request: &Request) -> bool {
     pending.method == "initialize"
         || pending.method == "activate" && pending.owner.is_none()
         || pending.owner.as_deref() == request.command_owner.as_deref()
 }
 impl Client {
+    pub(crate) fn set_workspace_edit_context(
+        &mut self,
+        context: Option<crate::app::workspace_transactions::CaptureContext>,
+    ) {
+        self.workspace_edit_context = context;
+    }
+    #[cfg(test)]
     pub(crate) fn queue_service(&mut self, method: &str, id: Value, params: Value) -> Result<()> {
+        self.queue_service_with_models(method, id, params, &[], &[])
+    }
+    pub(crate) fn queue_service_with_models(
+        &mut self,
+        method: &str,
+        id: Value,
+        params: Value,
+        documents: &[Document],
+        hidden: &[Document],
+    ) -> Result<()> {
+        let started = Instant::now();
         if self.services.len() >= 8 {
             bail!("Native extension service queue limit reached");
         }
-        if serde_json::to_vec(&params)?.len() > 72 * 1024 {
-            bail!("Native extension service exceeds 72 KiB");
+        let payload_bytes = serde_json::to_vec(&params)?.len();
+        let limit = if method == "nativeWorkspaceApplyEdit" {
+            2 * 1024 * 1024
+        } else {
+            72 * 1024
+        };
+        if payload_bytes > limit
+            || self
+                .services
+                .iter()
+                .map(|service| service.payload_bytes)
+                .sum::<usize>()
+                .saturating_add(payload_bytes)
+                > 8 * 1024 * 1024
+        {
+            bail!("Native extension service exceeds method or queue byte budget");
         }
         let id = id
             .as_str()
@@ -110,14 +155,70 @@ impl Client {
         if self.services.iter().any(|request| request.id == id) {
             bail!("Duplicate native service ID");
         }
-        let request: Request = serde_json::from_value(params)?;
+        let mut request: Request = serde_json::from_value(params)?;
         self.validate_native_origin(
             request.session,
             &request.owner,
             request.command,
             request.command_owner.as_deref(),
         )?;
+        let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         let operation = match method {
+            "nativeWorkspaceApplyEdit" => {
+                use crate::app::workspace_transactions::{Origin, capture_workspace_transaction};
+                let context = self
+                    .workspace_edit_context
+                    .clone()
+                    .context("Workspace edit context is unavailable")?;
+                let entries = request.args["entries"]
+                    .as_array()
+                    .filter(|entries| entries.len() <= 128)
+                    .context("Workspace target budget exceeded")?;
+                let mut targets = Vec::with_capacity(entries.len());
+                for entry in entries {
+                    let document = entry["document"]
+                        .as_u64()
+                        .context("Invalid workspace target")?;
+                    let mirror = self
+                        .mirror
+                        .mirrors
+                        .get(&document)
+                        .context("Workspace target is not mirrored")?;
+                    let doc = documents
+                        .iter()
+                        .chain(hidden)
+                        .find(|doc| doc.id == document)
+                        .context("Workspace target is not retained")?;
+                    if mirror.revision != doc.revision
+                        || mirror.text_epoch != doc.text_epoch()
+                        || mirror.eol != doc.eol
+                    {
+                        bail!("Workspace target changed before native receipt");
+                    }
+                    targets.push(super::providers::MirrorSnapshot {
+                        document,
+                        uri: mirror.uri.clone(),
+                        path: doc.path.clone(),
+                        revision: mirror.revision,
+                        text_epoch: mirror.text_epoch,
+                        version: mirror.version,
+                    });
+                }
+                let origin =
+                    Origin::new(request.session, &id, &request.owner, caller_retired.clone())?;
+                let capture = capture_workspace_transaction(
+                    documents,
+                    hidden,
+                    &targets,
+                    origin,
+                    &request.args,
+                    context,
+                    started,
+                )?;
+                // The immutable native capture owns the admitted text and proofs.
+                request.args = Value::Null;
+                Operation::WorkspaceApply(capture)
+            }
             "nativeDocumentOpen" => {
                 let open: Open = serde_json::from_value(request.args.clone())?;
                 if open.path.len() > 16 * 1024 || open.path.is_empty() {
@@ -146,8 +247,10 @@ impl Client {
             "nativeStateWrite" => Operation::State(serde_json::from_value(request.args.clone())?),
             _ => bail!("Unknown native service"),
         };
-        if !matches!(operation, Operation::State(_) | Operation::Save(_))
-            && request.generation != Some(self.mirror.generation)
+        if !matches!(
+            operation,
+            Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+        ) && request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service request; retry");
         }
@@ -164,12 +267,12 @@ impl Client {
         } else {
             None
         };
-        let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         self.services.push_back(NativeService {
             id,
             request,
             operation,
-            started: Instant::now(),
+            started,
+            payload_bytes,
             save_origin,
             save_path_wait: None,
             caller_retired,
@@ -250,8 +353,10 @@ impl Client {
         {
             bail!("Original native caller lifetime has retired");
         }
-        if !matches!(service.operation, Operation::State(_) | Operation::Save(_))
-            && service.request.generation != Some(self.mirror.generation)
+        if !matches!(
+            service.operation,
+            Operation::State(_) | Operation::Save(_) | Operation::WorkspaceApply(_)
+        ) && service.request.generation != Some(self.mirror.generation)
         {
             bail!("Native document state changed before service completion; retry");
         }
@@ -264,7 +369,10 @@ impl Client {
         }
         if matches!(service.operation, Operation::Save(_)) {
             self.validate_native_origin(service.request.session, &service.request.owner, None, None)
-        } else if matches!(service.operation, Operation::State(_)) {
+        } else if matches!(
+            service.operation,
+            Operation::State(_) | Operation::WorkspaceApply(_)
+        ) {
             // Receipt already authorized the exact origin. An accepted durable
             // patch may outlive that command; never bind it to a later command.
             self.validate_selected_owner(service.request.session, &service.request.owner)
@@ -295,7 +403,7 @@ impl Client {
         }
         let message = match result {
             Ok(result) => json!({"id":id,"result":result}),
-            Err(error) => json!({"id":id,"error":{"message":format!("{error:#}")}}),
+            Err(error) => json!({"id":id,"error":{"message":bounded_error(&error)}}),
         };
         self.process.send(message)?;
         self.services.pop_front();
