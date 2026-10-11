@@ -334,6 +334,10 @@ impl Client {
                 include_str!("../extension-host/provider-types.cjs"),
             ),
             (
+                "snippet-string.cjs",
+                include_str!("../extension-host/snippet-string.cjs"),
+            ),
+            (
                 "providers.cjs",
                 include_str!("../extension-host/providers.cjs"),
             ),

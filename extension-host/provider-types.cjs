@@ -11,15 +11,7 @@ class MarkdownString {
   appendMarkdown(value) { this.value += value; return this; }
   appendCodeblock(value, language = '') { this.value += `\n\n\`\`\`${language}\n${value}\n\`\`\`\n`; return this; }
 }
-class SnippetString {
-  constructor(value = '') { this.value = value; this._tabstop = 1; }
-  appendText(value) { this.value += String(value).replace(/[\\$}]/g, '\\$&'); return this; }
-  appendTabstop(number = this._tabstop++) { this.value += `$${number}`; return this; }
-  appendPlaceholder(value, number = this._tabstop++) {
-    if (typeof value !== 'string') throw new Error('VSCLI does not implement callback snippet placeholders');
-    this.value += `\${${number}:${value.replace(/[\\$}]/g, '\\$&')}}`; return this;
-  }
-}
+const { SnippetString } = require('./snippet-string.cjs');
 class CompletionItem { constructor(label, kind) { this.label = label; if (kind !== undefined) this.kind = kind; } }
 class CompletionList { constructor(items = [], isIncomplete = false) { this.items = items; this.isIncomplete = isIncomplete; } }
 class Hover { constructor(contents, range) { this.contents = Array.isArray(contents) ? contents : [contents]; if (range !== undefined) this.range = range; } }

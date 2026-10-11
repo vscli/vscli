@@ -185,3 +185,20 @@ The syntax and initial semantics were checked against the [official guide](https
 and the MIT-licensed [pinned parser](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/editor/contrib/snippet/browser/snippetParser.ts).
 Reference observations come from the actual editor, not a reimplementation of
 its parser.
+
+## Extension API snippet builders
+
+The optional host exports `SnippetString` with all public builder methods:
+`appendText`, `appendTabstop`, `appendPlaceholder`, `appendChoice`, and
+`appendVariable`. Placeholder and variable callbacks share automatic tabstop
+numbering with their nested builders. Choice escaping, variable-default escaping,
+fluent return identity and callback failure behavior have local host tests.
+Completion conversion retains the resulting snippet string without flattening it.
+The comparison source is the
+[pinned VS Code 1.141.0 implementation](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/snippetString.ts).
+
+This qualifies building and transferring snippet source. It does not qualify
+native nested-placeholder navigation, interactive choice selection, arbitrary
+variable expansion, `TextEditor.insertSnippet`, legacy constructor inheritance,
+or complete snippet-extension workflows. These remain on the extension API
+backlog. No local VS Code process was launched for this comparison.
