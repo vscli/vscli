@@ -6,6 +6,7 @@ pub mod debug;
 pub mod display_rows;
 pub mod display_window;
 pub mod document;
+pub mod documentation;
 pub mod editing_profile;
 pub mod editor_groups;
 pub mod editor_layout;

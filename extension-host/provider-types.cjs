@@ -7,12 +7,7 @@ function enumeration(names) { return Object.freeze(Object.fromEntries(names.map(
 const CompletionItemKind = enumeration(['Text','Method','Function','Constructor','Field','Variable','Class','Interface','Module','Property','Unit','Value','Enum','Keyword','Snippet','Color','File','Reference','Folder','EnumMember','Constant','Struct','Event','Operator','TypeParameter']);
 const SymbolKind = enumeration(['File','Module','Namespace','Package','Class','Method','Property','Field','Constructor','Enum','Interface','Function','Variable','Constant','String','Number','Boolean','Array','Object','Key','Null','EnumMember','Struct','Event','Operator','TypeParameter']);
 const SymbolTag = Object.freeze({ Deprecated: 1 });
-class MarkdownString {
-  constructor(value = '', supportThemeIcons = false) { this.value = value; this.supportThemeIcons = supportThemeIcons; this.isTrusted = false; this.supportHtml = false; }
-  appendText(value) { this.value += String(value).replace(/[\\`*_{}\[\]()<>#+.!-]/g, '\\$&'); return this; }
-  appendMarkdown(value) { this.value += value; return this; }
-  appendCodeblock(value, language = '') { this.value += `\n\n\`\`\`${language}\n${value}\n\`\`\`\n`; return this; }
-}
+const { MarkdownString } = require('./markdown-string.cjs');
 const { SnippetString } = require('./snippet-string.cjs');
 class CompletionItem { constructor(label, kind) { this.label = label; if (kind !== undefined) this.kind = kind; } }
 class CompletionList { constructor(items = [], isIncomplete = false) { this.items = items; this.isIncomplete = isIncomplete; } }
@@ -70,6 +65,6 @@ const SignatureHelpTriggerKind = Object.freeze({ Invoke: 1, TriggerCharacter: 2,
 
 const { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit } = require('./code-action-types.cjs');
 // Preserve only the classes decorated by pinned upstream.
-for (const value of [MarkdownString, CompletionItem, CompletionList, Hover, Location, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp]) es5ClassCompat(value);
+for (const value of [CompletionItem, CompletionList, Hover, Location, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp]) es5ClassCompat(value);
 
 module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, SymbolTag, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, SnippetTextEdit, NotebookEdit, NotebookRange, NotebookCellData, NotebookData, NotebookCellKind, EndOfLine, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };

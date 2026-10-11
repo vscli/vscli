@@ -474,6 +474,11 @@ pub enum Modal {
         text: String,
         scroll: usize,
     },
+    Documentation {
+        title: String,
+        model: crate::documentation::Document,
+        scroll: usize,
+    },
     Git,
     Debug {
         section: usize,
@@ -2356,6 +2361,27 @@ impl App {
                 self.modal = Some(Modal::Text {
                     title,
                     text,
+                    scroll,
+                });
+            }
+            Modal::Documentation {
+                title,
+                model,
+                mut scroll,
+            } => {
+                match key.code {
+                    KeyCode::Up => scroll = scroll.saturating_sub(1),
+                    KeyCode::Down => scroll = scroll.saturating_add(1),
+                    KeyCode::PageUp => scroll = scroll.saturating_sub(15),
+                    KeyCode::PageDown => scroll = scroll.saturating_add(15),
+                    KeyCode::Home => scroll = 0,
+                    KeyCode::End => scroll = model.display.lines().count().saturating_sub(1),
+                    _ => {}
+                }
+                scroll = scroll.min(model.display.lines().count().saturating_sub(1));
+                self.modal = Some(Modal::Documentation {
+                    title,
+                    model,
                     scroll,
                 });
             }

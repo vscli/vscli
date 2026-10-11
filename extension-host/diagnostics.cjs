@@ -3,7 +3,7 @@ const { Uri, Disposable, EventEmitter } = require('./api-types.cjs');
 const coordinates = require('./coordinates.cjs');
 const MAX_BYTES = 2 * 1024 * 1024, MAX_DIAGNOSTICS = 5000, MAX_RESOURCES = 128, MAX_COLLECTIONS = 64;
 function text(value, limit = 4096) {
-  if (typeof value !== 'string' || Buffer.byteLength(value) > limit) throw new TypeError('Diagnostic text exceeds its budget or has invalid type');
+  if (typeof value !== 'string' || value.length > limit || Buffer.byteLength(value) > limit) throw new TypeError('Diagnostic text exceeds its budget or has invalid type');
   return value;
 }
 function uriKey(uri) {

@@ -380,6 +380,10 @@ impl Client {
                 include_str!("../extension-host/provider-types.cjs"),
             ),
             (
+                "markdown-string.cjs",
+                include_str!("../extension-host/markdown-string.cjs"),
+            ),
+            (
                 "snippet-string.cjs",
                 include_str!("../extension-host/snippet-string.cjs"),
             ),

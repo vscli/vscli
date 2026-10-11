@@ -18,7 +18,7 @@ const METHODS = Object.freeze({
   signature: ['registerSignatureHelpProvider', 'provideSignatureHelp'],
 });
 function text(value, max = 4096) {
-  if (typeof value !== 'string' || Buffer.byteLength(value) > max) throw new Error('Provider string exceeds its budget or has invalid type');
+  if (typeof value !== 'string' || value.length > max || Buffer.byteLength(value) > max) throw new Error('Provider string exceeds its budget or has invalid type');
   return value;
 }
 function selector(value) {

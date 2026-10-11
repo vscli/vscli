@@ -267,10 +267,10 @@ impl App {
                 if self.doc().cursor != request.cursor {
                     return Ok(());
                 }
-                self.modal = Some(Modal::Text {
+                self.modal = Some(Modal::Documentation {
                     title: " Hover · Esc closes ".into(),
                     scroll: 0,
-                    text: content_text(&response["contents"]),
+                    model: crate::documentation::Document::hover(&response["contents"])?,
                 });
             }
             "textDocument/definition" | "textDocument/references" => {
@@ -597,19 +597,6 @@ impl App {
             items,
             selected: 0,
         });
-    }
-}
-pub(super) fn content_text(value: &Value) -> String {
-    if let Some(text) = value.as_str() {
-        text.to_owned()
-    } else if let Some(items) = value.as_array() {
-        items
-            .iter()
-            .map(content_text)
-            .collect::<Vec<_>>()
-            .join("\n\n")
-    } else {
-        value["value"].as_str().unwrap_or("").to_owned()
     }
 }
 

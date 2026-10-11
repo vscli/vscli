@@ -1278,6 +1278,28 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
             frame.render_widget(Paragraph::new(lines), inner);
             return;
         }
+        Modal::Documentation {
+            title,
+            model,
+            scroll,
+        } => {
+            let inner = popup(
+                frame,
+                colors,
+                title,
+                110,
+                frame.area().height.saturating_sub(2),
+            );
+            let lines: Vec<_> = model
+                .display
+                .lines()
+                .skip(*scroll)
+                .take(inner.height as usize)
+                .map(|line| Line::styled(clean(line), Style::default().fg(colors.foreground)))
+                .collect();
+            frame.render_widget(Paragraph::new(lines), inner);
+            return;
+        }
         Modal::Debug { section, selected } => {
             let title = ["Stack", "Scopes", "Variables", "Console"][*section];
             let inner = popup(
@@ -1757,8 +1779,8 @@ fn draw_suggestions(frame: &mut Frame, app: &App) {
             ));
         }
         // The retained source is bounded, and rendering visits only this small
-        // preview. Markdown remains inert text; terminal escapes are sanitized.
-        let preview: String = item.documentation.chars().take(8192).collect();
+        // preview. Markdown was projected once during publication; links remain inert.
+        let preview: String = item.display_documentation.chars().take(8192).collect();
         lines.extend(preview.lines().take(64).map(|line| Line::raw(clean(line))));
         frame.render_widget(Clear, area);
         frame.render_widget(
@@ -1851,7 +1873,7 @@ fn draw_signature(frame: &mut Frame, app: &App) {
     }
     let mut lines = vec![Line::from(label)];
     lines.extend(
-        clean_multiline(&hint.documentation)
+        clean_multiline(&hint.display_documentation)
             .lines()
             .take(4)
             .map(|line| Line::raw(line.to_owned())),

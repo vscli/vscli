@@ -15,7 +15,7 @@ function array(value, maximum) {
   return result;
 }
 function string(value, maximum = 8192) {
-  if (typeof value !== 'string' || Buffer.byteLength(value) > maximum) throw new Error('Signature string exceeds its budget or has invalid type');
+  if (typeof value !== 'string' || value.length > maximum || Buffer.byteLength(value) > maximum) throw new Error('Signature string exceeds its budget or has invalid type');
   return value;
 }
 function index(value) {

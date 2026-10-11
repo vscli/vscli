@@ -458,9 +458,9 @@ impl App {
         }
         match ticket.provider.kind {
             Kind::Hover => {
-                self.modal = Some(Modal::Text {
+                self.modal = Some(Modal::Documentation {
                     title: " Extension Hover · Esc closes ".into(),
-                    text: language::content_text(&value["contents"]),
+                    model: crate::documentation::Document::hover(&value["contents"])?,
                     scroll: 0,
                 })
             }
@@ -1273,7 +1273,7 @@ exports.activate=context=>{{register(context);context.subscriptions.push(vscode.
         app.doc_mut().undo();
         request(&mut app, Kind::Hover);
         assert!(
-            matches!(&app.modal,Some(Modal::Text { text, .. }) if text.contains("Native provider hover"))
+            matches!(&app.modal,Some(Modal::Documentation { model, .. }) if model.display.contains("Native provider hover"))
         );
         app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
         request(&mut app, Kind::Signature);

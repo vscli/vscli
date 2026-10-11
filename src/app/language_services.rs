@@ -105,7 +105,7 @@ impl App {
         self.cancel_symbols();
         self.diagnostics.clear();
         if matches!(self.modal, Some(Modal::Language { .. }))
-            || matches!(&self.modal, Some(Modal::Text { title, .. }) if title.trim().starts_with("Hover ·"))
+            || matches!(&self.modal, Some(Modal::Documentation { title, .. }) if title.trim().starts_with("Hover ·"))
         {
             self.modal = None;
         }
@@ -330,5 +330,33 @@ impl App {
                     .or_else(|| self.language_services.retiring.take()),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod documentation_tests {
+    use super::*;
+    #[test]
+    fn native_hover_projection_retires_with_native_source_and_extension_hover_stays_separate() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = App::new(dir.path().into(), crate::keys::Profile::Linux);
+        let model = crate::documentation::Document::hover(
+            &serde_json::json!({"kind":"markdown","value":"safe&nbsp;text"}),
+        )
+        .unwrap();
+        app.modal = Some(Modal::Documentation {
+            title: " Hover · Esc closes ".into(),
+            model: model.clone(),
+            scroll: 0,
+        });
+        app.clear_language_service_ui();
+        assert!(app.modal.is_none());
+        app.modal = Some(Modal::Documentation {
+            title: " Extension Hover · Esc closes ".into(),
+            model,
+            scroll: 0,
+        });
+        app.clear_language_service_ui();
+        assert!(matches!(app.modal, Some(Modal::Documentation { .. })));
     }
 }

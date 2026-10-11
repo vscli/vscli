@@ -50,7 +50,9 @@ fn native_lsp_lifecycle_completion_formatting_and_stale_response() {
     assert_eq!(app.current_diagnostics()[0].message, "Fixture diagnostic");
     app.doc_mut().move_to(3, false);
     app.execute("editor.action.showHover", Value::Null);
-    until(&mut app, |a| matches!(a.modal, Some(Modal::Text { .. })));
+    until(&mut app, |a| {
+        matches!(a.modal, Some(Modal::Documentation { .. }))
+    });
     app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
     app.execute("editor.action.triggerSuggest", Value::Null);
     until(&mut app, |a| a.suggestion_model().is_some());
@@ -114,7 +116,9 @@ fn real_clangd_diagnostics_hover_and_formatting() {
     );
     app.doc_mut().move_to(5, false);
     app.execute("editor.action.showHover", Value::Null);
-    until(&mut app, |a| matches!(a.modal, Some(Modal::Text { .. })));
+    until(&mut app, |a| {
+        matches!(a.modal, Some(Modal::Documentation { .. }))
+    });
     app.event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
     app.execute("editor.action.formatDocument", Value::Null);
     until(&mut app, |a| a.message.starts_with("Applied "));
