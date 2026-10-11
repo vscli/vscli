@@ -43,7 +43,10 @@ tests; after the final value corrections, five native extension-code-action
 integration tests pass. Fixture-gated ignored corpus cases are not new evidence.
 Actual terminal checks pass for both unchanged official code-actions sample
 scenarios, seven provider workflows and the queued native-only code-action
-workflow, with Unicode/CRLF save and Undo. Build, formatting and strict Clippy
+workflow, with Unicode/CRLF save and Undo. A focused real terminal regression
+proves mixed text/EOL rejection leaves the native dirty buffer, original disk
+bytes and pre-existing Undo history intact; a subsequent supported action saves
+and undoes correctly. Build, formatting and strict Clippy
 pass. These checks qualify the documented subset only.
 
 Native workspace.applyEdit, file/notebook/snippet transactions,
