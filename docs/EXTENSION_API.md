@@ -32,7 +32,9 @@ working workflows. Recent delivered behavior includes retained-document
 [filesystem watchers](https://github.com/vscli/vscli/commit/86fe0a8). Their evidence
 and outstanding backends appear below. [Virtual text documents](VIRTUAL_DOCUMENTS_API.md)
 now pass public host/App and terminal workflows, including readonly protection
-and preserved dirty-file Undo/Redo. New workflow delivery
+and preserved dirty-file Undo/Redo. [API-created untitled documents](UNTITLED_DOCUMENTS_API.md)
+now also pass content/language/noarg opens, associated destinations, Save As with
+public close/open/save transitions and metadata recovery. New workflow delivery
 can advance without changing constructor/export figures or implying an overall
 compatibility percentage.
 
@@ -58,6 +60,7 @@ compatibility percentage.
 | File discovery | Public `workspace.findFiles` and shared `RelativePattern`; native local traversal with default/null/additive exclusions, limits and retained cancellation | Nine native worker tests, exact cancellation-origin regression, 26 new host cases and two actual selected-host workflows pass. All 454 host tests and 1,172 Rust all-target tests pass (876 library; 23 ignored). Public search/cancel/dirty-buffer/Undo/Redo PTY, build/formatting/strict Clippy pass. Multi-root/custom search providers, nested glob braces, global Git ignores and upstream/platform parity remain outstanding; see [file discovery](NATIVE_FILE_SEARCH.md). |
 | Filesystem watchers | Public create/change/delete events, ignore flags, string/RelativePattern scopes, custom provider watch routing, shared local OS workers and original caller cleanup | All 482 host tests pass, including seven real OS backend tests, 12 glob cases, eight facade/provider/shared-session cases and retired cleanup. Actual selected-host and keyboard PTY workflows preserve dirty buffers, native Undo and disk bytes. All 1,173 Rust all-target tests (876 library; 23 ignored), build/formatting and strict Clippy pass. OS coalescing, upstream/platform fidelity and remote/multi-root backends remain outstanding; see [watchers](FILE_WATCHERS_API.md). |
 | Virtual text documents | Custom-scheme content-provider registration/open/show/change route; shared native URI identity, clean LF-normalized refresh and read-only edit/save protection | All 503 host tests and 1,185 Rust all-target tests pass (886 library; 23 ignored). Two actual selected-host workflows, the public keyboard PTY, build/formatting and strict Clippy pass; see [virtual documents](VIRTUAL_DOCUMENTS_API.md) for limits and outstanding backends. |
+| API-created untitled documents | Content/language/noarg and explicit untitled URI opens; retained resource cache, fresh naming, initial Undo baseline, associated create-only saves, public close/open/save transitions and recovery | All 524 host tests and 1,197 Rust all-target tests pass (894 library; 23 ignored), including four actual selected-host/App workflows. Three new untitled PTY journeys, four existing public-save PTYs and the virtual-document PTY pass; build/formatting/strict Clippy pass. Encoding, writable custom resources, full label formatting and upstream/platform fidelity remain outstanding; see [untitled documents](UNTITLED_DOCUMENTS_API.md). |
 | Other API surfaces | Existing partial document/editor, configuration, state, command, diagnostic, provider and native UI adapters | Existing focused documents describe their implemented subsets. Full API compatibility and arbitrary real-extension compatibility remain incomplete. |
 
 Cancellation follows the pinned source lifecycle: an already-canceled parent

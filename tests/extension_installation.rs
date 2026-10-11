@@ -203,7 +203,13 @@ exports.activate = context => {
   for (const [id, fn] of Object.entries({
     inventory: () => vscode.window.showInformationMessage(JSON.stringify({documents:vscode.workspace.textDocuments.length,active:vscode.window.activeTextEditor?.document.getText() ?? null})),
     capture: () => { captured = vscode.window.activeTextEditor; vscode.window.showInformationMessage('captured'); },
-    stale: async () => vscode.window.showInformationMessage('closed edit=' + await captured.edit(edit => edit.insert(new vscode.Position(0,0), 'lost')))
+    stale: async () => {
+      let called=false,rejected=false;
+      try { await captured.edit(edit => { called=true;edit.insert(new vscode.Position(0,0),'lost'); }); }
+      catch(error) { require('node:assert/strict').match(error.message,/no longer open/);rejected=true; }
+      require('node:assert/strict').equal(called,false);require('node:assert/strict').equal(rejected,true);
+      return vscode.window.showInformationMessage('closed edit rejected before callback');
+    }
   })) context.subscriptions.push(vscode.commands.registerCommand('fixture.' + id, fn));
 };"#).unwrap();
     zip.finish().unwrap();
@@ -258,7 +264,9 @@ exports.activate = context => {
         a.message.contains("\"documents\":0,\"active\":null")
     });
     app.execute("fixture.stale", serde_json::Value::Null);
-    until(&mut app, |a| a.message == "closed edit=false");
+    until(&mut app, |a| {
+        a.message == "closed edit rejected before callback"
+    });
     assert!(app.documents.is_empty());
     assert_eq!(fs::read_to_string(&path).unwrap(), "original");
 }

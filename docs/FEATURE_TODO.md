@@ -44,10 +44,16 @@ Current delivered integration: [virtual text content providers](VIRTUAL_DOCUMENT
 connect custom URI registration, open/show and change callbacks to retained
 read-only native models. Public host/App and keyboard terminal workflows pass,
 with readonly save/edit refusal and original dirty-file Undo/Redo preserved. Next
-document backends include untitled content options, writable custom filesystem
-documents and scheme activation. Current workflow progress is tracked in
+document backends include writable custom filesystem documents, encoding options
+and scheme activation. Current workflow progress is tracked in
 [the extension API workstream](EXTENSION_API.md#live-workflow-progress), separately
 from the frozen declaration/export audit.
+
+Current document integration also adds [API-created untitled resources](UNTITLED_DOCUMENTS_API.md):
+initial content/language, associated destinations, native Save As and recoverable
+identity. Initial Undo, fresh resource naming, public close/open/save ordering,
+associated create-only saves and recovery pass local host/native tests and actual
+terminal workflows. Encoding and full untitled presentation fidelity remain later work.
 
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;

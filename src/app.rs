@@ -2186,6 +2186,7 @@ impl App {
             .doc()
             .path
             .clone()
+            .or_else(|| self.doc().associated_path().map(Path::to_owned))
             .unwrap_or_else(|| self.workspace.root.join("untitled.txt"));
         self.start_prompt(PromptKind::SaveAs, path.to_string_lossy().into_owned());
     }
@@ -3159,6 +3160,12 @@ fn clipboard_command(name: &str, args: &[&str], input: Option<&str>) -> Option<S
 
 fn same_document_resource(left: &Document, right: &Document) -> bool {
     left.id == right.id
+        || left
+            .untitled_uri()
+            .is_some_and(|uri| right.untitled_uri() == Some(uri))
+        || left
+            .untitled_uri()
+            .is_some_and(|uri| right.untitled_uri() == Some(uri))
         || left
             .virtual_uri()
             .is_some_and(|uri| right.virtual_uri() == Some(uri))

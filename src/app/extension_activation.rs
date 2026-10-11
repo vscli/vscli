@@ -790,9 +790,12 @@ impl App {
             .iter()
             .chain(&self.hidden_documents)
             .map(|doc| {
-                doc.path
-                    .as_deref()
-                    .map_or("plaintext", crate::lsp::language)
+                doc.language_override()
+                    .unwrap_or_else(|| {
+                        doc.path
+                            .as_deref()
+                            .map_or("plaintext", crate::lsp::language)
+                    })
                     .to_owned()
             })
             .collect();

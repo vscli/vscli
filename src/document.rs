@@ -331,6 +331,9 @@ pub struct Document {
     other_views: std::collections::HashMap<u64, ViewState>,
     pub path: Option<PathBuf>,
     virtual_uri: Option<String>,
+    untitled_uri: Option<String>,
+    associated_path: Option<PathBuf>,
+    api_created_untitled: bool,
     language_override: Option<String>,
     pub revision: u64,
     pub saved_revision: u64,
@@ -512,6 +515,9 @@ impl Document {
             other_views: std::collections::HashMap::new(),
             path: None,
             virtual_uri: None,
+            untitled_uri: None,
+            associated_path: None,
+            api_created_untitled: false,
             language_override: None,
             revision: 0,
             saved_revision: 0,
@@ -532,6 +538,96 @@ impl Document {
             typing_context: typing::ContextCache::default(),
             language_configuration: None,
         }
+    }
+
+    /// API-created unsaved content, without a synthetic insertion/Undo entry.
+    pub fn from_untitled(
+        uri: Option<String>,
+        content: &str,
+        language: Option<String>,
+        associated_path: Option<PathBuf>,
+    ) -> Result<Self> {
+        if let Some(uri) = &uri
+            && (uri.len() > 4096
+                || uri.contains('\0')
+                || !uri
+                    .split_once(':')
+                    .is_some_and(|(scheme, _)| scheme == "untitled"))
+        {
+            bail!("Untitled resource requires a bounded untitled URI");
+        }
+        if let Some(path) = &associated_path {
+            validate_snapshot_path(path, false)?;
+        }
+        if language
+            .as_ref()
+            .is_some_and(|value| value.is_empty() || value.len() > 128 || value.contains('\0'))
+        {
+            bail!("Document language identifier exceeds bounds");
+        }
+        if content.len() as u64 > MAX_FILE_BYTES || content.contains('\0') {
+            bail!("Untitled content exceeds 32 MiB or contains NUL");
+        }
+        // PieceTreeTextBufferBuilder chooses CRLF only when CR/CRLF account
+        // for more than half the line breaks; a tie chooses LF.
+        let mut total = 0usize;
+        let mut cr = 0usize;
+        let mut chars = content.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\r' {
+                total += 1;
+                cr += 1;
+                if chars.peek() == Some(&'\n') {
+                    chars.next();
+                }
+            } else if ch == '\n' {
+                total += 1;
+            }
+        }
+        let eol = if total == 0 {
+            DEFAULT_EOL
+        } else if cr > total / 2 {
+            "\r\n"
+        } else {
+            "\n"
+        };
+        let mut builder = ropey::RopeBuilder::new();
+        let mut start = 0;
+        let mut breaks = content.char_indices().peekable();
+        while let Some((at, ch)) = breaks.next() {
+            if ch == '\r' || ch == '\n' {
+                builder.append(&content[start..at]);
+                builder.append(eol);
+                start = at + 1;
+                if ch == '\r' && breaks.peek().is_some_and(|(_, next)| *next == '\n') {
+                    let (at, _) = breaks.next().expect("peeked LF");
+                    start = at + 1;
+                }
+            }
+        }
+        builder.append(&content[start..]);
+        let text = builder.finish();
+        if text.len_bytes() as u64 > MAX_FILE_BYTES {
+            bail!("Normalized untitled content exceeds 32 MiB");
+        }
+        let mut doc = Self::from_rope(text);
+        doc.untitled_uri = Some(uri.unwrap_or_else(|| format!("untitled:Untitled-{}", doc.id)));
+        doc.associated_path = associated_path;
+        doc.api_created_untitled = true;
+        doc.revision = 1;
+        doc.next_revision = 2;
+        doc.language_override = language;
+        doc.eol = eol.into();
+        Ok(doc)
+    }
+    pub fn untitled_uri(&self) -> Option<&str> {
+        self.untitled_uri.as_deref()
+    }
+    pub fn associated_path(&self) -> Option<&Path> {
+        self.associated_path.as_deref()
+    }
+    pub(crate) fn api_created_untitled(&self) -> bool {
+        self.api_created_untitled
     }
 
     /// A provider-owned resource. Content uses the provider API's LF line model.
@@ -728,6 +824,7 @@ impl Document {
     pub fn name(&self) -> String {
         self.path
             .as_ref()
+            .or(self.associated_path.as_ref())
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| {
@@ -737,12 +834,20 @@ impl Document {
             })
     }
     pub fn dirty(&self) -> bool {
-        self.revision != self.saved_revision
+        if self.api_created_untitled {
+            self.text_epoch == 0 || !self.is_empty() || self.associated_path.is_some()
+        } else {
+            self.revision != self.saved_revision
+        }
     }
     /// Public document state differs from a clean Untitled tab after Undo:
     /// once edited, its content has still never been persisted to a resource.
     pub fn api_dirty(&self) -> bool {
-        self.dirty() || (self.path.is_none() && self.virtual_uri.is_none() && self.text_epoch != 0)
+        self.dirty()
+            || (self.path.is_none()
+                && self.virtual_uri.is_none()
+                && !self.api_created_untitled
+                && self.text_epoch != 0)
     }
     pub fn len(&self) -> usize {
         self.text.len_chars()
@@ -1560,6 +1665,9 @@ impl Document {
             self.retire_typing_pairs();
             self.retire_folding_policy();
         }
+        self.untitled_uri = None;
+        self.associated_path = None;
+        self.api_created_untitled = false;
         self.path = Some(canonical_destination);
         self.disk_content = Some(snapshot.text.clone());
         self.saved_revision = snapshot.revision;
@@ -1635,6 +1743,9 @@ impl Document {
             self.retire_typing_pairs();
             self.retire_folding_policy();
         }
+        self.untitled_uri = None;
+        self.associated_path = None;
+        self.api_created_untitled = false;
         self.path = Some(path);
         self.disk_content = Some(self.text.clone());
         self.saved_revision = self.revision;
@@ -2724,5 +2835,114 @@ mod virtual_document_tests {
         let mut ordinary = Document::from_text("source");
         assert!(ordinary.refresh_virtual_content("provider").is_err());
         assert_eq!(ordinary.text.to_string(), "source");
+    }
+}
+
+#[cfg(test)]
+mod api_untitled_tests {
+    use super::*;
+
+    #[test]
+    fn api_untitled_initial_content_is_dirty_without_synthetic_undo_and_saves_exactly() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("initial.cpp");
+        let initial = "α😀\r\nβ\r\n";
+        let mut doc = Document::from_untitled(
+            Some("untitled:/initial.cpp".into()),
+            initial,
+            Some("cpp".into()),
+            Some(target.clone()),
+        )
+        .unwrap();
+        let id = doc.id;
+        assert_eq!(doc.name(), "initial.cpp");
+        assert!(doc.path.is_none());
+        assert_eq!(doc.associated_path(), Some(target.as_path()));
+        assert_eq!(doc.untitled_uri(), Some("untitled:/initial.cpp"));
+        assert_eq!(doc.text.to_string(), initial);
+        assert_eq!(doc.eol, "\r\n");
+        assert!(doc.dirty() && doc.api_dirty());
+        assert!(!doc.is_read_only());
+        assert!(doc.undo.is_empty() && doc.redo.is_empty());
+        let initial_epoch = doc.text_epoch();
+        doc.undo();
+        assert_eq!(doc.text_epoch(), initial_epoch);
+        assert_eq!(doc.text.to_string(), initial);
+        doc.insert("new 猫", false);
+        let edited = doc.text.to_string();
+        doc.undo();
+        assert_eq!(doc.text.to_string(), initial);
+        assert!(doc.dirty());
+        doc.redo();
+        assert_eq!(doc.text.to_string(), edited);
+        let snapshot = doc.capture_save(target.clone()).unwrap();
+        // A different model's otherwise plausible receipt cannot erase identity.
+        let other = Document::from_untitled(None, "other", None, None).unwrap();
+        let wrong = other.capture_save(target.clone()).unwrap();
+        assert!(doc.publish_save(&wrong, target.clone()).is_err());
+        assert_eq!(doc.untitled_uri(), Some("untitled:/initial.cpp"));
+        doc.check_save_snapshot(&snapshot).unwrap();
+        fs::write(&target, snapshot.text().to_string()).unwrap();
+        doc.publish_save(&snapshot, fs::canonicalize(&target).unwrap())
+            .unwrap();
+        assert_eq!(doc.id, id);
+        assert!(!doc.dirty() && !doc.api_dirty());
+        assert!(doc.untitled_uri().is_none() && doc.associated_path().is_none());
+        assert_eq!(doc.language_override(), Some("cpp"));
+        assert_eq!(doc.save_generation(), 1);
+        assert_eq!(fs::read_to_string(target).unwrap(), edited);
+        doc.undo();
+        assert_eq!(doc.text.to_string(), initial);
+        assert!(doc.dirty());
+        assert!(doc.untitled_uri().is_none());
+    }
+
+    #[test]
+    fn api_untitled_empty_and_mixed_eol_admission_preserves_source_proofs() {
+        let mut empty = Document::from_untitled(None, "", None, None).unwrap();
+        assert!(empty.dirty() && empty.api_dirty());
+        assert!(
+            empty
+                .untitled_uri()
+                .unwrap()
+                .starts_with("untitled:Untitled-")
+        );
+        empty.undo();
+        assert!(empty.is_empty() && empty.dirty());
+        empty.insert("", false);
+        assert!(empty.dirty());
+        empty.insert("x", false);
+        assert!(empty.dirty());
+        empty.undo();
+        assert!(empty.is_empty() && !empty.dirty() && !empty.api_dirty());
+        empty.redo();
+        assert!(empty.dirty() && empty.api_dirty());
+        let mut associated =
+            Document::from_untitled(None, "", None, Some(PathBuf::from("target.txt"))).unwrap();
+        associated.insert("x", false);
+        associated.undo();
+        assert!(associated.is_empty() && associated.dirty() && associated.api_dirty());
+        for (input, expected, eol) in [
+            ("α\r\nβ\rγ\n", "α\r\nβ\r\nγ\r\n", "\r\n"),
+            ("α\r\nβ\n", "α\nβ\n", "\n"),
+            ("α\rβ\nγ\n", "α\nβ\nγ\n", "\n"),
+        ] {
+            let mut doc = Document::from_untitled(None, input, None, None).unwrap();
+            assert_eq!(doc.text.to_string(), expected);
+            assert_eq!(doc.eol, eol);
+            let source = doc.capture_workspace_source().unwrap();
+            let snapshot = doc.capture_save(PathBuf::from("destination.txt")).unwrap();
+            doc.insert("z", false);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), expected);
+            assert!(!source.current(&doc));
+            assert!(doc.check_save_snapshot(&snapshot).is_err());
+            assert!(doc.dirty());
+        }
+        for uri in ["file:///tmp/a", "test:a", "untitled:\0"] {
+            assert!(Document::from_untitled(Some(uri.into()), "", None, None).is_err());
+        }
+        assert!(Document::from_untitled(None, "bad\0", None, None).is_err());
+        assert!(Document::from_untitled(None, "", Some("".into()), None).is_err());
     }
 }

@@ -396,7 +396,7 @@ impl App {
             .active_document()
             .context("Open a document before saving")?;
         ensure!(!doc.is_read_only(), "Virtual documents are read-only");
-        if doc.path.is_none() {
+        if doc.path.is_none() && doc.associated_path().is_none() {
             self.pending = after;
             self.save_as();
             return Ok(());
@@ -404,7 +404,7 @@ impl App {
         let intent = Intent {
             id: 0,
             document: doc.id,
-            destination: None,
+            destination: doc.associated_path().map(Path::to_owned),
             continuation: self.save_continuation(
                 after,
                 self.panes.get(self.active_pane).map(|pane| pane.id),

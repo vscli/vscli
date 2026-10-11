@@ -84,6 +84,8 @@ pub(in crate::app) struct Completion {
 struct Proof {
     document: u64,
     path: Option<PathBuf>,
+    associated_path: Option<PathBuf>,
+    untitled_uri: Option<String>,
     epoch: u64,
     revision: u64,
     saved_revision: u64,
@@ -112,6 +114,9 @@ impl Proof {
         if let Some(path) = &doc.path {
             bounded(path)?;
         }
+        if let Some(path) = doc.associated_path() {
+            bounded(path)?;
+        }
         bounded(&app.workspace.root)?;
         ensure!(
             doc.eol == "\n" || doc.eol == "\r\n",
@@ -124,6 +129,8 @@ impl Proof {
         Ok(Self {
             document,
             path: doc.path.clone(),
+            associated_path: doc.associated_path().map(Path::to_owned),
+            untitled_uri: doc.untitled_uri().map(str::to_owned),
             epoch: doc.text_epoch(),
             revision: doc.revision,
             saved_revision: doc.saved_revision,
@@ -150,6 +157,8 @@ impl Proof {
             .context("Save caller model was closed")?;
         ensure!(
             doc.path == self.path
+                && doc.associated_path() == self.associated_path.as_deref()
+                && doc.untitled_uri() == self.untitled_uri.as_deref()
                 && doc.saved_revision == self.saved_revision
                 && doc.save_generation() == self.save_generation
                 && doc.eol == self.eol,
@@ -243,7 +252,8 @@ impl App {
         // Validate constructor bounds even for an internally constructed DTO.
         Caller::new(caller.session, &caller.request, &caller.owner)?;
         let proof = Proof::capture(self, document)?;
-        let needs_path = proof.path.is_none();
+        let destination = proof.associated_path.clone();
+        let needs_path = proof.path.is_none() && destination.is_none();
         let next = self
             .saving
             .document_interests
@@ -268,7 +278,7 @@ impl App {
         if needs_path {
             return Ok(Admission::NeedsPath(id));
         }
-        if let Err(error) = self.enqueue_document_save_interest(id, None) {
+        if let Err(error) = self.enqueue_document_save_interest(id, destination) {
             self.saving
                 .document_interests
                 .entries

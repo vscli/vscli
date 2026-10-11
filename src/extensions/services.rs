@@ -36,6 +36,7 @@ pub(crate) enum Operation {
         Arc<crate::workspace_file_search::Capture>,
         Arc<std::sync::atomic::AtomicBool>,
     ),
+    UntitledOpen(Arc<super::untitled::Capture>),
     VirtualOpen(Arc<super::text_content::Capture>),
     VirtualChange(Arc<super::text_content::Capture>),
     Show(Show),
@@ -172,6 +173,7 @@ impl Client {
         let limit = if matches!(
             method,
             "nativeWorkspaceApplyEdit"
+                | "nativeUntitledDocumentOpen"
                 | "nativeVirtualDocumentOpen"
                 | "nativeVirtualDocumentChange"
         ) {
@@ -207,6 +209,11 @@ impl Client {
         )?;
         let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
         let operation = match method {
+            "nativeUntitledDocumentOpen" => {
+                let capture = self.capture_untitled(&request.args, documents, hidden)?;
+                request.args = Value::Null;
+                Operation::UntitledOpen(capture)
+            }
             "nativeVirtualDocumentOpen" | "nativeVirtualDocumentChange" => {
                 let change = method == "nativeVirtualDocumentChange";
                 let capture =
@@ -317,6 +324,7 @@ impl Client {
                 | Operation::Save(_)
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
+                | Operation::UntitledOpen(_)
                 | Operation::VirtualOpen(_)
                 | Operation::VirtualChange(_)
         ) && request.generation != Some(self.mirror.generation)
@@ -428,6 +436,7 @@ impl Client {
                 | Operation::Save(_)
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
+                | Operation::UntitledOpen(_)
                 | Operation::VirtualOpen(_)
                 | Operation::VirtualChange(_)
         ) && service.request.generation != Some(self.mirror.generation)
@@ -448,6 +457,7 @@ impl Client {
             Operation::State(_)
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
+                | Operation::UntitledOpen(_)
                 | Operation::VirtualOpen(_)
                 | Operation::VirtualChange(_)
         ) {

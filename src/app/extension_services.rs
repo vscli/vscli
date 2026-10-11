@@ -228,6 +228,7 @@ impl App {
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
+                    | Operation::UntitledOpen(_)
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
             )
@@ -395,6 +396,7 @@ impl App {
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
+                    | Operation::UntitledOpen(_)
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
             ) {
@@ -406,6 +408,7 @@ impl App {
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
+                    | Operation::UntitledOpen(_)
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
             ) && !self
@@ -422,6 +425,7 @@ impl App {
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
+                    | Operation::UntitledOpen(_)
                     | Operation::VirtualOpen(_)
                     | Operation::VirtualChange(_)
             ) && (self.prompt.is_some() || self.modal.is_some())
@@ -435,7 +439,9 @@ impl App {
             return true;
         }
         match &service.operation {
-            Operation::VirtualOpen(_) | Operation::VirtualChange(_) => {
+            Operation::UntitledOpen(_)
+            | Operation::VirtualOpen(_)
+            | Operation::VirtualChange(_) => {
                 if let Err(error) = self.start_virtual_document(host, service.clone()) {
                     self.answer_native_service(host, &service, Err(error));
                 }
@@ -483,7 +489,7 @@ impl App {
                     if !host.service_save_document_current(&service, doc) {
                         bail!("Document changed before save admission; retry");
                     }
-                    let needs_path = doc.path.is_none();
+                    let needs_path = doc.path.is_none() && doc.associated_path().is_none();
                     if needs_path
                         && (self.prompt.is_some() || self.modal.is_some() || self.pending.is_some())
                     {

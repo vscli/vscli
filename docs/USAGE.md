@@ -1015,3 +1015,15 @@ with `workspace.createFileSystemWatcher`, using workspace globs or explicit
 `RelativePattern` bases. Matching watches share local OS workers, recursive
 watches honor `files.watcherExclude`, and disposing a watcher stops delivery.
 See [filesystem watcher behavior and bounds](FILE_WATCHERS_API.md).
+
+## Extension-created untitled documents
+
+Extensions can create editable unsaved documents with initial content/language or
+an explicit `untitled:` URI. Initial content is outside Undo history; saving uses
+the native persistence worker and, when needed, the ordinary Save As prompt.
+Canceling the prompt does not write a file. Associated destinations remain
+separate from a saved path until a successful receipt. Extensions observe the
+old untitled document close and a new file document open and save; native buffer
+identity and Undo history survive. Repeated opens of a retained untitled URI reuse
+that document, while content/options opens receive fresh resource names. See
+[untitled document behavior, recovery and qualification](UNTITLED_DOCUMENTS_API.md).

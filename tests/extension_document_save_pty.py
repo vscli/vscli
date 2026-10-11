@@ -37,11 +37,17 @@ exports.activate=c=>{
  }));
  const register=(name,callback)=>c.subscriptions.push(v.commands.registerCommand('save.'+name,callback));
  async function save(d,label){
-  const before=events,original=d.uri; const identity=d;
+  const before=events,original=d.uri.toString(); const identity=d;
   try{
    const result=await d.save();assert.equal(typeof result,'boolean');assert.strictEqual(identity,d);
-   if(result){assert(events>before,'didSave precedes true');assert(v.workspace.textDocuments.includes(d));}
-   else {assert.equal(events,before);assert.equal(d.uri.toString(),original.toString());}
+   if(result){
+    assert(events>before,'didSave precedes true');
+    if(d.isClosed){
+     assert(original.startsWith('untitled:'));assert.equal(d.uri.toString(),original);assert.equal(d.isDirty,false);
+     const saved=v.workspace.textDocuments.find(current=>current.uri.scheme==='file'&&current.getText()===d.getText());
+     assert(saved);assert.notStrictEqual(saved,d);assert.strictEqual(v.window.activeTextEditor.document,saved);
+    }else assert(v.workspace.textDocuments.includes(d));
+   }else {assert.equal(events,before);assert.equal(d.uri.toString(),original);}
    await v.window.showInformationMessage('API '+label+'='+result+';events='+events+';dirty='+d.isDirty);
   }catch(error){
    if(label==='closed'){assert(d.isClosed);await v.window.showInformationMessage('API closed rejected');return;}

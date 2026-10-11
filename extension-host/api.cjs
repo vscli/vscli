@@ -18,6 +18,7 @@ const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
 const { createWorkspaceScope } = require('./workspace-scope.cjs');
 const { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument } = types;
+const updateDocument = TextDocument.prototype._update, getDocumentText = TextDocument.prototype.getText, parseDocumentUri = Uri.parse;
 
 function supported(name, values) {
   return new Proxy(values, { get(target, key) {
@@ -31,7 +32,7 @@ function supported(name, values) {
 
 function createApi(sendRequest, notify, sessionOptions = {}) {
   const documents = new Map(), editors = new Map(), commands = new Map();
-  const workspaceEditMirrors = new Map();
+  const workspaceEditMirrors = new Map(), documentMirrorRecords = new WeakMap();
   let workspaceEditConfigurationIdentity = {};
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter(), saved = new EventEmitter();
@@ -42,6 +43,9 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const mementos = createMementos(request, sessionOptions.session, sessionOptions.extensionState);
   const documentServices = createDocumentServices(request, sessionOptions, {
     generation: () => generation, root: () => workspaceRoot, callerOwner: callers.currentOwner,
+    captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
+    snapshot: id => workspaceEditMirrors.get(id), snapshots: () => workspaceEditMirrors.values(),
+    snapshotFor: document => documentMirrorRecords.get(document),
     document: id => documents.get(id), editor: id => active?.document._snapshot.id === id ? active : undefined,
     openVirtual: (owner,uri) => textContentProviders.open(owner,uri),
   });
@@ -157,46 +161,91 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       async getCommands() { return [...NATIVE_COMMANDS, ...commands.keys()]; },
     });
   }
+  function sourceEnd(text) {
+    // One bounded pass over a newly transmitted snapshot; retain only the end
+    // coordinate instead of allocating another full-document line array.
+    let line = 0, start = 0;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      if (code === 13 || code === 10) {
+        if (code === 13 && text.charCodeAt(i + 1) === 10) i++;
+        line++; start = i + 1;
+      }
+    }
+    return new Position(line, text.length - start);
+  }
   function sync(state) {
     // A newer notification can arrive before an edit promise callback runs.
     if (state.generation <= generation) return;
     generation = state.generation;
     const changes = [];
     const present = new Set(state.documents.map(snapshot => snapshot.id));
+    function retireDocument(document, record) {
+      // Stable ExtHostDocumentData.dispose retains URI/text while closing the
+      // public identity. Never inspect extension-replaced snapshot metadata.
+      const metadata = { ...record.metadata, isClosed: true, isDirty: false };
+      document._snapshot = metadata;
+      Reflect.apply(updateDocument, document, [metadata]);
+      document._uri = Reflect.apply(parseDocumentUri, Uri, [record.uri]);
+      documentMirrorRecords.set(document, Object.freeze({ ...record, isClosed: true, isDirty: false, metadata: Object.freeze(metadata) }));
+      changes.push(() => closed.fire(document));
+    }
     for (const snapshot of state.documents) {
       let document = documents.get(snapshot.id);
-      const previous = document?.getText();
-      const previousVersion = document?.version;
-      const previousSaved = document?._snapshot.savedGeneration || 0;
-      const previousEnd = typeof snapshot.text === 'string' && document?.positionAt(previous.length);
+      const previous = workspaceEditMirrors.get(snapshot.id);
+      const transition = !!previous && previous.uri !== snapshot.uri;
+      const text = typeof snapshot.text === 'string' ? snapshot.text : previous?.text;
+      const metadata = Object.freeze({ ...previous?.metadata, ...snapshot, text, isClosed: false });
+      if (transition) {
+        retireDocument(document, previous);
+        documents.delete(snapshot.id); editors.delete(snapshot.id);
+        document = undefined;
+      }
       if (!document) {
-        document = new TextDocument(snapshot, { save: document => {
+        document = new TextDocument(metadata, { save: document => {
           // Shared documents acquire the invoking callback/timer owner NOW.
           // The facade which first constructed this mirror is not authority.
           const owner = callers.currentOwner();
           return documentServices.saveDocument(owner, document);
         } });
         documents.set(snapshot.id, document);
-        changes.push(() => opened.fire(document));
+        const openedDocument = document;
+        changes.push(() => opened.fire(openedDocument));
       } else {
-        document._update(snapshot);
-        if (snapshot.version !== previousVersion && typeof snapshot.text === 'string') {
-          changes.push(() => changed.fire({ document, contentChanges: [{
-            range: new Range(new Position(0, 0), previousEnd),
-            rangeOffset: 0, rangeLength: previous.length, text: document.getText(),
-          }] }));
-        }
-        if (Number.isSafeInteger(snapshot.savedGeneration) && snapshot.savedGeneration > previousSaved) changes.push(() => saved.fire(document));
+        // Restore only native metadata before merging. Public _snapshot fields
+        // are not authority for previous version, saved generation or URI.
+        document._snapshot = previous.metadata;
+        Reflect.apply(updateDocument, document, [metadata]);
       }
-      workspaceEditMirrors.set(snapshot.id, Object.freeze({ document: snapshot.id, version: snapshot.version, uri: snapshot.uri, model: document,
-        text: typeof snapshot.text === 'string' ? snapshot.text : workspaceEditMirrors.get(snapshot.id)?.text, isReadonly: snapshot.isReadonly === true }));
+      const eol = metadata.eol === 2 || metadata.eol === '\r\n' ? 2 : metadata.eol === 1 || metadata.eol === '\n' ? 1 : text.includes('\r\n') ? 2 : 1;
+      // TextDocument presents uniform EOLs even when the native source snapshot
+      // has mixed delimiters. Share its original prepared/cached string; retain
+      // that private value so extension getText overrides cannot alter events.
+      const canonicalText = previous && text === previous.text && eol === previous.eol
+        ? previous.canonicalText : Reflect.apply(getDocumentText, document, []);
+      if (previous && !transition && snapshot.version !== previous.version && typeof snapshot.text === 'string') {
+        const changedDocument = document;
+        changes.push(() => changed.fire({ document: changedDocument, contentChanges: [{
+          range: new Range(new Position(0, 0), previous.end),
+          rangeOffset: 0, rangeLength: previous.canonicalText.length, text: canonicalText,
+        }] }));
+      }
+      if (previous && Number.isSafeInteger(snapshot.savedGeneration) && snapshot.savedGeneration > previous.savedGeneration) {
+        const savedDocument = document;
+        changes.push(() => saved.fire(savedDocument));
+      }
+      const record = Object.freeze({ document: snapshot.id, version: snapshot.version, uri: snapshot.uri, model: document, text,
+        isReadonly: snapshot.isReadonly === true, languageId: snapshot.languageId, isDirty: snapshot.isDirty === true,
+        savedGeneration: Number.isSafeInteger(snapshot.savedGeneration) ? snapshot.savedGeneration : previous?.savedGeneration ?? 0,
+        isClosed: false, metadata, canonicalText, eol,
+        end: text === previous?.text ? previous.end : sourceEnd(text) });
+      workspaceEditMirrors.set(snapshot.id, record); documentMirrorRecords.set(document, record);
       if (!editors.has(snapshot.id)) editors.set(snapshot.id, editorFor(snapshot.id, document));
     }
     for (const [id, document] of documents) {
       if (!present.has(id)) {
-        document._snapshot = { ...document._snapshot, isClosed: true };
+        retireDocument(document, workspaceEditMirrors.get(id));
         documents.delete(id); editors.delete(id); workspaceEditMirrors.delete(id);
-        changes.push(() => closed.fire(document));
       }
     }
     const previousActive = active;
@@ -215,11 +264,15 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       get selection() { return (owner ? (editors.get(id)?._selections || this._selections) : this._selections)[0]; },
       get selections() { return (owner ? (editors.get(id)?._selections || this._selections) : this._selections).slice(); },
       edit(callback, options) {
-        try { assertOwner(owner); } catch (error) { return Promise.reject(error); }
+        try {
+          assertOwner(owner);
+          const record = documentMirrorRecords.get(document);
+          if (!record || record.isClosed || workspaceEditMirrors.get(id)?.model !== document) throw new Error('Document is no longer open');
+        } catch (error) { return Promise.reject(error); }
         if (options && (options.undoStopBefore === false || options.undoStopAfter === false)) {
           return Promise.reject(new Error('VSCLI does not yet support grouped extension undo stops'));
         }
-        const version = document.version;
+        const version = documentMirrorRecords.get(document).version;
         const edits = [];
         let valid = true;
         const validatePosition = value => {

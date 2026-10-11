@@ -98,24 +98,26 @@ test('captured admission identity/version cannot alternate into another native s
   Object.defineProperty(snapshot,'id',{configurable:true,get(){return ++ids===1?7:99;}});
   Object.defineProperty(snapshot,'version',{configurable:true,get(){return ++versions===1?1:88;}});
   assert.equal(await runtime.runWithOwner('test.first',()=>document.save()),false);
-  assert.equal(ids,1);assert.equal(versions,1);assert.deepEqual(requests,[{document:7,version:1}]);
+  assert.equal(ids,0);assert.equal(versions,0);assert.deepEqual(requests,[{document:7,version:1}]);
   assert(requests.every(request=>request.document!==99),'changing ID must never send target B');
 });
-test('metadata getters retiring the original caller reject before native admission and after publication',async()=>{
-  let calls=0;const first=fixture(async()=>{calls++;return false;});
+test('extension-owned metadata getters are never used for save admission or publication',async()=>{
+  let calls=0,reads=0;const first=fixture(async()=>{calls++;return false;});
   Object.defineProperty(first.document._snapshot,'version',{configurable:true,get(){
-    first.runtime.disposeOwner('test.first');first.runtime.forExtension('test.first');return 1;
+    reads++;first.runtime.disposeOwner('test.first');first.runtime.forExtension('test.first');return 1;
   }});
-  await assert.rejects(first.runtime.runWithOwner('test.first',()=>first.document.save()),/retired/);assert.equal(calls,0);
+  assert.equal(await first.runtime.runWithOwner('test.first',()=>first.document.save()),false);
+  assert.equal(calls,1);assert.equal(reads,0);
   let ack;const second=fixture(()=>new Promise(resolve=>ack=resolve));
   const saving=second.runtime.runWithOwner('test.first',()=>second.document.save());
-  const rejected=assert.rejects(saving,/retired/);
   second.runtime.sync(state(2,{savedGeneration:1,isDirty:false}));
   Object.defineProperty(second.document._snapshot,'savedGeneration',{configurable:true,get(){
-    second.runtime.disposeOwner('test.first');second.runtime.forExtension('test.first');return 1;
+    reads++;second.runtime.disposeOwner('test.first');second.runtime.forExtension('test.first');return 1;
   }});
-  ack(true);await rejected;assert.equal(second.document.getText(),'α😀\r\nnext');assert.equal(second.document.isDirty,false);
+  ack(true);assert.equal(await saving,true);assert.equal(reads,0);
+  assert.equal(second.document.getText(),'α😀\r\nnext');assert.equal(second.document.isDirty,false);
 });
+
 function clock() { const timers=[];return {timers,setTimeout(call,delay){const timer={call,delay,cleared:false};timers.push(timer);return timer;},clearTimeout(timer){timer.cleared=true;}}; }
 test('save timeout rejects unknown but wrong/malformed replies cannot release occupied capacity',async()=>{
   const sent=[],time=clock();let terminals=0;

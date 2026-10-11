@@ -8,7 +8,7 @@ function clock() {
   return { entries, setTimeout(fn,ms) { entries.set(++id,{fn,ms}); return id; },
     clearTimeout(id) { entries.delete(id); }, fire(id) { const entry=entries.get(id); entries.delete(id); entry.fn(); } };
 }
-for (const method of ['nativeVirtualDocumentOpen','nativeVirtualDocumentChange']) {
+for (const method of ['nativeVirtualDocumentOpen','nativeVirtualDocumentChange','nativeUntitledDocumentOpen']) {
   test(`${method} retains service capacity after timeout and only exact typed receipt releases it`,async()=>{
     const frames=[], timers=clock();
     const queue=createNativeRequests(frame=>frames.push(frame),()=>({active:true,id:7,owner:'origin'}),timers);

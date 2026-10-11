@@ -6,6 +6,7 @@ pub(crate) mod providers;
 pub(crate) mod services;
 mod surfaces;
 pub(crate) mod text_content;
+pub(crate) mod untitled;
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
 pub use prompts::{MAX_PROMPT_TEXT, NativePrompt, PromptType};
@@ -215,6 +216,8 @@ pub struct Client {
     file_search_context: Option<crate::workspace_file_search::Context>,
     owner_lifetimes: owner_lifetimes::OwnerLifetimes,
     text_content_registry: text_content::Registry,
+    untitled_context: Option<untitled::CreationContext>,
+    next_untitled_name: u64,
     state_store: Option<crate::extension_state::Store>,
     // Drop the process before deleting its embedded runtime files on Windows.
     process: Process,
@@ -471,6 +474,8 @@ impl Client {
             workspace_edit_context: None,
             file_search_context: None,
             text_content_registry: text_content::Registry::default(),
+            untitled_context: None,
+            next_untitled_name: 0,
             owner_lifetimes: owner_lifetimes::OwnerLifetimes::new(&packages),
             state_store,
             process,
@@ -500,7 +505,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -908,6 +913,7 @@ impl Client {
                     | "nativeWorkspaceApplyEdit"
                     | "nativeFindFiles"
                     | "nativeVirtualDocumentOpen"
+                    | "nativeUntitledDocumentOpen"
                     | "nativeVirtualDocumentChange" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
@@ -1154,7 +1160,7 @@ struct MirrorState {
 }
 impl MirrorState {
     fn stamp_refs(documents: &[&Document], active: Option<&Document>) -> Value {
-        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.virtual_uri(), d.language_override(), d.dirty(), d.eol])).collect::<Vec<_>>(),
+        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.virtual_uri(), d.untitled_uri(), d.language_override(), d.dirty(), d.eol])).collect::<Vec<_>>(),
             "active": active.map(|d| d.id), "selections": active.map(selections)})
     }
     #[cfg(test)]
@@ -1225,6 +1231,9 @@ impl MirrorState {
 }
 fn document_uri(doc: &Document) -> Result<String> {
     if let Some(uri) = doc.virtual_uri() {
+        return Ok(uri.to_owned());
+    }
+    if let Some(uri) = doc.untitled_uri() {
         return Ok(uri.to_owned());
     }
     doc.path
