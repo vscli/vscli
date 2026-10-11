@@ -797,6 +797,7 @@ impl Document {
             line_numbers_override: copy_from.and(origin.line_numbers_override),
             cursor_style_override: copy_from.and(origin.cursor_style_override),
             explicit_viewport: copy_from.is_some() && origin.explicit_viewport,
+            decorations: super::decorations::Decorations::default(),
             cursor_history: Vec::new(),
             snippet: None,
             snippet_generation: origin.snippet_generation,

@@ -74,10 +74,13 @@ embedders retain document-keyed mirrors; the standard App/CLI starts extensions
 with the explicit inventory before activation.
 
 Sparse columns requiring empty intermediate groups, preview tabs, configured
-downward Beside placement, more than four groups, decorations and other editor
+downward Beside placement, more than four groups and other editor
 APIs remain outstanding. The subsequent [editor presentation milestone](EDITOR_PRESENTATION_API.md)
 adds native options, measured visible ranges, scoped events and revealRange,
-with separate bounds and terminal presentation differences. Native keyboard/mouse
+with separate bounds and terminal presentation differences. The
+[decoration milestone](EDITOR_DECORATIONS_API.md) adds per-view overlays and
+permits Show requests across measured-range-only publications while preserving
+source, membership, options, selections and context checks. Native keyboard/mouse
 selection-kind provenance, remote/custom editors and broader event/runtime/platform
 fidelity remain unqualified. This milestone does not establish complete editor or
 extension API parity.

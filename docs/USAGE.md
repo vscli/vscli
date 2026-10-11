@@ -449,6 +449,12 @@ Preferences: Load Color Theme File loads JSON/JSONC directly. `--theme PATH`
 overrides the saved selection. Themes are native data and do not start Node.
 See [import guarantees, theme mappings and limits](IMPORT_AND_THEMES.md).
 
+Selected code extensions can style ranges independently in each visible native
+pane through `createTextEditorDecorationType` and `setDecorations`. Colors and
+common text styles follow edits and Undo/Redo; they do not modify file contents.
+Hover, before/after attachments, gutter images, overview rulers and richer CSS
+remain outstanding. See [editor decorations](EDITOR_DECORATIONS_API.md).
+
 ## Settings
 
 Use `--settings /path/to/settings.json` to select a user settings file for reading and native settings writes. By default, VSCLI reads `settings.json` beside its user keybindings file. An activated import supplies the native copy's user settings/keybindings/snippet directory unless explicit CLI paths override it. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.

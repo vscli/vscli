@@ -158,13 +158,13 @@ async function dispatch(message) {
         initialized = true; session = message.params.session; languageProviders = message.params.languageProviders === true;
         packages.push(...prepare(message.params.extensions));
         runtime = createApi(request, (method, params) => {
-          if (method === 'nativeSurface') {
+          if (method === 'nativeSurface' || method === 'decorationType') {
             const context = execution.getStore();
             if (context?.active) params = { ...params, command: context.id, commandOwner: context.owner };
           }
           // A failed startup must never publish partially activated command registries.
           if (!['commands', 'languageProviders'].includes(method) || (ready && !activating)) send({ method, params });
-        }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true });
+        }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true, editorDecorations: message.params.editorDecorations === true });
         const schemas = packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration)
           ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
         root = message.params.root; configuration = message.params.configuration;

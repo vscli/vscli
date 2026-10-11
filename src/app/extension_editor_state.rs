@@ -204,12 +204,28 @@ impl App {
                 };
                 self.apply_extension_reveal(capture, *range, *kind, area)?;
             }
+            Change::Decorations { kind, entries } => {
+                ensure!(
+                    kind.live.load(std::sync::atomic::Ordering::Acquire),
+                    "Decoration type retired before application"
+                );
+                let doc = self
+                    .documents
+                    .iter_mut()
+                    .find(|doc| doc.id == capture.document)
+                    .context("Decoration editor model retired")?;
+                doc.apply_editor_decorations(capture.view_proof(), kind.clone(), entries.clone())?;
+            }
         }
-        Ok(Some(if let Some(editor) = &capture.editor {
-            json!({"document":capture.document,"editor":editor})
-        } else {
-            json!({"document":capture.document})
-        }))
+        Ok(Some(
+            if let Change::Decorations { kind, .. } = &capture.change {
+                json!({"document":capture.document,"editor":capture.editor,"key":kind.key})
+            } else if let Some(editor) = &capture.editor {
+                json!({"document":capture.document,"editor":editor})
+            } else {
+                json!({"document":capture.document})
+            },
+        ))
     }
     pub(super) fn start_editor_state_service(
         &mut self,

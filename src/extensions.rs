@@ -1,4 +1,5 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
+mod decorations;
 mod diagnostics;
 pub(crate) mod editor_inventory;
 pub(crate) mod editor_state;
@@ -178,6 +179,13 @@ struct Pending {
     started: Instant,
 }
 #[derive(Deserialize)]
+struct NativeTextEdit {
+    #[serde(flatten)]
+    edit: lsp::TextEdit,
+    #[serde(default, rename = "forceMoveMarkers")]
+    force_move_markers: bool,
+}
+#[derive(Deserialize)]
 struct Edit {
     #[serde(default)]
     editor: Option<String>,
@@ -185,7 +193,7 @@ struct Edit {
     owner: String,
     document: u64,
     version: u64,
-    edits: Vec<lsp::TextEdit>,
+    edits: Vec<NativeTextEdit>,
 }
 pub struct Prepared {
     storage_root: Option<PathBuf>,
@@ -219,6 +227,7 @@ pub struct ActivationRequest {
 }
 pub struct Client {
     editor_inventory: Option<editor_inventory::Inventory>,
+    decorations: decorations::Registry,
     diagnostics: diagnostics::State,
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
@@ -429,6 +438,10 @@ impl Client {
                 "document-services.cjs",
                 include_str!("../extension-host/document-services.cjs"),
             ),
+            (
+                "editor-decorations.cjs",
+                include_str!("../extension-host/editor-decorations.cjs"),
+            ),
             ("memento.cjs", include_str!("../extension-host/memento.cjs")),
             (
                 "surfaces.cjs",
@@ -489,6 +502,7 @@ impl Client {
         let mut client = Self {
             editor_inventory: prepared.editor_inventory,
             diagnostics: diagnostics::State::default(),
+            decorations: decorations::Registry::default(),
             providers: providers::State::default(),
             services: services::empty_queue(),
             workspace_edit_context: None,
@@ -528,7 +542,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -763,6 +777,7 @@ impl Client {
         for (owner, state) in &states {
             if matches!(state.as_str(), "failed" | "disposed") {
                 self.surfaces.remove_owner(owner);
+                self.decorations.remove_owner(owner);
                 self.diagnostics.remove_owner(owner);
             }
         }
@@ -847,7 +862,7 @@ impl Client {
     }
     fn apply_edit_with_hidden(
         &self,
-        edit: Edit,
+        mut edit: Edit,
         documents: &mut [Document],
         hidden: &mut [Document],
     ) -> Result<bool> {
@@ -886,7 +901,21 @@ impl Client {
         {
             return Ok(false);
         }
-        let changes = lsp::edits(doc, edit.edits)?;
+        // Keep per-edit marker semantics paired through native range sorting.
+        edit.edits.sort_by_key(|item| {
+            (
+                item.edit.range.start.line,
+                item.edit.range.start.character,
+                item.edit.range.end.line,
+                item.edit.range.end.character,
+            )
+        });
+        let force = edit
+            .edits
+            .iter()
+            .map(|item| item.force_move_markers)
+            .collect::<Vec<_>>();
+        let changes = lsp::edits(doc, edit.edits.into_iter().map(|item| item.edit).collect())?;
         let removed: usize = changes
             .iter()
             .map(|(range, _)| doc.text.slice(range.clone()).len_bytes())
@@ -895,7 +924,13 @@ impl Client {
         if total - removed + added > MAX_DOCUMENT_BYTES {
             bail!("Extension edit exceeds the 4 MiB mirror budget");
         }
-        doc.apply_changes(changes);
+        doc.apply_changes_with_marker_semantics(
+            changes
+                .into_iter()
+                .zip(force)
+                .map(|((range, text), force)| (range, text, force))
+                .collect(),
+        );
         Ok(true)
     }
     fn register_commands(&mut self, value: Value) -> Result<()> {
@@ -1000,7 +1035,8 @@ impl Client {
                     | "nativeDocumentLanguage"
                     | "nativeEditorSelections"
                     | "nativeEditorOptions"
-                    | "nativeEditorReveal" => {
+                    | "nativeEditorReveal"
+                    | "nativeEditorDecorations" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_service_with_models(
@@ -1040,6 +1076,11 @@ impl Client {
                     "nativeSurface" => {
                         if let Err(error) = self.surface_update(message["params"].take()) {
                             messages.push(format!("Extension surface rejected: {error:#}"));
+                        }
+                    }
+                    "decorationType" => {
+                        if let Err(error) = self.decoration_update(message["params"].take()) {
+                            messages.push(format!("Extension decoration type rejected: {error:#}"));
                         }
                     }
                     "prompt" => {

@@ -3,6 +3,7 @@ pub mod autosave;
 pub mod brand;
 pub mod breadcrumbs;
 pub mod debug;
+pub(crate) mod decorations;
 pub mod display_rows;
 pub mod display_window;
 pub mod document;

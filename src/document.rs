@@ -11,6 +11,7 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 mod comments;
+mod decorations;
 mod editing;
 pub(crate) mod editor_options;
 pub(crate) use editor_options::EditorOptionsPatch;
@@ -186,6 +187,7 @@ pub struct ViewState {
     line_numbers_override: Option<crate::settings::LineNumbers>,
     cursor_style_override: Option<u8>,
     explicit_viewport: bool,
+    decorations: decorations::Decorations,
 }
 #[derive(Clone)]
 pub(crate) struct ByteChange {
@@ -205,6 +207,7 @@ struct PositionChange {
     range: Range<usize>,
     added: usize,
     bytes: ByteChange,
+    decoration: decorations::Edit,
 }
 impl PositionChange {
     fn inverse(&self) -> Self {
@@ -212,10 +215,12 @@ impl PositionChange {
             range: self.range.start..self.range.start + self.added,
             added: self.range.len(),
             bytes: self.bytes.inverse(),
+            decoration: self.decoration.inverse(),
         }
     }
     fn map(&self, view: &mut ViewState) {
         view.explicit_viewport = false;
+        view.decorations.map(&self.decoration);
         view.map_snippet(&self.range, self.added);
         view.pairs.map(&self.range, self.added);
         view.cursor = map_position(view.cursor, &self.range, self.added);
@@ -451,6 +456,7 @@ impl Document {
             view.line_numbers_override = None;
             view.cursor_style_override = None;
             view.explicit_viewport = false;
+            view.decorations = decorations::Decorations::default();
             view.cursor_history.clear();
             view.snippet = None;
             view.pairs = typing::Pairs::default();
@@ -501,12 +507,23 @@ impl Document {
             self.byte_changes.pop_front();
         }
     }
-    fn record_change(&mut self, range: Range<usize>, added: usize, added_bytes: usize) {
+    fn record_change(&mut self, range: Range<usize>, replacement: &str, force_move: bool) -> usize {
+        let (added, added_utf16) = replacement.chars().fold((0, 0), |(chars, units), c| {
+            (chars + 1, units + c.len_utf16())
+        });
+        let decoration = decorations::Edit {
+            start: self.text.char_to_utf16_cu(range.start),
+            deleted: self.text.char_to_utf16_cu(range.end)
+                - self.text.char_to_utf16_cu(range.start),
+            added: added_utf16,
+            force_move,
+        };
+        self.view.decorations.map(&decoration);
         self.view.map_snippet(&range, added);
         self.view.pairs.map(&range, added);
         let bytes = ByteChange {
             range: self.text.char_to_byte(range.start)..self.text.char_to_byte(range.end),
-            added: added_bytes,
+            added: replacement.len(),
         };
         self.record_byte_change(bytes.clone());
         self.record_folding_change(range.clone(), added);
@@ -514,6 +531,7 @@ impl Document {
             range,
             added,
             bytes,
+            decoration,
         };
         for view in self.other_views.values_mut() {
             change.map(view);
@@ -521,6 +539,7 @@ impl Document {
         if let Some(snapshot) = self.undo.last_mut() {
             snapshot.changes.push(change);
         }
+        added
     }
     fn replace_undo_snapshot(&mut self, mut original: Snapshot) {
         if let Some(snapshot) = self.undo.last_mut() {
@@ -863,6 +882,16 @@ impl Document {
             range: 0..self.text.len_bytes(),
             added: next.len_bytes(),
         };
+        let decoration = decorations::Edit {
+            start: 0,
+            deleted: self.text.len_utf16_cu(),
+            added: next.len_utf16_cu(),
+            force_move: false,
+        };
+        self.view.decorations.map(&decoration);
+        for view in self.other_views.values_mut() {
+            view.decorations.map(&decoration);
+        }
         self.text = next;
         self.revision = self.next_revision;
         self.next_revision = next_revision;
@@ -1168,10 +1197,10 @@ impl Document {
         } else if let Some(snapshot) = self.undo.last_mut() {
             snapshot.after_selections = None;
         }
-        self.record_change(range.clone(), text.chars().count(), text.len());
+        let added = self.record_change(range.clone(), text, false);
         self.text.remove(range.clone());
         self.text.insert(range.start, text);
-        self.cursor = range.start + text.chars().count();
+        self.cursor = range.start + added;
         self.anchor = None;
         self.changed();
         self.typing = if typing {
@@ -1650,19 +1679,29 @@ impl Document {
         self.apply_changes(changes);
     }
     pub fn apply_changes(&mut self, mut changes: Vec<(Range<usize>, String)>) {
-        if self.is_read_only() {
-            return;
-        }
-
-        if changes.is_empty() {
-            return;
-        }
         changes.sort_by_key(|(r, _)| r.start);
+        self.apply_ordered_changes(changes.into_iter().map(|(r, text)| (r, text, false)));
+    }
+    /// Public editor insert/delete operations request marker movement, while
+    /// replacement and ordinary native edits retain marker-defined stickiness.
+    pub(crate) fn apply_changes_with_marker_semantics(
+        &mut self,
+        mut changes: Vec<(Range<usize>, String, bool)>,
+    ) {
+        changes.sort_by_key(|(r, _, _)| r.start);
+        self.apply_ordered_changes(changes.into_iter());
+    }
+    fn apply_ordered_changes(
+        &mut self,
+        changes: impl DoubleEndedIterator<Item = (Range<usize>, String, bool)> + ExactSizeIterator,
+    ) {
+        if self.is_read_only() || changes.len() == 0 {
+            return;
+        }
         self.checkpoint();
         self.break_group();
-        for (r, text) in changes.into_iter().rev() {
-            let added = text.chars().count();
-            self.record_change(r.clone(), added, text.len());
+        for (r, text, force_move) in changes.rev() {
+            let added = self.record_change(r.clone(), &text, force_move);
             self.cursor = map_position(self.cursor, &r, added);
             self.anchor = self.anchor.map(|p| map_position(p, &r, added));
             for selection in &mut self.secondary {

@@ -64,7 +64,10 @@ identities for shared panes, all visible editors, view columns, exact inactive-p
 selection routing and showTextDocument column/preserveFocus overloads.
 [Editor presentation](EDITOR_PRESENTATION_API.md) adds shared indentation and
 per-pane styles, measured UTF-16 visible ranges, scoped events and all four reveal
-modes. Decorations are next in the editor API workstream. Selection source kinds,
+modes. [Editor decorations](EDITOR_DECORATIONS_API.md) adds per-view range/type
+lifetimes, edit-aware UTF-16 markers and native colors/common styles. Rich
+decoration hover/attachments/CSS and `TextEditor.insertSnippet` remain editor API
+work. Selection source kinds,
 wrapping/folding range projection, preview tabs, sparse empty groups and broader
 upstream option/reveal fidelity remain outstanding. The full stable API order
 above remains active.

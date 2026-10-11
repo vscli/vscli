@@ -180,12 +180,21 @@ impl WorkspaceSource {
             .context("Workspace position allocation refused")?;
         for (range, replacement) in changed.into_iter().rev() {
             guard(cancel, deadline)?;
+            let (added, added_utf16) = replacement.chars().fold((0, 0), |(chars, units), c| {
+                (chars + 1, units + c.len_utf16())
+            });
             let change = PositionChange {
+                decoration: decorations::Edit {
+                    start: text.char_to_utf16_cu(range.start),
+                    deleted: text.char_to_utf16_cu(range.end) - text.char_to_utf16_cu(range.start),
+                    added: added_utf16,
+                    force_move: false,
+                },
                 bytes: ByteChange {
                     range: text.char_to_byte(range.start)..text.char_to_byte(range.end),
                     added: replacement.len(),
                 },
-                added: replacement.chars().count(),
+                added,
                 range: range.clone(),
             };
             text.remove(range.clone());

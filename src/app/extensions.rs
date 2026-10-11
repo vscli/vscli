@@ -1,6 +1,8 @@
 use super::*;
+
 impl App {
     pub(super) fn refresh_extension_editor_inventory(&mut self) {
+        let previous = self.extension_editor_inventory.identities();
         let views = self
             .panes
             .iter()
@@ -40,6 +42,23 @@ impl App {
                 self.message = format!("Extension editor inventory paused: {error:#}");
             }
         }
+        // Retired public editors cannot revive styling when the same native
+        // group later selects their retained model, including unpolled ABA.
+        for (document, view, editor) in previous {
+            if self
+                .extension_editor_inventory
+                .id_for_view(document, view)
+                .as_deref()
+                != Some(editor.as_str())
+                && let Some(doc) = self
+                    .documents
+                    .iter_mut()
+                    .chain(&mut self.hidden_documents)
+                    .find(|doc| doc.id == document)
+            {
+                doc.clear_editor_decorations_for(view);
+            }
+        }
         self.refresh_extension_visible_ranges();
     }
     pub(super) fn poll_extensions(&mut self) -> bool {
@@ -65,6 +84,7 @@ impl App {
         let commands = host.commands.clone();
         let busy = host.busy();
         let diagnostics_epoch = host.diagnostics_epoch();
+        let decorations_epoch = host.decorations_generation();
         host.set_workspace_edit_context(if self.settings_error.is_none() {
             workspace_transactions::CaptureContext::new(
                 self.settings.extension_layers().clone(),
@@ -119,6 +139,7 @@ impl App {
                 let changed = promoted
                     || !messages.is_empty()
                     || diagnostics_epoch != host.diagnostics_epoch()
+                    || decorations_epoch != host.decorations_generation()
                     || busy != host.busy()
                     || commands != host.commands
                     || before
@@ -207,5 +228,74 @@ impl App {
         } else {
             self.message = format!("Command not implemented in this alpha: {command}");
         }
+    }
+}
+
+#[cfg(test)]
+mod decoration_retirement_tests {
+    use super::*;
+    use crate::decorations::{DecorationInput, DecorationType};
+    use ratatui::{Terminal, backend::TestBackend, style::Color};
+    fn colored(app: &mut App) -> bool {
+        let mut terminal = Terminal::new(TestBackend::new(120, 32)).unwrap();
+        terminal.draw(|frame| crate::ui::draw(frame, app)).unwrap();
+        terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .any(|cell| cell.fg == Color::Rgb(3, 77, 129))
+    }
+    #[test]
+    fn unpolled_hide_show_retires_styling_without_replacing_shared_source_or_history() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.install_open_document(Document::from_text("猫🙂 alpha\r\n"))
+            .unwrap();
+        app.doc_mut().insert("dirty ", false);
+        let id = app.doc().id;
+        let member = app.editor_groups.active_membership().unwrap();
+        let view = app.panes[0].id;
+        let old = app
+            .extension_editor_inventory
+            .id_for_view(id, view)
+            .unwrap();
+        let kind = DecorationType::new(
+            "decoration-1".into(),
+            "test.owner".into(),
+            json!({"color":"#034d81"}),
+        )
+        .unwrap();
+        let proof = app.doc().editor_view_identity();
+        let entries: Vec<DecorationInput> = serde_json::from_value(
+            json!([{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":5}}}]),
+        )
+        .unwrap();
+        app.doc_mut()
+            .apply_editor_decorations(&proof, kind, entries)
+            .unwrap();
+        assert!(colored(&mut app));
+        app.install_open_document(Document::from_text("other\r\n"))
+            .unwrap();
+        app.focus_tab(member).unwrap();
+        assert_eq!(app.doc().id, id);
+        assert_ne!(
+            app.extension_editor_inventory
+                .id_for_view(id, view)
+                .as_deref(),
+            Some(old.as_str())
+        );
+        assert!(
+            !colored(&mut app),
+            "old styling cannot revive before any host poll"
+        );
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "猫🙂 alpha\r\n");
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "dirty 猫🙂 alpha\r\n");
+        assert!(
+            !colored(&mut app),
+            "Undo/Redo cannot revive an editor's retired styling"
+        );
     }
 }

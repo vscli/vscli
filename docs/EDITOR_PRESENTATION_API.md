@@ -85,8 +85,10 @@ Terminal cursor shapes use steady bar, block and underline. Thin and outline
 variants map to the nearest terminal shape; exact browser appearance is not
 claimed. Prompt/noneditor cursors and terminal cleanup restore the user shape.
 Smooth/pixel scrolling, wrapped/folded visible-range projection, precise upstream
-horizontal reveal rules, configuration-reload fidelity, decorations and richer
-editor APIs remain outstanding. Legacy direct Client embedders without explicit
+horizontal reveal rules, configuration-reload fidelity and richer editor APIs
+remain outstanding. [Editor decorations](EDITOR_DECORATIONS_API.md) adds native
+per-view range overlays; its richer render fields retain separate display gaps.
+Legacy direct Client embedders without explicit
 native inventory do not receive fabricated resolved options or reveal capability.
 Windows/macOS and upstream runtime parity remain unqualified.
 

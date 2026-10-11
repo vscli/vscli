@@ -107,6 +107,15 @@ unknown until a native frame measures them. API changes are ephemeral rather tha
 settings-file writes. See [editor presentation](EDITOR_PRESENTATION_API.md) for
 auto detection, coercion, bounds, terminal shape mappings and executed evidence.
 
+`window.createTextEditorDecorationType` and `TextEditor.setDecorations` add
+independent range styles to each visible pane, including shared-file panes.
+Foreground/background, bold, italic, underline, strike-through and whole-line
+backgrounds render natively. Empty setters clear the addressed type; disposal and
+editor/creator retirement remove its display authority. Decorations follow real
+edits and Undo/Redo without creating history entries or changing saved bytes.
+Hover/attachments, gutter images, overview rulers and richer CSS remain display
+gaps. See [decoration behavior, bounds and evidence](EDITOR_DECORATIONS_API.md).
+
 `workspace.openTextDocument(pathOrFileUri)` reads an existing regular UTF-8 file on a bounded native worker. It returns the same shared document object already retained for that path, including dirty or deleted backing files. Opening a new model alone creates no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden models share the host's existing 4 MiB total mirror budget with visible tabs. Models remain native-owned after host stop or failure. Showing or natively opening one moves its Document identity and undo history into the tab store; native watching and settings also include retained hidden models. Dirty hidden models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean hidden models are excluded from clean-session layout metadata.
 
 `window.showTextDocument(documentOrFile, options)` and its positional view-column

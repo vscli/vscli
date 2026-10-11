@@ -79,11 +79,27 @@ struct RevealArgs {
     range: lsp::Range,
     reveal_type: u8,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DecorationsArgs {
+    document: u64,
+    version: u64,
+    editor: String,
+    key: String,
+    decorations: Vec<crate::decorations::DecorationInput>,
+}
 pub(crate) enum Change {
     Language(String),
     Selections(Vec<EditorSelection>),
     Options(crate::document::EditorOptionsPatch),
-    Reveal { range: lsp::Range, kind: u8 },
+    Reveal {
+        range: lsp::Range,
+        kind: u8,
+    },
+    Decorations {
+        kind: Arc<crate::decorations::DecorationType>,
+        entries: Vec<crate::decorations::DecorationInput>,
+    },
 }
 pub(crate) struct Capture {
     pub(crate) document: u64,
@@ -210,7 +226,26 @@ impl Client {
             .clone()
             .context("Editor state context unavailable")?;
         let language = method == "nativeDocumentLanguage";
-        let (document, version, change, editor) = if method == "nativeEditorOptions" {
+        let (document, version, change, editor) = if method == "nativeEditorDecorations" {
+            let args: DecorationsArgs = serde_json::from_value(args.clone())?;
+            ensure!(
+                args.decorations.len() <= 4096,
+                "Editor decorations exceed 4096 entries"
+            );
+            let kind = self
+                .decorations
+                .get(&args.key)
+                .context("Decoration type is unavailable")?;
+            (
+                args.document,
+                args.version,
+                Change::Decorations {
+                    kind,
+                    entries: args.decorations,
+                },
+                Some(args.editor),
+            )
+        } else if method == "nativeEditorOptions" {
             let args: OptionsArgs = serde_json::from_value(args.clone())?;
             (
                 args.document,

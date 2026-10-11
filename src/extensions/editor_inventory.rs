@@ -23,6 +23,12 @@ pub(crate) struct Inventory {
 }
 
 impl Inventory {
+    pub(crate) fn identities(&self) -> Vec<(u64, u64, String)> {
+        self.frames
+            .iter()
+            .map(|frame| (frame.document, frame.view, frame.id.clone()))
+            .collect()
+    }
     pub(crate) fn id_for_view(&self, document: u64, view: u64) -> Option<String> {
         self.frames
             .iter()

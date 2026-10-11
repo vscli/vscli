@@ -14,6 +14,7 @@ const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
 const { createFileWatchers } = require('./file-watchers.cjs');
 const { createTextContentProviders } = require('./text-content-providers.cjs');
 const editorPresentation = require('./editor-presentation.cjs');
+const {createEditorDecorations} = require('./editor-decorations.cjs');
 const { createDocumentServices, NATIVE_COMMANDS } = require('./document-services.cjs');
 const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
@@ -137,6 +138,13 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   } });
   const surfaces = createSurfaces(notify, sessionOptions.session, track,
     (owner, id, args) => commandsFor(owner).executeCommand(id, ...args), owner => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }, callers);
+  const decorations = createEditorDecorations({
+    enabled:sessionOptions.editorDecorations===true,
+    session:sessionOptions.session,notify,call:documentServices.call,track,
+    captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
+    captureEditor:(owner,document,base)=>documentServices.editorServiceSource(owner,document,base,'editorDecorations'),
+    diagnostic:(owner,error)=>notify('message',{session:sessionOptions.session,owner,text:`Editor decorations update failed: ${String(error.message || error).slice(0,1024)}`}),
+  });
   function track(owner, disposable) {
     try { assertOwner(owner); } catch (error) { disposable.dispose(); throw error; }
     if (registrationCount >= 4096) { disposable.dispose(); throw new Error('Extension registration limit reached'); }
@@ -394,6 +402,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       set options(value) { ownerGuard(); documentServices.setEditorOptions(owner || callers.currentOwner(),document,value,undefined,original()); },
       get visibleRanges() { return privateState.presentation.visibleRanges(); },
       revealRange(range,revealType) { ownerGuard(); documentServices.revealEditorRange(owner || callers.currentOwner(),document,range,revealType,original()); },
+      setDecorations(type,ranges) { ownerGuard(); decorations.setDecorations(owner || callers.currentOwner(),document,original(),type,ranges); },
       get selection() { return selected()[0]; },
       set selection(value) { ownerGuard(); documentServices.setEditorSelections(owner || callers.currentOwner(),document,value,true,original()); },
       get selections() { return selected().slice(); },
@@ -420,21 +429,21 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           const bounds = coordinates.range(value, 'Edit');
           return document.validateRange(new Range(bounds.start, bounds.end));
         };
-        const add = (range, newText) => {
+        const add = (range, newText, forceMoveMarkers = false) => {
           if (!valid) throw new Error('TextEditorEdit is only valid during its callback');
           if (typeof newText !== 'string') throw new TypeError('Edit text must be a string');
           if (edits.length >= 4096) throw new Error('Extension edit count limit exceeded');
-          edits.push({ range: coordinates.range(range, 'Edit'), newText });
+          edits.push({ range: coordinates.range(range, 'Edit'), newText, ...(forceMoveMarkers ? {forceMoveMarkers:true} : {}) });
         };
         const builder = supported('TextEditorEdit', {
           replace: (range, text) => add(validateRange(range), text),
           insert: (position, text) => {
             const point = validatePosition(position);
-            add(new Range(point, point), text);
+            add(new Range(point, point), text, true);
           },
           delete: range => {
             const validRange = validateRange(range);
-            if (!validRange.isEmpty) add(validRange, '');
+            if (!validRange.isEmpty) add(validRange, '', true);
           },
         });
         try { callback(builder); } catch (error) { return Promise.reject(error); }
@@ -453,6 +462,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   }
   const api = supported('vscode', {
     ...types, ...providerTypes, ...diagnosticTypes, ...surfaces.types, RelativePattern,
+    ...decorations.types,
     FileSystemError: filesystem.FileSystemError, FileType: filesystem.FileType,
     FilePermission: filesystem.FilePermission, FileChangeType: filesystem.FileChangeType,
     version: '1.95.0',
@@ -463,6 +473,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     window: supported('window', {
       ...createPrompts(request, sessionOptions.session, '', promptBudget),
       ...surfaces.forExtension(''),
+      ...decorations.forOwner(''),
       get activeTextEditor() { return active; },
       get visibleTextEditors() { return visibleEditors.slice(); },
       onDidChangeActiveTextEditor: activeChanged.event,
@@ -515,6 +526,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           state?.presentation.retire(owner);
         }
         callers.retire(owner);
+        decorations.disposeOwner(owner);
         if (sessionOptions.languageProviders) providers.disposeOwner(owner);
         diagnostics.disposeOwner(owner);
         for (const disposable of [...(owned.get(owner) || [])]) {
@@ -544,6 +556,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           ...createPrompts(request, sessionOptions.session, owner, promptBudget),
           showTextDocument: services.showTextDocument,
           ...surfaces.forExtension(owner),
+          ...decorations.forOwner(owner),
           get activeTextEditor() { return scopedEditor(active); },
           get visibleTextEditors() { return visibleEditors.map(scopedEditor); },
           onDidChangeActiveTextEditor: event(owner, activeChanged.event, scopedEditor),

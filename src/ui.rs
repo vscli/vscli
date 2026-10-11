@@ -632,6 +632,14 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
         .map(|s| s.range())
         .filter(|range| !range.is_empty())
         .collect();
+    let first_row = doc.top.min(doc.line_count() - 1);
+    let end_row = doc.top.saturating_add(text_area.height as usize);
+    let end = if end_row < doc.line_count() {
+        doc.line_start(end_row)
+    } else {
+        doc.len() + 1
+    };
+    let decorations = doc.decoration_overlay(doc.line_start(first_row)..end, &app.theme);
     let grammar = app.syntax.get(doc);
     let language = app.language();
     for y in 0..text_area.height {
@@ -649,6 +657,12 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
             Block::default().style(base),
             Rect::new(area.x, area.y + y, area.width, 1),
         );
+        if let Some(bg) = decorations.whole_style_at(doc.line_start(row)).bg {
+            frame.render_widget(
+                Block::default().style(Style::default().bg(bg)),
+                Rect::new(text_area.x, text_area.y + y, text_area.width, 1),
+            );
+        }
         let issue = app
             .current_diagnostics()
             .iter()
@@ -748,7 +762,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                             .map_or(colors.foreground, |style| app.theme.token(style))
                     })
                     .unwrap_or_else(|| styles.get(byte).copied().unwrap_or(colors.foreground));
-                let mut style = base.fg(color);
+                let mut style = base.fg(color).patch(decorations.style_at(char_pos));
                 if matches.iter().any(|r| r.contains(&byte)) {
                     style = style.bg(Color::Rgb(96, 72, 21));
                 }
