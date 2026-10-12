@@ -316,6 +316,57 @@ impl WorkspaceCommit<'_> {
     }
 }
 impl Document {
+    /// The actual workspace worker owns all disk IO and checks cancellation on
+    /// every bounded read. Regular-file checks occur both before and after open.
+    pub(crate) fn open_workspace_existing(
+        path: &Path,
+        available: usize,
+        cancel: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<Self> {
+        guard(cancel, deadline)?;
+        ensure!(
+            path.is_absolute() && fs::metadata(path)?.is_file(),
+            "Workspace target is not a regular file"
+        );
+        let mut options = fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NONBLOCK);
+        }
+        let file = options.open(path).context("Cannot open workspace target")?;
+        let metadata = file.metadata()?;
+        ensure!(
+            metadata.is_file() && metadata.len() <= available as u64,
+            "Workspace file exceeds remaining 4 MiB budget or is not regular"
+        );
+        struct Guarded<'a> {
+            file: fs::File,
+            cancel: &'a AtomicBool,
+            deadline: Instant,
+        }
+        impl Read for Guarded<'_> {
+            fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+                guard(self.cancel, self.deadline).map_err(std::io::Error::other)?;
+                self.file.read(bytes)
+            }
+        }
+        let content = read_text(
+            Guarded {
+                file,
+                cancel,
+                deadline,
+            },
+            available as u64,
+        )?;
+        guard(cancel, deadline)?;
+        let mut doc = Self::from_rope(content.clone());
+        doc.path = Some(path.to_owned());
+        doc.disk_content = Some(content);
+        Ok(doc)
+    }
     pub(crate) fn capture_workspace_source(&self) -> Result<WorkspaceSource> {
         self.ensure_writable()?;
 

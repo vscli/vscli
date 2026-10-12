@@ -190,7 +190,9 @@ impl App {
         self.retire_extension_tab_close();
         self.cancel_extension_file_search();
         self.cancel_virtual_documents();
-        if let Some((token, _)) = self.pending_workspace_transaction() {
+        if let Some((token, origin)) = self.pending_workspace_transaction()
+            && !origin.is_native()
+        {
             self.cancel_workspace_transaction(token);
         }
         if let Some(job) = &self.extension_services.job {
@@ -202,10 +204,13 @@ impl App {
     }
     pub(super) fn poll_extension_services(&mut self) -> bool {
         let Some(mut host) = self.extension_host.take() else {
+            self.retire_rename_before_publication(None);
             self.retire_extension_tab_close();
             self.extension_services.shown_completed = None;
             self.extension_services.contexts.clear();
-            if let Some((token, _)) = self.pending_workspace_transaction() {
+            if let Some((token, origin)) = self.pending_workspace_transaction()
+                && !origin.is_native()
+            {
                 self.cancel_workspace_transaction(token);
             }
             let changed = self.poll_extension_file_search(None)
@@ -213,6 +218,7 @@ impl App {
                 | self.poll_workspace_transactions();
             if let Some(token) = self
                 .workspace_transaction_completion()
+                .filter(|done| !done.origin.is_native())
                 .map(|done| done.token)
             {
                 self.take_workspace_transaction_completion(token);
@@ -292,7 +298,10 @@ impl App {
         if self.file_search_pending() || file_search_changed {
             return file_search_changed;
         }
-        if let Some((token, origin)) = self.pending_workspace_transaction() {
+        self.retire_rename_before_publication(Some(host));
+        if let Some((token, origin)) = self.pending_workspace_transaction()
+            && !origin.is_native()
+        {
             let valid = host.service().is_some_and(|service| {
                 service.id == origin.request
                     && service.request.session == origin.session
@@ -305,10 +314,15 @@ impl App {
             }
         }
         let workspace_changed = self.poll_workspace_transactions();
-        if let Some(done) = self.workspace_transaction_completion() {
+        if let Some(done) = self.workspace_transaction_completion()
+            && !done.origin.is_native()
+        {
             let token = done.token;
             let origin = done.origin.clone();
-            let result = serde_json::json!({"applied":done.applied,"reason":done.reason.clone().unwrap_or_default()});
+            let mut result = serde_json::json!({"applied":done.applied,"reason":done.reason.clone().unwrap_or_default()});
+            if done.applied && done.target_receipts {
+                result["targets"] = serde_json::json!(done.targets);
+            }
             if let Some(service) = host.service().cloned().filter(|service| {
                 service.id == origin.request
                     && service.request.session == origin.session

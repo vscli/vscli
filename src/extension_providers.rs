@@ -23,9 +23,13 @@ pub enum Kind {
     Symbols,
     #[serde(rename = "workspaceSymbols")]
     WorkspaceSymbols,
+    Rename,
     Signature,
 }
 impl Kind {
+    pub fn is_ordered(self) -> bool {
+        self.is_navigation() || self == Self::Rename
+    }
     pub fn is_navigation(self) -> bool {
         matches!(
             self,
@@ -49,6 +53,7 @@ impl Kind {
             Self::Formatting => "textDocument/formatting",
             Self::Symbols => "textDocument/documentSymbol",
             Self::WorkspaceSymbols => "workspace/symbol",
+            Self::Rename => "textDocument/rename",
             Self::Signature => "textDocument/signatureHelp",
         }
     }
@@ -65,6 +70,7 @@ impl Kind {
             Self::Formatting,
             Self::Symbols,
             Self::WorkspaceSymbols,
+            Self::Rename,
             Self::Signature,
         ]
         .into_iter()
@@ -305,7 +311,7 @@ impl Registry {
                 || (provider.resolves
                     && !matches!(
                         provider.kind,
-                        Kind::Completion | Kind::CodeAction | Kind::WorkspaceSymbols
+                        Kind::Completion | Kind::CodeAction | Kind::WorkspaceSymbols | Kind::Rename
                     ))
                 || (provider.kind == Kind::WorkspaceSymbols && !provider.selector.is_empty())
                 || (provider.kind != Kind::CodeAction && provider.action_kinds.is_some())

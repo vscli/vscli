@@ -119,6 +119,12 @@ impl App {
                                 self.message = format!("Native code action response: {error:#}");
                             }
                         }
+                        Event::RenameResult(request, result) => {
+                            if let Err(error) = self.native_rename_reply(request, result) {
+                                self.cancel_rename();
+                                self.message = format!("Rename: {error:#}");
+                            }
+                        }
                         Event::FormattingResult(request, result) => {
                             if self.save_formatting_owned(&request) {
                                 self.save_formatting_result(request, result);

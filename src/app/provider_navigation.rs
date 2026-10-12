@@ -322,7 +322,16 @@ impl App {
             .as_mut()
             .map(|host| host.take_navigation_ranks())
             .unwrap_or_default();
+        let mut rename_changed = false;
         for rank in ranks {
+            if self.rename_rank_owned(rank.id) {
+                rename_changed = true;
+                if let Err(error) = self.rename_rank_reply(rank) {
+                    self.cancel_rename();
+                    self.message = format!("Rename: {error:#}");
+                }
+                continue;
+            }
             if !self
                 .provider_navigation
                 .run
@@ -356,7 +365,7 @@ impl App {
             }
         }
         let Some(run) = &self.provider_navigation.run else {
-            return false;
+            return rename_changed;
         };
         if !self.navigation_current() {
             return self.retire_stale_provider_navigation();

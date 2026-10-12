@@ -94,9 +94,12 @@ public queries, exact original-object lazy resolution, hidden indexing and
 native Ctrl+T navigation. All 694 host and 1,337 Rust all-target tests pass,
 including seven actual selected-host/App cases; sixteen relevant terminal
 journeys, the installed-clangd symbol test, build/fmt/strict Clippy pass.
-Twelve of the 32 stable provider families are now integrated. Next are
-rename/prepareRename public queries and original native F2, with genuine
-background loading of unopened targets and grouped editing/history. Default
+[Rename/prepareRename](RENAME_PROVIDERS_API.md) now has public queries, full rich
+query values and original native F2 with genuine background loading of unopened
+text targets and grouped editing/history. All 714 host and 1,361 Rust tests pass,
+with nineteen terminal journeys and installed-clangd rename; build/fmt/strict
+Clippy pass. Thirteen of the 32 stable provider families are integrated, with
+explicit behavioral limits. Next, default
 multi-resource refactoring saves must finish through actual native save receipts;
 resource operations, snippets, EOL, confirmation annotations and notebook targets
 remain required backends. Single-resource refactoring now stays unsaved under

@@ -7,6 +7,7 @@ const { createDiagnostics } = require('./diagnostics.cjs');
 const providerTypes = require('./provider-types.cjs');
 const { createProviders } = require('./providers.cjs');
 const {createNavigationProviders}=require('./navigation-providers.cjs');
+const {createRenameProviders}=require('./rename-providers.cjs');
 const { createPrompts } = require('./prompts.cjs');
 const { createSurfaces } = require('./surfaces.cjs');
 const { createConfiguration } = require('./configuration.cjs');
@@ -79,6 +80,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     notice: (owner, text) => messageFor(owner, text),
   }, {
     snapshots: () => workspaceEditMirrors.values(), snapshot: id => workspaceEditMirrors.get(id),
+    unopenedEdits:sessionOptions.workspaceUnopenedEdits===true,
     captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
     refactoringPolicy: () => ({ identity: workspaceEditConfigurationIdentity,
       autoSave: configuration.get('files.refactoring').get('autoSave', true) }),
@@ -131,7 +133,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       // Keep the host's separate command-origin ALS unchanged.
       return callers.unowned(() => operation(params));
     } catch (error) {
-      if(operation===providers.provide||operation===providers.resolveCompletion||operation===providers.resolveAction||operation===providers.provideWorkspaceSymbols||operation===providers.resolveWorkspaceSymbol){
+      if(operation===providers.provide||operation===providers.resolveCompletion||operation===providers.resolveAction||operation===providers.provideWorkspaceSymbols||operation===providers.resolveWorkspaceSymbol||operation===providers.prepareRename||operation===providers.provideRenameEdits){
         try{providers.releaseRefusal(params);}catch{/* Preserve the original pre-entry error. */}
       }
       return Promise.reject(error);
@@ -148,6 +150,11 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     mirrors:()=>workspaceEditMirrors.values(),snapshot:id=>workspaceEditMirrors.get(id),sourceFor:document=>documentMirrorRecords.get(document),
     open:(owner,uri)=>documentServices.forOwner(owner).openTextDocument(uri),
     query:providers.query,
+  });
+  const renameProviders=createRenameProviders({
+    captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
+    workspaceIdentity:()=>workspaceEditConfigurationIdentity,mirrors:()=>workspaceEditMirrors.values(),snapshot:id=>workspaceEditMirrors.get(id),sourceFor:document=>documentMirrorRecords.get(document),
+    open:(owner,uri)=>documentServices.forOwner(owner).openTextDocument(uri),query:providers.queryRename,
   });
   const diagnostics = createDiagnostics({ session: sessionOptions.session, notify, track, assertOwner, document: key => {
     for (const document of documents.values()) if (document._snapshot.uri === key) return document;
@@ -205,6 +212,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       async executeCommand(id, ...args) {
         assertOwner(owner);
         if(id==='vscode.executeWorkspaceSymbolProvider'){if(!sessionOptions.languageProviders)throw new Error('Native language providers are unavailable');return providers.queryWorkspaceSymbols(owner,args[0]);}
+        if(renameProviders.commands.includes(id)){if(!sessionOptions.languageProviders)throw new Error('Native language providers are unavailable');return renameProviders.execute(owner,id,args);}
         if(navigationProviders.commands.includes(id)){if(!sessionOptions.languageProviders)throw new Error('Native language providers are unavailable');return navigationProviders.execute(owner,id,args);}
         const command = commands.get(id);
         if (!command && NATIVE_COMMANDS.includes(id)) return documentServices.execute(owner, id, args);
@@ -213,7 +221,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         commandCalls++;
         try { return await command.callback(...args); } finally { commandCalls--; }
       },
-      async getCommands() { return [...NATIVE_COMMANDS, ...(sessionOptions.languageProviders?[...navigationProviders.commands,'vscode.executeWorkspaceSymbolProvider']:[]), ...commands.keys()]; },
+      async getCommands() { return [...NATIVE_COMMANDS, ...(sessionOptions.languageProviders?[...navigationProviders.commands,...renameProviders.commands,'vscode.executeWorkspaceSymbolProvider']:[]), ...commands.keys()]; },
     });
   }
   function sourceEnd(text) {
@@ -542,7 +550,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, rankLanguageProviders: providers.rank, provideWorkspaceSymbols:params=>coreOperation(providers.provideWorkspaceSymbols,params), resolveLanguageWorkspaceSymbol:params=>coreOperation(providers.resolveWorkspaceSymbol,params), retireWorkspaceSymbols:providers.retireWorkspaceSymbols, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, releaseLanguageProviderRefusal: providers.releaseRefusal, languageProviderPending: providers.pending, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; providers.documentChanged(); fileWatchers.refresh(); }, commandSnapshot, assertOwner,
+    api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, rankLanguageProviders: providers.rank, prepareLanguageRename:params=>coreOperation(providers.prepareRename,params), provideLanguageRename:params=>coreOperation(providers.provideRenameEdits,params), provideWorkspaceSymbols:params=>coreOperation(providers.provideWorkspaceSymbols,params), resolveLanguageWorkspaceSymbol:params=>coreOperation(providers.resolveWorkspaceSymbol,params), retireWorkspaceSymbols:providers.retireWorkspaceSymbols, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, releaseLanguageProviderRefusal: providers.releaseRefusal, languageProviderPending: providers.pending, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; providers.documentChanged(); fileWatchers.refresh(); }, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.
     runWithOwner: callers.run, currentCallerOwner: callers.currentOwner,

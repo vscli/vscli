@@ -1,4 +1,7 @@
 //! Native stdio LSP transport. Subprocess I/O never blocks the input/render loop.
+#[cfg(test)]
+#[path = "lsp_rename_tests.rs"]
+mod rename_tests;
 use crate::document::{Document, Selection};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -81,6 +84,7 @@ pub enum Event {
     SymbolFailure(Request, String),
     FormattingResult(Request, Result<Value, String>),
     ActionResult(Request, Result<Value, String>),
+    RenameResult(Request, Result<Value, String>),
     Diagnostics(DiagnosticPublication),
     Message(String),
 }
@@ -220,6 +224,7 @@ pub struct Client {
     signature_occupied: Option<u64>,
     signature_timed_out: bool,
     symbol_slot: Option<SymbolSlot>,
+    rename_slot: Option<SymbolSlot>,
     formatting_slot: Option<FormattingSlot>,
     synced: HashMap<String, Synced>,
     next_id: u64,
@@ -411,6 +416,7 @@ impl Client {
             signature_occupied: None,
             signature_timed_out: false,
             symbol_slot: None,
+            rename_slot: None,
             formatting_slot: None,
             synced: HashMap::new(),
             next_id: 1,
@@ -434,7 +440,7 @@ impl Client {
                     "signatureHelp":{"signatureInformation":{"documentationFormat":["plaintext"],"parameterInformation":{"labelOffsetSupport":true},"activeParameterSupport":true},"contextSupport":true},
                     "completion":{"contextSupport":true,"completionItem":{"snippetSupport":true,"documentationFormat":["plaintext","markdown"],"resolveSupport":{"properties":["detail","documentation","additionalTextEdits"]}}},
                     "documentSymbol":{"hierarchicalDocumentSymbolSupport":true},
-                    "definition":{"linkSupport":true}, "implementation":{"linkSupport":true}, "typeDefinition":{"linkSupport":true}, "declaration":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{},
+                    "definition":{"linkSupport":true}, "implementation":{"linkSupport":true}, "typeDefinition":{"linkSupport":true}, "declaration":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{"prepareSupport":true,"prepareSupportDefaultBehavior":1,"honorsChangeAnnotations":false},
                     "codeAction":{"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports","source.fixAll"]}},"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]}}
                 }
             }
@@ -690,6 +696,23 @@ impl Client {
         if !self.ready {
             bail!("Language server is still initializing");
         }
+        let rename = matches!(method, "textDocument/prepareRename" | "textDocument/rename");
+        if rename {
+            self.ensure_rename_available()?;
+            let object = extra.as_object().context("Invalid rename parameters")?;
+            if method == "textDocument/prepareRename" {
+                if !self.rename_preparation_supported() || !object.is_empty() {
+                    bail!("Rename preparation is not advertised or has unsupported parameters");
+                }
+            } else if object.len() != 1
+                || object
+                    .get("newName")
+                    .and_then(Value::as_str)
+                    .is_none_or(|name| name.len() > 64 * 1024)
+            {
+                bail!("Rename requires one string newName of at most 64 KiB");
+            }
+        }
         let formatting = method == "textDocument/formatting";
         if formatting {
             self.ensure_formatting_available()?;
@@ -740,7 +763,7 @@ impl Client {
                 "Document language has not been synchronized; retry after language synchronization"
             );
         }
-        if (formatting || method == "textDocument/codeAction")
+        if (formatting || rename || method == "textDocument/codeAction")
             && (synced.id != doc.id
                 || synced.path != path
                 || synced.revision != doc.revision
@@ -772,10 +795,10 @@ impl Client {
         if method == "textDocument/documentSymbol" {
             self.ensure_symbol_available()?;
         }
-        if is_action && self.synced.len() > 128 {
+        if (is_action || rename) && self.synced.len() > 128 {
             bail!("Code actions support at most 128 synchronized buffers");
         }
-        if is_action {
+        if is_action || rename {
             let mut paths = 0usize;
             for synced in self.synced.values() {
                 let bytes = synced.path.as_os_str().len();
@@ -785,7 +808,7 @@ impl Client {
                 }
             }
         }
-        let workspace = if is_action {
+        let workspace = if is_action || rename {
             self.synced
                 .values()
                 .map(|s| {
@@ -839,6 +862,13 @@ impl Client {
         );
         if method == "textDocument/signatureHelp" {
             self.signature_occupied = Some(id);
+        }
+        if rename {
+            self.rename_slot = Some(SymbolSlot {
+                token: id,
+                canceled: false,
+                timed_out: false,
+            });
         }
         if method == "textDocument/documentSymbol" {
             self.symbol_slot = Some(SymbolSlot {
@@ -928,6 +958,48 @@ impl Client {
     }
     pub(crate) fn symbol_available(&self) -> bool {
         self.ready && self.symbol_slot.is_none() && self.pending.len() < 32
+    }
+    pub(crate) fn supports_rename(&self) -> bool {
+        matches!(
+            self.capabilities.get("renameProvider"),
+            Some(Value::Bool(true)) | Some(Value::Object(_))
+        )
+    }
+    pub(crate) fn rename_preparation_supported(&self) -> bool {
+        self.supports_rename() && self.capabilities["renameProvider"]["prepareProvider"] == true
+    }
+    fn ensure_rename_available(&self) -> Result<()> {
+        if !self.ready || !self.supports_rename() {
+            bail!("Language server does not provide rename");
+        }
+        if self.rename_slot.is_some() || self.pending.len() >= 32 {
+            bail!("Previous rename request is awaiting actual response or server restart");
+        }
+        Ok(())
+    }
+    pub(crate) fn request_rename(
+        &mut self,
+        document: &Document,
+        new_name: Option<&str>,
+        view: Option<u64>,
+    ) -> Result<u64> {
+        let token = self.next_id;
+        let (method, params) = match new_name {
+            None => ("textDocument/prepareRename", json!({})),
+            Some(name) => ("textDocument/rename", json!({"newName":name})),
+        };
+        self.request_in_view(method, document, params, view)?;
+        Ok(token)
+    }
+    pub(crate) fn cancel_rename_request(&mut self, token: u64) -> Result<()> {
+        if let Some(slot) = &mut self.rename_slot
+            && slot.token == token
+            && !slot.canceled
+        {
+            slot.canceled = true;
+            self.notify("$/cancelRequest", json!({"id":token}))?;
+        }
+        Ok(())
     }
     pub(crate) fn symbol_channel_closed(&self) -> bool {
         self.symbol_slot.as_ref().is_some_and(|slot| slot.timed_out)
@@ -1231,6 +1303,10 @@ impl Client {
             .filter(|(id, r)| {
                 r.started.elapsed() > Duration::from_secs(15)
                     && !self
+                        .rename_slot
+                        .as_ref()
+                        .is_some_and(|slot| slot.token == **id && slot.timed_out)
+                    && !self
                         .formatting_slot
                         .as_ref()
                         .is_some_and(|slot| slot.token == **id && slot.timed_out)
@@ -1246,6 +1322,19 @@ impl Client {
             .map(|(id, _)| *id)
             .collect::<Vec<_>>()
         {
+            if let Some(slot) = &mut self.rename_slot
+                && slot.token == id
+            {
+                slot.timed_out = true;
+                let notify = !slot.canceled;
+                slot.canceled = true;
+                if notify {
+                    events.push(Event::RenameResult(self.pending.get(&id).unwrap().clone(),
+                        Err("Rename request timed out; awaiting actual response or language server restart".into())));
+                    self.notify("$/cancelRequest", json!({"id":id}))?;
+                }
+                continue;
+            }
             if let Some(slot) = &mut self.formatting_slot
                 && slot.token == id
             {
@@ -1456,6 +1545,39 @@ impl Client {
                             Ok(result.unwrap().clone())
                         };
                         events.push(Event::FormattingResult(request, response));
+                    }
+                    continue;
+                }
+                if self
+                    .rename_slot
+                    .as_ref()
+                    .is_some_and(|slot| slot.token == id)
+                {
+                    let result = message.get("result");
+                    let error = message.get("error");
+                    let completed = message["jsonrpc"] == "2.0"
+                        && (matches!((result, error), (Some(_), None))
+                            || matches!((result,error),(None,Some(error)) if error["code"].as_i64().is_some_and(|code| i32::try_from(code).is_ok()) && error["message"].as_str().is_some()));
+                    if !completed {
+                        continue;
+                    }
+                    let slot = self.rename_slot.take().unwrap();
+                    let request = self
+                        .pending
+                        .remove(&id)
+                        .context("Rename response lost original request")?;
+                    if !slot.canceled && !slot.timed_out {
+                        let response = if let Some(error) = error {
+                            Err(error["message"]
+                                .as_str()
+                                .unwrap()
+                                .chars()
+                                .take(4096)
+                                .collect())
+                        } else {
+                            Ok(result.unwrap().clone())
+                        };
+                        events.push(Event::RenameResult(request, response));
                     }
                     continue;
                 }

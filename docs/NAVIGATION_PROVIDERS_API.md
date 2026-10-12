@@ -115,8 +115,11 @@ cargo build --locked
 python3 tests/extension_navigation_providers_pty.py target/debug/vscli
 ```
 
-This milestone does not complete the full stable language API. Workspace symbols,
-rename/prepareRename, range/on-type formatting, semantic tokens, inlay hints and
+This milestone does not complete the full stable language API.
+[Workspace symbols](WORKSPACE_SYMBOLS_API.md) and
+[rename/prepareRename](RENAME_PROVIDERS_API.md) now have separate integrated
+routes; richer native rename backends remain unfinished. Range/on-type
+formatting, semantic tokens, inlay hints and
 the other provider families remain separately tracked. Native LSP aggregation,
 all scheme backends, complete selectors/notebook support and every provider
 extension's behavior also require their own implementation and qualification.

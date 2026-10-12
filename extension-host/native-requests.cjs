@@ -12,6 +12,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     if (!Number.isSafeInteger(nextId + 1)) return Promise.reject(new Error('Extension request identity exhausted'));
     const save = method === 'nativeDocumentSave', applyEdit = method === 'nativeWorkspaceApplyEdit';
     const findFiles = method === 'nativeFindFiles';
+    const applyTargets=applyEdit&&params.args?.targetReceipts===true?new Map(params.args.entries.map(entry=>[entry.uri,entry.document])):undefined;
     const tabsClose = method === 'nativeTabsClose';
     const virtual = method === 'nativeVirtualDocumentOpen' || method === 'nativeVirtualDocumentChange' || method === 'nativeUntitledDocumentOpen' || method === 'nativeDocumentLanguage' || method === 'nativeEditorSelections';
     const editorOperation = method === 'nativeEditorSelections' || method === 'nativeDocumentShow' || method === 'nativeEditorOptions' || method === 'nativeEditorReveal' || method === 'nativeEditorDecorations' || method === 'nativeEditorInsertSnippet';
@@ -39,7 +40,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     // Only internal document-services supplies this exact callback object.
     if (retained && lifecycle) lifecycle.retained = true;
     return new Promise((resolve, reject) => {
-      const call = { resolve, reject, save, applyEdit, findFiles, virtual, editorOperation, expectedEditor, expectedKey, expectedDocument, decoration, snippetOperation, tabsClose, expectedTabKind, expectedTabIds, bytes, terminal: retained ? lifecycle?.onTerminal : undefined, timer: undefined };
+      const call = { resolve, reject, save, applyEdit, applyTargets, findFiles, virtual, editorOperation, expectedEditor, expectedKey, expectedDocument, decoration, snippetOperation, tabsClose, expectedTabKind, expectedTabIds, bytes, terminal: retained ? lifecycle?.onTerminal : undefined, timer: undefined };
       function release() {
         if (pending.get(id) !== call) return;
         pending.delete(id); serviceBytes -= call.bytes; timers.clearTimeout(call.timer);
@@ -77,7 +78,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     // Malformed frames cannot free occupied Save/ApplyEdit work or restart its timer.
     if (call.save && (hasResult === hasError || (hasResult && typeof message.result !== 'boolean') ||
         (hasError && (!message.error || typeof message.error.message !== 'string')))) return false;
-    if (call.applyEdit && (hasResult === hasError || (hasResult && !isApplyEditResult(message.result)) ||
+    if (call.applyEdit && (hasResult === hasError || (hasResult && !isApplyEditResult(message.result,call.applyTargets)) ||
         (hasError && (!message.error || typeof message.error.message !== 'string'
           || message.error.message.length > 4096 || Buffer.byteLength(message.error.message) > 4096)))) return false;
     if (call.findFiles && (hasResult === hasError || (hasResult && !isFindFilesResult(message.result)) ||

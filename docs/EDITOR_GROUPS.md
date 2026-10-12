@@ -305,7 +305,10 @@ stages all required memberships before changing any buffer. Five new refusal
 integrity tests use a test-only one-shot reservation seam and preserve exact
 models, selections, epochs, Undo/Redo, history and disks. They test error handling,
 not a real allocator or memory-pressure workload; production has no test seam.
-The legacy rename restrictions remain in place.
+Those tests cover the historical legacy rename path. Original F2 now uses
+[prepared grouped transactions](RENAME_PROVIDERS_API.md), preserving shared
+memberships and publishing new unopened models hidden. Resource operations and
+default multi-resource autosave still require their own integration.
 
 The strict consumer verifies the complete actual 39-file source-matched sticky
 baseline before native replay. It compares all 18 cases, 65 target snapshots and

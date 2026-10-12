@@ -5,6 +5,7 @@
 const { AsyncLocalStorage } = require('node:async_hooks');
 const storage = new AsyncLocalStorage();
 const callbackMethods = Object.freeze([
+  'prepareRename', 'provideRenameEdits',
   'provideWorkspaceSymbols', 'resolveWorkspaceSymbol',
   'provideCodeActions', 'resolveCodeAction', 'provideCompletionItems', 'resolveCompletionItem',
   'provideHover', 'provideDefinition', 'provideReferences', 'provideDocumentFormattingEdits',

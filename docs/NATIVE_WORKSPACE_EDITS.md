@@ -1,8 +1,8 @@
 # Public workspace edits and grouped native history
 
 Selected extensions can call `await vscode.workspace.applyEdit(edit)` with text
-edits for retained native documents. One transaction can edit visible, inactive,
-hidden and untitled models together. Native preparation runs on a bounded Rust
+edits for retained native documents and existing unopened local regular files.
+One transaction can edit visible, inactive, hidden and untitled models together. Native preparation runs on a bounded Rust
 worker; all targets are validated and staged before any text changes. The complete
 mirror is published before change events and the successful awaited Boolean.
 Shared document identities survive the operation.
@@ -14,8 +14,11 @@ edit.insert(second.uri, new vscode.Position(0, 0), 'second ');
 const applied = await vscode.workspace.applyEdit(edit);
 ```
 
-Open a local file with `workspace.openTextDocument` before including it. Opening
-alone retains a hidden model without changing the active editor. Plain text edits
+Existing local regular files can be included directly by URI. A bounded native
+worker loads unopened targets and publishes real hidden models in the same
+atomic cohort. Canonical aliases reuse original retained dirty models. Opening
+with `workspace.openTextDocument` also retains a hidden model without changing
+the active editor. Plain text edits
 change native buffers, preserving their EOL convention; they do not write files.
 Use `await document.save()` for [native persistence](NATIVE_DOCUMENT_SAVE.md).
 Normal native autosave remains governed by its own settings.
@@ -33,7 +36,8 @@ enabled and disabled refactoring autosave settings. This follows the pinned
 [bulk-edit resource-count condition](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/contrib/bulkEdit/browser/bulkEditService.ts#L239-L244).
 Multi-resource refactorings still require the root user/workspace setting
 `"files.refactoring.autoSave": false` until the multi-resource save continuation
-is implemented. Other policies refuse the whole request with an explicit notice;
+is implemented. Default/enabled policy refuses the whole request with an explicit notice;
+non-Boolean policy values are disabled by the pinned strict `=== true` condition;
 language overrides do not change this root policy.
 
 The policy correction passes all 677 host tests and 24 native workspace
@@ -47,7 +51,8 @@ all-target locked Clippy pass. Reproduce the new terminal checks with
 
 ## Admission and failure behavior
 
-The native gateway captures target identity, URI, exposed version, source epoch,
+The native gateway captures the complete original model inventory, target
+identity, URI, exposed version, source epoch,
 saved baseline, history heads, settings/profile and workspace at receipt, before
 FIFO waiting. Later dispatch uses that original capture. A target edit followed
 by Undo cannot renew the proof. Navigation/focus changes alone do not invalidate
@@ -57,7 +62,7 @@ reactivating the same extension ID.
 Invalid UTF-16 ranges, split surrogate pairs, overlapping replacements, duplicate
 target groups or changed targets refuse the whole transaction. Same-position
 insertions preserve their original order. No supported prefix of a mixed
-unsupported edit is applied. File operations, unopened resources, custom/virtual
+unsupported edit is applied. File operations, custom/virtual
 filesystem documents, snippets, EOL edits, annotations/confirmation metadata and
 notebook edits still need native backends.
 
@@ -105,3 +110,12 @@ optional compatibility host.
 Source contracts use immutable upstream commit
 [`2a59476c9bfcb90b3ddc372c36762471b7dfad1c`](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostBulkEdits.ts)
 and the [edit value receipts](EDIT_API.md).
+
+The [rename milestone](RENAME_PROVIDERS_API.md) extends this backend to genuine
+unopened local text files. Fourteen new native tests cover bounded loading, canonical
+dirty hidden aliases, all-target refusal, original inventory changes, cancellation
+with actual worker joining and grouped Undo/Redo. Missing, binary, oversized and
+nonregular targets refuse before publication. The negotiated public gateway omits
+identity/version for unopened URIs; successful original-URI-to-document receipts
+resolve canonical aliases against actual published models. It never invents a
+JavaScript document version.

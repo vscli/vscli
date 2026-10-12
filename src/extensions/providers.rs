@@ -41,6 +41,7 @@ struct NavigationRankSource {
     version: u64,
     uri: String,
     kind: Kind,
+    position: lsp::Position,
     providers: Vec<Provider>,
     owners: Vec<Arc<std::sync::atomic::AtomicBool>>,
 }
@@ -54,6 +55,7 @@ struct NavigationRanking {
 pub(crate) struct NavigationRankReply {
     pub id: u64,
     pub result: Result<Vec<Provider>, String>,
+    pub fallback: Option<Value>,
 }
 struct Call {
     ticket: Ticket,
@@ -493,10 +495,10 @@ impl Client {
     ) -> bool {
         self.provider_owner_ready(&provider.owner)
             && self.providers.registry.current(provider, epoch)
-            && (provider.kind.is_navigation() || provider.score(document) > 0)
+            && (provider.kind.is_ordered() || provider.score(document) > 0)
     }
     pub(crate) fn navigation_family_registered(&self, kind: Kind) -> bool {
-        kind.is_navigation()
+        kind.is_ordered()
             && self
                 .providers
                 .registry
@@ -511,7 +513,7 @@ impl Client {
         hidden: &[Document],
         active: usize,
     ) -> Result<NavigationRankIntent> {
-        anyhow::ensure!(kind.is_navigation(), "Invalid navigation provider family");
+        anyhow::ensure!(kind.is_ordered(), "Invalid ordered provider family");
         self.sync_with_hidden(documents, hidden, active)?;
         let doc = documents
             .get(active)
@@ -548,6 +550,7 @@ impl Client {
                 version: mirror.version,
                 uri: mirror.uri.clone(),
                 kind,
+                position: lsp::position(doc, doc.cursor),
                 providers,
                 owners,
             }),
@@ -598,8 +601,12 @@ impl Client {
             .filter(|id| *id <= 9_007_199_254_740_991)
             .context("Navigation matching request identities exhausted")?;
         let source = &intent.source;
-        self.request("rankLanguageProviders", json!({"session":source.session,"type":source.kind,
-            "document":source.document,"version":source.version,"languageEpoch":source.language_epoch}))?;
+        let mut params = json!({"session":source.session,"type":source.kind,
+            "document":source.document,"version":source.version,"languageEpoch":source.language_epoch});
+        if source.kind == Kind::Rename {
+            params["position"] = serde_json::to_value(source.position)?;
+        }
+        self.request("rankLanguageProviders", params)?;
         self.providers.ranking = Some(NavigationRanking {
             id,
             intent: intent.clone(),
@@ -632,6 +639,7 @@ impl Client {
         if rank.canceled || rank.expired {
             return Ok(());
         }
+        let mut fallback = None;
         let result = (|| -> Result<Vec<Provider>> {
             if !message["error"].is_null() {
                 bail!(
@@ -650,6 +658,8 @@ impl Client {
             #[serde(deny_unknown_fields)]
             struct Ranked {
                 providers: Vec<Entry>,
+                #[serde(default)]
+                fallback: Option<Value>,
             }
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -664,6 +674,24 @@ impl Client {
                 "Invalid navigation rank count"
             );
             let ranked: Ranked = serde_json::from_value(value)?;
+            if rank.intent.source.kind == Kind::Rename {
+                let value = ranked
+                    .fallback
+                    .context("Missing original rename fallback")?;
+                anyhow::ensure!(
+                    value["placeholder"]
+                        .as_str()
+                        .is_some_and(|text| text.len() <= 64 * 1024),
+                    "Invalid rename fallback placeholder"
+                );
+                let _: lsp::Range = serde_json::from_value(value["range"].clone())?;
+                fallback = Some(value);
+            } else {
+                anyhow::ensure!(
+                    ranked.fallback.is_none(),
+                    "Unexpected navigation fallback metadata"
+                );
+            }
             let mut seen = HashSet::new();
             ranked
                 .providers
@@ -685,9 +713,11 @@ impl Client {
                 .collect()
         })()
         .map_err(|error| format!("{error:#}"));
-        self.providers
-            .ranked
-            .push_back(NavigationRankReply { id, result });
+        self.providers.ranked.push_back(NavigationRankReply {
+            id,
+            result,
+            fallback,
+        });
         Ok(())
     }
     pub(crate) fn provider_registration_current(&self, ticket: &Ticket) -> bool {
@@ -697,6 +727,16 @@ impl Client {
                 .providers
                 .registry
                 .current(&ticket.provider, ticket.epoch)
+    }
+    pub(crate) fn rename_owner_lifetime(
+        &self,
+        ticket: &Ticket,
+    ) -> Result<Arc<std::sync::atomic::AtomicBool>> {
+        anyhow::ensure!(
+            ticket.provider.kind == Kind::Rename && self.provider_registration_current(ticket),
+            "Original rename owner retired"
+        );
+        self.owner_lifetimes.capture(&ticket.provider.owner)
     }
     pub(crate) fn provider_ticket_current(&self, ticket: &Ticket, doc: &Document) -> bool {
         self.provider_registration_current(ticket)
@@ -778,6 +818,7 @@ impl Client {
                 .context("Workspace target is not mirrored")?;
             if mirror.revision != document.revision
                 || mirror.text_epoch != document.text_epoch()
+                || mirror.language_epoch != document.language_epoch()
                 || mirror.eol != document.eol
                 || !ids.insert(document.id)
                 || !uris.insert(&mirror.uri)
@@ -832,8 +873,8 @@ impl Client {
         options: Value,
     ) -> Result<Ticket> {
         anyhow::ensure!(
-            provider.kind != Kind::WorkspaceSymbols,
-            "Workspace symbol callbacks require global admission, not a document ticket"
+            !matches!(provider.kind, Kind::WorkspaceSymbols | Kind::Rename),
+            "Workspace symbol and rename callbacks require their dedicated admission"
         );
         let doc = documents.get(active).context("No active document")?;
         if !self.provider_owner_ready(&provider.owner)
@@ -901,6 +942,84 @@ impl Client {
             self.providers.symbols = Some(ticket.clone());
             self.providers.symbols_started = Some(Instant::now());
         }
+        self.providers.occupied.insert(ticket.id, ticket.clone());
+        self.providers.calls.insert(
+            ticket.id,
+            Call {
+                ticket: ticket.clone(),
+                canceled: false,
+                started: Instant::now(),
+            },
+        );
+        Ok(ticket)
+    }
+    pub(crate) fn request_rename_provider(
+        &mut self,
+        provider: &Provider,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+        position: lsp::Position,
+        new_name: Option<&str>,
+    ) -> Result<Ticket> {
+        let doc = documents
+            .get(active)
+            .context("No original rename document")?;
+        anyhow::ensure!(
+            provider.kind == Kind::Rename
+                && self.provider_registration_matches(
+                    provider,
+                    self.providers.registry.epoch(),
+                    doc
+                ),
+            "Original rename provider/source retired"
+        );
+        anyhow::ensure!(
+            self.language_provider_capacity(),
+            "Language provider callback limit reached (8)"
+        );
+        anyhow::ensure!(
+            new_name.is_some() || provider.resolves,
+            "Provider has no rename preparation"
+        );
+        if let Some(name) = new_name {
+            anyhow::ensure!(name.len() <= 64 * 1024, "Rename name exceeds 64 KiB");
+        }
+        lsp::offset(doc, position)?;
+        self.sync_with_hidden(documents, hidden, active)?;
+        let mirror = self
+            .mirror
+            .mirrors
+            .get(&doc.id)
+            .context("Rename source is not mirrored")?;
+        let ticket = Ticket {
+            id: self
+                .next_id
+                .checked_add(1)
+                .filter(|id| *id <= 9_007_199_254_740_991)
+                .context("Rename callback identities exhausted")?,
+            session: self.session,
+            provider: Arc::new(provider.clone()),
+            epoch: self.providers.registry.epoch(),
+            document: doc.id,
+            revision: doc.revision,
+            text_epoch: doc.text_epoch(),
+            language_epoch: doc.language_epoch(),
+            version: mirror.version,
+            workspace: self.mirrored_snapshotset(documents, hidden)?,
+        };
+        let method = if new_name.is_some() {
+            "provideLanguageRename"
+        } else {
+            "prepareLanguageRename"
+        };
+        let mut params = json!({"session":self.session,"owner":provider.owner,
+            "provider":provider.id,"document":doc.id,"version":ticket.version,
+            "position":position});
+        if let Some(name) = new_name {
+            params["newName"] = json!(name);
+        }
+        self.request(method, params)?;
         self.providers.occupied.insert(ticket.id, ticket.clone());
         self.providers.calls.insert(
             ticket.id,
@@ -1068,7 +1187,9 @@ impl Client {
                 .collect())
         } else {
             let value = message["result"].take();
-            (if call.ticket.provider.kind == Kind::Symbols {
+            (if call.ticket.provider.kind == Kind::Rename {
+                crate::decorations::json_budget(&value, 2 * 1024 * 1024).map(|_| ())
+            } else if call.ticket.provider.kind == Kind::Symbols {
                 result_budget(&value, 40)
             } else {
                 provider_result_budget(&value)
@@ -1117,6 +1238,7 @@ impl Client {
             rank.expired = true;
             self.providers.ranked.push_back(NavigationRankReply {
                 id: rank.id,
+                fallback: None,
                 result: Err(
                     "Navigation matching timed out; original request remains pending".into(),
                 ),

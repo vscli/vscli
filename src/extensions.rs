@@ -466,6 +466,14 @@ impl Client {
                 include_str!("../extension-host/workspace-symbols.cjs"),
             ),
             (
+                "rename-providers.cjs",
+                include_str!("../extension-host/rename-providers.cjs"),
+            ),
+            (
+                "workspace-edit-values.cjs",
+                include_str!("../extension-host/workspace-edit-values.cjs"),
+            ),
+            (
                 "signatures.cjs",
                 include_str!("../extension-host/signatures.cjs"),
             ),
@@ -592,7 +600,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "workspaceEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -686,6 +694,8 @@ impl Client {
                     | "provideLanguage"
                     | "provideWorkspaceSymbols"
                     | "resolveLanguageWorkspaceSymbol"
+                    | "prepareLanguageRename"
+                    | "provideLanguageRename"
                     | "resolveLanguageCompletion"
                     | "resolveLanguageCodeAction"
                     | "treeChildren"
@@ -1249,7 +1259,11 @@ impl Client {
                 }
                 if matches!(
                     pending.method.as_str(),
-                    "provideLanguage" | "resolveLanguageCompletion" | "resolveLanguageCodeAction"
+                    "provideLanguage"
+                        | "prepareLanguageRename"
+                        | "provideLanguageRename"
+                        | "resolveLanguageCompletion"
+                        | "resolveLanguageCodeAction"
                 ) {
                     self.provider_response(id, message)?;
                     continue;

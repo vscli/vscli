@@ -288,6 +288,14 @@ impl App {
             .map(|h| h.take_provider_replies())
             .unwrap_or_default();
         for reply in replies {
+            if reply.ticket.provider.kind == Kind::Rename {
+                changed = true;
+                if let Err(error) = self.rename_provider_reply(reply.ticket, reply.result) {
+                    self.cancel_rename();
+                    self.message = format!("Rename: {error:#}");
+                }
+                continue;
+            }
             if self.navigation_reply_owned(&reply.ticket) {
                 changed = true;
                 if let Err(error) = self.provider_navigation_reply(reply.ticket, reply.result) {
@@ -529,6 +537,9 @@ impl App {
             }
             Kind::WorkspaceSymbols => {
                 bail!("Workspace symbols must use their global callback controller");
+            }
+            Kind::Rename => {
+                bail!("Rename results must use their original preparation controller");
             }
             Kind::Symbols => {
                 let fallback = PathBuf::from(self.doc().name());

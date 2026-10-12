@@ -306,7 +306,7 @@ The implemented independent CommonJS JavaScript shim in `extension-host/*.cjs`
 supplies the `vscode` module inside the optional Node.js process and connects to
 native services through a versioned broker protocol. Its documented subset covers
 activation, disposables/events/cancellation, commands, configuration, shared document
-mirrors, Mementos, twelve language-provider routes, diagnostic collections and native prompts/surfaces.
+mirrors, Mementos, thirteen language-provider routes, diagnostic collections and native prompts/surfaces.
 Broader workspace/resource, provider and UI behavior remains staged. Contracts
 remain pinned to VS Code 1.95.0; a version string is not an API compatibility claim.
 
@@ -444,3 +444,10 @@ continue to use revision cleanliness, so that same tab has no modified marker.
 The pinned preview corpus observes both flags separately. Optional-host document
 snapshots now preserve this distinction without changing text, Undo/Redo or
 version ownership. Initial untouched empty Untitled documents remain clean.
+
+The [rename provider milestone](RENAME_PROVIDERS_API.md) adds public prepare/execute
+queries, original F2 preparation and atomic grouped text edits across dirty, shared,
+hidden and unopened local files. Rich query values are retained independently of
+native application. Default multi-resource autosave and resource/snippet/EOL/
+annotation/notebook apply backends remain unfinished; full rename/API parity is
+not claimed. The independent native LSP route requires no Node runtime.

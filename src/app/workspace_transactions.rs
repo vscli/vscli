@@ -37,6 +37,7 @@ pub(crate) struct Origin {
     pub request: String,
     pub owner: String,
     retired: Arc<AtomicBool>,
+    native: bool,
 }
 impl Origin {
     pub(crate) fn new(
@@ -64,7 +65,27 @@ impl Origin {
             request: request.into(),
             owner: owner.into(),
             retired,
+            native: false,
         })
+    }
+    pub(crate) fn native(request: &str, retired: Arc<AtomicBool>) -> Result<Self> {
+        ensure!(
+            !request.is_empty()
+                && request.len() <= 128
+                && !request.contains('\0')
+                && !retired.load(Ordering::Acquire),
+            "Invalid native workspace origin"
+        );
+        Ok(Self {
+            session: 0,
+            request: request.into(),
+            owner: String::new(),
+            retired,
+            native: true,
+        })
+    }
+    pub(crate) fn is_native(&self) -> bool {
+        self.native
     }
     pub(crate) fn alive(&self) -> bool {
         !self.retired.load(Ordering::Acquire)
@@ -80,8 +101,13 @@ struct WireEdit {
     end: Position,
     text: String,
 }
+enum Target {
+    Retained(WorkspaceSource),
+    Unopened(PathBuf),
+}
 struct Input {
-    source: WorkspaceSource,
+    uri: String,
+    target: Target,
     edits: Vec<WireEdit>,
 }
 #[derive(Clone)]
@@ -105,8 +131,7 @@ impl CaptureContext {
             .iter()
             .rev()
             .find_map(|layer| layer.get("files.refactoring.autoSave"))
-            .and_then(Value::as_bool)
-            != Some(false);
+            .is_none_or(|value| value == &Value::Bool(true));
         Ok(Self {
             settings,
             profile,
@@ -118,19 +143,36 @@ impl CaptureContext {
 pub(crate) struct Capture {
     origin: Origin,
     inputs: Vec<Input>,
+    inventory: Vec<(MirrorSnapshot, Option<WorkspaceSource>)>,
+    retained_bytes: usize,
+    target_receipts: bool,
     context: CaptureContext,
     deadline: Instant,
 }
 struct Prepared {
     origin: Origin,
     items: Vec<WorkspaceTextPrepared>,
+    new_documents: Vec<Document>,
+    targets: Vec<TargetReceipt>,
+    target_receipts: bool,
+    inventory: Vec<MirrorSnapshot>,
     context: CaptureContext,
     deadline: Instant,
+}
+/// Worker-issued identity mapping for an original request URI. IDs come only
+/// from the captured retained source or an actually loaded Document. Versions
+/// remain the optional host's mirror authority after successful publication.
+#[derive(Clone, Debug, serde::Serialize)]
+pub(crate) struct TargetReceipt {
+    pub uri: String,
+    pub document: u64,
 }
 pub(crate) struct Completion {
     pub token: u64,
     pub origin: Origin,
     pub applied: bool,
+    pub targets: Vec<TargetReceipt>,
+    pub target_receipts: bool,
     pub reason: Option<String>,
 }
 struct Pending {
@@ -286,11 +328,26 @@ pub(crate) fn capture_workspace_transaction(
                 .is_some_and(|count| count <= MAX_TARGETS),
         "Workspace admission retired/over budget"
     );
-    let args = fields(
-        args,
-        &["entries", "metadata"],
-        "Unsupported workspace transaction fields",
-    )?;
+    let args = args
+        .as_object()
+        .context("Unsupported workspace transaction fields")?;
+    ensure!(
+        args.contains_key("entries")
+            && args.contains_key("metadata")
+            && args
+                .keys()
+                .all(|key| matches!(key.as_str(), "entries" | "metadata" | "targetReceipts")),
+        "Unsupported workspace transaction fields"
+    );
+    let target_receipts = args
+        .get("targetReceipts")
+        .map(|value| {
+            value
+                .as_bool()
+                .context("Invalid workspace target receipts flag")
+        })
+        .transpose()?
+        .unwrap_or(false);
     let metadata = fields(
         &args["metadata"],
         &["isRefactoring"],
@@ -312,61 +369,129 @@ pub(crate) fn capture_workspace_transaction(
         !refactoring || !context.refactoring_auto_save || entries.len() == 1,
         "Multi-resource refactoring autosave requires a qualified save backend"
     );
+    // Retain the complete original identity inventory before any worker IO.
+    // Canonical aliases can then resolve to dirty hidden/shared models rather
+    // than reopening disk content and silently replacing their source.
+    let mut inventory = Vec::new();
+    inventory
+        .try_reserve_exact(targets.len())
+        .context("Workspace inventory reservation refused")?;
+    ensure!(
+        targets.len() == documents.len() + hidden.len(),
+        "Incomplete original workspace inventory"
+    );
+    for mirror in targets {
+        ensure!(
+            mirror.document != 0
+                && mirror.document < (1u64 << 53)
+                && mirror.version < (1u64 << 53)
+                && (mirror.version != 0 || origin.is_native()),
+            "Invalid original workspace mirror version"
+        );
+        ensure!(
+            !inventory
+                .iter()
+                .any(
+                    |(old, _): &(MirrorSnapshot, Option<WorkspaceSource>)| old.document
+                        == mirror.document
+                        || old.uri == mirror.uri
+                ),
+            "Ambiguous original workspace inventory"
+        );
+        let doc = documents
+            .iter()
+            .chain(hidden)
+            .find(|doc| doc.id == mirror.document)
+            .context("Original workspace mirror was closed")?;
+        ensure!(
+            doc.path == mirror.path
+                && doc.revision == mirror.revision
+                && doc.text_epoch() == mirror.text_epoch
+                && doc.language_epoch() == mirror.language_epoch,
+            "Workspace source changed before queue admission"
+        );
+        let source = if doc.is_read_only() {
+            None
+        } else {
+            Some(doc.capture_workspace_source()?)
+        };
+        inventory.push((mirror.clone(), source));
+    }
     let mut inputs = Vec::new();
     inputs
         .try_reserve_exact(entries.len())
         .context("Workspace target reservation refused")?;
     let (mut count, mut raw) = (0usize, 0usize);
     for entry in entries {
-        let entry = fields(
-            entry,
-            &["document", "version", "uri", "edits"],
-            "Unsupported workspace entry",
-        )?;
-        let id = entry["document"]
-            .as_u64()
-            .context("Invalid workspace target identity")?;
-        let version = entry["version"]
-            .as_u64()
-            .context("Invalid workspace version")?;
+        let entry = entry.as_object().context("Unsupported workspace entry")?;
         ensure!(
-            id != 0 && id < (1u64 << 53) && version != 0 && version < (1u64 << 53),
-            "Workspace identity/version must be positive safe integers"
+            entry.contains_key("uri")
+                && entry.contains_key("edits")
+                && entry
+                    .keys()
+                    .all(|key| matches!(key.as_str(), "uri" | "edits" | "document" | "version")),
+            "Unsupported workspace entry"
         );
+        let positive = |name: &str| -> Result<Option<u64>> {
+            entry
+                .get(name)
+                .map(|value| {
+                    let number = value
+                        .as_u64()
+                        .context("Invalid workspace identity/version")?;
+                    ensure!(
+                        number != 0 && number < (1u64 << 53),
+                        "Workspace identity/version must be positive safe integers"
+                    );
+                    Ok(number)
+                })
+                .transpose()
+        };
+        let id = positive("document")?;
+        let version = positive("version")?;
         let uri = entry["uri"].as_str().context("Invalid workspace URI")?;
         ensure!(
             !uri.is_empty() && uri.len() <= 4096 && !uri.contains('\0'),
             "Workspace URI exceeds bounds"
         );
-        ensure!(
-            !inputs
-                .iter()
-                .any(|input: &Input| input.source.document() == id),
-            "Duplicate workspace target group"
-        );
-        let mut matching = targets.iter().filter(|target| {
-            target.document == id && target.uri == uri && target.version == version
-        });
-        let target = matching
-            .next()
-            .context("Workspace target is outside its captured mirrors")?;
-        ensure!(
-            matching.next().is_none(),
-            "Ambiguous workspace target mirror"
-        );
-        let mut models = documents.iter().chain(hidden).filter(|doc| doc.id == id);
-        let doc = models.next().context("Workspace target was closed")?;
-        ensure!(!doc.is_read_only(), "Virtual documents are read-only");
-        ensure!(
-            models.next().is_none(),
-            "Ambiguous retained workspace target"
-        );
-        ensure!(
-            doc.path == target.path
-                && doc.revision == target.revision
-                && doc.text_epoch() == target.text_epoch,
-            "Workspace source changed before queue admission"
-        );
+        let target = if let Some((mirror, source)) =
+            inventory.iter().find(|(mirror, _)| mirror.uri == uri)
+        {
+            ensure!(
+                id.is_none_or(|id| id == mirror.document)
+                    && version.is_none_or(|version| version == mirror.version),
+                "Workspace target is outside its captured mirrors"
+            );
+            let source = source
+                .as_ref()
+                .context("Virtual documents are read-only")?
+                .clone();
+            ensure!(
+                !inputs.iter().any(|input: &Input| matches!(&input.target,
+                Target::Retained(old) if old.document() == source.document())),
+                "Duplicate workspace target group"
+            );
+            Target::Retained(source)
+        } else {
+            ensure!(
+                id.is_none() && version.is_none(),
+                "Unopened workspace URI must omit document/version"
+            );
+            // URL parsing is source-only; canonicalization and filesystem loading
+            // belong exclusively to the bounded actual worker.
+            let parsed = url::Url::parse(uri).context("Invalid unopened workspace URI")?;
+            ensure!(
+                parsed.scheme() == "file"
+                    && parsed.query().is_none()
+                    && parsed.fragment().is_none(),
+                "Unsupported unopened workspace URI"
+            );
+            let path = parsed
+                .to_file_path()
+                .map_err(|_| anyhow::anyhow!("Unsupported local file URI"))?;
+            ensure!(path.is_absolute(), "Workspace file URI must be absolute");
+            Target::Unopened(path)
+        };
         let edits = entry["edits"]
             .as_array()
             .context("Workspace edits must be an array")?;
@@ -399,7 +524,8 @@ pub(crate) fn capture_workspace_transaction(
             });
         }
         inputs.push(Input {
-            source: doc.capture_workspace_source()?,
+            uri: uri.to_owned(),
+            target,
             edits: staged,
         });
     }
@@ -412,6 +538,9 @@ pub(crate) fn capture_workspace_transaction(
     Ok(Arc::new(Capture {
         origin,
         inputs,
+        inventory,
+        retained_bytes: bytes,
+        target_receipts,
         context,
         deadline: now
             .checked_add(DEADLINE)
@@ -419,7 +548,6 @@ pub(crate) fn capture_workspace_transaction(
     }))
 }
 impl App {
-    #[cfg(test)]
     pub(crate) fn capture_workspace_transaction(
         &self,
         origin: Origin,
@@ -466,16 +594,19 @@ impl App {
         );
         self.check_workspace_inventory()?;
         for input in &capture.inputs {
+            let Target::Retained(source) = &input.target else {
+                continue;
+            };
             let mut models = self
                 .documents
                 .iter()
                 .chain(&self.hidden_documents)
-                .filter(|doc| doc.id == input.source.document());
+                .filter(|doc| doc.id == source.document());
             let doc = models
                 .next()
                 .context("Workspace target closed before dispatch")?;
             ensure!(
-                models.next().is_none() && input.source.current(doc),
+                models.next().is_none() && source.current(doc),
                 "Workspace source/history/baseline changed before dispatch"
             );
         }
@@ -571,15 +702,23 @@ impl App {
             .as_ref()
             .err()
             .map(|error| bounded_reason(&format!("{error:#}")));
+        let applied = result.is_ok();
+        let (targets, target_receipts) = result.unwrap_or_default();
         self.workspace_transactions.completed = Some(Completion {
             token,
             origin: pending.origin,
-            applied: result.is_ok(),
+            applied,
+            targets,
+            target_receipts,
             reason,
         });
         true
     }
-    fn publish_workspace_transaction(&mut self, token: u64, prepared: Prepared) -> Result<()> {
+    fn publish_workspace_transaction(
+        &mut self,
+        token: u64,
+        mut prepared: Prepared,
+    ) -> Result<(Vec<TargetReceipt>, bool)> {
         ensure!(
             prepared.origin.alive()
                 && Instant::now() < prepared.deadline
@@ -590,11 +729,32 @@ impl App {
             "Workspace configuration/lifetime changed"
         );
         self.check_workspace_inventory()?;
+        ensure!(
+            self.documents.len() + self.hidden_documents.len() + prepared.new_documents.len()
+                <= MAX_TARGETS,
+            "Workspace exceeds 128 retained models"
+        );
+        // Reject admission/removal/path changes while the worker was resolving
+        // aliases. An unobserved new retained model must never be duplicated.
+        ensure!(
+            self.documents.len() + self.hidden_documents.len() == prepared.inventory.len()
+                && prepared.inventory.iter().all(|mirror| self
+                    .documents
+                    .iter()
+                    .chain(&self.hidden_documents)
+                    .any(|doc| doc.id == mirror.document && doc.path == mirror.path)),
+            "Original workspace inventory changed before publication"
+        );
+        for doc in &mut prepared.new_documents {
+            self.settings.apply(doc);
+            self.configure_document_language(doc)?;
+        }
         for item in &prepared.items {
             let mut models = self
                 .documents
                 .iter()
                 .chain(&self.hidden_documents)
+                .chain(&prepared.new_documents)
                 .filter(|doc| doc.id == item.document());
             let doc = models.next().context("Workspace target was closed")?;
             ensure!(!doc.is_read_only(), "Virtual documents are read-only");
@@ -607,6 +767,7 @@ impl App {
             .documents
             .iter()
             .chain(&self.hidden_documents)
+            .chain(&prepared.new_documents)
             .try_fold(0usize, |n, doc| {
                 n.checked_add(doc.text.len_bytes())
                     .context("Workspace model bytes overflow")
@@ -616,6 +777,7 @@ impl App {
                 .documents
                 .iter()
                 .chain(&self.hidden_documents)
+                .chain(&prepared.new_documents)
                 .find(|doc| doc.id == item.document())
                 .expect("validated target");
             total = total
@@ -627,8 +789,16 @@ impl App {
             total <= MAX_DOCUMENTS,
             "Workspace result exceeds 4 MiB native mirrors"
         );
+        self.hidden_documents
+            .try_reserve_exact(prepared.new_documents.len())
+            .context("Workspace hidden model reservation refused")?;
         if !prepared.items.iter().any(WorkspaceTextPrepared::changed) {
-            return Ok(());
+            ensure!(
+                prepared.origin.alive() && Instant::now() < prepared.deadline,
+                "Workspace owner retired or transaction expired during commit preparation"
+            );
+            self.hidden_documents.extend(prepared.new_documents);
+            return Ok((prepared.targets, prepared.target_receipts));
         }
         let group = WorkspaceHistoryGroup::new(token, &prepared.items)?;
         // Promotion reserves/checks all group counters BEFORE any text changes.
@@ -655,7 +825,12 @@ impl App {
             .try_reserve_exact(items.len())
             .context("Workspace commit reservation refused")?;
         let mut remaining = MAX_METADATA;
-        for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
+        for doc in self
+            .documents
+            .iter_mut()
+            .chain(&mut self.hidden_documents)
+            .chain(&mut prepared.new_documents)
+        {
             if let Some(index) = items.iter().position(|item| item.document() == doc.id) {
                 let item = items.swap_remove(index);
                 let commit = doc.prepare_workspace_commit(item, group.clone(), remaining)?;
@@ -674,6 +849,7 @@ impl App {
         for commit in commits {
             commit.publish();
         }
+        self.hidden_documents.extend(prepared.new_documents);
         if change.changed {
             self.editor_groups = groups;
             self.apply_group_change(change);
@@ -681,7 +857,7 @@ impl App {
         self.invalidate_editor_presentation();
         self.observe_outline();
         self.observe_breadcrumbs();
-        Ok(())
+        Ok((prepared.targets, prepared.target_receipts))
     }
     pub(crate) fn undo_editor(&mut self) {
         self.history_editor(WorkspaceHistoryDirection::Undo);
@@ -795,20 +971,99 @@ fn prepare(capture: Arc<Capture>, cancel: &AtomicBool) -> Result<Prepared> {
     items
         .try_reserve_exact(capture.inputs.len())
         .context("Workspace prepared reservation refused")?;
+    let mut targets = Vec::new();
+    targets
+        .try_reserve_exact(capture.inputs.len())
+        .context("Workspace target receipts reservation refused")?;
+    let mut new_documents = Vec::new();
+    new_documents
+        .try_reserve_exact(capture.inputs.len())
+        .context("Workspace loaded model reservation refused")?;
+    let mut loaded_bytes = capture.retained_bytes;
+    let mut canonical_inventory = Vec::new();
+    if capture
+        .inputs
+        .iter()
+        .any(|input| matches!(input.target, Target::Unopened(_)))
+    {
+        canonical_inventory
+            .try_reserve_exact(capture.inventory.len())
+            .context("Workspace alias reservation refused")?;
+        for (mirror, source) in &capture.inventory {
+            crate::document::workspace::guard(cancel, capture.deadline)?;
+            if let Some(path) = &mirror.path {
+                let canonical = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
+                canonical_inventory.push((canonical, source.as_ref()));
+            }
+        }
+    }
     for input in &capture.inputs {
         crate::document::workspace::guard(cancel, capture.deadline)?;
         ensure!(capture.origin.alive(), "Workspace owner retired");
+        let source = match &input.target {
+            Target::Retained(source) => source.clone(),
+            Target::Unopened(path) => {
+                let canonical = std::fs::canonicalize(path)
+                    .context("Cannot resolve unopened workspace file")?;
+                crate::document::workspace::guard(cancel, capture.deadline)?;
+                let mut matching = canonical_inventory
+                    .iter()
+                    .filter(|(path, _)| *path == canonical);
+                if let Some((_, source)) = matching.next() {
+                    ensure!(
+                        matching.next().is_none(),
+                        "Ambiguous retained workspace alias"
+                    );
+                    source.context("Virtual documents are read-only")?.clone()
+                } else {
+                    ensure!(
+                        capture.inventory.len() + new_documents.len() < MAX_TARGETS,
+                        "Workspace exceeds 128 retained models"
+                    );
+                    ensure!(
+                        !new_documents
+                            .iter()
+                            .any(|doc: &Document| doc.path.as_ref() == Some(&canonical)),
+                        "Duplicate workspace target group"
+                    );
+                    let doc = Document::open_workspace_existing(
+                        &canonical,
+                        MAX_DOCUMENTS - loaded_bytes,
+                        cancel,
+                        capture.deadline,
+                    )?;
+                    loaded_bytes += doc.text.len_bytes();
+                    let source = doc.capture_workspace_source()?;
+                    new_documents.push(doc);
+                    source
+                }
+            }
+        };
+        ensure!(
+            !items
+                .iter()
+                .any(|item: &WorkspaceTextPrepared| item.document() == source.document()),
+            "Duplicate workspace target group"
+        );
+        ensure!(
+            source.document() != 0 && source.document() < (1u64 << 53),
+            "Workspace loaded document identity exceeds safe integer bounds"
+        );
+        targets.push(TargetReceipt {
+            uri: input.uri.clone(),
+            document: source.document(),
+        });
         let mut edits = Vec::new();
         edits
             .try_reserve_exact(input.edits.len())
             .context("Workspace scalar edit reservation refused")?;
         for edit in &input.edits {
-            let start = offset(&input.source, edit.start)?;
-            let end = offset(&input.source, edit.end)?;
+            let start = offset(&source, edit.start)?;
+            let end = offset(&source, edit.end)?;
             ensure!(start <= end, "Workspace range is reversed");
             let replacement = normalize(
                 &edit.text,
-                input.source.eol(),
+                source.eol(),
                 MAX_EXPANDED - expanded,
                 cancel,
                 capture.deadline,
@@ -842,17 +1097,20 @@ fn prepare(capture: Arc<Capture>, cancel: &AtomicBool) -> Result<Prepared> {
             }
             coalesced.push((range, text));
         }
-        items.push(
-            input
-                .source
-                .clone()
-                .prepare(coalesced, cancel, capture.deadline)?,
-        );
+        items.push(source.prepare(coalesced, cancel, capture.deadline)?);
     }
     crate::document::workspace::guard(cancel, capture.deadline)?;
     Ok(Prepared {
         origin: capture.origin.clone(),
         items,
+        new_documents,
+        targets,
+        target_receipts: capture.target_receipts,
+        inventory: capture
+            .inventory
+            .iter()
+            .map(|(mirror, _)| mirror.clone())
+            .collect(),
         context: capture.context.clone(),
         deadline: capture.deadline,
     })
@@ -982,3 +1240,6 @@ mod tests;
 
 #[cfg(test)]
 mod public_gateway_tests;
+
+#[cfg(test)]
+mod unopened_tests;

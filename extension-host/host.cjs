@@ -164,7 +164,7 @@ async function dispatch(message) {
           }
           // A failed startup must never publish partially activated command registries.
           if (!['commands', 'languageProviders'].includes(method) || (ready && !activating)) send({ method, params });
-        }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true, editorDecorations: message.params.editorDecorations === true, editorSnippets: message.params.editorSnippets === true, editorTabs: message.params.editorTabs === true });
+        }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, workspaceUnopenedEdits: message.params.workspaceUnopenedEdits === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true, editorDecorations: message.params.editorDecorations === true, editorSnippets: message.params.editorSnippets === true, editorTabs: message.params.editorTabs === true });
         const schemas = packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration)
           ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
         root = message.params.root; configuration = message.params.configuration;
@@ -219,9 +219,11 @@ async function dispatch(message) {
         break;
       case 'provideWorkspaceSymbols':
       case 'resolveLanguageWorkspaceSymbol':
+      case 'prepareLanguageRename':
+      case 'provideLanguageRename':
         if (!ready || !languageProviders || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) {
           runtime?.releaseLanguageProviderRefusal({ ...message.params, request: message.id });
-          throw new Error('Workspace symbol provider session/owner is not ready');
+          throw new Error('Language provider session/owner is not ready');
         }
         result = await inExecution(message.id, message.params.owner, () => runtime[message.method]({ ...message.params, request: message.id }));
         break;

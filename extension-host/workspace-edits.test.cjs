@@ -284,3 +284,26 @@ test('real unknown-brand metadata retirement rejects despite native owner reacqu
  const api=runtime.forExtension('A');await assert.rejects(api.workspace.applyEdit({}, {get isRefactoring(){runtime.disposeOwner('A');runtime.runWithOwner('A',()=>{});return false;}}),/retired/);
  assert.equal(calls.length,0);
 });
+
+test('negotiated unopened alias receipt reuses its original dirty model identity after native publication',async()=>{
+  const alias=Uri.file('/tmp/alias-猫.cpp');let f;
+  f=fixture(()=>{f.mirrors.get(1).version++;return {applied:true,targets:[{uri:alias.toString(),document:1}]};});
+  f.model.unopenedEdits=true;
+  assert.equal(await f.api.applyEdit(edit(alias)),true);
+  const args=f.calls[0][2];assert.equal(args.targetReceipts,true);assert.equal(args.entries[0].document,undefined);assert.equal(args.entries[0].version,undefined);
+  assert.equal(f.mirrors.size,2);assert.equal(f.mirrors.get(1).uri,a.toString());
+});
+test('negotiated new target acknowledgement requires its real canonical mirror before success',async()=>{
+  const requested=Uri.file('/tmp/sub/../new.cpp'),canonical=Uri.file('/tmp/new.cpp');let f;
+  f=fixture(()=>{f.mirrors.set(3,{document:3,version:1,uri:canonical.toString(),model:{}});return {applied:true,targets:[{uri:requested.toString(),document:3}]};});f.model.unopenedEdits=true;
+  assert.equal(await f.api.applyEdit(edit(requested)),true);assert.equal(f.calls[0][2].entries[0].document,undefined);
+  const missing=fixture(()=>({applied:true,targets:[{uri:requested.toString(),document:3}]}));missing.model.unopenedEdits=true;
+  await assert.rejects(missing.api.applyEdit(edit(requested)),/not published/);
+});
+test('negotiated malformed target mappings never release actual native request capacity',async()=>{
+  const frames=[],queue=createNativeRequests(frame=>frames.push(frame),()=>null),uri='/tmp/aliased.cpp';
+  const pending=queue.request('nativeWorkspaceApplyEdit',{session:7,owner:'creator',args:{targetReceipts:true,entries:[{uri,edits:[]}],metadata:{isRefactoring:false}}});
+  for(const result of [{applied:true},{applied:true,targets:[]},{applied:true,targets:[{uri:'/other',document:3}]},{applied:true,targets:[{uri,document:0}]},{applied:true,targets:[{uri,document:3,extra:1}]},{applied:false,targets:[{uri,document:3}]}])assert.equal(queue.settle({id:frames[0].id,result}),false);
+  assert.equal(queue.settle({id:frames[0].id,result:{applied:true,targets:[{uri,document:3}]}}),true);
+  assert.deepEqual(await pending,{applied:true,targets:[{uri,document:3}]});
+});

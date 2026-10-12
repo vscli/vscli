@@ -26,6 +26,7 @@ mod outline;
 mod panes;
 mod preview_tabs;
 mod provider_navigation;
+mod rename;
 mod save_code_actions;
 mod save_formatting;
 mod saving;
@@ -451,6 +452,7 @@ impl Prompt {
         let limit = match self.kind {
             PromptKind::Extension(_) => crate::extensions::MAX_PROMPT_TEXT,
             PromptKind::Symbols | PromptKind::SearchExtensions => 1024,
+            PromptKind::Rename => 64 * 1024,
             _ => usize::MAX,
         };
         if (if self.select_all { 0 } else { self.text.len() }) + text.len() > limit {
@@ -571,6 +573,7 @@ pub struct App {
     workspace_transactions: workspace_transactions::State,
     extension_providers: extension_providers::State,
     provider_navigation: provider_navigation::State,
+    rename: rename::State,
     actions: actions::State,
     pub active: usize,
     pub workspace: Workspace,
@@ -705,6 +708,7 @@ impl App {
             workspace_transactions: workspace_transactions::State::default(),
             extension_providers: extension_providers::State::default(),
             provider_navigation: provider_navigation::State::default(),
+            rename: rename::State::default(),
             actions: actions::State::default(),
             active: 0,
             workspace: Workspace::new(root.clone()),
@@ -867,6 +871,7 @@ impl App {
         changed |= self.poll_extensions();
         changed |= self.poll_extension_activation();
         changed |= self.poll_extension_providers();
+        changed |= self.poll_rename();
         changed |= self.poll_extension_surfaces();
         changed |= self.poll_snippet();
         changed |= self.poll_snippet_catalog();
@@ -1333,6 +1338,10 @@ impl App {
 
     pub fn event(&mut self, event: Event) {
         self.observe_editor_geometry();
+        if self.rename_escape(&event) {
+            return;
+        }
+        self.rename_ui_event(&event);
         self.breadcrumbs_ui_event(&event);
         self.observe_navigation(navigation_history::Reason::Ordinary);
         if matches!(&event, Event::Paste(_))
@@ -1744,6 +1753,7 @@ impl App {
         self.observe_editor_geometry();
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
+        self.cancel_rename();
         self.advance_signature_interaction(command);
         if suggestions::command(command) || signature_help::command(command) {
             self.advance_suggestion_interaction();
@@ -1968,10 +1978,7 @@ impl App {
             "workbench.action.showAllSymbols" => self.start_symbols(true),
             "editor.action.quickFix" => self.request_code_actions(None),
             "editor.action.refactor" => self.request_code_actions(Some("refactor")),
-            "editor.action.rename" => self.start_prompt(
-                PromptKind::Rename,
-                self.doc().selected_text().unwrap_or_default(),
-            ),
+            "editor.action.rename" => self.start_rename(),
             "workbench.actions.view.problems" => self.show_problems(),
             "editor.action.insertSnippet" => self.insert_snippet(&args),
             "jumpToNextSnippetPlaceholder" | "jumpToPrevSnippetPlaceholder" => {
@@ -2916,9 +2923,7 @@ impl App {
                 }
             }
             PromptKind::Rename => {
-                if !p.text.trim().is_empty() {
-                    self.language_request("textDocument/rename", json!({"newName":p.text}));
-                }
+                self.accept_rename_name(p.text);
             }
             PromptKind::WorkspaceSearch => {
                 if p.text.is_empty() {

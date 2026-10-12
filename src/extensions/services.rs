@@ -315,37 +315,27 @@ impl Client {
                     .as_array()
                     .filter(|entries| entries.len() <= 128)
                     .context("Workspace target budget exceeded")?;
-                let mut targets = Vec::with_capacity(entries.len());
+                // Capture the complete trusted inventory at native receipt.
+                // Unopened targets carry a URI, never a fabricated model ID.
+                // The joined transaction worker resolves aliases against these
+                // original retained proofs before it loads a new model.
+                let targets = self.mirrored_snapshotset(documents, hidden)?;
                 for entry in entries {
-                    let document = entry["document"]
-                        .as_u64()
-                        .context("Invalid workspace target")?;
-                    let mirror = self
-                        .mirror
-                        .mirrors
-                        .get(&document)
-                        .context("Workspace target is not mirrored")?;
-                    let doc = documents
-                        .iter()
-                        .chain(hidden)
-                        .find(|doc| doc.id == document)
-                        .context("Workspace target is not retained")?;
-                    if mirror.revision != doc.revision
-                        || mirror.text_epoch != doc.text_epoch()
-                        || mirror.language_epoch != doc.language_epoch()
-                        || mirror.eol != doc.eol
-                    {
-                        bail!("Workspace target changed before native receipt");
+                    if let Some(document) = entry.get("document") {
+                        let document = document.as_u64().context("Invalid workspace target")?;
+                        let target = targets
+                            .iter()
+                            .find(|target| target.document == document)
+                            .context("Workspace target is not mirrored")?;
+                        if entry
+                            .get("version")
+                            .is_some_and(|version| version.as_u64() != Some(target.version))
+                        {
+                            bail!("Workspace target version changed before native receipt");
+                        }
+                    } else if entry.get("version").is_some() {
+                        bail!("An unopened workspace target cannot borrow a retained version");
                     }
-                    targets.push(super::providers::MirrorSnapshot {
-                        document,
-                        uri: mirror.uri.clone(),
-                        path: doc.path.clone(),
-                        revision: mirror.revision,
-                        text_epoch: mirror.text_epoch,
-                        language_epoch: mirror.language_epoch,
-                        version: mirror.version,
-                    });
                 }
                 let origin =
                     Origin::new(request.session, &id, &request.owner, caller_retired.clone())?;
