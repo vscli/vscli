@@ -99,7 +99,9 @@ function createWorkspaceEdits(call, options, model) {
       // an object/type guard. Its downstream autosave condition is JS truthiness.
       // The native typed flag expresses that effect without user valueOf/toJSON.
       const isRefactoring = !!(metadata?.isRefactoring ?? false);
-      if (isRefactoring && policy.autoSave !== false) unsupported ||= 'Refactoring automatic save requires a native backend; disable files.refactoring.autoSave to apply text edits';
+      // Pinned bulk-edit autosave runs only for multiple affected resources.
+      // A one-resource refactoring uses the ordinary unsaved text transaction.
+      if (isRefactoring && policy.autoSave !== false && groups.size > 1) unsupported ||= 'Refactoring automatic save requires a native backend; disable files.refactoring.autoSave to apply text edits';
       const args = { entries: [...groups.values()], metadata: { isRefactoring } };
       // Measurement sees only our primitive DTO, never user toJSON/getters.
       const serialized = JSON.stringify(args);

@@ -406,34 +406,54 @@ fn public_apply_edit_publishes_all_shared_hidden_and_untitled_mirrors_before_tru
 }
 
 #[test]
-fn public_refactoring_admits_explicit_false_policy_and_default_refuses_without_native_work() {
-    for (policy, applied) in [(Some(false), true), (None, false)] {
+fn public_one_resource_refactoring_uses_native_grouped_edit_without_autosave_under_every_policy() {
+    for policy in [None, Some(true), Some(false)] {
         let mut fixture = Fixture::new(policy);
         let a = fixture.a;
         let epoch = fixture.doc(a).text_epoch();
         let generation = fixture.doc(a).save_generation();
-        fixture.issue("refactoring", &[a], &["R "], true, applied);
+        fixture.issue("refactoring", &[a], &["R "], true, true);
         let record = fixture.await_record("refactoring");
-        assert_eq!(record["applied"], applied);
+        assert_eq!(record["applied"], true);
+        assert_eq!(fixture.app.workspace_transactions.worker.next, 1);
+        assert_eq!(fixture.doc(a).save_generation(), generation);
+        assert!(fixture.doc(a).dirty());
         assert_eq!(
-            fixture.app.workspace_transactions.worker.next,
-            u64::from(applied),
-            "default-policy refusal never starts native preparation"
+            fixture.doc(a).text.to_string(),
+            format!("R {}", fixture.original_a)
+        );
+        fixture.app.execute("undo", Value::Null);
+        assert_eq!(fixture.doc(a).text.to_string(), fixture.original_a);
+        assert!(fixture.doc(a).text_epoch() > epoch);
+        fixture.app.execute("redo", Value::Null);
+        assert_eq!(
+            fixture.doc(a).text.to_string(),
+            format!("R {}", fixture.original_a)
         );
         assert_eq!(fixture.doc(a).save_generation(), generation);
-        if applied {
-            assert_eq!(
-                fixture.doc(a).text.to_string(),
-                format!("R {}", fixture.original_a)
-            );
-            fixture.app.execute("undo", Value::Null);
-            assert_eq!(fixture.doc(a).text.to_string(), fixture.original_a);
-            assert!(fixture.doc(a).text_epoch() > epoch);
-        } else {
-            assert_eq!(fixture.doc(a).text.to_string(), fixture.original_a);
-            assert_eq!(fixture.doc(a).text_epoch(), epoch);
-        }
         assert_eq!(fixture.doc(fixture.b).text.to_string(), B);
+        assert_eq!(fixture.doc(fixture.u).text.to_string(), U);
+        fixture.disks_original();
+    }
+}
+
+#[test]
+fn public_multi_resource_refactoring_default_refusal_preserves_all_native_sources() {
+    for policy in [None, Some(true)] {
+        let mut fixture = Fixture::new(policy);
+        let a = fixture.a;
+        let b = fixture.b;
+        let source_a = fixture.doc(a).capture_workspace_source().unwrap();
+        let source_b = fixture.doc(b).capture_workspace_source().unwrap();
+        fixture.issue("refactoring", &[a, b], &["R ", "R "], true, false);
+        let record = fixture.await_record("refactoring");
+        assert_eq!(record["applied"], false);
+        assert_eq!(
+            fixture.app.workspace_transactions.worker.next, 0,
+            "Unimplemented multi-resource autosave never starts partial preparation"
+        );
+        assert!(source_a.current(fixture.doc(a)));
+        assert!(source_b.current(fixture.doc(b)));
         assert_eq!(fixture.doc(fixture.u).text.to_string(), U);
         fixture.disks_original();
     }

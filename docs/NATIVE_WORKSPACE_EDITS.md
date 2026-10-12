@@ -28,10 +28,22 @@ peer open. Confirmation dialogs and history splitting are not implemented.
 Nonempty no-op text transactions return true without consuming Redo or adding a
 history entry; an empty edit returns false.
 
-For `{isRefactoring:true}`, set the root user/workspace setting
-`"files.refactoring.autoSave": false`. The default/enabled refactoring autosave
-backend is not implemented, so those requests return false with an explicit
-notice. Language overrides do not change this root policy.
+Single-resource `{isRefactoring:true}` edits remain unsaved under default,
+enabled and disabled refactoring autosave settings. This follows the pinned
+[bulk-edit resource-count condition](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/contrib/bulkEdit/browser/bulkEditService.ts#L239-L244).
+Multi-resource refactorings still require the root user/workspace setting
+`"files.refactoring.autoSave": false` until the multi-resource save continuation
+is implemented. Other policies refuse the whole request with an explicit notice;
+language overrides do not change this root policy.
+
+The policy correction passes all 677 host tests and 24 native workspace
+transaction/gateway tests on an isolated archive of its parent, independently
+of the concurrent workspace-symbol feature. Three new terminal journeys cover
+default/true/false single-resource policy, exact mirror publication, prior dirty
+Unicode CRLF work, native Undo/Redo and explicit Save. The original multi-resource
+workspace-edit terminal journey also passes. Build, formatting and strict
+all-target locked Clippy pass. Reproduce the new terminal checks with
+`python3 tests/extension_single_refactoring_pty.py target/debug/vscli`.
 
 ## Admission and failure behavior
 

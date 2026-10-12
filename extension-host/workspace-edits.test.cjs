@@ -64,12 +64,21 @@ for (const kind of ['file','snippet','notebook','eol','annotation','outside']) t
   assert.equal(await f.api.applyEdit(value),false); assert.equal(f.calls.length,0); assert.equal(f.notices.length,1);
   assert.equal(value.get(a)[0].newText,'λ');
 });
-test('isRefactoring is captured once and default automatic-save policy is explicitly refused', async () => {
+test('one-resource refactoring accepts default and enabled policy without requesting autosave', async () => {
   const f=fixture(); let count=0;
-  assert.equal(await f.api.applyEdit(edit(),{get isRefactoring(){count++;return true;}}),false);
-  assert.equal(count,1); assert.equal(f.calls.length,0); assert.match(f.notices[0][1],/automatic save/);
-  f.autoSave(false); assert.equal(await f.api.applyEdit(edit(),{isRefactoring:true}),true);
+  assert.equal(await f.api.applyEdit(edit(),{get isRefactoring(){count++;return true;}}),true);
+  assert.equal(count,1); assert.equal(f.calls.length,1); assert.equal(f.notices.length,0);
+  assert.equal(f.calls[0][1],'nativeWorkspaceApplyEdit');
   assert.equal(f.calls[0][2].metadata.isRefactoring,true);
+  f.autoSave(false); assert.equal(await f.api.applyEdit(edit(),{isRefactoring:true}),true);
+  assert.equal(f.calls[1][2].metadata.isRefactoring,true);
+});
+test('multi-resource refactoring retains whole-request refusal until autosave has a native backend', async () => {
+  const f=fixture(),value=edit();value.insert(b,new Position(0,0),'peer');let count=0;
+  assert.equal(await f.api.applyEdit(value,{get isRefactoring(){count++;return true;}}),false);
+  assert.equal(count,1); assert.equal(f.calls.length,0); assert.match(f.notices[0][1],/automatic save/);
+  f.autoSave(false); assert.equal(await f.api.applyEdit(value,{isRefactoring:true}),true);
+  assert.equal(f.calls.length,1); assert.equal(f.calls[0][2].entries.length,2);
 });
 for(const mutation of ['lease','version','identity','uri','configuration','edit']) test(`getter ${mutation} mutation cannot publish a native request`,async()=>{
   const f=fixture(),value=new WorkspaceEdit();

@@ -299,16 +299,18 @@ pub(crate) fn capture_workspace_transaction(
     let refactoring = metadata["isRefactoring"]
         .as_bool()
         .context("Invalid workspace refactoring flag")?;
-    ensure!(
-        !refactoring || !context.refactoring_auto_save,
-        "Refactoring autosave requires a qualified save backend"
-    );
     let entries = args["entries"]
         .as_array()
         .context("Workspace entries must be an array")?;
     ensure!(
         !entries.is_empty() && entries.len() <= MAX_TARGETS,
         "Workspace entries require 1–128 targets"
+    );
+    // The pinned bulk-edit service autosaves refactorings only when more than
+    // one resource participates. One resource remains an unsaved transaction.
+    ensure!(
+        !refactoring || !context.refactoring_auto_save || entries.len() == 1,
+        "Multi-resource refactoring autosave requires a qualified save backend"
     );
     let mut inputs = Vec::new();
     inputs
