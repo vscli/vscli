@@ -71,6 +71,22 @@ The reference is VS Code 1.141.0 immutable commit
 
 ## Current evidence
 
+Native documents now retain an independent resource epoch across live Explorer
+rename/trash and Save As publications. Returning to the same path does not renew
+original save/workspace, LSP/provider, editor-service or disk-refresh proofs.
+Seven new regressions execute actual rename workers and held process/disk replies,
+preserve dirty Unicode CRLF text, history and baselines, and check exhaustion
+before file creation/overwrite. The full Rust suite passes 1,435 tests across
+67 reports (1,086 library; 23 ignored), with global formatting and strict locked
+all-target Clippy passing. A new native terminal journey verifies F2 rename
+away/back, original Undo/Redo/Save, committed disk baselines and terminal
+restoration with missing Node. This qualifies resource guards on existing native
+workflows; it does not qualify extension resource execution or model reuse.
+Eighteen existing terminal journeys also pass again: six extension/native rename,
+seven refactoring-save, four public document-save and one installed clangd 23.1.1
+rename journey. Together with the new native path journey, all nineteen verify
+their existing identity/history/save contracts on the resource-guard change.
+
 The worker is implemented in `src/resource_worker.rs` and its eight focused tests
 have executed successfully against real filesystem writes. They cover explicit
 authorization, wrong/replayed identity refusal, original deadline expiry, external

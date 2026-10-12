@@ -47,6 +47,7 @@ pub struct Request {
     pub document_id: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub(crate) language_epoch: u64,
     pub(crate) server: Arc<()>,
     pub(crate) sync_version: i64,
@@ -63,6 +64,7 @@ pub struct Snapshot {
     pub id: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub version: i64,
 }
 #[derive(Clone, Debug)]
@@ -92,6 +94,7 @@ struct Synced {
     id: u64,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     language_epoch: u64,
     language: String,
     version: i64,
@@ -493,7 +496,9 @@ impl Client {
             // Language changes are distinct server document lifetimes even when
             // content/version remain untouched or metadata changed A→B→A.
             if self.synced.get(&uri).is_some_and(|old| {
-                old.language != lang || old.language_epoch != doc.language_epoch()
+                old.language != lang
+                    || old.language_epoch != doc.language_epoch()
+                    || old.resource_epoch != doc.resource_epoch()
             }) {
                 self.notify("textDocument/didClose", json!({"textDocument":{"uri":uri}}))?;
                 self.synced.remove(&uri);
@@ -508,6 +513,7 @@ impl Client {
                             id: doc.id,
                             revision: doc.revision,
                             text_epoch: doc.text_epoch(),
+                            resource_epoch: doc.resource_epoch(),
                             language_epoch: doc.language_epoch(),
                             language: lang.into(),
                             version,
@@ -518,6 +524,7 @@ impl Client {
                 Some(old)
                     if old.revision != doc.revision
                         || old.text_epoch != doc.text_epoch()
+                        || old.resource_epoch != doc.resource_epoch()
                         || old.id != doc.id =>
                 {
                     let version = self.allocate_document_version()?;
@@ -528,6 +535,7 @@ impl Client {
                             id: doc.id,
                             revision: doc.revision,
                             text_epoch: doc.text_epoch(),
+                            resource_epoch: doc.resource_epoch(),
                             language_epoch: doc.language_epoch(),
                             language: lang.into(),
                             version,
@@ -567,11 +575,13 @@ impl Client {
             && doc.id == publication.snapshot.id
             && doc.revision == publication.snapshot.revision
             && doc.text_epoch() == publication.snapshot.text_epoch
+            && doc.resource_epoch() == publication.snapshot.resource_epoch
             && self.synced.get(&publication.uri).is_some_and(|synced| {
                 synced.path == publication.path
                     && synced.id == publication.snapshot.id
                     && synced.revision == publication.snapshot.revision
                     && synced.text_epoch == publication.snapshot.text_epoch
+                    && synced.resource_epoch == publication.snapshot.resource_epoch
                     && synced.language_epoch == doc.language_epoch()
                     && synced.version == publication.snapshot.version
             })
@@ -586,6 +596,7 @@ impl Client {
                         && synced.id == snapshot.id
                         && synced.revision == snapshot.revision
                         && synced.text_epoch == snapshot.text_epoch
+                        && synced.resource_epoch == snapshot.resource_epoch
                         && synced.version == snapshot.version
                 })
     }
@@ -625,12 +636,14 @@ impl Client {
                 && synced.id == request.document_id
                 && synced.revision == request.revision
                 && synced.text_epoch == request.text_epoch
+                && synced.resource_epoch == request.resource_epoch
                 && synced.language_epoch == request.language_epoch
                 && synced.version == request.sync_version
                 && request.workspace.get(&request.path).is_none_or(|snapshot| {
                     snapshot.id == synced.id
                         && snapshot.revision == synced.revision
                         && snapshot.text_epoch == synced.text_epoch
+                        && snapshot.resource_epoch == synced.resource_epoch
                         && snapshot.version == synced.version
                 })
         })
@@ -764,7 +777,8 @@ impl Client {
             .synced
             .get(&uri)
             .context("This language server does not handle this file type")?;
-        if synced.language_epoch != doc.language_epoch()
+        if synced.resource_epoch != doc.resource_epoch()
+            || synced.language_epoch != doc.language_epoch()
             || synced.language != doc.language_override().unwrap_or_else(|| language(&path))
         {
             bail!(
@@ -775,7 +789,8 @@ impl Client {
             && (synced.id != doc.id
                 || synced.path != path
                 || synced.revision != doc.revision
-                || synced.text_epoch != doc.text_epoch())
+                || synced.text_epoch != doc.text_epoch()
+                || synced.resource_epoch != doc.resource_epoch())
         {
             bail!("Document has not been synchronized; retry after language synchronization");
         }
@@ -826,6 +841,7 @@ impl Client {
                             id: s.id,
                             revision: s.revision,
                             text_epoch: s.text_epoch,
+                            resource_epoch: s.resource_epoch,
                             version: s.version,
                         },
                     )
@@ -852,6 +868,7 @@ impl Client {
                 document_id: doc.id,
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
                 language_epoch: doc.language_epoch(),
                 server: self.identity.clone(),
                 sync_version,
@@ -1051,6 +1068,7 @@ impl Client {
                 document_id: 0,
                 revision: 0,
                 text_epoch: 0,
+                resource_epoch: 0,
                 language_epoch: 0,
                 server: self.identity.clone(),
                 sync_version: 0,
@@ -1471,6 +1489,7 @@ impl Client {
                                         id: synced.id,
                                         revision: synced.revision,
                                         text_epoch: synced.text_epoch,
+                                        resource_epoch: synced.resource_epoch,
                                         version: synced.version,
                                     },
                                     versioned: params.get("version").is_some(),
@@ -1786,6 +1805,59 @@ while True:
         (root, doc)
     }
 
+    #[test]
+    fn resource_aba_reopens_server_document_and_retires_actual_held_reply() {
+        let (root, mut doc) = fixture();
+        doc.insert("dirty ", false);
+        let original_path = doc.path.clone().unwrap();
+        let moved = root.path().join("moved.cpp");
+        let proof = (doc.id, doc.revision, doc.text_epoch());
+        let mut client = start(root.path(), &doc);
+        let token = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, token);
+        let original = client.pending[&token].clone();
+        std::fs::rename(&original_path, &moved).unwrap();
+        doc.set_resource_path(Some(moved.clone())).unwrap();
+        std::fs::rename(&moved, &original_path).unwrap();
+        doc.set_resource_path(Some(original_path.clone())).unwrap();
+        assert!(
+            client
+                .request("textDocument/hover", &doc, json!({}))
+                .is_err()
+        );
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(!client.request_current(&original));
+        let wire = state(&mut client);
+        let lifecycle = wire["lifecycle"].as_array().unwrap();
+        assert_eq!(lifecycle.len(), 3);
+        assert_eq!(lifecycle[1]["method"], "textDocument/didClose");
+        assert_eq!(lifecycle[2]["method"], "textDocument/didOpen");
+        assert!(
+            lifecycle[2]["params"]["textDocument"]["version"]
+                .as_i64()
+                .unwrap()
+                > original.sync_version
+        );
+        assert!(
+            !client.formatting_available(),
+            "held process callback still occupies its slot"
+        );
+        client
+            .notify("fixture/release", json!({"id":token}))
+            .unwrap();
+        let events = until(&mut client, |client, _| client.formatting_available());
+        assert!(events.iter().any(|event| matches!(event, Event::FormattingResult(reply,Ok(_)) if reply.token==token && !client.request_current(reply))));
+        assert_eq!((doc.id, doc.revision, doc.text_epoch()), proof);
+        assert!(doc.dirty());
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂 original\r\n");
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "dirty 猫🙂 original\r\n");
+        assert_eq!(
+            std::fs::read(original_path).unwrap(),
+            "猫🙂 original\r\n".as_bytes()
+        );
+    }
     #[test]
     fn language_override_reopens_server_document_and_metadata_aba_retires_held_reply() {
         let (root, mut doc) = fixture();

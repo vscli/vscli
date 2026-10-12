@@ -37,8 +37,10 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 ```
 
 The next resource-edit workstream has [implemented planning, worker and journal
-foundations](RESOURCE_EDITS_PLAN.md), with 39 new focused tests and 1,428 full Rust
-tests passing. These are native foundations: resource execution, public gateway
+foundations](RESOURCE_EDITS_PLAN.md), plus native resource-lifetime guards. The
+combined work has 46 new focused tests and 1,435 full Rust tests passing, along
+with a native F2 rename-away/back terminal regression. These are native
+foundations: resource execution, public gateway
 integration and operation history remain unfinished. They add no facade names
 or provider families. [Model lifetime contracts](RESOURCE_MODEL_LIFETIMES.md)
 record the conditional destination reuse and reference ownership required by the

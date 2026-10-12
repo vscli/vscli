@@ -590,6 +590,7 @@ impl Client {
             mirror.version == version
                 && mirror.revision == document.revision
                 && mirror.text_epoch == document.text_epoch()
+                && mirror.resource_epoch == document.resource_epoch()
                 && document_uri(document).ok().as_ref() == Some(&mirror.uri)
                 && mirror.eol == document.eol
         })
@@ -606,6 +607,7 @@ impl Client {
             document.id == save.document
                 && document.revision == origin.revision
                 && document.text_epoch() == origin.text_epoch
+                && document.resource_epoch() == origin.resource_epoch
                 && document.save_generation() == origin.save_generation
                 && document.eol == origin.eol
                 && document_uri(document).ok().as_ref() == Some(&origin.uri)

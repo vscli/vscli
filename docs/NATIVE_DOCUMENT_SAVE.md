@@ -13,7 +13,7 @@ persistence still retains its worker and publishes the genuine receipt.
 
 The internal `nativeDocumentSave` service connects one retained native document
 ID/version to the existing asynchronous save controller. Admission captures the
-arrival mirror and native path, text/language epochs, revision, saved baseline, EOL,
+arrival mirror and native path, resource/text/language epochs, revision, saved baseline, EOL,
 settings/profile and workspace ownership. It does not focus or promote an
 inactive or hidden model. The eight-entry caller table retains completed
 receipts until their exact service response enters the bounded transport FIFO.
@@ -46,6 +46,30 @@ wait. Repeated polls do not renew it; acceptance, cancellation or expiry resumes
 that command's clock once. Timer/event callbacks can save without an originating
 command. The public hook requires a live extension caller; core editing and
 ordinary native saving remain usable without Node.
+
+Native resource changes have a separate checked monotonic epoch. Moving a file
+away and back cannot revive a captured save, workspace edit, provider callback
+or disk-refresh reply, even when the path, bytes and text revision match again.
+Explorer rename/trash and Save As publish through that resource clock; capacity
+is checked before authorizing filesystem changes. Same-path saves preserve the
+resource epoch and continue to advance the save generation. Text, selections,
+saved baselines and Undo/Redo are not replaced merely to invalidate old proofs.
+Extension mirrors advance their version after an unobserved resource change;
+native language servers close/reopen the synchronized resource with a fresh
+version, while genuinely held callbacks keep their occupied request slots.
+This guard does not implement extension resource operations, destination-model
+reuse or API reference retention; those remain separate integration work.
+
+Seven resource-lifetime regressions pass within the full 1,435-test Rust suite
+(1,086 library; 23 ignored). They include actual Explorer rename workers, a held
+framed native LSP reply, an optional extension-host callback, a sampled disk
+refresh, original save/workspace proofs, autosave debounce and pre-effect clock
+exhaustion. The native `tests/resource_lifetime_pty.py` journey additionally
+passes F2 rename away/back with dirty Unicode CRLF, original Undo/Redo/Save,
+committed-baseline retention and terminal restoration with Node unavailable.
+Global formatting and strict locked all-target Clippy pass. These tests qualify
+existing native workflows and stale-proof rejection, not extension resource
+execution, conditional model reuse or platform-wide parity.
 
 Save shares the eight-call document-service budget and the 64-request host
 budget. A 360-second acknowledgement timeout rejects with an unknown outcome

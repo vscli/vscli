@@ -84,6 +84,7 @@ struct ModelProof {
     id: u64,
     path: Option<PathBuf>,
     text_epoch: u64,
+    resource_epoch: u64,
     save_generation: u64,
 }
 struct Active {
@@ -361,6 +362,7 @@ impl App {
                 previous.filter(|proof| proof.id == doc.id && proof.path == doc.path)
             {
                 proof.text_epoch = doc.text_epoch();
+                proof.resource_epoch = doc.resource_epoch();
                 proof.save_generation = doc.save_generation();
                 proof.dirty = doc.dirty();
                 if refresh {
@@ -379,6 +381,7 @@ impl App {
                     id: doc.id,
                     path: doc.path.clone(),
                     text_epoch: doc.text_epoch(),
+                    resource_epoch: doc.resource_epoch(),
                     save_generation: doc.save_generation(),
                     dirty: doc.dirty(),
                     policy: self.settings.auto_save(language),
@@ -403,6 +406,7 @@ impl App {
             id: snapshot.document_id(),
             path: snapshot.source_path().map(Path::to_owned),
             text_epoch: snapshot.text_epoch(),
+            resource_epoch: snapshot.resource_epoch(),
             save_generation: snapshot.save_generation(),
             dirty: true,
             policy: self.settings.auto_save(language),
@@ -716,6 +720,7 @@ impl App {
                 id: doc.id,
                 path: doc.path.clone(),
                 text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
                 save_generation: doc.save_generation(),
             });
         }
@@ -801,7 +806,7 @@ impl App {
                 .find(|proof| proof.id == doc.id)
                 .context("A file model opened during save preparation; retry Save")?;
             ensure!(
-                proof.path.as_ref() == Some(path),
+                proof.path.as_ref() == Some(path) && proof.resource_epoch == doc.resource_epoch(),
                 "A retained file path changed during save preparation; retry Save"
             );
             if doc.id != active.snapshot.document_id()

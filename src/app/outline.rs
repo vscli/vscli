@@ -81,6 +81,7 @@ struct Stamp {
     language_epoch: u64,
     saved: u64,
     path: Option<PathBuf>,
+    resource_epoch: u64,
     workspace: PathBuf,
     source: Source,
 }
@@ -93,6 +94,7 @@ impl Stamp {
             language_epoch: doc.language_epoch(),
             saved: doc.save_generation(),
             path: doc.path.clone(),
+            resource_epoch: doc.resource_epoch(),
             workspace: workspace.into(),
             source,
         }
@@ -104,6 +106,7 @@ impl Stamp {
             && self.language_epoch == doc.language_epoch()
             && self.saved == doc.save_generation()
             && self.path == doc.path
+            && self.resource_epoch == doc.resource_epoch()
             && self.source == *source
             && self.workspace == workspace
     }
@@ -111,6 +114,7 @@ impl Stamp {
         self.document == other.document
             && self.language_epoch == other.language_epoch
             && self.path == other.path
+            && self.resource_epoch == other.resource_epoch
             && self.source == other.source
             && self.workspace == other.workspace
     }

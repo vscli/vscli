@@ -23,6 +23,7 @@ struct Entry {
     document: u64,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     version: u64,
     path: Option<PathBuf>,
     items: Vec<lsp::Diagnostic>,
@@ -184,11 +185,13 @@ impl Client {
                 entry.document == document.id
                     && entry.revision == document.revision
                     && entry.text_epoch == document.text_epoch()
+                    && entry.resource_epoch == document.resource_epoch()
                     && entry.path == document.path
                     && self.mirror.mirrors.get(&document.id).is_some_and(|mirror| {
                         mirror.version == entry.version
                             && mirror.revision == document.revision
                             && mirror.text_epoch == document.text_epoch()
+                            && mirror.resource_epoch == document.resource_epoch()
                             && mirror.eol == document.eol
                     })
             })
@@ -256,6 +259,7 @@ impl Client {
                     document: document.id,
                     revision: document.revision,
                     text_epoch: document.text_epoch(),
+                    resource_epoch: document.resource_epoch(),
                     version: entry.version,
                     path: document.path.clone(),
                     items: entry.diagnostics,

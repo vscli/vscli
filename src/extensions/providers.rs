@@ -11,6 +11,7 @@ pub struct MirrorSnapshot {
     pub path: Option<PathBuf>,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub language_epoch: u64,
     pub version: u64,
 }
@@ -23,6 +24,7 @@ pub struct Ticket {
     pub document: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub language_epoch: u64,
     pub version: u64,
     pub workspace: Arc<Vec<MirrorSnapshot>>,
@@ -37,6 +39,7 @@ struct NavigationRankSource {
     document: u64,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     language_epoch: u64,
     version: u64,
     uri: String,
@@ -546,6 +549,7 @@ impl Client {
                 document: doc.id,
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
                 language_epoch: doc.language_epoch(),
                 version: mirror.version,
                 uri: mirror.uri.clone(),
@@ -567,6 +571,7 @@ impl Client {
             && source.document == document.id
             && source.revision == document.revision
             && source.text_epoch == document.text_epoch()
+            && source.resource_epoch == document.resource_epoch()
             && source.language_epoch == document.language_epoch()
             && self.service_document_current(document, source.version)
             && document_uri(document).ok().as_ref() == Some(&source.uri)
@@ -743,6 +748,7 @@ impl Client {
             && ticket.document == doc.id
             && ticket.revision == doc.revision
             && ticket.text_epoch == doc.text_epoch()
+            && ticket.resource_epoch == doc.resource_epoch()
             && ticket.language_epoch == doc.language_epoch()
             && self.service_document_current(doc, ticket.version)
     }
@@ -818,6 +824,7 @@ impl Client {
                 .context("Workspace target is not mirrored")?;
             if mirror.revision != document.revision
                 || mirror.text_epoch != document.text_epoch()
+                || mirror.resource_epoch != document.resource_epoch()
                 || mirror.language_epoch != document.language_epoch()
                 || mirror.eol != document.eol
                 || !ids.insert(document.id)
@@ -831,6 +838,7 @@ impl Client {
                 path: document.path.clone(),
                 revision: document.revision,
                 text_epoch: document.text_epoch(),
+                resource_epoch: document.resource_epoch(),
                 language_epoch: document.language_epoch(),
                 version: mirror.version,
             });
@@ -853,12 +861,14 @@ impl Client {
                     document.path == target.path
                         && document.revision == target.revision
                         && document.text_epoch() == target.text_epoch
+                        && document.resource_epoch() == target.resource_epoch
                         && document.language_epoch() == target.language_epoch
                         && self.mirror.mirrors.get(&document.id).is_some_and(|mirror| {
                             mirror.version == target.version
                                 && mirror.uri == target.uri
                                 && mirror.revision == target.revision
                                 && mirror.text_epoch == target.text_epoch
+                                && mirror.resource_epoch == target.resource_epoch
                                 && mirror.eol == document.eol
                         })
                 })
@@ -922,6 +932,7 @@ impl Client {
             document: doc.id,
             revision: doc.revision,
             text_epoch: doc.text_epoch(),
+            resource_epoch: doc.resource_epoch(),
             language_epoch: doc.language_epoch(),
             version: mirror.version,
             workspace,
@@ -1004,6 +1015,7 @@ impl Client {
             document: doc.id,
             revision: doc.revision,
             text_epoch: doc.text_epoch(),
+            resource_epoch: doc.resource_epoch(),
             language_epoch: doc.language_epoch(),
             version: mirror.version,
             workspace: self.mirrored_snapshotset(documents, hidden)?,
@@ -1926,6 +1938,60 @@ exports.activate=c=>{c.subscriptions.push(v.languages.registerHoverProvider('*',
         assert_eq!(client.language_provider_slots(), 8);
         client.language_provider_released(release).unwrap();
         assert_eq!(client.language_provider_slots(), 8);
+    }
+    #[test]
+    fn held_provider_ticket_refuses_resource_aba_before_and_after_mirror_sync() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.cpp");
+        let moved = root.path().join("moved.cpp");
+        std::fs::write(&path, "猫🙂 original\r\n").unwrap();
+        let mut doc = Document::open(&path).unwrap();
+        doc.insert("dirty ", false);
+        let original_path = doc.path.clone();
+        let proof = (doc.id, doc.revision, doc.text_epoch());
+        let package = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![doc];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let original_mirrors = client.mirrored_snapshotset(&docs, &[]).unwrap();
+        let mut workspace_ticket = ticket.clone();
+        workspace_ticket.workspace = original_mirrors;
+        assert!(client.provider_ticket_current(&ticket, &docs[0]));
+        std::fs::rename(&path, &moved).unwrap();
+        docs[0].set_resource_path(Some(moved.clone())).unwrap();
+        std::fs::rename(&moved, &path).unwrap();
+        docs[0].set_resource_path(original_path).unwrap();
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        assert!(!client.provider_workspace_current(&workspace_ticket, &docs, &[]));
+        assert!(!client.service_document_current(&docs[0], ticket.version));
+        assert!(client.mirrored_snapshotset(&docs, &[]).is_err());
+        client.sync_with_hidden(&docs, &[], 0).unwrap();
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        assert!(!client.provider_workspace_current(&workspace_ticket, &docs, &[]));
+        let mirror = &client.mirror.mirrors[&docs[0].id];
+        assert!(mirror.version > ticket.version);
+        assert!(client.service_document_current(&docs[0], mirror.version));
+        assert_eq!((docs[0].id, docs[0].revision, docs[0].text_epoch()), proof);
+        assert_eq!(std::fs::read(path).unwrap(), "猫🙂 original\r\n".as_bytes());
+        docs[0].undo();
+        assert_eq!(docs[0].text.to_string(), "猫🙂 original\r\n");
+        docs[0].redo();
+        assert_eq!(docs[0].text.to_string(), "dirty 猫🙂 original\r\n");
     }
     #[test]
     fn held_provider_ticket_refuses_language_metadata_aba_without_text_version_changes() {

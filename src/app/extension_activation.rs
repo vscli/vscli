@@ -58,7 +58,7 @@ struct Change {
 #[derive(PartialEq)]
 struct CommandContext {
     workspace: PathBuf,
-    document: Option<(u64, u64, u64, Option<PathBuf>)>,
+    document: Option<(u64, u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
     groups: crate::editor_groups::UiProof,
@@ -74,9 +74,15 @@ impl CommandContext {
         }
         Ok(Self {
             workspace: app.workspace.root.clone(),
-            document: app
-                .active_document()
-                .map(|doc| (doc.id, doc.revision, doc.text_epoch(), doc.path.clone())),
+            document: app.active_document().map(|doc| {
+                (
+                    doc.id,
+                    doc.revision,
+                    doc.text_epoch(),
+                    doc.resource_epoch(),
+                    doc.path.clone(),
+                )
+            }),
             selections: app
                 .active_document()
                 .map_or_else(Vec::new, Document::selections),

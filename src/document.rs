@@ -161,6 +161,7 @@ struct Snapshot {
     api_closed: bool,
     api_owner: std::sync::Arc<()>,
     api_language_epoch: u64,
+    api_resource_epoch: u64,
     api_saved_generation: u64,
     text: Rope,
     cursor: usize,
@@ -255,6 +256,7 @@ pub struct SaveSnapshot {
     target: PathBuf,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     saved_revision: u64,
     save_generation: u64,
     next_save_generation: u64,
@@ -276,6 +278,9 @@ impl SaveSnapshot {
     }
     pub fn text_epoch(&self) -> u64 {
         self.text_epoch
+    }
+    pub fn resource_epoch(&self) -> u64 {
+        self.resource_epoch
     }
     pub fn saved_revision(&self) -> u64 {
         self.saved_revision
@@ -300,6 +305,7 @@ impl std::fmt::Debug for SaveSnapshot {
             .field("target", &self.target)
             .field("revision", &self.revision)
             .field("text_epoch", &self.text_epoch)
+            .field("resource_epoch", &self.resource_epoch)
             .field("saved_revision", &self.saved_revision)
             .field("save_generation", &self.save_generation)
             .field("text_bytes", &self.text.len_bytes())
@@ -362,6 +368,7 @@ pub struct Document {
     active_view: u64,
     other_views: std::collections::HashMap<u64, ViewState>,
     pub path: Option<PathBuf>,
+    resource_epoch: u64,
     virtual_uri: Option<String>,
     untitled_uri: Option<String>,
     associated_path: Option<PathBuf>,
@@ -570,6 +577,7 @@ impl Document {
             active_view: 0,
             other_views: std::collections::HashMap::new(),
             path: None,
+            resource_epoch: 0,
             virtual_uri: None,
             untitled_uri: None,
             associated_path: None,
@@ -755,6 +763,31 @@ impl Document {
     }
     pub(crate) fn language_epoch(&self) -> u64 {
         self.language_epoch
+    }
+    /// Independent of text/version/history: A→B→A must not renew an old URI proof.
+    pub fn resource_epoch(&self) -> u64 {
+        self.resource_epoch
+    }
+    pub(crate) fn check_resource_change(&self) -> Result<()> {
+        self.resource_epoch
+            .checked_add(1)
+            .context("Document resource lifetime exhausted")?;
+        Ok(())
+    }
+    /// Live resource publication. Constructors may initialize `path` directly;
+    /// existing models must pass through this clock before changing their URI.
+    pub(crate) fn set_resource_path(&mut self, path: Option<PathBuf>) -> Result<()> {
+        if self.path != path {
+            let epoch = self
+                .resource_epoch
+                .checked_add(1)
+                .context("Document resource lifetime exhausted")?;
+            self.retire_typing_pairs();
+            self.retire_folding_policy();
+            self.path = path;
+            self.resource_epoch = epoch;
+        }
+        Ok(())
     }
     pub(crate) fn editor_view_identity(&self) -> EditorViewProof {
         self.editor_view_identity_for(self.active_view)
@@ -1144,6 +1177,7 @@ impl Document {
             api_closed: false,
             api_owner: self.view.editor_owner.clone(),
             api_language_epoch: self.language_epoch,
+            api_resource_epoch: self.resource_epoch,
             api_saved_generation: self.save_generation,
             text: self.text.clone(),
             cursor: self.cursor,
@@ -1197,6 +1231,7 @@ impl Document {
             && snapshot.view_id == view
             && std::sync::Arc::ptr_eq(&snapshot.api_owner, owner)
             && snapshot.api_language_epoch == self.language_epoch
+            && snapshot.api_resource_epoch == self.resource_epoch
             && snapshot.api_saved_generation == self.save_generation
     }
     fn api_group_changes(&self, group: Option<&std::sync::Arc<()>>) -> usize {
@@ -1369,6 +1404,7 @@ impl Document {
             api_closed: true,
             api_owner: view.editor_owner.clone(),
             api_language_epoch: self.language_epoch,
+            api_resource_epoch: self.resource_epoch,
             api_saved_generation: self.save_generation,
             text: self.text.clone(),
             cursor: primary.map_or(view.cursor, |s| s.cursor),
@@ -1868,6 +1904,10 @@ impl Document {
     pub fn capture_save(&self, target: PathBuf) -> Result<SaveSnapshot> {
         self.ensure_writable()?;
 
+        // A worker may resolve a different canonical alias. Reserve the path
+        // clock before allowing any persistence effects, including Save As.
+        self.check_resource_change()?;
+
         validate_snapshot_path(&target, false)?;
         if let Some(path) = &self.path {
             validate_snapshot_path(path, false)?;
@@ -1890,6 +1930,7 @@ impl Document {
             target,
             revision: self.revision,
             text_epoch: self.text_epoch,
+            resource_epoch: self.resource_epoch,
             saved_revision: self.saved_revision,
             save_generation: self.save_generation,
             next_save_generation,
@@ -1906,6 +1947,7 @@ impl Document {
             || self.path != snapshot.source_path
             || self.revision != snapshot.revision
             || self.text_epoch != snapshot.text_epoch
+            || self.resource_epoch != snapshot.resource_epoch
             || self.saved_revision != snapshot.saved_revision
             || self.save_generation != snapshot.save_generation
         {
@@ -1929,6 +1971,7 @@ impl Document {
         }
         if self.id != snapshot.document_id
             || self.path != snapshot.source_path
+            || self.resource_epoch != snapshot.resource_epoch
             || self.save_generation != snapshot.save_generation
             || self.saved_revision != snapshot.saved_revision
         {
@@ -1936,15 +1979,10 @@ impl Document {
                 "Document path or saved baseline changed after save authorization; persisted snapshot retained on disk"
             );
         }
-        if self.path.as_ref() != Some(&canonical_destination) {
-            // Save As changes language semantics without changing text history.
-            self.retire_typing_pairs();
-            self.retire_folding_policy();
-        }
+        self.set_resource_path(Some(canonical_destination))?;
         self.untitled_uri = None;
         self.associated_path = None;
         self.api_created_untitled = false;
-        self.path = Some(canonical_destination);
         self.disk_content = Some(snapshot.text.clone());
         self.saved_revision = snapshot.revision;
         self.save_generation = snapshot.next_save_generation;
@@ -1979,6 +2017,9 @@ impl Document {
             .context("Document save generation exhausted")?;
         let path = absolute_path(path)?;
         let same_path = self.path.as_ref() == Some(&path);
+        if !same_path {
+            self.check_resource_change()?;
+        }
         let create_only = !overwrite && (!same_path || self.disk_content.is_none());
         if !overwrite {
             if same_path {
@@ -2013,16 +2054,10 @@ impl Document {
                 .map_err(|e| e.error)
                 .context("Could not replace the destination file")?;
         }
-        if !same_path {
-            // Save As changes document semantics independently of Undo. A later
-            // return to the old path cannot revive delimiter ownership.
-            self.retire_typing_pairs();
-            self.retire_folding_policy();
-        }
+        self.set_resource_path(Some(path))?;
         self.untitled_uri = None;
         self.associated_path = None;
         self.api_created_untitled = false;
-        self.path = Some(path);
         self.disk_content = Some(self.text.clone());
         self.saved_revision = self.revision;
         self.save_generation = save_generation;
@@ -2077,6 +2112,70 @@ fn map_position(p: usize, range: &Range<usize>, added: usize) -> usize {
 #[cfg(test)]
 mod save_snapshot_tests {
     use super::*;
+
+    #[test]
+    fn resource_aba_retires_save_authority_without_changing_text_history_or_baseline() {
+        let (directory, mut document, path) = fixture();
+        document.insert("dirty λ ", false);
+        document.insert("redo ", false);
+        document.undo();
+        let snapshot = document.capture_save(path.clone()).unwrap();
+        let source = document.capture_workspace_source().unwrap();
+        let text = document.text.clone();
+        let baseline = document.disk_content.clone();
+        let proof = (
+            document.id,
+            document.revision,
+            document.text_epoch(),
+            document.saved_revision,
+            document.save_generation(),
+            document.undo.len(),
+            document.redo.len(),
+        );
+        document
+            .set_resource_path(Some(directory.path().join("other.cpp")))
+            .unwrap();
+        document.set_resource_path(Some(path.clone())).unwrap();
+        assert_eq!(document.resource_epoch(), snapshot.resource_epoch() + 2);
+        assert!(document.check_save_snapshot(&snapshot).is_err());
+        assert!(document.publish_save(&snapshot, path.clone()).is_err());
+        assert!(!source.current(&document));
+        assert_eq!(document.text, text);
+        assert_eq!(document.disk_content, baseline);
+        assert_eq!(
+            (
+                document.id,
+                document.revision,
+                document.text_epoch(),
+                document.saved_revision,
+                document.save_generation(),
+                document.undo.len(),
+                document.redo.len()
+            ),
+            proof
+        );
+        assert!(document.dirty());
+        document.redo();
+        assert_eq!(document.text.to_string(), "dirty λ redo 猫🙂 base\r\n");
+        assert_eq!(fs::read(path).unwrap(), "猫🙂 base\r\n".as_bytes());
+    }
+
+    #[test]
+    fn resource_clock_exhaustion_refuses_save_as_before_creating_or_overwriting_files() {
+        let (directory, mut document, path) = fixture();
+        document.insert("dirty ", false);
+        document.resource_epoch = u64::MAX;
+        let destination = directory.path().join("other.cpp");
+        assert!(document.capture_save(destination.clone()).is_err());
+        assert!(document.save_to(&destination, false).is_err());
+        assert!(!destination.exists());
+        fs::write(&destination, "foreign λ\r\n").unwrap();
+        assert!(document.save_to(&destination, true).is_err());
+        assert_eq!(fs::read(destination).unwrap(), "foreign λ\r\n".as_bytes());
+        assert_eq!(document.path.as_ref(), Some(&path));
+        assert_eq!(fs::read(path).unwrap(), "猫🙂 base\r\n".as_bytes());
+        assert!(document.dirty());
+    }
 
     fn fixture() -> (tempfile::TempDir, Document, PathBuf) {
         let directory = tempfile::tempdir().unwrap();

@@ -130,6 +130,7 @@ pub(crate) struct Capture {
     revision: u64,
     epoch: u64,
     language_epoch: u64,
+    resource_epoch: u64,
     eol: String,
     view: EditorViewProof,
 }
@@ -146,6 +147,7 @@ impl Capture {
             && doc.revision == self.revision
             && doc.text_epoch() == self.epoch
             && doc.language_epoch() == self.language_epoch
+            && doc.resource_epoch() == self.resource_epoch
             && doc.eol == self.eol
             && document_uri(doc).ok().as_ref() == Some(&self.uri)
             && (matches!(self.change, Change::Language(_))
@@ -412,6 +414,7 @@ impl Client {
             revision: doc.revision,
             epoch: doc.text_epoch(),
             language_epoch: doc.language_epoch(),
+            resource_epoch: doc.resource_epoch(),
             eol: doc.eol.clone(),
             view,
         }))
@@ -431,6 +434,7 @@ mod tests {
             revision: doc.revision,
             epoch: doc.text_epoch(),
             language_epoch: doc.language_epoch(),
+            resource_epoch: doc.resource_epoch(),
             eol: doc.eol.clone(),
             view: doc.editor_view_identity(),
         }

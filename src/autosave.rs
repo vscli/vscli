@@ -25,6 +25,7 @@ pub struct ModelProof {
     pub id: u64,
     pub path: Option<PathBuf>,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub save_generation: u64,
     pub dirty: bool,
     pub policy: Policy,
@@ -104,6 +105,7 @@ impl Scheduler {
                 }
                 if entry.proof.path != model.path
                     || entry.proof.text_epoch != model.text_epoch
+                    || entry.proof.resource_epoch != model.resource_epoch
                     || entry.proof.policy != model.policy
                     || (!entry.proof.dirty && model.dirty)
                 {
@@ -116,6 +118,7 @@ impl Scheduler {
                     entry.proof.path.clone_from(&model.path);
                 }
                 entry.proof.text_epoch = model.text_epoch;
+                entry.proof.resource_epoch = model.resource_epoch;
                 entry.proof.save_generation = model.save_generation;
                 entry.proof.dirty = model.dirty;
                 entry.proof.policy = model.policy;
@@ -180,6 +183,7 @@ mod tests {
             id,
             path: Some(format!("model-{id}.cpp").into()),
             text_epoch: 1,
+            resource_epoch: 0,
             save_generation: 0,
             dirty: true,
             policy: Policy::AfterDelay { delay_ms: 1000 },
@@ -187,6 +191,25 @@ mod tests {
     }
     fn at(start: Instant, millis: u64) -> Instant {
         start + Duration::from_millis(millis)
+    }
+    #[test]
+    fn resource_aba_restarts_debounce_and_retires_failed_save_suppression() {
+        let start = Instant::now();
+        let mut scheduler = Scheduler::default();
+        let mut proof = model(1);
+        scheduler
+            .observe(start, std::slice::from_ref(&proof))
+            .unwrap();
+        let original = proof.clone();
+        scheduler.failed(&proof);
+        proof.resource_epoch += 2;
+        scheduler
+            .observe(at(start, 900), std::slice::from_ref(&proof))
+            .unwrap();
+        scheduler.failed(&original);
+        assert!(scheduler.take_due(at(start, 1000)).is_none());
+        assert!(scheduler.take_due(at(start, 1899)).is_none());
+        assert_eq!(scheduler.take_due(at(start, 1900)), Some(proof));
     }
     #[test]
     fn unchanged_observations_do_not_restart_deadlines_and_edit_undo_does() {

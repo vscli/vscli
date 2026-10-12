@@ -14,6 +14,7 @@ struct Context {
     document: u64,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     language_epoch: u64,
     path: Option<PathBuf>,
     selections: Vec<crate::document::Selection>,
@@ -39,6 +40,7 @@ impl Context {
             document: doc.id,
             revision: doc.revision,
             text_epoch: doc.text_epoch(),
+            resource_epoch: doc.resource_epoch(),
             language_epoch: doc.language_epoch(),
             path: doc.path.clone(),
             selections: doc.selections(),
@@ -53,6 +55,7 @@ impl Context {
             self.document == doc.id
                 && self.revision == doc.revision
                 && self.text_epoch == doc.text_epoch()
+                && self.resource_epoch == doc.resource_epoch()
                 && self.language_epoch == doc.language_epoch()
                 && self.path == doc.path
                 && self.pane == app.panes.get(app.active_pane).map(|pane| pane.id)

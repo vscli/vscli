@@ -69,6 +69,7 @@ pub(crate) struct WorkspaceSource {
     eol: String,
     revision: u64,
     epoch: u64,
+    resource_epoch: u64,
     saved_revision: u64,
     save_generation: u64,
     next_revision: u64,
@@ -94,6 +95,7 @@ impl WorkspaceSource {
             && self.eol == doc.eol
             && self.revision == doc.revision
             && self.epoch == doc.text_epoch
+            && self.resource_epoch == doc.resource_epoch
             && self.saved_revision == doc.saved_revision
             && self.save_generation == doc.save_generation
             && self.next_revision == doc.next_revision
@@ -388,6 +390,7 @@ impl Document {
             eol: self.eol.clone(),
             revision: self.revision,
             epoch: self.text_epoch,
+            resource_epoch: self.resource_epoch,
             saved_revision: self.saved_revision,
             save_generation: self.save_generation,
             next_revision: self.next_revision,
@@ -631,6 +634,7 @@ impl Document {
             active_view: self.active_view,
             other_views: self.other_views.clone(),
             path: self.path.clone(),
+            resource_epoch: self.resource_epoch,
             virtual_uri: self.virtual_uri.clone(),
             untitled_uri: self.untitled_uri.clone(),
             associated_path: self.associated_path.clone(),

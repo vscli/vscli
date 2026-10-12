@@ -21,6 +21,7 @@ struct Source {
     epoch: u64,
     language: u64,
     path: Option<PathBuf>,
+    resource_epoch: u64,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
     groups: crate::editor_groups::UiProof,
@@ -49,6 +50,7 @@ impl Source {
             epoch: doc.text_epoch(),
             language: doc.language_epoch(),
             path: doc.path.clone(),
+            resource_epoch: doc.resource_epoch(),
             selections: doc.selections(),
             pane: app.panes.get(app.active_pane).map(|pane| pane.id),
             groups: app.editor_groups.proof(),
@@ -72,6 +74,7 @@ impl Source {
                     && doc.text_epoch() == self.epoch
                     && doc.language_epoch() == self.language
                     && doc.path == self.path
+                    && doc.resource_epoch() == self.resource_epoch
                     && doc.selections() == self.selections
             })
     }
@@ -243,6 +246,7 @@ impl App {
                     path: doc.path.clone(),
                     revision: doc.revision,
                     text_epoch: doc.text_epoch(),
+                    resource_epoch: doc.resource_epoch(),
                     language_epoch: doc.language_epoch(),
                     // Native model proof, explicitly without an extension wire version.
                     version: 0,

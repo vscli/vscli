@@ -147,6 +147,7 @@ pub(in crate::app) struct Completion {
 struct Proof {
     document: u64,
     path: Option<PathBuf>,
+    resource_epoch: u64,
     associated_path: Option<PathBuf>,
     untitled_uri: Option<String>,
     epoch: u64,
@@ -193,6 +194,7 @@ impl Proof {
         Ok(Self {
             document,
             path: doc.path.clone(),
+            resource_epoch: doc.resource_epoch(),
             associated_path: doc.associated_path().map(Path::to_owned),
             untitled_uri: doc.untitled_uri().map(str::to_owned),
             epoch: doc.text_epoch(),
@@ -222,6 +224,7 @@ impl Proof {
             .context("Save caller model was closed")?;
         ensure!(
             doc.path == self.path
+                && doc.resource_epoch() == self.resource_epoch
                 && doc.associated_path() == self.associated_path.as_deref()
                 && doc.untitled_uri() == self.untitled_uri.as_deref()
                 && doc.saved_revision == self.saved_revision

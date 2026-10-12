@@ -21,6 +21,7 @@ struct Proof {
     intent: u64,
     document: u64,
     path: PathBuf,
+    resource_epoch: u64,
     uri: String,
     revision: u64,
     epoch: u64,
@@ -105,6 +106,7 @@ impl App {
                     !doc.is_read_only()
                         && doc.id == proof.document
                         && doc.path.as_ref() == Some(&proof.path)
+                        && doc.resource_epoch() == proof.resource_epoch
                         && doc.revision == proof.revision
                         && doc.text_epoch() == proof.epoch
                         && doc.saved_revision == proof.saved_revision
@@ -272,6 +274,7 @@ impl App {
             intent: intent.id,
             document: doc.id,
             path,
+            resource_epoch: doc.resource_epoch(),
             uri,
             revision: doc.revision,
             epoch: doc.text_epoch(),
@@ -515,6 +518,7 @@ impl App {
             || request.document_id != run.proof.document
             || request.revision != run.proof.revision
             || request.text_epoch != run.proof.epoch
+            || request.resource_epoch != run.proof.resource_epoch
             || !self
                 .lsp
                 .as_ref()

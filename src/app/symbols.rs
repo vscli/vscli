@@ -10,7 +10,7 @@ use std::{
 pub(super) struct Context {
     workspace: PathBuf,
     document: Option<u64>,
-    documents: Vec<(u64, u64, u64, Option<PathBuf>)>,
+    documents: Vec<(u64, u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
     groups: crate::editor_groups::UiProof,
@@ -25,7 +25,15 @@ impl Context {
                 .documents
                 .iter()
                 .chain(&app.hidden_documents)
-                .map(|d| (d.id, d.revision, d.text_epoch(), d.path.clone()))
+                .map(|d| {
+                    (
+                        d.id,
+                        d.revision,
+                        d.text_epoch(),
+                        d.resource_epoch(),
+                        d.path.clone(),
+                    )
+                })
                 .collect(),
             selections: app
                 .active_document()

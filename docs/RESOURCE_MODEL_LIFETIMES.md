@@ -66,8 +66,13 @@ leases, editor memberships and dirty/history ownership. See
 
 Preserve displaced/deleted unsaved text in private archives. Capture actual model
 and history proofs before effects; durable numeric IDs alone do not authorize a
-new model after restart. Add monotonically changing resource metadata proofs for
-path and baseline ABA, and validate them alongside text/language/history epochs.
+new model after restart. Native documents now carry an independent checked
+resource epoch through Save As and Explorer path publications. Save/workspace,
+provider/editor-service and disk-refresh proofs validate it alongside their
+text/language/history and saved-generation guards. A return to the original path
+cannot restore an earlier proof. Baseline publications retain their independent
+save-generation guard. This does not yet implement resource-edit model disposal,
+conditional destination reuse or API reference acquisition.
 Keep source and destination lifetimes separate. Implement surviving-target reuse,
 reference provenance, expiry and teardown before claiming exact resource/API
 document compatibility. Teardown must drain an owned snapshot rather than mutate

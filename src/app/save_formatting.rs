@@ -18,6 +18,7 @@ struct Pending {
     server: Arc<()>,
     document: u64,
     path: PathBuf,
+    resource_epoch: u64,
     revision: u64,
     epoch: u64,
     saved_revision: u64,
@@ -84,6 +85,7 @@ impl App {
                     !doc.is_read_only()
                         && doc.id == pending.document
                         && doc.path.as_ref() == Some(&pending.path)
+                        && doc.resource_epoch() == pending.resource_epoch
                         && doc.revision == pending.revision
                         && doc.text_epoch() == pending.epoch
                         && doc.saved_revision == pending.saved_revision
@@ -169,6 +171,7 @@ impl App {
             server,
             document: doc.id,
             path: doc.path.clone().expect("named target checked"),
+            resource_epoch: doc.resource_epoch(),
             revision: doc.revision,
             epoch: doc.text_epoch(),
             saved_revision: doc.saved_revision,
@@ -207,6 +210,7 @@ impl App {
                         .is_some_and(|client| client.request_current(&request))
                     && request.document_id == pending.document
                     && request.text_epoch == pending.epoch
+                    && request.resource_epoch == pending.resource_epoch
             });
         if !current {
             self.retire_save_formatting("document or server ownership changed");

@@ -60,6 +60,7 @@ pub enum LanguageAction {
     DiagnosticLocation {
         document: u64,
         text_epoch: u64,
+        resource_epoch: u64,
         range: lsp::Range,
     },
     Completion {
@@ -231,6 +232,7 @@ impl App {
             || self.doc().id != request.document_id
             || self.doc().revision != request.revision
             || self.doc().text_epoch() != request.text_epoch
+            || self.doc().resource_epoch() != request.resource_epoch
             || self.doc().language_epoch() != request.language_epoch
             || self.doc().path.as_ref() != Some(&request.path)
             || self
@@ -368,6 +370,7 @@ impl App {
             LanguageAction::DiagnosticLocation {
                 document,
                 text_epoch,
+                resource_epoch,
                 range,
             } => {
                 let doc = self
@@ -376,7 +379,7 @@ impl App {
                     .chain(&self.hidden_documents)
                     .find(|doc| doc.id == *document)
                     .context("Problem document was closed; reopen Problems")?;
-                if doc.text_epoch() != *text_epoch {
+                if doc.text_epoch() != *text_epoch || doc.resource_epoch() != *resource_epoch {
                     bail!("Problem document changed; reopen Problems");
                 }
                 let offset = lsp::offset(doc, range.start)?;
@@ -605,6 +608,7 @@ impl App {
                     action: LanguageAction::DiagnosticLocation {
                         document: doc.id,
                         text_epoch: doc.text_epoch(),
+                        resource_epoch: doc.resource_epoch(),
                         range: diagnostic.range,
                     },
                 });
@@ -636,6 +640,7 @@ mod diagnostic_tests {
                 id: 1,
                 revision: 0,
                 text_epoch: 0,
+                resource_epoch: 0,
                 version: 1,
             },
             versioned: true,
@@ -713,6 +718,7 @@ mod diagnostic_tests {
         let action = LanguageAction::DiagnosticLocation {
             document: id,
             text_epoch: epoch,
+            resource_epoch: 0,
             range: lsp::Range {
                 start: lsp::Position {
                     line: 1,

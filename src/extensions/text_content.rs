@@ -31,6 +31,7 @@ pub(crate) struct Capture {
 struct Source {
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     version: u64,
 }
 struct Retained<'a> {
@@ -66,6 +67,7 @@ impl Retained<'_> {
             || mirror.version != version
             || mirror.revision != document.revision
             || mirror.text_epoch != document.text_epoch()
+            || mirror.resource_epoch != document.resource_epoch()
             || mirror.eol != document.eol
         {
             bail!("Virtual change source changed before publication");
@@ -73,6 +75,7 @@ impl Retained<'_> {
         Ok(Source {
             revision: document.revision,
             text_epoch: document.text_epoch(),
+            resource_epoch: document.resource_epoch(),
             version,
         })
     }
@@ -274,7 +277,10 @@ impl Registry {
         self.provider_current(&capture.provider, owners)?;
         if let (Some(document), Some(source)) = (capture.document, capture.source.as_ref()) {
             let now = retained.source(document, &capture.uri, source.version)?;
-            if now.revision != source.revision || now.text_epoch != source.text_epoch {
+            if now.revision != source.revision
+                || now.text_epoch != source.text_epoch
+                || now.resource_epoch != source.resource_epoch
+            {
                 bail!("Virtual document changed after native receipt");
             }
         }
@@ -493,6 +499,7 @@ mod tests {
             Mirror {
                 revision: docs[0].revision,
                 text_epoch: docs[0].text_epoch(),
+                resource_epoch: docs[0].resource_epoch(),
                 language_epoch: docs[0].language_epoch(),
                 editor_view: docs[0].editor_view_identity(),
                 save_generation: 0,

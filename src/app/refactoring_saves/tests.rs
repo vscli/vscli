@@ -99,6 +99,7 @@ impl Fixture {
                 path: doc.path.clone(),
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
                 language_epoch: doc.language_epoch(),
                 version: 0,
             })

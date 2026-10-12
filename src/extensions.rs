@@ -169,6 +169,7 @@ struct Mirror {
     editor_view: crate::document::EditorViewProof,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     save_generation: u64,
     uri: String,
     eol: String,
@@ -973,6 +974,7 @@ impl Client {
             || edit.version != mirror.version
             || doc.revision != mirror.revision
             || doc.text_epoch() != mirror.text_epoch
+            || doc.resource_epoch() != mirror.resource_epoch
             || doc.eol != mirror.eol
             || document_uri(doc)? != mirror.uri
         {
@@ -1397,7 +1399,7 @@ impl MirrorState {
         if check_mirror_budget(documents).is_err() {
             return Value::Null;
         }
-        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.virtual_uri(), d.untitled_uri(), d.language_override(), d.language_epoch(), d.dirty(), d.eol, selections(d), d.editor_view_stamp()])).collect::<Vec<_>>(),
+        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.resource_epoch(), d.save_generation(), d.path, d.virtual_uri(), d.untitled_uri(), d.language_override(), d.language_epoch(), d.dirty(), d.eol, selections(d), d.editor_view_stamp()])).collect::<Vec<_>>(),
             "active": active.map(|d| d.id), "selections": active.map(selections)})
     }
     #[cfg(test)]
@@ -1500,6 +1502,7 @@ impl MirrorState {
             let needs_text = self.mirrors.get(&doc.id).is_none_or(|old| {
                 old.revision != doc.revision
                     || old.text_epoch != doc.text_epoch()
+                    || old.resource_epoch != doc.resource_epoch()
                     || old.eol != doc.eol
             });
             let mirror = self.mirrors.entry(doc.id).or_insert_with(|| Mirror {
@@ -1507,6 +1510,7 @@ impl MirrorState {
                 language_epoch: doc.language_epoch(),
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
                 save_generation: doc.save_generation(),
                 uri: uri.clone(),
                 eol: doc.eol.clone(),
@@ -1514,12 +1518,14 @@ impl MirrorState {
             });
             if mirror.revision != doc.revision
                 || mirror.text_epoch != doc.text_epoch()
+                || mirror.resource_epoch != doc.resource_epoch()
                 || mirror.uri != uri
                 || mirror.eol != doc.eol
             {
                 mirror.version += 1;
                 mirror.revision = doc.revision;
                 mirror.text_epoch = doc.text_epoch();
+                mirror.resource_epoch = doc.resource_epoch();
                 mirror.uri = uri.clone();
                 mirror.eol = doc.eol.clone();
             }

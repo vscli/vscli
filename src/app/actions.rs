@@ -618,6 +618,7 @@ impl App {
                 document: target.document,
                 revision: target.revision,
                 text_epoch: target.text_epoch,
+                resource_epoch: target.resource_epoch,
                 version: WorkspaceVersion::Extension(target.version),
             })
             .collect::<Vec<_>>();

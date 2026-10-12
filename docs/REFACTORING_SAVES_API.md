@@ -44,9 +44,11 @@ boundaries when those participants actually mutate text.
 
 Every involved dirty model receives an original source proof at workspace
 publication, before waiting for later save admission. That proof retains the real
-model identity, text and language epochs, revision, path and associated path, saved
+model identity, resource/text/language epochs, revision, path and associated path, saved
 baseline/save generation, EOL, settings/profile and workspace. Effective-language
-changes followed by reversal also invalidate a deferred proof. Edit followed by Undo, path or
+changes followed by reversal also invalidate a deferred proof. Moving away and
+back invalidates the resource epoch without editing text or erasing history.
+Edit followed by Undo, path or
 baseline changes, and settings/profile replacement cannot authorize a newer
 version through a deferred original save.
 

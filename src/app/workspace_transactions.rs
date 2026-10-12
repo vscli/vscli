@@ -424,6 +424,7 @@ pub(crate) fn capture_workspace_transaction(
             doc.path == mirror.path
                 && doc.revision == mirror.revision
                 && doc.text_epoch() == mirror.text_epoch
+                && doc.resource_epoch() == mirror.resource_epoch
                 && doc.language_epoch() == mirror.language_epoch,
             "Workspace source changed before queue admission"
         );
@@ -803,7 +804,9 @@ impl App {
                     .documents
                     .iter()
                     .chain(&self.hidden_documents)
-                    .any(|doc| doc.id == mirror.document && doc.path == mirror.path)),
+                    .any(|doc| doc.id == mirror.document
+                        && doc.path == mirror.path
+                        && doc.resource_epoch() == mirror.resource_epoch)),
             "Original workspace inventory changed before publication"
         );
         for doc in &mut prepared.new_documents {

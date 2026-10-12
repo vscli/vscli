@@ -27,6 +27,7 @@ struct ModelProof {
     index: usize,
     document: u64,
     path: Option<PathBuf>,
+    resource_epoch: u64,
     revision: u64,
     epoch: u64,
     saved_revision: u64,
@@ -40,6 +41,7 @@ impl ModelProof {
             index,
             document: doc.id,
             path: doc.path.clone(),
+            resource_epoch: doc.resource_epoch(),
             revision: doc.revision,
             epoch: doc.text_epoch(),
             saved_revision: doc.saved_revision,
@@ -55,6 +57,7 @@ impl ModelProof {
         pool.get(self.index).is_some_and(|doc| {
             doc.id == self.document
                 && doc.path == self.path
+                && doc.resource_epoch() == self.resource_epoch
                 && doc.revision == self.revision
                 && doc.text_epoch() == self.epoch
                 && doc.saved_revision == self.saved_revision
