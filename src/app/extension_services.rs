@@ -27,6 +27,8 @@ pub(super) struct Context {
 #[derive(Clone, PartialEq)]
 struct Snapshot {
     epoch: u64,
+    profile: u64,
+    settings: Arc<Vec<serde_json::Map<String, Value>>>,
     groups: crate::editor_groups::UiProof,
     workspace: PathBuf,
     focus: Focus,
@@ -78,6 +80,8 @@ impl Context {
         Self {
             snapshot: Some(Snapshot {
                 epoch: app.extension_services.epoch,
+                profile: app.settings_profile_generation(),
+                settings: app.settings.extension_layers().clone(),
                 groups: app.editor_groups.proof(),
                 workspace: app.workspace.root.clone(),
                 focus: app.focus.clone(),
@@ -113,7 +117,10 @@ impl Context {
         }
     }
     pub(super) fn same_editor(&self, app: &App) -> bool {
-        self.snapshot.is_some() && self == &Self::capture(app)
+        self.snapshot.as_ref().is_some_and(|original| {
+            Arc::ptr_eq(&original.settings, app.settings.extension_layers())
+                && self == &Self::capture(app)
+        })
     }
     pub(super) fn accept_next_interaction(&mut self) {
         if let Some(snapshot) = &mut self.snapshot {
@@ -122,6 +129,16 @@ impl Context {
     }
     fn valid(&self, app: &App) -> bool {
         self.same_editor(app) && app.prompt.is_none() && app.modal.is_none()
+    }
+    fn service_current(&self, app: &App, operation: &Operation) -> bool {
+        // Opening a text document retains it without creating or focusing an
+        // editor. Indexers can do that while a native picker/prompt is active;
+        // source, workspace, settings, ownership and version proofs still hold.
+        if matches!(operation, Operation::Open(_)) {
+            self.same_editor(app)
+        } else {
+            self.valid(app)
+        }
     }
 }
 enum Output {
@@ -379,7 +396,7 @@ impl App {
                 && job
                     .context
                     .as_ref()
-                    .is_none_or(|context| context.valid(self));
+                    .is_none_or(|context| context.service_current(self, &job.service.operation));
             if !valid {
                 job.cancel.store(true, Ordering::Release);
             }
@@ -445,13 +462,14 @@ impl App {
                 .extension_services
                 .contexts
                 .get(&(service.request.session, service.id.clone()))
-                .is_some_and(|context| context.valid(self))
+                .is_some_and(|context| context.service_current(self, &service.operation))
             {
                 bail!("Native document service cancelled by newer editor context; retry");
             }
             if !matches!(
                 service.operation,
-                Operation::State(_)
+                Operation::Open(_)
+                    | Operation::State(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -2031,6 +2049,61 @@ exports.activate = context => {
         assert!(app.hidden_documents.is_empty());
         assert_eq!(app.doc().id, id);
         assert_eq!(app.doc().text.to_string(), "newer typing");
+    }
+    #[test]
+    fn hidden_open_worker_cannot_publish_after_equal_settings_reload_and_restore() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source.txt");
+        let input = root.path().join("input.txt");
+        std::fs::write(&source, "original猫\r\n").unwrap();
+        std::fs::write(&input, "unopened🙂\r\n").unwrap();
+        let mut app = queued_app(root.path());
+        let host = app.extension_host.take();
+        app.open(&source).unwrap();
+        until(&mut app, |app| app.active_document().is_some());
+        app.doc_mut().insert("dirty ", false);
+        app.split_editor(false);
+        app.extension_host = host;
+        let id = app.doc().id;
+        let revision = app.doc().revision;
+        let selections = app.doc().selections();
+        let proof = app.doc().capture_save(source.clone()).unwrap();
+        let members: Vec<_> = app.editor_groups().memberships(id).collect();
+        assert_eq!(members.len(), 2);
+        assert!(app.poll_extension_services());
+        assert!(app.extension_services.job.is_some());
+        let original = app.settings.extension_layers().clone();
+        // Equal setting values must not revive an asynchronous authorization:
+        // each load creates a new settings identity, even after restoration.
+        app.settings = crate::settings::Settings::load_editor(&[]).unwrap();
+        app.settings = crate::settings::Settings::load_editor(&[]).unwrap();
+        assert_eq!(original.as_ref(), app.settings.extension_layers().as_ref());
+        assert!(!Arc::ptr_eq(&original, app.settings.extension_layers()));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while app.extension_services.job.is_some() {
+            app.poll_extension_services();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(app.hidden_documents.is_empty());
+        assert!(app.extension_host.as_ref().unwrap().service().is_none());
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().revision, revision);
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(app.doc().text.to_string(), "dirty original猫\r\n");
+        let current = app.doc().capture_save(source.clone()).unwrap();
+        assert_eq!(current.text_epoch(), proof.text_epoch());
+        assert_eq!(current.save_generation(), proof.save_generation());
+        for member in members {
+            assert!(app.editor_groups().membership_current(member));
+        }
+        app.execute("undo", Value::Null);
+        assert_eq!(app.doc().text.to_string(), "original猫\r\n");
+        app.execute("redo", Value::Null);
+        assert_eq!(app.doc().text.to_string(), "dirty original猫\r\n");
+        assert_eq!(app.doc().id, id);
+        assert_eq!(std::fs::read_to_string(source).unwrap(), "original猫\r\n");
+        assert_eq!(std::fs::read_to_string(input).unwrap(), "unopened🙂\r\n");
     }
     #[cfg(unix)]
     #[test]

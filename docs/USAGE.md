@@ -766,13 +766,25 @@ A matching selected extension can instead provide document symbols through the
 same picker, including hierarchical symbols for untitled buffers.
 Workspace symbol search also works from an empty welcome screen.
 
+Selected extensions can supply global workspace symbols through
+`languages.registerWorkspaceSymbolProvider`. All registered global providers
+participate, independently of the active document and document selectors. The
+public `vscode.executeWorkspaceSymbolProvider(query)` returns fresh symbols
+without opening editors or eagerly resolving them. Original Ctrl+T navigation
+resolves the selected original symbol before opening its target; indexers may
+await `workspace.openTextDocument` without dismissing the picker or changing
+focus. See [workspace-symbol API behavior and evidence](WORKSPACE_SYMBOLS_API.md).
+
 The native searchable picker displays names, kinds, containing symbols and file
 locations. Document search filters one response locally; workspace queries wait
 200 ms after input changes, cancel superseded requests and clear obsolete results.
 Hierarchical `DocumentSymbol` uses `selectionRange`; flat `SymbolInformation` and
 range-bearing `WorkspaceSymbol` use their location range. Range-less workspace
-symbols requiring `workspaceSymbol/resolve`, non-file URIs, malformed ranges and
-oversized responses produce explicit errors. Range-less resolve, symbol previews,
+symbols requiring native LSP `workspaceSymbol/resolve`, non-file LSP URIs,
+malformed ranges and oversized responses produce explicit errors. The optional
+extension route supports lazy `resolveWorkspaceSymbol` and retained non-file
+models; an absent resolved range opens its URI without changing the selection.
+Unsupported URI editor backends, native LSP range-less resolve, symbol previews,
 grouping modes and complete VS Code navigation behavior remain incomplete.
 The separate [Outline section](OUTLINE.md) merged after its named local and
 platform checks; [Breadcrumbs](BREADCRUMBS.md) also merged after all required checks.
@@ -790,7 +802,8 @@ Targets needing filesystem alias resolution use one bounded background loader.
 It matches the resolved path to captured open buffers before reading file contents,
 so a dirty buffer remains usable through a parent alias after its file is deleted.
 Closed targets must be existing regular files within the existing 32 MiB open
-limit; missing files never create buffers.
+limit on the native LSP route. The optional extension route additionally uses
+the remaining 4 MiB aggregate model budget. Missing files never create buffers.
 Cancellation retains the worker slot until it finishes. A server response cannot
 guarantee the revision of an unopened file, so this path validates the supplied
 range against freshly read text rather than claiming a server-version snapshot.
@@ -982,9 +995,9 @@ must be native builtins or actual registered extension contributions. Current
 public editor inventory still exposes one editor per document, so full split-view
 identity remains outstanding. See [behavior, limits and evidence](EDITOR_STATE_API.md).
 
-A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Go to Implementation**, **Go to Type Definition**, **Go to Declaration**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). Navigation aggregates matching extension providers and displays a location picker for multiple targets. Other routes choose the highest-scoring provider, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Implementation uses Ctrl+F12 (Cmd+F12 on macOS) when its provider is available. Type Definition and Declaration are available from the palette without default shortcuts. Completion requests automatically after identifier typing or registered trigger characters; parameter hints use automatic triggers/retriggers and local overload navigation as described above.
+A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Go to Implementation**, **Go to Type Definition**, **Go to Declaration**, **Format Document**, **Parameter Hints**, **Go to Symbol in Editor**, and **Go to Symbol in Workspace**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). Navigation aggregates matching extension providers and displays a location picker for multiple targets. Other routes choose the highest-scoring provider, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Implementation uses Ctrl+F12 (Cmd+F12 on macOS) when its provider is available. Type Definition and Declaration are available from the palette without default shortcuts. Completion requests automatically after identifier typing or registered trigger characters; parameter hints use automatic triggers/retriggers and local overload navigation as described above.
 
-Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. All five navigation actions reuse dirty/shared buffers, load closed files asynchronously and place the caret at the target selection start. Completion uses the nonmodal caret popup with Up/Down selection, Tab/Enter acceptance and Escape cancellation; native snippet placeholder Tab retains precedence. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Completion resolution and linked snippet fields with atomic import edits are supported. Completion commands, workspace symbol providers and aggregation for non-navigation routes remain unsupported. Public execute queries for all five navigation families return locations without focusing an editor; see [navigation API scope](NAVIGATION_PROVIDERS_API.md). See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).
+Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. All five navigation actions reuse dirty/shared buffers, load closed files asynchronously and place the caret at the target selection start. Completion uses the nonmodal caret popup with Up/Down selection, Tab/Enter acceptance and Escape cancellation; native snippet placeholder Tab retains precedence. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Completion resolution and linked snippet fields with atomic import edits are supported. Completion commands and aggregation for remaining non-navigation routes remain unsupported. Global workspace-symbol providers aggregate independently of document selectors; see [workspace-symbol APIs](WORKSPACE_SYMBOLS_API.md). Public execute queries for all five navigation families return locations without focusing an editor; see [navigation API scope](NAVIGATION_PROVIDERS_API.md). See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).
 
 The empty workbench uses an original graphical VSCLI mark, clickable actions and recent files. Settings shows the active user JSON path; Ctrl+, opens it (Cmd+, on macOS), with workspace overrides in `.vscode/settings.json`. [Welcome rendering and terminal qualification](WELCOME.md) describes the high-resolution Kitty path and cell fallback.
 

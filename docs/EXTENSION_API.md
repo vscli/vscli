@@ -28,8 +28,8 @@ runtime declaration names (30.17%)** in committed milestone `7af9165`. It exclud
 322 type-only declarations and collapses repeated overload names. This measures
 name presence only: constructors, members, overload behavior and native backends
 remain unqualified by this check. It is not a percentage of implemented or fully
-compatible API behavior. Provider registrations separately route eleven of 32
-stable families (34.375%); their existing implementations still have documented limits.
+compatible API behavior. Provider registrations separately route twelve of 32
+stable families (37.5%); their existing implementations still have documented limits.
 To inspect any committed revision without counting unfinished working-tree code:
 
 ```sh
@@ -116,6 +116,20 @@ PTYs and original provider PTY pass, as do build, formatting and strict Clippy.
 This improves behavior behind existing
 API names; the committed name-presence figure is unchanged.
 
+[Global workspace symbols](WORKSPACE_SYMBOLS_API.md) add selector-independent
+queries without an editor, fresh public symbol values and original-object lazy
+resolution through native Ctrl+T. Hidden indexing may await native document
+opening without dismissing the picker or changing focus. Actual callback slots
+survive cancellation until settlement, and pre-wire admission errors reject the
+whole cohort rather than publish partial success. All 694 host and 1,337 Rust
+all-target tests pass (1,003 library, 23 ignored), including seven actual
+selected-host/App workflows. Four new workspace-symbol terminal journeys, three
+native-only Outline journeys and the real installed-clangd symbol test pass.
+The relevant original provider/navigation/registry/refactoring journeys also
+pass, bringing this cohort to sixteen terminal journeys.
+Build, formatting and strict Clippy pass. Mixed native/extension aggregation and
+unsupported URI editor backends remain incomplete.
+
 ## Implementation and evidence
 
 | Surface | Implemented behavior | Evidence and remaining qualification |
@@ -146,6 +160,7 @@ API names; the committed name-presence figure is unchanged.
 | Public editor snippet insertion | `TextEditor.insertSnippet` overloads/options, private view-specific native insertion, linked fields and source/caller/version guarded mirror-before-ACK receipts | All 617 host tests (17 new) and 1,279 Rust all-target tests pass (962 library, 60 suites; 23 ignored grant no qualification), including twelve new core cases, three clipboard worker cases and four actual selected-host/App workflows. Four new PTY journeys and build/formatting/strict Clippy pass. Choice menus, command-driven nesting, complete regex and upstream/platform fidelity remain outstanding; see [editor snippets](EDITOR_SNIPPETS_API.md). |
 | Public tabs and groups | `window.tabGroups` inventory/getters/events/close, all seven stable TabInput values, distinct shared memberships and actual empty welcome group | All 641 host tests (24 new), 1,304 Rust tests and 30 actual PTY journeys pass; five selected-host/App cases cover inventory/sticky/history, clean arrays/groups, Cancel/Discard, Save/Save As and original owner retirement. Native inventory, empty engine/session and exact retained-request tests pass. Full snapshots may coalesce events; diff/custom/webview/notebook/terminal tab backends remain outstanding; see [tabs](EDITOR_TABS_API.md). |
 | Navigation providers | Five public execute queries; three new provider families; full Location/Link conversion, matching cohorts, sorting/dedup and native collapsed-caret reveal | All 664 host and 1,316 Rust tests, four selected-App and four new terminal workflows, build/formatting/strict Clippy pass. Mixed native/extension aggregation, all URI editor backends, notebook selectors and broader provider/package/platform fidelity remain outstanding; see [navigation APIs](NAVIGATION_PROVIDERS_API.md). |
+| Workspace symbols | Global provider/query APIs, settlement-order sorting/group deduplication, private original-object resolution, hidden indexing and original native Ctrl+T navigation | All 694 host and 1,337 Rust tests, seven selected-App cases, four new terminal journeys and real clangd regression pass; build/fmt/strict Clippy pass. Mixed native/extension aggregation and unsupported URI editor backends remain outstanding; see [workspace-symbol APIs](WORKSPACE_SYMBOLS_API.md). |
 | Other API surfaces | Existing partial document/editor, configuration, state, command, diagnostic, provider and native UI adapters | Existing focused documents describe their implemented subsets. Full API compatibility and arbitrary real-extension compatibility remain incomplete. |
 
 Cancellation follows the pinned source lifecycle: an already-canceled parent

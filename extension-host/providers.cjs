@@ -8,6 +8,7 @@ const symbolTypes = require('./symbols.cjs');
 const {selector,score}=require('./language-selector.cjs');
 const {normalizeNavigation}=require('./navigation-providers.cjs');
 const {createProviderOrdering}=require('./provider-order.cjs');
+const workspaceSymbolTypes=require('./workspace-symbols.cjs');
 const NAVIGATION_TYPES=['definition','references','implementation','typeDefinition','declaration'];
 const { CancellationTokenSource, SnippetString } = require('./provider-types.cjs');
 const MAX_PROVIDERS = 128, MAX_PENDING = 8, MAX_RESULT_BYTES = 1024 * 1024;
@@ -149,6 +150,17 @@ function createProviders(options) {
   }
   const entries = new Map(), calls = new Map(), completions = new Map();
   const navigationOrdering=new Map(NAVIGATION_TYPES.map(type=>[type,createProviderOrdering()]));
+  const workspaceIdentity=options.workspaceIdentity??(()=>null),unowned=options.unowned??(callback=>callback());
+  const workspaceSymbols=workspaceSymbolTypes.createWorkspaceSymbols({registered:entry=>entries.get(entry.id)===entry,workspaceIdentity});
+  const workspaceWaiting=[];let workspaceQueries=0;
+  const now=performance.now.bind(performance);
+  function pumpWorkspace(){
+    while(calls.size<MAX_PENDING&&workspaceWaiting.length){
+      const job=workspaceWaiting.shift();
+      try{job.check();provideWorkspaceSymbols(job.params).then(job.resolve,job.reject);}catch(error){job.reject(error);}
+    }
+  }
+  function capacityChanged(){queueMicrotask(()=>unowned(pumpWorkspace));}
   let nextId = 0, nextHandle = 0, registryEpoch = 0;
   const actions = createActions({ ...options, text, range, position, current: item => {
     if (entries.get(item.entry.id) !== item.entry || item.epoch !== registryEpoch || item.document.isClosed || item.document.version !== item.version || languageEpoch(item.document) !== item.languageEpoch) return false;
@@ -200,6 +212,16 @@ function createProviders(options) {
       try { const result = options.track(owner, disposable); publish(); return result; }
       catch (error) { disposable.dispose(); throw error; }
     }]));
+    methods.registerWorkspaceSymbolProvider=provider=>{
+      const guard=options.captureCaller?.(owner);guard?.();
+      if(entries.size>=MAX_PROVIDERS||nextId>=Number.MAX_SAFE_INTEGER)throw new Error('Extension language provider limit or identity exhausted');
+      provider=options.bindProvider?.(owner,provider)??provider;
+      if(!provider||typeof provider.provideWorkspaceSymbols!=='function')throw new TypeError('Provider requires provideWorkspaceSymbols');
+      const entry={id:++nextId,owner,type:'workspaceSymbols',selector:[],triggers:[],retriggers:[],provider,method:'provideWorkspaceSymbols',resolves:typeof provider.resolveWorkspaceSymbol==='function'};
+      guard?.();entries.set(entry.id,entry);
+      const disposable=new Disposable(()=>{entries.delete(entry.id);workspaceSymbols.clearEntry(entry);for(const call of calls.values())if(call.entry===entry)call.source.cancel();publish();});
+      try{const result=options.track(owner,disposable);publish();return result;}catch(error){disposable.dispose();throw error;}
+    };
     methods.match=(documentSelector,document)=>{
       const guard=options.captureCaller?.(owner);guard?.();const source=documentSource(document);
       if(!source||source.isClosed)throw new Error('Language selector document is not mirrored');
@@ -270,7 +292,7 @@ function createProviders(options) {
           args = [document, { tabSize: params.options.tabSize, insertSpaces: params.options.insertSpaces }, source.token]; break;
         case 'symbols': symbols.reserve(call,callId); args = [document, source.token]; break;
       }
-    } catch (error) { calls.delete(callId); source.dispose(); throw error; }
+    } catch (error) { calls.delete(callId); capacityChanged(); source.dispose(); throw error; }
     let timer;
     const work = Promise.resolve().then(() => { assertCurrent(call); const callback = entry.provider[entry.method]; assertCurrent(call); return invokeResult(entry, () => callback.apply(entry.provider, args)); }).then(resultCallback(entry, value => {
       assertCurrent(call);
@@ -298,7 +320,7 @@ function createProviders(options) {
       for (const [id, cached] of completions) if (cached.request === callId) completions.delete(id);
       if (entry.type === 'signature') signatures.retire({session:options.session,owner:entry.owner,request:callId});
       throw error;
-    }).finally(() => { calls.delete(callId); source.dispose(); clearTimeout(timer); if (entry.type === 'signature') signatures.released(params, call); if (entry.type === 'symbols') symbols.released(params,call); released(params,call); });
+    }).finally(() => { calls.delete(callId); capacityChanged(); source.dispose(); clearTimeout(timer); if (entry.type === 'signature') signatures.released(params, call); if (entry.type === 'symbols') symbols.released(params,call); released(params,call); });
     call.genericWork=true;
     if (entry.type === 'signature') call.signatureWork = true;
     if (entry.type === 'symbols') call.symbolWork = true;
@@ -334,7 +356,7 @@ function createProviders(options) {
       assertCurrent(call);
       if (completions.get(params.handle) !== cached) throw new Error('Completion resolve became stale or canceled');
       return result;
-    })).finally(() => { calls.delete(params.request); source.dispose(); clearTimeout(timer); released(params,call); });
+    })).finally(() => { calls.delete(params.request); capacityChanged(); source.dispose(); clearTimeout(timer); released(params,call); });
     call.genericWork=true;
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => { reject(new Error('Language provider deadline exceeded')); source.cancel(); }, options.timeoutMs || 5000); });
     let listener;
@@ -357,7 +379,7 @@ function createProviders(options) {
       assertCurrent(call); if (!actions.has(params.handle,cached)) throw new Error('Code action resolve handle retired');
       const result = actions.resolved(value,cached,call,params.handle); wireBudget(result); assertCurrent(call);
       if (!actions.has(params.handle,cached)) throw new Error('Code action resolve handle retired'); return result;
-    })).finally(() => {calls.delete(params.request);source.dispose();clearTimeout(timer);released(params,call);});
+    })).finally(() => {calls.delete(params.request);capacityChanged();source.dispose();clearTimeout(timer);released(params,call);});
     call.genericWork=true;
     const timeout = new Promise((_,reject) => {timer=setTimeout(() => {reject(new Error('Language provider deadline exceeded'));source.cancel();},options.timeoutMs||5000);});
     let listener; const canceled = new Promise((_,reject) => {listener=source.token.onCancellationRequested(() => reject(new Error('Language provider invocation canceled')));});
@@ -367,16 +389,88 @@ function createProviders(options) {
     if (params.session !== options.session) return false;
     signatures.retire(params);
     if (params.releaseSignatureHelp === true) return true;
+    workspaceSymbols.retire(params.request,params.owner);
     actions.retire(params.request,params.owner);
     for (const [id, cached] of completions) if (cached.entry.owner === params.owner && cached.request === params.request) completions.delete(id);
-    for (const pending of calls.values()) if (pending.entry.owner === params.owner && (pending.completionOrigin === params.request || pending.actionOrigin === params.request)) pending.source.cancel();
+    for (const pending of calls.values()) if (pending.entry.owner === params.owner && (pending.completionOrigin === params.request || pending.actionOrigin === params.request || pending.workspaceOrigin === params.request)) pending.source.cancel();
     const call = calls.get(params.request);
     if (!call || call.entry.owner !== params.owner) return false;
     call.source.cancel(); return true;
   }
-  function documentChanged() { purgeCompletions(); actions.purge(); signatures.purge(); for (const call of calls.values()) {const live=documentSource(call.document);if (!live||live.isClosed||live.version!==call.version||live.languageEpoch!==call.languageEpoch||call.documentId!==undefined&&options.document(call.documentId)!==call.document) call.source.cancel();}
-    for (const call of calls.values()) if (call.workspace) { try { actions.assertWorkspace(call.workspace, options); } catch { call.source.cancel(); } } }
+  function documentChanged() { workspaceSymbols.purge();purgeCompletions(); actions.purge(); signatures.purge(); for (const call of calls.values()) {if(call.entry.type==='workspaceSymbols'){if(workspaceIdentity()!==call.workspace)call.source.cancel();continue;}const live=documentSource(call.document);if (!live||live.isClosed||live.version!==call.version||live.languageEpoch!==call.languageEpoch||call.documentId!==undefined&&options.document(call.documentId)!==call.document) call.source.cancel();}
+    for (const call of calls.values()) if (call.entry.type!=='workspaceSymbols'&&call.workspace) { try { actions.assertWorkspace(call.workspace, options); } catch { call.source.cancel(); } } }
 
+  function assertWorkspaceCall(call){
+    if(call.source.token.isCancellationRequested||entries.get(call.entry.id)!==call.entry||workspaceIdentity()!==call.workspace||call.cached&&!workspaceSymbols.current(call.cached))throw new Error('Workspace symbol result became stale or canceled');
+  }
+  function workspaceRequest(params,resolve){
+    const keys=resolve?['session','owner','provider','request','origin','handle']:['session','owner','provider','request','query'];
+    if(!params||typeof params!=='object'||Object.keys(params).some(key=>!keys.includes(key))||params.session!==options.session)throw new Error('Invalid workspace symbol request');
+    const entry=entries.get(params.provider);
+    if(!entry||entry.owner!==params.owner||entry.type!=='workspaceSymbols')throw new Error('Stale workspace symbol provider owner/session');
+    if(calls.size>=MAX_PENDING)throw new Error('Language provider invocation limit reached');
+    const id=params.request??Symbol();
+    if(typeof id!=='symbol'&&(!Number.isSafeInteger(id)||id<1||calls.has(id)))throw new Error('Invalid or duplicate provider request ID');
+    if(resolve&&(!Number.isSafeInteger(params.origin)||params.origin<1||!entry.resolves))throw new Error('Invalid workspace symbol resolve origin');
+    return {entry,id};
+  }
+  async function provideWorkspaceSymbols(params){
+    let accepted;try{return await workspaceWork(params,false,call=>accepted=call);}finally{if(!accepted?.genericWork)released(params);}
+  }
+  async function resolveWorkspaceSymbol(params){
+    let accepted;try{return await workspaceWork(params,true,call=>accepted=call);}finally{if(!accepted?.genericWork)released(params);}
+  }
+  async function workspaceWork(params,resolve,accept){
+    const {entry,id}=workspaceRequest(params,resolve),cached=resolve?workspaceSymbols.lookup(params,entry):undefined;
+    const query=resolve?undefined:text(params.query,4096);
+    const source=new CancellationTokenSource(),call={entry,source,workspace:cached?.workspace??workspaceIdentity(),cached,workspaceOrigin:cached?.origin};
+    calls.set(id,call);accept(call);let timer,listener;
+    const work=Promise.resolve().then(()=>{
+      assertWorkspaceCall(call);const callback=entry.provider[resolve?'resolveWorkspaceSymbol':'provideWorkspaceSymbols'];assertWorkspaceCall(call);
+      return invokeResult(entry,()=>callback.apply(entry.provider,resolve?[cached.original,source.token]:[query,source.token]));
+    }).then(resultCallback(entry,value=>{
+      assertWorkspaceCall(call);
+      const converted=resolve?workspaceSymbols.resolved(value,cached):workspaceSymbols.normalize(value,message=>options.diagnostic?.(entry.owner,new Error(message)));
+      assertWorkspaceCall(call);
+      const result=resolve?converted:workspaceSymbols.retain(call,converted,id);
+      wireBudget(result);assertWorkspaceCall(call);return result;
+    })).finally(()=>{calls.delete(id);capacityChanged();source.dispose();clearTimeout(timer);released(params,call);});
+    call.genericWork=true;
+    const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{source.cancel();reject(new Error('Workspace symbol provider deadline exceeded'));},options.timeoutMs||5000);});
+    const canceled=new Promise((_,reject)=>{listener=source.token.onCancellationRequested(()=>reject(new Error('Workspace symbol invocation canceled')));});
+    return Promise.race([work,timeout,canceled]).finally(()=>{clearTimeout(timer);listener.dispose();});
+  }
+  async function queryWorkspaceSymbols(owner,query){
+    const guard=options.captureCaller?.(owner),workspace=workspaceIdentity();guard?.();
+    query=text(query,4096);
+    if(workspaceQueries>=8)throw new Error('Workspace symbol query invocation limit reached');
+    const selected=[...entries.values()].filter(entry=>entry.type==='workspaceSymbols');
+    workspaceQueries++;const deadline=now()+(options.queryTimeoutMs||options.timeoutMs||5000),cohort={},ids=[],rows=[];let bytes=2,timer,retired=false;
+    const check=()=>{guard?.();if(retired||workspaceIdentity()!==workspace)throw new Error('Workspace symbol query source or caller retired');if(now()>=deadline)throw new Error('Workspace symbol query deadline exceeded');};
+    try{
+      const promises=selected.map(entry=>new Promise((resolve,reject)=>{
+        const request=Symbol();ids.push({request,owner:entry.owner});
+        if(workspaceWaiting.length>=1024){reject(new Error('Workspace symbol query queue exceeds 1024 entries'));return;}
+        workspaceWaiting.push({cohort,check,params:{session:options.session,owner:entry.owner,provider:entry.id,request,query},resolve,reject});
+      }).then(value=>{
+        check();for(const symbol of value.symbols){if(rows.length>=512)throw new RangeError('Workspace symbol query exceeds 512 symbols');bytes+=Buffer.byteLength(JSON.stringify(symbol))+1;if(bytes>MAX_RESULT_BYTES)throw new RangeError('Workspace symbol query exceeds 1 MiB');rows.push({symbol,resolves:entry.resolves});}
+      },error=>{check();options.diagnostic?.(entry.owner,error);}));
+      unowned(pumpWorkspace);
+      const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Workspace symbol query deadline exceeded; callbacks remain occupied')),Math.max(0,deadline-now()));});
+      await Promise.race([Promise.all(promises),timeout]);check();
+      const result=workspaceSymbolTypes.sortAndDedup(rows).map(row=>workspaceSymbolTypes.toPublic(row.symbol));check();return result;
+    }finally{
+      retired=true;clearTimeout(timer);workspaceQueries--;
+      for(let index=workspaceWaiting.length-1;index>=0;index--)if(workspaceWaiting[index].cohort===cohort){const [job]=workspaceWaiting.splice(index,1);job.reject(new Error('Workspace symbol query retired'));}
+      for(const id of ids){const call=calls.get(id.request);if(call&&call.entry.owner===id.owner)call.source.cancel();}
+    }
+  }
+  function retireWorkspaceSymbols(params){
+    if(!params||typeof params!=='object'||Array.isArray(params)||Object.keys(params).length!==3||Object.keys(params).some(key=>!['session','owner','origin'].includes(key))||params.session!==options.session||typeof params.owner!=='string'||!params.owner||params.owner.length>256||!Number.isSafeInteger(params.origin)||params.origin<1)return false;
+    workspaceSymbols.retire(params.origin,params.owner);
+    for(const call of calls.values())if(call.entry.type==='workspaceSymbols'&&call.entry.owner===params.owner&&call.workspaceOrigin===params.origin)call.source.cancel();
+    return true;
+  }
   function rank(params){
     if(!params||typeof params!=='object'||Array.isArray(params)||Object.keys(params).length!==5||Object.keys(params).some(key=>!['session','type','document','version','languageEpoch'].includes(key))||params.session!==options.session||!NAVIGATION_TYPES.includes(params.type)||!Number.isSafeInteger(params.document)||params.document<1||!Number.isSafeInteger(params.version)||params.version<1||!Number.isSafeInteger(params.languageEpoch)||params.languageEpoch<0)throw new Error('Invalid navigation provider ranking request');
     const document=options.document(params.document),source=document&&documentSource(document);
@@ -410,7 +504,7 @@ function createProviders(options) {
     }
     source.recheck();return result;
   }
-  function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { navigationOrdering.get(entry.type)?.remove(entry); entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
-  return { forOwner, provide, resolveCompletion, resolveAction, query,rank,releaseRefusal,pending:request=>calls.has(request), retainedActionCount:actions.count, retainedSignatureCount:signatures.count, signaturePending:signatures.pending, symbolsPending:symbols.pending, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
+  function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { navigationOrdering.get(entry.type)?.remove(entry);workspaceSymbols.clearEntry(entry); entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
+  return { forOwner, provide, resolveCompletion, resolveAction, provideWorkspaceSymbols,resolveWorkspaceSymbol,queryWorkspaceSymbols,retireWorkspaceSymbols,retainedWorkspaceSymbolCount:workspaceSymbols.count,query,rank,releaseRefusal,pending:request=>calls.has(request), retainedActionCount:actions.count, retainedSignatureCount:signatures.count, signaturePending:signatures.pending, symbolsPending:symbols.pending, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
 }
 module.exports = { createProviders, score, selector, normalize };

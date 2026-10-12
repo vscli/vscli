@@ -422,7 +422,7 @@ impl Document {
     pub(crate) fn open_existing_bounded(path: &Path, limit: u64) -> Result<Self> {
         let path = absolute_path(path)?;
         if !fs::metadata(&path)?.is_file() {
-            bail!("Session target is not a regular file");
+            bail!("Not a regular file: {}", path.display());
         }
         let mut options = fs::OpenOptions::new();
         options.read(true);
@@ -434,8 +434,11 @@ impl Document {
         let file = options.open(&path)?;
         let metadata = file.metadata()?;
         let limit = limit.min(MAX_FILE_BYTES);
-        if !metadata.is_file() || metadata.len() > limit {
-            bail!("Session file exceeds remaining read budget or is not regular");
+        if !metadata.is_file() {
+            bail!("Not a regular file: {}", path.display());
+        }
+        if metadata.len() > limit {
+            bail!("File exceeds remaining read budget");
         }
         let content = read_text(file, limit)?;
         let mut doc = Self::from_rope(content.clone());

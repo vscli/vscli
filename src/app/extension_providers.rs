@@ -527,6 +527,9 @@ impl App {
             Kind::Signature => {
                 bail!("Signature results must use their independent request controller");
             }
+            Kind::WorkspaceSymbols => {
+                bail!("Workspace symbols must use their global callback controller");
+            }
             Kind::Symbols => {
                 let fallback = PathBuf::from(self.doc().name());
                 self.extension_providers.symbols = crate::symbols::parse(

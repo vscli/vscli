@@ -462,6 +462,10 @@ impl Client {
                 include_str!("../extension-host/provider-order.cjs"),
             ),
             (
+                "workspace-symbols.cjs",
+                include_str!("../extension-host/workspace-symbols.cjs"),
+            ),
+            (
                 "signatures.cjs",
                 include_str!("../extension-host/signatures.cjs"),
             ),
@@ -680,6 +684,8 @@ impl Client {
                 pending.method.as_str(),
                 "execute"
                     | "provideLanguage"
+                    | "provideWorkspaceSymbols"
+                    | "resolveLanguageWorkspaceSymbol"
                     | "resolveLanguageCompletion"
                     | "resolveLanguageCodeAction"
                     | "treeChildren"
@@ -1236,6 +1242,13 @@ impl Client {
                 }
                 if matches!(
                     pending.method.as_str(),
+                    "provideWorkspaceSymbols" | "resolveLanguageWorkspaceSymbol"
+                ) {
+                    self.workspace_symbol_response(id, message)?;
+                    continue;
+                }
+                if matches!(
+                    pending.method.as_str(),
                     "provideLanguage" | "resolveLanguageCompletion" | "resolveLanguageCodeAction"
                 ) {
                     self.provider_response(id, message)?;
@@ -1522,7 +1535,7 @@ impl MirrorState {
         )
     }
 }
-fn document_uri(doc: &Document) -> Result<String> {
+pub(crate) fn document_uri(doc: &Document) -> Result<String> {
     if let Some(uri) = doc.virtual_uri() {
         return Ok(uri.to_owned());
     }

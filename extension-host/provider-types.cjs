@@ -12,7 +12,7 @@ const { SnippetString } = require('./snippet-string.cjs');
 class CompletionItem { constructor(label, kind) { this.label = label; if (kind !== undefined) this.kind = kind; } }
 class CompletionList { constructor(items = [], isIncomplete = false) { this.items = items; this.isIncomplete = isIncomplete; } }
 class Hover { constructor(contents, range) { this.contents = Array.isArray(contents) ? contents : [contents]; if (range !== undefined) this.range = range; } }
-class Location { constructor(uri, rangeOrPosition) { this.uri = uri; this.range = rangeOrPosition instanceof Position ? new Range(rangeOrPosition, rangeOrPosition) : rangeOrPosition; } }
+class Location { constructor(uri, rangeOrPosition) { this.uri = uri; if(rangeOrPosition)this.range = rangeOrPosition instanceof Position ? new Range(rangeOrPosition, rangeOrPosition) : rangeOrPosition; } }
 const { TextEdit, SnippetTextEdit, NotebookEdit, NotebookRange, NotebookCellData, NotebookData, NotebookCellKind, EndOfLine } = require('./edit-values.cjs');
 class DocumentSymbol {
   constructor(name, detail, kind, range, selectionRange) {

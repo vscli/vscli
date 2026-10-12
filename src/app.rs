@@ -47,6 +47,7 @@ mod terminals;
 mod themes;
 mod typing;
 mod watching;
+mod workspace_symbols;
 use crate::{
     document::Document,
     keys::{self, Keymap, Profile, Resolution},
@@ -628,6 +629,7 @@ pub struct App {
     outline: outline::State,
     breadcrumbs: breadcrumbs::State,
     symbols: symbols::State,
+    workspace_symbols: workspace_symbols::State,
     theme_state: themes::State,
     pub settings: crate::settings::Settings,
     pub imported_keybinding_notices: Vec<String>,
@@ -652,6 +654,7 @@ pub struct App {
 }
 impl Drop for App {
     fn drop(&mut self) {
+        self.settle_symbols();
         self.settle_extension_file_search();
         self.settle_virtual_documents();
         self.settle_workspace_transactions();
@@ -760,6 +763,7 @@ impl App {
             outline: outline::State::default(),
             breadcrumbs: breadcrumbs::State::default(),
             symbols: symbols::State::default(),
+            workspace_symbols: workspace_symbols::State::default(),
             theme_state: themes::State::default(),
             settings: crate::settings::Settings::default(),
             imported_keybinding_notices: Vec::new(),

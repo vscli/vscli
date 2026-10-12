@@ -217,6 +217,14 @@ async function dispatch(message) {
         }
         result = await inExecution(message.id, message.params.owner, () => runtime.provideLanguage({ ...message.params, request: message.id }));
         break;
+      case 'provideWorkspaceSymbols':
+      case 'resolveLanguageWorkspaceSymbol':
+        if (!ready || !languageProviders || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) {
+          runtime?.releaseLanguageProviderRefusal({ ...message.params, request: message.id });
+          throw new Error('Workspace symbol provider session/owner is not ready');
+        }
+        result = await inExecution(message.id, message.params.owner, () => runtime[message.method]({ ...message.params, request: message.id }));
+        break;
       case 'resolveLanguageCompletion':
         if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) {
           runtime?.releaseLanguageProviderRefusal({ ...message.params, request: message.id });

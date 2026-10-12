@@ -64,6 +64,31 @@ pub(crate) struct Reply {
     pub ticket: Ticket,
     pub result: Result<Value, String>,
 }
+/// A global callback owns a provider and host lifetime, never an invented document.
+#[derive(Clone, Debug)]
+pub(crate) struct WorkspaceSymbolTicket {
+    pub id: u64,
+    pub session: u64,
+    pub provider: Arc<Provider>,
+    pub epoch: u64,
+    retired: Arc<std::sync::atomic::AtomicBool>,
+}
+#[derive(Clone)]
+pub(crate) struct WorkspaceSymbolProvider {
+    pub provider: Arc<Provider>,
+    pub epoch: u64,
+    pub session: u64,
+    retired: Arc<std::sync::atomic::AtomicBool>,
+}
+struct WorkspaceSymbolCall {
+    ticket: WorkspaceSymbolTicket,
+    canceled: bool,
+    started: Instant,
+}
+pub(crate) struct WorkspaceSymbolReply {
+    pub ticket: WorkspaceSymbolTicket,
+    pub result: Result<Value, String>,
+}
 #[derive(Default)]
 pub(super) struct State {
     registry: Registry,
@@ -78,8 +103,182 @@ pub(super) struct State {
     symbols: Option<Ticket>,
     symbols_started: Option<Instant>,
     symbols_fenced: bool,
+    workspace_calls: HashMap<u64, WorkspaceSymbolCall>,
+    workspace_occupied: HashMap<u64, WorkspaceSymbolTicket>,
+    workspace_replies: VecDeque<WorkspaceSymbolReply>,
 }
 impl Client {
+    pub(crate) fn workspace_symbol_providers(&self) -> Result<Vec<WorkspaceSymbolProvider>> {
+        self.providers
+            .registry
+            .entries()
+            .iter()
+            .filter(|provider| {
+                provider.kind == Kind::WorkspaceSymbols
+                    && self.provider_owner_ready(&provider.owner)
+            })
+            .map(|provider| {
+                Ok(WorkspaceSymbolProvider {
+                    provider: Arc::new(provider.clone()),
+                    epoch: self.providers.registry.epoch(),
+                    session: self.session,
+                    retired: self.owner_lifetimes.capture(&provider.owner)?,
+                })
+            })
+            .collect()
+    }
+    pub(crate) fn workspace_symbol_provider_current(
+        &self,
+        source: &WorkspaceSymbolProvider,
+    ) -> bool {
+        source.session == self.session
+            && !source.retired.load(std::sync::atomic::Ordering::Acquire)
+            && self.provider_owner_ready(&source.provider.owner)
+            && self
+                .providers
+                .registry
+                .current(&source.provider, source.epoch)
+    }
+    pub(crate) fn workspace_symbol_ticket_current(&self, ticket: &WorkspaceSymbolTicket) -> bool {
+        ticket.session == self.session
+            && ticket.provider.kind == Kind::WorkspaceSymbols
+            && !ticket.retired.load(std::sync::atomic::Ordering::Acquire)
+            && self.provider_owner_ready(&ticket.provider.owner)
+            && self
+                .providers
+                .registry
+                .current(&ticket.provider, ticket.epoch)
+    }
+    pub(crate) fn request_workspace_symbols_from(
+        &mut self,
+        source: &WorkspaceSymbolProvider,
+        query: &str,
+    ) -> Result<WorkspaceSymbolTicket> {
+        anyhow::ensure!(
+            query.len() <= 4096 && !query.contains('\0'),
+            "Workspace symbol query exceeds bounds"
+        );
+        anyhow::ensure!(
+            self.workspace_symbol_provider_current(source),
+            "Workspace symbol provider lifetime changed"
+        );
+        self.start_workspace_symbol_call(
+            source.provider.clone(),
+            source.epoch,
+            source.retired.clone(),
+            "provideWorkspaceSymbols",
+            json!({"session":self.session,"owner":source.provider.owner,
+            "provider":source.provider.id,"query":query}),
+        )
+    }
+    pub(crate) fn request_workspace_symbol_resolve(
+        &mut self,
+        original: &WorkspaceSymbolTicket,
+        item: &Value,
+    ) -> Result<WorkspaceSymbolTicket> {
+        anyhow::ensure!(
+            self.workspace_symbol_ticket_current(original) && original.provider.resolves,
+            "Workspace symbol resolve owner or list changed"
+        );
+        let handle = item["_vscliWorkspaceSymbolHandle"]
+            .as_u64()
+            .filter(|id| *id > 0 && *id <= 9_007_199_254_740_991)
+            .context("Workspace symbol has no original resolve handle")?;
+        self.start_workspace_symbol_call(
+            original.provider.clone(),
+            original.epoch,
+            original.retired.clone(),
+            "resolveLanguageWorkspaceSymbol",
+            json!({"session":self.session,"owner":original.provider.owner,
+            "provider":original.provider.id,"origin":original.id,"handle":handle}),
+        )
+    }
+    fn start_workspace_symbol_call(
+        &mut self,
+        provider: Arc<Provider>,
+        epoch: u64,
+        retired: Arc<std::sync::atomic::AtomicBool>,
+        method: &str,
+        params: Value,
+    ) -> Result<WorkspaceSymbolTicket> {
+        anyhow::ensure!(
+            self.language_provider_capacity(),
+            "Language provider callback limit reached (8); wait for pending callbacks"
+        );
+        let id = self
+            .next_id
+            .checked_add(1)
+            .filter(|id| *id <= 9_007_199_254_740_991)
+            .context("Workspace symbol callback identities exhausted")?;
+        let ticket = WorkspaceSymbolTicket {
+            id,
+            session: self.session,
+            provider,
+            epoch,
+            retired,
+        };
+        self.request(method, params)?;
+        self.providers.workspace_occupied.insert(id, ticket.clone());
+        self.providers.workspace_calls.insert(
+            id,
+            WorkspaceSymbolCall {
+                ticket: ticket.clone(),
+                canceled: false,
+                started: Instant::now(),
+            },
+        );
+        Ok(ticket)
+    }
+    pub(crate) fn cancel_workspace_symbol(&mut self, ticket: &WorkspaceSymbolTicket) -> Result<()> {
+        if ticket.session != self.session {
+            return Ok(());
+        }
+        if let Some(call) = self.providers.workspace_calls.get_mut(&ticket.id) {
+            anyhow::ensure!(
+                call.ticket.provider.id == ticket.provider.id
+                    && call.ticket.provider.owner == ticket.provider.owner,
+                "Workspace symbol cancellation ownership mismatch"
+            );
+            if call.canceled {
+                return Ok(());
+            }
+            call.canceled = true;
+        }
+        self.process
+            .send(json!({"method":"cancelLanguageProvider","params":{
+            "session":self.session,"owner":ticket.provider.owner,"request":ticket.id}}))
+    }
+    pub(crate) fn take_workspace_symbol_replies(&mut self) -> VecDeque<WorkspaceSymbolReply> {
+        std::mem::take(&mut self.providers.workspace_replies)
+    }
+    pub(super) fn workspace_symbol_response(&mut self, id: u64, mut message: Value) -> Result<()> {
+        let Some(call) = self.providers.workspace_calls.remove(&id) else {
+            return Ok(());
+        };
+        if call.canceled {
+            return Ok(());
+        }
+        let result = if !message["error"].is_null() {
+            Err(message["error"]["message"]
+                .as_str()
+                .unwrap_or("Workspace symbol provider failed")
+                .chars()
+                .take(2048)
+                .collect())
+        } else {
+            let value = message["result"].take();
+            provider_result_budget(&value)
+                .map(|()| value)
+                .map_err(|error| error.to_string())
+        };
+        self.providers
+            .workspace_replies
+            .push_back(WorkspaceSymbolReply {
+                ticket: call.ticket,
+                result,
+            });
+        Ok(())
+    }
     pub(crate) fn symbols_available(&self) -> bool {
         !self.providers.symbols_fenced
             && self.providers.symbols.is_none()
@@ -224,6 +423,14 @@ impl Client {
         let mut ids: HashSet<u64> = self.providers.occupied.keys().copied().collect();
         ids.extend(self.providers.calls.keys().copied());
         ids.extend(self.providers.replies.iter().map(|reply| reply.ticket.id));
+        ids.extend(self.providers.workspace_occupied.keys().copied());
+        ids.extend(self.providers.workspace_calls.keys().copied());
+        ids.extend(
+            self.providers
+                .workspace_replies
+                .iter()
+                .map(|reply| reply.ticket.id),
+        );
         LIMIT.saturating_sub(ids.len())
     }
     /// Only the exact actual-callback settlement frame releases occupation.
@@ -248,6 +455,16 @@ impl Client {
             "Invalid language callback release"
         );
         if release.session != self.session {
+            return Ok(());
+        }
+        if let Some(ticket) = self.providers.workspace_occupied.get(&release.request) {
+            anyhow::ensure!(
+                ticket.session == release.session
+                    && ticket.provider.id == release.provider
+                    && ticket.provider.owner == release.owner,
+                "Workspace symbol callback release ownership mismatch"
+            );
+            self.providers.workspace_occupied.remove(&release.request);
             return Ok(());
         }
         let Some(ticket) = self.providers.occupied.get(&release.request) else {
@@ -614,6 +831,10 @@ impl Client {
         active: usize,
         options: Value,
     ) -> Result<Ticket> {
+        anyhow::ensure!(
+            provider.kind != Kind::WorkspaceSymbols,
+            "Workspace symbol callbacks require global admission, not a document ticket"
+        );
         let doc = documents.get(active).context("No active document")?;
         if !self.provider_owner_ready(&provider.owner)
             || !self
@@ -870,6 +1091,24 @@ impl Client {
         Ok(())
     }
     pub(super) fn expire_language_providers(&mut self) -> Result<()> {
+        let expired: Vec<_> = self
+            .providers
+            .workspace_calls
+            .values()
+            .filter(|call| call.started.elapsed() >= DEADLINE)
+            .map(|call| call.ticket.clone())
+            .collect();
+        for ticket in expired {
+            self.cancel_workspace_symbol(&ticket)?;
+            self.providers.workspace_calls.remove(&ticket.id);
+            self.pending.remove(&ticket.id);
+            self.providers
+                .workspace_replies
+                .push_back(WorkspaceSymbolReply {
+                    ticket,
+                    result: Err("Workspace symbol provider timed out".into()),
+                });
+        }
         if let Some(rank) = &mut self.providers.ranking
             && !rank.canceled
             && !rank.expired
@@ -1010,6 +1249,178 @@ mod tests {
             assert!(Instant::now() < deadline, "No signature reply for {id}");
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    fn global_symbols_fixture(body: &str) -> (tempfile::TempDir, Client, Settings) {
+        let root = tempfile::tempdir().unwrap();
+        let package = fixture(root.path(), body);
+        let mut docs = Vec::new();
+        let settings = Settings::default();
+        let mut client = Client::start("node", &package, root.path(), &docs, 0, &settings).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !client.ready {
+            client.poll(&mut docs, 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert!(
+            client.mirror.mirrors.is_empty(),
+            "Global callback must not invent an editor"
+        );
+        (root, client, settings)
+    }
+    fn global_symbol_reply(
+        client: &mut Client,
+        settings: &Settings,
+        id: u64,
+    ) -> WorkspaceSymbolReply {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            client.poll(&mut [], 0, settings).unwrap();
+            if let Some(reply) = client.take_workspace_symbol_replies().pop_front() {
+                assert_eq!(reply.ticket.id, id);
+                return reply;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "No actual global symbol response"
+            );
+            std::thread::yield_now();
+        }
+    }
+    #[test]
+    fn global_workspace_symbols_need_no_document_and_resolve_exact_original_object() {
+        let (_root, mut client, settings) = global_symbols_fixture(
+            r#"const v=require('vscode');const original={name:'猫🙂',kind:v.SymbolKind.Function,location:{uri:v.Uri.parse('custom:/symbol')}};original.opaque=original;
+exports.activate=()=>v.languages.registerWorkspaceSymbolProvider({provideWorkspaceSymbols(query){if(query!=='猫')throw Error('query');return [original];},resolveWorkspaceSymbol(item){if(item!==original||item.opaque!==item)throw Error('original lost');return new v.SymbolInformation('resolved',v.SymbolKind.Function,'container',new v.Location(v.Uri.parse('custom:/resolved'),new v.Range(2,3,2,5)));}});"#,
+        );
+        let sources = client.workspace_symbol_providers().unwrap();
+        assert_eq!(sources.len(), 1);
+        let ticket = client
+            .request_workspace_symbols_from(&sources[0], "猫")
+            .unwrap();
+        let value = global_symbol_reply(&mut client, &settings, ticket.id)
+            .result
+            .unwrap();
+        let item = &value["symbols"][0];
+        assert_eq!(item["name"], "猫🙂");
+        assert_eq!(item["location"]["uri"], "custom:/symbol");
+        assert!(item["location"].get("range").is_none());
+        let resolve = client
+            .request_workspace_symbol_resolve(&ticket, item)
+            .unwrap();
+        let resolved = global_symbol_reply(&mut client, &settings, resolve.id)
+            .result
+            .unwrap();
+        assert_eq!(resolved["name"], "resolved");
+        assert_eq!(resolved["location"]["uri"], "custom:/resolved");
+        assert_eq!(
+            resolved["location"]["range"]["start"],
+            json!({"line":2,"character":3})
+        );
+        assert!(client.mirror.mirrors.is_empty());
+        assert!(client.workspace_symbol_ticket_current(&ticket));
+        client.cancel_workspace_symbol(&ticket).unwrap();
+    }
+    #[test]
+    fn global_callbacks_share_eight_slots_and_cancellation_timeout_and_wrong_release_cannot_free_them()
+     {
+        let (root, mut client, settings) = global_symbols_fixture(
+            r#"const v=require('vscode'),fs=require('node:fs'),path=require('node:path');let held=[],entered=0;
+exports.activate=c=>{c.subscriptions.push(v.languages.registerWorkspaceSymbolProvider({provideWorkspaceSymbols(){fs.writeFileSync(path.join(v.workspace.rootPath,'global-entered'),String(++entered));return new Promise(resolve=>held.push(resolve));}}));c.subscriptions.push(v.commands.registerCommand('test.release',()=>{for(const resolve of held.splice(0))resolve([]);}));};"#,
+        );
+        let source = client.workspace_symbol_providers().unwrap().remove(0);
+        let mut tickets = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        for expected in 1..=8 {
+            tickets.push(client.request_workspace_symbols_from(&source, "").unwrap());
+            while std::fs::read_to_string(root.path().join("global-entered"))
+                .ok()
+                .as_deref()
+                != Some(expected.to_string().as_str())
+            {
+                client.poll(&mut [], 0, &settings).unwrap();
+                assert!(Instant::now() < deadline);
+                std::thread::yield_now();
+            }
+        }
+        while std::fs::read_to_string(root.path().join("global-entered"))
+            .ok()
+            .as_deref()
+            != Some("8")
+        {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert_eq!(client.language_provider_slots(), 0);
+        assert!(
+            client
+                .request_workspace_symbols_from(&source, "ninth")
+                .is_err()
+        );
+        client.cancel_workspace_symbol(&tickets[0]).unwrap();
+        client
+            .providers
+            .workspace_calls
+            .get_mut(&tickets[1].id)
+            .unwrap()
+            .started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert_eq!(client.take_workspace_symbol_replies().len(), 1);
+        assert_eq!(client.language_provider_slots(), 0);
+        let release = json!({"session":client.session,"owner":source.provider.owner,"provider":source.provider.id,"request":tickets[0].id});
+        let mut wrong = release.clone();
+        wrong["owner"] = json!("other.owner");
+        assert!(client.language_provider_released(wrong).is_err());
+        let mut wrong = release.clone();
+        wrong["provider"] = json!(source.provider.id + 1);
+        assert!(client.language_provider_released(wrong).is_err());
+        let mut wrong = release.clone();
+        wrong["extra"] = true.into();
+        assert!(client.language_provider_released(wrong).is_err());
+        assert_eq!(client.language_provider_slots(), 0);
+        client
+            .execute("test.release", None, &[], 0, &settings)
+            .unwrap();
+        while client.language_provider_slots() != 8 {
+            client.poll(&mut [], 0, &settings).unwrap();
+            client.take_workspace_symbol_replies();
+            assert!(
+                Instant::now() < deadline,
+                "Original actual callbacks did not release"
+            );
+            std::thread::yield_now();
+        }
+        assert!(client.providers.workspace_occupied.is_empty());
+        assert!(client.providers.workspace_calls.is_empty());
+        assert_eq!(client.language_provider_slots(), 8);
+        client.language_provider_released(release).unwrap();
+        assert_eq!(client.language_provider_slots(), 8);
+        assert!(client.mirror.mirrors.is_empty());
+    }
+    #[test]
+    fn global_registration_and_original_owner_proofs_cannot_borrow_replaced_registry() {
+        let (_root, mut client, settings) = global_symbols_fixture(
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerWorkspaceSymbolProvider({provideWorkspaceSymbols:()=>[]});"#,
+        );
+        let source = client.workspace_symbol_providers().unwrap().remove(0);
+        let ticket = client.request_workspace_symbols_from(&source, "").unwrap();
+        global_symbol_reply(&mut client, &settings, ticket.id)
+            .result
+            .unwrap();
+        let descriptors = serde_json::to_value(client.providers.registry.entries()).unwrap();
+        client.register_language_providers(json!([])).unwrap();
+        client.register_language_providers(descriptors).unwrap();
+        assert!(!client.workspace_symbol_provider_current(&source));
+        assert!(!client.workspace_symbol_ticket_current(&ticket));
+        assert!(client.request_workspace_symbols_from(&source, "").is_err());
+        let current = client.workspace_symbol_providers().unwrap().remove(0);
+        let next = client.request_workspace_symbols_from(&current, "").unwrap();
+        assert!(
+            global_symbol_reply(&mut client, &settings, next.id)
+                .result
+                .is_ok()
+        );
     }
     fn rank_fixture() -> (tempfile::TempDir, Client, Vec<Document>) {
         let root = tempfile::tempdir().unwrap();

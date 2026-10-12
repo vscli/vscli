@@ -21,6 +21,8 @@ pub enum Kind {
     References,
     Formatting,
     Symbols,
+    #[serde(rename = "workspaceSymbols")]
+    WorkspaceSymbols,
     Signature,
 }
 impl Kind {
@@ -46,6 +48,7 @@ impl Kind {
             Self::References => "textDocument/references",
             Self::Formatting => "textDocument/formatting",
             Self::Symbols => "textDocument/documentSymbol",
+            Self::WorkspaceSymbols => "workspace/symbol",
             Self::Signature => "textDocument/signatureHelp",
         }
     }
@@ -61,6 +64,7 @@ impl Kind {
             Self::References,
             Self::Formatting,
             Self::Symbols,
+            Self::WorkspaceSymbols,
             Self::Signature,
         ]
         .into_iter()
@@ -299,7 +303,11 @@ impl Registry {
                 || !ids.insert(provider.id)
                 || !owners.contains(&provider.owner.as_str())
                 || (provider.resolves
-                    && !matches!(provider.kind, Kind::Completion | Kind::CodeAction))
+                    && !matches!(
+                        provider.kind,
+                        Kind::Completion | Kind::CodeAction | Kind::WorkspaceSymbols
+                    ))
+                || (provider.kind == Kind::WorkspaceSymbols && !provider.selector.is_empty())
                 || (provider.kind != Kind::CodeAction && provider.action_kinds.is_some())
                 || (provider.kind != Kind::Signature && !provider.retriggers.is_empty())
                 || provider.action_kinds.as_ref().is_some_and(|kinds| {

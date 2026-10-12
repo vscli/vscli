@@ -144,7 +144,12 @@ remain incomplete.
 
 Native LSP document/workspace symbol search supports bounded hierarchical and flat
 responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-file
-loads. Range-less WorkspaceSymbol resolve remains unsupported. A separate native
+loads. Range-less native LSP WorkspaceSymbol resolve remains unsupported.
+The optional [extension workspace-symbol route](WORKSPACE_SYMBOLS_API.md)
+supports global queries without editors, original-object lazy resolution and
+hidden indexing without changing the native picker or focus. Arbitrary native
+URI editor backends and mixed native/extension aggregation remain incomplete.
+A separate native
 [Outline section](OUTLINE.md) was merged in [PR #60](https://github.com/vscli/vscli/pull/60): hierarchical
 trees, collapse/expand, enclosing-symbol following and guarded identifier-start
 reveal. Native and extension ownership lanes are bounded; stale/loading trees
@@ -301,7 +306,7 @@ The implemented independent CommonJS JavaScript shim in `extension-host/*.cjs`
 supplies the `vscode` module inside the optional Node.js process and connects to
 native services through a versioned broker protocol. Its documented subset covers
 activation, disposables/events/cancellation, commands, configuration, shared document
-mirrors, Mementos, eleven language-provider routes, diagnostic collections and native prompts/surfaces.
+mirrors, Mementos, twelve language-provider routes, diagnostic collections and native prompts/surfaces.
 Broader workspace/resource, provider and UI behavior remains staged. Contracts
 remain pinned to VS Code 1.95.0; a version string is not an API compatibility claim.
 
