@@ -32,14 +32,15 @@ test('completion invocation translates bounded trigger contexts and rejects inva
   assert.equal(seen.length, 3); assert.equal(providers.pendingCount(), 0);
 });
 
-test('provider selectors score exact languages/schemes and reject unsupported filters explicitly', () => {
+test('provider selectors score exact languages/schemes and patterns while rejecting bounds', () => {
   const { document } = fixture();
   assert.equal(score(selector('cpp'), document), 10);
   assert.equal(score(selector('*'), document), 5);
   assert.equal(score(selector([{ language: 'rust' }, { language: '*', scheme: 'file' }]), document), 10);
   assert.equal(score(selector({ language: 'cpp', scheme: 'untitled' }), document), 0);
   assert.equal(score(selector({}), document), 0);
-  assert.throws(() => selector({ language: 'cpp', pattern: '**/*.cpp' }), /language and scheme/);
+  assert.equal(score(selector({ language: 'cpp', pattern: '**/*.cpp' }), document), 10);
+  assert.equal(score(selector({ language: 'cpp', pattern: '**/*.rs' }), document), 0);
   assert.throws(() => selector(Array(33).fill('cpp')), /32 entries/);
 });
 
@@ -122,7 +123,7 @@ test('hover, locations, formatting, hierarchical symbols and signatures convert 
   const signature = new types.SignatureInformation('f(猫,🙂)'); signature.parameters = [new types.ParameterInformation([2, 3]), new types.ParameterInformation([4, 6])];
   const help = new types.SignatureHelp(); help.signatures = [signature]; help.activeParameter = 1;
   assert.equal(normalize('signature', help, document).signatures[0].parameters[1].label[1], 6);
-  assert.throws(() => normalize('definition', new types.Location(Uri.parse('https://example.com'), range), document), /local file/);
+  assert.equal(normalize('definition', new types.Location(Uri.parse('https://example.com'), range), document)[0].uri, 'https://example.com/');
   assert.throws(() => normalize('formatting', [types.TextEdit.insert(new Position(0, 2), 'x')], document), /splits UTF-16/);
   assert.throws(() => normalize('hover', new types.Hover(Object.assign(new types.MarkdownString('x'), { isTrusted: true })), document), /Trusted/);
 });

@@ -202,6 +202,11 @@ impl Keymap {
             map.add(&key, command, Some("editorTextFocus"));
         }
         map.add(
+            &format!("{p}+f12"),
+            "editor.action.goToImplementation",
+            Some("editorHasImplementationProvider && editorTextFocus"),
+        );
+        map.add(
             &format!("{p}+shift+o"),
             "workbench.action.gotoSymbol",
             Some("!accessibilityHelpIsShown && !accessibleViewIsShown"),
@@ -1649,6 +1654,58 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn implementation_shortcut_matches_original_platform_key_and_provider_precondition() {
+        for (profile, platform) in [
+            (Profile::Linux, "linux"),
+            (Profile::Windows, "win32"),
+            (Profile::Macos, "darwin"),
+        ] {
+            let map = Keymap::new(profile);
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tests/vscode-reference/baselines/1.95.0/{platform}/inventory.json"
+            ));
+            let inventory: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+            let reference = inventory["bindings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|binding| binding["command"] == "editor.action.goToImplementation")
+                .unwrap();
+            let binding = map
+                .bindings
+                .iter()
+                .find(|binding| binding.command == "editor.action.goToImplementation")
+                .unwrap();
+            assert_eq!(
+                binding.key,
+                normalize_sequence(reference["key"].as_str().unwrap())
+            );
+            assert_eq!(binding.when.as_deref(), reference["when"].as_str());
+            let mut context = HashMap::from([
+                ("editorTextFocus".into(), json!(true)),
+                ("editorHasImplementationProvider".into(), json!(false)),
+            ]);
+            assert!(matches!(
+                map.resolve(&binding.key, &context),
+                Resolution::None
+            ));
+            context.insert("editorHasImplementationProvider".into(), json!(true));
+            assert!(
+                matches!(map.resolve(&binding.key, &context), Resolution::Command(id, _) if id == "editor.action.goToImplementation")
+            );
+            context.insert("editorTextFocus".into(), json!(false));
+            assert!(matches!(
+                map.resolve(&binding.key, &context),
+                Resolution::None
+            ));
+            assert!(!map.bindings.iter().any(|binding| matches!(
+                binding.command.as_str(),
+                "editor.action.goToTypeDefinition" | "editor.action.revealDeclaration"
+            )));
+        }
+    }
+
     #[test]
     fn code_action_shortcuts_match_pinned_platform_keys_and_provider_contexts() {
         for (profile, platform) in [

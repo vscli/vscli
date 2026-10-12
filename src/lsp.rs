@@ -434,7 +434,7 @@ impl Client {
                     "signatureHelp":{"signatureInformation":{"documentationFormat":["plaintext"],"parameterInformation":{"labelOffsetSupport":true},"activeParameterSupport":true},"contextSupport":true},
                     "completion":{"contextSupport":true,"completionItem":{"snippetSupport":true,"documentationFormat":["plaintext","markdown"],"resolveSupport":{"properties":["detail","documentation","additionalTextEdits"]}}},
                     "documentSymbol":{"hierarchicalDocumentSymbolSupport":true},
-                    "definition":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{},
+                    "definition":{"linkSupport":true}, "implementation":{"linkSupport":true}, "typeDefinition":{"linkSupport":true}, "declaration":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{},
                     "codeAction":{"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports","source.fixAll"]}},"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]}}
                 }
             }

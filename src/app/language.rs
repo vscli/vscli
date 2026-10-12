@@ -274,7 +274,11 @@ impl App {
                     model: crate::documentation::Document::hover(&response["contents"])?,
                 });
             }
-            "textDocument/definition" | "textDocument/references" => {
+            "textDocument/definition"
+            | "textDocument/implementation"
+            | "textDocument/typeDefinition"
+            | "textDocument/declaration"
+            | "textDocument/references" => {
                 let values = response
                     .as_array()
                     .cloned()
@@ -300,7 +304,13 @@ impl App {
                             range.start.line + 1,
                             range.start.character + 1
                         ),
-                        action: LanguageAction::Location { path, range },
+                        action: LanguageAction::Location {
+                            path,
+                            range: lsp::Range {
+                                start: range.start,
+                                end: range.start,
+                            },
+                        },
                     });
                 }
                 if items.len() == 1 {

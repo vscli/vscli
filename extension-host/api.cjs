@@ -6,6 +6,7 @@ const diagnosticTypes = require('./diagnostic-types.cjs');
 const { createDiagnostics } = require('./diagnostics.cjs');
 const providerTypes = require('./provider-types.cjs');
 const { createProviders } = require('./providers.cjs');
+const {createNavigationProviders}=require('./navigation-providers.cjs');
 const { createPrompts } = require('./prompts.cjs');
 const { createSurfaces } = require('./surfaces.cjs');
 const { createConfiguration } = require('./configuration.cjs');
@@ -129,13 +130,25 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       // Internal cancellation/release listeners cannot acquire a user lease.
       // Keep the host's separate command-origin ALS unchanged.
       return callers.unowned(() => operation(params));
-    } catch (error) { return Promise.reject(error); }
+    } catch (error) {
+      if(operation===providers.provide||operation===providers.resolveCompletion||operation===providers.resolveAction){
+        try{providers.releaseRefusal(params);}catch{/* Preserve the original pre-entry error. */}
+      }
+      return Promise.reject(error);
+    }
   }
   function request(method, params, lifecycle) {
     try { assertOwner(params.owner); return sendRequest(method, params, lifecycle); }
     catch (error) { return Promise.reject(error); }
   }
-  const providers = createProviders({ session: sessionOptions.session, notify, track, bindProvider: callers.bindProvider, bindProviderResult: callers.bindProviderResult, invokeProviderResult: callers.invokeProviderResult, document: id => documents.get(id), languageEpoch: document => documentMirrorRecords.get(document)?.languageEpoch, diagnostics: (document,range) => diagnostics.currentDiagnostics(document,range) });
+  const providers = createProviders({ session: sessionOptions.session, notify, track, bindProvider: callers.bindProvider, bindProviderResult: callers.bindProviderResult, invokeProviderResult: callers.invokeProviderResult, document: id => documents.get(id), documentSource: document => documentMirrorRecords.get(document), captureCaller: owner => callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}), languageEpoch: document => documentMirrorRecords.get(document)?.languageEpoch, diagnostics: (document,range) => diagnostics.currentDiagnostics(document,range) });
+  const navigationProviders=createNavigationProviders({
+    captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
+    workspaceIdentity:()=>workspaceEditConfigurationIdentity,
+    mirrors:()=>workspaceEditMirrors.values(),snapshot:id=>workspaceEditMirrors.get(id),sourceFor:document=>documentMirrorRecords.get(document),
+    open:(owner,uri)=>documentServices.forOwner(owner).openTextDocument(uri),
+    query:providers.query,
+  });
   const diagnostics = createDiagnostics({ session: sessionOptions.session, notify, track, assertOwner, document: key => {
     for (const document of documents.values()) if (document._snapshot.uri === key) return document;
   } });
@@ -191,6 +204,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       },
       async executeCommand(id, ...args) {
         assertOwner(owner);
+        if(navigationProviders.commands.includes(id)){if(!sessionOptions.languageProviders)throw new Error('Native language providers are unavailable');return navigationProviders.execute(owner,id,args);}
         const command = commands.get(id);
         if (!command && NATIVE_COMMANDS.includes(id)) return documentServices.execute(owner, id, args);
         if (!command) throw new Error(`VSCLI cannot execute unregistered extension command: ${id}`);
@@ -198,7 +212,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         commandCalls++;
         try { return await command.callback(...args); } finally { commandCalls--; }
       },
-      async getCommands() { return [...NATIVE_COMMANDS, ...commands.keys()]; },
+      async getCommands() { return [...NATIVE_COMMANDS, ...(sessionOptions.languageProviders?navigationProviders.commands:[]), ...commands.keys()]; },
     });
   }
   function sourceEnd(text) {
@@ -527,7 +541,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
-    api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; fileWatchers.refresh(); }, commandSnapshot, assertOwner,
+    api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, releaseLanguageProviderRefusal: providers.releaseRefusal, languageProviderPending: providers.pending, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; fileWatchers.refresh(); }, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.
     runWithOwner: callers.run, currentCallerOwner: callers.currentOwner,

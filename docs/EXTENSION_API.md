@@ -28,8 +28,8 @@ runtime declaration names (29.22%)** in shipped commit `a03528d`. It excludes
 322 type-only declarations and collapses repeated overload names. This measures
 name presence only: constructors, members, overload behavior and native backends
 remain unqualified by this check. It is not a percentage of implemented or fully
-compatible API behavior. Language-provider registrations separately cover 8 of
-32 stable families; their existing implementations still have documented limits.
+compatible API behavior. At that audit revision, provider registrations covered
+8 of 32 stable families; their existing implementations still have documented limits.
 To inspect any committed revision without counting unfinished working-tree code:
 
 ```sh
@@ -96,6 +96,16 @@ tab host/App workflows. Four new tab PTYs and 26 relevant regression journeys
 pass, along with formatting and strict Clippy. This delivers text-tab workflows;
 other input constructors do not establish their editor backends.
 
+[Navigation provider APIs](NAVIGATION_PROVIDERS_API.md) add Implementation, Type
+Definition and Declaration alongside Definition and References. All five families
+have public query commands, complete Location/Link fields, matching-provider
+aggregation and native location pickers with a collapsed target caret. Actual
+callback slots survive logical cancellation until settlement. All 664 host and
+1,316 Rust all-target tests pass (990 library; 23 ignored), with four new actual
+selected-host/App cases and four new PTY journeys. Build, formatting and strict
+Clippy pass. This routes eleven of the 32 stable provider families; remaining
+providers and mixed native/extension aggregation are still open.
+
 ## Implementation and evidence
 
 | Surface | Implemented behavior | Evidence and remaining qualification |
@@ -125,6 +135,7 @@ other input constructors do not establish their editor backends.
 | Editor decorations | Private type lifecycle and per-pane setters, edit-aware UTF-16 markers including forced public inserts/deletes, native RGB/common styles and whole-line backgrounds | All 600 host and 1,260 Rust all-target tests pass (947 library; 23 ignored), including 22 new host cases, fourteen new library cases and two actual selected-host/App workflows. Two new decoration PTYs and fourteen presentation/inventory/editor-state/untitled/save/virtual regressions pass; build/formatting/strict Clippy pass. Actual native buffer tests verify styles. Hover/attachments, raster gutter icons, rulers, richer CSS/alpha, arbitrary theme colors and upstream/platform fidelity remain outstanding; see [decorations](EDITOR_DECORATIONS_API.md). |
 | Public editor snippet insertion | `TextEditor.insertSnippet` overloads/options, private view-specific native insertion, linked fields and source/caller/version guarded mirror-before-ACK receipts | All 617 host tests (17 new) and 1,279 Rust all-target tests pass (962 library, 60 suites; 23 ignored grant no qualification), including twelve new core cases, three clipboard worker cases and four actual selected-host/App workflows. Four new PTY journeys and build/formatting/strict Clippy pass. Choice menus, command-driven nesting, complete regex and upstream/platform fidelity remain outstanding; see [editor snippets](EDITOR_SNIPPETS_API.md). |
 | Public tabs and groups | `window.tabGroups` inventory/getters/events/close, all seven stable TabInput values, distinct shared memberships and actual empty welcome group | All 641 host tests (24 new), 1,304 Rust tests and 30 actual PTY journeys pass; five selected-host/App cases cover inventory/sticky/history, clean arrays/groups, Cancel/Discard, Save/Save As and original owner retirement. Native inventory, empty engine/session and exact retained-request tests pass. Full snapshots may coalesce events; diff/custom/webview/notebook/terminal tab backends remain outstanding; see [tabs](EDITOR_TABS_API.md). |
+| Navigation providers | Five public execute queries; three new provider families; full Location/Link conversion, matching cohorts, sorting/dedup and native collapsed-caret reveal | All 664 host and 1,316 Rust tests, four selected-App and four new terminal workflows, build/formatting/strict Clippy pass. Mixed native/extension aggregation, all URI editor backends, notebook selectors and broader provider/package/platform fidelity remain outstanding; see [navigation APIs](NAVIGATION_PROVIDERS_API.md). |
 | Other API surfaces | Existing partial document/editor, configuration, state, command, diagnostic, provider and native UI adapters | Existing focused documents describe their implemented subsets. Full API compatibility and arbitrary real-extension compatibility remain incomplete. |
 
 Cancellation follows the pinned source lifecycle: an already-canceled parent

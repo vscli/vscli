@@ -18,7 +18,7 @@ pub struct MirrorSnapshot {
 pub struct Ticket {
     pub id: u64,
     pub session: u64,
-    pub provider: Provider,
+    pub provider: Arc<Provider>,
     pub epoch: u64,
     pub document: u64,
     pub revision: u64,
@@ -40,6 +40,7 @@ pub(crate) struct Reply {
 pub(super) struct State {
     registry: Registry,
     calls: HashMap<u64, Call>,
+    occupied: HashMap<u64, Ticket>,
     replies: VecDeque<Reply>,
     signature: Option<Ticket>,
     signature_started: Option<Instant>,
@@ -177,7 +178,112 @@ impl Client {
         self.providers.registry.replace(value, &owners)
     }
     pub(crate) fn language_provider_capacity(&self) -> bool {
-        self.providers.calls.len() + self.providers.replies.len() < LIMIT
+        self.language_provider_slots() > 0
+    }
+    pub(crate) fn language_callback_occupied(&self, ticket: &Ticket) -> bool {
+        self.providers
+            .occupied
+            .get(&ticket.id)
+            .is_some_and(|original| {
+                original.session == ticket.session
+                    && original.provider.id == ticket.provider.id
+                    && original.provider.owner == ticket.provider.owner
+            })
+    }
+    pub(crate) fn language_provider_slots(&self) -> usize {
+        let mut ids: HashSet<u64> = self.providers.occupied.keys().copied().collect();
+        ids.extend(self.providers.calls.keys().copied());
+        ids.extend(self.providers.replies.iter().map(|reply| reply.ticket.id));
+        LIMIT.saturating_sub(ids.len())
+    }
+    /// Only the exact actual-callback settlement frame releases occupation.
+    /// A logical reply, cancellation, timeout or owner retirement does not.
+    pub(super) fn language_provider_released(&mut self, value: Value) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Released {
+            session: u64,
+            owner: String,
+            provider: u64,
+            request: u64,
+        }
+        result_budget(&value, 2)?;
+        let release: Released = serde_json::from_value(value)?;
+        anyhow::ensure!(
+            release.owner.len() <= 128
+                && release.provider > 0
+                && release.provider <= 9_007_199_254_740_991
+                && release.request > 0
+                && release.request <= 9_007_199_254_740_991,
+            "Invalid language callback release"
+        );
+        if release.session != self.session {
+            return Ok(());
+        }
+        let Some(ticket) = self.providers.occupied.get(&release.request) else {
+            return Ok(());
+        };
+        anyhow::ensure!(
+            ticket.session == release.session
+                && ticket.provider.id == release.provider
+                && ticket.provider.owner == release.owner,
+            "Language callback release ownership mismatch"
+        );
+        self.providers.occupied.remove(&release.request);
+        Ok(())
+    }
+    pub(crate) fn navigation_registry_epoch(&self) -> u64 {
+        self.providers.registry.epoch()
+    }
+    pub(crate) fn navigation_registry_current(&self, epoch: u64) -> bool {
+        self.providers.registry.epoch() == epoch
+    }
+    pub(crate) fn provider_registration_matches(
+        &self,
+        provider: &Provider,
+        epoch: u64,
+        document: &Document,
+    ) -> bool {
+        self.provider_owner_ready(&provider.owner)
+            && self.providers.registry.current(provider, epoch)
+            && provider.score(document) > 0
+    }
+    pub(crate) fn navigation_providers(
+        &self,
+        kind: Kind,
+        document: &Document,
+    ) -> Result<Vec<Provider>> {
+        anyhow::ensure!(kind.is_navigation(), "Invalid navigation provider family");
+        let mut providers: Vec<_> = self
+            .providers
+            .registry
+            .entries()
+            .iter()
+            .filter(|provider| {
+                provider.kind == kind
+                    && self.provider_owner_ready(&provider.owner)
+                    && provider.score(document) > 0
+            })
+            .cloned()
+            .collect();
+        anyhow::ensure!(
+            providers.len() <= crate::extension_providers::MAX_PROVIDERS,
+            "Navigation provider cohort exceeds registry bounds"
+        );
+        if let Some(exclusive) = providers
+            .iter()
+            .filter(|provider| provider.exclusive_score(document) > 0)
+            .map(|provider| provider.id)
+            .max()
+        {
+            providers.retain(|provider| provider.id == exclusive);
+        }
+        providers.sort_by(|a, b| {
+            b.score(document)
+                .cmp(&a.score(document))
+                .then_with(|| b.id.cmp(&a.id))
+        });
+        Ok(providers)
     }
     pub(crate) fn provider_registration_current(&self, ticket: &Ticket) -> bool {
         ticket.session == self.session
@@ -355,9 +461,13 @@ impl Client {
             Arc::new(Vec::new())
         };
         let ticket = Ticket {
-            id: self.next_id + 1,
+            id: self
+                .next_id
+                .checked_add(1)
+                .filter(|id| *id <= 9_007_199_254_740_991)
+                .context("Language provider request identities exhausted")?,
             session: self.session,
-            provider: provider.clone(),
+            provider: Arc::new(provider.clone()),
             epoch: self.providers.registry.epoch(),
             document: doc.id,
             revision: doc.revision,
@@ -382,6 +492,7 @@ impl Client {
             self.providers.symbols = Some(ticket.clone());
             self.providers.symbols_started = Some(Instant::now());
         }
+        self.providers.occupied.insert(ticket.id, ticket.clone());
         self.providers.calls.insert(
             ticket.id,
             Call {
@@ -417,8 +528,13 @@ impl Client {
         }
         self.sync_with_hidden(documents, hidden, active)?;
         let mut ticket = original.clone();
-        ticket.id = self.next_id + 1;
+        ticket.id = self
+            .next_id
+            .checked_add(1)
+            .filter(|id| *id <= 9_007_199_254_740_991)
+            .context("Language provider request identities exhausted")?;
         self.request("resolveLanguageCodeAction",json!({"session":self.session,"owner":original.provider.owner,"provider":original.provider.id,"origin":original.id,"handle":handle,"document":document.id,"version":original.version}))?;
+        self.providers.occupied.insert(ticket.id, ticket.clone());
         self.providers.calls.insert(
             ticket.id,
             Call {
@@ -453,13 +569,18 @@ impl Client {
         }
         self.sync_with_hidden(documents, hidden, active)?;
         let mut ticket = original.clone();
-        ticket.id = self.next_id + 1;
+        ticket.id = self
+            .next_id
+            .checked_add(1)
+            .filter(|id| *id <= 9_007_199_254_740_991)
+            .context("Language provider request identities exhausted")?;
         self.request(
             "resolveLanguageCompletion",
             json!({"session":self.session,
             "owner":original.provider.owner,"provider":original.provider.id,
             "origin":original.id,"handle":handle,"document":doc.id,"version":original.version}),
         )?;
+        self.providers.occupied.insert(ticket.id, ticket.clone());
         self.providers.calls.insert(
             ticket.id,
             Call {
@@ -475,6 +596,12 @@ impl Client {
             return Ok(());
         }
         if let Some(call) = self.providers.calls.get_mut(&ticket.id) {
+            anyhow::ensure!(
+                call.ticket.session == ticket.session
+                    && call.ticket.provider.id == ticket.provider.id
+                    && call.ticket.provider.owner == ticket.provider.owner,
+                "Language callback cancellation ownership mismatch"
+            );
             if call.canceled {
                 return Ok(());
             }
@@ -682,6 +809,185 @@ mod tests {
             assert!(Instant::now() < deadline, "No signature reply for {id}");
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    #[test]
+    fn generic_actual_callbacks_remain_occupied_after_cancel_timeout_and_wrong_release() {
+        let root = tempfile::tempdir().unwrap();
+        let body = r#"const v=require('vscode'),fs=require('node:fs'),path=require('node:path');
+let held=[],entered=0;
+exports.activate=c=>{c.subscriptions.push(v.languages.registerHoverProvider('*',{
+ provideHover(){fs.writeFileSync(path.join(v.workspace.rootPath,'entered'),String(++entered));return new Promise(resolve=>held.push(resolve));}
+}));c.subscriptions.push(v.commands.registerCommand('test.release',()=>{for(const resolve of held.splice(0))resolve(undefined);}));};"#;
+        let package = fixture(root.path(), body);
+        let mut docs = [Document::from_text("α🙂\r\n")];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        let mut tickets = Vec::new();
+        for _ in 0..8 {
+            tickets.push(
+                client
+                    .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+                    .unwrap()
+                    .unwrap(),
+            );
+        }
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while std::fs::read_to_string(root.path().join("entered"))
+            .ok()
+            .as_deref()
+            != Some("8")
+        {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline, "Actual callbacks never entered");
+            std::thread::yield_now();
+        }
+        client
+            .providers
+            .calls
+            .get_mut(&tickets[0].id)
+            .unwrap()
+            .started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert_eq!(client.providers.occupied.len(), 8);
+        assert!(
+            client
+                .take_provider_replies()
+                .pop_front()
+                .unwrap()
+                .result
+                .unwrap_err()
+                .contains("timed out")
+        );
+        for ticket in &tickets {
+            client.cancel_language_provider(ticket).unwrap();
+        }
+        while !client.providers.calls.is_empty() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(
+                Instant::now() < deadline,
+                "Canceled logical replies never arrived"
+            );
+            std::thread::yield_now();
+        }
+        client.take_provider_replies();
+        assert_eq!(client.providers.occupied.len(), 8);
+        assert_eq!(client.language_provider_slots(), 0);
+        let ticket = &tickets[0];
+        let release = json!({"session":client.session,"owner":ticket.provider.owner,"provider":ticket.provider.id,"request":ticket.id});
+        for field in ["owner", "provider"] {
+            let mut wrong = release.clone();
+            wrong[field] = if field == "owner" {
+                json!("wrong.owner")
+            } else {
+                json!(ticket.provider.id + 1)
+            };
+            assert!(client.language_provider_released(wrong).is_err());
+            assert_eq!(client.language_provider_slots(), 0);
+        }
+        let mut wrong = release.clone();
+        wrong["extra"] = true.into();
+        assert!(client.language_provider_released(wrong).is_err());
+        let mut old = release.clone();
+        old["session"] = json!(client.session + 1);
+        client.language_provider_released(old).unwrap();
+        assert_eq!(client.language_provider_slots(), 0);
+        // The real held callbacks have not returned. A provider registry reset
+        // also cannot acquire their actual slots.
+        client.register_language_providers(json!([])).unwrap();
+        assert_eq!(client.language_provider_slots(), 0);
+        client
+            .execute("test.release", None, &docs, 0, &Settings::default())
+            .unwrap();
+        while !client.providers.occupied.is_empty() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(
+                Instant::now() < deadline,
+                "Actual release frames never arrived"
+            );
+            std::thread::yield_now();
+        }
+        assert_eq!(client.language_provider_slots(), 8);
+        client.language_provider_released(release).unwrap();
+        assert_eq!(
+            client.language_provider_slots(),
+            8,
+            "Duplicate cannot release another callback"
+        );
+        assert_eq!(docs[0].text.to_string(), "α🙂\r\n");
+        assert!(!docs[0].dirty());
+    }
+    #[test]
+    fn actual_release_before_response_does_not_release_awaiting_reply_capacity() {
+        let root = tempfile::tempdir().unwrap();
+        let package = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new v.Hover('real framed result')});"#,
+        );
+        let mut docs = [Document::from_text("α🙂\r\n")];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let mut release = None;
+        let mut response = None;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while release.is_none() || response.is_none() {
+            if let Some(mut frame) = client.process.receive().unwrap() {
+                if frame["method"] == "languageProviderReleased"
+                    && frame["params"]["request"].as_u64() == Some(ticket.id)
+                {
+                    release = Some(frame["params"].take());
+                } else if frame["id"].as_u64() == Some(ticket.id) {
+                    response = Some(frame);
+                }
+            }
+            assert!(Instant::now() < deadline, "Real callback did not settle");
+            std::thread::yield_now();
+        }
+        let release = release.unwrap();
+        client.language_provider_released(release.clone()).unwrap();
+        assert_eq!(
+            client.language_provider_slots(),
+            7,
+            "Original logical reply still retained"
+        );
+        client
+            .provider_response(ticket.id, response.unwrap())
+            .unwrap();
+        assert_eq!(
+            client.language_provider_slots(),
+            7,
+            "Unconsumed reply retains its bounded storage"
+        );
+        let actual = client
+            .take_provider_replies()
+            .pop_front()
+            .unwrap()
+            .result
+            .unwrap();
+        assert_eq!(actual["contents"][0], "real framed result");
+        client.pending.remove(&ticket.id);
+        assert_eq!(client.language_provider_slots(), 8);
+        client.language_provider_released(release).unwrap();
+        assert_eq!(client.language_provider_slots(), 8);
     }
     #[test]
     fn held_provider_ticket_refuses_language_metadata_aba_without_text_version_changes() {
@@ -1325,7 +1631,7 @@ provideSignatureHelp(){fs.writeFileSync(p.join(v.workspace.rootPath,'signature-e
         forged.session += 1;
         assert!(!client.provider_ticket_current(&forged, &docs[0]));
         forged = tickets[0].clone();
-        forged.provider.owner = "other.owner".into();
+        Arc::make_mut(&mut forged.provider).owner = "other.owner".into();
         assert!(!client.provider_ticket_current(&forged, &docs[0]));
         let origin = tickets[0].id;
         assert!(

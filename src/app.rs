@@ -25,6 +25,7 @@ mod navigation_history;
 mod outline;
 mod panes;
 mod preview_tabs;
+mod provider_navigation;
 mod save_code_actions;
 mod save_formatting;
 mod saving;
@@ -360,6 +361,18 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "editor.action.revealDefinition",
     ),
     ("Language: Find References", "editor.action.goToReferences"),
+    (
+        "Language: Go to Implementation",
+        "editor.action.goToImplementation",
+    ),
+    (
+        "Language: Go to Type Definition",
+        "editor.action.goToTypeDefinition",
+    ),
+    (
+        "Language: Go to Declaration",
+        "editor.action.revealDeclaration",
+    ),
     ("Language: Format Document", "editor.action.formatDocument"),
     ("Language: Rename Symbol", "editor.action.rename"),
     ("Language: Quick Fix", "editor.action.quickFix"),
@@ -556,6 +569,7 @@ pub struct App {
     virtual_documents: virtual_documents::State,
     workspace_transactions: workspace_transactions::State,
     extension_providers: extension_providers::State,
+    provider_navigation: provider_navigation::State,
     actions: actions::State,
     pub active: usize,
     pub workspace: Workspace,
@@ -687,6 +701,7 @@ impl App {
             virtual_documents: virtual_documents::State::default(),
             workspace_transactions: workspace_transactions::State::default(),
             extension_providers: extension_providers::State::default(),
+            provider_navigation: provider_navigation::State::default(),
             actions: actions::State::default(),
             active: 0,
             workspace: Workspace::new(root.clone()),
@@ -1245,6 +1260,27 @@ impl App {
                                 crate::extension_providers::Kind::CodeAction
                             ))
                 ),
+            ),
+            (
+                "editorHasImplementationProvider".into(),
+                json!(self.has_navigation_provider(
+                    crate::extension_providers::Kind::Implementation,
+                    "implementationProvider"
+                )),
+            ),
+            (
+                "editorHasTypeDefinitionProvider".into(),
+                json!(self.has_navigation_provider(
+                    crate::extension_providers::Kind::TypeDefinition,
+                    "typeDefinitionProvider"
+                )),
+            ),
+            (
+                "editorHasDeclarationProvider".into(),
+                json!(self.has_navigation_provider(
+                    crate::extension_providers::Kind::Declaration,
+                    "declarationProvider"
+                )),
             ),
             (
                 "editorHasSelection".into(),
@@ -1910,9 +1946,12 @@ impl App {
                 "textDocument/completion",
                 json!({"context":{"triggerKind":1}}),
             ),
-            "editor.action.revealDefinition" => {
+            "editor.action.revealDefinition" | "editor.action.goToDeclaration" => {
                 self.language_request("textDocument/definition", Value::Null)
             }
+            "editor.action.goToImplementation" => self.language_request("textDocument/implementation", Value::Null),
+            "editor.action.goToTypeDefinition" => self.language_request("textDocument/typeDefinition", Value::Null),
+            "editor.action.revealDeclaration" => self.language_request("textDocument/declaration", Value::Null),
             "editor.action.goToReferences" => self.language_request(
                 "textDocument/references",
                 json!({"context":{"includeDeclaration":true}}),
@@ -2168,6 +2207,28 @@ impl App {
             _ => self.execute_extension(command, command_args),
         }
     }
+    fn has_navigation_provider(
+        &self,
+        kind: crate::extension_providers::Kind,
+        capability: &str,
+    ) -> bool {
+        self.has_extension_provider(kind)
+            || self.active_document().is_some_and(|doc| {
+                let language = doc.language_override().unwrap_or_else(|| {
+                    doc.path
+                        .as_deref()
+                        .map_or("plaintext", crate::languages::language)
+                });
+                self.lsp.as_ref().is_some_and(|client| {
+                    client.ready
+                        && (client.language == language
+                            || client.language == "cpp" && language == "c")
+                        && (client.capabilities[capability] == true
+                            || client.capabilities[capability].is_object())
+                })
+            })
+    }
+
     fn requires_editor(command: &str) -> bool {
         command.starts_with("editor.")
             || command.starts_with("cursor")

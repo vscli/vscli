@@ -183,7 +183,7 @@ merged after [all six fresh required checks](https://github.com/vscli/vscli/acti
 passed, including Linux, macOS and Windows pinned provider comparisons. This evidence does not
 establish full Breadcrumbs UI or unchanged-extension compatibility.
 
-Optional selected extensions dispatch completion, hover, definitions, references, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers; aggregation/fallback for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).
+Optional selected extensions dispatch completion, hover, definitions, references, implementation, type definition, declaration, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers with native LSP; navigation aggregates matching extension providers. Mixed native/extension navigation aggregation and aggregation for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).
 
 ## Feature disposition
 
@@ -301,7 +301,7 @@ The implemented independent CommonJS JavaScript shim in `extension-host/*.cjs`
 supplies the `vscode` module inside the optional Node.js process and connects to
 native services through a versioned broker protocol. Its documented subset covers
 activation, disposables/events/cancellation, commands, configuration, shared document
-mirrors, Mementos, seven language-provider routes, diagnostic collections and native prompts/surfaces.
+mirrors, Mementos, eleven language-provider routes, diagnostic collections and native prompts/surfaces.
 Broader workspace/resource, provider and UI behavior remains staged. Contracts
 remain pinned to VS Code 1.95.0; a version string is not an API compatibility claim.
 

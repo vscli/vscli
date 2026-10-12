@@ -450,6 +450,14 @@ impl Client {
                 include_str!("../extension-host/providers.cjs"),
             ),
             (
+                "navigation-providers.cjs",
+                include_str!("../extension-host/navigation-providers.cjs"),
+            ),
+            (
+                "language-selector.cjs",
+                include_str!("../extension-host/language-selector.cjs"),
+            ),
+            (
                 "signatures.cjs",
                 include_str!("../extension-host/signatures.cjs"),
             ),
@@ -1173,6 +1181,9 @@ impl Client {
                     }
                     "symbolsReleased" => {
                         self.symbols_released(message["params"].take())?;
+                    }
+                    "languageProviderReleased" => {
+                        self.language_provider_released(message["params"].take())?;
                     }
                     "languageProviders" => {
                         if message["params"]["session"].as_u64() != Some(self.session) {

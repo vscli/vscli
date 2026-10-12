@@ -7,6 +7,7 @@ const storage = new AsyncLocalStorage();
 const callbackMethods = Object.freeze([
   'provideCodeActions', 'resolveCodeAction', 'provideCompletionItems', 'resolveCompletionItem',
   'provideHover', 'provideDefinition', 'provideReferences', 'provideDocumentFormattingEdits',
+  'provideImplementation', 'provideTypeDefinition', 'provideDeclaration',
   'provideDocumentSymbols', 'provideSignatureHelp', 'getChildren', 'getTreeItem',
   'onDidChangeTreeData', 'watch', 'stat', 'readDirectory', 'createDirectory',
   'readFile', 'writeFile', 'delete', 'rename', 'copy', 'open', 'close', 'read', 'write',

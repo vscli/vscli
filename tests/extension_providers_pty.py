@@ -37,13 +37,15 @@ def run(root):
     command(app, 'Language: Go to Definition')
     wait(app, 'Extension location opened')
     app.send('猫')
-    save(app, target, 'α猫 target\r\n')
+    # Go to actions collapse at the range start; typing inserts before the
+    # original symbol instead of replacing a selected provider range.
+    save(app, target, 'α猫🙂 target\r\n')
     app.send(CTRL_Z)
     save(app, target, 'α🙂 target\r\n')
     command(app, 'Language: Find References')
     wait(app, 'Extension location opened')
     app.send('界')
-    save(app, target, 'α界 target\r\n')
+    save(app, target, 'α界🙂 target\r\n')
     app.send(CTRL_Z)
     save(app, target, 'α🙂 target\r\n')
     command(app, 'File: Open File')

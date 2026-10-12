@@ -100,6 +100,7 @@ impl App {
         })
     }
     pub(super) fn cancel_extension_provider(&mut self) {
+        self.cancel_provider_navigation();
         self.extension_providers.generation = self.extension_providers.generation.wrapping_add(1);
         if let Some(lease) = self.extension_providers.lease.take()
             && let Some(host) = &mut self.extension_host
@@ -167,6 +168,9 @@ impl App {
             }
             _ => false,
         };
+        if allowed {
+            self.advance_provider_navigation_interaction();
+        }
         let current = self
             .extension_providers
             .lease
@@ -196,6 +200,9 @@ impl App {
         };
         if !self.has_extension_provider(kind) {
             return false;
+        }
+        if kind.is_navigation() {
+            return self.request_provider_navigation(kind, extra);
         }
         if kind == Kind::Signature {
             self.request_signature();
@@ -265,7 +272,7 @@ impl App {
         true
     }
     pub(super) fn poll_extension_providers(&mut self) -> bool {
-        let mut changed = false;
+        let mut changed = self.retire_stale_provider_navigation();
         if self
             .extension_providers
             .lease
@@ -281,6 +288,14 @@ impl App {
             .map(|h| h.take_provider_replies())
             .unwrap_or_default();
         for reply in replies {
+            if self.navigation_reply_owned(&reply.ticket) {
+                changed = true;
+                if let Err(error) = self.provider_navigation_reply(reply.ticket, reply.result) {
+                    self.cancel_provider_navigation();
+                    self.message = format!("Extension navigation: {error:#}");
+                }
+                continue;
+            }
             if self.outline_provider_owned(&reply.ticket) {
                 changed = true;
                 if let Err(error) = self.outline_provider_response(&reply.ticket, reply.result) {
@@ -374,7 +389,7 @@ impl App {
                 }
             }
         }
-        self.poll_provider_symbol_intent() || changed
+        self.poll_provider_navigation() || self.poll_provider_symbol_intent() || changed
     }
     fn symbol_intent_current(&self, intent: &SymbolIntent) -> bool {
         intent.context.same_editor(self)
@@ -474,7 +489,11 @@ impl App {
                     "Extension formatting applied; review and save (Undo available)".into();
                 self.cancel_extension_provider();
             }
-            Kind::Definition | Kind::References => {
+            Kind::Definition
+            | Kind::Implementation
+            | Kind::TypeDefinition
+            | Kind::Declaration
+            | Kind::References => {
                 let values = value.as_array().context("Invalid extension locations")?;
                 if values.len() > 512 {
                     bail!("Extension locations exceed 512 entries")
@@ -524,15 +543,16 @@ impl App {
     }
     pub(super) fn apply_provider_action(&mut self, ticket: &Ticket, item: &Value) -> Result<()> {
         Context::check_budget(self)?;
-        let lease = self
+        let navigation = ticket.provider.kind.is_navigation()
+            && self.provider_navigation_context(ticket).is_some();
+        let original = self
             .extension_providers
             .lease
             .as_ref()
-            .context("Extension picker is no longer current")?;
-        if lease.ticket.id != ticket.id
-            || !self.provider_current(ticket, &lease.context)
-            || self.prompt.is_some()
-        {
+            .is_some_and(|lease| {
+                lease.ticket.id == ticket.id && self.provider_current(ticket, &lease.context)
+            });
+        if !(navigation || original) || self.prompt.is_some() {
             bail!("Editor context changed; request the provider again")
         }
         match ticket.provider.kind {
@@ -541,9 +561,17 @@ impl App {
                 self.cancel_extension_provider();
                 self.message = "Extension completion applied".into();
             }
-            Kind::Definition | Kind::References => {
+            Kind::Definition
+            | Kind::Implementation
+            | Kind::TypeDefinition
+            | Kind::Declaration
+            | Kind::References => {
                 let (path, range) = location(item)?;
-                self.open_provider_location(ticket.clone(), path, range)?;
+                let caret = lsp::Range {
+                    start: range.start,
+                    end: range.start,
+                };
+                self.open_provider_location(ticket.clone(), path, caret)?;
             }
             _ => bail!("Unsupported extension picker action"),
         }
@@ -700,7 +728,7 @@ impl App {
         }
     }
 }
-fn location(value: &Value) -> Result<(PathBuf, lsp::Range)> {
+pub(super) fn location(value: &Value) -> Result<(PathBuf, lsp::Range)> {
     let uri = value["uri"]
         .as_str()
         .or(value["targetUri"].as_str())
@@ -776,6 +804,10 @@ mod tests {
         until(app, |a| {
             if kind == Kind::Signature {
                 return a.signature_help().is_some() || a.message.contains("response:");
+            }
+            if kind.is_navigation() {
+                return a.message == "Extension location opened"
+                    || matches!(a.modal, Some(Modal::Language { .. }));
             }
             a.extension_providers
                 .lease
@@ -1294,7 +1326,11 @@ exports.activate=context=>{{register(context);context.subscriptions.push(vscode.
                 .as_ref()
                 .is_some_and(|p| p.ends_with("target.sql"))
         });
-        assert_eq!(app.doc().selected_text().as_deref(), Some("🙂"));
+        assert_eq!(app.doc().cursor, 1);
+        assert!(
+            app.doc().anchor.is_none(),
+            "Native goto collapses to target selection start"
+        );
         let target_id = app.doc().id;
         let end = app.doc().text.len_chars();
         app.doc_mut().move_to(end, false);

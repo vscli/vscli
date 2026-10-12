@@ -80,9 +80,12 @@ close overloads, native Save/Discard/Cancel and untitled Save As, original calle
 retirement, and a real empty welcome group. All 641 host and 1,304 Rust all-target
 tests, five selected-host/App cases and 30 terminal journeys pass. Seven stable
 TabInput value classes are exported; their diff/custom/webview/notebook/terminal
-backends remain outstanding. The next language-provider batch adds complete
-families with native navigation, workspace symbols, rename and formatting;
-registration alone will not count as delivered behavior.
+backends remain outstanding. [Navigation provider APIs](NAVIGATION_PROVIDERS_API.md)
+now route all five navigation families with public queries and real native
+location pickers. All 664 host and 1,316 Rust tests and four new terminal journeys
+pass. Eleven of the 32 stable provider families are routed; workspace symbols,
+rename/prepareRename and additional formatting families are next. Registration
+alone will not count as delivered behavior.
 
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;
