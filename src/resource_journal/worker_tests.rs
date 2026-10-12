@@ -22,6 +22,7 @@ impl Source {
                 revision: document.revision,
                 text_epoch: document.text_epoch(),
                 language_epoch: document.language_epoch(),
+                resource_epoch: document.resource_epoch(),
                 saved_revision: document.saved_revision,
                 save_generation: document.save_generation(),
             },

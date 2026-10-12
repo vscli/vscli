@@ -65,12 +65,12 @@ struct Manifest {
 /// or postimage is implied by successful persistence.
 #[derive(Debug)]
 pub struct StagedJournal {
-    directory: PathBuf,
-    identity: Identity,
-    directory_handle: File,
-    location: ResourceImage,
-    parent_handle: File,
-    capture: Capture,
+    pub(super) directory: PathBuf,
+    pub(super) identity: Identity,
+    pub(super) directory_handle: File,
+    pub(super) location: ResourceImage,
+    pub(super) parent_handle: File,
+    pub(super) capture: Capture,
 }
 impl StagedJournal {
     pub fn persist(
@@ -240,7 +240,7 @@ impl StagedJournal {
         self.verify_directory(control)?;
         Ok(())
     }
-    fn verify_directory(&self, control: &Control<'_>) -> Result<()> {
+    pub(super) fn verify_directory(&self, control: &Control<'_>) -> Result<()> {
         capture::verify_resource(&self.location, control)?;
         ensure!(
             filesystem::identity(&self.parent_handle)? == self.location.ancestor_identity,
@@ -291,7 +291,12 @@ fn outside_operands(directory: &Path, resources: &[ResourceImage]) -> Result<()>
     );
     Ok(())
 }
-fn write(path: &Path, bytes: &[u8], maximum: usize, control: &Control<'_>) -> Result<()> {
+pub(super) fn write(
+    path: &Path,
+    bytes: &[u8],
+    maximum: usize,
+    control: &Control<'_>,
+) -> Result<()> {
     control.check()?;
     let target = Target::open(
         path,
@@ -312,7 +317,7 @@ fn write(path: &Path, bytes: &[u8], maximum: usize, control: &Control<'_>) -> Re
     );
     Ok(())
 }
-fn encode(manifest: &Manifest, limit: usize) -> Result<Vec<u8>> {
+pub(super) fn encode<T: Serialize>(manifest: &T, limit: usize) -> Result<Vec<u8>> {
     struct Bounded {
         bytes: Vec<u8>,
         limit: usize,
@@ -347,15 +352,27 @@ fn encode(manifest: &Manifest, limit: usize) -> Result<Vec<u8>> {
 /// source/parent state. It deliberately exposes no restore/apply/Undo method.
 #[derive(Debug)]
 pub struct RecoveryAuthority {
-    directory: PathBuf,
-    directory_handle: File,
-    identity: Identity,
-    location: ResourceImage,
-    parent_handle: File,
-    capture: Capture,
+    pub(super) directory: PathBuf,
+    pub(super) directory_handle: File,
+    pub(super) identity: Identity,
+    pub(super) location: ResourceImage,
+    pub(super) parent_handle: File,
+    pub(super) capture: Capture,
 }
 impl RecoveryAuthority {
     pub fn load(journal_directory: &Path, limits: Limits, control: &Control<'_>) -> Result<Self> {
+        ensure!(
+            matches!(std::fs::symlink_metadata(journal_directory.join("execution.json")),Err(error) if error.kind()==std::io::ErrorKind::NotFound),
+            "Execution journal requires ExecutionRecovery inspection"
+        );
+        Self::load_stored(journal_directory, limits, control, true)
+    }
+    pub(super) fn load_stored(
+        journal_directory: &Path,
+        limits: Limits,
+        control: &Control<'_>,
+        verify_live: bool,
+    ) -> Result<Self> {
         limits.validate()?;
         control.check()?;
         path(journal_directory)?;
@@ -380,8 +397,21 @@ impl RecoveryAuthority {
             limits.max_manifest_bytes,
             control,
         )?;
-        let manifest: Manifest =
+        let shape: serde_json::Value =
             serde_json::from_slice(&encoded).context("Malformed resource journal manifest")?;
+        let legacy_archive_proofs = shape
+            .get("archives")
+            .and_then(|archives| archives.as_array())
+            .is_some_and(|archives| {
+                archives.iter().any(|archive| {
+                    archive
+                        .get("proof")
+                        .and_then(|proof| proof.get("resource_epoch"))
+                        .is_none()
+                })
+            });
+        let manifest: Manifest =
+            serde_json::from_value(shape).context("Malformed resource journal manifest")?;
         ensure!(
             manifest.version == VERSION && manifest.state == ExecutionState::NotStarted,
             "Unknown resource journal version/execution state"
@@ -407,7 +437,7 @@ impl RecoveryAuthority {
         );
         capture::verify_resource(&manifest.journal_location, control)?;
         let parent_handle = filesystem::open(&manifest.journal_location.ancestor, true)?;
-        validate_images(&manifest, limits, control)?;
+        validate_images(&manifest, limits, control, verify_live)?;
         outside_operands(&directory, &manifest.resources)?;
         let mut bytes = 0;
         let mut blob_names = BTreeSet::new();
@@ -501,6 +531,9 @@ impl RecoveryAuthority {
         }
         let mut anchors = BTreeMap::new();
         for resource in &manifest.resources {
+            if !verify_live {
+                continue;
+            }
             capture::verify_resource(resource, control)?;
             anchors
                 .entry(resource.ancestor.clone())
@@ -508,6 +541,9 @@ impl RecoveryAuthority {
         }
         let mut handles = BTreeMap::new();
         for node in nodes.values() {
+            if !verify_live {
+                continue;
+            }
             capture::verify_node(node, limits, control)?;
             handles.insert(
                 node.path.clone(),
@@ -523,8 +559,11 @@ impl RecoveryAuthority {
             anchors,
             handles,
             limits,
+            legacy_archive_proofs,
         };
-        capture.verify_originals(control)?;
+        if verify_live {
+            capture.verify_originals(control)?;
+        }
         let recovery = Self {
             directory,
             directory_handle: handle,
@@ -533,7 +572,9 @@ impl RecoveryAuthority {
             parent_handle,
             capture,
         };
-        recovery.verify_originals(control)?;
+        if verify_live {
+            recovery.verify_originals(control)?;
+        }
         Ok(recovery)
     }
     pub fn path(&self) -> &Path {
@@ -569,7 +610,12 @@ fn valid_blob_name(name: &str) -> bool {
                 && number.bytes().all(|byte| byte.is_ascii_digit())
         })
 }
-fn validate_images(manifest: &Manifest, limits: Limits, control: &Control<'_>) -> Result<()> {
+fn validate_images(
+    manifest: &Manifest,
+    limits: Limits,
+    control: &Control<'_>,
+    verify_live: bool,
+) -> Result<()> {
     let mut requested = BTreeSet::new();
     let mut resource_metadata = 0;
     let mut nodes = BTreeMap::new();
@@ -580,7 +626,9 @@ fn validate_images(manifest: &Manifest, limits: Limits, control: &Control<'_>) -
             limits.max_manifest_bytes,
             "resource ancestry",
         )?;
-        capture::verify_resource(resource, control)?;
+        if verify_live {
+            capture::verify_resource(resource, control)?;
+        }
         for value in [
             &resource.requested,
             &resource.canonical,
@@ -735,6 +783,9 @@ fn validate_images(manifest: &Manifest, limits: Limits, control: &Control<'_>) -
         path(&archive.resource)?;
         // Capture itself checked canonical archive inclusion. Recovery repeats it
         // against live original parents, never trusts an arbitrary archive path.
+        if !verify_live {
+            continue;
+        }
         let (image, _) =
             filesystem::resolve(&archive.resource, limits.max_manifest_bytes, control)?;
         ensure!(

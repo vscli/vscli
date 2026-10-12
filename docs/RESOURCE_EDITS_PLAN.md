@@ -71,6 +71,24 @@ The reference is VS Code 1.141.0 immutable commit
 
 ## Current evidence
 
+The Linux resource executor now performs actual create, rename, copy and delete
+operations with durable intent/postimage checkpoints, explicit partial outcomes
+and guarded reverse physical rollback. Create batches run folders first;
+rename/copy ignore decisions and source/overwrite preflight use the original
+contiguous kind batch before effects. This preserves batch refusal and prefix
+failure behavior rather than silently treating later collisions as skips.
+Twenty-six new filesystem tests pass, alongside the prior 23 journal controls.
+Cold recovery checks the complete record chain and owned filesystem state;
+unmatched forward/rollback intents remain ambiguous and refuse automatic replay.
+Internal rollback preserves displaced/deleted bytes and reverses dependent owned
+steps. Public Undo/Redo, trash, cross-volume execution, custom providers, non-Linux
+backends, model disposal/reuse and editor publication remain unfinished.
+
+The 49 focused journal tests pass under parent execution, with formatting and
+strict locked all-target Clippy passing on the combined candidate. A separate
+engine-only source snapshot passes locked all-target cargo check, without the
+future DTO adapter or dependency changes. Public API integration remains pending.
+
 Native documents now retain an independent resource epoch across live Explorer
 rename/trash and Save As publications. Returning to the same path does not renew
 original save/workspace, LSP/provider, editor-service or disk-refresh proofs.
@@ -103,10 +121,10 @@ identity/alias ABA, missing-prefix bounds, payload/schema corruption and late
 malformed records. Two cases use actual native document snapshots on the joined
 worker and preserve original COW text after edit→Undo and cancellation.
 
-Capture/staging/recovery inspection are not an execute engine or public workspace
-integration. Every successful journal still reports NotStarted. No actual resource
-API, operation Undo/Redo, recovery after destructive execution or new terminal
-qualification is claimed. Payload symlinks, special/reparse entries and non-UTF-8
+Capture/staging remain NotStarted foundations; a separate execution header and
+ledger represent authorized effects and guarded recovery. Public resource API,
+operation Undo/Redo and App model/event integration are still unavailable. No new
+resource-operation terminal qualification is claimed. Payload symlinks, special/reparse entries and non-UTF-8
 paths remain explicit foundation refusals. No native resource capability is
 advertised to extensions. The full API goal remains active; this foundation grants
 no new API-name or provider-family count. The full Rust all-target suite passes

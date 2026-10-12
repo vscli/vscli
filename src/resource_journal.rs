@@ -1,10 +1,11 @@
 //! Worker-only bounded resource preimages and durable recovery authority.
 //!
-//! This foundation preserves the exact ordered create/move/delete input and raw
-//! binary contents, including omitted option values. It does NOT execute file
-//! operations, manufacture postimages, or implement public Undo/Redo. A joined
-//! coordinator must later add authorized ordered mutations and durable outcome
-//! checkpoints before this journal can be used for filesystem rollback.
+//! Captures preserve original create/move/delete inputs, binary contents and
+//! option presence. The Linux executor performs real guarded physical effects,
+//! durably records intents/postimages and supports explicit reverse rollback.
+//! CREATE batches execute folders first while retaining original input indices.
+//! Public WorkspaceEdit Undo/Redo, App publication and platform parity remain
+//! separate integration work; ambiguous interrupted effects are never replayed.
 //!
 //! Payload symlinks, special nodes, Windows reparse points and non-UTF-8 paths
 //! or directory names are explicitly refused. Parent aliases are admitted only
@@ -18,8 +19,17 @@ use std::{
     time::Instant,
 };
 mod capture;
+mod effects;
+mod execution;
+mod execution_records;
 mod filesystem;
 mod staging;
+mod world;
+pub use execution::{ExecutionRecovery, Executor};
+pub use execution_records::{
+    EncodedEmpty, ExecutionLimits, ExecutionOutcome, ExecutionPolicy, OperationReceipt,
+    PhysicalAction, RenameRole, StepReceipt,
+};
 
 pub use staging::{RecoveryAuthority, StagedJournal};
 
@@ -167,6 +177,8 @@ pub struct ModelProof {
     pub revision: u64,
     pub text_epoch: u64,
     pub language_epoch: u64,
+    #[serde(default)]
+    pub resource_epoch: u64,
     pub saved_revision: u64,
     pub save_generation: u64,
 }
@@ -245,6 +257,12 @@ impl ResourceImage {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExecutionState {
     NotStarted,
+    Executing,
+    Completed,
+    Stopped,
+    Ambiguous,
+    RollingBack,
+    RolledBack,
 }
 
 /// Original bounded disk/parent proofs plus caller-owned model archives. Captures
@@ -259,6 +277,7 @@ pub struct Capture {
     anchors: BTreeMap<PathBuf, std::fs::File>,
     handles: BTreeMap<PathBuf, std::fs::File>,
     limits: Limits,
+    legacy_archive_proofs: bool,
 }
 impl Capture {
     pub fn prepare(
@@ -268,6 +287,9 @@ impl Capture {
         control: &Control<'_>,
     ) -> Result<Self> {
         capture::prepare(operations, archives, limits, control)
+    }
+    pub fn has_legacy_archive_proofs(&self) -> bool {
+        self.legacy_archive_proofs
     }
     pub fn operations(&self) -> &[Operation] {
         &self.operations
@@ -304,6 +326,18 @@ fn path(path: &Path) -> Result<()> {
     );
     Ok(())
 }
+
+/// A root file maps to the exact target, without an empty join adding a slash.
+fn relocated(path: &Path, source: &Path, target: &Path) -> Result<PathBuf> {
+    let relative = path
+        .strip_prefix(source)
+        .context("Resource subtree mapping changed")?;
+    Ok(if relative.as_os_str().is_empty() {
+        target.to_owned()
+    } else {
+        target.join(relative)
+    })
+}
 fn add(total: &mut usize, bytes: usize, limit: usize, description: &str) -> Result<()> {
     *total = total
         .checked_add(bytes)
@@ -320,3 +354,6 @@ mod tests;
 
 #[cfg(test)]
 mod worker_tests;
+
+#[cfg(test)]
+mod execution_tests;

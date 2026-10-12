@@ -95,6 +95,7 @@ pub(super) fn prepare(
         anchors: BTreeMap::new(),
         handles: BTreeMap::new(),
         limits,
+        legacy_archive_proofs: false,
     };
     capture
         .resources

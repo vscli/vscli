@@ -2,7 +2,7 @@
 
 This is a source-derived integration contract, not runtime qualification. It
 uses VS Code 1.141.0 commit `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`.
-No local VS Code instance was launched. Actual ordered execution, model retention
+No local VS Code instance was launched. The Linux filesystem execution backend is implemented; App model retention
 and resource-specific editor/event qualification remain unfinished in VSCLI.
 
 ## Conditional destination reuse
