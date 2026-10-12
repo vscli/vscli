@@ -97,14 +97,19 @@ impl App {
                     && intent.destination.is_none()
                     && intent.automatic.is_none()
             })
-            && self.documents.iter().any(|doc| {
-                doc.id == proof.document
-                    && doc.path.as_ref() == Some(&proof.path)
-                    && doc.revision == proof.revision
-                    && doc.text_epoch() == proof.epoch
-                    && doc.saved_revision == proof.saved_revision
-                    && doc.save_generation() == proof.save_generation
-            })
+            && self
+                .documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .any(|doc| {
+                    !doc.is_read_only()
+                        && doc.id == proof.document
+                        && doc.path.as_ref() == Some(&proof.path)
+                        && doc.revision == proof.revision
+                        && doc.text_epoch() == proof.epoch
+                        && doc.saved_revision == proof.saved_revision
+                        && doc.save_generation() == proof.save_generation
+                })
             && self.lsp.as_ref().is_some_and(|client| {
                 client.ready && Arc::ptr_eq(&client.identity(), &proof.server)
             })
@@ -159,6 +164,7 @@ impl App {
             let Some(path) = self
                 .documents
                 .iter()
+                .chain(&self.hidden_documents)
                 .find(|doc| doc.id == intent.document)
                 .and_then(|doc| doc.path.as_deref())
             else {
@@ -206,10 +212,11 @@ impl App {
             }
             return Ok(false);
         };
-        let language = doc
-            .path
-            .as_deref()
-            .map_or("plaintext", crate::languages::language);
+        let language = doc.language_override().unwrap_or_else(|| {
+            doc.path
+                .as_deref()
+                .map_or("plaintext", crate::languages::language)
+        });
         let reason = if intent.automatic.is_some() {
             SaveActionReason::AfterDelay
         } else {
@@ -229,12 +236,8 @@ impl App {
         };
         let skip = if self.settings_error.is_some() {
             Some("settings failed to load")
-        } else if intent.automatic.is_some()
-            || intent.destination.is_some()
-            || doc.path.is_none()
-            || !self.documents.iter().any(|visible| visible.id == doc.id)
-        {
-            Some("first save, Save As, after-delay and hidden targets are not supported")
+        } else if intent.automatic.is_some() || intent.destination.is_some() || doc.path.is_none() {
+            Some("first save, Save As and after-delay targets are not supported")
         } else {
             match &self.lsp {
                 None => Some("no native language server"),
@@ -333,6 +336,7 @@ impl App {
         let doc = self
             .documents
             .iter()
+            .chain(&self.hidden_documents)
             .find(|doc| doc.id == run.proof.document)
             .context("Save model was closed")?;
         let staged = save_action_edits::stage(
@@ -359,6 +363,7 @@ impl App {
         let doc = self
             .documents
             .iter_mut()
+            .chain(&mut self.hidden_documents)
             .find(|doc| doc.id == run.proof.document)
             .context("Save model was closed")?;
         doc.apply_changes(staged.changes);
@@ -372,7 +377,7 @@ impl App {
             .lsp
             .as_mut()
             .context("Native server disconnected")?
-            .sync(&self.documents)
+            .sync_retained(&self.documents, &self.hidden_documents)
         {
             run.source_failed = true;
             return Err(error);
@@ -402,10 +407,11 @@ impl App {
                     run.family = run.plan.families.len();
                     break;
                 }
-                client.sync(&self.documents)?;
+                client.sync_retained(&self.documents, &self.hidden_documents)?;
                 let doc = self
                     .documents
                     .iter()
+                    .chain(&self.hidden_documents)
                     .find(|doc| doc.id == run.proof.document)
                     .context("Save model was closed")?;
                 let diagnostics = self
@@ -626,3 +632,6 @@ impl App {
         false
     }
 }
+
+#[cfg(test)]
+mod hidden_tests;

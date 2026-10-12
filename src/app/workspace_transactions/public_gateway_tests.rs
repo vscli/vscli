@@ -38,7 +38,8 @@ exports.activate = context => {
     const originals = documents.map(d => ({ document:d, uri:d.uri.toString(),
       version:d.version, text:d.getText() }));
     assert.deepEqual(originals.map(d => d.text), request.before);
-    const seen = [];
+    const seen = [], saves=[];
+    const saveListener=v.workspace.onDidSaveTextDocument(document=>{if(documents.includes(document)){assert(saves.length<32);assert.equal(document.isDirty,false);saves.push(document.uri.toString());}});
     const listener = v.workspace.onDidChangeTextDocument(event => {
       if (!documents.includes(event.document)) return;
       assert(seen.length < 32, 'bounded actual change trace');
@@ -69,11 +70,13 @@ exports.activate = context => {
             'current native full-document mirror event is exact; incremental change-shape parity is separate');
         });
       }
+      assert.equal(saves.length,request.expectSaves?documents.length:0,'actual save events precede awaited apply success');
+      if(request.expectSaves)documents.forEach(document=>assert.equal(document.isDirty,false));
       request.disks.forEach(file => assert.equal(fs.readFileSync(path.join(root, file.name), 'utf8'), file.text,
         'applyEdit changes no backing file'));
       evidence(request.tag, { applied, texts:documents.map(d => d.getText()),
-        versions:documents.map(d => d.version), seen, dirty:documents.map(d => d.isDirty) });
-    } finally { listener.dispose(); }
+        versions:documents.map(d => d.version), seen, saves, dirty:documents.map(d => d.isDirty) });
+    } finally { listener.dispose(); saveListener.dispose(); }
   }));
   context.subscriptions.push(v.commands.registerCommand('gateway.save', async request => {
     const document = v.workspace.textDocuments.find(d => d.uri.toString() === request.uri);
@@ -96,6 +99,7 @@ struct Fixture {
     b: u64,
     u: u64,
     original_a: String,
+    refactoring_auto_save: Option<bool>,
 }
 impl Fixture {
     fn new(refactoring_auto_save: Option<bool>) -> Self {
@@ -180,6 +184,7 @@ impl Fixture {
             b,
             u,
             original_a,
+            refactoring_auto_save,
         }
     }
     fn doc(&self, id: u64) -> &Document {
@@ -229,11 +234,23 @@ impl Fixture {
             })
             .collect();
         let uris: Vec<_> = ids.iter().map(|id| self.uri(*id)).collect();
+        let expect_saves =
+            applied && refactoring && ids.len() > 1 && self.refactoring_auto_save.unwrap_or(true);
+        let disk_a = ids
+            .iter()
+            .position(|id| *id == self.a)
+            .filter(|_| expect_saves)
+            .map_or_else(|| A.to_owned(), |index| after[index].clone());
+        let disk_b = ids
+            .iter()
+            .position(|id| *id == self.b)
+            .filter(|_| expect_saves)
+            .map_or_else(|| B.to_owned(), |index| after[index].clone());
         self.app.execute(
             APPLY,
             json!({"tag":tag,"uris":uris,"prefixes":prefixes,
-            "before":before,"after":after,"refactoring":refactoring,"applied":applied,
-            "disks":[{"name":"a.txt","text":A},{"name":"b.txt","text":B}]}),
+            "before":before,"after":after,"refactoring":refactoring,"applied":applied,"expectSaves":expect_saves,
+            "disks":[{"name":"a.txt","text":disk_a},{"name":"b.txt","text":disk_b}]}),
         );
     }
     fn await_record(&mut self, tag: &str) -> Value {
@@ -438,24 +455,42 @@ fn public_one_resource_refactoring_uses_native_grouped_edit_without_autosave_und
 }
 
 #[test]
-fn public_multi_resource_refactoring_default_refusal_preserves_all_native_sources() {
+fn public_multi_resource_refactoring_default_waits_for_actual_saves_and_preserves_grouped_history()
+{
     for policy in [None, Some(true)] {
         let mut fixture = Fixture::new(policy);
-        let a = fixture.a;
-        let b = fixture.b;
-        let source_a = fixture.doc(a).capture_workspace_source().unwrap();
-        let source_b = fixture.doc(b).capture_workspace_source().unwrap();
-        fixture.issue("refactoring", &[a, b], &["R ", "R "], true, false);
+        let (a, b) = (fixture.a, fixture.b);
+        fixture.issue("refactoring", &[a, b], &["R ", "R "], true, true);
         let record = fixture.await_record("refactoring");
-        assert_eq!(record["applied"], false);
+        assert_eq!(record["applied"], true);
+        assert_eq!(record["saves"].as_array().unwrap().len(), 2);
+        assert_eq!(fixture.app.workspace_transactions.worker.next, 1);
+        assert!(!fixture.app.native_save_worker_busy());
+        let after_a = format!("R {}", fixture.original_a);
+        let after_b = format!("R {B}");
         assert_eq!(
-            fixture.app.workspace_transactions.worker.next, 0,
-            "Unimplemented multi-resource autosave never starts partial preparation"
+            fs::read(fixture.root.join("a.txt")).unwrap(),
+            after_a.as_bytes()
         );
-        assert!(source_a.current(fixture.doc(a)));
-        assert!(source_b.current(fixture.doc(b)));
-        assert_eq!(fixture.doc(fixture.u).text.to_string(), U);
-        fixture.disks_original();
+        assert_eq!(
+            fs::read(fixture.root.join("b.txt")).unwrap(),
+            after_b.as_bytes()
+        );
+        assert!(!fixture.doc(a).dirty());
+        assert!(!fixture.doc(b).dirty());
+        assert_eq!(fixture.doc(fixture.u).text, U);
+        fixture.app.execute("undo", Value::Null);
+        assert_eq!(fixture.doc(a).text, fixture.original_a);
+        assert_eq!(fixture.doc(b).text, B);
+        assert!(fixture.doc(a).dirty());
+        assert!(fixture.doc(b).dirty());
+        assert_eq!(
+            fs::read(fixture.root.join("b.txt")).unwrap(),
+            after_b.as_bytes()
+        );
+        fixture.app.execute("redo", Value::Null);
+        assert!(!fixture.doc(a).dirty());
+        assert!(!fixture.doc(b).dirty());
     }
 }
 

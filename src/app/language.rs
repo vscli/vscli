@@ -76,7 +76,9 @@ impl App {
         let Some(client) = self.lsp.as_mut() else {
             return false;
         };
-        let events = client.sync(&self.documents).and_then(|_| client.poll());
+        let events = client
+            .sync_retained(&self.documents, &self.hidden_documents)
+            .and_then(|_| client.poll());
         match events {
             Err(error) => {
                 self.language_service_failed(&format!("{error:#}"));
@@ -201,14 +203,16 @@ impl App {
                     .into();
             return;
         };
-        match client.sync(&self.documents).and_then(|_| {
-            client.request_in_view(
-                method,
-                &self.documents[self.active],
-                extra,
-                self.panes.get(self.active_pane).map(|pane| pane.id),
-            )
-        }) {
+        match client
+            .sync_retained(&self.documents, &self.hidden_documents)
+            .and_then(|_| {
+                client.request_in_view(
+                    method,
+                    &self.documents[self.active],
+                    extra,
+                    self.panes.get(self.active_pane).map(|pane| pane.id),
+                )
+            }) {
             Ok(()) => self.message = format!("Language request: {method}"),
             Err(error) => self.message = format!("Language request failed: {error:#}"),
         }
@@ -216,7 +220,7 @@ impl App {
     pub(super) fn language_saved_snapshot(&mut self, path: &Path, committed: &ropey::Rope) {
         if let Some(client) = self.lsp.as_mut()
             && let Err(error) = client
-                .sync(&self.documents)
+                .sync_retained(&self.documents, &self.hidden_documents)
                 .and_then(|_| client.saved_snapshot(path, committed))
         {
             self.message = format!("File saved; language server notification failed: {error:#}");

@@ -69,8 +69,12 @@ settings/profile changes, workspace changes and server replacement invalidate
 old participant authorization. Unsaved work is retained and requires a fresh Save.
 Switching panes alone cannot redirect the accepted Save to another document.
 Escape retires unapproved participants and deferred close intent; filesystem writes
-already authorized retain the existing persistence semantics. Save As, first saves
-and hidden-target source actions skip with an explicit notice in this slice.
+already authorized retain the existing persistence semantics. Save As and first
+saves skip with an explicit notice. Named hidden targets now run source actions
+against their original synchronized native model, without being shown. Three
+actual framed LSP tests pass for hidden actions→formatting→save, stale edit→Undo
+replies, and cancellation retaining actual callback occupancy. See
+[refactoring saves](REFACTORING_SAVES_API.md) for the new multi-target continuation.
 
 The strict edit limits are 4096 edits per action, 4 MiB cumulative raw/expanded
 replacement text and 32 MiB final origin text. Discovery admits at most 300 items

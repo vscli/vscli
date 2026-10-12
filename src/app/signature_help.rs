@@ -715,7 +715,7 @@ impl App {
                 let doc = &self.documents[self.active];
                 let client = self.lsp.as_mut().unwrap();
                 client
-                    .sync(&self.documents)
+                    .sync_retained(&self.documents, &self.hidden_documents)
                     .and_then(|_| {
                         client.request_signature_help(
                             doc,

@@ -69,15 +69,27 @@ and unsupported schemes require their actual backends. A mixed unsupported edit
 must refuse as a whole rather than apply its text subset. These remain explicit
 dependencies of the full API goal.
 
-Native F2 respects refactoring save policy. The qualified multi-resource workflow
-sets `files.refactoring.autoSave: false`, preserving dirty working copies and
-original disk bytes. A separate single-resource workflow leaves the default
-policy intact and checks that it does not autosave. Genuine default multi-resource
-refactoring autosave, its receipts/conflicts/SaveAs continuations, and disk-history
-semantics are not qualified by these tests; that owned save cohort remains a
-separate integration obligation.
+Native F2 now respects the implemented
+[refactoring save continuation](REFACTORING_SAVES_API.md). Default/exact-true root
+policy saves involved dirty models for a multi-resource text operation through
+actual native interests and receipts. Explicit false keeps the operation unsaved;
+a single-resource operation remains unsaved under default policy. Text publication
+precedes persistence, so post-publication save failures retain applied changes
+with warnings and successful peer writes. F2's final completion follows the
+entire cohort rather than the first saved source.
 
-## Executed integrity checks
+The earlier rename workflows below qualify autosave-off multi-resource rename
+and single-resource default behavior. For the new continuation, 719 host and
+1,389 Rust all-target tests pass across 67 reports, including 1,040 library tests;
+23 ignored cases grant no qualification. All seven selected-extension tests and
+seven PTY journeys in the new refactoring-save suite pass, including default F2,
+whole-cohort save completion and committed-disk Undo/Redo behavior. Fresh build,
+global formatting and strict locked all-target Clippy pass. Fresh existing
+rename, direct-save and native save-participant terminal regressions also pass.
+The combined current qualification includes 34 terminal journeys; exact script
+counts are in [the refactoring save contract](REFACTORING_SAVES_API.md).
+
+## Earlier executed rename integrity checks
 
 `tests/fixtures/rename-provider-extension` is a selected synthetic extension using
 real mirrored documents, public registration, callbacks and cancellation tokens.
@@ -124,7 +136,7 @@ These LSP response contracts are described in the official
 
 Bounds and unsupported operations are native adaptations, not a claim of complete
 VS Code parity. Broader word patterns, every resource scheme, full value backends,
-autosave and platform/package qualification remain separately recorded.
+broader autosave semantics and platform/package qualification remain separately recorded.
 
 Fourteen focused native transaction tests cover unopened loading, dirty canonical
 aliases, no-op model publication, bounded admission, target receipts, cancellation
@@ -142,7 +154,7 @@ staleness. The peer records client responses to malformed server requests rather
 than echoing them as invented rename completion; both protocol barriers must be
 observed before checking retained capacity.
 
-At this milestone **714 host tests and 1,361 Rust all-target tests pass**, including
+At the preceding rename milestone **714 host tests and 1,361 Rust all-target tests passed**, including
 1,019 library tests across 66 reports; 23 ignored cases grant no qualification.
 Build, `cargo fmt --all --check` and strict all-target locked Clippy pass. Nineteen
 actual terminal journeys pass: six rename, one installed-clangd rename, one

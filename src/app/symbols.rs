@@ -233,13 +233,15 @@ impl App {
             };
             return;
         }
-        let result = client.sync(&self.documents).and_then(|_| {
-            if self.symbols.workspace {
-                client.workspace_symbols(&self.symbols.query)
-            } else {
-                client.request_document_symbols(&self.documents[self.active])
-            }
-        });
+        let result = client
+            .sync_retained(&self.documents, &self.hidden_documents)
+            .and_then(|_| {
+                if self.symbols.workspace {
+                    client.workspace_symbols(&self.symbols.query)
+                } else {
+                    client.request_document_symbols(&self.documents[self.active])
+                }
+            });
         self.symbols.pending = result.is_ok();
         self.symbols.queued = false;
         self.symbols.changed = None;

@@ -26,6 +26,7 @@ mod outline;
 mod panes;
 mod preview_tabs;
 mod provider_navigation;
+mod refactoring_saves;
 mod rename;
 mod save_code_actions;
 mod save_formatting;
@@ -871,6 +872,7 @@ impl App {
         changed |= self.poll_extensions();
         changed |= self.poll_extension_activation();
         changed |= self.poll_extension_providers();
+        changed |= self.poll_refactoring_saves();
         changed |= self.poll_rename();
         changed |= self.poll_extension_surfaces();
         changed |= self.poll_snippet();

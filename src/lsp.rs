@@ -468,6 +468,14 @@ impl Client {
         Ok((id, next))
     }
     pub fn sync(&mut self, documents: &[Document]) -> Result<()> {
+        self.sync_documents(documents.iter())
+    }
+    /// Retained hidden models share their actual document/server identity with
+    /// visible models; save participants must not open copies or show editors.
+    pub fn sync_retained(&mut self, documents: &[Document], hidden: &[Document]) -> Result<()> {
+        self.sync_documents(documents.iter().chain(hidden))
+    }
+    fn sync_documents<'a>(&mut self, documents: impl Iterator<Item = &'a Document>) -> Result<()> {
         if !self.ready {
             return Ok(());
         }
@@ -3164,3 +3172,7 @@ mod action_lane_tests;
 #[cfg(test)]
 #[path = "lsp/group_view_tests.rs"]
 mod group_view_tests;
+
+#[cfg(test)]
+#[path = "lsp/retained_tests.rs"]
+mod retained_tests;

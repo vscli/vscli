@@ -307,3 +307,37 @@ test('negotiated malformed target mappings never release actual native request c
   assert.equal(queue.settle({id:frames[0].id,result:{applied:true,targets:[{uri,document:3}]}}),true);
   assert.deepEqual(await pending,{applied:true,targets:[{uri,document:3}]});
 });
+
+test('negotiated default multi-resource refactoring waits for actual native save receipt',async()=>{
+  const wait=deferred();let f=fixture(()=>wait.promise),settled=false;f.model.unopenedEdits=true;f.model.refactoringSaves=true;
+  const value=edit();value.insert(b,new Position(0,0),'peer');
+  const pending=f.api.applyEdit(value,{isRefactoring:true}).then(value=>{settled=true;return value;});
+  await new Promise(done=>setImmediate(done));assert.equal(settled,false);assert.equal(f.calls.length,1);
+  assert.equal(f.calls[0][2].refactoringSave,true);assert.equal(f.calls[0][2].targetReceipts,true);
+  wait.resolve({applied:true,targets:[{uri:a.toString(),document:1},{uri:b.toString(),document:2}]});assert.equal(await pending,true);
+});
+test('actual Save As receipt permits exactly the negotiated original untitled mirror transition',async()=>{
+  const destination=Uri.file('/tmp/refactoring-猫.cpp');let f;
+  f=fixture(()=>{f.mirrors.set(2,{document:2,version:1,uri:destination.toString(),model:{},savedGeneration:1});return {applied:true,targets:[{uri:a.toString(),document:1},{uri:b.toString(),document:2,savedResource:destination.toString(),savedGeneration:1}]};});
+  f.model.unopenedEdits=true;f.model.refactoringSaves=true;const value=edit();value.insert(b,new Position(0,0),'peer');assert.equal(await f.api.applyEdit(value,{isRefactoring:true}),true);
+});
+test('refactoring save failure notice preserves native applied true and intact source objects',async()=>{
+  const f=fixture(()=>({applied:true,reason:'peer conflict; edits remain applied',targets:[{uri:a.toString(),document:1},{uri:b.toString(),document:2}]}));f.model.unopenedEdits=true;f.model.refactoringSaves=true;
+  const value=edit();value.insert(b,new Position(0,0),'peer');assert.equal(await f.api.applyEdit(value,{isRefactoring:true}),true);assert.match(f.notices[0][1],/peer conflict/);assert.equal(value.get(a)[0].newText,'λ');
+});
+test('post-publication refactoring and ordinary apply keep distinct acknowledgement clocks and retained capacity',async()=>{
+  const frames=[],clocks=[],timers={setTimeout(callback,ms){clocks.push(ms);return {callback,ms};},clearTimeout(){}},queue=createNativeRequests(frame=>frames.push(frame),()=>null,timers);
+  const entries=[{uri:a.toString(),document:1},{uri:b.toString(),document:2}];
+  const pending=queue.request('nativeWorkspaceApplyEdit',{args:{targetReceipts:true,refactoringSave:true,entries,metadata:{isRefactoring:true}}});pending.catch(()=>{});
+  assert.equal(clocks[0],360000);
+  assert.equal(queue.settle({id:frames[0].id,result:{applied:true,targets:entries.map(row=>({...row,extra:1}))}}),false);
+  assert.equal(queue.settle({id:frames[0].id,result:{applied:true,targets:entries.map(row=>({...row}))}}),true);assert.equal((await pending).applied,true);
+  const normal=queue.request('nativeWorkspaceApplyEdit',{args:{targetReceipts:true,refactoringSave:false,entries,metadata:{isRefactoring:false}}});assert.equal(clocks[1],5000);queue.settle({id:frames[1].id,result:{applied:false}});assert.equal((await normal).applied,false);
+});
+test('Save As mapping requires actual paired receipt fields, original untitled ID and published save generation',async()=>{
+  const destination=Uri.file('/tmp/refactoring.cpp'),value=edit();value.insert(b,new Position(0,0),'peer');
+  for(const malformed of [{savedResource:destination.toString()},{savedGeneration:1},{savedResource:destination.toString(),savedGeneration:0},{savedResource:'notes:/custom',savedGeneration:1}]){
+    const f=fixture(()=>({applied:true,targets:[{uri:a.toString(),document:1},{uri:b.toString(),document:2,...malformed}]}));f.model.unopenedEdits=true;f.model.refactoringSaves=true;await assert.rejects(f.api.applyEdit(value,{isRefactoring:true}),/acknowledgement/);
+  }
+  const missing=fixture(()=>({applied:true,targets:[{uri:a.toString(),document:1},{uri:b.toString(),document:2,savedResource:destination.toString(),savedGeneration:1}]}));missing.model.unopenedEdits=true;missing.model.refactoringSaves=true;await assert.rejects(missing.api.applyEdit(value,{isRefactoring:true}),/not published/);
+});

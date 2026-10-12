@@ -113,8 +113,10 @@ committed Rope independently of newer live text. Serialization runs on the bound
 transport writer; oversize escaping cannot publish a partial frame. Four framed
 subprocess tests qualify capability forms, snapshot ownership, lifecycle guards
 and overflow recovery. Native asynchronous Save/Save As now routes receipts
-through this snapshot-aware notification path. Broader save participants, dynamic
-registration and one extension save event per disk commit remain unqualified;
+through this snapshot-aware notification path. Native synchronization now retains
+hidden models for save actions/formatters and sends their owned didChange before
+disk capture; focused framed tests cover that path. Broader extension save
+participants, dynamic registration and one extension save event per disk commit remain unqualified;
 the current mirror can coalesce multiple commits. See
 [native language-server behavior](USAGE.md#language-servers) and the
 [save automation boundary](SAVE_AUTOMATION_PLAN.md).
@@ -448,6 +450,16 @@ version ownership. Initial untouched empty Untitled documents remain clean.
 The [rename provider milestone](RENAME_PROVIDERS_API.md) adds public prepare/execute
 queries, original F2 preparation and atomic grouped text edits across dirty, shared,
 hidden and unopened local files. Rich query values are retained independently of
-native application. Default multi-resource autosave and resource/snippet/EOL/
-annotation/notebook apply backends remain unfinished; full rename/API parity is
-not claimed. The independent native LSP route requires no Node runtime.
+native application. Default multi-resource text refactorings now use a
+[native save continuation](REFACTORING_SAVES_API.md) under the exact-true root
+policy, including actual hidden LSP participants and owned Save As transitions.
+Post-publication save failure retains applied edits and successful peer commits
+with a warning. Resource/snippet/EOL/annotation/notebook apply backends and
+extension save participants remain unfinished; full rename/API parity is not
+claimed. Current save-continuation evidence is 719 host and 1,389 Rust all-target tests
+passing across 67 reports (1,040 library tests; 23 ignored cases grant no
+qualification), including 20 focused native cases. Seven selected API tests and
+seven PTY journeys pass, as do fresh build, formatting and strict locked all-target
+Clippy. Fresh rename/direct-save/native save-participant terminal regressions
+also pass, for 34 terminal journeys combined; exact script counts remain in the
+refactoring save contract. The independent native LSP route requires no Node runtime.

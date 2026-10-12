@@ -54,4 +54,6 @@ The native automatic suggestion controller retains one latest queued context and
 queries and original F2. Query values retain full rich edit DTOs; native application
 currently admits atomic plain-text cohorts including unopened files. Unsupported
 resource/snippet/EOL/annotation/notebook edits refuse as a whole. Default
-multi-resource refactoring autosave remains an explicit backend obligation.
+multi-resource text refactorings now continue through [native saves](REFACTORING_SAVES_API.md),
+including hidden native LSP participants and real Save As; complete extension
+save participants and rich native apply backends remain outstanding.

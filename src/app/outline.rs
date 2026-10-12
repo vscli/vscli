@@ -514,7 +514,7 @@ impl App {
             Source::Native(instance) => {
                 let client = self.lsp.as_mut().unwrap();
                 client
-                    .sync(&self.documents)
+                    .sync_retained(&self.documents, &self.hidden_documents)
                     .and_then(|()| client.request_document_symbols(&self.documents[self.active]))
                     .map(|token| Call::Native {
                         token,

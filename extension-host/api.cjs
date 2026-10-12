@@ -81,6 +81,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   }, {
     snapshots: () => workspaceEditMirrors.values(), snapshot: id => workspaceEditMirrors.get(id),
     unopenedEdits:sessionOptions.workspaceUnopenedEdits===true,
+    refactoringSaves:sessionOptions.workspaceRefactoringSaves===true&&sessionOptions.workspaceUnopenedEdits===true,
     captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
     refactoringPolicy: () => ({ identity: workspaceEditConfigurationIdentity,
       autoSave: configuration.get('files.refactoring').get('autoSave', true) }),

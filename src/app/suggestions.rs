@@ -224,7 +224,7 @@ impl App {
                 } else {
                     let doc = &self.documents[self.active];
                     let client = self.lsp.as_mut().context("Language server is not ready")?;
-                    client.sync(&self.documents)?;
+                    client.sync_retained(&self.documents, &self.hidden_documents)?;
                     let token = client.request_completion(
                         doc,
                         extra,

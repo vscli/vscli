@@ -8,16 +8,20 @@ const { captureWorkspaceEntries } = require('./edit-values.cjs');
 const coordinates = require('./coordinates.cjs');
 const createUri = Uri.from, formatUri = Uri.prototype.toString;
 const MAX_TARGETS = 128, MAX_EDITS = 4096, MAX_RAW = 1024 * 1024, MAX_WIRE = 2 * MAX_RAW;
-function isApplyEditResult(value, expectedTargets) {
+function isApplyEditResult(value, expectedTargets,refactoringSave=false) {
   if(!value||typeof value!=='object'||Array.isArray(value)||typeof value.applied!=='boolean'||Object.keys(value).some(key=>!['applied','reason',...(expectedTargets?['targets']:[])].includes(key))||value.reason!==undefined&&(typeof value.reason!=='string'||value.reason.length>4096||Buffer.byteLength(value.reason)>4096))return false;
   if(!expectedTargets)return true;
   if(!value.applied)return value.targets===undefined;
   if(!Array.isArray(value.targets)||value.targets.length!==expectedTargets.size||value.targets.length>128)return false;
   const ids=new Set(),uris=new Set();
   for(const target of value.targets){
-    if(!target||typeof target!=='object'||Array.isArray(target)||Object.keys(target).length!==2||Object.keys(target).some(key=>!['uri','document'].includes(key))||typeof target.uri!=='string'||target.uri.length>4096||Buffer.byteLength(target.uri)>4096||!expectedTargets.has(target.uri)||!Number.isSafeInteger(target.document)||target.document<=0||ids.has(target.document)||uris.has(target.uri))return false;
+    if(!target||typeof target!=='object'||Array.isArray(target)||Object.keys(target).some(key=>!['uri','document',...(refactoringSave?['savedResource','savedGeneration']:[])].includes(key))||typeof target.uri!=='string'||target.uri.length>4096||Buffer.byteLength(target.uri)>4096||!expectedTargets.has(target.uri)||!Number.isSafeInteger(target.document)||target.document<=0||ids.has(target.document)||uris.has(target.uri))return false;
     const original=expectedTargets.get(target.uri);
     if(original!==undefined&&original!==target.document)return false;
+    if(target.savedResource!==undefined||target.savedGeneration!==undefined){
+      if(!refactoringSave||original===undefined||typeof target.savedResource!=='string'||target.savedResource.length>4096||Buffer.byteLength(target.savedResource)>4096||!Number.isSafeInteger(target.savedGeneration)||target.savedGeneration<=0)return false;
+      try{const from=Uri.parse(target.uri,true),to=Uri.parse(target.savedResource,true);if(from.scheme!=='untitled'||to.scheme!=='file'||to.query||to.fragment||to.authority&&to.authority!=='localhost')return false;}catch{return false;}
+    }
     ids.add(target.document);uris.add(target.uri);
   }
   return true;
@@ -111,8 +115,9 @@ function createWorkspaceEdits(call, options, model) {
       const isRefactoring = !!(metadata?.isRefactoring ?? false);
       // Pinned bulk-edit autosave runs only for multiple affected resources.
       // A one-resource refactoring uses the ordinary unsaved text transaction.
-      if (isRefactoring && policy.autoSave === true && groups.size > 1) unsupported ||= 'Refactoring automatic save requires a native backend; disable files.refactoring.autoSave to apply text edits';
-      const args = { entries: [...groups.values()], metadata: { isRefactoring }, ...(model.unopenedEdits?{targetReceipts:true}:{}) };
+      if (isRefactoring && policy.autoSave === true && groups.size > 1 && !model.refactoringSaves) unsupported ||= 'Refactoring automatic save requires a native backend; disable files.refactoring.autoSave to apply text edits';
+      const refactoringSave=isRefactoring&&policy.autoSave===true&&groups.size>1;
+      const args = { entries: [...groups.values()], metadata: { isRefactoring }, ...(model.refactoringSaves?{refactoringSave}:{}), ...(model.unopenedEdits?{targetReceipts:true}:{}) };
       const expectedTargets=model.unopenedEdits?new Map([...groups.values()].map(group=>[group.uri,group.document])):undefined;
       // Measurement sees only our primitive DTO, never user toJSON/getters.
       const serialized = JSON.stringify(args);
@@ -143,17 +148,20 @@ function createWorkspaceEdits(call, options, model) {
       const result = await call(owner, 'nativeWorkspaceApplyEdit', args);
       // Original caller retirement rejects without reacquiring a renewed lease.
       guard();
-      if (!isApplyEditResult(result,expectedTargets)) throw new Error('Invalid native workspace edit acknowledgement');
+      if (!isApplyEditResult(result,expectedTargets,refactoringSave&&model.refactoringSaves)) throw new Error('Invalid native workspace edit acknowledgement');
       // Do not require the edit object/config to stay immutable during an async
       // request. The submitted immutable DTO is authoritative after dispatch.
       // The exact mirror model/URI must survive; own native edits may advance it.
       if (result.applied) for (const group of groups.values()) {
-        const id=expectedTargets?result.targets.find(target=>target.uri===group.uri).document:group.document;
+        const receipt=expectedTargets?result.targets.find(target=>target.uri===group.uri):undefined;
+        const id=receipt?.document??group.document;
         const original=mirrors.get(group.uri)??[...mirrors.values()].find(value=>value.document===id);
         const current=model.snapshot(id);
         if(!current||current.document!==id||!current.model||!Number.isSafeInteger(current.version)||current.version<=0||current.isClosed)throw new Error('Native workspace edit mirrors were not published before acknowledgement');
         if(original){
-          if(current.document!==original.document||current.model!==original.model||current.uri!==original.uri||current.version<original.version)throw new Error('Native workspace edit mirror identity changed before acknowledgement');
+          if(receipt?.savedResource!==undefined){
+            if(current.document!==original.document||current.uri!==receipt.savedResource||!Number.isSafeInteger(current.savedGeneration)||current.savedGeneration<receipt.savedGeneration)throw new Error('Native refactoring Save As transition was not published before acknowledgement');
+          }else if(current.document!==original.document||current.model!==original.model||current.uri!==original.uri||current.version<original.version)throw new Error('Native workspace edit mirror identity changed before acknowledgement');
         }else{
           const parsed=Uri.parse(current.uri,true);
           if(parsed.scheme!=='file'||parsed.query||parsed.fragment||current.isReadonly)throw new Error('Native unopened target mirror is not a writable local file');

@@ -2,7 +2,10 @@
 //! The public JavaScript TextDocument.save hook is a separate adoption step.
 use super::*;
 use std::{
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -10,13 +13,38 @@ const INTERESTS: usize = 8;
 const PREAUTH: Duration = Duration::from_secs(30);
 const PATH_WAIT: Duration = Duration::from_secs(300);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
+struct RefactoringCaller {
+    cohort: u64,
+    owner_lifetime: Arc<AtomicBool>,
+    cohort_retired: Arc<AtomicBool>,
+}
+#[derive(Clone, Debug)]
 pub(in crate::app) struct Caller {
     pub(in crate::app) session: u64,
     pub(in crate::app) request: String,
     pub(in crate::app) owner: String,
     native_host: bool,
+    refactoring: Option<RefactoringCaller>,
 }
+impl PartialEq for Caller {
+    fn eq(&self, other: &Self) -> bool {
+        self.session == other.session
+            && self.request == other.request
+            && self.owner == other.owner
+            && self.native_host == other.native_host
+            && match (&self.refactoring, &other.refactoring) {
+                (None, None) => true,
+                (Some(a), Some(b)) => {
+                    a.cohort == b.cohort
+                        && Arc::ptr_eq(&a.owner_lifetime, &b.owner_lifetime)
+                        && Arc::ptr_eq(&a.cohort_retired, &b.cohort_retired)
+                }
+                _ => false,
+            }
+    }
+}
+impl Eq for Caller {}
 impl Caller {
     /// Native caller validation MUST precede this constructor. It validates
     /// retention bounds, not whether an extension is actually selected/live.
@@ -35,7 +63,35 @@ impl Caller {
             request: request.into(),
             owner: owner.into(),
             native_host: true,
+            refactoring: None,
         })
+    }
+    /// Private native authority; never fabricates an optional-host origin.
+    pub(in crate::app) fn refactoring(
+        cohort: u64,
+        owner_lifetime: Arc<AtomicBool>,
+        cohort_retired: Arc<AtomicBool>,
+    ) -> Result<Self> {
+        ensure!(
+            cohort != 0
+                && !owner_lifetime.load(Ordering::Acquire)
+                && !cohort_retired.load(Ordering::Acquire),
+            "Native refactoring save caller is missing or retired"
+        );
+        Ok(Self {
+            session: 0,
+            request: String::new(),
+            owner: String::new(),
+            native_host: false,
+            refactoring: Some(RefactoringCaller {
+                cohort,
+                owner_lifetime,
+                cohort_retired,
+            }),
+        })
+    }
+    pub(in crate::app) fn is_refactoring(&self) -> bool {
+        self.refactoring.is_some()
     }
     #[cfg(test)]
     fn fixture(session: u64, request: &str, owner: &str) -> Self {
@@ -44,7 +100,13 @@ impl Caller {
         caller
     }
     fn current(&self, app: &App) -> Result<()> {
-        if self.native_host {
+        if let Some(native) = &self.refactoring {
+            ensure!(
+                !native.owner_lifetime.load(Ordering::Acquire)
+                    && !native.cohort_retired.load(Ordering::Acquire),
+                "Native refactoring save caller retired"
+            );
+        } else if self.native_host {
             app.extension_host
                 .as_ref()
                 .context("Save caller host was stopped/replaced")?
@@ -81,12 +143,14 @@ pub(in crate::app) struct Completion {
     pub(in crate::app) retired: bool,
     pub(in crate::app) receipt: Receipt,
 }
+#[derive(Clone)]
 struct Proof {
     document: u64,
     path: Option<PathBuf>,
     associated_path: Option<PathBuf>,
     untitled_uri: Option<String>,
     epoch: u64,
+    language_epoch: u64,
     revision: u64,
     saved_revision: u64,
     save_generation: u64,
@@ -132,6 +196,7 @@ impl Proof {
             associated_path: doc.associated_path().map(Path::to_owned),
             untitled_uri: doc.untitled_uri().map(str::to_owned),
             epoch: doc.text_epoch(),
+            language_epoch: doc.language_epoch(),
             revision: doc.revision,
             saved_revision: doc.saved_revision,
             save_generation: doc.save_generation(),
@@ -169,10 +234,39 @@ impl Proof {
     fn current(&self, app: &App) -> Result<()> {
         let doc = self.model(app)?;
         ensure!(
-            doc.text_epoch() == self.epoch && doc.revision == self.revision,
+            doc.text_epoch() == self.epoch
+                && doc.language_epoch() == self.language_epoch
+                && doc.revision == self.revision,
             "Save caller text changed before authorization"
         );
         Ok(())
+    }
+}
+/// An immutable original publication proof. Deferred cohort admission consumes
+/// this source instead of capturing newer edits after FIFO/path waiting.
+#[derive(Clone)]
+pub(in crate::app) struct NativeSaveSource {
+    proof: Proof,
+}
+impl NativeSaveSource {
+    pub(in crate::app) fn capture(app: &App, document: u64) -> Result<Self> {
+        let proof = Proof::capture(app, document)?;
+        ensure!(
+            !proof.model(app)?.is_read_only(),
+            "Virtual documents are read-only"
+        );
+        Ok(Self { proof })
+    }
+    pub(in crate::app) fn current(&self, app: &App) -> Result<()> {
+        self.proof.current(app)?;
+        ensure!(
+            !self.proof.model(app)?.is_read_only(),
+            "Virtual documents are read-only"
+        );
+        Ok(())
+    }
+    pub(in crate::app) fn document(&self) -> u64 {
+        self.proof.document
     }
 }
 enum Location {
@@ -231,6 +325,27 @@ impl App {
         caller: Caller,
         document: u64,
     ) -> Result<Admission> {
+        // Public service admission keeps its existing positive origin gates.
+        Caller::new(caller.session, &caller.request, &caller.owner)?;
+        let proof = Proof::capture(self, document)?;
+        self.request_document_save_proof(caller, proof)
+    }
+    pub(in crate::app) fn request_refactoring_save_interest(
+        &mut self,
+        cohort: u64,
+        owner_lifetime: Arc<AtomicBool>,
+        cohort_retired: Arc<AtomicBool>,
+        source: NativeSaveSource,
+    ) -> Result<Admission> {
+        let caller = Caller::refactoring(cohort, owner_lifetime, cohort_retired)?;
+        source.current(self)?;
+        caller.current(self)?;
+        self.request_document_save_proof(caller, source.proof)
+    }
+    pub(in crate::app) fn refactoring_save_capacity(&self) -> bool {
+        self.saving.document_interests.entries.len() < INTERESTS
+    }
+    fn request_document_save_proof(&mut self, caller: Caller, proof: Proof) -> Result<Admission> {
         ensure!(
             !self.saving.shutting_down && self.file_job.is_none(),
             "Persistence is settling or another file operation is active"
@@ -240,18 +355,18 @@ impl App {
             "Document save caller limit reached (8)"
         );
         ensure!(
-            !self
-                .saving
-                .document_interests
-                .entries
-                .iter()
-                .any(|entry| entry.caller.session == caller.session
-                    && entry.caller.request == caller.request),
+            !self.saving.document_interests.entries.iter().any(|entry| {
+                if caller.is_refactoring() {
+                    entry.caller == caller && entry.proof.document == proof.document
+                } else {
+                    !entry.caller.is_refactoring()
+                        && entry.caller.session == caller.session
+                        && entry.caller.request == caller.request
+                }
+            }),
             "Duplicate document save request"
         );
-        // Validate constructor bounds even for an internally constructed DTO.
-        Caller::new(caller.session, &caller.request, &caller.owner)?;
-        let proof = Proof::capture(self, document)?;
+        proof.current(self)?;
         let destination = proof.associated_path.clone();
         let needs_path = proof.path.is_none() && destination.is_none();
         let next = self
@@ -454,6 +569,7 @@ impl App {
             .document_interests
             .entries
             .iter()
+            .filter(|entry| !entry.caller.is_refactoring())
             .map(|entry| (entry.caller.session, entry.caller.owner.clone()))
             .collect();
         for (session, owner) in callers {
@@ -519,7 +635,11 @@ impl App {
             .document_interests
             .entries
             .iter()
-            .filter(|entry| entry.caller.session == session && entry.caller.owner == owner)
+            .filter(|entry| {
+                !entry.caller.is_refactoring()
+                    && entry.caller.session == session
+                    && entry.caller.owner == owner
+            })
             .map(|entry| entry.id)
             .collect();
         for id in ids {
@@ -534,7 +654,9 @@ impl App {
             .document_interests
             .entries
             .iter()
-            .find(|entry| matches!(entry.location, Location::Complete(_)))?;
+            .find(|entry| {
+                !entry.caller.is_refactoring() && matches!(entry.location, Location::Complete(_))
+            })?;
         let Location::Complete(receipt) = &entry.location else {
             unreachable!()
         };
@@ -551,7 +673,9 @@ impl App {
             .document_interests
             .entries
             .iter()
-            .position(|entry| matches!(entry.location, Location::Complete(_)))?;
+            .position(|entry| {
+                !entry.caller.is_refactoring() && matches!(entry.location, Location::Complete(_))
+            })?;
         let entry = self.saving.document_interests.entries.remove(index);
         let Location::Complete(receipt) = entry.location else {
             unreachable!()
@@ -562,6 +686,43 @@ impl App {
             retired: entry.retired,
             receipt,
         })
+    }
+    /// Peek/take only the controller's exact native interest. Other native or
+    /// optional-host terminal receipts retain their occupied acknowledgement slot.
+    pub(in crate::app) fn refactoring_save_completion(
+        &self,
+        interest: Interest,
+    ) -> Option<Completion> {
+        let entry = self
+            .saving
+            .document_interests
+            .entries
+            .iter()
+            .find(|entry| entry.id == interest && entry.caller.is_refactoring())?;
+        let Location::Complete(receipt) = &entry.location else {
+            return None;
+        };
+        Some(Completion {
+            caller: entry.caller.clone(),
+            interest: entry.id,
+            retired: entry.retired
+                || entry.caller.refactoring.as_ref().is_some_and(|native| {
+                    native.owner_lifetime.load(Ordering::Acquire)
+                        || native.cohort_retired.load(Ordering::Acquire)
+                }),
+            receipt: receipt.clone(),
+        })
+    }
+    pub(in crate::app) fn take_refactoring_save_completion(
+        &mut self,
+        interest: Interest,
+    ) -> Option<Completion> {
+        let completion = self.refactoring_save_completion(interest)?;
+        self.saving
+            .document_interests
+            .entries
+            .retain(|entry| entry.id != interest);
+        Some(completion)
     }
     pub(in crate::app) fn document_save_waits_for_host(&self, intent: u64) -> bool {
         self.extension_host.is_none()
@@ -666,6 +827,12 @@ impl App {
             if entry.retired || matches!(entry.location, Location::Complete(_)) {
                 continue;
             }
+            // Native owner retirement marks exact metadata even after worker
+            // authorization; retire_document_save_interest preserves that commit.
+            if entry.caller.is_refactoring() && entry.caller.current(self).is_err() {
+                retire.push(entry.id);
+                continue;
+            }
             let expired = now.saturating_duration_since(entry.started)
                 >= if matches!(entry.location, Location::Path) {
                     PATH_WAIT
@@ -714,3 +881,6 @@ impl App {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod refactoring_tests;

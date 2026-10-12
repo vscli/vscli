@@ -121,7 +121,12 @@ pub(super) struct State {
 impl App {
     pub(super) fn cancel_rename(&mut self) {
         if let Some(run) = self.rename.run.take() {
-            run.lifetime.store(true, Ordering::Release);
+            if !run
+                .transaction
+                .is_some_and(|token| self.workspace_transaction_published(token))
+            {
+                run.lifetime.store(true, Ordering::Release);
+            }
             match run.backend {
                 Backend::Extension { rank, ticket, .. } => {
                     if let Some(host) = &mut self.extension_host {
@@ -156,7 +161,11 @@ impl App {
         host: Option<&crate::extensions::Client>,
     ) {
         let stale = self.rename.run.as_ref().is_some_and(|run| {
-            if run.phase != Phase::Apply {
+            if run.phase != Phase::Apply
+                || run
+                    .transaction
+                    .is_some_and(|token| self.workspace_transaction_published(token))
+            {
                 return false;
             }
             if run.transaction.is_some_and(|token| {
@@ -331,6 +340,12 @@ impl App {
     }
     fn rename_current(&self) -> bool {
         self.rename.run.as_ref().is_some_and(|run| {
+            if run
+                .transaction
+                .is_some_and(|token| self.workspace_transaction_published(token))
+            {
+                return true;
+            }
             run.source.current(self)
                 && !run.lifetime.load(Ordering::Acquire)
                 && self.modal.is_none()
@@ -446,7 +461,7 @@ impl App {
                 if run.phase == Phase::Prepare && !client.rename_preparation_supported() {
                     return self.show_rename_name(default_location(&self.documents[self.active])?);
                 }
-                client.sync(&self.documents)?;
+                client.sync_retained(&self.documents, &self.hidden_documents)?;
                 let name = (run.phase == Phase::Edits).then_some(run.name.as_str());
                 *token = Some(client.request_rename(
                     &self.documents[self.active],
@@ -662,7 +677,10 @@ impl App {
         {
             self.rename.run = None;
             self.message = if done.applied {
-                "Renamed atomically · Undo restores the workspace".into()
+                done.reason.map_or_else(
+                    || "Renamed atomically · Undo restores the workspace".into(),
+                    |reason| format!("Renamed atomically · {reason}"),
+                )
             } else {
                 format!(
                     "Rename rejected; work retained: {}",

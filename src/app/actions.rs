@@ -117,13 +117,15 @@ impl App {
             .take()
             .unwrap();
         let client = self.lsp.as_mut().unwrap();
-        let result = client.sync(&self.documents).and_then(|()| {
-            client.request_code_actions(
-                &self.documents[self.active],
-                extra,
-                self.panes.get(self.active_pane).map(|pane| pane.id),
-            )
-        });
+        let result = client
+            .sync_retained(&self.documents, &self.hidden_documents)
+            .and_then(|()| {
+                client.request_code_actions(
+                    &self.documents[self.active],
+                    extra,
+                    self.panes.get(self.active_pane).map(|pane| pane.id),
+                )
+            });
         match result {
             Ok(token) => self.actions.cohort.as_mut().unwrap().native = Some((token, origin)),
             Err(error) => self.message = format!("Native code action source: {error:#}"),
@@ -235,13 +237,15 @@ impl App {
                 self.actions.cohort.as_mut().unwrap().native_queued =
                     Some((client.identity(), extra));
             } else {
-                let result = client.sync(&self.documents).and_then(|()| {
-                    client.request_code_actions(
-                        &self.documents[self.active],
-                        extra,
-                        self.panes.get(self.active_pane).map(|pane| pane.id),
-                    )
-                });
+                let result = client
+                    .sync_retained(&self.documents, &self.hidden_documents)
+                    .and_then(|()| {
+                        client.request_code_actions(
+                            &self.documents[self.active],
+                            extra,
+                            self.panes.get(self.active_pane).map(|pane| pane.id),
+                        )
+                    });
                 match result {
                     Ok(token) => {
                         self.actions.cohort.as_mut().unwrap().native =

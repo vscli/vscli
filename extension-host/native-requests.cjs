@@ -12,6 +12,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     if (!Number.isSafeInteger(nextId + 1)) return Promise.reject(new Error('Extension request identity exhausted'));
     const save = method === 'nativeDocumentSave', applyEdit = method === 'nativeWorkspaceApplyEdit';
     const findFiles = method === 'nativeFindFiles';
+    const refactoringSave=applyEdit&&params.args?.refactoringSave===true&&params.args?.metadata?.isRefactoring===true;
     const applyTargets=applyEdit&&params.args?.targetReceipts===true?new Map(params.args.entries.map(entry=>[entry.uri,entry.document])):undefined;
     const tabsClose = method === 'nativeTabsClose';
     const virtual = method === 'nativeVirtualDocumentOpen' || method === 'nativeVirtualDocumentChange' || method === 'nativeUntitledDocumentOpen' || method === 'nativeDocumentLanguage' || method === 'nativeEditorSelections';
@@ -40,7 +41,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     // Only internal document-services supplies this exact callback object.
     if (retained && lifecycle) lifecycle.retained = true;
     return new Promise((resolve, reject) => {
-      const call = { resolve, reject, save, applyEdit, applyTargets, findFiles, virtual, editorOperation, expectedEditor, expectedKey, expectedDocument, decoration, snippetOperation, tabsClose, expectedTabKind, expectedTabIds, bytes, terminal: retained ? lifecycle?.onTerminal : undefined, timer: undefined };
+      const call = { resolve, reject, save, applyEdit, applyTargets, refactoringSave, findFiles, virtual, editorOperation, expectedEditor, expectedKey, expectedDocument, decoration, snippetOperation, tabsClose, expectedTabKind, expectedTabIds, bytes, terminal: retained ? lifecycle?.onTerminal : undefined, timer: undefined };
       function release() {
         if (pending.get(id) !== call) return;
         pending.delete(id); serviceBytes -= call.bytes; timers.clearTimeout(call.timer);
@@ -53,7 +54,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
           if (pending.get(id) !== call) return;
           if (!retained) release();
           reject(new Error(tabsClose ? 'Native tab close timed out; outcome is unknown' : save ? 'Native document save acknowledgement timed out; save outcome is unknown' : applyEdit ? 'Native workspace edit acknowledgement timed out; edit outcome is unknown' : findFiles ? 'Native findFiles acknowledgement timed out; search outcome is unknown' : virtual || editorOperation ? 'Native generated document acknowledgement timed out; publication outcome is unknown' : `Native request timed out: ${method}`));
-        }, save || tabsClose || method === 'prompt' ? 360000 : 5000);
+        }, save || refactoringSave || tabsClose || method === 'prompt' ? 360000 : 5000);
         send(frame);
       }
       catch (error) { release(); reject(error); return; }
@@ -78,7 +79,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     // Malformed frames cannot free occupied Save/ApplyEdit work or restart its timer.
     if (call.save && (hasResult === hasError || (hasResult && typeof message.result !== 'boolean') ||
         (hasError && (!message.error || typeof message.error.message !== 'string')))) return false;
-    if (call.applyEdit && (hasResult === hasError || (hasResult && !isApplyEditResult(message.result,call.applyTargets)) ||
+    if (call.applyEdit && (hasResult === hasError || (hasResult && !isApplyEditResult(message.result,call.applyTargets,call.refactoringSave)) ||
         (hasError && (!message.error || typeof message.error.message !== 'string'
           || message.error.message.length > 4096 || Buffer.byteLength(message.error.message) > 4096)))) return false;
     if (call.findFiles && (hasResult === hasError || (hasResult && !isFindFilesResult(message.result)) ||

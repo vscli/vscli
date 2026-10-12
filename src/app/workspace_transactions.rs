@@ -87,6 +87,9 @@ impl Origin {
     pub(crate) fn is_native(&self) -> bool {
         self.native
     }
+    pub(super) fn lifetime(&self) -> Arc<AtomicBool> {
+        self.retired.clone()
+    }
     pub(crate) fn alive(&self) -> bool {
         !self.retired.load(Ordering::Acquire)
     }
@@ -146,6 +149,7 @@ pub(crate) struct Capture {
     inventory: Vec<(MirrorSnapshot, Option<WorkspaceSource>)>,
     retained_bytes: usize,
     target_receipts: bool,
+    refactoring_save: bool,
     context: CaptureContext,
     deadline: Instant,
 }
@@ -155,6 +159,7 @@ struct Prepared {
     new_documents: Vec<Document>,
     targets: Vec<TargetReceipt>,
     target_receipts: bool,
+    refactoring_save: bool,
     inventory: Vec<MirrorSnapshot>,
     context: CaptureContext,
     deadline: Instant,
@@ -166,6 +171,10 @@ struct Prepared {
 pub(crate) struct TargetReceipt {
     pub uri: String,
     pub document: u64,
+    #[serde(rename = "savedResource", skip_serializing_if = "Option::is_none")]
+    pub saved_resource: Option<String>,
+    #[serde(rename = "savedGeneration", skip_serializing_if = "Option::is_none")]
+    pub saved_generation: Option<u64>,
 }
 pub(crate) struct Completion {
     pub token: u64,
@@ -184,11 +193,15 @@ struct Pending {
 pub(crate) struct State {
     worker: Worker,
     pending: Option<Pending>,
-    completed: Option<Completion>,
+    pub(super) completed: Option<Completion>,
+    pub(super) refactoring: Option<super::refactoring_saves::Cohort>,
 }
 impl State {
     pub(crate) fn occupied(&self) -> bool {
-        self.pending.is_some() || self.completed.is_some() || self.worker.active.is_some()
+        self.pending.is_some()
+            || self.completed.is_some()
+            || self.refactoring.is_some()
+            || self.worker.active.is_some()
     }
 }
 struct Actual {
@@ -334,9 +347,10 @@ pub(crate) fn capture_workspace_transaction(
     ensure!(
         args.contains_key("entries")
             && args.contains_key("metadata")
-            && args
-                .keys()
-                .all(|key| matches!(key.as_str(), "entries" | "metadata" | "targetReceipts")),
+            && args.keys().all(|key| matches!(
+                key.as_str(),
+                "entries" | "metadata" | "targetReceipts" | "refactoringSave"
+            )),
         "Unsupported workspace transaction fields"
     );
     let target_receipts = args
@@ -363,12 +377,15 @@ pub(crate) fn capture_workspace_transaction(
         !entries.is_empty() && entries.len() <= MAX_TARGETS,
         "Workspace entries require 1–128 targets"
     );
-    // The pinned bulk-edit service autosaves refactorings only when more than
-    // one resource participates. One resource remains an unsaved transaction.
-    ensure!(
-        !refactoring || !context.refactoring_auto_save || entries.len() == 1,
-        "Multi-resource refactoring autosave requires a qualified save backend"
-    );
+    // Plain text is one performed resource group. Future resource backends
+    // must retain the performed ARRAY count before set deduplication.
+    let refactoring_save = refactoring && context.refactoring_auto_save && entries.len() > 1;
+    if let Some(requested) = args.get("refactoringSave") {
+        ensure!(
+            requested.as_bool() == Some(refactoring_save),
+            "Refactoring save policy differs from original native settings"
+        );
+    }
     // Retain the complete original identity inventory before any worker IO.
     // Canonical aliases can then resolve to dirty hidden/shared models rather
     // than reopening disk content and silently replacing their source.
@@ -541,6 +558,7 @@ pub(crate) fn capture_workspace_transaction(
         inventory,
         retained_bytes: bytes,
         target_receipts,
+        refactoring_save,
         context,
         deadline: now
             .checked_add(DEADLINE)
@@ -647,6 +665,12 @@ impl App {
             self.poll_workspace_transactions();
             std::thread::sleep(Duration::from_millis(5));
         }
+        self.retire_refactoring_saves();
+        while self.workspace_transactions.refactoring.is_some() {
+            self.poll_native_saves();
+            self.poll_refactoring_saves();
+            std::thread::sleep(Duration::from_millis(5));
+        }
         self.workspace_transactions.pending = None;
         self.workspace_transactions.completed = None;
     }
@@ -691,27 +715,64 @@ impl App {
         else {
             return true;
         };
+        let mut refactoring_save = false;
         let result = result.map_err(anyhow::Error::msg).and_then(|prepared| {
             ensure!(
                 pending.origin.alive() && Instant::now() < pending.deadline,
                 "Workspace owner retired or transaction expired"
             );
+            refactoring_save = prepared.refactoring_save;
             self.publish_workspace_transaction(token, prepared)
         });
-        let reason = result
-            .as_ref()
-            .err()
-            .map(|error| bounded_reason(&format!("{error:#}")));
-        let applied = result.is_ok();
-        let (targets, target_receipts) = result.unwrap_or_default();
-        self.workspace_transactions.completed = Some(Completion {
-            token,
-            origin: pending.origin,
-            applied,
-            targets,
-            target_receipts,
-            reason,
-        });
+        match result {
+            Ok((targets, target_receipts)) => {
+                if refactoring_save {
+                    match super::refactoring_saves::Cohort::capture(
+                        self,
+                        token,
+                        pending.origin.clone(),
+                        &targets,
+                        target_receipts,
+                    ) {
+                        Ok(cohort) => {
+                            self.workspace_transactions.refactoring = Some(cohort);
+                            return true;
+                        }
+                        Err(error) => {
+                            self.workspace_transactions.completed = Some(Completion {
+                                token,
+                                origin: pending.origin,
+                                applied: true,
+                                targets,
+                                target_receipts,
+                                reason: Some(bounded_reason(&format!(
+                                    "Refactoring saves could not start; edits remain applied: {error:#}"
+                                ))),
+                            });
+                        }
+                    }
+                } else {
+                    self.workspace_transactions.completed = Some(Completion {
+                        token,
+                        origin: pending.origin,
+                        applied: true,
+                        targets,
+                        target_receipts,
+                        reason: None,
+                    });
+                }
+            }
+            Err(error) => {
+                self.workspace_transactions.completed = Some(Completion {
+                    token,
+                    origin: pending.origin,
+                    applied: false,
+                    targets: Vec::new(),
+                    target_receipts: false,
+                    reason: Some(bounded_reason(&format!("{error:#}"))),
+                });
+            }
+        }
         true
     }
     fn publish_workspace_transaction(
@@ -1052,6 +1113,8 @@ fn prepare(capture: Arc<Capture>, cancel: &AtomicBool) -> Result<Prepared> {
         targets.push(TargetReceipt {
             uri: input.uri.clone(),
             document: source.document(),
+            saved_resource: None,
+            saved_generation: None,
         });
         let mut edits = Vec::new();
         edits
@@ -1106,6 +1169,7 @@ fn prepare(capture: Arc<Capture>, cancel: &AtomicBool) -> Result<Prepared> {
         new_documents,
         targets,
         target_receipts: capture.target_receipts,
+        refactoring_save: capture.refactoring_save,
         inventory: capture
             .inventory
             .iter()

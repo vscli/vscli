@@ -408,6 +408,16 @@ impl App {
             policy: self.settings.auto_save(language),
         });
     }
+    pub(super) fn refactoring_save_lane_available(&self) -> bool {
+        !self.saving.shutting_down
+            && !self.saves_pending()
+            && !self.settings_writes_busy()
+            && self.file_job.is_none()
+            && self.prompt.is_none()
+            && self.modal.is_none()
+            && self.pending.is_none()
+            && self.saving.closing.is_none()
+    }
     pub fn saves_pending(&self) -> bool {
         self.saving.worker.busy() || self.saving.latest.is_some()
     }
@@ -638,8 +648,13 @@ impl App {
                 .iter()
                 .chain(&self.hidden_documents)
                 .find(|doc| doc.id == intent.document)
-                .and_then(|doc| doc.path.as_deref())
-                .map_or("plaintext", crate::languages::language);
+                .map_or("plaintext", |doc| {
+                    doc.language_override().unwrap_or_else(|| {
+                        doc.path
+                            .as_deref()
+                            .map_or("plaintext", crate::languages::language)
+                    })
+                });
             if self.settings.save_formatting(language) != crate::settings::SaveFormatting::Off
                 || (intent.stage == Stage::Actions
                     && self
@@ -760,10 +775,11 @@ impl App {
                     && !matches!(self.modal, Some(Modal::Confirm(_))),
                 "Autosave policy or close ownership changed; automatic save retired"
             );
-            let language = doc
-                .path
-                .as_deref()
-                .map_or("plaintext", crate::languages::language);
+            let language = doc.language_override().unwrap_or_else(|| {
+                doc.path
+                    .as_deref()
+                    .map_or("plaintext", crate::languages::language)
+            });
             ensure!(
                 doc.dirty() && self.settings.auto_save(language) == automatic.proof.policy,
                 "Autosave policy changed; automatic save retired"

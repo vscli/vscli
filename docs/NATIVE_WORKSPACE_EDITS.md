@@ -2,8 +2,8 @@
 
 Selected extensions can call `await vscode.workspace.applyEdit(edit)` with text
 edits for retained native documents and existing unopened local regular files.
-One transaction can edit visible, inactive, hidden and untitled models together. Native preparation runs on a bounded Rust
-worker; all targets are validated and staged before any text changes. The complete
+One transaction can edit visible, inactive, hidden and untitled models together.
+Native preparation runs on a bounded Rust worker; all targets are validated and staged before any text changes. The complete
 mirror is published before change events and the successful awaited Boolean.
 Shared document identities survive the operation.
 
@@ -18,9 +18,10 @@ Existing local regular files can be included directly by URI. A bounded native
 worker loads unopened targets and publishes real hidden models in the same
 atomic cohort. Canonical aliases reuse original retained dirty models. Opening
 with `workspace.openTextDocument` also retains a hidden model without changing
-the active editor. Plain text edits
-change native buffers, preserving their EOL convention; they do not write files.
-Use `await document.save()` for [native persistence](NATIVE_DOCUMENT_SAVE.md).
+the active editor. Ordinary plain text edits change native buffers, preserving
+their EOL convention. Multi-resource refactoring metadata can additionally request
+the [native save continuation](REFACTORING_SAVES_API.md); explicit
+`await document.save()` uses [native persistence](NATIVE_DOCUMENT_SAVE.md).
 Normal native autosave remains governed by its own settings.
 
 Undo or Redo from any changed participant restores the entire cohort, including
@@ -34,20 +35,20 @@ history entry; an empty edit returns false.
 Single-resource `{isRefactoring:true}` edits remain unsaved under default,
 enabled and disabled refactoring autosave settings. This follows the pinned
 [bulk-edit resource-count condition](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/contrib/bulkEdit/browser/bulkEditService.ts#L239-L244).
-Multi-resource refactorings still require the root user/workspace setting
-`"files.refactoring.autoSave": false` until the multi-resource save continuation
-is implemented. Default/enabled policy refuses the whole request with an explicit notice;
-non-Boolean policy values are disabled by the pinned strict `=== true` condition;
-language overrides do not change this root policy.
+Multi-resource refactorings now continue through actual native save interests
+when the root user/workspace setting `files.refactoring.autoSave` is exactly
+Boolean true, with true as the missing-setting default. Explicit false and
+non-Boolean values disable this continuation; language overrides do not change
+this root policy. All involved dirty models, including dirty no-op peers and
+worker-opened files, are considered. Unrelated dirty working copies are excluded.
 
-The policy correction passes all 677 host tests and 24 native workspace
-transaction/gateway tests on an isolated archive of its parent, independently
-of the concurrent workspace-symbol feature. Three new terminal journeys cover
-default/true/false single-resource policy, exact mirror publication, prior dirty
-Unicode CRLF work, native Undo/Redo and explicit Save. The original multi-resource
-workspace-edit terminal journey also passes. Build, formatting and strict
-all-target locked Clippy pass. Reproduce the new terminal checks with
-`python3 tests/extension_single_refactoring_pty.py target/debug/vscli`.
+Workspace text publication remains atomic. Persistence follows publication and
+can partially succeed: a conflict, canceled Save As or stale deferred source
+retains applied true with a warning while successful peer writes stay committed.
+The full save cohort settles before public success or native F2 completion.
+Grouped Undo changes buffers and dirties successfully saved peers without
+rewriting committed disks; Redo returns the saved text clean. See
+[save ownership, transitions and current evidence](REFACTORING_SAVES_API.md).
 
 ## Admission and failure behavior
 
@@ -84,28 +85,31 @@ an independently authorized disk save.
 
 ## Evidence and outstanding qualification
 
-Local checks exercise the actual Rust worker, prepared all-target publication,
-shared view mapping, grouped Undo/Redo, stale source/history proofs, late
-cancellation, inventory growth and coexistence with actual native saves. Real
-selected Node extension tests cover public requests, hidden/untitled targets,
-original identity, all mirrors/events before success, refactoring policy, FIFO
-waiting and host retirement. The terminal journey in
-`tests/extension_workspace_edits_pty.py` exercises a visible and hidden target,
-original Undo/Redo shortcuts, unchanged Unicode/CRLF disk bytes and later public
-saves of both files. The host normalization/lifecycle suite covers 68 workspace
-edit cases. All 428 host tests and 1,120 Rust tests pass, including 866 library tests; 23
-ignored Rust cases grant no qualification. The actual PTY journey, build, format
-check and strict all-target Clippy pass. Totals are also recorded in
-[the API workstream](EXTENSION_API.md).
+Historical retained-text and rename qualification covers actual preparation,
+atomic publication, shared-view mapping, grouped history, original source proofs,
+worker joining, selected optional-host behavior and terminal persistence controls.
+Those earlier totals and terminal runs do not qualify this new save continuation.
 
-This qualifies the documented subset, not full `workspace.applyEdit` parity.
-Change events currently describe full-document mirror replacements rather than
-upstream incremental deltas. Exotic non-Boolean refactoring metadata is projected
-by truthiness rather than reproducing every upstream RPC serialization behavior.
-Broader upstream runtime, Windows/macOS and arbitrary extension qualification
-remain outstanding. No local VS Code process is used. Rust editing, transactions
-and history need no JavaScript runtime; extension invocation uses the isolated
-optional compatibility host.
+For the current refactoring-save changes, 719 host tests and 1,389 Rust all-target
+tests pass across 67 reports, including 1,040 library tests; 23 ignored cases grant
+no qualification. The 20 focused refactoring cases include actual disk workers,
+original deferred text/language proofs and owner/cohort lifetime gates, exact save
+receipts, conflicts and Save As. Four hidden/retained framed LSP cases additionally
+pass in the full suite; three hidden participant cases pass in a focused run. A fresh build, global
+format check and strict locked all-target Clippy pass. Seven selected-extension
+tests and seven terminal journeys pass; their named cases and limits are recorded
+in [the refactoring save contract](REFACTORING_SAVES_API.md). Fresh existing
+rename, direct-save and native save-participant terminal regressions also pass:
+34 terminal journeys in total, with exact script counts in that contract.
+
+This evidence does not establish full `workspace.applyEdit` parity. Change events
+currently describe full-document mirror replacements rather than upstream
+incremental deltas. Exotic non-Boolean refactoring metadata is projected by
+truthiness rather than reproducing every upstream RPC serialization behavior.
+Rich apply backends, extension save participants, broader upstream runtime,
+Windows/macOS and arbitrary extension qualification remain outstanding. No local
+VS Code process is used. Rust editing, transactions, saving and history need no
+JavaScript runtime; extension invocation uses the isolated optional host.
 
 Source contracts use immutable upstream commit
 [`2a59476c9bfcb90b3ddc372c36762471b7dfad1c`](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostBulkEdits.ts)

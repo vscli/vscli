@@ -13,7 +13,7 @@ persistence still retains its worker and publishes the genuine receipt.
 
 The internal `nativeDocumentSave` service connects one retained native document
 ID/version to the existing asynchronous save controller. Admission captures the
-arrival mirror and native path, text epoch, revision, saved baseline, EOL,
+arrival mirror and native path, text/language epochs, revision, saved baseline, EOL,
 settings/profile and workspace ownership. It does not focus or promote an
 inactive or hidden model. The eight-entry caller table retains completed
 receipts until their exact service response enters the bounded transport FIFO.
@@ -55,6 +55,44 @@ response backpressure retains the original receipt. Host shutdown never undoes
 an already authorized disk commit. Service FIFO can delay later extension
 document operations; command/preauthorization deadlines can still end a caller
 while an authorized physical worker remains occupied.
+
+## Refactoring save continuation
+
+Multi-resource text refactorings now reuse this native save pipeline after atomic
+workspace publication. The continuation captures original source proofs for all
+involved dirty models and admits one at a time using private native authority,
+with separate original-owner and cohort lifetime flags. It does not manufacture
+an extension session or owner. Generic extension cleanup and acknowledgements
+cannot consume those native interests or exact receipts.
+
+Native source actions and formatting now synchronize, validate and edit actual
+retained hidden models as well as visible models, with didChange publication
+before disk capture. They preserve same-document source/version/server guards and
+actual callback occupancy after cancellation. Existing first-save, Save As and
+after-delay participant restrictions remain; extension save participants are
+still incomplete.
+
+An involved untitled working copy uses actual Save As persistence. Its native ID
+survives the old-URI closed mirror/new-file-URI opened mirror transition, authorized
+by an actual save receipt and generation. Canceling that save retains the applied
+dirty working copy. A refactoring's already-published text means its final public
+apply result stays true with a warning after save cancellation/conflict, even if
+another peer committed. Direct `TextDocument.save()` keeps its own false/error
+contract described above. Full details and current evidence are in
+[refactoring saves](REFACTORING_SAVES_API.md).
+
+Current continuation qualification is 719 host and 1,389 Rust all-target tests
+passing across 67 reports (1,040 library tests; 23 ignored cases grant no
+qualification), including 20 focused native cases. All seven new selected-extension
+tests and seven new terminal journeys pass, as do fresh build, global format and
+strict locked all-target Clippy checks. Fresh direct-save/rename/native
+save-participant terminal regressions also pass, for 34 combined terminal journeys;
+exact script counts are in the refactoring save contract. The four hidden/retained
+framed LSP cases are qualified by the full suite, with three hidden participant
+cases additionally run in isolation; they are outside the 20-case refactoring
+filter. Historical direct-save evidence below remains separately scoped.
+
+## Earlier direct-save qualification
 
 Virtual/custom filesystem saves, broader encodings and all upstream save
 participants remain incomplete. Existing first-save participant limitations
