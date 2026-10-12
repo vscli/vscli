@@ -3,7 +3,7 @@ const { Uri, TextDocument, Range, Selection } = require('./api-types.cjs');
 const coordinates = require('./coordinates.cjs');
 const {normalizeOptions}=require('./editor-presentation.cjs');
 const path = require('node:path');
-const uriFrom = Uri.from, uriFormat = Uri.prototype.toString, uriParse = Uri.parse;
+const uriFrom = Uri.from, uriFormat = Uri.prototype.toString, uriParse = Uri.parse, uriFile = Uri.file;
 const uriFilePath = Object.getOwnPropertyDescriptor(Uri.prototype, 'fsPath').get;
 const NATIVE_COMMANDS = Object.freeze(['undo', 'redo', 'editor.action.selectAll', 'cursorLeft', 'cursorRight', 'cursorUp', 'cursorDown', 'cursorHome', 'cursorEnd', 'cursorTop', 'cursorBottom']);
 function createDocumentServices(request, options, model) {
@@ -73,8 +73,13 @@ function createDocumentServices(request, options, model) {
       }
       const untitled = !filename;
       if (untitled && !options.untitledDocuments) throw new Error('Native untitled documents are not implemented by this native host');
-      const resource = uri && Reflect.apply(uriFormat, uri, []);
-      if (untitled && resource) {
+      if (filename && Buffer.byteLength(filename) > 16 * 1024) throw new Error('Document path exceeds 16 KiB');
+      const resource = uri ? Reflect.apply(uriFormat, uri, []) : filename
+        ? Reflect.apply(uriFormat, Reflect.apply(uriFile, Uri, [filename]), []) : undefined;
+      // A mirrored file/explicit untitled open returns the original model. It
+      // does not acquire a native reference or renew that reference's lifetime.
+      // Resolve only string paths here; canonical aliases still need native IO.
+      if (resource) {
         const cached = [...prior.values()].find(snapshot => snapshot.uri === resource);
         if (cached) {
           guard();
@@ -83,7 +88,6 @@ function createDocumentServices(request, options, model) {
           return cached.model;
         }
       }
-      if (filename && Buffer.byteLength(filename) > 16 * 1024) throw new Error('Document path exceeds 16 KiB');
       const result = await call(owner, untitled ? 'nativeUntitledDocumentOpen' : 'nativeDocumentOpen', untitled
         ? { uri: resource || null, content, language } : { path: filename });
       guard();

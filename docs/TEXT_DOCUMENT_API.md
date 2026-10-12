@@ -36,6 +36,26 @@ advance rejects instead of looping indefinitely. A single catastrophic JS regex
 cannot be interrupted by the soft budget; it runs in the isolated optional host.
 These are documented limits, not full document/API qualification.
 
+## Cached file opening
+
+`workspace.openTextDocument` returns the original runtime-private model for an
+already mirrored matching file URI or resolved string path. The current dirty
+text survives, no native open request or fresh API acquisition is made, and no
+duplicate open event or focus change occurs. Cached opens remain usable when
+all eight native document service slots are occupied. Caller retirement, model
+replacement during argument getters and unsupported encoding still reject.
+Public document metadata and public URI factory overrides cannot redirect the
+private cache. Canonical aliases continue through native resolution; the cache
+does not collapse URI queries/fragments or share concurrent misses.
+
+Eight new regressions and all 727 host tests pass. Both native document PTY
+journeys pass with an eight-busy-slot cached reopen added to the actual hidden
+open/edit/Undo/Redo/host-crash/recovery/save workflow. Formatting and strict locked
+all-target Clippy pass. Native acquisition expiry and last-tab retention still
+need editor integration; this cache change does not qualify those lifetimes.
+The immutable source contract is
+[ExtHostDocuments.ensureDocumentData](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostDocuments.ts).
+
 [Source receipts](../extension-host/document-types.provenance.json) pin stable
 VS Code 1.141.0 at `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`:
 

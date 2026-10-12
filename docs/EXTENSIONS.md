@@ -137,7 +137,21 @@ close ignores that flag. Welcome retains one actual empty group. All seven stabl
 TabInput constructors are exported; diff, custom editor, webview, notebook and
 terminal tab backends remain outstanding. See [tab behavior and evidence](EDITOR_TABS_API.md).
 
-`workspace.openTextDocument(pathOrFileUri)` reads an existing regular UTF-8 file on a bounded native worker. It returns the same shared document object already retained for that path, including dirty or deleted backing files. Opening a new model alone creates no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden models share the host's existing 4 MiB total mirror budget with visible tabs. Models remain native-owned after host stop or failure. Showing or natively opening one moves its Document identity and undo history into the tab store; native watching and settings also include retained hidden models. Dirty hidden models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean hidden models are excluded from clean-session layout metadata.
+`workspace.openTextDocument(pathOrFileUri)` returns an already mirrored file
+directly, preserving the shared document object and current dirty text without
+another native request or reference acquisition. Relative paths resolve against
+the private workspace root; file URI matches use captured private geometry.
+These cached opens consume no native request slot and emit no duplicate open
+event. Canonical aliases still require native path resolution; URI query and
+fragment namespaces are not guessed equivalent. A cache miss reads an existing
+regular UTF-8 file on a bounded native worker. Opening a new model alone creates
+no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden
+models share the host's existing 4 MiB total mirror budget with visible tabs.
+Models remain native-owned after host stop or failure. Showing or natively
+opening one moves its Document identity and undo history into the tab store;
+native watching and settings also include retained hidden models. Dirty hidden
+models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean
+hidden models are excluded from clean-session layout metadata.
 
 `window.showTextDocument(documentOrFile, options)` and its positional view-column
 overload display the retained model in native groups. Supported options include
@@ -166,6 +180,14 @@ Document, command and storage services use a shared eight-request FIFO within an
 State supports 1,024 keys and 256 KiB per scope, 1 KiB keys, 64 KiB new values, 10,000 JSON values and 32 nesting levels. Generated directories, payloads and locks reject symlinks/nonregular files. State writes grant no extension execution consent. A directory-sync error can be reported after replacement committed; power-loss durability and hostile filesystem races remain unqualified. SecretStorage, storage-URI APIs and `globalState.setKeysForSync` cloud synchronization are not implemented. See [storage integrity details](EXTENSION_STATE.md).
 
 Native and Node fixtures cover activation-time hidden open, event-before-promise ordering, exact document reuse, Unicode/CRLF selection validation, shared pane selection isolation, stale worker replies, bounded queues and malformed arguments, deleted-file alias reuse, dirty hidden recovery, Memento ownership/merging and scope isolation. Two Unix PTY journeys exercise empty welcome → hidden open → same-identity show → native undo/redo → host crash → interruption/recovery/save/undo, followed by persisted global/workspace state after restart. These are synthetic workflows; full document/Memento differential parity and a published extension corpus using these services remain unqualified.
+
+The cached-file continuation passes eight new host regressions and the complete
+727-test host suite. The two native document PTY journeys also pass, including
+reopening the same hidden file while all eight native request slots are busy,
+then editing, Undo/Redo, host crash, dirty recovery and unchanged original disk
+bytes until explicit save. Formatting and strict locked all-target Clippy pass.
+Concurrent cache misses do not yet share a customer-owned loader; broader
+encoding reload and native API-reference lifetime wiring remain outstanding.
 
 ## Native output, status and tree surfaces
 

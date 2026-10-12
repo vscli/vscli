@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createApi } = require('./api.cjs');
+const { Uri } = require('./api-types.cjs');
 test('workspace facade retains getters and folder identity while exposing authoritative single-folder metadata', () => {
   const runtime = createApi(() => {}, () => {}), v = runtime.forExtension('test');
   assert.equal(v.workspace.workspaceFolders, undefined);
@@ -31,12 +32,21 @@ test('unimplemented workspace trust, mutation and native folder events remain ex
 });
 test('extension mutations of public folder URI objects cannot redirect native relative document requests', async () => {
   const root = path.resolve('native-root'), calls = [];
-  const runtime = createApi(async (method, params) => { calls.push([method, params]); return { document: 1 }; }, () => {});
+  const original = { id: 1, uri: Uri.file(path.join(root, 'file.txt')).toString(), version: 1, text: 'preserved', languageId: 'plaintext', isDirty: true };
+  const runtime = createApi(async (method, params) => {
+    calls.push([method, params]);
+    runtime.sync({generation: 2, documents: [original, {id: 2, uri: Uri.file(params.args.path).toString(), version: 1, text: 'new', languageId: 'plaintext', isDirty: false}], active: null, selections: []});
+    return { document: 2 };
+  }, () => {});
   runtime.configure(root, [], []);
   const v = runtime.forExtension('test'), uri = v.Uri.file(path.join(root, 'file.txt'));
-  runtime.sync({ generation: 1, documents: [{ id: 1, uri: uri.toString(), version: 1, text: 'preserved', languageId: 'plaintext', isDirty: true }], active: null, selections: [] });
+  runtime.sync({ generation: 1, documents: [original], active: null, selections: [] });
   v.workspace.workspaceFolders[0].uri.path = '/extension-rewrite';
   const doc = await v.workspace.openTextDocument('file.txt');
-  assert.equal(calls[0][0], 'nativeDocumentOpen'); assert.equal(calls[0][1].args.path, path.join(root, 'file.txt'));
   assert.equal(doc.uri.toString(), uri.toString()); assert.equal(doc.getText(), 'preserved'); assert.equal(doc.isDirty, true);
+  assert.equal(calls.length, 0);
+  const loaded = await v.workspace.openTextDocument('other.txt');
+  assert.equal(calls[0][0], 'nativeDocumentOpen'); assert.equal(calls[0][1].args.path, path.join(root, 'other.txt'));
+  assert.equal(loaded.uri.toString(), Uri.file(path.join(root, 'other.txt')).toString());
+  assert.equal(doc.getText(), 'preserved'); assert.equal(doc.isDirty, true);
 });

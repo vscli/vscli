@@ -27,6 +27,14 @@ exports.activate=async context=>{
  const doc=await vscode.workspace.openTextDocument(vscode.Uri.file(require('node:path').join(vscode.workspace.rootPath,'input.txt')));
  assert.equal(opened,doc); assert.equal(vscode.window.activeTextEditor,undefined); assert.deepEqual(vscode.window.visibleTextEditors,[]);
  assert.equal(doc.getText(),'α😀\r\nsecond');
+ // Fill all eight native request slots before yielding to IO. A cached reopen
+ // must return the original model without needing a ninth native service slot.
+ const missing=Array.from({length:8},(_,i)=>vscode.workspace.openTextDocument(require('node:path').join(vscode.workspace.rootPath,'missing-cache-'+i+'.txt')));
+ const settling=Promise.allSettled(missing);
+ assert.equal(await vscode.workspace.openTextDocument('input.txt',{encoding:'utf8'}),doc);
+ assert.equal(await vscode.workspace.openTextDocument(vscode.Uri.file(require('node:path').join(vscode.workspace.rootPath,'input.txt'))),doc);
+ assert((await settling).every(result=>result.status==='rejected'));
+ assert.equal(opened,doc);assert.equal(vscode.workspace.textDocuments.length,1);
  let closed=0;context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(value=>{if(value===doc)closed++;}));
  function checkHidden(){assert.equal(closed,0);assert.equal(doc.isClosed,false);assert(vscode.workspace.textDocuments.includes(doc));}
  const output=vscode.window.createOutputChannel('Hidden document output');output.appendLine('Hidden document mirror retained');output.show(true);
@@ -107,7 +115,7 @@ def run(root):
     recovered.send(CTRL_Z)
     save(recovered, file, original)
     recovered.finish()
-    print('PASS: welcome hidden open → output/status/tree mirror preservation → shared identity show → delegated undo/redo → host crash → dirty recovery/save/undo')
+    print('PASS: welcome hidden open → cached reopen with eight busy native slots → output/status/tree mirror preservation → shared identity show → delegated undo/redo → host crash → dirty recovery/save/undo')
     restarted = Editor(root, *args, '--extension', extension, recovery=True, enhanced=True)
     wait(restarted, '(4 commands)')
     wait(restarted, 'No open editors')
