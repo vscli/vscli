@@ -23,8 +23,8 @@ new behavior without changing those counts. There is no measured overall API
 compatibility percentage. The frozen declaration audit is a separate source
 snapshot, not a live implementation dashboard.
 
-The separate committed-runtime-name check currently finds **127 of 421 unique
-runtime declaration names (30.17%)** in committed milestone `7af9165`. It excludes
+The separate committed-runtime-name check currently finds **128 of 421 unique
+runtime declaration names (30.40%)** in committed milestone `722a0a7`. It excludes
 322 type-only declarations and collapses repeated overload names. This measures
 name presence only: constructors, members, overload behavior and native backends
 remain unqualified by this check. It is not a percentage of implemented or fully
