@@ -57,6 +57,8 @@ The reference is VS Code 1.141.0 immutable commit
    shared panes, text history, path/language/baseline changes and recovery. Perform
    ordered text/file groups without stale asynchronous text publication. Publish
    genuine URI close/open, editor, watcher and LSP transitions before success.
+   Destination reuse and API-reference provenance are conditional, not a universal
+   source-close/new-target-open rule. See [model lifetime contracts](RESOURCE_MODEL_LIFETIMES.md).
 5. Negotiate the optional host gateway, retaining original version suppression,
    caller/configuration proofs, options and receipt shape. Extend original F2/LSP
    resource edits through the same controller. Count performed resource arrays
@@ -78,11 +80,25 @@ and shutdown joining. All eight cases pass again against final worker sources.
 Formatting and strict locked all-target Clippy also pass. These results qualify
 the worker protocol, not resource editing or the future journal engine.
 
-The journal foundation is being authored separately. Capture/staging/recovery
-inspection are not an execute engine or public workspace integration. No journal,
-resource API, Undo/Redo, crash recovery or terminal qualification is claimed yet.
-No native resource capability is advertised to extensions. The full API goal
-remains active; this foundation grants no new API-name or provider-family count.
+The journal foundation is implemented in `src/resource_journal.rs`. All 23 focused
+integrity tests pass: binary/tree/displaced/dirty preimages, exact option presence,
+durable staging and complete recovery inspection, foreign replacements, parent
+identity/alias ABA, missing-prefix bounds, payload/schema corruption and late
+malformed records. Two cases use actual native document snapshots on the joined
+worker and preserve original COW text after edit→Undo and cancellation.
+
+Capture/staging/recovery inspection are not an execute engine or public workspace
+integration. Every successful journal still reports NotStarted. No actual resource
+API, operation Undo/Redo, recovery after destructive execution or new terminal
+qualification is claimed. Payload symlinks, special/reparse entries and non-UTF-8
+paths remain explicit foundation refusals. No native resource capability is
+advertised to extensions. The full API goal remains active; this foundation grants
+no new API-name or provider-family count. The full Rust all-target suite passes
+1,428 tests across 67 reports, including 1,079 library tests; 23 ignored cases
+grant no qualification. Fresh build, global formatting and strict locked
+all-target Clippy pass. There is no new terminal interaction to qualify until the
+executor/controller is connected; earlier usable refactoring-save evidence stays
+separately recorded in [its contract](REFACTORING_SAVES_API.md).
 
 The independent planner is implemented in `src/workspace_edit_stream.rs`. Eight
 native parser tests pass, covering create→edit→rename→edit→delete boundaries,

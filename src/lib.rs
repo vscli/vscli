@@ -33,6 +33,7 @@ pub mod migration;
 pub mod outline;
 pub mod persistence;
 pub mod recovery;
+pub mod resource_journal;
 pub mod resource_worker;
 pub mod save_action_edits;
 pub mod save_formatting_edits;
