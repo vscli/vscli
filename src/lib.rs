@@ -55,6 +55,7 @@ pub mod ui;
 pub mod watch;
 pub mod workspace;
 pub mod workspace_edit_stream;
+pub mod workspace_resource_edits;
 
 pub mod recent;
 

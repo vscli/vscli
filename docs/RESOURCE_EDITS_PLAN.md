@@ -84,10 +84,25 @@ Internal rollback preserves displaced/deleted bytes and reverses dependent owned
 steps. Public Undo/Redo, trash, cross-volume execution, custom providers, non-Linux
 backends, model disposal/reuse and editor publication remain unfinished.
 
-The 49 focused journal tests pass under parent execution, with formatting and
-strict locked all-target Clippy passing on the combined candidate. A separate
-engine-only source snapshot passes locked all-target cargo check, without the
-future DTO adapter or dependency changes. Public API integration remains pending.
+`src/workspace_resource_edits.rs` adapts original file groups on the worker.
+`prepare_groups` revives all file descriptors before effects, enforces a whole-stream
+1 MiB file/scalar-text raw budget, preserves original indices/annotations/options,
+and retains original kind batches including skipped untitled-create barriers.
+Absent/empty/raw binary contents stay distinct. Unknown options and nonnumeric
+maxSize retain their original values while applying source-ignored semantics;
+missing data-transfer resolvers reject even in later or skipped/non-create rows.
+Ten adapter tests pass, including actual DTO→journal→filesystem execution on the
+joined worker after exact authorization. Postauthorization owner retirement keeps
+the real committed receipt until thread exit/join. This is a backend coupling
+control: it does not authorize App models, confirm annotations, apply notebook
+cells or publish the resource-operation extension API.
+
+The combined final Rust suite passes 1,471 tests across 67 reports (1,122 library;
+23 ignored), with global formatting and strict locked all-target Clippy passing.
+There are 36 new executor/adapter regressions. No new resource-operation terminal
+or platform qualification is claimed; previous native path/save/rename terminal
+evidence below retains its original milestone scope. No local VS Code instance
+was launched and CI work remains deferred.
 
 Native documents now retain an independent resource epoch across live Explorer
 rename/trash and Save As publications. Returning to the same path does not renew
@@ -112,7 +127,7 @@ write conflicts, cancellation during preparation, preauthorization retirement,
 postauthorization retirement, failure after a real effect, held Finished capacity
 and shutdown joining. All eight cases pass again against final worker sources.
 Formatting and strict locked all-target Clippy also pass. These results qualify
-the worker protocol, not resource editing or the future journal engine.
+the worker protocol; execution evidence is recorded separately above.
 
 The journal foundation is implemented in `src/resource_journal.rs`. All 23 focused
 integrity tests pass: binary/tree/displaced/dirty preimages, exact option presence,
