@@ -39,12 +39,19 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 The [resource-edit workstream](RESOURCE_EDITS_PLAN.md) now includes actual Linux
 filesystem execution, durable checkpoints, guarded rollback and an original-file
 DTO adapter, alongside native resource-lifetime guards. The combined work has
-82 focused controls and 1,471 full Rust tests passing. Ten new adapter controls
+98 focused Rust controls and 1,487 full Rust tests passing. Ten new adapter controls
 include real joined-worker execution; the 26 new executor controls cover actual
 filesystem and cold-recovery outcomes. Public resource gateway integration,
 model lifetimes and operation history remain unfinished. These additions provide
 no new facade names or provider families. [Model lifetime contracts](RESOURCE_MODEL_LIFETIMES.md)
 record the conditional destination reuse and reference ownership required next.
+The additional sixteen controls qualify a standalone native reference ledger;
+App acquisition, last-tab retention and actual expiry remain unfinished. Matching
+file mirrors now return without a native open request, with eight new host tests,
+all 727 host tests and two native document PTY journeys passing. The PTY includes
+reopen with all eight service slots busy, then shared identity, Undo/Redo, host
+crash, dirty recovery and save. Formatting and strict locked all-target Clippy
+pass. Concurrent misses and encoding reload remain outstanding.
 
 The development audit uses Node to inspect the real facade over an empty
 activation registry. It loads no extensions, opens no editor and invokes no API

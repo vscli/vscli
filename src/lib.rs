@@ -7,6 +7,7 @@ pub(crate) mod decorations;
 pub mod display_rows;
 pub mod display_window;
 pub mod document;
+pub mod document_references;
 pub mod documentation;
 pub mod editing_profile;
 pub mod editor_groups;

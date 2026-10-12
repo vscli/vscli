@@ -5,6 +5,20 @@ uses VS Code 1.141.0 commit `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`.
 No local VS Code instance was launched. The Linux filesystem execution backend is implemented; App model retention
 and resource-specific editor/event qualification remain unfinished in VSCLI.
 
+The standalone [native API-reference ledger](../src/document_references/README.md)
+now implements original acquisition IDs, customer/model resource epochs,
+three-minute expiry, captured-length/count eviction, move/delete source removal,
+exact untitled revert and complete customer teardown. Sixteen focused tests and
+all 1,487 Rust all-target tests pass (1,138 library; 23 ignored), with formatting
+and strict locked all-target Clippy. Release evidence is separate from model
+disposal; App acquisition, last-tab retention and actual expiry remain unwired.
+The public matching-file cache now avoids native requests, with eight new host
+controls, all 727 host tests and two native document PTY journeys passing.
+The PTY includes cached reopen while eight native service slots are busy,
+followed by shared identity, Undo/Redo, host crash, dirty recovery and save.
+Concurrent miss sharing, encoding reload and actual reference timing remain
+integration obligations.
+
 ## Conditional destination reuse
 
 A move restores into a surviving destination model, preserving its public
