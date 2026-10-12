@@ -1,6 +1,6 @@
 # Broad feature todo
 
-This is the retained project backlog, updated 2026-10-11. Items describe remaining
+This is the retained project backlog, updated 2026-10-12. Items describe remaining
 work across features that may already have partial implementations. They are not
 a claim that any whole category is complete.
 
@@ -83,12 +83,25 @@ TabInput value classes are exported; their diff/custom/webview/notebook/terminal
 backends remain outstanding. [Navigation provider APIs](NAVIGATION_PROVIDERS_API.md)
 now route all five navigation families with public queries and real native
 location pickers. All 664 host and 1,316 Rust tests and four new terminal journeys
-pass. Eleven of the 32 stable provider families are routed; workspace symbols,
-rename/prepareRename and additional formatting families are next. The navigation
+pass. That milestone routes eleven stable provider families. The navigation
 ordering follow-up shares one host registry between public/native queries, with
 cached candidate and competing-exclusive rules; all 676 host and 1,322 Rust tests
 and six terminal journeys pass. Registration
 alone will not count as delivered behavior.
+
+[Global workspace symbols](WORKSPACE_SYMBOLS_API.md) now provide no-editor
+public queries, exact original-object lazy resolution, hidden indexing and
+native Ctrl+T navigation. All 694 host and 1,337 Rust all-target tests pass,
+including seven actual selected-host/App cases; sixteen relevant terminal
+journeys, the installed-clangd symbol test, build/fmt/strict Clippy pass.
+Twelve of the 32 stable provider families are now integrated. Next are
+rename/prepareRename public queries and original native F2, with genuine
+background loading of unopened targets and grouped editing/history. Default
+multi-resource refactoring saves must finish through actual native save receipts;
+resource operations, snippets, EOL, confirmation annotations and notebook targets
+remain required backends. Single-resource refactoring now stays unsaved under
+the default policy, matching the upstream multi-resource autosave condition.
+Remaining provider families and mixed native/extension aggregation remain open.
 
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;
