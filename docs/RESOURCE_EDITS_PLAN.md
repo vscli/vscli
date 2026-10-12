@@ -34,7 +34,10 @@ The reference is VS Code 1.141.0 immutable commit
 
 ## Native design and implementation stages
 
-1. A bounded filesystem worker retains the original admission deadline and
+1. The source stream planner preserves contiguous file/text/notebook groups,
+   file-kind batches and original option/content/version distinctions. It borrows
+   a bounded private DTO; it performs no filesystem work or editor mutation.
+   A bounded filesystem worker retains the original admission deadline and
    captured request. Preparation happens in that worker; an exact native
    controller validates the original caller/model/settings proofs before
    authorizing effects. Cancellation before authorization preserves resources.
@@ -80,3 +83,11 @@ inspection are not an execute engine or public workspace integration. No journal
 resource API, Undo/Redo, crash recovery or terminal qualification is claimed yet.
 No native resource capability is advertised to extensions. The full API goal
 remains active; this foundation grants no new API-name or provider-family count.
+
+The independent planner is implemented in `src/workspace_edit_stream.rs`. Eight
+native parser tests pass, covering create→edit→rename→edit→delete boundaries,
+contiguous file batches, absent/false/null overwrite, unknown option retention,
+binary/empty/data-transfer contents, create-driven text-version suppression,
+notebook/annotation boundaries, malformed late records and aggregate bounds.
+Formatting and strict locked all-target Clippy pass. These qualify parsing and
+planning only; text/file/notebook execution still needs its actual backends.

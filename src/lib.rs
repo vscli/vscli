@@ -53,6 +53,7 @@ pub mod transport;
 pub mod ui;
 pub mod watch;
 pub mod workspace;
+pub mod workspace_edit_stream;
 
 pub mod recent;
 
