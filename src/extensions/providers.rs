@@ -27,6 +27,34 @@ pub struct Ticket {
     pub version: u64,
     pub workspace: Arc<Vec<MirrorSnapshot>>,
 }
+#[derive(Clone)]
+pub(crate) struct NavigationRankIntent {
+    source: Arc<NavigationRankSource>,
+}
+struct NavigationRankSource {
+    session: u64,
+    epoch: u64,
+    document: u64,
+    revision: u64,
+    text_epoch: u64,
+    language_epoch: u64,
+    version: u64,
+    uri: String,
+    kind: Kind,
+    providers: Vec<Provider>,
+    owners: Vec<Arc<std::sync::atomic::AtomicBool>>,
+}
+struct NavigationRanking {
+    id: u64,
+    intent: NavigationRankIntent,
+    started: Instant,
+    canceled: bool,
+    expired: bool,
+}
+pub(crate) struct NavigationRankReply {
+    pub id: u64,
+    pub result: Result<Vec<Provider>, String>,
+}
 struct Call {
     ticket: Ticket,
     canceled: bool,
@@ -39,6 +67,8 @@ pub(crate) struct Reply {
 #[derive(Default)]
 pub(super) struct State {
     registry: Registry,
+    ranking: Option<NavigationRanking>,
+    ranked: VecDeque<NavigationRankReply>,
     calls: HashMap<u64, Call>,
     occupied: HashMap<u64, Ticket>,
     replies: VecDeque<Reply>,
@@ -246,44 +276,202 @@ impl Client {
     ) -> bool {
         self.provider_owner_ready(&provider.owner)
             && self.providers.registry.current(provider, epoch)
-            && provider.score(document) > 0
+            && (provider.kind.is_navigation() || provider.score(document) > 0)
     }
-    pub(crate) fn navigation_providers(
-        &self,
+    pub(crate) fn navigation_family_registered(&self, kind: Kind) -> bool {
+        kind.is_navigation()
+            && self
+                .providers
+                .registry
+                .entries()
+                .iter()
+                .any(|provider| provider.kind == kind && self.provider_owner_ready(&provider.owner))
+    }
+    pub(crate) fn capture_navigation_rank(
+        &mut self,
         kind: Kind,
-        document: &Document,
-    ) -> Result<Vec<Provider>> {
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+    ) -> Result<NavigationRankIntent> {
         anyhow::ensure!(kind.is_navigation(), "Invalid navigation provider family");
-        let mut providers: Vec<_> = self
+        self.sync_with_hidden(documents, hidden, active)?;
+        let doc = documents
+            .get(active)
+            .context("No active navigation source")?;
+        let mirror = self
+            .mirror
+            .mirrors
+            .get(&doc.id)
+            .context("Navigation source is not mirrored")?;
+        let providers: Vec<_> = self
             .providers
             .registry
             .entries()
             .iter()
-            .filter(|provider| {
-                provider.kind == kind
-                    && self.provider_owner_ready(&provider.owner)
-                    && provider.score(document) > 0
-            })
+            .filter(|provider| provider.kind == kind && self.provider_owner_ready(&provider.owner))
             .cloned()
             .collect();
         anyhow::ensure!(
             providers.len() <= crate::extension_providers::MAX_PROVIDERS,
-            "Navigation provider cohort exceeds registry bounds"
+            "Navigation registry cohort exceeds 128"
         );
-        if let Some(exclusive) = providers
+        let owners = providers
             .iter()
-            .filter(|provider| provider.exclusive_score(document) > 0)
-            .map(|provider| provider.id)
-            .max()
-        {
-            providers.retain(|provider| provider.id == exclusive);
-        }
-        providers.sort_by(|a, b| {
-            b.score(document)
-                .cmp(&a.score(document))
-                .then_with(|| b.id.cmp(&a.id))
+            .map(|provider| self.owner_lifetimes.capture(&provider.owner))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(NavigationRankIntent {
+            source: Arc::new(NavigationRankSource {
+                session: self.session,
+                epoch: self.providers.registry.epoch(),
+                document: doc.id,
+                revision: doc.revision,
+                text_epoch: doc.text_epoch(),
+                language_epoch: doc.language_epoch(),
+                version: mirror.version,
+                uri: mirror.uri.clone(),
+                kind,
+                providers,
+                owners,
+            }),
+        })
+    }
+    pub(crate) fn navigation_rank_current(
+        &self,
+        intent: &NavigationRankIntent,
+        document: &Document,
+    ) -> bool {
+        let source = &intent.source;
+        source.session == self.session
+            && source.epoch == self.providers.registry.epoch()
+            && source.document == document.id
+            && source.revision == document.revision
+            && source.text_epoch == document.text_epoch()
+            && source.language_epoch == document.language_epoch()
+            && self.service_document_current(document, source.version)
+            && document_uri(document).ok().as_ref() == Some(&source.uri)
+            && source
+                .owners
+                .iter()
+                .all(|owner| !owner.load(std::sync::atomic::Ordering::Acquire))
+            && source.providers.iter().all(|provider| {
+                self.provider_owner_ready(&provider.owner)
+                    && self.providers.registry.current(provider, source.epoch)
+            })
+    }
+    pub(crate) fn navigation_rank_available(&self) -> bool {
+        self.providers.ranking.is_none() && self.providers.ranked.is_empty()
+    }
+    pub(crate) fn request_navigation_rank(
+        &mut self,
+        intent: &NavigationRankIntent,
+        document: &Document,
+    ) -> Result<u64> {
+        anyhow::ensure!(
+            self.navigation_rank_available(),
+            "Previous navigation matching request is still pending"
+        );
+        anyhow::ensure!(
+            self.navigation_rank_current(intent, document),
+            "Navigation matching source changed"
+        );
+        let id = self
+            .next_id
+            .checked_add(1)
+            .filter(|id| *id <= 9_007_199_254_740_991)
+            .context("Navigation matching request identities exhausted")?;
+        let source = &intent.source;
+        self.request("rankLanguageProviders", json!({"session":source.session,"type":source.kind,
+            "document":source.document,"version":source.version,"languageEpoch":source.language_epoch}))?;
+        self.providers.ranking = Some(NavigationRanking {
+            id,
+            intent: intent.clone(),
+            started: Instant::now(),
+            canceled: false,
+            expired: false,
         });
-        Ok(providers)
+        Ok(id)
+    }
+    pub(crate) fn cancel_navigation_rank(&mut self, id: u64) {
+        if let Some(rank) = &mut self.providers.ranking
+            && rank.id == id
+        {
+            rank.canceled = true;
+        }
+    }
+    pub(crate) fn take_navigation_ranks(&mut self) -> VecDeque<NavigationRankReply> {
+        std::mem::take(&mut self.providers.ranked)
+    }
+    pub(super) fn provider_rank_response(&mut self, id: u64, mut message: Value) -> Result<()> {
+        if !self
+            .providers
+            .ranking
+            .as_ref()
+            .is_some_and(|rank| rank.id == id)
+        {
+            return Ok(());
+        }
+        let rank = self.providers.ranking.take().unwrap();
+        if rank.canceled || rank.expired {
+            return Ok(());
+        }
+        let result = (|| -> Result<Vec<Provider>> {
+            if !message["error"].is_null() {
+                bail!(
+                    "{}",
+                    message["error"]["message"]
+                        .as_str()
+                        .unwrap_or("Navigation matching failed")
+                        .chars()
+                        .take(2048)
+                        .collect::<String>()
+                );
+            }
+            let value = message["result"].take();
+            crate::decorations::json_budget(&value, 64 * 1024)?;
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Ranked {
+                providers: Vec<Entry>,
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Entry {
+                id: u64,
+                owner: String,
+            }
+            anyhow::ensure!(
+                value["providers"]
+                    .as_array()
+                    .is_some_and(|entries| entries.len() <= 128),
+                "Invalid navigation rank count"
+            );
+            let ranked: Ranked = serde_json::from_value(value)?;
+            let mut seen = HashSet::new();
+            ranked
+                .providers
+                .into_iter()
+                .map(|entry| {
+                    anyhow::ensure!(
+                        entry.id > 0 && seen.insert(entry.id),
+                        "Duplicate or invalid ranked navigation provider"
+                    );
+                    let provider = rank
+                        .intent
+                        .source
+                        .providers
+                        .iter()
+                        .find(|provider| provider.id == entry.id && provider.owner == entry.owner)
+                        .context("Navigation rank borrowed a different registry owner or family")?;
+                    Ok(provider.clone())
+                })
+                .collect()
+        })()
+        .map_err(|error| format!("{error:#}"));
+        self.providers
+            .ranked
+            .push_back(NavigationRankReply { id, result });
+        Ok(())
     }
     pub(crate) fn provider_registration_current(&self, ticket: &Ticket) -> bool {
         ticket.session == self.session
@@ -432,7 +620,7 @@ impl Client {
                 .providers
                 .registry
                 .current(provider, self.providers.registry.epoch())
-            || provider.score(doc) == 0
+            || (!provider.kind.is_navigation() && provider.score(doc) == 0)
         {
             bail!("Language provider no longer matches its owner/document");
         }
@@ -682,6 +870,19 @@ impl Client {
         Ok(())
     }
     pub(super) fn expire_language_providers(&mut self) -> Result<()> {
+        if let Some(rank) = &mut self.providers.ranking
+            && !rank.canceled
+            && !rank.expired
+            && rank.started.elapsed() >= DEADLINE
+        {
+            rank.expired = true;
+            self.providers.ranked.push_back(NavigationRankReply {
+                id: rank.id,
+                result: Err(
+                    "Navigation matching timed out; original request remains pending".into(),
+                ),
+            });
+        }
         // A canceled wire reply may arrive long before the actual callback ends.
         // Keep its own clock after the generic Call has been removed.
         if self.providers.signature.is_some()
@@ -809,6 +1010,210 @@ mod tests {
             assert!(Instant::now() < deadline, "No signature reply for {id}");
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    fn rank_fixture() -> (tempfile::TempDir, Client, Vec<Document>) {
+        let root = tempfile::tempdir().unwrap();
+        let package = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=c=>{
+c.subscriptions.push(v.languages.registerDefinitionProvider({language:'*',exclusive:true},{provideDefinition(){throw Error('ranking must not call provider');}}));
+c.subscriptions.push(v.languages.registerDefinitionProvider({language:'cpp',exclusive:true},{provideDefinition(){throw Error('ranking must not call provider');}}));
+c.subscriptions.push(v.languages.registerHoverProvider('*',{provideHover(){throw Error('wrong family');}}));};"#,
+        );
+        let mut doc = Document::from_text("猫🙂\r\n");
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        let mut docs = vec![doc];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        assert_eq!(client.providers.registry.entries().len(), 3);
+        (root, client, docs)
+    }
+    fn rank_frame(client: &mut Client, id: u64) -> Value {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Some(frame) = client.process.receive().unwrap()
+                && frame["id"].as_u64() == Some(id)
+            {
+                assert!(client.pending.remove(&id).is_some());
+                return frame;
+            }
+            assert!(Instant::now() < deadline, "Real rank frame did not arrive");
+            std::thread::yield_now();
+        }
+    }
+    #[test]
+    fn navigation_rank_uses_real_host_order_without_invoking_callbacks() {
+        let (_root, mut client, docs) = rank_fixture();
+        let intent = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        let first = intent.source.providers[0].id;
+        assert_eq!(intent.source.providers[0].score(&docs[0]), 5);
+        assert_eq!(intent.source.providers[1].score(&docs[0]), 10);
+        let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+        let frame = rank_frame(&mut client, id);
+        client.provider_rank_response(id, frame).unwrap();
+        let reply = client.take_navigation_ranks().pop_front().unwrap();
+        assert_eq!(reply.id, id);
+        assert_eq!(
+            reply
+                .result
+                .unwrap()
+                .iter()
+                .map(|p| p.id)
+                .collect::<Vec<_>>(),
+            vec![first]
+        );
+        assert!(client.navigation_rank_available());
+        assert_eq!(client.language_provider_slots(), 8);
+        assert!(client.providers.calls.is_empty());
+        assert!(client.providers.occupied.is_empty());
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+        assert!(!docs[0].dirty());
+    }
+    #[test]
+    fn canceled_and_expired_rank_keep_actual_slot_until_exact_real_reply() {
+        let (_root, mut client, docs) = rank_fixture();
+        let intent = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        for expire in [false, true] {
+            let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+            if expire {
+                client.providers.ranking.as_mut().unwrap().started = Instant::now() - DEADLINE;
+                client.expire_language_providers().unwrap();
+                client.expire_language_providers().unwrap();
+                let errors = client.take_navigation_ranks();
+                assert_eq!(errors.len(), 1);
+                assert_eq!(errors[0].id, id);
+                assert!(errors[0].result.as_ref().unwrap_err().contains("timed out"));
+            } else {
+                client.cancel_navigation_rank(id);
+            }
+            assert!(client.pending.contains_key(&id));
+            assert!(!client.navigation_rank_available());
+            assert!(client.request_navigation_rank(&intent, &docs[0]).is_err());
+            client
+                .provider_rank_response(id + 1, json!({"result":{"providers":[]}}))
+                .unwrap();
+            assert!(
+                !client.navigation_rank_available(),
+                "Foreign reply cannot free actual slot"
+            );
+            assert_eq!(client.language_provider_slots(), 8);
+            let frame = rank_frame(&mut client, id);
+            client.provider_rank_response(id, frame.clone()).unwrap();
+            assert!(client.take_navigation_ranks().is_empty());
+            assert!(client.navigation_rank_available());
+            client.provider_rank_response(id, frame).unwrap();
+            assert!(client.take_navigation_ranks().is_empty());
+        }
+    }
+    #[test]
+    fn rank_rejects_malformed_original_cohorts_and_bounds_error_messages() {
+        let (_root, mut client, docs) = rank_fixture();
+        let intent = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        let p = &intent.source.providers[0];
+        let foreign = client
+            .providers
+            .registry
+            .entries()
+            .iter()
+            .find(|p| p.kind == Kind::Hover)
+            .unwrap();
+        let invalid = [
+            json!({"providers":[{"id":p.id,"owner":p.owner},{"id":p.id,"owner":p.owner}]}),
+            json!({"providers":[{"id":p.id,"owner":"different.owner"}]}),
+            json!({"providers":[{"id":foreign.id,"owner":foreign.owner}]}),
+            json!({"providers":[{"id":p.id,"owner":p.owner,"extra":true}]}),
+            json!({"providers":[],"extra":true}),
+        ];
+        for value in invalid {
+            let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+            let mut frame = rank_frame(&mut client, id);
+            frame["result"] = value;
+            client.provider_rank_response(id, frame).unwrap();
+            assert!(
+                !client.navigation_rank_available(),
+                "Error retains bounded result storage until consumed"
+            );
+            assert!(
+                client
+                    .take_navigation_ranks()
+                    .pop_front()
+                    .unwrap()
+                    .result
+                    .is_err()
+            );
+            assert!(client.navigation_rank_available());
+            assert_eq!(client.language_provider_slots(), 8);
+        }
+        let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+        let mut frame = rank_frame(&mut client, id);
+        frame["error"] = json!({"message":"猫".repeat(100_000)});
+        client.provider_rank_response(id, frame).unwrap();
+        let error = client
+            .take_navigation_ranks()
+            .pop_front()
+            .unwrap()
+            .result
+            .unwrap_err();
+        assert_eq!(error.chars().count(), 2048);
+        assert!(client.navigation_rank_available());
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+        assert!(!docs[0].dirty());
+    }
+    #[test]
+    fn held_rank_original_source_cannot_revive_after_edit_undo() {
+        let (_root, mut client, mut docs) = rank_fixture();
+        let intent = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+        let original = (docs[0].id, docs[0].revision, docs[0].text.to_string());
+        docs[0].insert("x", false);
+        docs[0].undo();
+        assert_eq!(
+            (docs[0].id, docs[0].revision, docs[0].text.to_string()),
+            original
+        );
+        assert!(!client.navigation_rank_current(&intent, &docs[0]));
+        client.sync_with_hidden(&docs, &[], 0).unwrap();
+        assert!(!client.navigation_rank_current(&intent, &docs[0]));
+        client.cancel_navigation_rank(id);
+        assert!(!client.navigation_rank_available());
+        let frame = rank_frame(&mut client, id);
+        client.provider_rank_response(id, frame).unwrap();
+        assert!(client.take_navigation_ranks().is_empty());
+        assert!(client.request_navigation_rank(&intent, &docs[0]).is_err());
+        let fresh = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        let next = client.request_navigation_rank(&fresh, &docs[0]).unwrap();
+        let frame = rank_frame(&mut client, next);
+        client.provider_rank_response(next, frame).unwrap();
+        assert!(
+            client
+                .take_navigation_ranks()
+                .pop_front()
+                .unwrap()
+                .result
+                .is_ok()
+        );
+        docs[0].redo();
+        assert_eq!(docs[0].text.to_string(), "x猫🙂\r\n");
+        assert!(docs[0].dirty());
+        assert_eq!(client.language_provider_slots(), 8);
     }
     #[test]
     fn generic_actual_callbacks_remain_occupied_after_cancel_timeout_and_wrong_release() {

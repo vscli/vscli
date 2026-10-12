@@ -84,7 +84,10 @@ backends remain outstanding. [Navigation provider APIs](NAVIGATION_PROVIDERS_API
 now route all five navigation families with public queries and real native
 location pickers. All 664 host and 1,316 Rust tests and four new terminal journeys
 pass. Eleven of the 32 stable provider families are routed; workspace symbols,
-rename/prepareRename and additional formatting families are next. Registration
+rename/prepareRename and additional formatting families are next. The navigation
+ordering follow-up shares one host registry between public/native queries, with
+cached candidate and competing-exclusive rules; all 676 host and 1,322 Rust tests
+and six terminal journeys pass. Registration
 alone will not count as delivered behavior.
 
 Native Rust editing must stay usable without JavaScript. Optional compatibility

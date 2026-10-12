@@ -458,6 +458,10 @@ impl Client {
                 include_str!("../extension-host/language-selector.cjs"),
             ),
             (
+                "provider-order.cjs",
+                include_str!("../extension-host/provider-order.cjs"),
+            ),
+            (
                 "signatures.cjs",
                 include_str!("../extension-host/signatures.cjs"),
             ),
@@ -1226,6 +1230,10 @@ impl Client {
             } else if let Some(id) = message["id"].as_u64()
                 && let Some(pending) = self.pending.remove(&id)
             {
+                if pending.method == "rankLanguageProviders" {
+                    self.provider_rank_response(id, message)?;
+                    continue;
+                }
                 if matches!(
                     pending.method.as_str(),
                     "provideLanguage" | "resolveLanguageCompletion" | "resolveLanguageCodeAction"

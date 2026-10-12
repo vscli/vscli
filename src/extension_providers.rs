@@ -184,16 +184,6 @@ pub struct Provider {
 }
 impl Provider {
     pub fn score(&self, document: &Document) -> u8 {
-        self.selector_score(document, false)
-    }
-    pub(crate) fn exclusive_score(&self, document: &Document) -> u8 {
-        if self.selector.iter().all(|filter| filter.exclusive) {
-            self.selector_score(document, true)
-        } else {
-            0
-        }
-    }
-    fn selector_score(&self, document: &Document, exclusive_only: bool) -> u8 {
         let language = document
             .language_override()
             .unwrap_or_else(|| document.path.as_deref().map_or("plaintext", lsp::language));
@@ -221,7 +211,6 @@ impl Provider {
         };
         self.selector
             .iter()
-            .filter(|filter| !exclusive_only || filter.exclusive)
             .map(|filter| filter.score(language, scheme, &path))
             .max()
             .unwrap_or(0)
@@ -385,7 +374,7 @@ mod tests {
         doc.set_language_override(Some("cpp".into())).unwrap();
         assert_eq!(registry.entries()[0].score(&doc), 10);
         assert_eq!(registry.entries()[1].score(&doc), 0);
-        assert_eq!(registry.entries()[2].exclusive_score(&doc), 10);
+        assert!(registry.entries()[2].selector[0].exclusive);
         let text_epoch = doc.text_epoch();
         let saved = doc.save_generation();
         doc.set_language_override(Some("python".into())).unwrap();
@@ -405,7 +394,7 @@ mod tests {
         assert!(doc.is_read_only());
     }
     #[test]
-    fn relative_pattern_equal_base_matches_empty_suffix_and_exclusive_requires_every_filter() {
+    fn relative_pattern_equal_base_matches_empty_suffix_and_preserves_exclusive_metadata() {
         let mut registry = Registry::default();
         let entries = json!([
             {"id":1,"owner":"test.provider","type":"definition","selector":[{"pattern":{"baseUri":"custom:/work/猫.cpp","pattern":"*"}}],"triggers":[]},
@@ -421,12 +410,19 @@ mod tests {
             "Equal base has an empty matching suffix"
         );
         assert_eq!(registry.entries()[1].score(&doc), 10);
-        assert_eq!(
-            registry.entries()[1].exclusive_score(&doc),
-            0,
-            "One ordinary filter prevents exclusive suppression"
+        assert!(
+            !registry.entries()[1]
+                .selector
+                .iter()
+                .all(|filter| filter.exclusive),
+            "Preserve the ordinary filter for host authority"
         );
-        assert_eq!(registry.entries()[2].exclusive_score(&doc), 10);
+        assert!(
+            registry.entries()[2]
+                .selector
+                .iter()
+                .all(|filter| filter.exclusive)
+        );
         let other = Document::from_virtual("custom:/work/猫.cppOther".into(), "猫🙂").unwrap();
         assert_eq!(
             registry.entries()[0].score(&other),

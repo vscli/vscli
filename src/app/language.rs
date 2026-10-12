@@ -186,6 +186,9 @@ impl App {
         if self.extension_language_request(method, extra.clone()) {
             return;
         }
+        self.language_request_native(method, extra);
+    }
+    pub(super) fn language_request_native(&mut self, method: &str, extra: Value) {
         let Some(client) = self.lsp.as_mut() else {
             self.message =
                 "Language server not ready; use Language: Server Status or Language: Restart Server"

@@ -121,9 +121,49 @@ the other provider families remain separately tracked. Native LSP aggregation,
 all scheme backends, complete selectors/notebook support and every provider
 extension's behavior also require their own implementation and qualification.
 
-Selector qualification currently covers language/scheme/glob scoring and the
-all-entry exclusive-array rule. When several exclusive providers compete, exact
-upstream winner selection depends on its cached registry order; reproducing that
-stateful ordering remains outstanding. Native navigation currently prefers the
-newest matching exclusive registration; public queries prefer the highest scored
-exclusive, then newest on ties. This difference is not qualified as parity.
+## Shared stateful provider ordering
+
+Public queries and native actions now select through one optional-host registry
+per navigation family. The source scans its current ordered entries for a
+matching all-entry-exclusive selector **before** sorting. Registration appends
+to that current array, disposal removes the original entry, and repeated URI/
+effective-language candidates reuse the cached order. A public Rust query can
+therefore change which exclusive provider wins the next native C++ action, even
+when that winner has a lower selector score. Independent host/native caches,
+newest-only selection and highest-score-exclusive selection cannot reproduce this
+behavior. The shared adapter follows the pinned ordering and candidate-cache
+algorithm; ordinary score ties prefer newer registrations.
+
+Native actions first request bounded metadata ranking over the exact original
+source and registry cohort. The response contains only original provider IDs and
+owners; it invokes no extension callback or command and occupies no callback
+slot. One actual ranking RPC remains retained through logical cancellation or
+expiry, while one latest native intent waits for its real response. Malformed,
+duplicate, foreign-family or borrowed-owner entries cannot start callbacks. A
+valid empty match enters the original native language-server path once. Original
+source/version/language/owner/context guards still protect subsequent callbacks.
+Original URI constructors/getters are captured so extension changes to public URI
+prototypes cannot introduce callbacks into trusted metadata ranking.
+
+The follow-up passes **676 host tests** and **1,322 Rust all-target tests**
+(995 library; 63 reports; 23 ignored). Eight ordering-unit tests, public/rank
+interleaving controls, an actual framed rank/public-query test, four native framed
+rank tests and the empty-rank App control pass. The new selected-App workflow
+interleaves public/native candidates, cached requests, registration and disposal;
+it checks exact original shared memberships, the legitimate new membership in
+the source group, collapsed caret positions, Unicode CRLF text and both histories.
+The new actual registry terminal journey, all four navigation terminal journeys
+and the existing seven-route provider journey pass (six terminal journeys total
+for this follow-up). Native build, formatting and strict all-target locked Clippy
+also pass. Earlier milestone terminal receipts retain their separate scope.
+Broader notebook selectors, native context-key glob matching across platforms,
+built-in/extension mixed registries and upstream runtime qualification remain
+separate gaps.
+
+Additional shared-registry qualification commands:
+
+```sh
+node --test extension-host/provider-order.test.cjs extension-host/provider-wire.test.cjs
+cargo test --locked --test extension_navigation_registry
+python3 tests/extension_navigation_registry_pty.py target/debug/vscli
+```

@@ -203,6 +203,13 @@ async function dispatch(message) {
         if (!runtime.commandSnapshot().some(item => item.id === message.params.command && item.owner === message.params.owner)) throw new Error('Extension command owner changed');
         result = await inExecution(message.id, message.params.owner, () => runtime.api.commands.executeCommand(message.params.command, ...message.params.args));
         break;
+      case 'rankLanguageProviders':
+        if (!ready || !languageProviders || message.params.session !== session) throw new Error('Language provider session is not ready');
+        // Pure trusted metadata selection shares the same stateful registry as
+        // public queries. It invokes no extension callback and owns no callback
+        // slot, command origin or selected extension caller.
+        result = runtime.rankLanguageProviders(message.params);
+        break;
       case 'provideLanguage':
         if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) {
           runtime?.releaseLanguageProviderRefusal({ ...message.params, request: message.id });

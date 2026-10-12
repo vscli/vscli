@@ -106,6 +106,16 @@ selected-host/App cases and four new PTY journeys. Build, formatting and strict
 Clippy pass. This routes eleven of the 32 stable provider families; remaining
 providers and mixed native/extension aggregation are still open.
 
+The navigation follow-up uses one stateful optional-host ordering authority for
+public queries and native actions. Cached candidate order, competing exclusives,
+registration and disposal follow the pinned source rather than independent
+host/native rankings. All 676 host and 1,322 Rust all-target tests pass (995
+library; 23 ignored), including real framed metadata/source/slot controls and a
+public/native interleaving App workflow. The new registry PTY, four navigation
+PTYs and original provider PTY pass, as do build, formatting and strict Clippy.
+This improves behavior behind existing
+API names; the committed name-presence figure is unchanged.
+
 ## Implementation and evidence
 
 | Surface | Implemented behavior | Evidence and remaining qualification |

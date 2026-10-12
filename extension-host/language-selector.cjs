@@ -7,7 +7,8 @@
 const path=require('node:path');
 const {Uri}=require('./api-types.cjs');
 const {compileGlob}=require('./watcher-glob.cjs');
-const parseUri=Uri.parse.bind(Uri),fromUri=Uri.from.bind(Uri),formatUri=Uri.prototype.toString;
+const parseUri=Uri.parse.bind(Uri),fromUri=Uri.from.bind(Uri),fileUri=Uri.file.bind(Uri),formatUri=Uri.prototype.toString;
+const fsPath=Object.getOwnPropertyDescriptor(Uri.prototype,'fsPath').get;
 const matchers=new WeakMap();
 function bounded(value,max,label){
   if(typeof value!=='string'||value.length>max||Buffer.byteLength(value)>max||value.includes('\0'))throw new TypeError(`Invalid or over-budget selector ${label}`);
@@ -24,11 +25,11 @@ function capturePattern(value){
   if(typeof value==='string')return bounded(value,4096,'pattern');
   if(!value||typeof value!=='object')throw new TypeError('Selector pattern requires a glob or RelativePattern');
   const baseUri=value.baseUri,base=baseUri===undefined?value.base:undefined,pattern=bounded(value.pattern,4096,'pattern');
-  return {baseUri:baseUri===undefined?uriSnapshot(Uri.file(bounded(base,4096,'base'))):uriSnapshot(baseUri),pattern};
+  return {baseUri:baseUri===undefined?uriSnapshot(fileUri(bounded(base,4096,'base'))):uriSnapshot(baseUri),pattern};
 }
 function matcher(pattern){
   if(typeof pattern==='string'){const glob=compileGlob(pattern);return file=>pattern===file||glob(file);}
-  const base=path.normalize(parseUri(pattern.baseUri,true).fsPath),glob=compileGlob(pattern.pattern);
+  const base=path.normalize(Reflect.apply(fsPath,parseUri(pattern.baseUri,true),[])),glob=compileGlob(pattern.pattern);
   return file=>{
     const actual=process.platform==='linux'?file:file.toLowerCase(),parent=process.platform==='linux'?base:base.toLowerCase();
     const boundary=parent.endsWith(path.sep)?parent:parent+path.sep;
@@ -71,7 +72,7 @@ function score(entries,document){
       if(entry[key]===actual)result=10;else if(entry[key]==='*')result=Math.max(result,5);else{mismatch=true;break;}
     }
     if(mismatch)continue;
-    if(entry.pattern){const test=matchers.get(entry)??matcher(entry.pattern);if(!test(uri.fsPath))continue;result=10;}
+    if(entry.pattern){const test=matchers.get(entry)??matcher(entry.pattern);if(!test(Reflect.apply(fsPath,uri,[])))continue;result=10;}
     best=Math.max(best,result);if(best===10)return best;
   }
   return best;

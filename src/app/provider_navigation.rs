@@ -3,7 +3,7 @@ use super::{extension_services::Context, *};
 use crate::lsp;
 use crate::{
     extension_providers::{Kind, Provider},
-    extensions::providers::Ticket,
+    extensions::providers::{NavigationRankIntent, Ticket},
 };
 use anyhow::{Context as _, Result, bail, ensure};
 use std::{
@@ -24,6 +24,10 @@ struct Run {
     context: Context,
     epoch: u64,
     session: u64,
+    kind: Kind,
+    rank_intent: NavigationRankIntent,
+    rank_request: Option<u64>,
+    ranked: bool,
     waiting: VecDeque<Provider>,
     tickets: Vec<Ticket>,
     awaiting: std::collections::HashSet<u64>,
@@ -47,6 +51,7 @@ impl App {
                     self.extension_host.as_ref().is_some_and(|host| {
                         host.session == run.session
                             && host.navigation_registry_current(run.epoch)
+                            && host.navigation_rank_current(&run.rank_intent, doc)
                             && run
                                 .tickets
                                 .iter()
@@ -62,6 +67,9 @@ impl App {
         if let Some(run) = self.provider_navigation.run.take()
             && let Some(host) = &mut self.extension_host
         {
+            if let Some(id) = run.rank_request {
+                host.cancel_navigation_rank(id);
+            }
             // Completed location lists own no lazy item handles. Cancel only
             // still occupied callbacks, keeping the bounded transport queue
             // available for the current wave even after a 128-provider cohort.
@@ -98,7 +106,12 @@ impl App {
         }
     }
     pub(super) fn request_provider_navigation(&mut self, kind: Kind, extra: Value) -> bool {
-        if !kind.is_navigation() || !self.has_extension_provider(kind) {
+        if !kind.is_navigation()
+            || !self
+                .extension_host
+                .as_ref()
+                .is_some_and(|host| host.navigation_family_registered(kind))
+        {
             return false;
         }
         self.cancel_extension_provider();
@@ -111,16 +124,24 @@ impl App {
             let context = Context::capture(self);
             let host = self
                 .extension_host
-                .as_ref()
+                .as_mut()
                 .context("Extension host stopped")?;
-            let providers = host.navigation_providers(kind, self.doc())?;
-            ensure!(!providers.is_empty(), "Navigation provider cohort is empty");
+            let rank_intent = host.capture_navigation_rank(
+                kind,
+                &self.documents,
+                &self.hidden_documents,
+                self.active,
+            )?;
             let loading_notice = format!("Loading extension navigation: {}", kind.method());
             self.provider_navigation.run = Some(Run {
                 context,
                 epoch: host.navigation_registry_epoch(),
                 session: host.session,
-                waiting: providers.into(),
+                kind,
+                rank_intent,
+                rank_request: None,
+                ranked: false,
+                waiting: VecDeque::new(),
                 tickets: Vec::new(),
                 awaiting: Default::default(),
                 candidates: Vec::new(),
@@ -156,6 +177,17 @@ impl App {
                 .run
                 .as_mut()
                 .context("Navigation retired")?;
+            if !run.ranked {
+                if run.rank_request.is_none() && host.navigation_rank_available() {
+                    let doc = self
+                        .documents
+                        .get(self.active)
+                        .context("Navigation source closed")?;
+                    run.rank_request = Some(host.request_navigation_rank(&run.rank_intent, doc)?);
+                    changed = true;
+                }
+                break;
+            }
             if run.published || run.waiting.is_empty() || !host.language_provider_capacity() {
                 break;
             }
@@ -285,6 +317,44 @@ impl App {
         Ok(())
     }
     pub(super) fn poll_provider_navigation(&mut self) -> bool {
+        let ranks = self
+            .extension_host
+            .as_mut()
+            .map(|host| host.take_navigation_ranks())
+            .unwrap_or_default();
+        for rank in ranks {
+            if !self
+                .provider_navigation
+                .run
+                .as_ref()
+                .is_some_and(|run| run.rank_request == Some(rank.id))
+            {
+                continue;
+            }
+            if !self.navigation_current() {
+                return self.retire_stale_provider_navigation();
+            }
+            match rank.result {
+                Ok(providers) if providers.is_empty() => {
+                    // Empty authoritative matching does not suppress the real
+                    // native LSP provider. Keep the same source/currentness
+                    // fence, and bypass optional-host selection recursion.
+                    let run = self.provider_navigation.run.take().unwrap();
+                    self.language_request_native(run.kind.method(), run.extra);
+                    return true;
+                }
+                Ok(providers) => {
+                    let run = self.provider_navigation.run.as_mut().unwrap();
+                    run.waiting = providers.into();
+                    run.ranked = true;
+                }
+                Err(error) => {
+                    self.cancel_provider_navigation();
+                    self.message = format!("Extension navigation matching: {error}");
+                    return true;
+                }
+            }
+        }
         let Some(run) = &self.provider_navigation.run else {
             return false;
         };
@@ -305,7 +375,7 @@ impl App {
             }
         };
         let run = self.provider_navigation.run.as_mut().unwrap();
-        if run.published || !run.waiting.is_empty() || !run.awaiting.is_empty() {
+        if !run.ranked || run.published || !run.waiting.is_empty() || !run.awaiting.is_empty() {
             return changed;
         }
         run.published = true;
@@ -416,6 +486,82 @@ mod tests {
             app.has_extension_provider(Kind::Implementation)
         });
         app
+    }
+    #[test]
+    fn empty_authoritative_rank_enters_native_tail_once_without_recursion_or_edit() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = fixture(
+            root.path(),
+            r#"const v=require('vscode'),fs=require('node:fs'),path=require('node:path');
+exports.activate=c=>{c.subscriptions.push(v.languages.registerImplementationProvider('cpp',{provideImplementation(){return []}}));
+c.subscriptions.push(v.languages.registerDefinitionProvider('rust',{provideDefinition(){fs.writeFileSync(path.join(v.workspace.rootPath,'wrong-callback'),'called');return []}}));};"#,
+        );
+        let settings = root.path().join("settings.json");
+        std::fs::write(&settings, r#"{"vscli.languageServer.enabled":false}"#).unwrap();
+        app.configure_settings(Some(settings)).unwrap();
+        app.lsp = None;
+        app.doc_mut().insert("dirty ", false);
+        let id = app.doc().id;
+        let selections = app.doc().selections();
+        let text = app.doc().text.to_string();
+        let proof = app
+            .doc()
+            .capture_save(root.path().join("input.cpp"))
+            .unwrap();
+        assert!(
+            app.extension_host
+                .as_ref()
+                .unwrap()
+                .navigation_family_registered(Kind::Definition)
+        );
+        assert!(!app.has_extension_provider(Kind::Definition));
+        app.execute("editor.action.revealDefinition", Value::Null);
+        until(&mut app, |app| {
+            app.message
+                == "Language server not ready; use Language: Server Status or Language: Restart Server"
+        });
+        assert!(app.provider_navigation.run.is_none());
+        assert!(app.modal.is_none());
+        assert!(
+            app.extension_host
+                .as_ref()
+                .unwrap()
+                .navigation_rank_available()
+        );
+        assert_eq!(
+            app.extension_host
+                .as_ref()
+                .unwrap()
+                .language_provider_slots(),
+            8
+        );
+        assert!(!root.path().join("wrong-callback").exists());
+        let message = app.message.clone();
+        for _ in 0..3 {
+            app.poll();
+            assert_eq!(app.message, message);
+            assert!(app.provider_navigation.run.is_none());
+        }
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text.to_string(), text);
+        assert_eq!(app.doc().selections(), selections);
+        let current = app
+            .doc()
+            .capture_save(root.path().join("input.cpp"))
+            .unwrap();
+        assert_eq!(
+            (current.text_epoch(), current.save_generation()),
+            (proof.text_epoch(), proof.save_generation())
+        );
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "0123456789 猫🙂\r\nlast\r\n");
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), text);
+        assert!(app.doc().dirty());
+        assert_eq!(
+            std::fs::read(root.path().join("input.cpp")).unwrap(),
+            "0123456789 猫🙂\r\nlast\r\n".as_bytes()
+        );
     }
     #[test]
     fn all_nine_providers_dispatch_in_bounded_waves_and_picker_reveals_collapsed_original_source() {

@@ -173,3 +173,34 @@ test('source exclusive selector arrays require every member exclusive rather tha
   result=await f.api.commands.executeCommand('vscode.executeDefinitionProvider',Uri.file('/work/a.cpp'),new Position(0,3));
   assert.deepEqual(seen,['exclusive']);assert.equal(result.length,1);
 });
+test('one family registry is shared by public query and trusted native ranking, including lower-score exclusive history',async()=>{
+  const documents=[new TextDocument({id:1,uri:'file:///work/a.rs',version:1,languageId:'rust',text:'a'}),new TextDocument({id:2,uri:'file:///work/b.cpp',version:1,languageId:'cpp',text:'b'})],seen=[];
+  const module=createProviders({session:7,document:id=>documents[id-1],notify:()=>{},track:(_,value)=>value});
+  module.forOwner('creator').registerDefinitionProvider({language:'cpp',exclusive:true},{provideDefinition(){seen.push('older-cpp');return [];}});
+  module.forOwner('creator').registerDefinitionProvider({language:'*',exclusive:true},{provideDefinition(){seen.push('newer-wild');return [];}});
+  const old=module.snapshot()[0],newer=module.snapshot()[1],rank=document=>module.rank({session:7,type:'definition',document,version:1,languageEpoch:0});
+  assert.deepEqual(rank(2),{providers:[{id:old.id,owner:'creator'}]});
+  await module.query('definition',{document:1,version:1,uri:'file:///work/a.rs',languageId:'rust',languageEpoch:0,recheck(){}},{line:0,character:0});
+  assert.deepEqual(seen,['newer-wild']);assert.deepEqual(rank(2),{providers:[{id:newer.id,owner:'creator'}]});
+  const request={session:7,owner:'creator',provider:newer.id,request:150,document:2,version:1,position:{line:0,character:0}};
+  await module.provide(request);assert.deepEqual(seen,['newer-wild','newer-wild']);
+});
+test('independent public navigation families keep separate source ordering histories',async()=>{
+  const f=apiFixture();let generation=10;
+  const registrations=[['registerDefinitionProvider','provideDefinition','vscode.executeDefinitionProvider'],['registerReferenceProvider','provideReferences','vscode.executeReferenceProvider'],['registerImplementationProvider','provideImplementation','vscode.executeImplementationProvider'],['registerTypeDefinitionProvider','provideTypeDefinition','vscode.executeTypeDefinitionProvider'],['registerDeclarationProvider','provideDeclaration','vscode.executeDeclarationProvider']];
+  const seen=[];
+  for(const [registration,callback]of registrations){f.creator.languages[registration]({language:'cpp',exclusive:true},{[callback](){seen.push(`${callback}:older`);return [];}});f.creator.languages[registration]({language:'*',exclusive:true},{[callback](){seen.push(`${callback}:wild`);return [];}});}
+  await f.api.commands.executeCommand(registrations[0][2],Uri.file('/work/a.cpp'),new Position(0,3));
+  f.runtime.sync({generation:generation++,documents:[{...f.a,languageId:'rust',languageEpoch:2},f.b],editors:[],activeEditor:null});
+  await f.api.commands.executeCommand(registrations[0][2],Uri.file('/work/a.cpp'),new Position(0,3));
+  f.runtime.sync({generation:generation++,documents:[{...f.a,languageEpoch:3},f.b],editors:[],activeEditor:null});
+  for(const [,,command]of registrations)await f.api.commands.executeCommand(command,Uri.file('/work/a.cpp'),new Position(0,3));
+  assert.deepEqual(seen,['provideDefinition:older','provideDefinition:wild','provideDefinition:wild','provideReferences:older','provideImplementation:older','provideTypeDefinition:older','provideDeclaration:older']);
+});
+test('trusted ranking rejects stale source/session, malformed descriptors and does not invoke callbacks or release frames',()=>{
+  const f=providerFixture();let invoked=0;f.module.forOwner('creator').registerDefinitionProvider('cpp',{provideDefinition(){invoked++;return [];}});
+  const args={session:7,type:'definition',document:1,version:3,languageEpoch:0};
+  for(const patch of [{session:8},{type:'hover'},{document:2},{version:2},{languageEpoch:1},{owner:'forged'},{version:1.5}])assert.throws(()=>f.module.rank({...args,...patch}),/ranking/);
+  assert.deepEqual(f.module.rank(args),{providers:[{id:f.module.snapshot()[0].id,owner:'creator'}]});
+  assert.equal(invoked,0);assert.equal(f.module.pendingCount(),0);assert.equal(f.notifications.filter(value=>value.method==='languageProviderReleased').length,0);
+});

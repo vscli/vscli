@@ -198,11 +198,11 @@ impl App {
         let Some(kind) = Kind::from_method(method) else {
             return false;
         };
-        if !self.has_extension_provider(kind) {
-            return false;
-        }
         if kind.is_navigation() {
             return self.request_provider_navigation(kind, extra);
+        }
+        if !self.has_extension_provider(kind) {
+            return false;
         }
         if kind == Kind::Signature {
             self.request_signature();

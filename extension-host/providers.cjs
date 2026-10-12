@@ -7,6 +7,8 @@ const signatureTypes = require('./signatures.cjs');
 const symbolTypes = require('./symbols.cjs');
 const {selector,score}=require('./language-selector.cjs');
 const {normalizeNavigation}=require('./navigation-providers.cjs');
+const {createProviderOrdering}=require('./provider-order.cjs');
+const NAVIGATION_TYPES=['definition','references','implementation','typeDefinition','declaration'];
 const { CancellationTokenSource, SnippetString } = require('./provider-types.cjs');
 const MAX_PROVIDERS = 128, MAX_PENDING = 8, MAX_RESULT_BYTES = 1024 * 1024;
 const METHODS = Object.freeze({
@@ -146,6 +148,7 @@ function createProviders(options) {
     return sent;
   }
   const entries = new Map(), calls = new Map(), completions = new Map();
+  const navigationOrdering=new Map(NAVIGATION_TYPES.map(type=>[type,createProviderOrdering()]));
   let nextId = 0, nextHandle = 0, registryEpoch = 0;
   const actions = createActions({ ...options, text, range, position, current: item => {
     if (entries.get(item.entry.id) !== item.entry || item.epoch !== registryEpoch || item.document.isClosed || item.document.version !== item.version || languageEpoch(item.document) !== item.languageEpoch) return false;
@@ -191,8 +194,9 @@ function createProviders(options) {
       const id = ++nextId;
       const entry = { id, owner, type, selector: selector(documentSelector), triggers, retriggers, provider, method, actionKinds, resolves: type === 'completion' && typeof provider.resolveCompletionItem === 'function' || type === 'codeaction' && typeof provider.resolveCodeAction === 'function' };
       originalCaller?.();
+      navigationOrdering.get(type)?.register(entry,options.isBuiltinOwner?.(owner)===true);
       entries.set(id, entry);
-      const disposable = new Disposable(() => { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); publish(); });
+      const disposable = new Disposable(() => { navigationOrdering.get(type)?.remove(entry); entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); publish(); });
       try { const result = options.track(owner, disposable); publish(); return result; }
       catch (error) { disposable.dispose(); throw error; }
     }]));
@@ -373,13 +377,21 @@ function createProviders(options) {
   function documentChanged() { purgeCompletions(); actions.purge(); signatures.purge(); for (const call of calls.values()) {const live=documentSource(call.document);if (!live||live.isClosed||live.version!==call.version||live.languageEpoch!==call.languageEpoch||call.documentId!==undefined&&options.document(call.documentId)!==call.document) call.source.cancel();}
     for (const call of calls.values()) if (call.workspace) { try { actions.assertWorkspace(call.workspace, options); } catch { call.source.cancel(); } } }
 
+  function rank(params){
+    if(!params||typeof params!=='object'||Array.isArray(params)||Object.keys(params).length!==5||Object.keys(params).some(key=>!['session','type','document','version','languageEpoch'].includes(key))||params.session!==options.session||!NAVIGATION_TYPES.includes(params.type)||!Number.isSafeInteger(params.document)||params.document<1||!Number.isSafeInteger(params.version)||params.version<1||!Number.isSafeInteger(params.languageEpoch)||params.languageEpoch<0)throw new Error('Invalid navigation provider ranking request');
+    const document=options.document(params.document),source=document&&documentSource(document);
+    if(!source||source.isClosed||source.version!==params.version||source.languageEpoch!==params.languageEpoch)throw new Error('Navigation provider ranking source retired');
+    const selected=navigationOrdering.get(params.type).ordered(source);
+    const live=documentSource(document);
+    if(options.document(params.document)!==document||!live||live.isClosed||live.version!==source.version||live.languageEpoch!==source.languageEpoch||live.uri!==source.uri)throw new Error('Navigation provider ranking source changed');
+    return {providers:selected.map(entry=>({id:entry.id,owner:entry.owner}))};
+  }
   async function query(type,source,at) {
     source.recheck();
     if(calls.size>=MAX_PENDING)throw new Error('Language provider invocation limit reached');
-    const candidates=[...entries.values()].filter(entry=>entry.type===type&&score(entry.selector,source)>0)
-      .sort((a,b)=>score(b.selector,source)-score(a.selector,source)||b.id-a.id);
-    const exclusive=candidates.find(entry=>entry.selector.every(filter=>filter.exclusive));
-    const selected=exclusive?[exclusive]:candidates,result=[];
+    const selected=navigationOrdering.get(type)?.ordered(source);
+    if(!selected)throw new TypeError('Invalid navigation provider family');
+    const result=[];
     const deadline=performance.now()+(options.queryTimeoutMs||options.timeoutMs||5000);
     const check=()=>{source.recheck();if(performance.now()>=deadline)throw new Error('Navigation query deadline exceeded; callbacks remain occupied until actual settlement');};
     let bytes=2;
@@ -398,7 +410,7 @@ function createProviders(options) {
     }
     source.recheck();return result;
   }
-  function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
-  return { forOwner, provide, resolveCompletion, resolveAction, query,releaseRefusal,pending:request=>calls.has(request), retainedActionCount:actions.count, retainedSignatureCount:signatures.count, signaturePending:signatures.pending, symbolsPending:symbols.pending, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
+  function disposeOwner(owner) { for (const [id, entry] of entries) if (entry.owner === owner) { navigationOrdering.get(entry.type)?.remove(entry); entries.delete(id); for (const call of calls.values()) if (call.entry === entry) call.source.cancel(); } publish(); }
+  return { forOwner, provide, resolveCompletion, resolveAction, query,rank,releaseRefusal,pending:request=>calls.has(request), retainedActionCount:actions.count, retainedSignatureCount:signatures.count, signaturePending:signatures.pending, symbolsPending:symbols.pending, cancel, snapshot, documentChanged, disposeOwner, pendingCount: () => calls.size, retainedCompletionCount: () => { purgeCompletions(); return completions.size; } };
 }
 module.exports = { createProviders, score, selector, normalize };
