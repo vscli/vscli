@@ -8,6 +8,13 @@ equal-text dirty state separate from text version changes. Public resource-edit
 admission and lifecycle/event integration are still unfinished; see the
 [native model boundary](../src/document/resource/README.md).
 
+File Revert now reads/prepares text on a joined background worker and publishes
+against its original document/resource/settings proofs. Its confirmation stays
+bound to that document when another editor opens, and resource ABA refuses before
+IO. A pending read excludes saves of the original model; stale reads preserve
+current text and history. Shared identity, saved-baseline lifetime and EOL-aware
+Undo/Redo remain native. See the [App coordinator](../src/app/resource_models/README.md).
+
 The shared extension document mirror now implements source-guided word lookup,
 strict line/position/range argument handling, immutable line snapshots, UTF16
 offsets and logical EOL indexing. `getWordRangeAtPosition(position, regexp?)`

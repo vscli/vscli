@@ -80,7 +80,7 @@ expiry, customer teardown and retained-file Discard, including three actual host
 Resource-operation model effects and exact disposal/history archival remain
 unfinished. Matching public file cache hits now bypass the native open bridge,
 with eight host regressions and an actual eight-busy-slot terminal check. The
-combined current source passes 1,540 Rust tests (1,191 library; 23 ignored), all
+combined current source passes 1,550 Rust tests (1,201 library; 23 ignored), all
 748 host tests, two native document PTY journeys, formatting and strict locked
 all-target Clippy. The document PTY also passes clean tab close/reopen and dirty
 Discard/reopen/Undo with the same public document. These additions do not expose
@@ -105,6 +105,16 @@ controls. One couples actual Linux overwrite move, displaced dirty archives and
 physical rollback with restoration into the surviving destination. App must
 still select actual survival, archive complete retired history/views, apply
 ordered groups and publish events; the public resource gateway remains unavailable.
+
+The [App model coordinator](../src/app/resource_models/README.md) now connects
+File Revert to the actual resource worker and restoration kernel. It binds
+confirmation to original model/resource identity, keeps IO/diff work off input/
+rendering, validates native source/settings proofs before authorization and after
+join, and preserves shared model/history identity while publishing the new disk
+baseline. Pending reloads exclude saves and retain actual capacity through
+retirement. Nine App controls and one large shared-backing control qualify this
+connection. Bulk file effects, destination survival, operation events, complete
+retired archives and mixed-group/public-history integration remain unfinished.
 
 The Linux resource executor now performs actual create, rename, copy and delete
 operations with durable intent/postimage checkpoints, explicit partial outcomes

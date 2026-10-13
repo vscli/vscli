@@ -368,7 +368,7 @@ fn allocation_refusal_and_dropped_commit_preserve_original_document_and_history(
             .prepare_reload(Rope::from_str("binary\0"), &fixture.control())
             .is_err()
     );
-    let large = Rope::from_str(&"x".repeat(17 * 1024 * 1024));
+    let large = Rope::from_str(&"x".repeat(33 * 1024 * 1024));
     assert!(
         target
             .capture_resource_model()
@@ -406,6 +406,31 @@ fn resource_replace_move_forces_current_decoration_endpoints_instead_of_retainin
     assert_eq!(target.text.to_string(), "ab");
     assert_eq!(target.decoration_overlay(0..2, &theme).style_at(0).fg, None);
     assert_eq!(target.editor_decoration_count(), 1);
+}
+
+#[test]
+fn clean_reload_charges_and_publishes_shared_backing_once_without_halving_native_file_limit() {
+    let fixture = Fixture::new();
+    let mut target = model("target.cpp", "old");
+    let loaded = Rope::from_str(&"x".repeat(17 * 1024 * 1024));
+    let backing = loaded.clone();
+    let prepared = target
+        .capture_resource_model()
+        .unwrap()
+        .prepare_reload(loaded, &fixture.control())
+        .unwrap();
+    target
+        .prepare_resource_model_commit(prepared, &fixture.control(), 8 * 1024 * 1024)
+        .unwrap()
+        .publish();
+    assert_eq!(target.text.len_bytes(), 17 * 1024 * 1024);
+    assert!(target.text.is_instance(&backing));
+    assert!(
+        target
+            .text
+            .is_instance(target.disk_content.as_ref().unwrap())
+    );
+    assert!(!target.dirty());
 }
 #[cfg(target_os = "linux")]
 #[test]

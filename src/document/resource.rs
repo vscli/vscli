@@ -10,6 +10,7 @@ pub use restore::{ResourceModelCommit, ResourceModelPrepared};
 /// A COW snapshot of an actual native file document. Keep this owner through
 /// native authorization; neither a URI nor a recovered ModelProof replaces it.
 /// History head identities remain live-only and cannot be rebuilt from the wire.
+#[derive(Clone)]
 pub struct ResourceModelSource {
     source: WorkspaceSource,
     proof: ModelProof,

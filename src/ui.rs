@@ -1713,11 +1713,11 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
                 clean(&path.to_string_lossy())
             ),
         ),
-        Modal::Revert => (
+        Modal::Revert { name, .. } => (
             " Revert File ",
             format!(
                 "Discard in-memory edits and reload {} from disk?\n\n[Y] Revert    [N / Esc] Cancel",
-                clean(&app.doc().name())
+                clean(name)
             ),
         ),
     };

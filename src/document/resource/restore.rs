@@ -16,6 +16,9 @@ impl ResourceModelPrepared {
     pub fn document(&self) -> u64 {
         self.target.proof.document
     }
+    pub fn bytes(&self) -> usize {
+        self.text.bytes()
+    }
 }
 /// An exclusive native destination lease. Preparation may reserve capacity but
 /// changes no document text, identity, baseline or history before publish.
@@ -275,6 +278,9 @@ fn prepare(
             .clone()
             .prepare(edits, control.cancel_flag(), control.deadline())?;
     prepared.force_resource_markers();
+    // Retain the original restored backing after calculating native edit maps.
+    // Clean model/baseline publication can then share this allocation as well.
+    prepared.use_resource_text(text);
     control.check()?;
     Ok(ResourceModelPrepared {
         target,
@@ -322,9 +328,16 @@ fn same_line(
 }
 fn validate(text: &Rope, disk: &Rope, control: &Control<'_>) -> Result<()> {
     control.check()?;
+    // A clean reload shares one immutable Rope for model and baseline. Charge
+    // that backing once; independent dirty contents/baselines remain additive.
+    let baseline_bytes = if text.is_instance(disk) {
+        0
+    } else {
+        disk.len_bytes()
+    };
     ensure!(
         text.len_bytes()
-            .checked_add(disk.len_bytes())
+            .checked_add(baseline_bytes)
             .is_some_and(|bytes| bytes <= crate::resource_journal::MAX_BYTES),
         "Restored text/baseline exceed shared resource budget"
     );

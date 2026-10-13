@@ -416,11 +416,16 @@ mod tests {
         assert_eq!(app.doc().text.to_string(), "preserve me");
         assert!(app.doc_mut().save().is_err());
         std::fs::write(&path, "restored").unwrap();
-        app.modal = Some(Modal::Revert);
+        app.modal = Some(Modal::Revert {
+            document: app.doc().id,
+            resource_epoch: app.doc().resource_epoch(),
+            name: app.doc().name(),
+        });
         app.event(crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('y'),
             KeyModifiers::NONE,
         )));
+        until(&mut app, |app| app.message == "Reloaded from disk");
         assert_eq!(app.doc().id, id);
         assert!(app.panes.iter().all(|p| p.document == id));
         assert_eq!(app.doc().text.to_string(), "restored");

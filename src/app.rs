@@ -29,6 +29,7 @@ mod preview_tabs;
 mod provider_navigation;
 mod refactoring_saves;
 mod rename;
+mod resource_models;
 mod save_code_actions;
 mod save_formatting;
 mod saving;
@@ -515,7 +516,11 @@ pub enum Modal {
         selected: usize,
     },
     Confirm(AfterSave),
-    Revert,
+    Revert {
+        document: u64,
+        resource_epoch: u64,
+        name: String,
+    },
     Trash(PathBuf),
     Tasks {
         tasks: Vec<crate::tasks::Task>,
@@ -574,6 +579,7 @@ pub struct App {
     extension_file_search: extension_file_search::State,
     virtual_documents: virtual_documents::State,
     workspace_transactions: workspace_transactions::State,
+    resource_models: resource_models::State,
     extension_providers: extension_providers::State,
     provider_navigation: provider_navigation::State,
     rename: rename::State,
@@ -665,6 +671,7 @@ impl Drop for App {
         self.settle_virtual_documents();
         self.settle_api_discard();
         self.settle_workspace_transactions();
+        self.settle_resource_models();
         self.shutdown_extensions();
         self.shutdown_language_services();
     }
@@ -711,6 +718,7 @@ impl App {
             extension_file_search: extension_file_search::State::default(),
             virtual_documents: virtual_documents::State::default(),
             workspace_transactions: workspace_transactions::State::default(),
+            resource_models: resource_models::State::default(),
             extension_providers: extension_providers::State::default(),
             provider_navigation: provider_navigation::State::default(),
             rename: rename::State::default(),
@@ -870,6 +878,7 @@ impl App {
         changed |= self.poll_native_saves();
         changed |= self.poll_git();
         changed |= self.poll_files();
+        changed |= self.poll_resource_models();
         changed |= self.poll_watching();
         changed |= self.poll_debugger();
         changed |= self.poll_extension_management();
@@ -2044,7 +2053,11 @@ impl App {
                 self.request_close(AfterSave::Quit)
             }
             "workbench.action.closeAllEditors" => self.begin_close_editor_batch(true),
-            "workbench.action.files.revert" => self.modal = Some(Modal::Revert),
+            "workbench.action.files.revert" => {
+                if let Some(document) = self.active_document() {
+                    self.modal = Some(Modal::Revert {document: document.id, resource_epoch: document.resource_epoch(), name: document.name()});
+                } else { self.message = "Open a file before reverting".into(); }
+            }
             "workbench.action.openRecent" => self.start_prompt(PromptKind::RecentFiles, String::new()),
             "workbench.action.reopenClosedEditor" => self.reopen_closed(),
             "workbench.action.quickOpen" => self.start_prompt(PromptKind::QuickOpen, String::new()),
@@ -2749,25 +2762,22 @@ impl App {
                 KeyCode::Char('c' | 'C') => self.cancel_save_continuations(),
                 _ => self.modal = Some(Modal::Confirm(action)),
             },
-            Modal::Revert => match key.code {
+            Modal::Revert {
+                document,
+                resource_epoch,
+                name,
+            } => match key.code {
                 KeyCode::Char('y' | 'Y') => {
-                    if let Some(path) = self.doc().path.clone() {
-                        match crate::document::read_disk(&path) {
-                            Ok(Some(content)) => {
-                                self.doc_mut().reload_content(content);
-                                self.message = "Reloaded from disk".into();
-                            }
-                            Ok(None) => {
-                                self.message = "File no longer exists; buffer retained".into()
-                            }
-                            Err(e) => self.message = format!("Reload failed: {e:#}"),
-                        }
-                    } else {
-                        self.message = "Untitled file has no disk version".into();
-                    }
+                    self.start_resource_model_reload(document, resource_epoch);
                 }
                 KeyCode::Char('n' | 'N') => {}
-                _ => self.modal = Some(Modal::Revert),
+                _ => {
+                    self.modal = Some(Modal::Revert {
+                        document,
+                        resource_epoch,
+                        name,
+                    })
+                }
             },
             other => self.modal = Some(other),
         }

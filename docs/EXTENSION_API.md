@@ -39,7 +39,7 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 The [resource-edit workstream](RESOURCE_EDITS_PLAN.md) now includes actual Linux
 filesystem execution, durable checkpoints, guarded rollback and an original-file
 DTO adapter, alongside native resource-lifetime guards. The combined work has
-151 focused Rust controls and 1,540 full Rust tests passing. Ten new adapter controls
+161 focused Rust controls and 1,550 full Rust tests passing. Ten new adapter controls
 include real joined-worker execution; the 26 new executor controls cover actual
 filesystem and cold-recovery outcomes. Public resource gateway integration,
 model lifetimes and operation history remain unfinished. These additions provide
@@ -281,3 +281,19 @@ run caught a new snippet Redo count-shadowing regression, which was corrected;
 the four recorded snippet trace controls pass unchanged. A subsequent parallel
 theme timeout passed alone and in the bounded final suite. No local reference
 editor was launched; CI work remains deferred.
+
+Native File Revert now connects the restoration kernel to an App-owned joined
+resource worker. Confirmation binds original document/resource identity; disk
+reads and diff preparation stay off input/rendering. Original model/history/
+language/resource/settings proofs are checked before authorization and after
+thread exit/join. Accepted publication keeps shared identity, advances baseline
+lifetime and invalidates prior disk-watch replies. Pending reads pin their model
+and exclude saves; retirement retains occupied capacity until actual exit.
+Nine App controls and a 17 MiB shared-backing control pass. All 1,550 Rust
+all-target tests pass (1,201 library; 23 ignored), with formatting, strict locked
+all-target Clippy and build. Four terminal journeys pass: native EOL Revert/
+Undo/Redo/Enter/Save, Explorer path lifetime and two extension-document/restart
+journeys. Host sources retain their separately qualified 748-test milestone.
+Bulk file effects, surviving-destination arbitration, retired history/view
+archives, ordered mixed groups, public resource events/history and the resource
+extension gateway remain unfinished.

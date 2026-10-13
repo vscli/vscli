@@ -100,6 +100,14 @@ archive/rollback, and two history controls cover this boundary. App must still
 arbitrate actual survival, editor replacement, model disposal, public events and
 API-reference removals before exposing the resource gateway.
 
+Native File Revert now uses the [App-owned resource coordinator](../src/app/resource_models/README.md)
+to retain actual source/context proofs across background preparation and joined
+publication. Its confirmation binds original model/resource identity, while view
+navigation remains independent. Baseline lifetime, shared identity and native
+history survive; saves wait for pending reads. Nine App controls and one large
+shared-backing control qualify this connection. Bulk-operation lifetime
+arbitration, editor replacement, complete archives and events remain open.
+
 Preserve displaced/deleted unsaved text in private archives. Capture actual model
 and history proofs before effects; durable numeric IDs alone do not authorize a
 new model after restart. Native documents now carry an independent checked

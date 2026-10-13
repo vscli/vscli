@@ -296,6 +296,7 @@ impl App {
         self.saving.autosave_error = None;
         if self.saves_pending()
             || self.api_discard_occupied()
+            || self.resource_models_pending()
             || self.file_job.is_some()
             || self.saving.closing.is_some()
             || matches!(self.modal, Some(Modal::Confirm(_)))
@@ -417,6 +418,7 @@ impl App {
     pub(super) fn refactoring_save_lane_available(&self) -> bool {
         !self.saving.shutting_down
             && !self.api_discard_occupied()
+            && !self.resource_models_pending()
             && !self.saves_pending()
             && !self.settings_writes_busy()
             && self.file_job.is_none()
@@ -456,6 +458,7 @@ impl App {
     }
     pub(super) fn document_save_pending(&self, id: u64) -> bool {
         self.saving.actions.document_pending(id)
+            || self.resource_model_pending(id)
             || self
                 .saving
                 .latest
@@ -563,6 +566,10 @@ impl App {
         })
     }
     fn enqueue_native_save(&mut self, mut intent: Intent) -> Result<()> {
+        ensure!(
+            !self.resource_model_pending(intent.document),
+            "Wait for the original document reload before saving"
+        );
         ensure!(
             !self.saving.shutting_down,
             "Editor shutdown is settling saves"

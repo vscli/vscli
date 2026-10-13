@@ -55,7 +55,8 @@ common prefix/suffix replacement and forced marker movement follow the pinned
 [ModelService update structure](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/services/modelService.ts).
 Raw native EOL differences remain real byte edits; full logical-buffer
 normalization and event-by-event upstream equivalence remain unqualified. Text
-and baseline share 32 MiB; native publication metadata is capped at 8 MiB. Only a
+and baseline share 32 MiB, counting an identical immutable backing once; native
+publication metadata is capped at 8 MiB. Only a
 private prepared payload enters an exclusive commit. Dropping it publishes
 nothing. Retimed deadlines, stale source/history, cancellation, exhausted counters
 and allocation refusal reject publication. Baselines retain independent clocks.
@@ -82,6 +83,13 @@ destination and verifies displaced dirty archives/physical rollback bytes. Two
 history controls cover ordinary/grouped EOL publication. This qualifies the
 restoration kernel. App lifecycle arbitration, public operation events/history,
 mixed groups, API-reference removals and the extension gateway remain unfinished.
+
+The [App coordinator](../../app/resource_models/README.md) now connects native
+File Revert to the joined worker and this restoration kernel. Confirmation binds
+the original document/resource, guarded preparation stays off input/rendering,
+and actual model/baseline/history publication follows exit/join. Nine App controls
+and a 17 MiB shared-backing control qualify this connection. Bulk resource effects,
+destination lifetime arbitration, public events and file history remain open.
 
 The restoration continuation passes all 1,540 Rust all-target tests (1,191 library;
 23 ignored), 748 host tests, formatting, strict locked all-target Clippy and build.

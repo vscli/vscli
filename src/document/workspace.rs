@@ -240,6 +240,10 @@ impl WorkspaceTextPrepared {
             change.decoration.force_move = true;
         }
     }
+    pub(super) fn use_resource_text(&mut self, text: Rope) {
+        debug_assert_eq!(self.text, text);
+        self.text = text;
+    }
     pub(crate) fn document(&self) -> u64 {
         self.source.document
     }
