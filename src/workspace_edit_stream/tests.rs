@@ -255,7 +255,7 @@ fn original_resource_entry_and_aggregate_bounds_apply_before_retention() {
     let escaped = json!({"edits":[text(A,&"\0".repeat(400_000))]});
     assert!(Stream::parse(&escaped).is_err());
     let mut deep = json!(true);
-    for _ in 0..18 {
+    for _ in 0..97 {
         deep = json!({"nested":deep});
     }
     let nested = json!({"edits":[{"newResource":A,"options":{"custom":deep}}]});

@@ -295,7 +295,7 @@ fn parse_entry(value: &Value) -> Result<Entry<'_>> {
         metadata,
     }))
 }
-fn truthy(value: &Value) -> bool {
+pub(crate) fn truthy(value: &Value) -> bool {
     match value {
         Value::Null => false,
         Value::Bool(value) => *value,
@@ -308,7 +308,7 @@ fn budget(value: &Value) -> Result<()> {
     fn visit(value: &Value, depth: usize, nodes: &mut usize, bytes: &mut usize) -> Result<()> {
         *nodes += 1;
         ensure!(
-            depth <= 16 && *nodes <= MAX_NODES,
+            depth <= 96 && *nodes <= MAX_NODES,
             "Workspace stream exceeds depth/node bounds"
         );
         *bytes += 8;

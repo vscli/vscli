@@ -71,6 +71,11 @@ The reference is VS Code 1.141.0 immutable commit
 
 ## Current evidence
 
+The original DTO parser now accepts converter-sized nested metadata under a
+bounded native depth of 96, including DTO wrappers. Its resource, entry, node
+and 2 MiB bounds remain enforced. This replaces the earlier depth-16 refusal
+of valid rich source metadata; excessive depth still refuses the whole stream.
+
 The native API-reference ledger now passes seventeen behavioral controls for
 original customer/model/resource identity, independent expiry and eviction,
 move/delete removal, exact untitled revert and teardown. It returns reference
