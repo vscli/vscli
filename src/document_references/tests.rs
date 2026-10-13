@@ -466,3 +466,29 @@ fn resource_storage_is_bounded_and_namespace_fields_are_preserved() {
     other.fragment = "x".into();
     assert!(!key.same_resource(&ResourceKey::new("file:///a#x", other).unwrap()));
 }
+
+#[test]
+fn scheme_only_provider_resources_can_acquire_an_exact_native_reference() {
+    let now = Instant::now();
+    let uri = ResourceKey::new(
+        "preview:?revision=1",
+        ResourceIdentity {
+            scheme: "preview".into(),
+            authority: String::new(),
+            path: String::new(),
+            query: "revision=1".into(),
+            fragment: String::new(),
+        },
+    )
+    .unwrap();
+    let mut ledger = References::new(1).unwrap();
+    ledger.acquire(1, model(3, 0), uri.clone(), 4, now).unwrap();
+    assert_eq!(
+        ledger
+            .remove_deleted_resource(1, &uri)
+            .unwrap()
+            .released
+            .len(),
+        1
+    );
+}

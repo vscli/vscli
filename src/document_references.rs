@@ -12,7 +12,7 @@ pub const MAX_AGE: Duration = Duration::from_secs(180);
 pub const MAX_LENGTH_UNITS: u64 = 80 * 1024 * 1024;
 pub const COUNT_TRIGGER: usize = 60;
 pub const COUNT_AFTER_EVICTION: usize = 50;
-pub const MAX_RESOURCE_BYTES: usize = 8192;
+pub const MAX_RESOURCE_BYTES: usize = 128 * 1024;
 
 /// URI identity components already normalized by the native resource authority.
 /// `path` uses '/' boundaries; provider case/UNC normalization belongs to the
@@ -44,8 +44,8 @@ impl ResourceKey {
         let length = parts
             .iter()
             .try_fold(0usize, |total, part| total.checked_add(part.len()));
-        if identity.scheme.is_empty()
-            || identity.path.is_empty()
+        if uri.is_empty()
+            || identity.scheme.is_empty()
             || parts.iter().any(|part| part.contains('\0'))
             || length.is_none_or(|length| length > MAX_RESOURCE_BYTES)
         {

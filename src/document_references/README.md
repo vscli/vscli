@@ -2,10 +2,10 @@
 
 This standalone ledger implements acquisition provenance and bounded reference
 ownership. It is not wired into App or the extension host, and does not dispose,
-hide, reopen or synchronize documents. Sixteen focused behavioral tests pass,
+hide, reopen or synchronize documents. Seventeen focused behavioral tests pass,
 including deadline boundaries, duplicate acquisition, length/count eviction,
 original resource/model epochs, stale timers and complete customer teardown.
-The combined Rust suite passes 1,487 tests across 67 reports (1,138 library;
+The standalone milestone at `0583730` passed 1,487 Rust tests across 67 reports (1,138 library;
 23 ignored), formatting and strict locked all-target Clippy. These results
 qualify the ledger, not actual editor retention or expiry.
 No VS Code runtime, JavaScript process, timer or thread is needed by the module.
@@ -35,8 +35,13 @@ Length cleanup releases oldest acquisitions while the captured sum exceeds
 80 * 1024 * 1024 units. Count cleanup runs afterward: reaching 60 releases ten
 oldest entries to 50; 51 through 59 are valid. An oversized acquisition can evict
 every older acquisition and itself. At most 59 entries remain after a call.
-Resource strings/components retain at most 8192 bytes per entry; returned evidence
+Resource strings/components retain at most 128 KiB per entry; returned evidence
 is bounded by the original collection plus one admitted entry.
+This receipt budget accommodates the existing 16 KiB string-path admission after
+URI escaping without reducing that gateway's accepted paths. It does not enlarge
+the public gateway's URI/input limits. A trusted provider resource may have an
+empty path, such as `preview:?revision=1`; its nonempty original URI, scheme and
+query/fragment namespace still distinguish identity.
 
 `ResourceKey::new` preserves the public URI as receipt evidence and accepts
 caller-normalized identity components. The caller must use the actual native
