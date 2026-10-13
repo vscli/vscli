@@ -997,6 +997,27 @@ impl Document {
         Ok(doc)
     }
 
+    /// Admit a reload before changing text, history, views or the disk baseline.
+    pub(crate) fn reload_content_checked(&mut self, next: Rope) -> Result<()> {
+        self.ensure_writable()?;
+        if next.len_bytes() as u64 > MAX_FILE_BYTES {
+            bail!("Disk reload exceeds the 32 MiB document budget");
+        }
+        if self.text != next {
+            self.next_revision
+                .checked_add(1)
+                .context("Document revision exhausted")?;
+            self.text_epoch
+                .checked_add(1)
+                .context("Document text epoch exhausted")?;
+        }
+        self.reload_content(next);
+        Ok(())
+    }
+    pub(crate) fn retains_text_history(&self) -> bool {
+        !self.undo.is_empty() || !self.redo.is_empty()
+    }
+
     /// Apply a disk reload as one undoable edit, retaining document and view identity.
     pub fn reload_content(&mut self, next: Rope) {
         if self.is_read_only() {
@@ -3475,5 +3496,59 @@ mod editor_state_tests {
         assert_eq!(editable.text.to_string(), edited);
         editable.undo();
         assert_eq!(editable.text.to_string(), source);
+    }
+}
+
+#[cfg(test)]
+mod checked_reload_tests {
+    use super::*;
+
+    #[test]
+    fn exhausted_reload_counters_preserve_text_views_baseline_and_both_history_heads() {
+        for revision in [false, true] {
+            let mut doc = Document::from_text("猫🙂\r\noriginal");
+            doc.path = Some(std::env::temp_dir().join("vscli-reload-proof.cpp"));
+            doc.disk_content = Some(doc.text.clone());
+            doc.insert("first ", false);
+            doc.insert("second ", false);
+            doc.undo();
+            if revision {
+                doc.next_revision = u64::MAX;
+            } else {
+                doc.text_epoch = u64::MAX;
+            }
+            let source = doc.capture_workspace_source().unwrap();
+            let text = doc.text.clone();
+            let disk = doc.disk_content.clone();
+            let cursor = doc.cursor;
+            assert!(
+                doc.reload_content_checked(Rope::from_str("external 猫🙂\r\n"))
+                    .is_err()
+            );
+            assert!(source.current(&doc));
+            assert_eq!(doc.text, text);
+            assert_eq!(doc.disk_content, disk);
+            assert_eq!(doc.cursor, cursor);
+        }
+    }
+
+    #[test]
+    fn accepted_reload_sets_real_baseline_and_keeps_dirty_prior_text_in_native_undo() {
+        let mut doc = Document::from_text("猫🙂\r\noriginal");
+        doc.path = Some(std::env::temp_dir().join("vscli-reload-proof.cpp"));
+        doc.insert("unsaved ", false);
+        doc.reload_content_checked(Rope::from_str("external 猫🙂\r\n"))
+            .unwrap();
+        assert!(!doc.dirty());
+        assert_eq!(
+            doc.disk_content.as_ref().unwrap().to_string(),
+            "external 猫🙂\r\n"
+        );
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "unsaved 猫🙂\r\noriginal");
+        assert!(doc.dirty());
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "external 猫🙂\r\n");
+        assert!(!doc.dirty());
     }
 }

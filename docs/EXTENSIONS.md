@@ -153,6 +153,19 @@ native watching and settings also include retained hidden models. Dirty hidden
 models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean
 hidden models are excluded from clean-session layout metadata.
 
+A genuine native file, untitled or readonly virtual open acquires a reference
+shared by the extension-host session. Each acquisition expires independently
+after three minutes; cached opens and showing a document preserve its original
+lifetime. Closing the last tab or replacing a preview keeps a referenced model
+hidden with the same public document, native identity and history. Expiry and
+host stop/crash/replacement release API ownership; dirty/history, editor and
+pending-worker ownership can keep the model alive. Discard on a retained file
+reads the current disk on a joined background worker before reverting and closing
+the tab. Changed text/settings/membership or a failed read preserves original
+work. Native Undo can restore accepted discarded edits. Untitled Discard releases
+only its original model/resource references. See [reference behavior and remaining
+qualification](../src/document_references/README.md).
+
 `window.showTextDocument(documentOrFile, options)` and its positional view-column
 overload display the retained model in native groups. Supported options include
 `selection` (a strictly validated UTF-16 Range), `preview: false`, boolean
@@ -187,7 +200,13 @@ reopening the same hidden file while all eight native request slots are busy,
 then editing, Undo/Redo, host crash, dirty recovery and unchanged original disk
 bytes until explicit save. Formatting and strict locked all-target Clippy pass.
 Concurrent cache misses do not yet share a customer-owned loader; broader
-encoding reload and native API-reference lifetime wiring remain outstanding.
+encoding reload, provider-resource cache behavior and exact disposal/history
+archival remain outstanding. Native lifetime wiring now passes twenty App and
+two checked-reload controls, including three actual selected-host cases for
+unchanged cache deadlines, public expiry close/readable old documents and
+provider refresh without renewal. All 1,510 Rust tests pass (1,161 library;
+23 ignored); the document terminal journey also passes clean close/reopen and
+dirty Discard/reopen/Undo with the original public document.
 
 ## Native output, status and tree surfaces
 

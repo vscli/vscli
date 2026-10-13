@@ -188,6 +188,12 @@ pub(super) fn resolved(path: &Path, workspace: &Path) -> Result<PathBuf> {
     )
 }
 impl App {
+    pub(super) fn extension_services_pending(&self) -> bool {
+        self.extension_services.job.is_some()
+            || self.extension_services.shown_completed.is_some()
+            || self.extension_services.editor_state_completed.is_some()
+            || self.extension_services.tabs_completed.is_some()
+    }
     pub(super) fn cancel_extension_services(&mut self) {
         self.retire_extension_tab_close();
         self.cancel_extension_file_search();
@@ -248,6 +254,10 @@ impl App {
         changed
     }
     fn poll_services_with_host(&mut self, host: &mut crate::extensions::Client) -> bool {
+        if let Err(error) = self.bind_api_document_customer(host.session) {
+            self.message = format!("Native document customer refused: {error:#}");
+            return false;
+        }
         // Capture every queued document operation when first observed by App,
         // including requests waiting behind a filesystem write. A later focus,
         // pane or input change must not become their new authorization context.
@@ -425,7 +435,21 @@ impl App {
             };
             let job = self.extension_services.job.take().unwrap();
             let result = if valid && !job.cancel.load(Ordering::Acquire) {
-                result.and_then(|output| self.install_service_output(output))
+                result
+                    .and_then(|output| self.install_service_output(output))
+                    .and_then(|value| {
+                        if matches!(job.service.operation, Operation::Open(_)) {
+                            let id = value["document"]
+                                .as_u64()
+                                .context("Missing opened model identity")?;
+                            self.acquire_api_document(
+                                job.service.request.session,
+                                id,
+                                std::time::Instant::now(),
+                            )?;
+                        }
+                        Ok(value)
+                    })
             } else {
                 Err(anyhow::anyhow!(
                     "Native service cancelled by newer editor or host context; retry"
@@ -597,17 +621,21 @@ impl App {
                 } else {
                     self.workspace.root.join(path)
                 };
-                if let Some(doc) = self
+                if let Some(id) = self
                     .documents
                     .iter()
                     .chain(&self.hidden_documents)
                     .find(|d| d.path.as_ref() == Some(&path))
+                    .map(|doc| doc.id)
                 {
-                    self.answer_native_service(
-                        host,
-                        &service,
-                        Ok(serde_json::json!({"document":doc.id})),
-                    );
+                    let result = self
+                        .acquire_api_document(
+                            service.request.session,
+                            id,
+                            std::time::Instant::now(),
+                        )
+                        .map(|()| serde_json::json!({"document":id}));
+                    self.answer_native_service(host, &service, result);
                     return true;
                 }
                 let remaining = MAX_BYTES.saturating_sub(

@@ -143,8 +143,9 @@ impl App {
                     && matches!(continuation.action, AfterSave::Close)
             })
         };
-        (self.close_membership == Some(member)
-            && matches!(self.modal, Some(Modal::Confirm(AfterSave::Close))))
+        self.api_discard_pending(member, generation)
+            || (self.close_membership == Some(member)
+                && matches!(self.modal, Some(Modal::Confirm(AfterSave::Close))))
             || (matches!(self.pending, Some(AfterSave::Close))
                 && self.saving.save_as_origin.as_ref().is_some_and(|origin| {
                     origin.membership == Some(member) && origin.service.is_none()
@@ -294,6 +295,7 @@ impl App {
         }
         self.saving.autosave_error = None;
         if self.saves_pending()
+            || self.api_discard_occupied()
             || self.file_job.is_some()
             || self.saving.closing.is_some()
             || matches!(self.modal, Some(Modal::Confirm(_)))
@@ -414,6 +416,7 @@ impl App {
     }
     pub(super) fn refactoring_save_lane_available(&self) -> bool {
         !self.saving.shutting_down
+            && !self.api_discard_occupied()
             && !self.saves_pending()
             && !self.settings_writes_busy()
             && self.file_job.is_none()

@@ -51,10 +51,37 @@ does not collapse URI queries/fragments or share concurrent misses.
 Eight new regressions and all 727 host tests pass. Both native document PTY
 journeys pass with an eight-busy-slot cached reopen added to the actual hidden
 open/edit/Undo/Redo/host-crash/recovery/save workflow. Formatting and strict locked
-all-target Clippy pass. Native acquisition expiry and last-tab retention still
-need editor integration; this cache change does not qualify those lifetimes.
+all-target Clippy pass. Native acquisition expiry and last-tab retention are now
+integrated separately below; concurrent misses and encoding reload still need
+their backends.
 The immutable source contract is
 [ExtHostDocuments.ensureDocumentData](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostDocuments.ts).
+
+## Native API-reference lifetimes
+
+Successful native file, untitled and readonly virtual opens acquire customer-wide
+references before publishing mirrors. Each stores original model/resource
+identity, UTF-16/EOL length and an independent three-minute deadline. Cached opens,
+showing a model and virtual refresh acquire nothing or renew no deadline. Closing
+the last tab or replacing a referenced preview moves the same Document into
+private storage. Expiry releases references; native editor, dirty/history and
+pending-work ownership remain separate. Eligible clean hidden models close in
+the public mirror, preserving the old closed object's readable text/URI. Host
+stop/crash/replacement drains the customer without discarding protected buffers.
+
+Explicit Discard of a retained file reads the current disk on one bounded joined
+worker. Original text/resource/history/baseline, settings and membership proofs
+must still match before revert and close. Failed or late reads preserve original
+work; successful reload preserves prior unsaved text in native Undo and leaves
+disk bytes unchanged. Untitled revert releases only its original identity.
+
+Twenty App controls (three actual selected hosts), seventeen ledger controls and
+two checked-reload integrity controls pass; all 1,510 Rust tests pass (1,161
+library; 23 ignored). The strengthened document terminal journey passes clean
+close/reopen, dirty Discard/reopen/Undo, eight busy slots, shared public identity,
+host crash and dirty recovery/save. Full provider-resource cache, shared miss
+loading, encoding reload and disposal/history archival remain unqualified.
+See the [native ownership contract](../src/document_references/README.md).
 
 [Source receipts](../extension-host/document-types.provenance.json) pin stable
 VS Code 1.141.0 at `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`:

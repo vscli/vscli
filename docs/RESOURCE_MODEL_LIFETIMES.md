@@ -1,23 +1,28 @@
 # Resource operations and native model lifetimes
 
-This is a source-derived integration contract, not runtime qualification. It
+This records source-derived contracts and the qualified native subsets. It
 uses VS Code 1.141.0 commit `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`.
-No local VS Code instance was launched. The Linux filesystem execution backend is implemented; App model retention
-and resource-specific editor/event qualification remain unfinished in VSCLI.
+No local VS Code instance was launched. The Linux filesystem execution backend
+and native API-reference retention are implemented; resource-specific model
+effects, destination reuse and public operation events remain unfinished.
 
-The standalone [native API-reference ledger](../src/document_references/README.md)
+The [native API-reference ledger and App integration](../src/document_references/README.md)
 now implements original acquisition IDs, customer/model resource epochs,
 three-minute expiry, captured-length/count eviction, move/delete source removal,
-exact untitled revert and complete customer teardown. Sixteen focused tests and
-all 1,487 Rust all-target tests pass (1,138 library; 23 ignored), with formatting
+exact untitled revert and complete customer teardown. Seventeen ledger tests,
+twenty App tests and two checked-reload integrity tests pass. All 1,510 Rust
+all-target tests pass (1,161 library; 23 ignored), with formatting
 and strict locked all-target Clippy. Release evidence is separate from model
-disposal; App acquisition, last-tab retention and actual expiry remain unwired.
+disposal. Native file/untitled/virtual acquisition, last-tab and preview retention,
+expiry polling, stop/crash/replacement and actual retained-file Discard are wired.
+Three actual host sessions qualify unchanged cache deadlines, public expiry
+close/readable-old-document publication and virtual refresh without renewal.
 The public matching-file cache now avoids native requests, with eight new host
 controls, all 727 host tests and two native document PTY journeys passing.
 The PTY includes cached reopen while eight native service slots are busy,
-followed by shared identity, Undo/Redo, host crash, dirty recovery and save.
-Concurrent miss sharing, encoding reload and actual reference timing remain
-integration obligations.
+followed by clean tab close/reopen, dirty Discard/reopen/Undo, shared identity,
+host crash, dirty recovery and save. Concurrent miss sharing, encoding reload,
+exact disposal/history archival and upstream/platform timing remain obligations.
 
 ## Conditional destination reuse
 
@@ -85,10 +90,11 @@ resource epoch through Save As and Explorer path publications. Save/workspace,
 provider/editor-service and disk-refresh proofs validate it alongside their
 text/language/history and saved-generation guards. A return to the original path
 cannot restore an earlier proof. Baseline publications retain their independent
-save-generation guard. This does not yet implement resource-edit model disposal,
-conditional destination reuse or API reference acquisition.
+save-generation guard. Resource-edit model disposal and conditional destination
+reuse remain unfinished. API
+acquisition/expiry is now wired separately as described above.
 Keep source and destination lifetimes separate. Implement surviving-target reuse,
-reference provenance, expiry and teardown before claiming exact resource/API
-document compatibility. Teardown must drain an owned snapshot rather than mutate
+resource events and per-model resolve ownership before claiming exact resource/API
+document compatibility. Teardown drains an owned snapshot rather than mutating
 the collection being iterated. Precise editor/watcher/refcount timing still needs
 runtime evidence; a source trace is insufficient to qualify those races.

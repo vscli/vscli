@@ -39,19 +39,30 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 The [resource-edit workstream](RESOURCE_EDITS_PLAN.md) now includes actual Linux
 filesystem execution, durable checkpoints, guarded rollback and an original-file
 DTO adapter, alongside native resource-lifetime guards. The combined work has
-98 focused Rust controls and 1,487 full Rust tests passing. Ten new adapter controls
+121 focused Rust controls and 1,510 full Rust tests passing. Ten new adapter controls
 include real joined-worker execution; the 26 new executor controls cover actual
 filesystem and cold-recovery outcomes. Public resource gateway integration,
 model lifetimes and operation history remain unfinished. These additions provide
 no new facade names or provider families. [Model lifetime contracts](RESOURCE_MODEL_LIFETIMES.md)
 record the conditional destination reuse and reference ownership required next.
-The additional sixteen controls qualify a standalone native reference ledger;
-App acquisition, last-tab retention and actual expiry remain unfinished. Matching
+Seventeen ledger controls, twenty App controls and two checked-reload integrity
+controls now qualify native API acquisition, last-tab retention, expiry, customer
+teardown and retained-file Discard. Three App controls use actual selected hosts
+for unchanged cache deadlines, expiry close publication and virtual refresh.
+Matching
 file mirrors now return without a native open request, with eight new host tests,
 all 727 host tests and two native document PTY journeys passing. The PTY includes
 reopen with all eight service slots busy, then shared identity, Undo/Redo, host
-crash, dirty recovery and save. Formatting and strict locked all-target Clippy
-pass. Concurrent misses and encoding reload remain outstanding.
+crash, dirty recovery and save; the strengthened document PTY also passes clean
+tab close/reopen and dirty Discard/reopen/Undo on the original public document.
+Formatting and strict locked all-target Clippy pass. Concurrent misses, encoding
+reload and exact disposal/history archival remain outstanding. Resource-operation
+model events and conditional destination reuse still need their controller.
+All twenty-one selected terminal journeys pass: two document/recovery, four
+public tab-close, three untitled, one virtual, six preview and five sticky-close
+policy journeys. These preserve native/shared identity, exact Unicode CRLF disk
+bytes, Save/Discard/Cancel and Undo/Redo; they do not qualify resource execution,
+mouse input, other platforms or full extension compatibility. Fresh build passes.
 
 The development audit uses Node to inspect the real facade over an empty
 activation registry. It loads no extensions, opens no editor and invokes no API

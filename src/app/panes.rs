@@ -420,6 +420,7 @@ impl App {
         if !self.editor_groups.membership_current(member) {
             anyhow::bail!("Original editor tab was closed or replaced");
         }
+        self.prepare_api_tab_retention(member.document)?;
         let change = self.close_editor_membership(member)?;
         self.record_closed_tab(member);
         self.apply_group_change(change);
@@ -433,7 +434,7 @@ impl App {
                 .iter()
                 .position(|doc| doc.id == member.document)
         {
-            self.documents.remove(index);
+            self.remove_or_retain_api_document(index);
             self.project_editor_groups();
         }
         if self.documents.is_empty() {

@@ -370,6 +370,11 @@ impl App {
                 .try_reserve(1)
                 .context("Cannot reserve preview model storage")?;
         }
+        // Replacement can remove an API-referenced preview's last membership.
+        // Reserve native hidden storage before committing the layout change.
+        if let Some((member, _)) = &admission.replacement {
+            self.prepare_api_tab_retention(member.document)?;
+        }
         // Every fallible admission/configuration check is now complete. There is
         // no callback, await, I/O or further fallible edit until Change applies.
         let change = self.commit_preview_open(admission)?;
@@ -391,7 +396,7 @@ impl App {
                     .position(|doc| doc.id == member.document)
             {
                 // Only the exact safe preview authorized above can be removed.
-                self.documents.remove(index);
+                self.remove_or_retain_api_document(index);
             }
         }
         self.active = self

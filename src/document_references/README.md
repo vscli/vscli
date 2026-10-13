@@ -1,14 +1,18 @@
 # Native API document references
 
-This standalone ledger implements acquisition provenance and bounded reference
-ownership. It is not wired into App or the extension host, and does not dispose,
-hide, reopen or synchronize documents. Seventeen focused behavioral tests pass,
-including deadline boundaries, duplicate acquisition, length/count eviction,
-original resource/model epochs, stale timers and complete customer teardown.
-The standalone milestone at `0583730` passed 1,487 Rust tests across 67 reports (1,138 library;
-23 ignored), formatting and strict locked all-target Clippy. These results
-qualify the ledger, not actual editor retention or expiry.
-No VS Code runtime, JavaScript process, timer or thread is needed by the module.
+The ledger is now wired into native App acquisition, retention, expiry and
+customer teardown for file, untitled and readonly virtual documents. Reference
+release remains separate from editor, dirty/history and pending-worker ownership.
+Seventeen ledger tests, twenty App tests (including three real selected-host
+sessions), and two checked-reload integrity tests pass. The combined source passes
+1,510 Rust tests across 67 reports (1,161 library; 23 ignored), all 727 host tests,
+formatting and strict locked all-target Clippy. Terminal evidence is recorded
+below and in the API ledger; this is not full model/resource-operation parity.
+All twenty-one selected document/tab/untitled/virtual/preview/sticky terminal
+journeys and a fresh native build pass. Broader platform behavior is unqualified.
+The ledger and native ownership code need no JavaScript process, timer or thread;
+optional real-extension tests run the isolated host. Explicit retained-file
+Discard uses one joined native background reader.
 
 The source pin is VS Code 1.141.0,
 `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`. The collection and acquisition paths
@@ -81,49 +85,64 @@ The pinned resolver likewise waits on dirty/pending ownership rather than
 equating last API-reference expiry with model destruction:
 [resolver disposal](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/services/textmodelResolver/common/textModelResolverService.ts).
 
-## Later App and host wiring
+## App and host wiring
 
-The following are inspected current integration points, not implemented behavior:
+- Native file Open acquires the actual accepted model after path resolution or
+  an existing-model result, before mirror publication and extension callbacks.
+  Successful untitled and virtual opens also acquire; virtual refresh does not.
+  Immutable acquisition length uses logical UTF-16/EOL units. A bounded private
+  length cache reuses only the same model/resource/text/EOL proof for later
+  genuine acquisitions; older reference lengths never change.
+- Matching public file and explicit untitled mirrors return without a native
+  request or renewal. Showing/promoting a hidden model likewise acquires nothing.
+  All extensions in a session share the customer collection; unloading one owner
+  or routine input/request cancellation does not retire it.
+- Last-tab close, preview replacement and fallback removal retain a referenced
+  Document privately, preserving native ID, resource epoch, text and history.
+  Storage is reserved before changing memberships. Native-only preview opening
+  reserves no API retention storage when no referenced preview is replaced.
+- Native Open still admits at most 16 hidden models. Moving an existing visible
+  model into hidden storage does not increase the existing total 128-model/4 MiB
+  mirror admission; these bounds are separate from the 59-reference policy.
+- App polling releases exact original deadlines, then removes only eligible
+  API-managed hidden models. Editor memberships, dirty text, native history,
+  queued services, saves/resolve workers and real pending Discard protect storage.
+  Unrelated native hidden models are not adopted into this collection. Old
+  resource-epoch evidence cannot release a replacement binding.
+- Host stop, crash and session replacement drain that customer's references.
+  Teardown does not discard protected native buffers. Quit/CloseAll and recovery
+  retain their Save/Discard/Cancel flow independent of host availability.
+- Explicit Discard of a retained file reads the current disk on a bounded joined
+  worker, preserving its original deadline, model/text/resource/history/baseline,
+  settings and membership proof. Only a current reply reverts and closes the
+  selected tab. Missing/invalid files or changed proofs leave original work;
+  accepted reload keeps prior text in native Undo without writing disk bytes.
+  Automatic/refactoring saves wait while that reader is occupied. Untitled
+  Discard releases only its exact original model/resource references.
 
-- `src/app/extension_services.rs` handles Open using an immediate retained-model
-  response or bounded path resolution followed by `install_service_output`.
-  Each genuine native open needs one acquisition of the actual accepted model,
-  including Existing/raced-existing results. Capture the length, epoch and
-  acquisition Instant before callbacks and release any refused reference.
-  Existing native output is distinct from a public cached mirror hit.
-- `extension-host/document-services.cjs` returns matching file and explicit
-  untitled mirrors from the private cache. These paths
-  must send no native open request and acquire no new reference. Encoding reload
-  and concurrent misses require separate real customer-owned loader authority;
-  initiating-extension request cancellation is not shared-customer ownership.
-  Current native decoding remains UTF-8 only. Eight new cache regressions and all
-  727 host tests pass. The two native document PTY journeys pass, including
-  reopening a hidden file with all eight native request slots busy and subsequent
-  Undo/Redo, host crash, dirty recovery and save; these do not wire this ledger.
-- `src/app/panes.rs::close_tab_membership` currently removes the last visible
-  Document. With API references, closing the last editor membership must retain
-  the same Document privately. App's close/remove fallback paths need the same
-  ownership arbitration. Opening/promoting an existing hidden document in
-  `src/app.rs` must preserve its IDs, epochs and leases without acquiring a lease
-  merely because an editor becomes visible.
-- Native Open currently bounds hidden storage to 16 models, alongside the
-  128-model/4 MiB mirrored-text limits. Those admission limits remain independent
-  of this source collection's 59-reference/80 Mi-unit policy. Do not silently
-  drop dirty or leased models to reconcile limits.
-- App's normal poll loop should expire exact references and arbitrate releases.
-  Host stop/replacement should drain only that customer's epoch; ordinary input
-  calls `cancel_extension_services`, so that method is not a teardown signal.
-  Extension management host replacement owns the appropriate lifetime boundary.
-- The future ordered resource controller should publish genuine completed
-  working-copy MOVE/DELETE removal only after accepted effects. It must distinguish
-  explicit DELETE from overwrite's internal destination removal. An untitled
-  revert callback captures its original ModelKey and URI. CREATE/COPY have no
-  reference-removal hook.
-- Current Quit/CloseAll promotes hidden dirty documents into Save/Discard/Cancel
-  handling. Preserve this recovery behavior and native ownership independent of
-  host availability. API release alone must never discard unsaved/history work.
+Twenty App controls qualify exact expiry boundaries, editor retention, genuine
+acquisition/unchanged cache deadlines, unrelated/dirty/history ownership,
+customer replacement, source-path ABA, preview replacement, captured Unicode/EOL
+length, long escaped native paths, late/refused Discard, independent peer work,
+public close/readable-old-document publication and provider refresh without
+renewal. Three use actual selected Node-host sessions. Offset clocks qualify the
+native deadline boundary; no three-minute wall-clock/upstream race claim is made.
+The strengthened native document PTY passes clean tab close/reopen, dirty
+Discard/reopen/Undo, eight busy slots, exact public shared identity, host crash,
+recovery and save. Broader terminal evidence appears in `docs/EXTENSION_API.md`.
 
-Customer replacement, model close/open event ordering, shared concurrent loads,
-encoding reloads, actual hidden-model expiry and destination reuse require
-integration and framed/PTY qualification. This module claims neither those
-behaviors nor full API/resource-operation parity.
+## Remaining qualification
+
+Concurrent misses still need a shared customer-owned loader, independent of the
+initiating extension's cancellation. Encoding reload remains UTF-8 only. The
+future ordered resource controller must remove genuine completed MOVE/DELETE
+source references, distinguish overwrite's internal destination deletion, and
+publish surviving-target reuse and model events. CREATE/COPY remove no references.
+These resource hooks are implemented in the ledger, but their public native
+operation controller remains unfinished.
+
+History and global pending-work protection currently postpone native model and
+public-mirror disposal. Exact upstream disposal/history archival and per-model
+resolve ownership, cached provider-resource behavior, replacement races and
+platform timing remain unqualified. This work does not expose the public
+resource-operation gateway or establish full extension API compatibility.

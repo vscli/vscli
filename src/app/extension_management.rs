@@ -208,6 +208,9 @@ impl App {
         let root = self.workspace.root.clone();
         self.cancel_extension_prompt();
         self.cancel_extension_services();
+        if let Some(host) = &self.extension_host {
+            self.retire_api_document_customer(host.session);
+        }
         let previous = self.extension_host.take().map(|mut host| {
             host.cancel_prompts();
             host
@@ -265,6 +268,7 @@ impl App {
         }
     }
     pub(super) fn retire_extension_host(&mut self, mut host: crate::extensions::Client) {
+        self.retire_api_document_customer(host.session);
         self.clear_active_extension_bindings();
         self.cancel_extension_prompt();
         self.cancel_extension_services();

@@ -3,6 +3,7 @@ mod breadcrumbs;
 mod code_actions;
 mod completion_edits;
 mod debugger;
+mod document_references;
 mod editor_layout;
 mod extension_activation;
 mod extension_editor_presentation;
@@ -569,6 +570,7 @@ pub struct App {
     pub documents: Vec<Document>,
     pub(crate) hidden_documents: Vec<Document>,
     extension_services: extension_services::State,
+    api_documents: document_references::State,
     extension_file_search: extension_file_search::State,
     virtual_documents: virtual_documents::State,
     workspace_transactions: workspace_transactions::State,
@@ -661,6 +663,7 @@ impl Drop for App {
         self.settle_symbols();
         self.settle_extension_file_search();
         self.settle_virtual_documents();
+        self.settle_api_discard();
         self.settle_workspace_transactions();
         self.shutdown_extensions();
         self.shutdown_language_services();
@@ -704,6 +707,7 @@ impl App {
             documents: Vec::new(),
             hidden_documents: Vec::new(),
             extension_services: extension_services::State::default(),
+            api_documents: document_references::State::default(),
             extension_file_search: extension_file_search::State::default(),
             virtual_documents: virtual_documents::State::default(),
             workspace_transactions: workspace_transactions::State::default(),
@@ -869,6 +873,11 @@ impl App {
         changed |= self.poll_watching();
         changed |= self.poll_debugger();
         changed |= self.poll_extension_management();
+        changed |= self.poll_api_discard();
+        changed |= self.poll_api_document_references(
+            self.extension_host.as_ref().map(|host| host.session),
+            std::time::Instant::now(),
+        );
         changed |= self.poll_extensions();
         changed |= self.poll_extension_activation();
         changed |= self.poll_extension_providers();
@@ -2340,8 +2349,12 @@ impl App {
     fn remove_active(&mut self) {
         if let Some(document) = self.active_document().map(|doc| doc.id) {
             if self.group_fallback {
+                if let Err(error) = self.prepare_api_tab_retention(document) {
+                    self.message = format!("Close refused; native buffer retained: {error:#}");
+                    return;
+                }
                 self.record_closed();
-                self.documents.remove(self.active);
+                self.remove_or_retain_api_document(self.active);
                 self.active = self.active.min(self.documents.len().saturating_sub(1));
                 self.sync_pane();
             } else {
@@ -2354,7 +2367,13 @@ impl App {
                 }
                 // Public fixtures and newly promoted hidden models may not
                 // have an installed membership yet.
-                self.documents.retain(|doc| doc.id != document);
+                if let Some(index) = self.documents.iter().position(|doc| doc.id == document) {
+                    if let Err(error) = self.prepare_api_tab_retention(document) {
+                        self.message = format!("Close refused; native buffer retained: {error:#}");
+                        return;
+                    }
+                    self.remove_or_retain_api_document(index);
+                }
                 self.project_editor_groups();
             }
         }
@@ -2717,6 +2736,9 @@ impl App {
             Modal::Confirm(action) => match key.code {
                 KeyCode::Enter | KeyCode::Char('s' | 'S') => self.save(Some(action)),
                 KeyCode::Char('d' | 'D') => {
+                    if self.begin_api_discard(action.clone()) {
+                        return;
+                    }
                     if matches!(action, AfterSave::Close) {
                         self.complete_close(action);
                     } else {

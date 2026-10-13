@@ -71,15 +71,20 @@ The reference is VS Code 1.141.0 immutable commit
 
 ## Current evidence
 
-The native API-reference ledger now passes sixteen behavioral controls for
+The native API-reference ledger now passes seventeen behavioral controls for
 original customer/model/resource identity, independent expiry and eviction,
 move/delete removal, exact untitled revert and teardown. It returns reference
-release evidence without destroying models; App ownership arbitration is still
+release evidence independently of model ownership. Twenty App controls and two
+checked-reload integrity controls qualify acquisition, last-tab/preview retention,
+expiry, customer teardown and retained-file Discard, including three actual hosts.
+Resource-operation model effects and exact disposal/history archival remain
 unfinished. Matching public file cache hits now bypass the native open bridge,
 with eight host regressions and an actual eight-busy-slot terminal check. The
-combined current source passes 1,487 Rust tests (1,138 library; 23 ignored), all
+combined current source passes 1,510 Rust tests (1,161 library; 23 ignored), all
 727 host tests, two native document PTY journeys, formatting and strict locked
-all-target Clippy. These additions do not expose the public resource gateway.
+all-target Clippy. The document PTY also passes clean tab close/reopen and dirty
+Discard/reopen/Undo with the same public document. These additions do not expose
+the public resource gateway.
 See [reference contracts and integration points](../src/document_references/README.md).
 
 The Linux resource executor now performs actual create, rename, copy and delete

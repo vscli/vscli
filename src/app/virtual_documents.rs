@@ -88,18 +88,20 @@ impl App {
         self.virtual_current(host, &service)?;
         if let Operation::UntitledOpen(input) = &service.operation
             && input.requested_uri
-            && let Some(doc) = self
+            && let Some(id) = self
                 .documents
                 .iter()
                 .chain(&self.hidden_documents)
                 .find(|doc| {
                     doc.untitled_uri().is_some() && doc.untitled_uri() == input.uri.as_deref()
                 })
+                .map(|doc| doc.id)
         {
+            self.acquire_api_document(service.request.session, id, std::time::Instant::now())?;
             self.virtual_documents.completed = Some(Completed {
                 service: service.clone(),
                 prepared: None,
-                receipt: Some(Ok(json!({"document":doc.id}))),
+                receipt: Some(Ok(json!({"document":id}))),
             });
             return Ok(());
         }
@@ -217,6 +219,12 @@ impl App {
                 id
             }
         };
+        if matches!(
+            service.operation,
+            Operation::UntitledOpen(_) | Operation::VirtualOpen(_)
+        ) {
+            self.acquire_api_document(service.request.session, id, std::time::Instant::now())?;
+        }
         Ok(json!({"document":id}))
     }
     pub(super) fn poll_virtual_documents(
