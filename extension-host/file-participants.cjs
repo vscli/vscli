@@ -107,9 +107,9 @@ function createFileParticipants(options) {
           const joined = record.invoke(() => Promise.resolve(value).then(result => {
             record.guard();
             if (result instanceof WorkspaceEdit) {
-              edits.push([record,result]);
               const name = options.extensionName?.(record.owner) ?? record.owner;
               if (typeof name !== 'string' || name.length > 1024) throw new TypeError('Invalid file participant extension name');
+              edits.push([record,result]);
               names.add(name);
             }
             if (Date.now() - started > timeout) diagnostic(new Error(`SLOW file-participant ${record.owner}`));
@@ -130,7 +130,8 @@ function createFileParticipants(options) {
         for (const result of results) if (result.status === 'rejected') diagnostic(result.reason);
       }
       if (token.isCancellationRequested || edits.length === 0) return undefined;
-      return {edit:combine(edits),extensionNames:[...names]};
+      const edit=combine(edits), owners=[...new Set(edits.map(([record])=>record.owner))];
+      return {edit,extensionNames:[...names],...(options.nativeSource?{source:options.nativeSource(edit,owners)}:{})};
     }
     const result = deliver().finally(() => {run.deliveryDone = true;release(run);});
     return Object.freeze({result,settled});

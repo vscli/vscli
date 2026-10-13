@@ -53,6 +53,11 @@ No local VS Code instance was launched; CI work remains deferred.
 
 ## Will-participant engine foundation
 
+The engine now also has an opt-in [native coordinator transport](FILE_PARTICIPATION_TRANSPORT.md).
+Real selected extensions deliver full DTOs through conversion-time target guards
+and independent reply/completion receipts. Default editor sessions keep will
+subscriptions unavailable until the pre-operation application path is connected.
+
 The isolated compatibility runtime now contains a private create/rename/delete
 participant engine. It is embedded in the native host package, but **the public
 `workspace.onWillCreateFiles`, `onWillRenameFiles` and `onWillDeleteFiles` names

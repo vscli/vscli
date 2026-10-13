@@ -16,6 +16,7 @@ const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
 const { createFileWatchers } = require('./file-watchers.cjs');
 const { createFileOperations } = require('./file-operations.cjs');
 const { createFileParticipants } = require('./file-participants.cjs');
+const { createFileParticipation } = require('./file-participation.cjs');
 const { createTextContentProviders } = require('./text-content-providers.cjs');
 const editorPresentation = require('./editor-presentation.cjs');
 const {createEditorDecorations} = require('./editor-decorations.cjs');
@@ -116,14 +117,29 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     diagnostic:(owner,error)=>notify('message',{session:sessionOptions.session,owner,text:`Virtual document refresh failed: ${error.message}`}),
   });
   const workspaceScope = createWorkspaceScope({ Uri, EventEmitter, pathCaseSensitive: fileSystem.pathCaseSensitive });
+  const fileParticipantNames = new Map();
   const fileOperations = createFileOperations(sessionOptions.session);
   const fileParticipants = createFileParticipants({
     session:sessionOptions.session,track,bind:callers.bind,
+    extensionName:owner=>fileParticipantNames.get(owner) ?? owner,
+    nativeSource:(edit,owners)=>{
+      const models=new Map();
+      for(const row of edit.edits)if(row.textEdit && row.versionId!==undefined){
+        const source=[...workspaceEditMirrors.values()].find(source=>source.uri===row.resource && source.version===row.versionId);
+        if(!source)throw new Error('File participant target changed during conversion');
+        models.set(row.resource,{uri:source.uri,document:source.document,version:source.version});
+      }
+      return {owners,models:[...models.values()]};
+    },
     captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
     versionInfo:()=>({
       getTextDocumentVersion:uri=>[...workspaceEditMirrors.values()].find(source=>source.uri===Reflect.apply(formatDocumentUri,uri,[]))?.version,
       getNotebookDocumentVersion:()=>undefined,
     }),
+  });
+  const fileParticipation = createFileParticipation(fileParticipants, {
+    session:sessionOptions.session,notify,unowned:callers.unowned,
+    enabled:()=>sessionOptions.fileParticipants===true,
   });
   function workspace(values) {
     // Preserve getters so callers receive the latest native folder metadata.
@@ -544,6 +560,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     }),
     workspace: workspace({
       ...fileOperations.api,
+      ...(sessionOptions.fileParticipants===true?fileParticipants.forOwner(undefined):{}),
       ...fileSystem.forOwner(''),
       get textDocuments() { return [...documents.values()]; },
       onDidChangeTextDocument: changed.event,
@@ -568,13 +585,17 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     // Private participant engine. Public will APIs remain gated until native
     // pre-operation edits, confirmation and cancellation are connected.
     fileParticipants,
+    fileParticipation,
     api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, rankLanguageProviders: providers.rank, prepareLanguageRename:params=>coreOperation(providers.prepareRename,params), provideLanguageRename:params=>coreOperation(providers.provideRenameEdits,params), provideWorkspaceSymbols:params=>coreOperation(providers.provideWorkspaceSymbols,params), resolveLanguageWorkspaceSymbol:params=>coreOperation(providers.resolveWorkspaceSymbol,params), retireWorkspaceSymbols:providers.retireWorkspaceSymbols, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, releaseLanguageProviderRefusal: providers.releaseRefusal, languageProviderPending: providers.pending, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; providers.documentChanged(); fileWatchers.refresh(); }, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.
     runWithOwner: callers.run, currentCallerOwner: callers.currentOwner,
     contextForExtension(owner) { return { ...mementos.forOwner(owner), extension: activation?.extension(owner) }; },
     mergeExtensionState: mementos.merge,
-    configureSurfaces: surfaces.configure, treeChildren: params => coreOperation(surfaces.treeChildren, params),
+    configureSurfaces(items) {
+      surfaces.configure(items);
+      for (const item of items) fileParticipantNames.set(item.id,item.manifest.displayName ?? item.id);
+    }, treeChildren: params => coreOperation(surfaces.treeChildren, params),
     surfaceAction: surfaces.action, treeEvent: surfaces.treeEvent,
     disposeOwner(owner) {
       return callers.unowned(() => {
@@ -636,6 +657,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           onDidCreateFiles:event(owner,fileOperations.api.onDidCreateFiles),
           onDidRenameFiles:event(owner,fileOperations.api.onDidRenameFiles),
           onDidDeleteFiles:event(owner,fileOperations.api.onDidDeleteFiles),
+          ...(sessionOptions.fileParticipants===true?fileParticipants.forOwner(owner):{}),
           ...fileSystem.forOwner(owner),
           ...fileWatchers.forOwner(owner),
           openTextDocument: services.openTextDocument,

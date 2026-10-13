@@ -20,6 +20,21 @@ fn uri(path: &Path) -> Result<String> {
         .map_err(|_| anyhow::anyhow!("Invalid file operation URI"))?
         .to_string())
 }
+pub(super) fn frame(action: &Action, session: u64, sequence: u64) -> Result<Value> {
+    let (kind, files) = match action {
+        Action::CreateFile(path) | Action::CreateFolder(path) => {
+            ("create", json!([{"target":uri(path)?}]))
+        }
+        Action::Rename { from, to } => ("rename", json!([{"source":uri(from)?,"target":uri(to)?}])),
+        Action::Trash(path) => ("delete", json!([{"target":uri(path)?}])),
+    };
+    let frame = json!({"session":session,"sequence":sequence,"kind":kind,"files":files});
+    ensure!(
+        serde_json::to_vec(&frame)?.len() <= MAX_EVENT_BYTES,
+        "Native file operation event exceeds budget"
+    );
+    Ok(frame)
+}
 impl Client {
     pub(crate) fn file_operation_capacity(&self) -> bool {
         self.file_operations.events.len() < MAX_EVENTS
@@ -31,17 +46,8 @@ impl Client {
             self.file_operation_capacity(),
             "Native file operation notification capacity exhausted"
         );
-        let (kind, files) = match action {
-            Action::CreateFile(path) | Action::CreateFolder(path) => {
-                ("create", json!([{"target":uri(path)?}]))
-            }
-            Action::Rename { from, to } => {
-                ("rename", json!([{"source":uri(from)?,"target":uri(to)?}]))
-            }
-            Action::Trash(path) => ("delete", json!([{"target":uri(path)?}])),
-        };
         let next = self.file_operations.next + 1;
-        let frame = json!({"session":self.session,"sequence":next,"kind":kind,"files":files});
+        let frame = frame(action, self.session, next)?;
         let bytes = serde_json::to_vec(&frame)?.len();
         ensure!(
             bytes <= MAX_EVENT_BYTES,

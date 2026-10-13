@@ -319,6 +319,14 @@ until native pre-operation application, timeout/cancellation and confirmation
 are connected; this foundation does not increase the public API name metric.
 See [participant contracts](FILE_OPERATION_EVENTS_API.md#will-participant-engine-foundation).
 
+The opt-in [native participant transport](FILE_PARTICIPATION_TRANSPORT.md) now
+delivers full source DTOs from real selected extensions, preserving
+conversion-time target identities/versions and original contributor lifetimes
+through writer pressure, cancellation and separate reply/completion receipts.
+Ten host and nine native controls qualify this boundary. Default editor
+negotiation remains disabled until
+pre-operation review/application and filesystem authority are connected.
+
 The [committed runtime-name report](extension-api/1.141.0/runtime-name-presence.json)
 records the three added file completion events at `b8f71c1`: 132/421 names
 (31.35%), with unchanged 13/32 provider-family routing. The report excludes

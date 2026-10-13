@@ -164,7 +164,7 @@ async function dispatch(message) {
           }
           // A failed startup must never publish partially activated command registries.
           if (!['commands', 'languageProviders'].includes(method) || (ready && !activating)) send({ method, params });
-        }, { session, sharedGeneratedDocumentLoads: message.params.sharedGeneratedDocumentLoads === true, sharedDocumentLoads: message.params.sharedDocumentLoads === true, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, workspaceUnopenedEdits: message.params.workspaceUnopenedEdits === true, workspaceRefactoringSaves: message.params.workspaceRefactoringSaves === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true, editorDecorations: message.params.editorDecorations === true, editorSnippets: message.params.editorSnippets === true, editorTabs: message.params.editorTabs === true });
+        }, { session, fileParticipants: message.params.fileParticipants === true, sharedGeneratedDocumentLoads: message.params.sharedGeneratedDocumentLoads === true, sharedDocumentLoads: message.params.sharedDocumentLoads === true, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, workspaceUnopenedEdits: message.params.workspaceUnopenedEdits === true, workspaceRefactoringSaves: message.params.workspaceRefactoringSaves === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true, editorDecorations: message.params.editorDecorations === true, editorSnippets: message.params.editorSnippets === true, editorTabs: message.params.editorTabs === true });
         const schemas = packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration)
           ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
         root = message.params.root; configuration = message.params.configuration;
@@ -180,6 +180,11 @@ async function dispatch(message) {
       }
       case 'state': if (runtime) runtime.sync(message.params); break;
       case 'fileOperation': if (runtime) runtime.fileOperation(message.params); break;
+      case 'willFileOperation':
+        if (!ready || message.params.session !== session) throw new Error('File participation session is not ready');
+        result = await runtime.fileParticipation.provide({...message.params,request:message.id});
+        break;
+      case 'cancelFileParticipation': runtime?.fileParticipation.cancel(message.params); break;
       case 'configuration':
         configuration = message.params; if (runtime) runtime.updateConfiguration(configuration); break;
       case 'activate': {

@@ -6,6 +6,7 @@ pub(crate) mod editor_inventory;
 pub(crate) mod editor_state;
 pub(crate) mod editor_tabs;
 mod file_operations;
+mod file_participation;
 mod owner_lifetimes;
 mod prompts;
 pub(crate) mod providers;
@@ -15,6 +16,7 @@ pub(crate) mod text_content;
 pub(crate) mod untitled;
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
+pub use file_participation::FileParticipationTicket;
 pub use prompts::{MAX_PROMPT_TEXT, NativePrompt, PromptType};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -200,6 +202,7 @@ struct Edit {
     edits: Vec<NativeTextEdit>,
 }
 pub struct Prepared {
+    file_participation: bool,
     storage_root: Option<PathBuf>,
     editor_inventory: Option<editor_inventory::Inventory>,
     editor_tabs: Option<editor_tabs::Inventory>,
@@ -209,6 +212,12 @@ pub struct Prepared {
     activation: Option<Vec<String>>,
 }
 impl Prepared {
+    /// Opt in to the experimental native participant coordinator transport.
+    /// Core Explorer does not use it until contributed-edit application is wired.
+    pub fn with_file_participation(mut self) -> Self {
+        self.file_participation = true;
+        self
+    }
     pub(crate) fn with_editor_tabs(mut self, inventory: editor_tabs::Inventory) -> Result<Self> {
         let wire = inventory.wire()?;
         self.state["tabs"] = wire.clone();
@@ -247,6 +256,7 @@ pub struct Client {
     services: std::collections::VecDeque<services::NativeService>,
     document_loads: document_loads::Loads,
     file_operations: file_operations::Queue,
+    file_participation: file_participation::State,
     workspace_edit_context: Option<crate::app::workspace_transactions::CaptureContext>,
     file_search_context: Option<crate::workspace_file_search::Context>,
     owner_lifetimes: owner_lifetimes::OwnerLifetimes,
@@ -332,6 +342,7 @@ impl Client {
         let refs: Vec<_> = documents.iter().chain(hidden).collect();
         let (mirror, state) = MirrorState::default().next_refs(&refs, documents.get(active))?;
         Ok(Prepared {
+            file_participation: false,
             storage_root: None,
             editor_inventory: None,
             editor_tabs: None,
@@ -542,6 +553,10 @@ impl Client {
                 include_str!("../extension-host/file-participants.cjs"),
             ),
             (
+                "file-participation.cjs",
+                include_str!("../extension-host/file-participation.cjs"),
+            ),
+            (
                 "watcher-glob.cjs",
                 include_str!("../extension-host/watcher-glob.cjs"),
             ),
@@ -578,6 +593,7 @@ impl Client {
             services: services::empty_queue(),
             document_loads: document_loads::Loads::default(),
             file_operations: file_operations::Queue::default(),
+            file_participation: file_participation::State::new(prepared.file_participation),
             workspace_edit_context: None,
             file_search_context: None,
             text_content_registry: text_content::Registry::default(),
@@ -614,7 +630,7 @@ impl Client {
         };
         client.request(
             "initialize",
-            json!({"protocol":4, "session": session, "extensions": client.packages,
+            json!({"protocol":4, "session": session, "extensions": client.packages, "fileParticipants":client.file_participation.enabled,
                 "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
@@ -1113,6 +1129,7 @@ impl Client {
                 return Err(error);
             }
         }
+        self.poll_file_participation(documents, hidden, Instant::now())?;
         if operation_state_ready
             && self.ready
             && self.pending.is_empty()
@@ -1123,6 +1140,7 @@ impl Client {
         }
         if operation_state_ready && self.ready && !self.mirror_suspended {
             self.flush_file_operations()?;
+            self.flush_file_participation()?;
         }
         for _ in 0..16 {
             let Some(mut message) = self.process.receive()? else {
@@ -1247,6 +1265,9 @@ impl Client {
                     "languageProviderReleased" => {
                         self.language_provider_released(message["params"].take())?;
                     }
+                    "fileParticipantReleased" => {
+                        self.file_participation_released(&message["params"])?;
+                    }
                     "languageProviders" => {
                         if message["params"]["session"].as_u64() != Some(self.session) {
                             continue;
@@ -1288,6 +1309,10 @@ impl Client {
             } else if let Some(id) = message["id"].as_u64()
                 && let Some(pending) = self.pending.remove(&id)
             {
+                if pending.method == "willFileOperation" {
+                    self.file_participation_response(id, message, documents, hidden);
+                    continue;
+                }
                 if pending.method == "rankLanguageProviders" {
                     self.provider_rank_response(id, message)?;
                     continue;
@@ -1407,6 +1432,7 @@ impl Client {
         }
         if self.pending.iter().any(|(id, p)| {
             p.started.elapsed() > Duration::from_secs(30)
+                && p.method != "willFileOperation"
                 && !self.document_save_command_waiting(*id)
                 && !self
                     .prompts

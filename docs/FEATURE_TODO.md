@@ -106,6 +106,13 @@ remain required backends. Single-resource refactoring now stays unsaved under
 the default policy, matching the upstream multi-resource autosave condition.
 Remaining provider families and mixed native/extension aggregation remain open.
 
+File-operation completion events are integrated. The will-participant engine and
+opt-in native transport now preserve full contributed DTOs, conversion-time target proofs
+and independent logical/actual completion. Next, connect the editor coordinator:
+filesystem preflight, configured participant policy, review/confirmation and full
+ordered edit application before original file effects. The default editor will
+API remains disabled until that path is usable. See [transport evidence](FILE_PARTICIPATION_TRANSPORT.md).
+
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;
 placeholder methods and invented successful responses do not count as coverage.
