@@ -80,7 +80,7 @@ expiry, customer teardown and retained-file Discard, including three actual host
 Resource-operation model effects and exact disposal/history archival remain
 unfinished. Matching public file cache hits now bypass the native open bridge,
 with eight host regressions and an actual eight-busy-slot terminal check. The
-combined current source passes 1,519 Rust tests (1,170 library; 23 ignored), all
+combined current source passes 1,540 Rust tests (1,191 library; 23 ignored), all
 748 host tests, two native document PTY journeys, formatting and strict locked
 all-target Clippy. The document PTY also passes clean tab close/reopen and dirty
 Discard/reopen/Undo with the same public document. These additions do not expose
@@ -96,6 +96,15 @@ baseline under the original deadline and shared 32 MiB/8 MiB bounds. Eight new
 integrity tests and production-source substitutions in the existing worker and
 physical overwrite/rollback controls qualify this boundary. Full native history
 archives, destination restoration and public resource admission remain open.
+
+Native destination restoration now has a worker-prepared kernel. Surviving
+targets retain identity/history; absent targets get fresh identities. Dirty
+snapshots, actual clean disk postimages, equal-text dirty state, explicit/inferred
+language and ordinary/grouped EOL history have eleven restoration and two history
+controls. One couples actual Linux overwrite move, displaced dirty archives and
+physical rollback with restoration into the surviving destination. App must
+still select actual survival, archive complete retired history/views, apply
+ordered groups and publish events; the public resource gateway remains unavailable.
 
 The Linux resource executor now performs actual create, rename, copy and delete
 operations with durable intent/postimage checkpoints, explicit partial outcomes

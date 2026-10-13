@@ -4,6 +4,8 @@ use super::*;
 use crate::resource_journal::{Control, ModelArchive, ModelProof};
 use anyhow::ensure;
 use serde::ser::SerializeSeq;
+mod restore;
+pub use restore::{ResourceModelCommit, ResourceModelPrepared};
 
 /// A COW snapshot of an actual native file document. Keep this owner through
 /// native authorization; neither a URI nor a recovered ModelProof replaces it.
@@ -14,6 +16,7 @@ pub struct ResourceModelSource {
     resource: PathBuf,
     disk: Option<Rope>,
     language: Option<String>,
+    language_hint: Option<String>,
     dirty: bool,
 }
 impl ResourceModelSource {
@@ -29,7 +32,8 @@ impl ResourceModelSource {
         ensure!(
             self.source.current(document)
                 && document.language_epoch == self.proof.language_epoch
-                && document.language_override == self.language,
+                && document.language_override == self.language
+                && document.language_hint == self.language_hint,
             "Original resource model source changed"
         );
         Ok(())
@@ -67,6 +71,7 @@ impl ResourceModelSource {
                 eol: self.source.eol(),
                 encoding: "utf8",
                 language_override: self.language.as_deref(),
+                language_hint: self.language_hint.as_deref(),
                 dirty: self.dirty,
                 disk_content: self.disk.as_ref().map(Chunks),
             },
@@ -121,6 +126,7 @@ impl Document {
             resource: path.clone(),
             disk: self.disk_content.clone(),
             language: self.language_override.clone(),
+            language_hint: self.language_hint.clone(),
             dirty: self.dirty(),
         })
     }
@@ -134,6 +140,7 @@ struct Metadata<'a> {
     eol: &'a str,
     encoding: &'a str,
     language_override: Option<&'a str>,
+    language_hint: Option<&'a str>,
     dirty: bool,
     disk_content: Option<Chunks<'a>>,
 }

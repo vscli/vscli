@@ -1,5 +1,13 @@
 # Extension text document behavior
 
+Native history now captures model EOL with text, including grouped Undo/Redo.
+Undo after reloading LF over a CRLF document restores CRLF for future Enter as
+well as original bytes. The native destination-restoration kernel also preserves
+surviving target identity/history, supports initial dirty fresh models and keeps
+equal-text dirty state separate from text version changes. Public resource-edit
+admission and lifecycle/event integration are still unfinished; see the
+[native model boundary](../src/document/resource/README.md).
+
 The shared extension document mirror now implements source-guided word lookup,
 strict line/position/range argument handling, immutable line snapshots, UTF16
 offsets and logical EOL indexing. `getWordRangeAtPosition(position, regexp?)`

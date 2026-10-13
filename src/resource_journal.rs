@@ -97,6 +97,12 @@ impl<'a> Control<'a> {
         );
         Ok(())
     }
+    pub(crate) fn cancel_flag(&self) -> &AtomicBool {
+        self.canceled
+    }
+    pub(crate) fn deadline(&self) -> Instant {
+        self.deadline
+    }
 }
 
 /// Source option presence, including explicit null. Null is present for the

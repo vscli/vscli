@@ -72,6 +72,7 @@ pub(crate) struct WorkspaceSource {
     resource_epoch: u64,
     saved_revision: u64,
     save_generation: u64,
+    resource_dirty: bool,
     next_revision: u64,
     undo: Option<Arc<()>>,
     redo: Option<Arc<()>>,
@@ -98,6 +99,7 @@ impl WorkspaceSource {
             && self.resource_epoch == doc.resource_epoch
             && self.saved_revision == doc.saved_revision
             && self.save_generation == doc.save_generation
+            && self.resource_dirty == doc.resource_dirty
             && self.next_revision == doc.next_revision
             && self.undo_len == doc.undo.len()
             && self.redo_len == doc.redo.len()
@@ -233,6 +235,11 @@ pub(crate) struct WorkspaceTextPrepared {
     changes: Vec<PositionChange>,
 }
 impl WorkspaceTextPrepared {
+    pub(super) fn force_resource_markers(&mut self) {
+        for change in &mut self.changes {
+            change.decoration.force_move = true;
+        }
+    }
     pub(crate) fn document(&self) -> u64 {
         self.source.document
     }
@@ -249,6 +256,8 @@ impl WorkspaceTextPrepared {
 
 struct Body {
     text: Rope,
+    eol: String,
+    resource_dirty: bool,
     view: ViewState,
     other_views: std::collections::HashMap<u64, ViewState>,
     revision: u64,
@@ -256,6 +265,37 @@ struct Body {
     epoch: u64,
     bytes: std::collections::VecDeque<(u64, ByteChange)>,
     folding: std::collections::VecDeque<folding::Change>,
+}
+/// Prepared from the actual destination's source and current native views.
+/// Held by an exclusive resource commit, never exposed on the extension wire.
+pub(super) struct ResourceBody {
+    body: Body,
+    before: Option<Snapshot>,
+    pub(super) metadata: usize,
+}
+impl ResourceBody {
+    pub(super) fn revision(&self) -> u64 {
+        self.body.revision
+    }
+    pub(super) fn publish(self, document: &mut Document) {
+        if let Some(before) = self.before {
+            document.undo.push(before);
+            if document.undo.len() > HISTORY_LIMIT {
+                document.undo.remove(0);
+            }
+            document.redo.clear();
+        }
+        document.text = self.body.text;
+        document.eol = self.body.eol;
+        document.view = self.body.view;
+        document.other_views = self.body.other_views;
+        document.revision = self.body.revision;
+        document.next_revision = self.body.next_revision;
+        document.text_epoch = self.body.epoch;
+        document.byte_changes = self.body.bytes;
+        document.folding_changes = self.body.folding;
+        document.typing = None;
+    }
 }
 enum HistoryAction {
     Edit(Snapshot),
@@ -305,6 +345,8 @@ impl WorkspaceCommit<'_> {
             }
         }
         doc.text = self.body.text;
+        doc.eol = self.body.eol;
+        doc.resource_dirty = self.body.resource_dirty;
         doc.view = self.body.view;
         doc.other_views = self.body.other_views;
         doc.revision = self.body.revision;
@@ -318,6 +360,70 @@ impl WorkspaceCommit<'_> {
     }
 }
 impl Document {
+    pub(super) fn prepare_resource_body(
+        &mut self,
+        prepared: WorkspaceTextPrepared,
+        eol: String,
+        available: usize,
+    ) -> Result<ResourceBody> {
+        ensure!(
+            prepared.current(self),
+            "Original resource destination changed"
+        );
+        ensure!(
+            matches!(eol.as_str(), "\n" | "\r\n"),
+            "Invalid restored EOL"
+        );
+        let eol_changed = eol != self.eol;
+        let changed = prepared.changed() || eol_changed;
+        let count = prepared.changes.len() + usize::from(eol_changed);
+        self.text_epoch
+            .checked_add(count as u64)
+            .context("Resource text epoch exhausted")?;
+        if changed {
+            self.next_revision
+                .checked_add(1)
+                .context("Resource revision exhausted")?;
+        }
+        let metadata = self.workspace_metadata(count, available)?;
+        let before = if changed {
+            self.undo
+                .try_reserve(1)
+                .context("Resource Undo reservation refused")?;
+            let mut before = self.snapshot();
+            before.changes = prepared.changes.clone();
+            Some(before)
+        } else {
+            None
+        };
+        let mut fork = self.workspace_fork();
+        for change in &prepared.changes {
+            fork.record_byte_change(change.bytes.clone());
+            fork.record_folding_change(change.range.clone(), change.added);
+            change.map(&mut fork.view);
+            for view in fork.other_views.values_mut() {
+                change.map(view);
+            }
+        }
+        if eol_changed {
+            fork.record_byte_change(ByteChange {
+                range: 0..0,
+                added: 0,
+            });
+        }
+        fork.text = prepared.text;
+        fork.eol = eol;
+        if changed {
+            fork.revision = self.next_revision;
+            fork.next_revision = self.next_revision + 1;
+        }
+        fork.observe_folding_selection();
+        Ok(ResourceBody {
+            body: fork.workspace_body(),
+            before,
+            metadata,
+        })
+    }
     /// The actual workspace worker owns all disk IO and checks cancellation on
     /// every bounded read. Regular-file checks occur both before and after open.
     pub(crate) fn open_workspace_existing(
@@ -393,6 +499,7 @@ impl Document {
             resource_epoch: self.resource_epoch,
             saved_revision: self.saved_revision,
             save_generation: self.save_generation,
+            resource_dirty: self.resource_dirty,
             next_revision: self.next_revision,
             undo: self.undo.last().map(|s| s.history_identity.clone()),
             redo: self.redo.last().map(|s| s.history_identity.clone()),
@@ -517,7 +624,7 @@ impl Document {
             "Workspace history edit count exceeds 4096"
         );
         self.text_epoch
-            .checked_add(target.changes.len() as u64)
+            .checked_add(target.changes.len() as u64 + u64::from(self.eol != target.eol))
             .context("Workspace history epoch exhausted")?;
         let mut metadata = self.workspace_metadata(target.changes.len(), available)?;
         metadata = metadata
@@ -640,7 +747,9 @@ impl Document {
             associated_path: self.associated_path.clone(),
             api_created_untitled: self.api_created_untitled,
             language_override: self.language_override.clone(),
+            language_hint: self.language_hint.clone(),
             language_epoch: self.language_epoch,
+            resource_dirty: self.resource_dirty,
             revision: self.revision,
             saved_revision: self.saved_revision,
             disk_content: self.disk_content.clone(),
@@ -666,6 +775,8 @@ impl Document {
     fn workspace_body(self) -> Body {
         Body {
             text: self.text,
+            eol: self.eol,
+            resource_dirty: self.resource_dirty,
             view: self.view,
             other_views: self.other_views,
             revision: self.revision,
@@ -683,6 +794,7 @@ fn snapshot_bytes(snapshot: &Snapshot) -> Result<usize> {
     );
     let mut bytes = snapshot.secondary.len() * size_of::<Selection>()
         + snapshot.changes.len() * size_of::<PositionChange>()
+        + snapshot.eol.len()
         + size_of::<Snapshot>();
     if let Some(after) = &snapshot.after_selections {
         ensure!(

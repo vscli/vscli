@@ -166,3 +166,51 @@ fn dropping_a_prepared_commit_preserves_model_history_and_owned_save_baseline() 
     assert_eq!(doc.text.to_string(), "original\r\n");
     assert!(doc.undo.is_empty());
 }
+
+#[test]
+fn native_reload_undo_redo_restore_eol_and_future_enter_without_replacing_saved_bytes() {
+    let mut doc = Document::from_text("old 猫🙂\r\n");
+    doc.disk_content = Some(doc.text.clone());
+    let id = doc.id;
+    doc.reload_content(Rope::from_str("new 猫🙂\n"));
+    assert_eq!(doc.eol, "\n");
+    doc.undo();
+    assert_eq!(doc.id, id);
+    assert_eq!(doc.eol, "\r\n");
+    assert_eq!(doc.text.to_string(), "old 猫🙂\r\n");
+    assert_eq!(doc.disk_content.as_ref().unwrap().to_string(), "new 猫🙂\n");
+    doc.redo();
+    assert_eq!(doc.eol, "\n");
+    doc.undo();
+    doc.move_to(doc.len(), false);
+    doc.newline();
+    assert!(doc.text.to_string().ends_with("\r\n\r\n"));
+}
+
+#[test]
+fn grouped_history_restores_eol_through_native_prepared_body_and_keeps_baseline() {
+    let mut doc = Document::from_text("old\r\n");
+    doc.disk_content = Some(doc.text.clone());
+    let group = apply(&mut doc, vec![(0..3, "new".into())]);
+    // EOL metadata is published alongside text by the resource restore path.
+    doc.eol = "\n".into();
+    doc.prepare_workspace_history(
+        &group,
+        WorkspaceHistoryDirection::Undo,
+        MAX_WORKSPACE_METADATA,
+    )
+    .unwrap()
+    .publish();
+    assert_eq!(doc.eol, "\r\n");
+    assert_eq!(doc.text.to_string(), "old\r\n");
+    doc.prepare_workspace_history(
+        &group,
+        WorkspaceHistoryDirection::Redo,
+        MAX_WORKSPACE_METADATA,
+    )
+    .unwrap()
+    .publish();
+    assert_eq!(doc.eol, "\n");
+    assert_eq!(doc.text.to_string(), "new\r\n");
+    assert_eq!(doc.disk_content.as_ref().unwrap().to_string(), "old\r\n");
+}

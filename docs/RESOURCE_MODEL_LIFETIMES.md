@@ -4,7 +4,7 @@ This records source-derived contracts and the qualified native subsets. It
 uses VS Code 1.141.0 commit `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`.
 No local VS Code instance was launched. The Linux filesystem execution backend
 and native API-reference retention are implemented; resource-specific model
-effects, destination reuse and public operation events remain unfinished.
+effects, destination lifetime arbitration and public operation events remain unfinished.
 
 The [native API-reference ledger and App integration](../src/document_references/README.md)
 now implements original acquisition IDs, customer/model resource epochs,
@@ -89,6 +89,16 @@ materialization preserves raw text, EOL, selected language and baseline under
 shared encoded-byte budgets and the original deadline. Eight integrity controls
 and the updated joined-worker/physical-overwrite controls cover this boundary.
 Full history/view archives and App resource-operation restoration are still open.
+
+The native restoration kernel now prepares against original surviving targets,
+retaining destination identity/history rather than assigning source versions.
+Dirty source text restores, clean sources reload supplied disk postimages, and
+absent targets get fresh identities. Equal text can become dirty without version
+advance. Explicit/inferred language provenance and ordinary/grouped EOL history
+are preserved. Eleven restoration controls, including actual Linux overwrite-move/
+archive/rollback, and two history controls cover this boundary. App must still
+arbitrate actual survival, editor replacement, model disposal, public events and
+API-reference removals before exposing the resource gateway.
 
 Preserve displaced/deleted unsaved text in private archives. Capture actual model
 and history proofs before effects; durable numeric IDs alone do not authorize a

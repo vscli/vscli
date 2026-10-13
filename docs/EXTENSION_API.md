@@ -39,7 +39,7 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 The [resource-edit workstream](RESOURCE_EDITS_PLAN.md) now includes actual Linux
 filesystem execution, durable checkpoints, guarded rollback and an original-file
 DTO adapter, alongside native resource-lifetime guards. The combined work has
-138 focused Rust controls and 1,527 full Rust tests passing. Ten new adapter controls
+151 focused Rust controls and 1,540 full Rust tests passing. Ten new adapter controls
 include real joined-worker execution; the 26 new executor controls cover actual
 filesystem and cold-recovery outcomes. Public resource gateway integration,
 model lifetimes and operation history remain unfinished. These additions provide
@@ -261,3 +261,23 @@ Rust all-target tests pass (1,178 library; 23 ignored); formatting and strict
 locked all-target Clippy pass. Host sources remain at the separately qualified
 748-test generated-load milestone. Full native history/view archival, surviving
 destination restoration, App publication and public resource edits remain open.
+
+Native destination restoration now has eleven behavioral controls plus two EOL
+history controls. Original surviving targets keep their identities, version
+lineage, shared views and history; absent targets get fresh initial models. Dirty
+source text restores, clean sources use actual disk postimages, and equal text can
+become dirty without a fabricated text version. Explicit/inferred language and
+ordinary/grouped EOL history remain separate native metadata. Actual Linux
+overwrite-move, displaced dirty archives and physical rollback are coupled in one
+control. App survival arbitration, complete retired history/view archives,
+operation events, mixed-group application and public resource edits remain open.
+
+All 1,540 Rust all-target tests pass (1,191 library; 23 ignored) with two test
+threads; all 748 host tests, formatting, strict locked all-target Clippy and build
+pass. A new native EOL terminal journey verifies Revert LF→Undo CRLF→Redo LF,
+future Enter/Save, exact Unicode bytes and disk baseline preservation without
+Node. The native Explorer resource-lifetime journey also passes. An initial full
+run caught a new snippet Redo count-shadowing regression, which was corrected;
+the four recorded snippet trace controls pass unchanged. A subsequent parallel
+theme timeout passed alone and in the bounded final suite. No local reference
+editor was launched; CI work remains deferred.

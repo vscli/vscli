@@ -23,7 +23,7 @@ pub use folding::{
 pub(crate) mod graphemes;
 mod indentation;
 mod resource;
-pub use resource::ResourceModelSource;
+pub use resource::{ResourceModelCommit, ResourceModelPrepared, ResourceModelSource};
 mod snippets;
 pub(crate) use snippets::SnippetOptions;
 mod typing;
@@ -166,6 +166,7 @@ struct Snapshot {
     api_resource_epoch: u64,
     api_saved_generation: u64,
     text: Rope,
+    eol: String,
     cursor: usize,
     anchor: Option<usize>,
     secondary: Vec<Selection>,
@@ -376,7 +377,9 @@ pub struct Document {
     associated_path: Option<PathBuf>,
     api_created_untitled: bool,
     language_override: Option<String>,
+    language_hint: Option<String>,
     language_epoch: u64,
+    resource_dirty: bool,
     pub revision: u64,
     pub saved_revision: u64,
     pub disk_content: Option<Rope>,
@@ -585,7 +588,9 @@ impl Document {
             associated_path: None,
             api_created_untitled: false,
             language_override: None,
+            language_hint: None,
             language_epoch: 0,
+            resource_dirty: false,
             revision: 0,
             saved_revision: 0,
             disk_content: None,
@@ -729,6 +734,12 @@ impl Document {
         self.virtual_uri.is_some()
     }
     pub fn language_override(&self) -> Option<&str> {
+        self.language_override
+            .as_deref()
+            .or(self.language_hint.as_deref())
+    }
+    /// Explicit user selection, excluding language inherited through restoration.
+    pub fn explicit_language_override(&self) -> Option<&str> {
         self.language_override.as_deref()
     }
     pub(crate) fn check_language_override(&self, language: Option<&str>) -> Result<()> {
@@ -737,7 +748,7 @@ impl Document {
         {
             bail!("Document language identifier exceeds bounds");
         }
-        if self.language_override.as_deref() != language {
+        if self.language_override.as_deref() != language || self.language_hint.is_some() {
             self.language_epoch
                 .checked_add(1)
                 .context("Document language lifetime exhausted")?;
@@ -751,7 +762,7 @@ impl Document {
         {
             bail!("Document language identifier exceeds bounds");
         }
-        if self.language_override != language {
+        if self.language_override != language || self.language_hint.is_some() {
             let epoch = self
                 .language_epoch
                 .checked_add(1)
@@ -759,6 +770,7 @@ impl Document {
             self.retire_typing_pairs();
             self.retire_folding_policy();
             self.language_override = language;
+            self.language_hint = None;
             self.language_epoch = epoch;
         }
         Ok(())
@@ -787,6 +799,7 @@ impl Document {
             self.retire_typing_pairs();
             self.retire_folding_policy();
             self.path = path;
+            self.language_hint = None;
             self.resource_epoch = epoch;
         }
         Ok(())
@@ -941,6 +954,7 @@ impl Document {
         self.revision = self.next_revision;
         self.next_revision = next_revision;
         self.saved_revision = self.revision;
+        self.resource_dirty = false;
         self.text_epoch = epoch;
         self.disk_content = None;
         self.eol = "\n".into();
@@ -1049,6 +1063,7 @@ impl Document {
         self.eol = infer_eol(&next, DEFAULT_EOL).into();
         self.disk_content = Some(next);
         self.saved_revision = self.revision;
+        self.resource_dirty = false;
         self.break_group();
     }
 
@@ -1065,7 +1080,9 @@ impl Document {
             })
     }
     pub fn dirty(&self) -> bool {
-        if self.api_created_untitled {
+        if self.resource_dirty {
+            true
+        } else if self.api_created_untitled {
             self.text_epoch == 0 || !self.is_empty() || self.associated_path.is_some()
         } else {
             self.revision != self.saved_revision
@@ -1203,6 +1220,7 @@ impl Document {
             api_resource_epoch: self.resource_epoch,
             api_saved_generation: self.save_generation,
             text: self.text.clone(),
+            eol: self.eol.clone(),
             cursor: self.cursor,
             anchor: self.anchor,
             secondary: self.secondary.clone(),
@@ -1379,6 +1397,11 @@ impl Document {
         });
         let first = self.undo.len() - count;
         let extra = self.undo[first + 1..].iter().map(|s| s.changes.len()).sum();
+        let epoch_steps =
+            self.undo[first].changes.len() + extra + usize::from(self.eol != self.undo[first].eol);
+        if self.text_epoch.checked_add(epoch_steps as u64).is_none() {
+            return;
+        }
         if self.undo[first].changes.try_reserve(extra).is_err() || self.redo.try_reserve(1).is_err()
         {
             return;
@@ -1406,6 +1429,13 @@ impl Document {
             return;
         }
         self.break_group();
+        if self.redo.last().is_some_and(|snapshot| {
+            self.text_epoch
+                .checked_add(snapshot.changes.len() as u64 + u64::from(self.eol != snapshot.eol))
+                .is_none()
+        }) {
+            return;
+        }
         if let Some(s) = self.redo.pop() {
             self.undo.push(self.reverse_snapshot(&s));
             self.restore(s);
@@ -1430,6 +1460,7 @@ impl Document {
             api_resource_epoch: self.resource_epoch,
             api_saved_generation: self.save_generation,
             text: self.text.clone(),
+            eol: self.eol.clone(),
             cursor: primary.map_or(view.cursor, |s| s.cursor),
             anchor: primary.map_or(view.anchor, |s| s.anchor),
             secondary: after.map_or_else(|| view.secondary.clone(), |s| s[1..].to_vec()),
@@ -1456,6 +1487,12 @@ impl Document {
         }
     }
     fn restore(&mut self, mut s: Snapshot) {
+        if self.eol != s.eol {
+            self.record_byte_change(ByteChange {
+                range: 0..0,
+                added: 0,
+            });
+        }
         for change in s.changes.iter().rev().map(PositionChange::inverse) {
             self.record_byte_change(change.bytes.clone());
             self.record_folding_change(change.range.clone(), change.added);
@@ -1465,6 +1502,7 @@ impl Document {
             }
         }
         self.text = s.text;
+        self.eol = s.eol;
         let view = if s.view_id == self.active_view {
             Some(&mut self.view)
         } else {
@@ -1491,6 +1529,9 @@ impl Document {
             view.cursor_history.clear();
         }
         self.revision = s.revision;
+        if self.revision == self.saved_revision {
+            self.resource_dirty = false;
+        }
         self.observe_folding_selection();
     }
     pub fn move_to(&mut self, pos: usize, select: bool) {
@@ -2008,6 +2049,7 @@ impl Document {
         self.api_created_untitled = false;
         self.disk_content = Some(snapshot.text.clone());
         self.saved_revision = snapshot.revision;
+        self.resource_dirty = false;
         self.save_generation = snapshot.next_save_generation;
         self.break_group();
         Ok(())
@@ -2083,6 +2125,7 @@ impl Document {
         self.api_created_untitled = false;
         self.disk_content = Some(self.text.clone());
         self.saved_revision = self.revision;
+        self.resource_dirty = false;
         self.save_generation = save_generation;
         self.break_group();
         Ok(())
