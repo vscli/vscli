@@ -132,6 +132,33 @@ impl Context {
     fn valid(&self, app: &App) -> bool {
         self.same_editor(app) && app.prompt.is_none() && app.modal.is_none()
     }
+    fn customer_open_current(&self, app: &App) -> bool {
+        self.snapshot.as_ref().is_some_and(|original| {
+            original.workspace == app.workspace.root
+                && original.profile == app.settings_profile_generation()
+                && Arc::ptr_eq(&original.settings, app.settings.extension_layers())
+        })
+    }
+    fn customer_existing_current(&self, app: &App, path: &Path) -> bool {
+        self.snapshot
+            .as_ref()
+            .and_then(|snapshot| {
+                snapshot
+                    .documents
+                    .iter()
+                    .find(|doc| doc.path.as_deref() == Some(path))
+            })
+            .is_some_and(|original| {
+                app.documents
+                    .iter()
+                    .chain(&app.hidden_documents)
+                    .any(|doc| {
+                        doc.id == original.id
+                            && doc.resource_epoch() == original.resource_epoch
+                            && doc.path.as_deref() == Some(path)
+                    })
+            })
+    }
     fn service_current(&self, app: &App, operation: &Operation) -> bool {
         // Opening a text document retains it without creating or focusing an
         // editor. Indexers can do that while a native picker/prompt is active;
@@ -153,10 +180,14 @@ struct Job {
     context: Option<Context>,
     cancel: Arc<AtomicBool>,
     receiver: Receiver<Result<Output, String>>,
+    thread: Option<std::thread::JoinHandle<()>>,
 }
 impl Drop for Job {
     fn drop(&mut self) {
         self.cancel.store(true, Ordering::Release);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
     }
 }
 #[derive(Default)]
@@ -203,7 +234,9 @@ impl App {
         {
             self.cancel_workspace_transaction(token);
         }
-        if let Some(job) = &self.extension_services.job {
+        if let Some(job) = &self.extension_services.job
+            && !job.service.customer_owned
+        {
             job.cancel.store(true, Ordering::Release);
         }
     }
@@ -239,12 +272,11 @@ impl App {
                 job.cancel.store(true, Ordering::Release);
             }
             // Retain an occupied worker until it actually finishes even after host retirement.
-            if self
-                .extension_services
-                .job
-                .as_ref()
-                .is_some_and(|job| !matches!(job.receiver.try_recv(), Err(TryRecvError::Empty)))
-            {
+            if self.extension_services.job.as_ref().is_some_and(|job| {
+                job.thread
+                    .as_ref()
+                    .is_some_and(|thread| thread.is_finished())
+            }) {
                 self.extension_services.job = None;
             }
             return changed;
@@ -419,12 +451,22 @@ impl App {
         }
         if let Some(job) = &self.extension_services.job {
             let valid = host.service_valid(&job.service).is_ok()
-                && job
-                    .context
-                    .as_ref()
-                    .is_none_or(|context| context.service_current(self, &job.service.operation));
+                && job.context.as_ref().is_none_or(|context| {
+                    if job.service.customer_owned {
+                        context.customer_open_current(self)
+                    } else {
+                        context.service_current(self, &job.service.operation)
+                    }
+                });
             if !valid {
                 job.cancel.store(true, Ordering::Release);
+            }
+            if job
+                .thread
+                .as_ref()
+                .is_some_and(|thread| !thread.is_finished())
+            {
+                return false;
             }
             let result = match job.receiver.try_recv() {
                 Ok(result) => result.map_err(anyhow::Error::msg),
@@ -433,9 +475,25 @@ impl App {
                     Err(anyhow::anyhow!("Native service worker stopped"))
                 }
             };
-            let job = self.extension_services.job.take().unwrap();
+            let mut job = self.extension_services.job.take().unwrap();
+            if let Some(thread) = job.thread.take() {
+                let _ = thread.join();
+            }
             let result = if valid && !job.cancel.load(Ordering::Acquire) {
                 result
+                    .and_then(|output| {
+                        if job.service.customer_owned
+                            && let Output::Existing(path) = &output
+                        {
+                            anyhow::ensure!(
+                                job.context.as_ref().is_some_and(
+                                    |context| context.customer_existing_current(self, path)
+                                ),
+                                "Original document load resource binding retired"
+                            );
+                        }
+                        Ok(output)
+                    })
                     .and_then(|output| self.install_service_output(output))
                     .and_then(|value| {
                         if matches!(job.service.operation, Operation::Open(_)) {
@@ -502,7 +560,13 @@ impl App {
                 .extension_services
                 .contexts
                 .get(&(service.request.session, service.id.clone()))
-                .is_some_and(|context| context.service_current(self, &service.operation))
+                .is_some_and(|context| {
+                    if service.customer_owned {
+                        context.customer_open_current(self)
+                    } else {
+                        context.service_current(self, &service.operation)
+                    }
+                })
             {
                 bail!("Native document service cancelled by newer editor context; retry");
             }
@@ -657,7 +721,7 @@ impl App {
                 let cancel = Arc::new(AtomicBool::new(false));
                 let flag = cancel.clone();
                 let started = service.started;
-                std::thread::spawn(move || {
+                let thread = std::thread::spawn(move || {
                     let result = (|| -> Result<Output> {
                         if flag.load(Ordering::Acquire) || started.elapsed() >= SERVICE_LIFETIME {
                             bail!("Document open cancelled");
@@ -688,6 +752,7 @@ impl App {
                     context,
                     cancel,
                     receiver,
+                    thread: Some(thread),
                 });
             }
             Operation::State(patch) => {
@@ -707,7 +772,7 @@ impl App {
                 let (sender, receiver) = mpsc::sync_channel(1);
                 let cancel = Arc::new(AtomicBool::new(false));
                 let flag = cancel.clone();
-                std::thread::spawn(move || {
+                let thread = std::thread::spawn(move || {
                     let result = store
                         .update_with(
                             &owner,
@@ -732,6 +797,7 @@ impl App {
                     context: None,
                     cancel,
                     receiver,
+                    thread: Some(thread),
                 });
             }
             Operation::Show(show) => {
@@ -1119,6 +1185,25 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::time::{Duration, Instant};
+    #[test]
+    fn customer_read_context_ignores_other_models_but_retires_original_resource_aba_and_profile() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let path = root.path().join("original.txt");
+        std::fs::write(&path, "original 猫🙂\r\n").unwrap();
+        app.open(&path).unwrap();
+        let context = Context::capture(&app);
+        app.hidden_documents.push(Document::from_text("unrelated"));
+        assert!(context.customer_open_current(&app));
+        assert!(context.customer_existing_current(&app, &path));
+        app.doc_mut()
+            .set_resource_path(Some(root.path().join("other.txt")))
+            .unwrap();
+        app.doc_mut().set_resource_path(Some(path.clone())).unwrap();
+        assert!(!context.customer_existing_current(&app, &path));
+        app.configure_settings(None).unwrap();
+        assert!(!context.customer_open_current(&app));
+    }
     fn until(app: &mut App, check: impl Fn(&App) -> bool) {
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
@@ -1880,6 +1965,7 @@ exports.activate = context => {
             context: None,
             cancel: Arc::new(AtomicBool::new(false)),
             receiver,
+            thread: None,
         });
         app.extension_host = Some(host);
         assert!(Context::check_budget(&app).is_err());

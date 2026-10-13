@@ -24,7 +24,8 @@ const vscode=require('vscode'); const assert=require('node:assert/strict');
 exports.activate=async context=>{
  let opened;
  vscode.workspace.onDidOpenTextDocument(doc=>{opened=doc; assert.equal(vscode.window.activeTextEditor,undefined);});
- const doc=await vscode.workspace.openTextDocument(vscode.Uri.file(require('node:path').join(vscode.workspace.rootPath,'input.txt')));
+ const same=await Promise.all([vscode.workspace.openTextDocument(vscode.Uri.file(require('node:path').join(vscode.workspace.rootPath,'input.txt'))),vscode.workspace.openTextDocument('input.txt')]);
+ assert.equal(same[0],same[1]);const doc=same[0];
  assert.equal(opened,doc); assert.equal(vscode.window.activeTextEditor,undefined); assert.deepEqual(vscode.window.visibleTextEditors,[]);
  assert.equal(doc.getText(),'α😀\r\nsecond');
  // Fill all eight native request slots before yielding to IO. A cached reopen

@@ -50,7 +50,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const callers = createCallerContext(owner => { assertActiveOwner(owner); sessionOptions.assertOwner?.(owner); });
   const mementos = createMementos(request, sessionOptions.session, sessionOptions.extensionState);
   const documentServices = createDocumentServices(request, sessionOptions, {
-    generation: () => generation, root: () => workspaceRoot, callerOwner: callers.currentOwner,
+    generation: () => generation, root: () => workspaceRoot, callerOwner: callers.currentOwner, unowned: callers.unowned,
     captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
     snapshot: id => workspaceEditMirrors.get(id), snapshots: () => workspaceEditMirrors.values(),
     snapshotFor: document => documentMirrorRecords.get(document),

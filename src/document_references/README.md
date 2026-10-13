@@ -93,7 +93,7 @@ equating last API-reference expiry with model destruction:
   Immutable acquisition length uses logical UTF-16/EOL units. A bounded private
   length cache reuses only the same model/resource/text/EOL proof for later
   genuine acquisitions; older reference lengths never change.
-- Matching public file and explicit untitled mirrors return without a native
+- Matching public resource mirrors return before provider/backend routing, without a native
   request or renewal. Showing/promoting a hidden model likewise acquires nothing.
   All extensions in a session share the customer collection; unloading one owner
   or routine input/request cancellation does not retire it.
@@ -131,10 +131,38 @@ The strengthened native document PTY passes clean tab close/reopen, dirty
 Discard/reopen/Undo, eight busy slots, exact public shared identity, host crash,
 recovery and save. Broader terminal evidence appears in `docs/EXTENSION_API.md`.
 
+## Customer-owned file loading
+
+Negotiated file cache misses share one runtime-private load by original URI across
+extensions, with eight actual lanes and 128 waiting callers. The native admission
+validates the original selected caller and command; accepted read ownership then
+belongs to that session. Every waiter keeps its own original caller/mirror guard.
+Retirement/replacement of the initiating caller cannot authorize its old promise
+or poison a separate live caller. Legacy non-negotiated opens retain their old
+caller-bound behavior. This authority grants no native edit/save permission.
+
+Native read context preserves the original workspace/settings/profile and
+existing resource binding. Unrelated model/input changes do not cancel a read;
+resource-path ABA and profile replacement refuse the old binding. Independently
+loaded URIs can publish sequentially without invalidating each other's inventory.
+Actual reads and native state workers join before their slot/receipt is released.
+A timeout retains the original shared entry and wire capacity until an exact
+typed terminal reply; refused pre-admission work leaves no permanent URI entry.
+
+Seven sharing controls, five resource-cache controls and one wire-retention
+control pass; all 740 host tests pass. Three new Rust controls cover native
+admission/session/deadline, resource/profile proofs and actual cross-extension
+coalescing with one acquisition per URI. All 1,513 Rust tests pass (1,164 library;
+23 ignored), formatting and strict locked Clippy. The two document and one
+provider terminal journeys pass, including concurrent file opening and cached
+provider access after disposal. These are distinct from the earlier twenty-one
+retention journeys; no new resource-operation/platform qualification is claimed.
+
 ## Remaining qualification
 
-Concurrent misses still need a shared customer-owned loader, independent of the
-initiating extension's cancellation. Encoding reload remains UTF-8 only. The
+Concurrent virtual and untitled misses still need original customer admission,
+independent of the initiating extension's cancellation before callbacks/creation.
+File misses now share their actual native read. Encoding reload remains UTF-8 only. The
 future ordered resource controller must remove genuine completed MOVE/DELETE
 source references, distinguish overwrite's internal destination deletion, and
 publish surviving-target reuse and model events. CREATE/COPY remove no references.
@@ -143,6 +171,6 @@ operation controller remains unfinished.
 
 History and global pending-work protection currently postpone native model and
 public-mirror disposal. Exact upstream disposal/history archival and per-model
-resolve ownership, cached provider-resource behavior, replacement races and
+resolve ownership, broader replacement races and
 platform timing remain unqualified. This work does not expose the public
 resource-operation gateway or establish full extension API compatibility.

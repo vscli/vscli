@@ -116,6 +116,9 @@ pub(crate) struct NativeService {
     save_origin: Option<Mirror>,
     save_path_wait: Option<Instant>,
     pub(crate) caller_retired: Arc<std::sync::atomic::AtomicBool>,
+    /// Original selected caller admits this read; session ownership then
+    /// outlives that caller/command. It grants no edit/save authority.
+    pub(crate) customer_owned: bool,
 }
 impl NativeService {
     pub fn fresh(&self) -> Result<()> {
@@ -352,7 +355,7 @@ impl Client {
                 request.args = Value::Null;
                 Operation::WorkspaceApply(capture)
             }
-            "nativeDocumentOpen" => {
+            "nativeDocumentOpen" | "nativeDocumentLoad" => {
                 let open: Open = serde_json::from_value(request.args.clone())?;
                 if open.path.len() > 16 * 1024 || open.path.is_empty() {
                     bail!("Invalid document path");
@@ -391,7 +394,8 @@ impl Client {
                 | Operation::VirtualOpen(_)
                 | Operation::VirtualChange(_)
                 | Operation::EditorState(_)
-        ) && request.generation != Some(self.mirror.generation)
+        ) && method != "nativeDocumentLoad"
+            && request.generation != Some(self.mirror.generation)
             && !(matches!(
                 operation,
                 Operation::Open(_) | Operation::Show(_) | Operation::Command(_)
@@ -421,6 +425,7 @@ impl Client {
             save_origin,
             save_path_wait: None,
             caller_retired,
+            customer_owned: method == "nativeDocumentLoad",
         });
         Ok(())
     }
@@ -497,9 +502,10 @@ impl Client {
     }
     pub(crate) fn service_valid(&self, service: &NativeService) -> Result<()> {
         service.fresh()?;
-        if service
-            .caller_retired
-            .load(std::sync::atomic::Ordering::Acquire)
+        if !service.customer_owned
+            && service
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
         {
             bail!("Original native caller lifetime has retired");
         }
@@ -514,7 +520,8 @@ impl Client {
                 | Operation::VirtualOpen(_)
                 | Operation::VirtualChange(_)
                 | Operation::EditorState(_)
-        ) && service.request.generation != Some(self.mirror.generation)
+        ) && !service.customer_owned
+            && service.request.generation != Some(self.mirror.generation)
             && !(matches!(
                 service.operation,
                 Operation::Open(_) | Operation::Show(_) | Operation::Command(_)
@@ -530,6 +537,14 @@ impl Client {
             .is_some_and(|current| current.id == service.id)
         {
             bail!("Native service is no longer pending");
+        }
+        if service.customer_owned {
+            anyhow::ensure!(
+                matches!(service.operation, Operation::Open(_))
+                    && service.request.session == self.session,
+                "Original document load customer retired"
+            );
+            return Ok(());
         }
         if matches!(
             service.operation,
@@ -646,6 +661,50 @@ pub(super) fn empty_queue() -> VecDeque<NativeService> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn admitted_customer_load_outlives_only_its_caller_origin_and_not_session_or_deadline() {
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let request = json!({"session":client.session,"owner":owner,"generation":client.mirror.generation,"args":{"path":"new.txt"}});
+        let mut forged = request.clone();
+        forged["owner"] = json!("unselected.owner");
+        assert!(
+            client
+                .queue_service("nativeDocumentLoad", json!("forged"), forged)
+                .is_err()
+        );
+        client
+            .queue_service("nativeDocumentLoad", json!("load"), request)
+            .unwrap();
+        let original = client.service().unwrap().clone();
+        assert!(original.customer_owned);
+        client
+            .register_activation(&json!([{"id":owner,"state":"failed"}]))
+            .unwrap();
+        assert!(
+            original
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        assert!(client.service_valid(&original).is_ok());
+        let mut expired = original.clone();
+        expired.started = Instant::now() - SERVICE_LIFETIME;
+        assert!(client.service_valid(&expired).is_err());
+        client.session += 1;
+        assert!(client.service_valid(&original).is_err());
+    }
 
     #[test]
     fn native_open_and_commands_tolerate_display_only_but_reject_source_editor_and_origin_changes()

@@ -199,14 +199,29 @@ The cached-file continuation passes eight new host regressions and the complete
 reopening the same hidden file while all eight native request slots are busy,
 then editing, Undo/Redo, host crash, dirty recovery and unchanged original disk
 bytes until explicit save. Formatting and strict locked all-target Clippy pass.
-Concurrent cache misses do not yet share a customer-owned loader; broader
-encoding reload, provider-resource cache behavior and exact disposal/history
-archival remain outstanding. Native lifetime wiring now passes twenty App and
+At that milestone shared misses and provider-resource cache qualification were unfinished; the current continuation below adds file sharing and resource-cache guards. Encoding reload and exact disposal/history archival remain outstanding. Native lifetime wiring now passes twenty App and
 two checked-reload controls, including three actual selected-host cases for
 unchanged cache deadlines, public expiry close/readable old documents and
 provider refresh without renewal. All 1,510 Rust tests pass (1,161 library;
 23 ignored); the document terminal journey also passes clean close/reopen and
 dirty Discard/reopen/Undo with the original public document.
+
+The current loader continuation returns any already mirrored matching resource
+before provider/backend routing, including a disposed provider's retained
+document. Private identity captured before argument getters prevents a replacement
+at the same URI from satisfying the old open. Concurrent file misses share one
+session-owned native read per original URI across extensions. The first caller
+is validated at admission; each waiter still validates its own original lifetime
+before returning the document. A retired first caller does not poison another
+live waiter. Eight actual lanes and 128 waiting callers bound the shared loader;
+timeout retains the entry and wire capacity until the exact terminal response.
+An operation refused before admission leaves no stuck URI entry. Native read
+workers retain their slot through real exit and joining. Seven new sharing tests,
+five new cached-resource tests, one retained-wire test, all 740 host tests and
+1,513 Rust tests pass (1,164 library; 23 ignored), plus formatting and strict
+locked all-target Clippy. Three document/provider terminal journeys pass on this
+continuation. Shared provider/untitled misses and encoding reload still need
+separate original customer admission before their callbacks/creation.
 
 ## Native output, status and tree surfaces
 

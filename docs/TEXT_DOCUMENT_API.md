@@ -46,13 +46,13 @@ all eight native document service slots are occupied. Caller retirement, model
 replacement during argument getters and unsupported encoding still reject.
 Public document metadata and public URI factory overrides cannot redirect the
 private cache. Canonical aliases continue through native resolution; the cache
-does not collapse URI queries/fragments or share concurrent misses.
+does not collapse URI queries/fragments. Negotiated file misses now share one customer-owned native read by original URI.
 
 Eight new regressions and all 727 host tests pass. Both native document PTY
 journeys pass with an eight-busy-slot cached reopen added to the actual hidden
 open/edit/Undo/Redo/host-crash/recovery/save workflow. Formatting and strict locked
 all-target Clippy pass. Native acquisition expiry and last-tab retention are now
-integrated separately below; concurrent misses and encoding reload still need
+integrated separately below; shared virtual/untitled misses and encoding reload still need
 their backends.
 The immutable source contract is
 [ExtHostDocuments.ensureDocumentData](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostDocuments.ts).
@@ -79,8 +79,7 @@ Twenty App controls (three actual selected hosts), seventeen ledger controls and
 two checked-reload integrity controls pass; all 1,510 Rust tests pass (1,161
 library; 23 ignored). The strengthened document terminal journey passes clean
 close/reopen, dirty Discard/reopen/Undo, eight busy slots, shared public identity,
-host crash and dirty recovery/save. Full provider-resource cache, shared miss
-loading, encoding reload and disposal/history archival remain unqualified.
+host crash and dirty recovery/save. Existing provider-resource caching and shared file misses are now qualified separately; shared virtual/untitled misses, encoding reload and disposal/history archival remain unqualified.
 See the [native ownership contract](../src/document_references/README.md).
 
 [Source receipts](../extension-host/document-types.provenance.json) pin stable
@@ -89,6 +88,16 @@ VS Code 1.141.0 at `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`:
 - [Document implementation](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostDocumentData.ts)
 - [Word lookup](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/core/wordHelper.ts)
 - [Logical text model](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/model/mirrorTextModel.ts)
+
+The customer-load continuation passes thirteen new host controls (five cached
+resource, seven shared-file and one retained-wire), all 740 host tests and 1,513
+Rust tests (1,164 library; 23 ignored). Three new native controls cover caller/
+session/deadline admission, original resource/profile proofs and actual
+cross-extension coalescing with one acquisition per URI. Two document/recovery
+and one provider terminal journeys pass, including concurrent same-file opening
+and cached provider access after disposal. Native readers join before their slot
+is released; timeout retains shared entries until an exact terminal response.
+Formatting, strict locked Clippy and fresh native build pass.
 
 Cached opens now check any matching private native mirror before provider or
 creation-capability routing. This preserves existing provider/untitled mirrors

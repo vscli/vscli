@@ -39,7 +39,7 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 The [resource-edit workstream](RESOURCE_EDITS_PLAN.md) now includes actual Linux
 filesystem execution, durable checkpoints, guarded rollback and an original-file
 DTO adapter, alongside native resource-lifetime guards. The combined work has
-121 focused Rust controls and 1,510 full Rust tests passing. Ten new adapter controls
+124 focused Rust controls and 1,513 full Rust tests passing. Ten new adapter controls
 include real joined-worker execution; the 26 new executor controls cover actual
 filesystem and cold-recovery outcomes. Public resource gateway integration,
 model lifetimes and operation history remain unfinished. These additions provide
@@ -49,13 +49,20 @@ Seventeen ledger controls, twenty App controls and two checked-reload integrity
 controls now qualify native API acquisition, last-tab retention, expiry, customer
 teardown and retained-file Discard. Three App controls use actual selected hosts
 for unchanged cache deadlines, expiry close publication and virtual refresh.
-Matching
-file mirrors now return without a native open request, with eight new host tests,
-all 727 host tests and two native document PTY journeys passing. The PTY includes
+Matching native resource mirrors now return before provider/backend routing,
+with five new resource-cache controls alongside the earlier eight file controls.
+All 740 host tests and two native document PTY journeys pass. The PTY includes
 reopen with all eight service slots busy, then shared identity, Undo/Redo, host
 crash, dirty recovery and save; the strengthened document PTY also passes clean
 tab close/reopen and dirty Discard/reopen/Undo on the original public document.
-Formatting and strict locked all-target Clippy pass. Concurrent misses, encoding
+Formatting and strict locked all-target Clippy pass. File misses now share a
+customer-owned native read by original URI, with eight load lanes and 128 pending
+waiters. Seven new host controls and an exact retained-wire control cover
+coalescing, independent caller retirement, timeout capacity and refused-admission
+retry. Three new Rust controls cover native caller/session/deadline admission,
+original resource/profile proofs and an actual two-extension concurrent-load
+workflow with one acquisition per URI. Native read/state workers settle and join
+before freeing their occupied slot. Shared virtual/untitled miss loading, encoding
 reload and exact disposal/history archival remain outstanding. Resource-operation
 model events and conditional destination reuse still need their controller.
 All twenty-one selected terminal journeys pass: two document/recovery, four
@@ -63,6 +70,11 @@ public tab-close, three untitled, one virtual, six preview and five sticky-close
 policy journeys. These preserve native/shared identity, exact Unicode CRLF disk
 bytes, Save/Discard/Cancel and Undo/Redo; they do not qualify resource execution,
 mouse input, other platforms or full extension compatibility. Fresh build passes.
+That twenty-one-journey set is the earlier retention milestone. Three journeys
+were rerun on the customer-load continuation: two document/recovery and one
+provider-resource workflow. The document journey now starts with concurrent URI
+and relative-path opens returning the same public model; the provider journey
+verifies cached access after provider disposal without another callback.
 
 The development audit uses Node to inspect the real facade over an empty
 activation registry. It loads no extensions, opens no editor and invokes no API

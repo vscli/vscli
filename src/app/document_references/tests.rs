@@ -504,3 +504,59 @@ fn actual_scheme_only_provider_open_and_refresh_capture_length_once_without_rene
     until_actual(&mut app, |app| app.hidden_documents.is_empty());
     assert_eq!(app.api_documents.ledger.as_ref().unwrap().len(), 0);
 }
+
+#[test]
+fn actual_cross_extension_concurrent_file_loads_share_one_acquisition_per_uri() {
+    let root = tempfile::tempdir().unwrap();
+    file(root.path(), "shared.txt");
+    file(root.path(), "other.txt");
+    let mut packages = Vec::new();
+    for name in ["secondary", "primary"] {
+        let folder = root.path().join(name);
+        std::fs::create_dir(&folder).unwrap();
+        let dependencies = if name == "primary" {
+            json!(["fixture.secondary"])
+        } else {
+            json!([])
+        };
+        let manifest = json!({"publisher":"fixture","name":name,"version":"1.0.0","main":"extension.cjs","extensionDependencies":dependencies});
+        std::fs::write(folder.join("package.json"), manifest.to_string()).unwrap();
+        let source = if name == "secondary" {
+            r#"
+const vscode=require('vscode');exports.activate=()=>({open:uri=>vscode.workspace.openTextDocument(uri)});
+"#
+        } else {
+            r#"
+const vscode=require('vscode'),assert=require('node:assert/strict');
+exports.activate=async()=>{
+ const secondary=vscode.extensions.getExtension('fixture.secondary').exports;
+ const opened=await Promise.all([vscode.workspace.openTextDocument('shared.txt'),secondary.open(vscode.Uri.file(require('node:path').join(vscode.workspace.rootPath,'shared.txt'))),vscode.workspace.openTextDocument('other.txt')]);
+ assert.equal(opened[0],opened[1]);assert.notEqual(opened[0],opened[2]);assert.equal(vscode.workspace.textDocuments.length,2);assert.equal(vscode.window.activeTextEditor,undefined);
+ assert.equal(opened[0].getText(),'猫🙂\r\noriginal');assert.equal(opened[2].getText(),'猫🙂\r\noriginal');
+ await vscode.window.showInformationMessage('shared native loads qualified');
+};
+"#
+        };
+        std::fs::write(folder.join("extension.cjs"), source).unwrap();
+        packages.push(crate::extensions::Package::read(&folder).unwrap());
+    }
+    let mut app = App::new(root.path().into(), Profile::Linux);
+    app.extension_node = std::env::var("VSCLI_EXTENSION_NODE").unwrap_or_else(|_| "node".into());
+    app.start_extension_packages(packages).unwrap();
+    until_actual(&mut app, |app| {
+        app.extension_host
+            .as_ref()
+            .is_some_and(|host| host.ready && !host.busy())
+    });
+    assert!(app.documents.is_empty());
+    assert_eq!(app.hidden_documents.len(), 2);
+    assert_eq!(app.api_documents.ledger.as_ref().unwrap().len(), 2);
+    assert_eq!(
+        std::fs::read_to_string(root.path().join("shared.txt")).unwrap(),
+        "猫🙂\r\noriginal"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.path().join("other.txt")).unwrap(),
+        "猫🙂\r\noriginal"
+    );
+}

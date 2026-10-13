@@ -8,6 +8,8 @@ const uriFilePath = Object.getOwnPropertyDescriptor(Uri.prototype, 'fsPath').get
 const NATIVE_COMMANDS = Object.freeze(['undo', 'redo', 'editor.action.selectAll', 'cursorLeft', 'cursorRight', 'cursorUp', 'cursorDown', 'cursorHome', 'cursorEnd', 'cursorTop', 'cursorBottom']);
 function createDocumentServices(request, options, model) {
   let pending = 0, queuedBytes = 0;
+  const opening = new Map();
+  let waiters = 0;
   async function call(owner, method, args, controls) {
     if (!owner) throw new Error('Native document services require an extension owner');
     if (pending >= 8) throw new Error('Native document service queue limit reached');
@@ -15,9 +17,9 @@ function createDocumentServices(request, options, model) {
     if (bytes > 2 * 1024 * 1024 || bytes > 8 * 1024 * 1024 - queuedBytes) throw new Error('Native document service payload limit reached');
     pending++; queuedBytes += bytes;
     let released = false;
-    const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; } };
-    const lifecycle = ['nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeTabsClose'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
-    try { return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
+    const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; controls?.onTerminal?.(); } };
+    const lifecycle = ['nativeDocumentLoad', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeTabsClose'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
+    try { controls?.onAdmission?.(); return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
     finally { if (!lifecycle?.retained) release(); }
   }
   function forOwner(owner, editor) {
@@ -88,8 +90,25 @@ function createDocumentServices(request, options, model) {
         throw new Error('Document URI requires a registered virtual content provider');
       }
       if (untitled && !options.untitledDocuments) throw new Error('Native untitled documents are not implemented by this native host');
-      const result = await call(owner, untitled ? 'nativeUntitledDocumentOpen' : 'nativeDocumentOpen', untitled
-        ? { uri: resource || null, content, language } : { path: filename });
+      let result;
+      if (!untitled && options.sharedDocumentLoads === true) {
+        if (waiters >= 128) throw new Error('Shared document load waiter limit reached');
+        let shared = opening.get(resource);
+        if (!shared) {
+          if (opening.size >= 8) throw new Error('Shared document load limit reached');
+          shared = {};
+          opening.set(resource, shared);
+          // Admit synchronously under the original caller; the actual read is
+          // session-owned afterward. No initiating-owner ALS owns the promise.
+          const terminal = () => { if (opening.get(resource) === shared) opening.delete(resource); };
+          shared.promise = model.unowned(() => call(owner, 'nativeDocumentLoad', {path: filename}, {onTerminal: terminal, onAdmission: () => { shared.admitted = true; }}).catch(error => { if (!shared.admitted) terminal(); throw error; }));
+        }
+        waiters++;
+        try { result = await shared.promise; } finally { waiters--; }
+      } else {
+        result = await call(owner, untitled ? 'nativeUntitledDocumentOpen' : 'nativeDocumentOpen', untitled
+          ? { uri: resource || null, content, language } : { path: filename });
+      }
       guard();
       const id = result?.document;
       if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid native document open acknowledgement');
