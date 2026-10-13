@@ -19,6 +19,7 @@ pub mod extension_registry;
 pub mod extension_state;
 pub mod extension_store;
 pub mod extensions;
+pub mod file_edit_review;
 pub mod files;
 pub mod folding;
 pub mod folding_controller;

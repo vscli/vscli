@@ -17,6 +17,7 @@ mod extension_providers;
 mod extension_services;
 pub mod extension_surfaces;
 mod extensions;
+mod file_participant_preferences;
 mod files;
 pub mod keyboard;
 mod language;
@@ -353,6 +354,10 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Focus Breadcrumbs", "breadcrumbs.focus"),
     ("Focus Breadcrumbs and Select", "breadcrumbs.focusAndSelect"),
     (
+        "Reset choice for 'File operation needs preview'",
+        "files.participants.resetChoice",
+    ),
+    (
         "Language: Parameter Hints",
         "editor.action.triggerParameterHints",
     ),
@@ -580,6 +585,7 @@ pub struct App {
     virtual_documents: virtual_documents::State,
     workspace_transactions: workspace_transactions::State,
     resource_models: resource_models::State,
+    file_participant_preferences: file_participant_preferences::State,
     extension_providers: extension_providers::State,
     provider_navigation: provider_navigation::State,
     rename: rename::State,
@@ -719,6 +725,7 @@ impl App {
             virtual_documents: virtual_documents::State::default(),
             workspace_transactions: workspace_transactions::State::default(),
             resource_models: resource_models::State::default(),
+            file_participant_preferences: file_participant_preferences::State::default(),
             extension_providers: extension_providers::State::default(),
             provider_navigation: provider_navigation::State::default(),
             rename: rename::State::default(),
@@ -879,6 +886,7 @@ impl App {
         changed |= self.poll_git();
         changed |= self.poll_files();
         changed |= self.poll_resource_models();
+        changed |= self.poll_file_participant_preferences();
         changed |= self.poll_watching();
         changed |= self.poll_debugger();
         changed |= self.poll_extension_management();
@@ -1898,6 +1906,9 @@ impl App {
                 }
             }
             "workbench.files.action.refreshFilesExplorer" => self.refresh_files(),
+            "files.participants.resetChoice" => {
+                if let Err(error)=self.reset_file_participant_choice() {self.message=format!("Cannot reset file-operation choice: {error:#}");}
+            },
             "workbench.action.keepEditor" => self.keep_active_editor(),
             "workbench.action.splitEditor" | "workbench.action.splitEditorRight" => {
                 self.split_editor(false)

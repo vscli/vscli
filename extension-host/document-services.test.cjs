@@ -4,6 +4,13 @@ const assert = require('node:assert/strict');
 const { createApi } = require('./api.cjs');
 const { Uri, Range, Position } = require('./api-types.cjs');
 function initial() { return { generation: 1, documents: [], active: null, selections: [] }; }
+test('file participant reset is listed, reserved and delegated without an editor or arguments',async()=>{
+ const calls=[],runtime=createApi(async(method,params)=>{calls.push({method,params});return null;},()=>{},{session:9,reservedCommands:['files.participants.resetChoice']});runtime.sync(initial());
+ const api=runtime.forExtension('test.owner');assert.ok((await api.commands.getCommands()).includes('files.participants.resetChoice'));
+ assert.throws(()=>api.commands.registerCommand('files.participants.resetChoice',()=>{}),/reserved/);
+ await api.commands.executeCommand('files.participants.resetChoice');assert.equal(calls.length,1);assert.equal(calls[0].method,'nativeCommand');assert.deepEqual(calls[0].params,{session:9,owner:'test.owner',generation:1,args:{id:'files.participants.resetChoice'}});
+ await assert.rejects(api.commands.executeCommand('files.participants.resetChoice',true),/arguments/);assert.equal(calls.length,1);
+});
 test('hidden open mirrors before events and promise; show reuses identity and native command mirrors', async () => {
   const calls = [];
   let runtime;

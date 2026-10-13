@@ -858,7 +858,9 @@ impl App {
                 self.poll_shown_editor_completion(host);
             }
             Operation::Command(command) => {
-                let result = if self.active_document().is_none() || self.focus != Focus::Editor {
+                let result = if command.id == "files.participants.resetChoice" {
+                    self.reset_file_participant_choice().map(|()| Value::Null)
+                } else if self.active_document().is_none() || self.focus != Focus::Editor {
                     Err(anyhow::anyhow!(
                         "Native delegated command requires the focused editor"
                     ))

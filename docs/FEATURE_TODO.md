@@ -113,6 +113,12 @@ filesystem preflight, configured participant policy, review/confirmation and ful
 ordered edit application before original file effects. The default editor will
 API remains disabled until that path is usable. See [transport evidence](FILE_PARTICIPATION_TRANSPORT.md).
 
+Initial review policy and profile storage/reset now have native implementations,
+including the stable reset command and actual selected-extension delegation.
+The review model preserves every source edit kind and the original DTO. It is
+an overview foundation; actual diff UI and full ordered apply still need to be
+connected. See [review evidence](FILE_EDIT_REVIEW.md).
+
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;
 placeholder methods and invented successful responses do not count as coverage.

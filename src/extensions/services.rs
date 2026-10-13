@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 pub(crate) const SAVE_SERVICE_LIFETIME: Duration = Duration::from_secs(360);
 pub(crate) const SERVICE_LIFETIME: Duration = Duration::from_secs(3);
 pub(crate) const NATIVE_COMMANDS: &[&str] = &[
+    "files.participants.resetChoice",
     "undo",
     "redo",
     "editor.action.selectAll",

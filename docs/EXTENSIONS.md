@@ -16,6 +16,13 @@ Native coordinator developers can now opt in to the experimental
 [participant transport](FILE_PARTICIPATION_TRANSPORT.md). This library boundary
 has actual selected-extension tests; it is not an editor setting or CLI mode.
 
+**F1 → Reset choice for 'File operation needs preview'** now resets the native
+profile's remembered preview policy. Extensions can invoke the same stable
+`files.participants.resetChoice` command with no arguments and no open editor.
+The native [review/preferences foundation](FILE_EDIT_REVIEW.md) retains complete
+edit payloads; editor preview/application and default will subscriptions remain
+unfinished.
+
 VSCLI now has an optional CommonJS extension process. It is an independent, original compatibility shim; the Rust executable remains the owner of native buffers, rendering, input, and persistence. This is an experiment toward the full extension requirement, not completion of that requirement.
 
 ## Installing and managing packages

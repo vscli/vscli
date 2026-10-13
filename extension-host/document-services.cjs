@@ -5,7 +5,7 @@ const {normalizeOptions}=require('./editor-presentation.cjs');
 const path = require('node:path');
 const uriFrom = Uri.from, uriFormat = Uri.prototype.toString, uriParse = Uri.parse, uriFile = Uri.file;
 const uriFilePath = Object.getOwnPropertyDescriptor(Uri.prototype, 'fsPath').get;
-const NATIVE_COMMANDS = Object.freeze(['undo', 'redo', 'editor.action.selectAll', 'cursorLeft', 'cursorRight', 'cursorUp', 'cursorDown', 'cursorHome', 'cursorEnd', 'cursorTop', 'cursorBottom']);
+const NATIVE_COMMANDS = Object.freeze(['undo', 'redo', 'editor.action.selectAll', 'cursorLeft', 'cursorRight', 'cursorUp', 'cursorDown', 'cursorHome', 'cursorEnd', 'cursorTop', 'cursorBottom','files.participants.resetChoice']);
 function createDocumentServices(request, options, model) {
   let pending = 0, queuedBytes = 0;
   const opening = new Map();

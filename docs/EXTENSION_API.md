@@ -327,6 +327,13 @@ Ten host and nine native controls qualify this boundary. Default editor
 negotiation remains disabled until
 pre-operation review/application and filesystem authority are connected.
 
+The [review/preferences foundation](FILE_EDIT_REVIEW.md) now implements the
+source initial choice table, complete original-edit overview and joined profile
+storage. Native F1 and selected extensions can reset the remembered policy with
+`files.participants.resetChoice`, including without an editor. Six review, five
+storage, five App and one host controls qualify this layer. Actual diff review,
+full apply and default will subscriptions remain unfinished.
+
 The [committed runtime-name report](extension-api/1.141.0/runtime-name-presence.json)
 records the three added file completion events at `b8f71c1`: 132/421 names
 (31.35%), with unchanged 13/32 provider-family routing. The report excludes
