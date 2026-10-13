@@ -311,6 +311,14 @@ tests, formatting, strict locked Clippy and build pass. See
 mixed apply, public file history and exact lifetime/event/platform qualification
 remain open.
 
+The private will-participant engine now implements sequential awaited delivery,
+synchronous wait registration, cancellation, original owner leases, bounded
+actual occupancy and full versioned WorkspaceEdit collection. Fifteen engine
+controls and two converter controls pass. Public will names remain unavailable
+until native pre-operation application, timeout/cancellation and confirmation
+are connected; this foundation does not increase the public API name metric.
+See [participant contracts](FILE_OPERATION_EVENTS_API.md#will-participant-engine-foundation).
+
 The [committed runtime-name report](extension-api/1.141.0/runtime-name-presence.json)
 records the three added file completion events at `b8f71c1`: 132/421 names
 (31.35%), with unchanged 13/32 provider-family routing. The report excludes

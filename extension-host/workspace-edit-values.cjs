@@ -11,10 +11,10 @@ const { Uri, Range } = require('./api-types.cjs');
 const { SnippetString } = require('./snippet-string.cjs');
 const { WorkspaceEdit, TextEdit, SnippetTextEdit, captureWorkspaceEntries } = require('./edit-values.cjs');
 const { uriSnapshot } = require('./language-selector.cjs');
-const parseUri = Uri.parse.bind(Uri);
+const parseUri = Uri.parse.bind(Uri), isUri = Uri.isUri;
 const MAX_ENTRIES = 4096, MAX_RESOURCES = 128, MAX_RAW = 1024 * 1024, MAX_WIRE = 2 * MAX_RAW;
 
-function snapshotWorkspaceEdit(value, check = () => {}) {
+function snapshotWorkspaceEdit(value, check = () => {}, versionInfo) {
   check();
   let captured;
   try { captured = captureWorkspaceEntries(value); }
@@ -157,6 +157,20 @@ function snapshotWorkspaceEdit(value, check = () => {}) {
     };
   }
   if (captured.entries.length > MAX_ENTRIES) throw new RangeError('Workspace edit count exceeds 4096');
+  // The source converter suppresses text/snippet versions for every resource
+  // created by THIS edit, including creates that occur after a text row.
+  const toCreate = new Set();
+  if (versionInfo) for (const entry of captured.entries) {
+    current();
+    if (entry.type === 'file' && entry.from === undefined && isUri(entry.to)) toCreate.add(uri(entry.to));
+  }
+  function version(resource, notebook = false) {
+    if (!versionInfo || !notebook && toCreate.has(resource)) return undefined;
+    const method = notebook ? 'getNotebookDocumentVersion' : 'getTextDocumentVersion';
+    const result = versionInfo[method]?.(parseUri(resource, true)); current();
+    if (result !== undefined && (!Number.isSafeInteger(result) || result <= 0)) throw new TypeError('Invalid workspace edit model version');
+    return result;
+  }
   const result = { edits: [] };
   for (const entry of captured.entries) {
     current();
@@ -186,18 +200,21 @@ function snapshotWorkspaceEdit(value, check = () => {}) {
       const resource = uri(entry.uri), text = string(read(entry.edit, 'newText'), true), eol = read(entry.edit, 'newEol');
       result.edits.push({ resource, textEdit: {
         text, eol: eol && (eol === 1 ? 0 : eol === 2 ? 1 : undefined), range: range(read(entry.edit, 'range')),
-      }, versionId: undefined, metadata });
+      }, versionId: version(resource), metadata });
     } else if (entry.type === 'snippet') {
-      result.edits.push({ resource: uri(entry.uri), textEdit: {
+      const resource = uri(entry.uri);
+      result.edits.push({ resource, textEdit: {
         range: range(entry.range), text: string(read(entry.edit, 'value'), true),
         insertAsSnippet: true, keepWhitespace: json(entry.keepWhitespace, 'keepWhitespace'),
-      }, versionId: undefined, metadata });
+      }, versionId: version(resource), metadata });
     } else if (entry.type === 'cellMetadata' || entry.type === 'notebookMetadata') {
+      const resource = uri(entry.uri);
       const cellEdit = { editType: entry.type === 'cellMetadata' ? 3 : 5, metadata: json(entry.value, 'metadata') };
       if (entry.type === 'cellMetadata') cellEdit.index = json(entry.index, 'index');
-      result.edits.push({ metadata, resource: uri(entry.uri), cellEdit, notebookVersionId: undefined });
+      result.edits.push({ metadata, resource, cellEdit, notebookVersionId: version(resource, true) });
     } else if (entry.type === 'cells') {
-      result.edits.push({ metadata, resource: uri(entry.uri), notebookVersionId: undefined, cellEdit: {
+      const resource = uri(entry.uri);
+      result.edits.push({ metadata, resource, notebookVersionId: version(resource, true), cellEdit: {
         editType: 1, index: json(entry.index, 'index'), count: json(entry.count, 'count'), cells: array(entry.cells).map(cell),
       } });
     } else throw new TypeError('Unknown private workspace edit entry');

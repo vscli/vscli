@@ -538,6 +538,10 @@ impl Client {
                 include_str!("../extension-host/file-operations.cjs"),
             ),
             (
+                "file-participants.cjs",
+                include_str!("../extension-host/file-participants.cjs"),
+            ),
+            (
                 "watcher-glob.cjs",
                 include_str!("../extension-host/watcher-glob.cjs"),
             ),

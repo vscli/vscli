@@ -51,6 +51,66 @@ All 1,555 Rust all-target tests pass across 67 reports (1,206 library; 23 ignore
 all 753 host tests pass, and formatting, strict locked Clippy and build pass.
 No local VS Code instance was launched; CI work remains deferred.
 
+## Will-participant engine foundation
+
+The isolated compatibility runtime now contains a private create/rename/delete
+participant engine. It is embedded in the native host package, but **the public
+`workspace.onWillCreateFiles`, `onWillRenameFiles` and `onWillDeleteFiles` names
+remain unavailable**. Native Explorer still follows its qualified completion-event
+path above. This foundation does not intercept operations or apply edits yet.
+
+The engine follows the same pinned
+[AsyncEmitter](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/event.ts)
+and extension-host file event sources. Each listener gets a mutable event with
+shared Uri-array data, a cancellation token and `waitUntil`. Normal callbacks
+must register waits synchronously. Delivery waits for all registered promises
+before advancing to the next listener. Callback return values and non-WorkspaceEdit
+promise values do not contribute edits. Contributions from one listener are
+collected in settlement order. Callback failures and rejected waits are reported
+without preventing later listeners from running.
+
+Conversion occurs after awaited delivery. The complete original WorkspaceEdit
+DTO survives, including file options/binary contents, annotations, snippets, EOL
+and notebook edits. Text/snippet versions come from current private native
+mirrors. Create rows suppress versions for that resource across their own edit,
+including preceding text rows; suppression does not leak into another listener's
+edit. Notebook version lookup is supported by the converter; VSCLI's participant
+runtime supplies undefined until a real notebook model exists. Conversion and
+thenable assimilation stay under the original registering extension lease.
+Retiring/re-enabling an owner cannot renew that authority.
+
+The source extension-host layer's timeout argument only diagnoses slow waits.
+The future native coordinator must separately cancel and race its own timeout,
+as the pinned main-thread participant does. Cancellation discards contributed
+edits, while an unsettled promise continues occupying the engine. Logical result
+and actual completion have separate receipts. Even a callback throwing after
+registering an unfinished wait cannot release capacity prematurely.
+
+Two non-obvious source behaviors are retained and tested: ordinary listener
+disposal does not remove an already snapshotted async delivery, and cancellation
+leaves undelivered entries with their original data in that kind's queue. A
+synchronous callback throw also skips the source collection freeze/await step;
+its already accepted work remains independently observed. Lifetime and capacity
+guards bound later admissions rather than silently rewriting those behaviors.
+
+Native adaptations admit one actual invocation, at most 1,024 registered/queued
+listeners, 1 MiB of conservatively charged queued data and 4,096 waits per
+invocation. Combined results retain at most 4,096 entries/128 resources, 1 MiB
+of raw content and 2 MiB of wire JSON; individual-edit wire charges include
+wrapper overhead. Overflow rejects the complete conversion without truncation.
+
+Fifteen new engine controls and two version-converter controls cover these
+contracts, including runtime-owned subscription cleanup. They are isolated Node
+behavior tests, not evidence of native pre-operation participation. Native
+integration still requires original request/model/settings proofs, real timeout
+and cancellation handling, preview/confirmation with remembered preference,
+contributed-edit application before file effects, and public history/event order.
+
+With this foundation and the separate workspace-symbol monotonic-deadline fix,
+all 772 host tests and all 1,555 Rust all-target tests pass (67 reports; 1,206
+library tests; 23 ignored cases provide no qualification). The completion-event
+Explorer terminal journey is separately rechecked against the rebuilt executable.
+
 Will-operation participants/contributed WorkspaceEdits, copy/multi-operation
 public backends, mixed file/text/notebook apply, public file Undo/Redo, precise
 lifetime/event races and broader package/platform qualification remain open.

@@ -15,6 +15,7 @@ const { createWorkspaceEdits } = require('./workspace-edits.cjs');
 const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
 const { createFileWatchers } = require('./file-watchers.cjs');
 const { createFileOperations } = require('./file-operations.cjs');
+const { createFileParticipants } = require('./file-participants.cjs');
 const { createTextContentProviders } = require('./text-content-providers.cjs');
 const editorPresentation = require('./editor-presentation.cjs');
 const {createEditorDecorations} = require('./editor-decorations.cjs');
@@ -26,7 +27,7 @@ const { createMementos } = require('./memento.cjs');
 const filesystem = require('./filesystem.cjs');
 const { createWorkspaceScope } = require('./workspace-scope.cjs');
 const { Position, Range, Selection, Uri, Disposable, EventEmitter, TextDocument } = types;
-const updateDocument = TextDocument.prototype._update, getDocumentText = TextDocument.prototype.getText, parseDocumentUri = Uri.parse;
+const updateDocument = TextDocument.prototype._update, getDocumentText = TextDocument.prototype.getText, parseDocumentUri = Uri.parse, formatDocumentUri = Uri.prototype.toString;
 
 function supported(name, values) {
   return new Proxy(values, { get(target, key) {
@@ -116,6 +117,14 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   });
   const workspaceScope = createWorkspaceScope({ Uri, EventEmitter, pathCaseSensitive: fileSystem.pathCaseSensitive });
   const fileOperations = createFileOperations(sessionOptions.session);
+  const fileParticipants = createFileParticipants({
+    session:sessionOptions.session,track,bind:callers.bind,
+    captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
+    versionInfo:()=>({
+      getTextDocumentVersion:uri=>[...workspaceEditMirrors.values()].find(source=>source.uri===Reflect.apply(formatDocumentUri,uri,[]))?.version,
+      getNotebookDocumentVersion:()=>undefined,
+    }),
+  });
   function workspace(values) {
     // Preserve getters so callers receive the latest native folder metadata.
     for (const key of ['workspaceFolders', 'rootPath', 'name', 'workspaceFile', 'getWorkspaceFolder', 'asRelativePath']) {
@@ -556,6 +565,9 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   }
   return {
     fileOperation: fileOperations.publish,
+    // Private participant engine. Public will APIs remain gated until native
+    // pre-operation edits, confirmation and cancellation are connected.
+    fileParticipants,
     api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, rankLanguageProviders: providers.rank, prepareLanguageRename:params=>coreOperation(providers.prepareRename,params), provideLanguageRename:params=>coreOperation(providers.provideRenameEdits,params), provideWorkspaceSymbols:params=>coreOperation(providers.provideWorkspaceSymbols,params), resolveLanguageWorkspaceSymbol:params=>coreOperation(providers.resolveWorkspaceSymbol,params), retireWorkspaceSymbols:providers.retireWorkspaceSymbols, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, releaseLanguageProviderRefusal: providers.releaseRefusal, languageProviderPending: providers.pending, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; providers.documentChanged(); fileWatchers.refresh(); }, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.

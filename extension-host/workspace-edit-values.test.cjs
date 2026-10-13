@@ -10,6 +10,29 @@ const span = () => new Range(1, 2, 3, 4);
 const internalRange = { startLineNumber: 2, startColumn: 3, endLineNumber: 4, endColumn: 5 };
 const wire = value => JSON.parse(JSON.stringify(value));
 
+test('versioned conversion suppresses creates across the whole original edit and stamps notebook rows', () => {
+  const changes = new WorkspaceEdit(), calls = [];
+  changes.replace(uri, span(), 'before create');changes.createFile(uri);
+  changes.set(other, [SnippetTextEdit.replace(span(), new SnippetString('snippet'))]);
+  changes.set(other, [NotebookEdit.updateNotebookMetadata({flag:true})]);
+  const savedIsUri = Uri.isUri;
+  // Public namespace mutation cannot change the converter's trusted predicate.
+  Uri.isUri = () => false;
+  let result;
+  try { result = snapshotWorkspaceEdit(changes,()=>{}, {
+    getTextDocumentVersion:resource=>{calls.push(['text',resource.toString()]);return 7;},
+    getNotebookDocumentVersion:resource=>{calls.push(['notebook',resource.toString()]);return 12;},
+  }); } finally { Uri.isUri = savedIsUri; }
+  assert.equal(result.edits[0].versionId,undefined);assert.equal(result.edits[2].versionId,7);assert.equal(result.edits[3].notebookVersionId,12);
+  assert.deepEqual(calls,[['text',other.toString()],['notebook',other.toString()]]);
+});
+
+test('version authority is checked immediately and cannot mutate edits or manufacture invalid versions', () => {
+  const changes = new WorkspaceEdit();changes.replace(uri,span(),'original');
+  assert.throws(()=>snapshotWorkspaceEdit(changes,()=>{}, {getTextDocumentVersion:()=>0}),/Invalid.*version/);
+  assert.throws(()=>snapshotWorkspaceEdit(changes,()=>{}, {getTextDocumentVersion:()=>{changes.deleteFile(other);return 7;}}),/changed during projection/);
+});
+
 test('unknown brands project to the source empty DTO and still check original caller', () => {
   for (const value of [undefined, null, 1, {}, { entries() { throw new Error('must not be called'); } }]) {
     let checked = 0;
