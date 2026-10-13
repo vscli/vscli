@@ -23,8 +23,8 @@ new behavior without changing those counts. There is no measured overall API
 compatibility percentage. The frozen declaration audit is a separate source
 snapshot, not a live implementation dashboard.
 
-The separate committed-runtime-name check currently finds **129 of 421 unique
-runtime declaration names (30.64%)** in committed refactoring-save milestone `6876f19`. It excludes
+The separate committed-runtime-name check currently finds **132 of 421 unique
+runtime declaration names (31.35%)** in committed native file-event milestone `b8f71c1`. It excludes
 322 type-only declarations and collapses repeated overload names. This measures
 name presence only: constructors, members, overload behavior and native backends
 remain unqualified by this check. It is not a percentage of implemented or fully
@@ -310,3 +310,8 @@ tests, formatting, strict locked Clippy and build pass. See
 [file operation events](FILE_OPERATION_EVENTS_API.md). Will participants, bulk/
 mixed apply, public file history and exact lifetime/event/platform qualification
 remain open.
+
+The [committed runtime-name report](extension-api/1.141.0/runtime-name-presence.json)
+records the three added file completion events at `b8f71c1`: 132/421 names
+(31.35%), with unchanged 13/32 provider-family routing. The report excludes
+working-tree changes and grants no overall behavioral compatibility percentage.
