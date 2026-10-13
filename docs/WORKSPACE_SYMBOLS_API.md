@@ -125,3 +125,13 @@ also pass. This cohort has sixteen passing terminal journeys in total.
 Rename/prepareRename, unopened-target transactional rename, refactoring auto-save
 and the remaining language-provider families follow separately. This milestone
 does not claim complete extension or VS Code parity.
+
+Provider and public-query timers now check their original monotonic deadline
+when a timer fires. Early delivery re-arms only the remaining interval; it cannot
+cancel a callback early or let its isolated timeout produce an empty successful
+query. Deadline rejection precedes cancellation notification, and unfinished
+callbacks retain actual capacity until settlement. One deterministic provider/query
+test delivers both timers half a millisecond early and then at the original
+deadline, covering the race without increasing the timeout or renewing authority.
+A second holds timer delivery past the original deadline: a late provider result
+is refused before any extension-owned result getter is read.

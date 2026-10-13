@@ -90,6 +90,47 @@ test('eight public held queries bound ninth admission and deadlines do not free 
  const id=f.module.snapshot()[0].id;await assert.rejects(f.module.provideWorkspaceSymbols(f.request(id,99)),/invocation limit/);assert.equal(waits.length,8);
  waits.forEach(wait=>wait.resolve(null));await turn();assert.equal(f.module.pendingCount(),0);assert.equal(f.notifications.filter(value=>value.method==='languageProviderReleased').length,1);
 });
+test('early timer delivery cannot cancel callbacks or turn the original query deadline into empty success',async()=>{
+ const savedSet=global.setTimeout,savedClear=global.clearTimeout,clockDescriptor=Object.getOwnPropertyDescriptor(performance,'now'),timers=[];
+ let clock=100,token,finished=false;
+ Object.defineProperty(performance,'now',{configurable:true,value:()=>clock});
+ global.setTimeout=(callback,delay)=>{const timer={callback,delay,cleared:false,fired:false};timers.push(timer);return timer;};
+ global.clearTimeout=timer=>{if(timer)timer.cleared=true;};
+ const held=deferred();
+ try{
+  const f=moduleFixture(30);f.register({provideWorkspaceSymbols(_query,value){token=value;return held.promise;}});
+  const query=f.module.queryWorkspaceSymbols('consumer','');query.then(()=>finished=true,()=>finished=true);
+  const rejected=assert.rejects(query,/deadline/);await turn();assert.equal(timers.length,2);assert.equal(f.module.pendingCount(),1);
+  clock=129.5;
+  for(const timer of timers.slice()){timer.fired=true;timer.callback();}
+  await turn();assert.equal(finished,false);assert.equal(token.isCancellationRequested,false);assert.equal(f.module.pendingCount(),1);
+  assert.deepEqual(timers.slice(2).map(timer=>timer.delay),[1,1]);
+  clock=130;
+  for(const timer of timers.slice())if(!timer.fired&&!timer.cleared){timer.fired=true;timer.callback();}
+  await rejected;assert.equal(token.isCancellationRequested,true);assert.equal(f.module.pendingCount(),1);
+  held.resolve(null);await turn();assert.equal(f.module.pendingCount(),0);
+ }finally{
+  held.resolve(null);global.setTimeout=savedSet;global.clearTimeout=savedClear;
+  if(clockDescriptor)Object.defineProperty(performance,'now',clockDescriptor);else delete performance.now;
+ }
+});
+test('late provider settlement cannot normalize extension values before a delayed deadline timer runs',async()=>{
+ const savedSet=global.setTimeout,savedClear=global.clearTimeout,clockDescriptor=Object.getOwnPropertyDescriptor(performance,'now');
+ let clock=100,getters=0;
+ Object.defineProperty(performance,'now',{configurable:true,value:()=>clock});
+ global.setTimeout=()=>({});global.clearTimeout=()=>{};
+ const held=deferred();
+ try{
+  const f=moduleFixture(30),id=f.register({provideWorkspaceSymbols(){return held.promise;}});
+  const query=f.module.provideWorkspaceSymbols(f.request(id,1)),rejected=assert.rejects(query,/deadline/);await turn();
+  assert.equal(f.module.pendingCount(),1);clock=130;
+  held.resolve([{get name(){getters++;return'late';},kind:11,location:new Location(Uri.file('/a'))}]);
+  await rejected;assert.equal(getters,0);assert.equal(f.module.pendingCount(),0);
+ }finally{
+  held.resolve(null);global.setTimeout=savedSet;global.clearTimeout=savedClear;
+  if(clockDescriptor)Object.defineProperty(performance,'now',clockDescriptor);else delete performance.now;
+ }
+});
 test('a public query creator error is isolated but original consumer retirement cannot normalize or return late values',async()=>{
  const f=apiFixture(),wait=deferred();f.creator.languages.registerWorkspaceSymbolProvider({provideWorkspaceSymbols(){return wait.promise;}});
  const query=f.consumer.commands.executeCommand('vscode.executeWorkspaceSymbolProvider','');await turn();f.runtime.disposeOwner('consumer');f.runtime.forExtension('consumer');wait.resolve([symbol()]);await assert.rejects(query,/retired|disposed/);assert.equal(f.frames.length,0);

@@ -157,6 +157,18 @@ function createProviders(options) {
   const workspaceSymbols=workspaceSymbolTypes.createWorkspaceSymbols({registered:entry=>entries.get(entry.id)===entry,workspaceIdentity});
   const workspaceWaiting=[];let workspaceQueries=0;
   const now=performance.now.bind(performance);
+  function deadlineTimer(deadline, expire) {
+    let timer;
+    function tick() {
+      const remaining=deadline-now();
+      // Node timers may run before a fractional monotonic deadline. Re-arm
+      // against the ORIGINAL instant; never renew a query/callback's lease.
+      if(remaining>0){timer=setTimeout(tick,Math.ceil(remaining));return;}
+      expire();
+    }
+    tick();
+    return ()=>clearTimeout(timer);
+  }
   function pumpWorkspace(){
     while(calls.size<MAX_PENDING&&workspaceWaiting.length){
       const job=workspaceWaiting.shift();
@@ -421,6 +433,7 @@ function createProviders(options) {
 
   function assertWorkspaceCall(call){
     if(call.source.token.isCancellationRequested||entries.get(call.entry.id)!==call.entry||workspaceIdentity()!==call.workspace||call.cached&&!workspaceSymbols.current(call.cached))throw new Error('Workspace symbol result became stale or canceled');
+    if(now()>=call.deadline)throw new Error('Workspace symbol provider deadline exceeded');
   }
   function workspaceRequest(params,resolve){
     const keys=resolve?['session','owner','provider','request','origin','handle']:['session','owner','provider','request','query'];
@@ -442,8 +455,9 @@ function createProviders(options) {
   async function workspaceWork(params,resolve,accept){
     const {entry,id}=workspaceRequest(params,resolve),cached=resolve?workspaceSymbols.lookup(params,entry):undefined;
     const query=resolve?undefined:text(params.query,4096);
-    const source=new CancellationTokenSource(),call={entry,source,workspace:cached?.workspace??workspaceIdentity(),cached,workspaceOrigin:cached?.origin};
-    calls.set(id,call);accept(call);let timer,listener;
+    const deadline=now()+(options.timeoutMs||5000);
+    const source=new CancellationTokenSource(),call={entry,source,workspace:cached?.workspace??workspaceIdentity(),cached,workspaceOrigin:cached?.origin,deadline};
+    calls.set(id,call);accept(call);let cancelTimer,listener;
     const work=Promise.resolve().then(()=>{
       assertWorkspaceCall(call);const callback=entry.provider[resolve?'resolveWorkspaceSymbol':'provideWorkspaceSymbols'];assertWorkspaceCall(call);
       return invokeResult(entry,()=>callback.apply(entry.provider,resolve?[cached.original,source.token]:[query,source.token]));
@@ -453,18 +467,18 @@ function createProviders(options) {
       assertWorkspaceCall(call);
       const result=resolve?converted:workspaceSymbols.retain(call,converted,id);
       wireBudget(result);assertWorkspaceCall(call);return result;
-    })).finally(()=>{calls.delete(id);capacityChanged();source.dispose();clearTimeout(timer);released(params,call);});
+    })).finally(()=>{calls.delete(id);capacityChanged();source.dispose();cancelTimer?.();released(params,call);});
     call.genericWork=true;
-    const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{source.cancel();reject(new Error('Workspace symbol provider deadline exceeded'));},options.timeoutMs||5000);});
+    const timeout=new Promise((_,reject)=>{cancelTimer=deadlineTimer(deadline,()=>{reject(new Error('Workspace symbol provider deadline exceeded'));source.cancel();});});
     const canceled=new Promise((_,reject)=>{listener=source.token.onCancellationRequested(()=>reject(new Error('Workspace symbol invocation canceled')));});
-    return Promise.race([work,timeout,canceled]).finally(()=>{clearTimeout(timer);listener.dispose();});
+    return Promise.race([work,timeout,canceled]).finally(()=>{cancelTimer();listener.dispose();});
   }
   async function queryWorkspaceSymbols(owner,query){
     const guard=options.captureCaller?.(owner),workspace=workspaceIdentity();guard?.();
     query=text(query,4096);
     if(workspaceQueries>=8)throw new Error('Workspace symbol query invocation limit reached');
     const selected=[...entries.values()].filter(entry=>entry.type==='workspaceSymbols');
-    workspaceQueries++;const deadline=now()+(options.queryTimeoutMs||options.timeoutMs||5000),cohort={},ids=[],rows=[];let bytes=2,timer,retired=false;
+    workspaceQueries++;const deadline=now()+(options.queryTimeoutMs||options.timeoutMs||5000),cohort={},ids=[],rows=[];let bytes=2,cancelTimer,retired=false;
     const check=()=>{guard?.();if(retired||workspaceIdentity()!==workspace)throw new Error('Workspace symbol query source or caller retired');if(now()>=deadline)throw new Error('Workspace symbol query deadline exceeded');};
     try{
       const promises=selected.map(entry=>new Promise((resolve,reject)=>{
@@ -475,11 +489,11 @@ function createProviders(options) {
         check();for(const symbol of value.symbols){if(rows.length>=512)throw new RangeError('Workspace symbol query exceeds 512 symbols');bytes+=Buffer.byteLength(JSON.stringify(symbol))+1;if(bytes>MAX_RESULT_BYTES)throw new RangeError('Workspace symbol query exceeds 1 MiB');rows.push({symbol,resolves:entry.resolves});}
       },error=>{check();options.diagnostic?.(entry.owner,error);}));
       unowned(pumpWorkspace);
-      const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Workspace symbol query deadline exceeded; callbacks remain occupied')),Math.max(0,deadline-now()));});
+      const timeout=new Promise((_,reject)=>{cancelTimer=deadlineTimer(deadline,()=>reject(new Error('Workspace symbol query deadline exceeded; callbacks remain occupied')));});
       await Promise.race([Promise.all(promises),timeout]);check();
       const result=workspaceSymbolTypes.sortAndDedup(rows).map(row=>workspaceSymbolTypes.toPublic(row.symbol));check();return result;
     }finally{
-      retired=true;clearTimeout(timer);workspaceQueries--;
+      retired=true;cancelTimer?.();workspaceQueries--;
       for(let index=workspaceWaiting.length-1;index>=0;index--)if(workspaceWaiting[index].cohort===cohort){const [job]=workspaceWaiting.splice(index,1);job.reject(new Error('Workspace symbol query retired'));}
       for(const id of ids){const call=calls.get(id.request);if(call&&call.entry.owner===id.owner)call.source.cancel();}
     }
