@@ -39,7 +39,7 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 The [resource-edit workstream](RESOURCE_EDITS_PLAN.md) now includes actual Linux
 filesystem execution, durable checkpoints, guarded rollback and an original-file
 DTO adapter, alongside native resource-lifetime guards. The combined work has
-130 focused Rust controls and 1,519 full Rust tests passing. Ten new adapter controls
+138 focused Rust controls and 1,527 full Rust tests passing. Ten new adapter controls
 include real joined-worker execution; the 26 new executor controls cover actual
 filesystem and cold-recovery outcomes. Public resource gateway integration,
 model lifetimes and operation history remain unfinished. These additions provide
@@ -251,3 +251,13 @@ The three untitled and one provider terminal journeys pass. Formatting, strict
 locked Clippy and build pass. Full resource/model/history integration, encoding
 reload, provider corpus/platform behavior and remaining SDK/provider families
 remain open; CI work remains deferred.
+
+The native resource model archive boundary now captures original live Document
+authority with private history/source guards and COW dirty text/baseline. Its
+worker encoder retains exact bytes, EOL, selected language and baseline under
+the original deadline and shared encoded-byte bounds. Eight new integrity tests
+plus production-source worker and physical-overwrite controls pass. All 1,527
+Rust all-target tests pass (1,178 library; 23 ignored); formatting and strict
+locked all-target Clippy pass. Host sources remain at the separately qualified
+748-test generated-load milestone. Full native history/view archival, surviving
+destination restoration, App publication and public resource edits remain open.

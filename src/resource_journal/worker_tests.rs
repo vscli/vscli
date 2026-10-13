@@ -2,44 +2,19 @@
 //! public WorkspaceEdit execution or a substitute for App caller/model authority.
 use super::*;
 use crate::{
-    document::Document,
+    document::{Document, ResourceModelSource},
     resource_worker::{Event, Outcome, Preparation, Transaction, Worker},
 };
-use ropey::Rope;
 use std::{fs, thread, time::Duration};
 
-struct Source {
-    proof: ModelProof,
-    resource: PathBuf,
-    text: Rope,
-    eol: String,
-}
-impl Source {
-    fn capture(document: &Document) -> Self {
-        Self {
-            proof: ModelProof {
-                document: document.id,
-                revision: document.revision,
-                text_epoch: document.text_epoch(),
-                language_epoch: document.language_epoch(),
-                resource_epoch: document.resource_epoch(),
-                saved_revision: document.saved_revision,
-                save_generation: document.save_generation(),
-            },
-            resource: document.path.clone().unwrap(),
-            text: document.text.clone(),
-            eol: document.eol.clone(),
-        }
-    }
-}
 struct Stage {
-    source: Source,
+    source: ResourceModelSource,
     destination: PathBuf,
     journal: PathBuf,
 }
 struct Info {
     journal: PathBuf,
-    proof: ModelProof,
+    source: ResourceModelSource,
 }
 impl Transaction for Stage {
     type Prepared = StagedJournal;
@@ -50,15 +25,10 @@ impl Transaction for Stage {
         control.check()?;
         // Materialize the immutable native Rope and archive metadata on the
         // actual worker, never on the input/rendering thread.
-        let archive = ModelArchive {
-            proof: self.source.proof.clone(),
-            resource: self.source.resource.clone(),
-            text: self.source.text.to_string().into_bytes(),
-            metadata: serde_json::to_vec(&serde_json::json!({"eol":self.source.eol}))?,
-        };
+        let archive = self.source.archive(&control, MAX_BYTES, 8 * 1024 * 1024)?;
         let capture = Capture::prepare(
             vec![Operation::Move {
-                source: self.source.resource,
+                source: self.source.resource().to_owned(),
                 destination: self.destination,
                 options: FileOptions::default(),
             }],
@@ -69,7 +39,7 @@ impl Transaction for Stage {
         let staged = StagedJournal::persist(capture, &self.journal, &control)?;
         let info = Info {
             journal: staged.path().into(),
-            proof: self.source.proof,
+            source: self.source,
         };
         Ok((staged, info))
     }
@@ -108,7 +78,7 @@ fn setup() -> (tempfile::TempDir, Document, PathBuf) {
 #[test]
 fn real_native_document_archive_is_staged_on_joined_worker_without_resource_execution() {
     let (_directory, document, root) = setup();
-    let source = Source::capture(&document);
+    let source = document.capture_resource_model().unwrap();
     let mut worker = Worker::default();
     worker
         .start(
@@ -124,14 +94,15 @@ fn real_native_document_archive_is_staged_on_joined_worker_without_resource_exec
     let Event::Prepared { id: 1, info, .. } = next(&mut worker) else {
         panic!("original archive preparation")
     };
-    assert_eq!(info.proof.document, document.id);
-    assert_eq!(info.proof.text_epoch, document.text_epoch());
+    assert_eq!(info.source.proof().document, document.id);
+    assert_eq!(info.source.proof().text_epoch, document.text_epoch());
     assert!(worker.busy());
     assert_eq!(
         fs::read(root.join("original.cpp")).unwrap(),
         "original 猫🙂\r\n".as_bytes()
     );
     assert!(!root.join("renamed.cpp").exists());
+    info.source.check_current(&document).unwrap();
     worker.authorize(1).unwrap();
     let Event::Finished {
         authorized: true,
@@ -158,8 +129,8 @@ fn real_native_document_archive_is_staged_on_joined_worker_without_resource_exec
 #[test]
 fn canceled_archive_keeps_original_cow_text_after_native_edit_undo_without_fake_effects() {
     let (_directory, mut document, root) = setup();
-    let source = Source::capture(&document);
-    let original_epoch = source.proof.text_epoch;
+    let source = document.capture_resource_model().unwrap();
+    let original_epoch = source.proof().text_epoch;
     let mut worker = Worker::default();
     worker
         .start(
@@ -178,10 +149,11 @@ fn canceled_archive_keeps_original_cow_text_after_native_edit_undo_without_fake_
     let Event::Prepared { id: 2, info, .. } = next(&mut worker) else {
         panic!("original COW archive")
     };
-    assert_eq!(info.proof.text_epoch, original_epoch);
+    assert_eq!(info.source.proof().text_epoch, original_epoch);
     // The future App controller must compare the actual native model proof.
     // This test explicitly retires that original operation rather than renewing
     // its source merely because Undo restored matching text/revision.
+    assert!(info.source.check_current(&document).is_err());
     worker.retire(2);
     assert!(matches!(
         next(&mut worker),

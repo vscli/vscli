@@ -88,6 +88,15 @@ the public resource gateway.
 Three additional controls qualify customer-owned file load admission, original resource/profile proofs and actual cross-extension sharing. File misses now share one native read per URI; provider-resource cached opens validate their original private mirror before argument getters. Generated provider/untitled misses now have one-use native admission before callbacks/creation; public resource effects remain unfinished.
 See [reference contracts and integration points](../src/document_references/README.md).
 
+The native model-to-journal boundary now uses
+[ResourceModelSource](../src/document/resource/README.md), captured from the actual
+Document. Private history head identity and source clocks reject stale native
+authorization; worker encoding preserves original dirty bytes and the disk
+baseline under the original deadline and shared 32 MiB/8 MiB bounds. Eight new
+integrity tests and production-source substitutions in the existing worker and
+physical overwrite/rollback controls qualify this boundary. Full native history
+archives, destination restoration and public resource admission remain open.
+
 The Linux resource executor now performs actual create, rename, copy and delete
 operations with durable intent/postimage checkpoints, explicit partial outcomes
 and guarded reverse physical rollback. Create batches run folders first;

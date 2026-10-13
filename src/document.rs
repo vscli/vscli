@@ -22,6 +22,8 @@ pub use folding::{
 };
 pub(crate) mod graphemes;
 mod indentation;
+mod resource;
+pub use resource::ResourceModelSource;
 mod snippets;
 pub(crate) use snippets::SnippetOptions;
 mod typing;

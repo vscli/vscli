@@ -174,25 +174,16 @@ fn overwrite_create_rollback_and_dirty_archive_preserve_baselines_and_original_p
     let target = f.file("target", "baseline 猫🙂\r\n".as_bytes());
     let mut document = Document::open_existing(&target).unwrap();
     document.insert("unsaved ", false);
-    let archive = ModelArchive {
-        proof: ModelProof {
-            document: document.id,
-            revision: document.revision,
-            text_epoch: document.text_epoch(),
-            language_epoch: document.language_epoch(),
-            resource_epoch: document.resource_epoch(),
-            saved_revision: document.saved_revision,
-            save_generation: document.save_generation(),
-        },
-        resource: target.clone(),
-        text: document.text.to_string().into_bytes(),
-        metadata: b"opaque original history".to_vec(),
-    };
+    let source = document.capture_resource_model().unwrap();
+    let archive = source
+        .archive(&f.control(), MAX_BYTES, 8 * 1024 * 1024)
+        .unwrap();
     let original = archive.clone();
     let staged = f.stage(
         vec![create(target.clone(), Some(vec![0, 255, 128]), overwrite())],
         vec![archive],
     );
+    source.check_current(&document).unwrap();
     let mut executor = Executor::authorize(
         staged,
         ExecutionPolicy::default(),
@@ -217,6 +208,7 @@ fn overwrite_create_rollback_and_dirty_archive_preserve_baselines_and_original_p
         ExecutionState::RolledBack
     );
     assert_eq!(fs::read(target).unwrap(), "baseline 猫🙂\r\n".as_bytes());
+    source.check_current(&document).unwrap();
     assert!(document.dirty());
 }
 

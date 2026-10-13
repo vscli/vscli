@@ -82,6 +82,14 @@ leases, editor memberships and dirty/history ownership. See
 
 ## Native integration obligations
 
+The [native resource model capture](../src/document/resource/README.md) now
+supplies an original live source rather than a hand-built archive proof. It
+retains COW dirty text/baseline and private native history/source guards; worker
+materialization preserves raw text, EOL, selected language and baseline under
+shared encoded-byte budgets and the original deadline. Eight integrity controls
+and the updated joined-worker/physical-overwrite controls cover this boundary.
+Full history/view archives and App resource-operation restoration are still open.
+
 Preserve displaced/deleted unsaved text in private archives. Capture actual model
 and history proofs before effects; durable numeric IDs alone do not authorize a
 new model after restart. Native documents now carry an independent checked
