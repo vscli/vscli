@@ -39,7 +39,7 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 The [resource-edit workstream](RESOURCE_EDITS_PLAN.md) now includes actual Linux
 filesystem execution, durable checkpoints, guarded rollback and an original-file
 DTO adapter, alongside native resource-lifetime guards. The combined work has
-124 focused Rust controls and 1,513 full Rust tests passing. Ten new adapter controls
+130 focused Rust controls and 1,519 full Rust tests passing. Ten new adapter controls
 include real joined-worker execution; the 26 new executor controls cover actual
 filesystem and cold-recovery outcomes. Public resource gateway integration,
 model lifetimes and operation history remain unfinished. These additions provide
@@ -236,3 +236,18 @@ constructed so private state is initialized. CancellationTokenSource,
 EventEmitter, Uri and the newer undecorated edit/notebook types keep upstream's
 class-call behavior. Existing bounded symbol/diagnostic constructors still need
 their own fidelity work; decorating a class does not qualify all of its behavior.
+
+The generated-load continuation now grants original customer admission before
+provider callbacks/untitled creation, with one-use resource/kind/session/settings
+tickets and a nonrenewable 60-second clock. It shares virtual and explicit
+untitled URI misses without borrowing the first consumer's lifetime; fresh
+noarg/options documents stay distinct. Provider disposal still refuses its
+creator's work, and publication timeout retains the original shared entry until
+actual terminal response. Five ticket tests, one real three-package failed-
+activator/other-consumer test, six host workflow and two retained-wire controls
+pass. All 748 host and 1,519 Rust tests pass (1,170 library; 23 ignored), using
+four Rust test threads after an unrelated parallel theme timeout passed alone.
+The three untitled and one provider terminal journeys pass. Formatting, strict
+locked Clippy and build pass. Full resource/model/history integration, encoding
+reload, provider corpus/platform behavior and remaining SDK/provider families
+remain open; CI work remains deferred.

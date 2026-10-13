@@ -52,8 +52,7 @@ Eight new regressions and all 727 host tests pass. Both native document PTY
 journeys pass with an eight-busy-slot cached reopen added to the actual hidden
 open/edit/Undo/Redo/host-crash/recovery/save workflow. Formatting and strict locked
 all-target Clippy pass. Native acquisition expiry and last-tab retention are now
-integrated separately below; shared virtual/untitled misses and encoding reload still need
-their backends.
+integrated separately below; generated misses now use separate customer admission; encoding reload still needs its backend.
 The immutable source contract is
 [ExtHostDocuments.ensureDocumentData](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostDocuments.ts).
 
@@ -79,7 +78,7 @@ Twenty App controls (three actual selected hosts), seventeen ledger controls and
 two checked-reload integrity controls pass; all 1,510 Rust tests pass (1,161
 library; 23 ignored). The strengthened document terminal journey passes clean
 close/reopen, dirty Discard/reopen/Undo, eight busy slots, shared public identity,
-host crash and dirty recovery/save. Existing provider-resource caching and shared file misses are now qualified separately; shared virtual/untitled misses, encoding reload and disposal/history archival remain unqualified.
+host crash and dirty recovery/save. Existing provider-resource caching and shared file misses are now qualified separately; broader generated-load timing, encoding reload and disposal/history archival remain unqualified.
 See the [native ownership contract](../src/document_references/README.md).
 
 [Source receipts](../extension-host/document-types.provenance.json) pin stable
@@ -105,3 +104,13 @@ without a new native request, even after provider disposal. The original mirror
 is captured before argument getters; replacement at the same URI rejects, while
 a legitimate update preserves its identity. Five new cached-resource tests pass.
 Shared miss loading remains separately tracked in the native ownership contract.
+
+Provider/untitled misses now use a separate one-use customer ticket admitted
+before callback/creation. Original URI/kind/session/settings and the 60-second
+deadline remain checked at completion. Virtual/explicit untitled misses share
+work while each waiter keeps its own lifetime proof; noarg/options creation
+stays distinct. A real failed lazy-activation/other-consumer workflow passes,
+alongside five ticket and eight host/wire controls. All 748 host and 1,519 Rust
+tests pass (1,170 library; 23 ignored), plus four untitled/provider terminal
+journeys, formatting, strict locked Clippy and build. Exact disposal/history,
+encoding and wider provider/platform qualification remain unfinished.

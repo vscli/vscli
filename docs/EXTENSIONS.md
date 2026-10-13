@@ -220,8 +220,7 @@ workers retain their slot through real exit and joining. Seven new sharing tests
 five new cached-resource tests, one retained-wire test, all 740 host tests and
 1,513 Rust tests pass (1,164 library; 23 ignored), plus formatting and strict
 locked all-target Clippy. Three document/provider terminal journeys pass on this
-continuation. Shared provider/untitled misses and encoding reload still need
-separate original customer admission before their callbacks/creation.
+continuation. The continuation below adds original admission for provider/untitled misses; encoding reload still needs its backend.
 
 ## Native output, status and tree surfaces
 
@@ -434,3 +433,15 @@ Disable retires the entire selected host if the effective disabled ID is selecte
 The [full extension API workstream](EXTENSION_API.md) tracks current implementation
 and evidence. The [retained broad todo](FEATURE_TODO.md) places complete stable API
 compatibility first and final CI/release qualification after feature work.
+
+Generated-document loads now receive native customer admission before invoking
+a content provider or creating untitled text. The original one-use ticket binds
+resource, kind, session and settings to an absolute 60-second deadline; completion
+never renews it or reacquires a stopped consumer. Virtual and explicit untitled
+URI misses share their work; fresh noarg/options creations remain distinct.
+Every caller still checks its own original lease and private model before
+receiving a document. Provider disposal rejects that provider's work; unused
+admissions cancel. Publication timeout holds the original shared entry until
+its actual typed native reply, preventing duplicate work from a premature retry.
+All 748 host tests, 1,519 Rust tests and four selected untitled/provider terminal
+journeys pass. Broader backends, timing and full extension parity remain open.

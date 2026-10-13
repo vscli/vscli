@@ -303,7 +303,9 @@ impl App {
         for service in host.queued_services().filter(|service| {
             !matches!(
                 service.operation,
-                Operation::State(_)
+                Operation::LoadBegin(_)
+                    | Operation::LoadCancel
+                    | Operation::State(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -533,7 +535,9 @@ impl App {
         let validation = host.service_valid(&service).and_then(|()| {
             if !matches!(
                 service.operation,
-                Operation::State(_)
+                Operation::LoadBegin(_)
+                    | Operation::LoadCancel
+                    | Operation::State(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -547,7 +551,9 @@ impl App {
             }
             if !matches!(
                 service.operation,
-                Operation::State(_)
+                Operation::LoadBegin(_)
+                    | Operation::LoadCancel
+                    | Operation::State(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -573,6 +579,8 @@ impl App {
             if !matches!(
                 service.operation,
                 Operation::Open(_)
+                    | Operation::LoadBegin(_)
+                    | Operation::LoadCancel
                     | Operation::State(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
@@ -593,6 +601,27 @@ impl App {
             return true;
         }
         match &service.operation {
+            Operation::LoadBegin(ticket) => {
+                let result = (|| -> Result<Value> {
+                    anyhow::ensure!(
+                        ticket.context.current(
+                            &self.workspace.root,
+                            self.settings.extension_layers(),
+                            self.settings_profile_generation()
+                        ),
+                        "Original document admission context changed"
+                    );
+                    ticket.issue(host.session)?;
+                    Ok(json!({"load":ticket.id}))
+                })();
+                if result.is_err() {
+                    ticket.retire();
+                }
+                self.answer_native_service(host, &service, result);
+            }
+            Operation::LoadCancel => {
+                self.answer_native_service(host, &service, Ok(json!({"canceled":true})));
+            }
             Operation::TabsClose { .. } => self.start_extension_tab_close(host, service.clone()),
             Operation::EditorState(_) => self.start_editor_state_service(host, service.clone()),
             Operation::UntitledOpen(_)

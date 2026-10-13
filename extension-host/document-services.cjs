@@ -18,9 +18,23 @@ function createDocumentServices(request, options, model) {
     pending++; queuedBytes += bytes;
     let released = false;
     const release = () => { if (!released) { released = true; pending--; queuedBytes -= bytes; controls?.onTerminal?.(); } };
-    const lifecycle = ['nativeDocumentLoad', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeTabsClose'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
-    try { controls?.onAdmission?.(); return await request(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
+    const lifecycle = ['nativeDocumentLoadBegin', 'nativeDocumentLoadCancel', 'nativeVirtualDocumentLoad', 'nativeUntitledDocumentLoad', 'nativeDocumentLoad', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeDocumentShow', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeTabsClose'].includes(method) ? { retained: false, onTerminal: release, onRequest: controls?.onRequest } : undefined;
+    try { controls?.onAdmission?.(); return await (['nativeVirtualDocumentLoad', 'nativeUntitledDocumentLoad', 'nativeDocumentLoadCancel'].includes(method) ? model.customerRequest : request)(method, { session: options.session, owner, generation: model.generation(), args }, lifecycle); }
     finally { if (!lifecycle?.retained) release(); }
+  }
+  async function generatedUntitled(owner, resource, content, language, terminal) {
+    let load, publishing = false, terminalSeen = false;
+    const completed = () => { terminalSeen = true; terminal?.(); };
+    try {
+      const admitted = await call(owner, 'nativeDocumentLoadBegin', {kind:'untitled', uri:resource || null});
+      load = admitted?.load;
+      if (typeof load !== 'string' || !load || load.length > 128) throw new Error('Invalid customer document admission');
+      return await call(owner, 'nativeUntitledDocumentLoad', {load, uri:resource || null, content, language}, {onTerminal:completed, onAdmission:() => { publishing = true; }});
+    } catch (error) {
+      if (load && (!publishing || terminalSeen)) { try { await call(owner, 'nativeDocumentLoadCancel', {load}); } catch {} }
+      if (!publishing) terminal?.();
+      throw error;
+    }
   }
   function forOwner(owner, editor) {
     // Stable extHost.api.impl.ts openTextDocument overloads, with the native
@@ -91,7 +105,7 @@ function createDocumentServices(request, options, model) {
       }
       if (untitled && !options.untitledDocuments) throw new Error('Native untitled documents are not implemented by this native host');
       let result;
-      if (!untitled && options.sharedDocumentLoads === true) {
+      if ((!untitled && options.sharedDocumentLoads === true) || (untitled && resource && options.sharedGeneratedDocumentLoads === true)) {
         if (waiters >= 128) throw new Error('Shared document load waiter limit reached');
         let shared = opening.get(resource);
         if (!shared) {
@@ -101,10 +115,12 @@ function createDocumentServices(request, options, model) {
           // Admit synchronously under the original caller; the actual read is
           // session-owned afterward. No initiating-owner ALS owns the promise.
           const terminal = () => { if (opening.get(resource) === shared) opening.delete(resource); };
-          shared.promise = model.unowned(() => call(owner, 'nativeDocumentLoad', {path: filename}, {onTerminal: terminal, onAdmission: () => { shared.admitted = true; }}).catch(error => { if (!shared.admitted) terminal(); throw error; }));
+          shared.promise = model.unowned(() => (untitled ? generatedUntitled(owner, resource, content, language, terminal) : call(owner, 'nativeDocumentLoad', {path: filename}, {onTerminal: terminal, onAdmission: () => { shared.admitted = true; }})).catch(error => { if (!shared.admitted && !untitled) terminal(); throw error; }));
         }
         waiters++;
         try { result = await shared.promise; } finally { waiters--; }
+      } else if (untitled && options.sharedGeneratedDocumentLoads === true) {
+        result = await model.unowned(() => generatedUntitled(owner, resource, content, language));
       } else {
         result = await call(owner, untitled ? 'nativeUntitledDocumentOpen' : 'nativeDocumentOpen', untitled
           ? { uri: resource || null, content, language } : { path: filename });

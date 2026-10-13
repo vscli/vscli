@@ -21,7 +21,7 @@ The public matching-file cache now avoids native requests, with eight new host
 controls, all 727 host tests and two native document PTY journeys passing.
 The PTY includes cached reopen while eight native service slots are busy,
 followed by clean tab close/reopen, dirty Discard/reopen/Undo, shared identity,
-host crash, dirty recovery and save. The current continuation now shares file misses across extensions and checks all cached resources before provider routing. Shared provider/untitled misses, encoding reload, exact disposal/history archival and upstream/platform timing remain obligations.
+host crash, dirty recovery and save. The current continuation now shares file misses across extensions and checks all cached resources before provider routing. Generated misses now use earlier one-use native customer admission; encoding reload, exact disposal/history archival and upstream/platform timing remain obligations.
 
 ## Conditional destination reuse
 

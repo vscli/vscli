@@ -51,6 +51,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const mementos = createMementos(request, sessionOptions.session, sessionOptions.extensionState);
   const documentServices = createDocumentServices(request, sessionOptions, {
     generation: () => generation, root: () => workspaceRoot, callerOwner: callers.currentOwner, unowned: callers.unowned,
+    customerRequest: (method, params, lifecycle) => callers.unowned(() => sendRequest(method, params, lifecycle)),
     captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
     snapshot: id => workspaceEditMirrors.get(id), snapshots: () => workspaceEditMirrors.values(),
     snapshotFor: document => documentMirrorRecords.get(document),
@@ -105,7 +106,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       text:`Filesystem watcher failed: ${String(error.message || error).slice(0,1024)}`}),
   });
   const textContentProviders = createTextContentProviders({
-    session:sessionOptions.session,notify,call:documentServices.call,track,unowned:callers.unowned,
+    session:sessionOptions.session,generatedLoads:sessionOptions.sharedGeneratedDocumentLoads===true,notify,call:documentServices.call,track,unowned:callers.unowned,
     captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
     bindProvider:callers.bindProvider,bindProviderResult:callers.bindProviderResult,
     invokeProviderResult:callers.invokeProviderResult,bindProviderCleanup:callers.bindProviderCleanup,

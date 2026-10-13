@@ -158,11 +158,41 @@ provider terminal journeys pass, including concurrent file opening and cached
 provider access after disposal. These are distinct from the earlier twenty-one
 retention journeys; no new resource-operation/platform qualification is claimed.
 
+
+## Generated-document admission
+
+Native admission now precedes provider callbacks and untitled creation. Each
+one-use customer ticket captures its original URI/kind, selected caller, session,
+workspace/settings/profile and absolute 60-second deadline. Eight outstanding
+tickets bound native metadata; issuance and consumption never renew that clock.
+Completion validates the exact ticket/resource/kind without reacquiring a retired
+consumer's lease. Provider registration/creator authority remains independently
+checked, including after native publication before a retained acknowledgement.
+Caller retirement rejects only that caller's promise; provider disposal still
+refuses its work. Unused tickets cancel without creating a model.
+
+Virtual misses share one callback/native publication by URI, with eight actual
+callback lanes and 128 consumers. Explicit untitled URI misses share creation;
+noarg/options creations remain distinct. Publication timeout retains the original
+shared entry and occupied slot until its typed terminal reply. Begin/cancel wire
+receipts likewise retain capacity and reject malformed responses. Legacy hosts
+without negotiation keep their previous caller-bound path. Core Rust ownership
+and admission require no JavaScript runtime.
+
+Five native ticket tests cover forged/replayed ownership, issuance, exact resource/
+kind, distinct creation, bounds and original deadline. A real three-package host
+case proves a failed lazy activator cannot poison the other consumer's document
+or trigger a second provider call. Six host workflow controls and two wire
+controls pass. All 748 host tests and 1,519 Rust tests pass (1,170 library;
+23 ignored), with four native terminal journeys: three untitled and one provider.
+An unrelated theme timeout in the default parallel Rust run passed alone; the
+complete run passes with four test threads. Fmt, strict locked Clippy and build
+pass. This qualifies these named workflows, not full extension compatibility,
+resource-edit model publication or other-platform/upstream timing.
+
 ## Remaining qualification
 
-Concurrent virtual and untitled misses still need original customer admission,
-independent of the initiating extension's cancellation before callbacks/creation.
-File misses now share their actual native read. Encoding reload remains UTF-8 only. The
+Negotiated virtual and untitled misses now have original customer admission before callbacks/creation. File misses share their actual native read. Broader loader races and backend fidelity remain unqualified. Encoding reload remains UTF-8 only. The
 future ordered resource controller must remove genuine completed MOVE/DELETE
 source references, distinguish overwrite's internal destination deletion, and
 publish surviving-target reuse and model events. CREATE/COPY remove no references.

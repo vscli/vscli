@@ -30,6 +30,8 @@ pub(crate) struct Request {
 #[derive(Clone)]
 pub(crate) enum Operation {
     Open(Open),
+    LoadBegin(Arc<super::document_loads::Ticket>),
+    LoadCancel,
     Save(Save),
     TabsClose {
         capture: Arc<super::editor_tabs::Capture>,
@@ -119,9 +121,13 @@ pub(crate) struct NativeService {
     /// Original selected caller admits this read; session ownership then
     /// outlives that caller/command. It grants no edit/save authority.
     pub(crate) customer_owned: bool,
+    pub(crate) load_origin: Option<Arc<super::document_loads::Ticket>>,
 }
 impl NativeService {
     pub fn fresh(&self) -> Result<()> {
+        if let Some(ticket) = &self.load_origin {
+            return ticket.current(self.request.session);
+        }
         let lifetime = if matches!(
             self.operation,
             Operation::Save(_) | Operation::TabsClose { .. }
@@ -244,14 +250,65 @@ impl Client {
             bail!("Duplicate native service ID");
         }
         let mut request: Request = serde_json::from_value(params)?;
-        self.validate_native_origin(
-            request.session,
-            &request.owner,
-            request.command,
-            request.command_owner.as_deref(),
-        )?;
-        let caller_retired = self.owner_lifetimes.capture(&request.owner)?;
+        let completion = matches!(
+            method,
+            "nativeVirtualDocumentLoad" | "nativeUntitledDocumentLoad" | "nativeDocumentLoadCancel"
+        );
+        let load_origin = if completion {
+            let kind = match method {
+                "nativeVirtualDocumentLoad" => Some(super::document_loads::Kind::Virtual),
+                "nativeUntitledDocumentLoad" => Some(super::document_loads::Kind::Untitled),
+                _ => None,
+            };
+            Some(self.document_loads.consume(
+                request.session,
+                &request.owner,
+                kind,
+                &mut request.args,
+            )?)
+        } else {
+            None
+        };
+        if !completion {
+            self.validate_native_origin(
+                request.session,
+                &request.owner,
+                request.command,
+                request.command_owner.as_deref(),
+            )?;
+        }
+        let caller_retired = if completion {
+            load_origin
+                .as_ref()
+                .expect("validated customer admission")
+                .caller_retired
+                .clone()
+        } else {
+            self.owner_lifetimes.capture(&request.owner)?
+        };
+        let mut load_origin = load_origin;
         let operation = match method {
+            "nativeDocumentLoadBegin" => {
+                let context = self
+                    .editor_state_context
+                    .clone()
+                    .context("Document admission context unavailable")?;
+                let ticket = self.document_loads.begin(
+                    request.session,
+                    &request.owner,
+                    context,
+                    caller_retired.clone(),
+                    &request.args,
+                )?;
+                load_origin = Some(ticket.clone());
+                request.args = Value::Null;
+                Operation::LoadBegin(ticket)
+            }
+            "nativeDocumentLoadCancel" => {
+                load_origin = None;
+                Operation::LoadCancel
+            }
+
             "nativeTabsClose" => {
                 let args = TabsCloseArgs::parse(request.args.clone())?;
                 let context = self
@@ -282,12 +339,14 @@ impl Client {
                 request.args = Value::Null;
                 Operation::EditorState(capture)
             }
-            "nativeUntitledDocumentOpen" => {
+            "nativeUntitledDocumentOpen" | "nativeUntitledDocumentLoad" => {
                 let capture = self.capture_untitled(&request.args, documents, hidden)?;
                 request.args = Value::Null;
                 Operation::UntitledOpen(capture)
             }
-            "nativeVirtualDocumentOpen" | "nativeVirtualDocumentChange" => {
+            "nativeVirtualDocumentOpen"
+            | "nativeVirtualDocumentLoad"
+            | "nativeVirtualDocumentChange" => {
                 let change = method == "nativeVirtualDocumentChange";
                 let capture =
                     self.capture_text_content(&request.args, change, documents, hidden)?;
@@ -385,7 +444,9 @@ impl Client {
         };
         if !matches!(
             operation,
-            Operation::State(_)
+            Operation::LoadBegin(_)
+                | Operation::LoadCancel
+                | Operation::State(_)
                 | Operation::Save(_)
                 | Operation::TabsClose { .. }
                 | Operation::WorkspaceApply(_)
@@ -425,7 +486,15 @@ impl Client {
             save_origin,
             save_path_wait: None,
             caller_retired,
-            customer_owned: method == "nativeDocumentLoad",
+            customer_owned: matches!(
+                method,
+                "nativeDocumentLoad"
+                    | "nativeDocumentLoadBegin"
+                    | "nativeDocumentLoadCancel"
+                    | "nativeVirtualDocumentLoad"
+                    | "nativeUntitledDocumentLoad"
+            ),
+            load_origin,
         });
         Ok(())
     }
@@ -511,7 +580,9 @@ impl Client {
         }
         if !matches!(
             service.operation,
-            Operation::State(_)
+            Operation::LoadBegin(_)
+                | Operation::LoadCancel
+                | Operation::State(_)
                 | Operation::Save(_)
                 | Operation::TabsClose { .. }
                 | Operation::WorkspaceApply(_)
@@ -540,8 +611,14 @@ impl Client {
         }
         if service.customer_owned {
             anyhow::ensure!(
-                matches!(service.operation, Operation::Open(_))
-                    && service.request.session == self.session,
+                matches!(
+                    service.operation,
+                    Operation::Open(_)
+                        | Operation::LoadBegin(_)
+                        | Operation::LoadCancel
+                        | Operation::UntitledOpen(_)
+                        | Operation::VirtualOpen(_)
+                ) && service.request.session == self.session,
                 "Original document load customer retired"
             );
             return Ok(());
@@ -553,7 +630,9 @@ impl Client {
             self.validate_native_origin(service.request.session, &service.request.owner, None, None)
         } else if matches!(
             service.operation,
-            Operation::State(_)
+            Operation::LoadBegin(_)
+                | Operation::LoadCancel
+                | Operation::State(_)
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
                 | Operation::UntitledOpen(_)

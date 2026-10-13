@@ -1,6 +1,7 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
 mod decorations;
 mod diagnostics;
+mod document_loads;
 pub(crate) mod editor_inventory;
 pub(crate) mod editor_state;
 pub(crate) mod editor_tabs;
@@ -243,6 +244,7 @@ pub struct Client {
     diagnostics: diagnostics::State,
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
+    document_loads: document_loads::Loads,
     workspace_edit_context: Option<crate::app::workspace_transactions::CaptureContext>,
     file_search_context: Option<crate::workspace_file_search::Context>,
     owner_lifetimes: owner_lifetimes::OwnerLifetimes,
@@ -564,6 +566,7 @@ impl Client {
             decorations: decorations::Registry::default(),
             providers: providers::State::default(),
             services: services::empty_queue(),
+            document_loads: document_loads::Loads::default(),
             workspace_edit_context: None,
             file_search_context: None,
             text_content_registry: text_content::Registry::default(),
@@ -601,7 +604,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages,
-                "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -1103,6 +1106,10 @@ impl Client {
                     }
                     "nativeDocumentOpen"
                     | "nativeDocumentLoad"
+                    | "nativeDocumentLoadBegin"
+                    | "nativeDocumentLoadCancel"
+                    | "nativeVirtualDocumentLoad"
+                    | "nativeUntitledDocumentLoad"
                     | "nativeDocumentShow"
                     | "nativeCommand"
                     | "nativeStateWrite"

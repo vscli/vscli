@@ -31,7 +31,7 @@ function content(value) {
 }
 function createTextContentProviders(options) {
   const entries = new Map(), opening = new Map(), refreshes = new Map();
-  let generation = 0, nextHandle = 0, actual = 0, scheduled = false;
+  let generation = 0, nextHandle = 0, actual = 0, scheduled = false, waiters = 0;
   const unowned = options.unowned || (call => call());
   const bindProvider = options.bindProvider || ((_owner,provider) => provider);
   const invokeResult = options.invokeProviderResult || ((_provider,call) => Promise.resolve(call()));
@@ -128,28 +128,43 @@ function createTextContentProviders(options) {
     const guard=options.captureCaller(owner);guard();
     const {uri,key}=snapshotUri(value);guard();
     const cached=lookup(key);if(cached)return cached.model;
+    if(waiters>=128)throw new Error('Virtual document load waiter limit exceeded');
     let shared=opening.get(key);
     if(!shared) {
       if(actual>=MAX_CALLS||opening.size>=MAX_CALLS)throw new Error('Text content provider callback limit exceeded');
       const candidates=[...entries.values()].filter(entry=>entry.scheme===uri.scheme).reverse();
       if(!candidates.length)throw new Error(`No text document content provider for scheme '${uri.scheme}'`);
       shared={token:new CancellationTokenSource(),entry:undefined,mirror:undefined};actual++;opening.set(key,shared);
-      shared.promise=unowned(()=>Promise.resolve().then(async()=>{
+      const admission = options.generatedLoads ? options.call(owner,'nativeDocumentLoadBegin',{kind:'virtual',uri:key}) : undefined;
+      function releaseShared() {
+        if(shared.released)return;shared.released=true;
+        shared.token.dispose();actual--;if(opening.get(key)===shared)opening.delete(key);queueDrain();
+      }
+      shared.promise=unowned(()=>Promise.resolve(admission).then(async admitted=>{
+        if(options.generatedLoads) { shared.load=admitted?.load; if(typeof shared.load!=='string'||!shared.load||shared.load.length>128)throw new Error('Invalid customer document admission'); }
         for(const entry of candidates) {
           shared.entry=entry;const normalized=await provide(entry,uri,shared.token.token);
-          guard();current(entry);
+          if(!options.generatedLoads)guard();current(entry);
           if(shared.token.token.isCancellationRequested)throw new Error('Virtual document open canceled');
           if(normalized===undefined)continue;
-          const result=await options.call(owner,'nativeVirtualDocumentOpen',{uri:key,content:normalized,providerOwner:entry.owner,providerHandle:entry.handle});
-          guard();current(entry);
+          const result=await options.call(owner,options.generatedLoads?'nativeVirtualDocumentLoad':'nativeVirtualDocumentOpen',{...(shared.load?{load:shared.load}:{}),uri:key,content:normalized,providerOwner:entry.owner,providerHandle:entry.handle}, options.generatedLoads ? {
+            onAdmission:()=>{shared.publishing=true;},
+            onTerminal:()=>{shared.terminal=true;if(shared.settled)releaseShared();},
+          } : undefined);
+          if(!options.generatedLoads)guard();current(entry);
           const mirror=result&&options.mirror(result.document);
           if(!mirror||mirror.uri!==key||mirror.text!==normalized)throw new Error('Virtual document mirror was not available before open acknowledgement');
-          shared.mirror=mirror;return mirror.model;
+          shared.mirror=mirror;shared.consumed=true;return mirror.model;
         }
         throw new Error(`Unable to resolve virtual document '${key}'`);
-      }).finally(()=>{shared.token.dispose();actual--;if(opening.get(key)===shared)opening.delete(key);queueDrain();}));
+      }).finally(async()=>{
+        if(shared.load&&!shared.consumed&&(!shared.publishing||shared.terminal)){try{await options.call(owner,'nativeDocumentLoadCancel',{load:shared.load});}catch{}}
+        shared.settled=true;if(!shared.publishing||shared.terminal)releaseShared();
+      }));
     }
-    const document=await shared.promise;guard();
+    let document;waiters++;
+    try { document=await shared.promise; } finally { waiters--; }
+    guard();
     if(lookup(key)?.model!==document)throw new Error('Virtual document closed before open acknowledgement');
     return document;
   }

@@ -61,6 +61,16 @@ impl App {
         service: &NativeService,
     ) -> Result<()> {
         host.service_valid(service)?;
+        if let Some(ticket) = &service.load_origin {
+            ensure!(
+                ticket.context.current(
+                    &self.workspace.root,
+                    self.settings.extension_layers(),
+                    self.settings_profile_generation()
+                ),
+                "Original customer document admission context changed"
+            );
+        }
         if let Operation::UntitledOpen(input) = &service.operation {
             ensure!(
                 self.settings_error.is_none()
@@ -313,6 +323,7 @@ impl App {
             Ok(value) => host
                 .service_valid(&done.service)
                 .and_then(|()| {
+                    if let Some(ticket) = &done.service.load_origin { ensure!(ticket.context.current(&self.workspace.root, self.settings.extension_layers(), self.settings_profile_generation()), "Original customer document admission context changed before acknowledgement"); }
                     if let Operation::UntitledOpen(input) = &done.service.operation {
                         ensure!(
                             self.settings_error.is_none()

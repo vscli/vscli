@@ -560,3 +560,71 @@ exports.activate=async()=>{
         "猫🙂\r\noriginal"
     );
 }
+
+#[test]
+fn actual_provider_load_survives_initiating_extension_failure_for_the_other_consumer() {
+    let root = tempfile::tempdir().unwrap();
+    let mut packages = Vec::new();
+    for name in ["provider", "first", "second"] {
+        let folder = root.path().join(name);
+        std::fs::create_dir(&folder).unwrap();
+        let dependencies = if name == "provider" {
+            json!([])
+        } else {
+            json!(["fixture.provider"])
+        };
+        let manifest = json!({"publisher":"fixture","name":name,"version":"1.0.0","main":"extension.cjs","extensionDependencies":dependencies});
+        std::fs::write(folder.join("package.json"), manifest.to_string()).unwrap();
+        let source = match name {
+            "provider" => {
+                r#"
+const vscode=require('vscode');let calls=0;
+exports.activate=context=>{context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('admitted',{async provideTextDocumentContent(){calls++;await new Promise(resolve=>setTimeout(resolve,100));return '猫🙂\nprovider';}}));return {calls:()=>calls};};
+"#
+            }
+            "first" => {
+                r#"
+const vscode=require('vscode');
+exports.activate=()=>{vscode.workspace.openTextDocument(vscode.Uri.parse('admitted:/shared')).catch(()=>{});throw new Error('intentional first-consumer failure');};
+"#
+            }
+            _ => {
+                r#"
+const vscode=require('vscode'),assert=require('node:assert/strict');
+exports.activate=async()=>{await vscode.extensions.getExtension('fixture.first').activate().catch(()=>{});const doc=await vscode.workspace.openTextDocument(vscode.Uri.parse('admitted:/shared'));assert.equal(doc.getText(),'猫🙂\nprovider');assert.equal(vscode.extensions.getExtension('fixture.provider').exports.calls(),1);assert.equal(vscode.window.activeTextEditor,undefined);await vscode.window.showInformationMessage('other admitted consumer succeeded');};
+"#
+            }
+        };
+        std::fs::write(folder.join("extension.cjs"), source).unwrap();
+        packages.push(crate::extensions::Package::read(&folder).unwrap());
+    }
+    let mut app = App::new(root.path().into(), Profile::Linux);
+    app.extension_node = std::env::var("VSCLI_EXTENSION_NODE").unwrap_or_else(|_| "node".into());
+    app.start_extension_packages_lazy(
+        packages,
+        Some(vec!["fixture.provider".into(), "fixture.second".into()]),
+    )
+    .unwrap();
+    until_actual(&mut app, |app| {
+        app.extension_host
+            .as_ref()
+            .is_some_and(|host| host.ready && !host.busy())
+    });
+    assert!(app.documents.is_empty());
+    assert_eq!(app.hidden_documents.len(), 1);
+    assert_eq!(app.hidden_documents[0].text.to_string(), "猫🙂\nprovider");
+    assert_eq!(app.api_documents.ledger.as_ref().unwrap().len(), 1);
+    let host = app.extension_host.as_ref().unwrap();
+    assert_eq!(
+        host.activation_states
+            .get("fixture.first")
+            .map(String::as_str),
+        Some("failed")
+    );
+    assert_eq!(
+        host.activation_states
+            .get("fixture.second")
+            .map(String::as_str),
+        Some("active")
+    );
+}

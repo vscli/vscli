@@ -80,12 +80,12 @@ expiry, customer teardown and retained-file Discard, including three actual host
 Resource-operation model effects and exact disposal/history archival remain
 unfinished. Matching public file cache hits now bypass the native open bridge,
 with eight host regressions and an actual eight-busy-slot terminal check. The
-combined current source passes 1,513 Rust tests (1,164 library; 23 ignored), all
-740 host tests, two native document PTY journeys, formatting and strict locked
+combined current source passes 1,519 Rust tests (1,170 library; 23 ignored), all
+748 host tests, two native document PTY journeys, formatting and strict locked
 all-target Clippy. The document PTY also passes clean tab close/reopen and dirty
 Discard/reopen/Undo with the same public document. These additions do not expose
 the public resource gateway.
-Three additional controls qualify customer-owned file load admission, original resource/profile proofs and actual cross-extension sharing. File misses now share one native read per URI; provider-resource cached opens validate their original private mirror before argument getters. Shared provider/untitled misses and public resource effects remain unfinished.
+Three additional controls qualify customer-owned file load admission, original resource/profile proofs and actual cross-extension sharing. File misses now share one native read per URI; provider-resource cached opens validate their original private mirror before argument getters. Generated provider/untitled misses now have one-use native admission before callbacks/creation; public resource effects remain unfinished.
 See [reference contracts and integration points](../src/document_references/README.md).
 
 The Linux resource executor now performs actual create, rename, copy and delete
