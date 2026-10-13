@@ -10,6 +10,14 @@ impl App {
             self.message = "A file operation is already running".into();
             return;
         }
+        if self
+            .extension_host
+            .as_ref()
+            .is_some_and(|host| !host.file_operation_capacity())
+        {
+            self.message = "Wait for pending extension file-operation notifications".into();
+            return;
+        }
         if matches!(action, Action::Rename { .. } | Action::Trash(_))
             && let Some(error) = self
                 .documents
@@ -39,6 +47,19 @@ impl App {
         match result {
             Err(error) => self.message = format!("File operation failed: {error}"),
             Ok(action) => {
+                let mut publication_error = None;
+                if let Err(error) = self.remove_api_operation_references(&action) {
+                    publication_error = Some(format!(
+                        "File operation completed; reference cleanup failed: {error:#}"
+                    ));
+                }
+                if let Some(host) = &mut self.extension_host
+                    && let Err(error) = host.queue_file_operation(&action)
+                {
+                    publication_error = Some(format!(
+                        "File operation completed; extension event could not be retained: {error:#}"
+                    ));
+                }
                 self.refresh_files();
                 match action {
                     Action::CreateFile(path) => {
@@ -86,6 +107,9 @@ impl App {
                         );
                     }
                 }
+                if let Some(error) = publication_error {
+                    self.message = error;
+                }
             }
         }
         true
@@ -95,6 +119,85 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn real_extension_receives_joined_native_create_and_rename_after_document_publication() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let from = root.join("a.cpp");
+        let to = root.join("b.cpp");
+        let created = root.join("created.cpp");
+        let log = root.join("events.jsonl");
+        std::fs::write(&from, "original 猫🙂\r\n").unwrap();
+        let extension = root.join("extension");
+        std::fs::create_dir(&extension).unwrap();
+        std::fs::write(extension.join("package.json"),serde_json::to_vec(&json!({"publisher":"fixture","name":"file-events","version":"1.0.0","main":"main.cjs","engines":{"vscode":"*"},"activationEvents":["*"]})).unwrap()).unwrap();
+        std::fs::write(extension.join("main.cjs"),r#"
+const vscode=require('vscode'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+exports.activate=context=>{
+ const root=vscode.workspace.workspaceFolders[0].uri.fsPath;
+ const original=vscode.workspace.textDocuments.find(document=>document.uri.fsPath===path.join(root,'a.cpp'));
+ const record=(kind,event)=>{
+  assert.equal(Object.isFrozen(event),true);assert.equal(Object.isFrozen(event.files),false);
+  if(kind==='rename'){assert.equal(original.isClosed,true);assert.ok(vscode.workspace.textDocuments.some(document=>document.uri.fsPath===event.files[0].newUri.fsPath));}
+  if(kind==='create')assert.ok(vscode.workspace.textDocuments.some(document=>document.uri.fsPath===event.files[0].fsPath));
+  fs.appendFileSync(path.join(root,'events.jsonl'),JSON.stringify({kind,files:event.files.map(file=>file.oldUri?{old:file.oldUri.fsPath,new:file.newUri.fsPath}:file.fsPath)})+'\n');
+ };
+ context.subscriptions.push(vscode.workspace.onDidCreateFiles(event=>record('create',event)),vscode.workspace.onDidRenameFiles(event=>record('rename',event)));
+};
+"#).unwrap();
+        let mut app = App::new(root.clone(), Profile::Linux);
+        app.open(&from).unwrap();
+        app.doc_mut().insert("dirty ", false);
+        app.start_extension_packages(vec![crate::extensions::Package::read(&extension).unwrap()])
+            .unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !app.extension_host.as_ref().is_some_and(|host| host.ready) {
+            app.poll();
+            assert!(std::time::Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        app.start_file_job(Action::CreateFile(created.clone()));
+        while std::fs::read_to_string(&log)
+            .unwrap_or_default()
+            .lines()
+            .count()
+            < 1
+        {
+            app.poll();
+            assert!(std::time::Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        app.open(&from).unwrap();
+        let id = app.doc().id;
+        app.start_file_job(Action::Rename {
+            from: from.clone(),
+            to: to.clone(),
+        });
+        while std::fs::read_to_string(&log)
+            .unwrap_or_default()
+            .lines()
+            .count()
+            < 2
+        {
+            app.poll();
+            assert!(std::time::Instant::now() < deadline, "{}", app.message);
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let events: Vec<Value> = std::fs::read_to_string(log)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(events[0], json!({"kind":"create","files":[created]}));
+        assert_eq!(
+            events[1],
+            json!({"kind":"rename","files":[{"old":from,"new":to}]})
+        );
+        assert_eq!(app.doc().id, id);
+        assert!(app.doc().dirty());
+        assert_eq!(app.doc().text.to_string(), "dirty original 猫🙂\r\n");
+        assert_eq!(std::fs::read(to).unwrap(), "original 猫🙂\r\n".as_bytes());
+    }
     #[test]
     fn actual_file_rename_aba_retires_original_save_and_workspace_proofs() {
         let root = tempfile::tempdir().unwrap();

@@ -14,6 +14,7 @@ const { createConfiguration } = require('./configuration.cjs');
 const { createWorkspaceEdits } = require('./workspace-edits.cjs');
 const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
 const { createFileWatchers } = require('./file-watchers.cjs');
+const { createFileOperations } = require('./file-operations.cjs');
 const { createTextContentProviders } = require('./text-content-providers.cjs');
 const editorPresentation = require('./editor-presentation.cjs');
 const {createEditorDecorations} = require('./editor-decorations.cjs');
@@ -114,6 +115,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     diagnostic:(owner,error)=>notify('message',{session:sessionOptions.session,owner,text:`Virtual document refresh failed: ${error.message}`}),
   });
   const workspaceScope = createWorkspaceScope({ Uri, EventEmitter, pathCaseSensitive: fileSystem.pathCaseSensitive });
+  const fileOperations = createFileOperations(sessionOptions.session);
   function workspace(values) {
     // Preserve getters so callers receive the latest native folder metadata.
     for (const key of ['workspaceFolders', 'rootPath', 'name', 'workspaceFile', 'getWorkspaceFolder', 'asRelativePath']) {
@@ -532,6 +534,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       showErrorMessage: message,
     }),
     workspace: workspace({
+      ...fileOperations.api,
       ...fileSystem.forOwner(''),
       get textDocuments() { return [...documents.values()]; },
       onDidChangeTextDocument: changed.event,
@@ -552,6 +555,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     return Promise.resolve(undefined);
   }
   return {
+    fileOperation: fileOperations.publish,
     api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, rankLanguageProviders: providers.rank, prepareLanguageRename:params=>coreOperation(providers.prepareRename,params), provideLanguageRename:params=>coreOperation(providers.provideRenameEdits,params), provideWorkspaceSymbols:params=>coreOperation(providers.provideWorkspaceSymbols,params), resolveLanguageWorkspaceSymbol:params=>coreOperation(providers.resolveWorkspaceSymbol,params), retireWorkspaceSymbols:providers.retireWorkspaceSymbols, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, releaseLanguageProviderRefusal: providers.releaseRefusal, languageProviderPending: providers.pending, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; providers.documentChanged(); fileWatchers.refresh(); }, commandSnapshot, assertOwner,
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.
@@ -617,6 +621,9 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           showErrorMessage: (text, ...items) => messageFor(owner, text, ...items),
         }),
         workspace: workspace({
+          onDidCreateFiles:event(owner,fileOperations.api.onDidCreateFiles),
+          onDidRenameFiles:event(owner,fileOperations.api.onDidRenameFiles),
+          onDidDeleteFiles:event(owner,fileOperations.api.onDidDeleteFiles),
           ...fileSystem.forOwner(owner),
           ...fileWatchers.forOwner(owner),
           openTextDocument: services.openTextDocument,

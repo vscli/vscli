@@ -116,6 +116,14 @@ retirement. Nine App controls and one large shared-backing control qualify this
 connection. Bulk file effects, destination survival, operation events, complete
 retired archives and mixed-group/public-history integration remain unfinished.
 
+The completed native Explorer path now also publishes public create/rename/delete
+events through a joined worker and bounded per-host queue, after admitted model
+mirrors. Move/delete completion removes source-tree API references independently
+of destination references/model ownership. Five native and five host controls plus
+a create/rename/trash terminal journey qualify this connection. Will participants,
+bulk event/model arbitration, mixed apply and public file history remain open;
+see [operation event contracts](FILE_OPERATION_EVENTS_API.md).
+
 The Linux resource executor now performs actual create, rename, copy and delete
 operations with durable intent/postimage checkpoints, explicit partial outcomes
 and guarded reverse physical rollback. Create batches run folders first;

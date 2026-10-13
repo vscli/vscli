@@ -1,5 +1,12 @@
 # Extension installation and experimental host
 
+Selected extensions can now subscribe to `workspace.onDidCreateFiles`,
+`onDidRenameFiles` and `onDidDeleteFiles` for completed native Explorer operations.
+File/folder creation, rename and system-trash deletion publish public Uri payloads
+after document mirrors. Watcher notifications remain independent; will-operation
+participants and bulk resource edits still need their backends. See
+[file operation events](FILE_OPERATION_EVENTS_API.md).
+
 VSCLI now has an optional CommonJS extension process. It is an independent, original compatibility shim; the Rust executable remains the owner of native buffers, rendering, input, and persistence. This is an experiment toward the full extension requirement, not completion of that requirement.
 
 ## Installing and managing packages

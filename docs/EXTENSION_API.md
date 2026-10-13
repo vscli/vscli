@@ -39,7 +39,7 @@ python3 scripts/extension_api_surface.py --revision HEAD --output /tmp/vscli-api
 The [resource-edit workstream](RESOURCE_EDITS_PLAN.md) now includes actual Linux
 filesystem execution, durable checkpoints, guarded rollback and an original-file
 DTO adapter, alongside native resource-lifetime guards. The combined work has
-161 focused Rust controls and 1,550 full Rust tests passing. Ten new adapter controls
+166 focused Rust controls and 1,555 full Rust tests passing. Ten new adapter controls
 include real joined-worker execution; the 26 new executor controls cover actual
 filesystem and cold-recovery outcomes. Public resource gateway integration,
 model lifetimes and operation history remain unfinished. These additions provide
@@ -297,3 +297,16 @@ journeys. Host sources retain their separately qualified 748-test milestone.
 Bulk file effects, surviving-destination arbitration, retired history/view
 archives, ordered mixed groups, public resource events/history and the resource
 extension gateway remain unfinished.
+
+Three public file operation completion events now deliver joined native Explorer
+create/rename/trash outcomes after accepted document mirrors. Source event objects,
+Uri payloads, mutable arrays/pairs and scoped listener lifetimes are covered
+independently of watcher notifications. A bounded queue retains original messages
+through actual writer pressure; completed move/delete hooks remove source-tree API
+references independently of models/destination ownership. Five native and five
+host controls pass, including a real extension callback, plus a create/rename/
+trash terminal journey. All 1,555 Rust tests (1,206 library; 23 ignored), 753 host
+tests, formatting, strict locked Clippy and build pass. See
+[file operation events](FILE_OPERATION_EVENTS_API.md). Will participants, bulk/
+mixed apply, public file history and exact lifetime/event/platform qualification
+remain open.

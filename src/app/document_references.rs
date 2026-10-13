@@ -74,6 +74,37 @@ fn value_length(doc: &Document) -> u64 {
 }
 
 impl App {
+    pub(super) fn remove_api_operation_references(
+        &mut self,
+        action: &crate::files::Action,
+    ) -> Result<()> {
+        let (path, moved) = match action {
+            crate::files::Action::Rename { from, .. } => (from, true),
+            crate::files::Action::Trash(path) => (path, false),
+            _ => return Ok(()),
+        };
+        let Some(ledger) = self.api_documents.ledger.as_mut() else {
+            return Ok(());
+        };
+        let uri = url::Url::from_file_path(path)
+            .map_err(|_| anyhow::anyhow!("Invalid completed resource URI"))?;
+        let key = ResourceKey::new(
+            uri.as_str(),
+            ResourceIdentity {
+                scheme: uri.scheme().into(),
+                authority: uri[url::Position::BeforeUsername..url::Position::AfterPort].into(),
+                path: uri.path().into(),
+                query: uri.query().unwrap_or_default().into(),
+                fragment: uri.fragment().unwrap_or_default().into(),
+            },
+        )?;
+        if moved {
+            ledger.remove_move_source(ledger.customer_epoch(), &key)?;
+        } else {
+            ledger.remove_deleted_resource(ledger.customer_epoch(), &key)?;
+        }
+        Ok(())
+    }
     pub(super) fn bind_api_document_customer(&mut self, session: u64) -> Result<()> {
         match &mut self.api_documents.ledger {
             Some(ledger) if ledger.customer_epoch() != session => {

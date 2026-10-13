@@ -5,6 +5,7 @@ mod document_loads;
 pub(crate) mod editor_inventory;
 pub(crate) mod editor_state;
 pub(crate) mod editor_tabs;
+mod file_operations;
 mod owner_lifetimes;
 mod prompts;
 pub(crate) mod providers;
@@ -245,6 +246,7 @@ pub struct Client {
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
     document_loads: document_loads::Loads,
+    file_operations: file_operations::Queue,
     workspace_edit_context: Option<crate::app::workspace_transactions::CaptureContext>,
     file_search_context: Option<crate::workspace_file_search::Context>,
     owner_lifetimes: owner_lifetimes::OwnerLifetimes,
@@ -532,6 +534,10 @@ impl Client {
                 include_str!("../extension-host/file-watchers.cjs"),
             ),
             (
+                "file-operations.cjs",
+                include_str!("../extension-host/file-operations.cjs"),
+            ),
+            (
                 "watcher-glob.cjs",
                 include_str!("../extension-host/watcher-glob.cjs"),
             ),
@@ -567,6 +573,7 @@ impl Client {
             providers: providers::State::default(),
             services: services::empty_queue(),
             document_loads: document_loads::Loads::default(),
+            file_operations: file_operations::Queue::default(),
             workspace_edit_context: None,
             file_search_context: None,
             text_content_registry: text_content::Registry::default(),
@@ -1064,6 +1071,7 @@ impl Client {
         settings: &Settings,
     ) -> Result<Vec<String>> {
         let mut messages = Vec::new();
+        let mut operation_state_ready = false;
         let refs = documents.iter().chain(hidden.iter()).collect::<Vec<_>>();
         match check_mirror_budget(&refs).and_then(|()| {
             self.editor_inventory
@@ -1071,7 +1079,14 @@ impl Client {
                 .map_or(Ok(()), |inventory| inventory.validate(&refs))
         }) {
             Ok(()) => {
-                self.sync_with_hidden(documents, hidden, active)?;
+                match self.sync_with_hidden(documents, hidden, active) {
+                    Ok(()) => operation_state_ready = true,
+                    Err(error)
+                        if error
+                            .downcast_ref::<crate::transport::OutputBackpressure>()
+                            .is_some() => {}
+                    Err(error) => return Err(error),
+                }
                 if self.mirror_suspended {
                     messages.push("Extension document mirrors resumed".into());
                 }
@@ -1084,13 +1099,26 @@ impl Client {
                 self.mirror_suspended = true;
             }
         }
-        self.sync_configuration(settings)?;
-        if self.ready
+        if let Err(error) = self.sync_configuration(settings) {
+            if error
+                .downcast_ref::<crate::transport::OutputBackpressure>()
+                .is_some()
+            {
+                operation_state_ready = false;
+            } else {
+                return Err(error);
+            }
+        }
+        if operation_state_ready
+            && self.ready
             && self.pending.is_empty()
             && self.heartbeat.elapsed() >= Duration::from_secs(5)
         {
             self.request("ping", json!({"session":self.session}))?;
             self.heartbeat = Instant::now();
+        }
+        if operation_state_ready && self.ready && !self.mirror_suspended {
+            self.flush_file_operations()?;
         }
         for _ in 0..16 {
             let Some(mut message) = self.process.receive()? else {

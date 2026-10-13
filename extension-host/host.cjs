@@ -179,6 +179,7 @@ async function dispatch(message) {
         break;
       }
       case 'state': if (runtime) runtime.sync(message.params); break;
+      case 'fileOperation': if (runtime) runtime.fileOperation(message.params); break;
       case 'configuration':
         configuration = message.params; if (runtime) runtime.updateConfiguration(configuration); break;
       case 'activate': {

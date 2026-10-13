@@ -13,6 +13,14 @@ use std::{
 };
 const MAX_MESSAGE: usize = 16 * 1024 * 1024;
 const MAX_QUEUED_BYTES: usize = 64 * 1024 * 1024;
+#[derive(Debug)]
+pub(crate) struct OutputBackpressure(&'static str);
+impl std::fmt::Display for OutputBackpressure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.0)
+    }
+}
+impl std::error::Error for OutputBackpressure {}
 enum Outbound {
     Bytes(Vec<u8>),
     Saved {
@@ -285,7 +293,7 @@ impl Process {
             let next = current
                 .checked_add(size)
                 .filter(|n| *n <= MAX_QUEUED_BYTES)
-                .context("Protocol output byte budget exhausted")?;
+                .ok_or(OutputBackpressure("Protocol output byte budget exhausted"))?;
             match self.queued_bytes.compare_exchange_weak(
                 current,
                 next,
@@ -298,6 +306,12 @@ impl Process {
         }
         if let Err(e) = self.sender.try_send((outbound, size)) {
             self.queued_bytes.fetch_sub(size, Ordering::Relaxed);
+            if matches!(e, mpsc::TrySendError::Full(_)) {
+                return Err(OutputBackpressure(
+                    "Protocol output unavailable: sending on a full channel",
+                )
+                .into());
+            }
             bail!("Protocol output unavailable: {e}");
         }
         Ok(())

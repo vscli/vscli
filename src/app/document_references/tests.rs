@@ -39,6 +39,55 @@ fn close_last_tab_keeps_original_model_until_exact_reference_expiry() {
 }
 
 #[test]
+fn completed_move_and_delete_remove_source_tree_references_without_touching_destination_or_models()
+{
+    let directory = tempfile::tempdir().unwrap();
+    let root = std::fs::canonicalize(directory.path()).unwrap();
+    let folder = root.join("source");
+    std::fs::create_dir(&folder).unwrap();
+    let a = file(&folder, "a.cpp");
+    let b = file(&folder, "b.cpp");
+    let target = file(&root, "target.cpp");
+    let mut app = App::new(root.clone(), Profile::Linux);
+    app.open(&a).unwrap();
+    let aid = app.doc().id;
+    app.acquire_api_document(1, aid, Instant::now()).unwrap();
+    app.open(&b).unwrap();
+    let bid = app.doc().id;
+    app.acquire_api_document(1, bid, Instant::now()).unwrap();
+    app.open(&target).unwrap();
+    let tid = app.doc().id;
+    app.acquire_api_document(1, tid, Instant::now()).unwrap();
+    app.remove_api_operation_references(&crate::files::Action::CreateFile(a.clone()))
+        .unwrap();
+    assert_eq!(app.api_documents.ledger.as_ref().unwrap().len(), 3);
+    app.remove_api_operation_references(&crate::files::Action::Rename {
+        from: folder,
+        to: root.join("moved"),
+    })
+    .unwrap();
+    assert_eq!(app.api_documents.ledger.as_ref().unwrap().len(), 1);
+    assert_eq!(app.documents.len(), 3);
+    assert_eq!(
+        app.api_documents
+            .ledger
+            .as_ref()
+            .unwrap()
+            .retention(model_key(app.doc()))
+            .acquisitions,
+        1
+    );
+    app.remove_api_operation_references(&crate::files::Action::Trash(target.clone()))
+        .unwrap();
+    assert!(app.api_documents.ledger.as_ref().unwrap().is_empty());
+    assert_eq!(app.documents.len(), 3);
+    assert_eq!(
+        std::fs::read(target).unwrap(),
+        "猫🙂\r\noriginal".as_bytes()
+    );
+}
+
+#[test]
 fn expiry_releases_api_ownership_without_destroying_a_visible_editor() {
     let root = tempfile::tempdir().unwrap();
     let (mut app, _, id) = opened(root.path());
