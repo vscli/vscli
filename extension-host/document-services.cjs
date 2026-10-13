@@ -63,20 +63,11 @@ function createDocumentServices(request, options, model) {
       const encoding = optionsInput?.encoding;
       if (encoding !== undefined && encoding !== 'utf8') throw new Error('openTextDocument encoding is not implemented: only utf8 is supported');
       guard();
-      if (uri && uri.scheme !== 'file' && uri.scheme !== 'untitled') {
-        if (options.virtualDocuments && model.openVirtual) {
-          const document = await model.openVirtual(owner, uri);
-          guard();
-          return document;
-        }
-        throw new Error('Document URI requires a registered virtual content provider');
-      }
       const untitled = !filename;
-      if (untitled && !options.untitledDocuments) throw new Error('Native untitled documents are not implemented by this native host');
       if (filename && Buffer.byteLength(filename) > 16 * 1024) throw new Error('Document path exceeds 16 KiB');
       const resource = uri ? Reflect.apply(uriFormat, uri, []) : filename
         ? Reflect.apply(uriFormat, Reflect.apply(uriFile, Uri, [filename]), []) : undefined;
-      // A mirrored file/explicit untitled open returns the original model. It
+      // Any mirrored resource open returns the original model. It
       // does not acquire a native reference or renew that reference's lifetime.
       // Resolve only string paths here; canonical aliases still need native IO.
       if (resource) {
@@ -88,6 +79,15 @@ function createDocumentServices(request, options, model) {
           return cached.model;
         }
       }
+      if (uri && uri.scheme !== 'file' && uri.scheme !== 'untitled') {
+        if (options.virtualDocuments && model.openVirtual) {
+          const document = await model.openVirtual(owner, uri);
+          guard();
+          return document;
+        }
+        throw new Error('Document URI requires a registered virtual content provider');
+      }
+      if (untitled && !options.untitledDocuments) throw new Error('Native untitled documents are not implemented by this native host');
       const result = await call(owner, untitled ? 'nativeUntitledDocumentOpen' : 'nativeDocumentOpen', untitled
         ? { uri: resource || null, content, language } : { path: filename });
       guard();

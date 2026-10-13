@@ -89,3 +89,10 @@ VS Code 1.141.0 at `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`:
 - [Document implementation](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostDocumentData.ts)
 - [Word lookup](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/core/wordHelper.ts)
 - [Logical text model](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/editor/common/model/mirrorTextModel.ts)
+
+Cached opens now check any matching private native mirror before provider or
+creation-capability routing. This preserves existing provider/untitled mirrors
+without a new native request, even after provider disposal. The original mirror
+is captured before argument getters; replacement at the same URI rejects, while
+a legitimate update preserves its identity. Five new cached-resource tests pass.
+Shared miss loading remains separately tracked in the native ownership contract.
