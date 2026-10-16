@@ -1,6 +1,9 @@
 //! Native file-participant review policy and immutable full-edit overview.
-//! This does not authorize an edit, open a model or touch the filesystem.
+//! The overview grants no edit authority. Worker-only range preview may load
+//! bounded local baselines; native publication belongs to the App coordinator.
+pub mod dialog;
 pub mod preferences;
+pub(crate) mod preview;
 use crate::workspace_edit_stream::{Entry, FileKind, Stream};
 use anyhow::{Result, ensure};
 use serde_json::Value;

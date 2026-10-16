@@ -106,18 +106,20 @@ remain required backends. Single-resource refactoring now stays unsaved under
 the default policy, matching the upstream multi-resource autosave condition.
 Remaining provider families and mixed native/extension aggregation remain open.
 
-File-operation completion events are integrated. The will-participant engine and
-opt-in native transport now preserve full contributed DTOs, conversion-time target proofs
-and independent logical/actual completion. Next, connect the editor coordinator:
-filesystem preflight, configured participant policy, review/confirmation and full
-ordered edit application before original file effects. The default editor will
-API remains disabled until that path is usable. See [transport evidence](FILE_PARTICIPATION_TRANSPORT.md).
+File-operation completion and will events now connect selected extensions to
+native Explorer operations. Existing guarded filesystem preflight, configured
+timeout, review/confirmation and grouped ordinary-text application run before
+original effects. Cancellation retains actual callback occupancy. Selected rich
+edit kinds still refuse the entire additional selection before text effects;
+full ordered file/snippet/EOL/notebook application remains required. See
+[native participant integration](NATIVE_FILE_PARTICIPANTS.md).
 
 Initial review policy and profile storage/reset now have native implementations,
 including the stable reset command and actual selected-extension delegation.
-The review model preserves every source edit kind and the original DTO. It is
-an overview foundation; actual diff UI and full ordered apply still need to be
-connected. See [review evidence](FILE_EDIT_REVIEW.md).
+The review model preserves every source edit kind and the original DTO and now
+supplies the native UI's worker-prepared original/replacement text ranges.
+Full ordered apply and public resource history still need to be connected. See
+[review evidence](FILE_EDIT_REVIEW.md).
 
 Native Rust editing must stay usable without JavaScript. Optional compatibility
 processes stay isolated. Unsupported calls must remain explicit until implemented;

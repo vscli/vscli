@@ -298,6 +298,7 @@ impl App {
             || self.api_discard_occupied()
             || self.resource_models_pending()
             || self.file_job.is_some()
+            || self.file_participation_pending()
             || self.saving.closing.is_some()
             || matches!(self.modal, Some(Modal::Confirm(_)))
             || self
@@ -502,7 +503,7 @@ impl App {
     }
     pub(super) fn request_native_save(&mut self, after: Option<AfterSave>) -> Result<()> {
         ensure!(
-            self.file_job.is_none(),
+            self.file_job.is_none() && !self.file_participation_pending(),
             "Wait for the file operation to finish before saving"
         );
         let doc = self
@@ -575,7 +576,7 @@ impl App {
             "Editor shutdown is settling saves"
         );
         ensure!(
-            self.file_job.is_none(),
+            self.file_job.is_none() && !self.file_participation_pending(),
             "Wait for the file operation to finish before saving"
         );
         let doc = self

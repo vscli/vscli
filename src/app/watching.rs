@@ -112,6 +112,7 @@ impl App {
         }
         if !self.watch.publication_disabled
             && self.file_job.is_none()
+            && !self.file_participation_pending()
             && self.watch.disk.is_none()
             && ((self.watch.pending & CONTENT != 0 && settled)
                 || self.watch.last_read.elapsed() >= Duration::from_secs(2))
@@ -138,7 +139,7 @@ impl App {
             self.watch.pending &= !CONTENT;
             self.watch.last_read = Instant::now();
         }
-        if self.file_job.is_some() {
+        if self.file_job.is_some() || self.file_participation_pending() {
             return changed;
         }
         for _ in 0..4 {

@@ -1,5 +1,11 @@
 # File-participant review policy and profile preferences
 
+The [native participant coordinator](NATIVE_FILE_PARTICIPANTS.md) now connects this
+model to real Explorer operations, an interactive selection/review dialog and
+worker-prepared removed/replacement ranges for ordinary text. Full ordered rich
+application remains unfinished. The foundation-only statements and counts below
+retain their original milestone scope.
+
 The native review model now retains the complete original WorkspaceEdit DTO and
 indexes create/rename/copy/delete, text, snippets, EOL and notebook rows without
 performing edits or filesystem operations. This is an overview foundation for

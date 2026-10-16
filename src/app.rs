@@ -18,6 +18,7 @@ mod extension_services;
 pub mod extension_surfaces;
 mod extensions;
 mod file_participant_preferences;
+mod file_participation;
 mod files;
 pub mod keyboard;
 mod language;
@@ -484,6 +485,7 @@ pub enum AfterSave {
     CloseAll,
 }
 pub enum Modal {
+    FileEditReview(crate::file_edit_review::dialog::Dialog),
     ExtensionTree,
     ExtensionSurfaces(extension_surfaces::Picker),
     ExtensionsLoading(u64),
@@ -586,6 +588,7 @@ pub struct App {
     workspace_transactions: workspace_transactions::State,
     resource_models: resource_models::State,
     file_participant_preferences: file_participant_preferences::State,
+    file_participation: file_participation::State,
     extension_providers: extension_providers::State,
     provider_navigation: provider_navigation::State,
     rename: rename::State,
@@ -676,6 +679,7 @@ impl Drop for App {
         self.settle_extension_file_search();
         self.settle_virtual_documents();
         self.settle_api_discard();
+        self.retire_file_participation();
         self.settle_workspace_transactions();
         self.settle_resource_models();
         self.shutdown_extensions();
@@ -726,6 +730,7 @@ impl App {
             workspace_transactions: workspace_transactions::State::default(),
             resource_models: resource_models::State::default(),
             file_participant_preferences: file_participant_preferences::State::default(),
+            file_participation: file_participation::State::default(),
             extension_providers: extension_providers::State::default(),
             provider_navigation: provider_navigation::State::default(),
             rename: rename::State::default(),
@@ -896,6 +901,7 @@ impl App {
             std::time::Instant::now(),
         );
         changed |= self.poll_extensions();
+        changed |= self.poll_native_file_participation();
         changed |= self.poll_extension_activation();
         changed |= self.poll_extension_providers();
         changed |= self.poll_refactoring_saves();
@@ -1613,6 +1619,13 @@ impl App {
     fn key(&mut self, key: KeyEvent) {
         let token = keys::token(key);
         self.last_key = Some(key);
+        if key.code == KeyCode::Esc
+            && self.modal.is_none()
+            && self.prompt.is_none()
+            && self.escape_file_participation()
+        {
+            return;
+        }
         if key.code == KeyCode::Esc && self.escape_save_code_actions() {
             return;
         }
@@ -2478,6 +2491,12 @@ impl App {
         }
     }
     fn modal_key(&mut self, key: KeyEvent) {
+        if matches!(self.modal, Some(Modal::FileEditReview(_))) {
+            if let Some(Modal::FileEditReview(dialog)) = self.modal.take() {
+                self.file_edit_review_key(key, dialog);
+            }
+            return;
+        }
         if key.code == KeyCode::Esc {
             if matches!(self.modal, Some(Modal::Confirm(_))) {
                 self.cancel_save_continuations();
@@ -2495,6 +2514,7 @@ impl App {
         }
         let modal = self.modal.take().unwrap();
         match modal {
+            Modal::FileEditReview(dialog) => self.file_edit_review_key(key, dialog),
             Modal::ExtensionSurfaces(picker) => self.surface_picker_key(key, picker),
             Modal::ExtensionTree => self.surface_tree_key(key),
             Modal::ExtensionsLoading(id) => self.modal = Some(Modal::ExtensionsLoading(id)),

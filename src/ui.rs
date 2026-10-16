@@ -1,4 +1,5 @@
 mod editor_layout;
+mod file_edit_review;
 mod group_tabs;
 mod keyboard;
 pub(crate) mod welcome;
@@ -1205,6 +1206,10 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
 fn draw_modal(frame: &mut Frame, app: &mut App) {
     let colors = app.theme.colors;
     let (title, text) = match app.modal.as_ref().unwrap() {
+        Modal::FileEditReview(dialog) => {
+            file_edit_review::draw(frame, dialog, colors);
+            return;
+        }
         Modal::ExtensionSurfaces(_) | Modal::ExtensionTree => {
             draw_extension_modal(frame, app);
             return;

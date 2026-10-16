@@ -322,6 +322,11 @@ Extension dependencies may expose arbitrary in-memory APIs to each other. Begin 
 
 ## Reuse versus independent shim
 
+The active objective is now the entire stable extension API. The bounded-shim
+preference below is an original feasibility hypothesis, not a scope limit or a
+completed architecture comparison. Reassess pinned upstream host/type/converter
+reuse against that full objective; the extraction comparison remains outstanding.
+
 Make this a Phase 0 decision with a two-week initial timebox inside the broader feasibility phase:
 
 | Experiment | Evidence required |

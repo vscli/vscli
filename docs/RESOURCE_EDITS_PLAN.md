@@ -6,6 +6,12 @@ milestone is native multi-resource text refactoring with save continuations.
 This work extends that gateway; it does not replace the full extension API goal.
 CI work remains deferred and local VS Code instances remain prohibited.
 
+The [native will-file workflow](NATIVE_FILE_PARTICIPANTS.md) now integrates the
+existing resource capture, configured callback policy, review and grouped text
+application before original Explorer effects. This closes the transport/review
+integration for ordinary text; it does not expose the mixed-resource public
+gateway or satisfy the ordered-file/history stages below.
+
 ## Source contracts
 
 The reference is VS Code 1.141.0 immutable commit

@@ -4,6 +4,35 @@ The entire public stable VS Code extension API is the current implementation
 priority. The [broad feature todo](FEATURE_TODO.md) remains the project backlog;
 CI repair and release qualification are deferred until after feature work.
 
+The current [native file-participant slice](NATIVE_FILE_PARTICIPANTS.md) connects
+all three public will-file subscriptions to real Explorer preflight, configured
+timeout, interactive review and grouped ordinary-text application. It preserves
+the complete source DTO and refuses unsupported selected kinds as a whole.
+Ordered resource application and public file history remain required; the
+resource-operation batch is not complete. Historical milestone statements below
+retain their own source and executed-evidence scope.
+
+Delivery follows usable API slices with explicit completion criteria. Shared
+native mutation/protocol ownership is an integration dependency; independent
+environment/localization, read-only language-provider and tooling families need
+not wait for every resource backend. Prefer existing native foundations and
+evaluate pinned upstream host/type/converter reuse before expanding handwritten
+compatibility machinery. The full upstream-host comparison remains outstanding.
+Use focused behavior checks while iterating, then required formatting/strict
+Clippy and regression checks on the final coherent source. Preserve test commands,
+source revisions/digests, binary identity and results so unchanged qualification
+is not silently repeated or attributed to a different build.
+
+The native participant integration passes all 1,604 Rust tests across 67 reports
+(1,255 library tests; 23 ignored cases provide no qualification), all 783 host
+tests, four new participant terminal journeys and four existing file/event,
+no-Node path/reset and public workspace-edit journeys. Formatting, strict locked
+all-target Clippy and the native build pass. All eight terminal journeys use the
+same binary. [Validation receipts](validation/native-file-participants.json)
+record the source/binary digests, commands, results and the corrected test-only
+reload-gate readiness race. No platform or upstream-runtime qualification is
+inferred, and the full resource-operation batch remains unfinished.
+
 The [complete pinned stable inventory](extension-api/1.141.0/README.md) records
 776 declarations and 2,366 member/overload/inline-signature entries, with proposed
 APIs tracked separately. These are declaration counts, not feature counts or

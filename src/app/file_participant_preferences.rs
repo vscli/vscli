@@ -10,6 +10,7 @@ struct Request {
     id: u64,
     profile: u64,
     path: PathBuf,
+    choice: Option<bool>,
 }
 
 #[cfg(test)]
@@ -162,9 +163,10 @@ pub(super) struct State {
     next: u64,
     request: Option<Request>,
     reset: Option<(u64, PathBuf)>,
+    cached: Option<(u64, PathBuf, Option<bool>)>,
 }
 impl App {
-    fn participant_preference_store(&self) -> Result<Store> {
+    pub(super) fn participant_preference_store(&self) -> Result<Store> {
         let settings = self
             .user_settings_path()
             .context("Native settings profile path unavailable")?;
@@ -175,6 +177,11 @@ impl App {
         )
     }
     pub(super) fn reset_file_participant_choice(&mut self) -> Result<()> {
+        self.write_file_participant_choice(None)?;
+        self.message = "Resetting file-operation preview choice…".into();
+        Ok(())
+    }
+    pub(super) fn write_file_participant_choice(&mut self, choice: Option<bool>) -> Result<()> {
         ensure!(
             !self.file_participant_preferences.worker.busy(),
             "File-participant preference worker is still occupied"
@@ -188,7 +195,7 @@ impl App {
             .context("File-participant preference identities exhausted")?;
         self.file_participant_preferences.worker.start(
             id,
-            store.write(None, profile),
+            store.write(choice, profile),
             Instant::now() + Duration::from_secs(6),
         )?;
         self.file_participant_preferences.next = id;
@@ -196,10 +203,24 @@ impl App {
             id,
             profile,
             path: store.path().to_owned(),
+            choice,
         });
-        self.file_participant_preferences.reset = Some((profile, store.path().to_owned()));
-        self.message = "Resetting file-operation preview choice…".into();
+        self.file_participant_preferences.reset =
+            choice.is_none().then(|| (profile, store.path().to_owned()));
+        self.file_participant_preferences.cached = Some((profile, store.path().to_owned(), choice));
         Ok(())
+    }
+    pub(super) fn cached_file_participant_choice(&self) -> Option<Option<bool>> {
+        self.file_participant_preferences
+            .cached
+            .as_ref()
+            .and_then(|(profile, path, choice)| {
+                (*profile == self.settings_profile_generation()
+                    && self
+                        .participant_preference_store()
+                        .is_ok_and(|store| store.path() == path))
+                .then_some(*choice)
+            })
     }
     /// A reset is immediately visible in the original profile, like the source
     /// storage cache. It cannot become a remembered value in a different profile.
@@ -253,16 +274,20 @@ impl App {
                 if !self.participant_preferences_current(id, Some(&info)) || opened_dirty {
                     self.file_participant_preferences.worker.retire(id);
                     if opened_dirty {
-                        self.message =
-                            "Save the preference file before resetting its choice".into();
+                        self.message = "Save the preference file before changing its choice".into();
                     }
                 } else if let Err(error) = self.file_participant_preferences.worker.authorize(id) {
                     self.file_participant_preferences.worker.retire(id);
-                    self.message = format!("Preference reset refused: {error:#}");
+                    self.message = format!("Preference change refused: {error:#}");
                 }
             }
             WorkerEvent::Finished { id, result, .. } => {
                 let current = self.participant_preferences_current(id, None);
+                let remembered = self
+                    .file_participant_preferences
+                    .request
+                    .as_ref()
+                    .is_some_and(|request| request.choice.is_some());
                 self.file_participant_preferences.request = None;
                 if current {
                     self.message = match result {
@@ -270,8 +295,14 @@ impl App {
                             .commit
                             .and_then(|commit| commit.durability_warning)
                             .map_or_else(
-                                || "File-operation preview choice reset".into(),
-                                |warning| format!("Choice reset; {warning}"),
+                                || {
+                                    if remembered {
+                                        "File-operation preview choice remembered".into()
+                                    } else {
+                                        "File-operation preview choice reset".into()
+                                    }
+                                },
+                                |warning| format!("Choice stored; {warning}"),
                             ),
                         Ok(Outcome::Rejected) => {
                             "File-operation preference reset canceled; stored choice retained"

@@ -55,8 +55,13 @@ fn edit_undo_rejects_held_reload_and_retains_actual_worker_slot_until_exit() {
     let before = app.doc().text.clone();
     let baseline = app.doc().disk_content.clone();
     let (release, gate) = mpsc::channel();
-    app.resource_models.gate = Some(gate);
+    let (entered, ready) = mpsc::sync_channel(1);
+    app.resource_models.gate = Some(ReloadGate {
+        entered,
+        release: gate,
+    });
     app.start_resource_model_reload(app.doc().id, app.doc().resource_epoch());
+    ready.recv_timeout(Duration::from_secs(5)).unwrap();
     app.doc_mut().insert("independent ", false);
     app.doc_mut().undo();
     app.poll_resource_models();
@@ -80,8 +85,13 @@ fn edit_undo_rejects_held_reload_and_retains_actual_worker_slot_until_exit() {
 fn navigation_is_independent_but_original_language_aba_retires_held_revert() {
     let (_directory, mut app, path) = fixture();
     let (release, gate) = mpsc::channel();
-    app.resource_models.gate = Some(gate);
+    let (entered, ready) = mpsc::sync_channel(1);
+    app.resource_models.gate = Some(ReloadGate {
+        entered,
+        release: gate,
+    });
     app.start_resource_model_reload(app.doc().id, app.doc().resource_epoch());
+    ready.recv_timeout(Duration::from_secs(5)).unwrap();
     app.doc_mut().move_to(3, false);
     assert!(
         app.resource_reload_current(app.resource_models.run.as_ref().unwrap())
@@ -120,9 +130,14 @@ fn explicit_save_waits_for_original_reader_and_does_not_overwrite_revert_disk_co
     let (_directory, mut app, path) = fixture();
     app.doc_mut().insert("dirty ", false);
     let (release, gate) = mpsc::channel();
-    app.resource_models.gate = Some(gate);
+    let (entered, ready) = mpsc::sync_channel(1);
+    app.resource_models.gate = Some(ReloadGate {
+        entered,
+        release: gate,
+    });
     std::fs::write(&path, "external\n").unwrap();
     app.start_resource_model_reload(app.doc().id, app.doc().resource_epoch());
+    ready.recv_timeout(Duration::from_secs(5)).unwrap();
     assert!(app.document_save_pending(app.doc().id));
     assert!(app.request_native_save(None).is_err());
     assert!(!app.saves_pending());
@@ -137,8 +152,13 @@ fn closed_original_model_cannot_publish_into_new_same_path_identity() {
     let (_directory, mut app, path) = fixture();
     let original = app.doc().id;
     let (release, gate) = mpsc::channel();
-    app.resource_models.gate = Some(gate);
+    let (entered, ready) = mpsc::sync_channel(1);
+    app.resource_models.gate = Some(ReloadGate {
+        entered,
+        release: gate,
+    });
     app.start_resource_model_reload(app.doc().id, app.doc().resource_epoch());
+    ready.recv_timeout(Duration::from_secs(5)).unwrap();
     app.remove_active();
     app.open(&path).unwrap();
     assert_ne!(app.doc().id, original);
@@ -156,8 +176,13 @@ fn original_settings_profile_change_refuses_prepared_native_reload_without_repla
     app.doc_mut().insert("dirty ", false);
     let original = app.doc().capture_resource_model().unwrap();
     let (release, gate) = mpsc::channel();
-    app.resource_models.gate = Some(gate);
+    let (entered, ready) = mpsc::sync_channel(1);
+    app.resource_models.gate = Some(ReloadGate {
+        entered,
+        release: gate,
+    });
     app.start_resource_model_reload(app.doc().id, app.doc().resource_epoch());
+    ready.recv_timeout(Duration::from_secs(5)).unwrap();
     app.settings_error = Some("new settings failed".into());
     app.poll_resource_models();
     release.send(()).unwrap();

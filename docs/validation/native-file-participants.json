@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "date": "2026-10-17",
+  "scope": "Native Explorer will-file participants, ordinary text/review integration; full ordered resource API remains unfinished",
+  "base_commit": "8c87ae670ed9331420f0d7bb55ca2c035769d5cf",
+  "platform": {
+    "system": "Linux",
+    "architecture": "x86_64"
+  },
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28) (Arch Linux rust 1:1.99.0-1)",
+  "node": "v26.10.0",
+  "source_cohort": {
+    "paths": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "files": 1671,
+    "sha256": "bd0ed32bae84312ac58ee900d3cc82d1a123f5954d2e3945cf30d117116cbcc5",
+    "recipe": "git ls-files --cached --others --exclude-standard -z -- PATHS; unique byte-sorted paths; sha256 of repeated 8-byte big-endian path length, path bytes, 8-byte big-endian content length, content bytes"
+  },
+  "native_binary": {
+    "path": "target/debug/vscli",
+    "sha256": "fba744a2bde3a88032617fd486af02ef35cc608eb35822389affe82eb704089d",
+    "build_command": "cargo build --locked",
+    "status": "passed",
+    "reused_for_all_terminal_journeys": true
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked -- --test-threads=2",
+      "status": "passed",
+      "reports": 67,
+      "passed": 1604,
+      "failed": 0,
+      "ignored": 23
+    },
+    {
+      "command": "node --test extension-host/*.test.cjs",
+      "status": "passed",
+      "passed": 783
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "status": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "status": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "python3 -u tests/file_participants_pty.py target/debug/vscli",
+      "status": "passed",
+      "journeys": 4
+    },
+    {
+      "command": "python3 -u tests/file_operation_events_pty.py target/debug/vscli",
+      "status": "passed",
+      "journeys": 1
+    },
+    {
+      "command": "python3 -u tests/resource_lifetime_pty.py target/debug/vscli",
+      "status": "passed",
+      "journeys": 1
+    },
+    {
+      "command": "python3 -u tests/file_participant_preferences_pty.py target/debug/vscli",
+      "status": "passed",
+      "journeys": 1
+    },
+    {
+      "command": "python3 -u tests/extension_workspace_edits_pty.py target/debug/vscli",
+      "status": "passed",
+      "journeys": 1
+    }
+  ],
+  "terminal_receipts": [
+    {
+      "group": "new",
+      "passed_journeys": 4,
+      "results": [
+        "PASS: will-rename review and remember, shared hidden text before did event, grouped Undo/Redo, exact CRLF Save",
+        "PASS: confirmation forces native range preview; Escape skips contributions, original rename and dirty history survive",
+        "PASS: Escape cancels a held real callback, original rename continues, native editing and Save remain usable",
+        "PASS: native create/delete will events precede file effects, skipped contributions preserve dirty data, isolated trash"
+      ]
+    },
+    {
+      "group": "regression",
+      "passed_journeys": 4,
+      "results": [
+        "PASS: real native Explorer create/rename/trash \u2192 public file events, URI order, dirty bytes, isolated trash and terminal restoration",
+        "PASS: native Explorer F2 rename away/back, dirty Unicode CRLF, original Undo/Redo/Save, preserved disk baseline, missing Node and terminal restoration",
+        "PASS: native reset choice from blank screen, no Node, true/false profiles, restart, unrelated Unicode state and terminal restoration",
+        "PASS: public refactoring ApplyEdit publishes both mirrors/events before true, retains hidden identity and Unicode CRLF disks, groups original Undo/Redo, then both actual public saves publish didSave before true"
+      ]
+    }
+  ],
+  "corrected_failure": {
+    "test": "app::resource_models::tests::edit_undo_rejects_held_reload_and_retains_actual_worker_slot_until_exit",
+    "observed": "SendError when releasing a gate whose worker could retire before entering preparation",
+    "change": "Test-only entered/release handshake establishes actual held preparation before cancellation in all five gated reload controls; integrity assertions retained"
+  },
+  "unqualified": [
+    "Ignored optional tests",
+    "Fresh platform CI and unchanged-package corpus",
+    "Full ordered file/snippet/EOL/notebook apply and public resource history",
+    "Upstream runtime parity and upstream-host extraction comparison"
+  ]
+}

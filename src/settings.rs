@@ -295,6 +295,7 @@ const SUPPORTED: &[&str] = &[
     "breadcrumbs.symbolPath",
     "files.autoSave",
     "files.refactoring.autoSave",
+    "files.participants.timeout",
     "files.autoSaveDelay",
     "workbench.colorTheme",
     "workbench.editor.enablePreview",
@@ -393,6 +394,21 @@ impl Settings {
     pub fn extension_layers(&self) -> &Arc<Vec<Map<String, Value>>> {
         &self.layers
     }
+    /// Root-scoped file-operation callback budget. Zero disables delivery;
+    /// malformed or unrepresentable winning values never enable a lower layer.
+    pub(crate) fn file_participant_timeout(&self) -> Option<std::time::Duration> {
+        let value = self
+            .layers
+            .iter()
+            .rev()
+            .find_map(|layer| layer.get("files.participants.timeout"));
+        let milliseconds = match value {
+            None => 60_000.0,
+            Some(value) => value.as_f64()?,
+        };
+        (milliseconds.is_finite() && milliseconds > 0.0 && milliseconds <= i32::MAX as f64)
+            .then(|| std::time::Duration::from_millis((milliseconds as u64).max(1)))
+    }
     fn validate(&mut self, values: &Map<String, Value>, source: &str) {
         self.validate_scoped(values, source, false);
     }
@@ -414,6 +430,7 @@ impl Settings {
                         | "workbench.editor.enablePreviewFromQuickOpen"
                         | "workbench.editor.preventPinnedEditorClose"
                         | "files.refactoring.autoSave"
+                        | "files.participants.timeout"
                 )
             {
                 self.warnings.push(format!(
@@ -1015,6 +1032,9 @@ fn valid(key: &str, value: &Value) -> bool {
         "files.autoSaveDelay" => value
             .as_u64()
             .is_some_and(|delay| delay <= crate::autosave::MAX_DELAY_MS.into()),
+        "files.participants.timeout" => value
+            .as_f64()
+            .is_some_and(|value| value.is_finite() && value >= 0.0 && value <= i32::MAX as f64),
         "workbench.editor.preventPinnedEditorClose" => {
             PreventPinnedEditorClose::parse(value).is_some()
         }
@@ -2732,5 +2752,54 @@ mod editor_option_defaults_tests {
         invalid.apply(&mut doc);
         assert_eq!(doc.indent_size(), 4);
         assert_eq!(doc.editor_cursor_style(), 5);
+    }
+}
+
+#[cfg(test)]
+mod file_participant_timeout_tests {
+    use super::*;
+    #[test]
+    fn winning_root_timeout_defaults_disables_and_never_falls_back_from_invalid_values() {
+        assert_eq!(
+            Settings::default().file_participant_timeout(),
+            Some(std::time::Duration::from_secs(60))
+        );
+        let directory = tempfile::tempdir().unwrap();
+        let base = directory.path().join("base.json");
+        let override_ = directory.path().join("override.json");
+        std::fs::write(&base, r#"{"files.participants.timeout":1234}"#).unwrap();
+        for (value, expected) in [
+            (serde_json::json!(0), None),
+            (serde_json::json!(5.9), Some(5)),
+            (serde_json::json!(0.5), Some(1)),
+            (serde_json::json!(null), None),
+            (serde_json::json!("bad"), None),
+            (serde_json::json!(-1), None),
+            (serde_json::json!(2_147_483_648u64), None),
+        ] {
+            std::fs::write(
+                &override_,
+                serde_json::to_vec(&serde_json::json!({"files.participants.timeout":value}))
+                    .unwrap(),
+            )
+            .unwrap();
+            let settings = Settings::load(&[base.clone(), override_.clone()]).unwrap();
+            assert_eq!(
+                settings.file_participant_timeout(),
+                expected.map(std::time::Duration::from_millis)
+            );
+        }
+        std::fs::write(&override_, r#"{"[cpp]":{"files.participants.timeout":0}}"#).unwrap();
+        let settings = Settings::load(&[base, override_]).unwrap();
+        assert_eq!(
+            settings.file_participant_timeout(),
+            Some(std::time::Duration::from_millis(1234))
+        );
+        assert!(
+            settings
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("root-scoped files.participants.timeout"))
+        );
     }
 }

@@ -152,7 +152,7 @@ fn validate_stream_contents(stream: &Stream<'_>, control: &Control<'_>) -> Resul
     Ok(())
 }
 
-fn local_path(resource: &str) -> Result<PathBuf> {
+pub(crate) fn local_path(resource: &str) -> Result<PathBuf> {
     let uri = url::Url::parse(resource).context("Malformed resource URI")?;
     ensure!(
         uri.scheme() == "file"

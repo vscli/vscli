@@ -4,24 +4,26 @@ Selected extensions can now subscribe to `workspace.onDidCreateFiles`,
 `onDidRenameFiles` and `onDidDeleteFiles` for completed native Explorer operations.
 File/folder creation, rename and system-trash deletion publish public Uri payloads
 after document mirrors. Watcher notifications remain independent; will-operation
-participants and bulk resource edits still need their backends. See
+participants now have a native text/review path; bulk resource edits still need
+their public backend. See
 [file operation events](FILE_OPERATION_EVENTS_API.md).
 
-The will-participant engine is now implemented privately in the isolated host,
-with tested delivery, cancellation, ownership and full WorkspaceEdit conversion.
-The public will subscriptions remain unavailable until native pre-operation
-application and confirmation are connected.
+Selected editor extensions can now subscribe to all three public will-file
+events. Native preflight, configured timeout, review/confirmation and grouped
+ordinary-text application run before original Explorer effects. Unsupported
+selected edit kinds refuse the entire additional selection visibly. See
+[native participant behavior and limits](NATIVE_FILE_PARTICIPANTS.md).
 
-Native coordinator developers can now opt in to the experimental
+Specialized native coordinator developers can opt in to the
 [participant transport](FILE_PARTICIPATION_TRANSPORT.md). This library boundary
 has actual selected-extension tests; it is not an editor setting or CLI mode.
 
 **F1 → Reset choice for 'File operation needs preview'** now resets the native
 profile's remembered preview policy. Extensions can invoke the same stable
 `files.participants.resetChoice` command with no arguments and no open editor.
-The native [review/preferences foundation](FILE_EDIT_REVIEW.md) retains complete
-edit payloads; editor preview/application and default will subscriptions remain
-unfinished.
+The native [review/preferences model](FILE_EDIT_REVIEW.md) retains complete edit
+payloads and now feeds the editor's text/review workflow. Full ordered resource,
+snippet, EOL and notebook application remains required.
 
 VSCLI now has an optional CommonJS extension process. It is an independent, original compatibility shim; the Rust executable remains the owner of native buffers, rendering, input, and persistence. This is an experiment toward the full extension requirement, not completion of that requirement.
 

@@ -582,8 +582,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   }
   return {
     fileOperation: fileOperations.publish,
-    // Private participant engine. Public will APIs remain gated until native
-    // pre-operation edits, confirmation and cancellation are connected.
+    // Private participant engine. Public will APIs require native coordinator
+    // negotiation; a raw facade does not manufacture pre-operation application.
     fileParticipants,
     fileParticipation,
     api, sync, textContentProviderSnapshot: textContentProviders.snapshot, providerSnapshot: providers.snapshot, rankLanguageProviders: providers.rank, prepareLanguageRename:params=>coreOperation(providers.prepareRename,params), provideLanguageRename:params=>coreOperation(providers.provideRenameEdits,params), provideWorkspaceSymbols:params=>coreOperation(providers.provideWorkspaceSymbols,params), resolveLanguageWorkspaceSymbol:params=>coreOperation(providers.resolveWorkspaceSymbol,params), retireWorkspaceSymbols:providers.retireWorkspaceSymbols, provideLanguage: params => coreOperation(providers.provide, params), resolveLanguageCompletion: params => coreOperation(providers.resolveCompletion, params), resolveLanguageCodeAction: params => coreOperation(providers.resolveAction, params), cancelLanguageProvider: providers.cancel, releaseLanguageProviderRefusal: providers.releaseRefusal, languageProviderPending: providers.pending, updateConfiguration: next => { configuration.update(next); workspaceEditConfigurationIdentity = {}; providers.documentChanged(); fileWatchers.refresh(); }, commandSnapshot, assertOwner,

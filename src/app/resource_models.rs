@@ -13,11 +13,17 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(test)]
+struct ReloadGate {
+    entered: std::sync::mpsc::SyncSender<()>,
+    release: std::sync::mpsc::Receiver<()>,
+}
+
 struct Reload {
     source: ResourceModelSource,
     maximum: usize,
     #[cfg(test)]
-    gate: Option<std::sync::mpsc::Receiver<()>>,
+    gate: Option<ReloadGate>,
 }
 struct Prepared {
     model: ResourceModelPrepared,
@@ -31,7 +37,8 @@ impl Transaction for Reload {
         preparation.check()?;
         #[cfg(test)]
         if let Some(gate) = self.gate {
-            gate.recv_timeout(Duration::from_secs(10))?;
+            gate.entered.send(())?;
+            gate.release.recv_timeout(Duration::from_secs(10))?;
         }
         preparation.check()?;
         let loaded = Document::open_existing_bounded(self.source.resource(), self.maximum as u64)?;
@@ -66,7 +73,7 @@ pub(super) struct State {
     next: u64,
     run: Option<Run>,
     #[cfg(test)]
-    gate: Option<std::sync::mpsc::Receiver<()>>,
+    gate: Option<ReloadGate>,
 }
 impl App {
     pub(super) fn resource_models_pending(&self) -> bool {
@@ -104,6 +111,7 @@ impl App {
                     && !self.saves_pending()
                     && !self.api_discard_occupied()
                     && self.file_job.is_none()
+                    && !self.file_participation_pending()
                     && !self.workspace_transactions_pending(),
                 "Wait for pending document operations before reverting"
             );

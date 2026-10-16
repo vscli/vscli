@@ -63,8 +63,11 @@ impl State {
     }
 }
 impl Client {
-    /// Experimental native coordinator boundary. The default editor does not
-    /// negotiate public will subscriptions until pre-operation apply is wired.
+    pub(crate) fn file_participation_enabled(&self) -> bool {
+        self.file_participation.enabled
+    }
+    /// Opt-in coordinator boundary. App sessions negotiate this transport;
+    /// specialized raw Client callers still choose the capability explicitly.
     pub fn file_participation_available(&self) -> bool {
         self.file_participation.enabled && self.ready && self.file_participation.pending.is_none()
     }

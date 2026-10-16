@@ -700,6 +700,19 @@ impl App {
         }
     }
     pub(crate) fn poll_workspace_transactions(&mut self) -> bool {
+        self.guard_file_participation(self.extension_host.as_ref());
+        self.poll_workspace_transactions_guarded()
+    }
+    /// Service dispatch temporarily owns the Client outside App. Validate the
+    /// actual original host rather than treating that scoped move as retirement.
+    pub(super) fn poll_workspace_transactions_with_host(
+        &mut self,
+        host: &crate::extensions::Client,
+    ) -> bool {
+        self.guard_file_participation(Some(host));
+        self.poll_workspace_transactions_guarded()
+    }
+    fn poll_workspace_transactions_guarded(&mut self) -> bool {
         if let Some(pending) = &self.workspace_transactions.pending
             && (!pending.origin.alive() || Instant::now() >= pending.deadline)
         {

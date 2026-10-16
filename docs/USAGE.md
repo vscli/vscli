@@ -1078,6 +1078,22 @@ with `workspace.createFileSystemWatcher`, using workspace globs or explicit
 watches honor `files.watcherExclude`, and disposing a watcher stops delivery.
 See [filesystem watcher behavior and bounds](FILE_WATCHERS_API.md).
 
+## Extension edits before file operations
+
+Selected extensions can contribute text changes before Explorer creates, renames
+or trashes a file/folder. Apply accepts the proposed changes; Preview shows the
+original and replacement text ranges and lets you select edits; Skip or Escape
+continues the file operation without those changes. Confirmation-marked edits
+require preview. Remember stores your Apply/Preview preference in the current
+profile; **F1 → Reset choice for 'File operation needs preview'** clears it.
+
+`"files.participants.timeout": 60000` is the default callback budget in
+milliseconds. Set it to `0` to disable participant callbacks. Escape while
+callbacks run skips additional edits. Ordinary text edits retain native grouped
+Undo/Redo and stay unsaved. File/snippet/EOL/notebook contributions still require
+their apply backends and produce an explicit whole-selection refusal. See
+[native participant behavior and qualification](NATIVE_FILE_PARTICIPANTS.md).
+
 ## Extension-created untitled documents
 
 Extensions can create editable unsaved documents with initial content/language or

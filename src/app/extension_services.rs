@@ -359,7 +359,7 @@ impl App {
                 self.cancel_workspace_transaction(token);
             }
         }
-        let workspace_changed = self.poll_workspace_transactions();
+        let workspace_changed = self.poll_workspace_transactions_with_host(host);
         if let Some(done) = self.workspace_transaction_completion()
             && !done.origin.is_native()
         {

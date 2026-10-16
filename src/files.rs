@@ -5,6 +5,8 @@ use std::{
     sync::mpsc::{self, Receiver},
     thread::JoinHandle,
 };
+mod preflight;
+pub(crate) use preflight::Preflight;
 
 #[derive(Clone)]
 pub enum Action {
@@ -20,6 +22,12 @@ pub struct Job {
 }
 impl Job {
     pub fn start(action: Action) -> Self {
+        Self::start_inner(action, None)
+    }
+    pub(crate) fn start_preflighted(preflight: std::sync::Arc<Preflight>) -> Self {
+        Self::start_inner(preflight.action.clone(), Some(preflight))
+    }
+    fn start_inner(action: Action, preflight: Option<std::sync::Arc<Preflight>>) -> Self {
         let (sender, receiver) = mpsc::sync_channel(1);
         let thread = std::thread::spawn(move || {
             let mut action = action;
@@ -33,9 +41,19 @@ impl Job {
                 }
                 _ => {}
             }
-            let result = perform(&action)
-                .map(|_| action)
-                .map_err(|e| format!("{e:#}"));
+            let result = (|| -> Result<()> {
+                if let Some(preflight) = preflight {
+                    let canceled = std::sync::atomic::AtomicBool::new(false);
+                    let control = crate::resource_journal::Control::new(
+                        &canceled,
+                        std::time::Instant::now() + std::time::Duration::from_secs(5),
+                    );
+                    preflight.verify(&control)?;
+                }
+                perform(&action)
+            })()
+            .map(|_| action)
+            .map_err(|e| format!("{e:#}"));
             let _ = sender.send(result);
         });
         Self {

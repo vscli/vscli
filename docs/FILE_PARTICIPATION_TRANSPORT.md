@@ -1,5 +1,10 @@
 # Native file-participant transport
 
+Current editor integration: [native file participants](NATIVE_FILE_PARTICIPANTS.md)
+now negotiate this boundary and connect preflight, policy, review and ordinary
+text application. The disabled-editor statements below describe the original
+transport-only milestone and its evidence, not the current App behavior.
+
 The optional host now has an opt-in native transport for create/rename/delete
 participants. `Prepared::with_file_participation()` negotiates the experimental
 boundary for native coordinator callers. It is exercised by real selected

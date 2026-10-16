@@ -2,12 +2,23 @@ use super::*;
 use crate::files::{Action, Job};
 impl App {
     pub(super) fn start_file_job(&mut self, action: Action) {
+        if self.workspace_transactions_pending()
+            || self.resource_models_pending()
+            || self.api_discard_occupied()
+        {
+            self.message = "Wait for pending document operations before changing file paths".into();
+            return;
+        }
         if self.saves_pending() {
             self.message = "Wait for pending saves before changing file paths".into();
             return;
         }
         if self.file_job.is_some() {
             self.message = "A file operation is already running".into();
+            return;
+        }
+        if self.file_participation_pending() {
+            self.message = "A file operation is awaiting extension edits".into();
             return;
         }
         if self
@@ -28,8 +39,9 @@ impl App {
             self.message = format!("File operation refused before disk changes: {error:#}");
             return;
         }
-        self.file_job = Some(Job::start(action));
-        self.message = "File operation running…".into();
+        if let Err(error) = self.begin_native_file_participation(action) {
+            self.message = format!("File operation could not start: {error:#}");
+        }
     }
     pub(super) fn refresh_files(&mut self) {
         self.entries = directory_entries(&self.explorer_dir);
@@ -44,6 +56,7 @@ impl App {
             return false;
         };
         self.file_job = None;
+        let participant_notice = self.take_file_participation_notice();
         match result {
             Err(error) => self.message = format!("File operation failed: {error}"),
             Ok(action) => {
@@ -109,6 +122,9 @@ impl App {
                 }
                 if let Some(error) = publication_error {
                     self.message = error;
+                }
+                if let Some(notice) = participant_notice {
+                    self.message = format!("{} · {notice}", self.message);
                 }
             }
         }

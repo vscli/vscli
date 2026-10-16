@@ -1,0 +1,8 @@
+{
+  "publisher": "fixture",
+  "name": "native-participants",
+  "version": "1.0.0",
+  "main": "main.cjs",
+  "engines": { "vscode": "*" },
+  "activationEvents": ["*"]
+}
