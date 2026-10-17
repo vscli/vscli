@@ -1,0 +1,58 @@
+{
+  "schema": "vscli-long-profile-path-validation-v1",
+  "base_commit": "417a83d2711e0fbd5e5fca4e3cc2273b143a1801",
+  "scope": "Welcome settings-path rendering only: forced grapheme wrapping and explicit leading elision beyond two rows. Existing native path and settings identity are retained.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1694,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "719f1f3850887e3ddbe34500c2a8a4b28d27d84b23fe433e6e2cdff335330d05"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "9bd4056d92217b56524d4c8130457a50db72752870be75e7fba564e5f1645bb4"
+  },
+  "checks": [
+    {
+      "command": "cargo test --locked --lib ui::welcome",
+      "passed": 3,
+      "failed": 0,
+      "log": "/tmp/vscli-long-profile-path-tests.log"
+    },
+    {
+      "command": "python3 tests/welcome_brand_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "failed": 0,
+      "log": "/tmp/vscli-long-profile-path-pty.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-long-profile-path-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-long-profile-path-build.log"
+    }
+  ],
+  "qualification": "Focused Linux UI/PTY checks. Prior full regression retains its own source receipt; actual macOS/Windows GitHub checks remain required."
+}

@@ -51,3 +51,12 @@ Local checks and exact source/binary identity are recorded in
 [release-check repair receipts](validation/migration-release-checks.json). Actual
 macOS/Windows and required exact-head GitHub results remain separate gates; local
 alias coverage does not establish those platforms' release qualification.
+
+At `417a83d`, the real protocol job and all three dedicated stable-save captures
+pass. The macOS library run reaches 1,268 passing tests and one welcome assertion:
+a long unbroken settings path is omitted by word wrapping. Welcome now wraps
+literal paths by grapheme/cell width and explicitly elides the beginning beyond
+two rows, keeping the settings filename visible. Three native welcome controls,
+two terminal journeys, formatting and strict Clippy pass locally; see
+[focused path-rendering evidence](validation/long-profile-path.json). This follow-up
+does not qualify the separately failing Windows native path/URI boundary.

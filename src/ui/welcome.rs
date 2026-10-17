@@ -1,5 +1,6 @@
 //! Responsive native welcome page; image preparation lives in `brand`.
 use super::*;
+use ratatui::text::Text;
 use std::path::{Path, PathBuf};
 use unicode_width::UnicodeWidthStr;
 
@@ -32,6 +33,25 @@ fn recent_parent_label(parent: &Path, workspace: &Path, width: u16) -> String {
         start = index;
     }
     format!("…{}", &text[start..])
+}
+
+fn literal_path_lines(text: &str, width: u16) -> Text<'static> {
+    if width == 0 {
+        return Text::default();
+    }
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    let mut used = 0;
+    for grapheme in text.graphemes(true) {
+        if used + grapheme.width() > usize::from(width) {
+            lines.push(Line::raw(std::mem::take(&mut line)));
+            used = 0;
+        }
+        line.push_str(grapheme);
+        used += grapheme.width();
+    }
+    lines.push(Line::raw(line));
+    Text::from(lines)
 }
 
 pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -189,16 +209,21 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
         if y + 5 <= area.bottom() {
             let user = app.user_settings_path().map_or_else(
                 || "Unavailable · use --settings PATH".into(),
-                |path| clean(&path.to_string_lossy()),
+                |path| {
+                    recent_parent_label(
+                        &path,
+                        Path::new("."),
+                        width.saturating_mul(2).saturating_sub(2),
+                    )
+                },
             );
             frame.render_widget(
                 Paragraph::new("User settings · JSON").style(Style::default().fg(colors.muted)),
                 Rect::new(content.x, y + 1, width, 1),
             );
             frame.render_widget(
-                Paragraph::new(user)
-                    .style(Style::default().fg(colors.foreground))
-                    .wrap(Wrap { trim: false }),
+                Paragraph::new(literal_path_lines(&user, width))
+                    .style(Style::default().fg(colors.foreground)),
                 Rect::new(content.x, y + 2, width, 2),
             );
             frame.render_widget(
@@ -260,6 +285,34 @@ mod tests {
         assert!(
             !recent_parent_label(Path::new("\x1bhidden\nright"), &workspace, 30).contains('\x1b')
         );
+    }
+
+    #[test]
+    fn long_unbroken_profile_path_keeps_the_settings_filename_visible() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        let settings = app
+            .workspace
+            .root
+            .join("profile".repeat(30))
+            .join("settings.json");
+        app.configure_settings(Some(settings.clone())).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(150, 38)).unwrap();
+        terminal
+            .draw(|frame| super::super::draw(frame, &mut app))
+            .unwrap();
+        let compact: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .flat_map(|cell| cell.symbol().chars())
+            .filter(|character| !character.is_whitespace())
+            .collect();
+        assert!(compact.contains("…"));
+        assert!(compact.contains("settings.json"));
+        assert_eq!(app.user_settings_path(), Some(settings));
+        assert!(app.documents.is_empty());
     }
 
     #[test]
