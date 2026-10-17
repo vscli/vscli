@@ -64,6 +64,39 @@ for (const kind of ['file','snippet','notebook','eol','annotation','outside']) t
   assert.equal(await f.api.applyEdit(value),false); assert.equal(f.calls.length,0); assert.equal(f.notices.length,1);
   assert.equal(value.get(a)[0].newText,'λ');
 });
+test('negotiated EOL requests retain original order with ordinary and compound text edits', async () => {
+  const f=fixture(); f.model.endOfLineEdits=true;
+  const value=new WorkspaceEdit();
+  value.set(a,[TextEdit.setEndOfLine(1),TextEdit.insert(new Position(0,1),'first\n'),
+    Object.assign(TextEdit.replace(range(),'compound\r\n'),{newEol:2}),TextEdit.setEndOfLine(1)]);
+  value.set(b,[TextEdit.setEndOfLine(2)]);
+  assert.equal(await f.api.applyEdit(value),true);
+  const entries=f.calls[0][2].entries;
+  assert.deepEqual(entries.map(entry=>entry.document),[1,2]);
+  assert.deepEqual(entries[0].edits.map(edit=>edit.newEol),[1,undefined,2,1]);
+  assert.deepEqual(entries[0].edits.map(edit=>edit.newText),['','first\n','compound\r\n','']);
+  assert.equal(entries[1].edits[0].newEol,2);
+});
+for(const invalid of [0,3,-1,1.5,null,false,'1',NaN]) test(`negotiated invalid EOL ${String(invalid)} refuses before dispatch`,async()=>{
+  const f=fixture(); f.model.endOfLineEdits=true;
+  const value=edit(); value.set(b,[{range:range(),newText:'',newEol:invalid}]);
+  await assert.rejects(f.api.applyEdit(value),/EndOfLine/);
+  assert.equal(f.calls.length,0);
+});
+for(const mutation of ['lease','version','identity','configuration','edit']) test(`EOL getter ${mutation} cannot renew original authority`,async()=>{
+  const f=fixture(); f.model.endOfLineEdits=true;
+  const value=new WorkspaceEdit();
+  value.set(a,[{range:range(),newText:'',get newEol(){
+    if(mutation==='lease')f.retire();
+    if(mutation==='version')f.mirrors.get(1).version++;
+    if(mutation==='identity')f.mirrors.get(1).model={};
+    if(mutation==='configuration')f.settings();
+    if(mutation==='edit')value.set(b,[TextEdit.setEndOfLine(2)]);
+    return 1;
+  }}]);
+  await assert.rejects(f.api.applyEdit(value),/retired|changed/);
+  assert.equal(f.calls.length,0);
+});
 test('one-resource refactoring accepts default and enabled policy without requesting autosave', async () => {
   const f=fixture(); let count=0;
   assert.equal(await f.api.applyEdit(edit(),{get isRefactoring(){count++;return true;}}),true);

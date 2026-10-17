@@ -140,6 +140,37 @@ fn unopened_file_is_a_real_hidden_dirty_model_in_atomic_grouped_history() {
 }
 
 #[test]
+fn unopened_eol_conversion_has_native_receipts_hidden_history_and_unchanged_disk() {
+    let mut fixture = Fixture::new();
+    let mut entries = fixture.entries();
+    entries[0]["edits"][0]["newEol"] = json!(1);
+    entries[1]["edits"][0]["newEol"] = json!(1);
+    let mut capture = fixture.capture(entries);
+    Arc::get_mut(&mut capture).unwrap().target_receipts = true;
+    let result = fixture.apply(capture);
+    assert!(result.applied, "{:?}", result.reason);
+    assert_eq!(fixture.app.doc().text.to_string(), "α😀 X\n");
+    assert_eq!(fixture.hidden().text.to_string(), "猫 Y\n");
+    let hidden_id = fixture.hidden().id;
+    assert!(
+        result
+            .targets
+            .iter()
+            .any(|receipt| receipt.document == hidden_id
+                && receipt.uri == crate::lsp::file_uri(&fixture.unopened).unwrap())
+    );
+    assert_eq!(fixture.hidden().eol, "\n");
+    fixture.app.undo_editor();
+    assert_eq!(fixture.app.doc().text.to_string(), ORIGINAL);
+    assert_eq!(fixture.hidden().text.to_string(), UNOPENED);
+    assert_eq!(fixture.hidden().eol, "\r\n");
+    fixture.app.redo_editor();
+    assert_eq!(fixture.hidden().text.to_string(), "猫 Y\n");
+    assert_eq!(fixture.hidden().id, hidden_id);
+    fixture.unchanged_disks();
+}
+
+#[test]
 fn late_retained_source_change_refuses_new_model_and_keeps_native_history() {
     let mut fixture = Fixture::new();
     let capture = fixture.capture(fixture.entries());

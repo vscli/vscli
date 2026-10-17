@@ -19,7 +19,7 @@ EDITED_A = 'edit ' + A
 EDITED_B = 'cohort ' + B
 
 
-def fixture(root):
+def fixture(root, eol=False):
     extension = root / 'extension'
     extension.mkdir()
     operations = ('apply', 'undo', 'redo', 'save')
@@ -34,10 +34,12 @@ def fixture(root):
     }), encoding='utf-8')
     (extension / 'extension.cjs').write_text(r"""
 const v=require('vscode'),assert=require('node:assert/strict');
+const useEol=USE_EOL;
 exports.activate=c=>{
  const a=v.window.activeTextEditor.document;
  const originalA='猫🙂 A\r\nlast\r\n',originalB='β🙂 B\r\n';
- const editedA='edit '+originalA,editedB='cohort '+originalB;
+ const final=text=>useEol?text.replaceAll('\r\n','\n'):text;
+ const editedA=final('edit '+originalA),editedB=final('cohort '+originalB);
  let b,applying=false,changesA=0,changesB=0,saved=0,mirrorFailure;
  const register=(name,callback)=>c.subscriptions.push(v.commands.registerCommand('cohort.'+name,callback));
  function identity(){
@@ -67,22 +69,33 @@ exports.activate=c=>{
   assert.equal(v.workspace.getConfiguration('files').get('refactoring.autoSave'),false);
   const versionA=a.version,versionB=b.version;changesA=0;changesB=0;applying=true;
   const edit=new v.WorkspaceEdit();
-  edit.insert(a.uri,new v.Position(0,0),'edit ');
-  edit.insert(b.uri,new v.Position(0,0),'cohort ');
+  if(useEol){
+   edit.set(a.uri,[v.TextEdit.setEndOfLine(v.EndOfLine.CRLF),
+    v.TextEdit.insert(new v.Position(0,0),'edit '),v.TextEdit.setEndOfLine(v.EndOfLine.LF)]);
+   edit.set(b.uri,[v.TextEdit.insert(new v.Position(0,0),'cohort '),v.TextEdit.setEndOfLine(v.EndOfLine.LF)]);
+  }else{
+   edit.insert(a.uri,new v.Position(0,0),'edit ');
+   edit.insert(b.uri,new v.Position(0,0),'cohort ');
+  }
   const result=await v.workspace.applyEdit(edit,{isRefactoring:true});
   assert.equal(result,true);text(editedA,editedB);
   assert.equal(mirrorFailure,undefined,'atomic target mirrors failed inside a pre-ack change callback');
   assert.equal(changesA,1);assert.equal(changesB,1);
   assert(a.version>versionA);assert(b.version>versionB);assert(a.isDirty);assert(b.isDirty);
+  assert.equal(a.eol,useEol?v.EndOfLine.LF:v.EndOfLine.CRLF);
+  assert.equal(b.eol,useEol?v.EndOfLine.LF:v.EndOfLine.CRLF);
   applying=false;
   await v.window.showInformationMessage('API apply true;events=2;hidden=true');
  });
  register('undo',()=>{
   text(originalA,originalB);assert.equal(a.isDirty,false);assert.equal(b.isDirty,false);
+  assert.equal(a.eol,v.EndOfLine.CRLF);assert.equal(b.eol,v.EndOfLine.CRLF);
   return v.window.showInformationMessage('API grouped undo;identity=true');
  });
  register('redo',()=>{
   text(editedA,editedB);assert(a.isDirty);assert(b.isDirty);
+  assert.equal(a.eol,useEol?v.EndOfLine.LF:v.EndOfLine.CRLF);
+  assert.equal(b.eol,useEol?v.EndOfLine.LF:v.EndOfLine.CRLF);
   return v.window.showInformationMessage('API grouped redo;identity=true');
  });
  register('save',async()=>{
@@ -94,7 +107,7 @@ exports.activate=c=>{
   await v.window.showInformationMessage('API saved A+B;events=2;identity=true');
  });
 };
-""", encoding='utf-8')
+""".replace('USE_EOL', 'true' if eol else 'false'), encoding='utf-8')
     config = root / 'config'
     config.mkdir()
     (config / 'settings.json').write_text(json.dumps({
@@ -113,8 +126,8 @@ def unchanged(a, b):
     assert b.read_bytes() == B.encode('utf-8'), 'Workspace edit/Undo/Redo unexpectedly persisted hidden B'
 
 
-def run(root):
-    extension, config, node = fixture(root)
+def run(root, eol=False):
+    extension, config, node = fixture(root, eol)
     a, b = root / 'a.txt', root / 'b.txt'
     a.write_bytes(A.encode('utf-8'))
     b.write_bytes(B.encode('utf-8'))
@@ -139,11 +152,17 @@ def run(root):
 
     def persisted():
         app.read()
-        return (a.read_bytes() == EDITED_A.encode('utf-8')
-                and b.read_bytes() == EDITED_B.encode('utf-8'))
+        expected_a = EDITED_A.replace('\r\n', '\n') if eol else EDITED_A
+        expected_b = EDITED_B.replace('\r\n', '\n') if eol else EDITED_B
+        return (a.read_bytes() == expected_a.encode('utf-8')
+                and b.read_bytes() == expected_b.encode('utf-8'))
 
     eventually(persisted, timeout=8)
     app.finish()
+    if eol:
+        print('PASS: negotiated public EOL after text, last EOL wins, pre-ack mirrors/events, '
+              'hidden model identity, grouped CRLF/LF Undo/Redo and actual LF disk saves')
+        return
     print('PASS: public refactoring ApplyEdit publishes both mirrors/events before true, '
           'retains hidden identity and Unicode CRLF disks, groups original Undo/Redo, '
           'then both actual public saves publish didSave before true')
@@ -152,7 +171,7 @@ def run(root):
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='vscli-workspace-apply-api-') as directory:
         try:
-            run(Path(directory).resolve())
+            run(Path(directory).resolve(), eol='--eol' in sys.argv[1:])
         finally:
             failed = sys.exc_info()[0] is not None
             errors = []

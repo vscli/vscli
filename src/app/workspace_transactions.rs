@@ -112,6 +112,7 @@ struct Input {
     uri: String,
     target: Target,
     edits: Vec<WireEdit>,
+    eol: Option<&'static str>,
 }
 #[derive(Clone)]
 pub(crate) struct CaptureContext {
@@ -518,15 +519,27 @@ pub(crate) fn capture_workspace_transaction(
             .context("Workspace edit count overflow")?;
         ensure!(count <= MAX_EDITS, "Workspace exceeds 4096 edits");
         let mut staged = Vec::new();
+        let mut eol = None;
         staged
             .try_reserve_exact(edits.len())
             .context("Workspace edit reservation refused")?;
         for edit in edits {
-            let edit = fields(
-                edit,
-                &["range", "newText"],
-                "Unsupported workspace TextEdit",
-            )?;
+            let edit = edit.as_object().context("Unsupported workspace TextEdit")?;
+            ensure!(
+                edit.contains_key("range")
+                    && edit.contains_key("newText")
+                    && edit
+                        .keys()
+                        .all(|key| matches!(key.as_str(), "range" | "newText" | "newEol")),
+                "Unsupported workspace TextEdit"
+            );
+            if let Some(value) = edit.get("newEol") {
+                eol = Some(match value.as_u64() {
+                    Some(1) => "\n",
+                    Some(2) => "\r\n",
+                    _ => anyhow::bail!("Invalid workspace EndOfLine value"),
+                });
+            }
             let range = fields(&edit["range"], &["start", "end"], "Invalid workspace range")?;
             let text = edit["newText"]
                 .as_str()
@@ -545,6 +558,7 @@ pub(crate) fn capture_workspace_transaction(
             uri: uri.to_owned(),
             target,
             edits: staged,
+            eol,
         });
     }
     ensure!(count != 0, "Empty workspace transaction");
@@ -1148,6 +1162,12 @@ fn prepare(capture: Arc<Capture>, cancel: &AtomicBool) -> Result<Prepared> {
                 capture.deadline,
             )?;
             expanded += replacement.len();
+            // TextEdit.setEndOfLine carries an empty 0:0 insertion. Upstream
+            // removes empty insertions before overlap checks; otherwise an EOL
+            // marker would incorrectly conflict with a replacement at 0:0.
+            if start == end && replacement.is_empty() {
+                continue;
+            }
             edits.push((start..end, replacement));
         }
         // Stable sort keeps original insertion order. Coalesce zero-width peers;
@@ -1176,7 +1196,11 @@ fn prepare(capture: Arc<Capture>, cancel: &AtomicBool) -> Result<Prepared> {
             }
             coalesced.push((range, text));
         }
-        items.push(source.prepare(coalesced, cancel, capture.deadline)?);
+        let mut item = source.prepare(coalesced, cancel, capture.deadline)?;
+        if let Some(eol) = input.eol {
+            item = item.with_eol(eol, cancel, capture.deadline)?;
+        }
+        items.push(item);
     }
     crate::document::workspace::guard(cancel, capture.deadline)?;
     Ok(Prepared {

@@ -41,7 +41,7 @@ impl WorkspaceHistoryGroup {
         members
             .try_reserve_exact(prepared.len())
             .context("Workspace history allocation refused")?;
-        for text in prepared.iter().filter(|text| !text.changes.is_empty()) {
+        for text in prepared.iter().filter(|text| text.changed()) {
             ensure!(
                 !members
                     .iter()
@@ -149,6 +149,7 @@ impl WorkspaceSource {
         if changed.is_empty() {
             return Ok(WorkspaceTextPrepared {
                 text: self.text.clone(),
+                eol: self.eol.clone(),
                 source: self,
                 changes: Vec::new(),
             });
@@ -207,6 +208,7 @@ impl WorkspaceSource {
         }
         guard(cancel, deadline)?;
         Ok(WorkspaceTextPrepared {
+            eol: self.eol.clone(),
             source: self,
             text,
             changes: positions,
@@ -230,11 +232,72 @@ pub(crate) fn guard(cancel: &AtomicBool, deadline: Instant) -> Result<()> {
 pub(crate) struct WorkspaceTextPrepared {
     source: WorkspaceSource,
     text: Rope,
+    eol: String,
     // Actual application order, from right to left; each byte range refers to
     // that intermediate source, exactly as ordinary native edit history does.
     changes: Vec<PositionChange>,
 }
 impl WorkspaceTextPrepared {
+    /// Bulk text applies replacements against the original EOL, then the last
+    /// requested EOL. Keep those physical scalar changes in execution order so
+    /// every shared view, decoration and Undo uses the same intermediate text.
+    /// This runs on the workspace worker, under the original request deadline.
+    pub(crate) fn with_eol(
+        mut self,
+        eol: &str,
+        cancel: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<Self> {
+        ensure!(matches!(eol, "\n" | "\r\n"), "Invalid workspace EOL");
+        guard(cancel, deadline)?;
+        if eol == self.eol {
+            return Ok(self);
+        }
+        let mut changes = Vec::new();
+        let mut chars = self.text.chars().enumerate().peekable();
+        while let Some((start, ch)) = chars.next() {
+            if start % 4096 == 0 {
+                guard(cancel, deadline)?;
+            }
+            if ch != '\r' && ch != '\n' {
+                continue;
+            }
+            let mut end = start + 1;
+            if ch == '\r' && chars.peek().is_some_and(|(_, ch)| *ch == '\n') {
+                chars.next();
+                end += 1;
+            }
+            if self.text.slice(start..end).chars().eq(eol.chars()) {
+                continue;
+            }
+            ensure!(
+                self.changes.len() + changes.len() + 1 < MAX_WORKSPACE_EDITS,
+                "Workspace EOL conversion exceeds 4096 scalar edits"
+            );
+            changes
+                .try_reserve(1)
+                .context("Workspace EOL reservation refused")?;
+            changes.push((start..end, eol.to_owned()));
+        }
+        let mut intermediate = self.source.clone();
+        intermediate.text = self.text;
+        let converted = intermediate.prepare(changes, cancel, deadline)?;
+        self.source
+            .epoch
+            .checked_add(self.changes.len() as u64 + converted.changes.len() as u64 + 1)
+            .context("Workspace EOL epoch exhausted")?;
+        self.source
+            .next_revision
+            .checked_add(1)
+            .context("Workspace EOL revision exhausted")?;
+        self.changes
+            .try_reserve_exact(converted.changes.len())
+            .context("Workspace EOL history reservation refused")?;
+        self.changes.extend(converted.changes);
+        self.text = converted.text;
+        self.eol = eol.to_owned();
+        Ok(self)
+    }
     pub(super) fn force_resource_markers(&mut self) {
         for change in &mut self.changes {
             change.decoration.force_move = true;
@@ -248,7 +311,7 @@ impl WorkspaceTextPrepared {
         self.source.document
     }
     pub(crate) fn changed(&self) -> bool {
-        !self.changes.is_empty()
+        !self.changes.is_empty() || self.eol != self.source.eol
     }
     pub(crate) fn bytes(&self) -> usize {
         self.text.len_bytes()
@@ -574,10 +637,12 @@ impl Document {
         self.next_revision
             .checked_add(1)
             .context("Workspace revision identity exhausted")?;
+        let eol_changed = self.eol != prepared.eol;
+        let count = prepared.changes.len() + usize::from(eol_changed);
         self.text_epoch
-            .checked_add(prepared.changes.len() as u64)
+            .checked_add(count as u64)
             .context("Workspace text epoch exhausted")?;
-        let metadata = self.workspace_metadata(prepared.changes.len(), available)?;
+        let metadata = self.workspace_metadata(count, available)?;
         self.undo
             .try_reserve(1)
             .context("Workspace Undo reservation refused")?;
@@ -595,7 +660,14 @@ impl Document {
                 change.map(view);
             }
         }
+        if eol_changed {
+            fork.record_byte_change(ByteChange {
+                range: 0..0,
+                added: 0,
+            });
+        }
         fork.text = prepared.text;
+        fork.eol = prepared.eol;
         fork.revision = self.next_revision;
         fork.next_revision = self.next_revision + 1;
         fork.observe_folding_selection();

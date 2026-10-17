@@ -1,0 +1,255 @@
+{
+  "schema": "vscli-stable-behavior-progress-v1",
+  "scope": "entire-stable",
+  "reference": "VS Code 1.141.0, commit 2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "rules": [
+    "Every pinned declaration and member/overload/type row appears in the generated report, including unassessed rows.",
+    "Unassessed is a tracking gap, not a claim that existing code is absent.",
+    "Passed criteria describe named local workflows under their documented bounds. They do not qualify a whole API.",
+    "Test totals are regression evidence, not API completion percentages. Never erase remaining contracts when landing a slice.",
+    "Frozen 1.141.0 audit artifacts remain unchanged. Reconcile prior implementations into this live ledger incrementally."
+  ],
+  "namespaces": [
+    "vscode.authentication",
+    "vscode.chat",
+    "vscode.commands",
+    "vscode.comments",
+    "vscode.debug",
+    "vscode.env",
+    "vscode.extensions",
+    "vscode.l10n",
+    "vscode.languages",
+    "vscode.lm",
+    "vscode.notebooks",
+    "vscode.scm",
+    "vscode.tasks",
+    "vscode.tests",
+    "vscode.window",
+    "vscode.workspace"
+  ],
+  "contracts": [
+    {
+      "id": "native-file-participants",
+      "api_ids": [
+        "vscode.workspace.onWillCreateFiles",
+        "vscode.workspace.onWillRenameFiles",
+        "vscode.workspace.onWillDeleteFiles",
+        "vscode.FileWillCreateEvent.waitUntil",
+        "vscode.FileWillRenameEvent.waitUntil",
+        "vscode.FileWillDeleteEvent.waitUntil"
+      ],
+      "criteria": [
+        {
+          "name": "Original file preflight precedes public callbacks",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-file-participants.json",
+              "needle": "1604"
+            }
+          ]
+        },
+        {
+          "name": "Reviewed ordinary-text contributions reach shared and hidden models before original file effects",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/NATIVE_FILE_PARTICIPANTS.md",
+              "needle": "Undo"
+            },
+            {
+              "file": "tests/file_participants_pty.py",
+              "needle": "PASS:"
+            }
+          ]
+        },
+        {
+          "name": "Timeout and Escape retain actual callback occupancy",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-file-participants.json",
+              "needle": "783"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Resource, snippet, notebook and EOL participant contributions",
+        "Bulk public-operation arbitration and file history",
+        "Upstream-runtime and other-platform qualification"
+      ]
+    },
+    {
+      "id": "workspace-eol-edits",
+      "api_ids": [
+        "vscode.workspace.applyEdit",
+        "vscode.WorkspaceEdit.set",
+        "vscode.TextEdit.setEndOfLine",
+        "vscode.TextEdit.newEol",
+        "vscode.TextDocument.eol",
+        "vscode.EndOfLine.LF",
+        "vscode.EndOfLine.CRLF"
+      ],
+      "criteria": [
+        {
+          "name": "Negotiated public conversion preserves ordinary, compound and EOL order",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "extension-host/workspace-edits.test.cjs",
+              "needle": "negotiated EOL requests retain original order"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Native text replacements precede the last EOL request",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn eol_after_text_last_request_wins"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Shared selections and native identity survive EOL Undo/Redo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn eol_conversion_maps_both_shared_reversed_selections"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "EOL-only changes without line breaks are versioned and affect future Enter",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn eol_only_without_line_breaks"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Same-EOL no-op preserves Redo and original native proofs",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn same_eol_request_is_no_op"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Unopened files use real hidden model receipts and grouped history",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/unopened_tests.rs",
+              "needle": "fn unopened_eol_conversion_has_native_receipts"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Stale replies and conversion bounds refuse the complete cohort",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn eol_held_worker_reply_refuses_target_edit_undo_aba"
+            },
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn excessive_eol_mapping_refuses_whole_cohort"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Actual terminal workflow observes final mirrors before true, grouped Undo/Redo and exact saved LF bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "tests/extension_workspace_edits_pty.py",
+              "needle": "PASS: negotiated public EOL after text"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "All other applyEdit edit kinds and annotation review",
+        "TextEditorEdit.setEndOfLine",
+        "Incremental change-event fidelity",
+        "Large EOL conversions beyond the bounded 4096 scalar/history steps",
+        "Exotic invalid-enum conversion behavior and upstream-runtime/platform qualification"
+      ],
+      "validation_receipt": "docs/validation/workspace-eol-edits.json"
+    },
+    {
+      "id": "ordered-resource-apply",
+      "api_ids": [
+        "vscode.workspace.applyEdit",
+        "vscode.WorkspaceEdit.createFile",
+        "vscode.WorkspaceEdit.renameFile",
+        "vscode.WorkspaceEdit.deleteFile"
+      ],
+      "criteria": [
+        {
+          "name": "Public create, edit, rename, edit, delete workflow with native model/events/history",
+          "state": "pending"
+        }
+      ],
+      "remaining": [
+        "Integrate prepared journals with actual native model lifetimes and complete private retired history/views",
+        "Conditional destination reuse and dirty source transfer",
+        "Ordered text/file groups, partial receipts and public Undo/Redo",
+        "Review annotations and negotiate the usable gateway",
+        "Trash, non-Linux, cross-volume and custom filesystem backends"
+      ]
+    }
+  ],
+  "next_batch": {
+    "name": "Ordered public resource edits (scope retained)",
+    "criteria": [
+      "Public create \u2192 text edit \u2192 rename \u2192 text edit \u2192 delete runs through the native ordered controller.",
+      "Original caller/model/resource/settings proofs authorize effects; annotation review and will-file participants run at the proper boundary.",
+      "Dirty shared/hidden models, conditional destination identity, retired history/views and recovery archives preserve unsaved work.",
+      "Mirrors and genuine operation events precede success; public Undo/Redo follows file-group semantics separately from internal rollback.",
+      "Malformed or unsupported late edit kinds never cause a silently applied supported prefix; partial physical failures have truthful receipts.",
+      "Named data-integrity tests, an actual public terminal journey, required formatting and strict Clippy pass on one recorded source/binary cohort."
+    ]
+  }
+}

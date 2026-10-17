@@ -19,7 +19,7 @@ worker loads unopened targets and publishes real hidden models in the same
 atomic cohort. Canonical aliases reuse original retained dirty models. Opening
 with `workspace.openTextDocument` also retains a hidden model without changing
 the active editor. Ordinary plain text edits change native buffers, preserving
-their EOL convention. Multi-resource refactoring metadata can additionally request
+their EOL convention unless an explicit EOL edit changes it. Multi-resource refactoring metadata can additionally request
 the [native save continuation](REFACTORING_SAVES_API.md); explicit
 `await document.save()` uses [native persistence](NATIVE_DOCUMENT_SAVE.md).
 Normal native autosave remains governed by its own settings.
@@ -31,6 +31,39 @@ refused and retains the other work; undo the independent edit first or keep the
 peer open. Confirmation dialogs and history splitting are not implemented.
 Nonempty no-op text transactions return true without consuming Redo or adding a
 history entry; an empty edit returns false.
+
+## End-of-line edits
+
+The negotiated public gateway accepts `TextEdit.setEndOfLine(EndOfLine.LF)` and
+`EndOfLine.CRLF`, including `newEol` on an ordinary text edit. For each resource,
+all replacements use the original EOL convention, then the last requested EOL
+converts the resulting buffer. This follows the pinned
+[bulk text application order](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/contrib/bulkEdit/browser/bulkTextEdits.ts).
+
+```javascript
+const edit = new vscode.WorkspaceEdit();
+edit.set(document.uri, [
+  vscode.TextEdit.insert(new vscode.Position(0, 0), 'header\n'),
+  vscode.TextEdit.setEndOfLine(vscode.EndOfLine.LF),
+]);
+await vscode.workspace.applyEdit(edit);
+```
+
+Conversion runs on the existing native worker, preserves shared and hidden
+document identity, maps shared selections and joins the same grouped Undo/Redo.
+It changes buffer bytes and `TextDocument.eol` before the public acknowledgement;
+the disk baseline stays unchanged until an actual save. An EOL-only change also
+advances the document version when the buffer contains no line breaks, setting
+the convention for future Enter input. Requesting the existing EOL is a no-op
+that preserves Redo. A source with mixed physical line endings is normalized when
+changing its EOL convention; requesting its existing convention leaves it intact.
+
+EOL conversion shares the existing 4,096 scalar/history-step and bounded view
+mapping limits, including ordinary replacements and the EOL metadata step. A
+larger conversion refuses the entire cohort without changing peers or history.
+This limit remains a full-API obligation. `TextEditorEdit.setEndOfLine`, EOL edits
+returned by file participants, exotic invalid-enum conversion, upstream-runtime
+comparison and other-platform qualification remain outstanding.
 
 Single-resource `{isRefactoring:true}` edits remain unsaved under default,
 enabled and disabled refactoring autosave settings. This follows the pinned
@@ -64,7 +97,7 @@ Invalid UTF-16 ranges, split surrogate pairs, overlapping replacements, duplicat
 target groups or changed targets refuse the whole transaction. Same-position
 insertions preserve their original order. No supported prefix of a mixed
 unsupported edit is applied. File operations, custom/virtual
-filesystem documents, snippets, EOL edits, annotations/confirmation metadata and
+filesystem documents, snippets, annotations/confirmation metadata and
 notebook edits still need native backends.
 
 Limits are 128 retained models/targets, 4,096 edits, 1 MiB raw replacement text,
@@ -84,6 +117,20 @@ Shutdown cancels and joins native preparation without detaching it or canceling
 an independently authorized disk save.
 
 ## Evidence and outstanding qualification
+
+The EOL checkpoint passes eight named criteria in the
+[live behavior ledger](extension-api/progress.json), with eight new native
+behavior cases and fourteen new host cases. The complete final source passes
+1,612 Rust tests across 67 reports (1,263 library; 23 ignored) and 797 host tests.
+The EOL terminal journey verifies last-EOL-wins, mirror/event-before-return,
+hidden identity, grouped CRLF/LF Undo/Redo and actual LF disk saves. The original
+text journey, four file-participant journeys and no-Node path/history journey
+also pass against the same binary. Formatting, strict locked Clippy, build,
+frozen-inventory verification and three live-ledger scope/evidence checks pass.
+[Validation receipts](validation/workspace-eol-edits.json) record source/binary
+digests, exact commands and the initial host capability-forwarding failure that
+was fixed before the successful final runs. This is local subset evidence;
+platform, upstream-runtime and complete API qualification stay open.
 
 Historical retained-text and rename qualification covers actual preparation,
 atomic publication, shared-view mapping, grouped history, original source proofs,

@@ -90,9 +90,10 @@ function createWorkspaceEdits(call, options, model) {
         if (!edit || typeof edit !== 'object') throw new TypeError('Invalid workspace text edit');
         const range = edit.range, newText = edit.newText, eol = edit.newEol,
           snippet = edit.snippet, annotation = edit.annotationId;
-        if (eol !== undefined || snippet !== undefined || annotation !== undefined) {
+        if (snippet !== undefined || annotation !== undefined || eol !== undefined && !model.endOfLineEdits) {
           unsupported ||= 'Snippet, end-of-line and annotated edits require a native backend'; continue;
         }
+        if (eol !== undefined && eol !== 1 && eol !== 2) throw new TypeError('Invalid workspace EndOfLine value');
         if (typeof newText !== 'string') throw new TypeError('Workspace edit text must be a string');
         if (newText.length > MAX_RAW - raw) throw new Error('Workspace edit text exceeds 1 MiB');
         if (/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(newText)) {
@@ -100,7 +101,7 @@ function createWorkspaceEdits(call, options, model) {
         }
         raw += Buffer.byteLength(newText);
         if (raw > MAX_RAW || ++count > MAX_EDITS) throw new Error('Workspace edit text or count exceeds budget');
-        const normalized = { range: coordinates.range(range, 'Workspace edit'), newText };
+        const normalized = { range: coordinates.range(range, 'Workspace edit'), newText, ...(eol !== undefined ? { newEol: eol } : {}) };
         let group = groups.get(key);
         if (!group) {
           if (groups.size >= MAX_TARGETS) throw new Error('Workspace edit targets exceed 128');

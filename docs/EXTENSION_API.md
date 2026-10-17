@@ -4,6 +4,24 @@ The entire public stable VS Code extension API is the current implementation
 priority. The [broad feature todo](FEATURE_TODO.md) remains the project backlog;
 CI repair and release qualification are deferred until after feature work.
 
+The [live behavior ledger](extension-api/progress.json) now retains the entire
+pinned inventory and names completion criteria, evidence and remaining obligations
+for each reconciled workflow. Run `python3 scripts/extension_api_progress.py` for
+the concise checkpoint report, or add `--json` for every declaration, overload,
+type and ambient row across all sixteen namespaces. Unassessed rows mean prior
+evidence has not yet been reconciled; they do not mean existing implementation
+is absent. Passed workflow criteria never automatically qualify a whole API.
+
+The latest delivered text capability is [public EOL edits](NATIVE_WORKSPACE_EDITS.md#end-of-line-edits).
+All eight named EOL workflow criteria pass locally: 1,612 Rust tests across 67
+reports (1,263 library; 23 ignored), 797 host tests, seven terminal journeys and
+three scope/evidence ledger controls. Required formatting and strict locked Clippy
+pass. [EOL validation receipts](validation/workspace-eol-edits.json) bind the final
+source/binary, commands, corrected capability forwarding and empty-marker cases.
+The ordered create/edit/rename/edit/delete batch retains all six explicit criteria
+in the live ledger and remains unfinished. Its native model/history integration
+is not replaced by this EOL checkpoint.
+
 The current [native file-participant slice](NATIVE_FILE_PARTICIPANTS.md) connects
 all three public will-file subscriptions to real Explorer preflight, configured
 timeout, interactive review and grouped ordinary-text application. It preserves

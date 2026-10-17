@@ -50,9 +50,11 @@ and undoes correctly. Build, formatting and strict Clippy
 pass. These checks qualify the documented subset only.
 
 Public `workspace.applyEdit` now routes retained-document text transactions
-through atomic native publication and grouped Undo/Redo; see
+and explicit EOL edits through atomic native publication and grouped Undo/Redo; see
 [native workspace edits](NATIVE_WORKSPACE_EDITS.md). File/notebook/snippet
-transactions, annotation confirmation and EOL Undo/persistence remain pending. Public object
+transactions and annotation confirmation remain pending. EOL Undo and actual
+persistence are available through this public gateway; code actions, F2 and
+TextEditorEdit retain their separately documented backend limits. Public object
 reflection, complete upstream runtime comparison and platform qualification also
 remain outstanding. No local VS Code instance is launched for these checks.
 

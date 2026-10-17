@@ -1,0 +1,130 @@
+{
+  "schema": "vscli-workspace-eol-validation-v1",
+  "base_commit": "be3ad1c114207e2b1910676d4eba53fb41376657",
+  "scope": "Public workspace.applyEdit ordinary/compound EOL edits within documented native bounds; not full API compatibility or ordered resource integration.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1673,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "fe7f5fd7a55c946500bde9825cfa9157ce93e44c432c9c93a24c7817aafcc699"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "58b26fdeea1d1850c74b04d3fd9150b4edb306de5c57418c0dbfa87d0d6bc70a"
+  },
+  "environment": {
+    "platform": "Linux-7.2.8-arch1-2-x86_64-with-glibc2.44",
+    "rust": "rustc 1.99.0 (b940084d7 2026-09-28) (Arch Linux rust 1:1.99.0-1)",
+    "node": "v26.10.0"
+  },
+  "source_reference": {
+    "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/contrib/bulkEdit/browser/bulkTextEdits.ts",
+    "sha256": "0e0135fdfbc0c6fa4783731ee153db14f2b6823aedd39a962c3c7ced7479d2d6",
+    "observation": "ModelEditTask.addEdit retains the last numeric EOL; apply pushes text operations before pushEOL."
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked -- --test-threads=2",
+      "passed": 1612,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 67,
+      "library_passed": 1263,
+      "log": "/tmp/vscli-eol-rust-tests-final.log"
+    },
+    {
+      "command": "node --test extension-host/*.test.cjs",
+      "passed": 797,
+      "failed": 0,
+      "log": "/tmp/vscli-eol-host-tests-final.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-eol-clippy-final.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-eol-build.log"
+    },
+    {
+      "command": "python3 -m unittest discover -s scripts -p test_extension_api_progress.py",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "command": "python3 docs/extension-api/1.141.0/scripts/verify.py",
+      "result": "passed; frozen inventory/provenance/manifest intact"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "terminal_commands": [
+    "python3 tests/extension_workspace_edits_pty.py target/debug/vscli --eol",
+    "python3 tests/extension_workspace_edits_pty.py target/debug/vscli",
+    "python3 tests/file_participants_pty.py target/debug/vscli",
+    "python3 tests/resource_lifetime_pty.py target/debug/vscli"
+  ],
+  "terminal_receipts": [
+    {
+      "log": "/tmp/vscli-eol-pty.log",
+      "results": [
+        "PASS: negotiated public EOL after text, last EOL wins, pre-ack mirrors/events, hidden model identity, grouped CRLF/LF Undo/Redo and actual LF disk saves"
+      ]
+    },
+    {
+      "log": "/tmp/vscli-eol-regression-pty-final.log",
+      "results": [
+        "PASS: public refactoring ApplyEdit publishes both mirrors/events before true, retains hidden identity and Unicode CRLF disks, groups original Undo/Redo, then both actual public saves publish didSave before true"
+      ]
+    },
+    {
+      "log": "/tmp/vscli-eol-participant-pty.log",
+      "results": [
+        "PASS: will-rename review and remember, shared hidden text before did event, grouped Undo/Redo, exact CRLF Save",
+        "PASS: confirmation forces native range preview; Escape skips contributions, original rename and dirty history survive",
+        "PASS: Escape cancels a held real callback, original rename continues, native editing and Save remain usable",
+        "PASS: native create/delete will events precede file effects, skipped contributions preserve dirty data, isolated trash"
+      ]
+    },
+    {
+      "log": "/tmp/vscli-eol-no-node-pty.log",
+      "results": [
+        "PASS: native Explorer F2 rename away/back, dirty Unicode CRLF, original Undo/Redo/Save, preserved disk baseline, missing Node and terminal restoration"
+      ]
+    }
+  ],
+  "iteration_findings": [
+    "The first terminal EOL attempt refused because host.cjs did not forward the negotiated capability. The forwarding fix is included and the final actual terminal journey passes.",
+    "Review found empty EOL markers could conflict with a real replacement at the same start. Empty insertions are now removed before overlap validation; a dedicated native behavior regression passes.",
+    "A broad run was started before those final fixes. It is not used as final-cohort qualification; the final full run above includes the corrected source."
+  ],
+  "unqualified": [
+    "Entire stable API",
+    "Ordered resource/text/snippet/notebook integration and public file history",
+    "EOL contributions from file participants and TextEditorEdit.setEndOfLine",
+    "Conversions exceeding native scalar/history/view-mapping bounds",
+    "Exotic invalid enum conversion and incremental event fidelity",
+    "Upstream-runtime comparison, unchanged extension corpus, Windows/macOS and CI status"
+  ]
+}

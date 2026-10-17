@@ -967,11 +967,13 @@ In the installed extensions picker, **e/d** enable or disable the selected packa
 
 Use `vscli --enable-extension publisher.name` to remember a global code grant without starting Node. `--disable-extension publisher.name --extension-scope workspace --workspace /path/to/project` writes a workspace override under the native user configuration root. Missing installed IDs and malformed existing state reject without replacing previous grants. These flags can be used without an interactive terminal.
 
-Selected extensions can use `workspace.applyEdit` for retained native text models,
-including hidden and untitled documents, with one grouped native Undo/Redo
-operation. Text transactions leave files untouched until saved. Refactoring
-metadata requires root `files.refactoring.autoSave: false` until that autosave
-backend is implemented. See [native workspace edits](NATIVE_WORKSPACE_EDITS.md)
+Selected extensions can use `workspace.applyEdit` for retained and unopened local
+text models, including hidden and untitled documents, with one grouped native
+Undo/Redo operation. `TextEdit.setEndOfLine` supports explicit LF/CRLF conversion
+after text replacements, preserving shared identity and selections. Plain text
+and EOL transactions leave files untouched until saved. Multi-resource refactoring
+metadata uses the root `files.refactoring.autoSave` policy and native save continuation.
+See [native workspace edits](NATIVE_WORKSPACE_EDITS.md)
 for limits, failure behavior and remaining edit backends.
 
 Selected extensions can register `workspace.registerTextDocumentContentProvider`

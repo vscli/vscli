@@ -155,6 +155,190 @@ impl Fixture {
 fn edit(sl: usize, sc: usize, el: usize, ec: usize, text: &str) -> Value {
     json!({"range":{"start":{"line":sl,"character":sc},"end":{"line":el,"character":ec}},"newText":text})
 }
+fn eol(value: u64) -> Value {
+    let mut edit = edit(0, 0, 0, 0, "");
+    edit["newEol"] = json!(value);
+    edit
+}
+
+#[test]
+fn eol_after_text_last_request_wins_and_group_history_keeps_identity_and_disk_baselines() {
+    let mut fixture = Fixture::new();
+    let (a, b) = (fixture.a_id, fixture.b_id);
+    let generation = fixture.model(a).save_generation();
+    let epoch = fixture.model(a).text_epoch();
+    let capture = fixture.capture(vec![
+        (a, json!([eol(2), edit(1, 0, 1, 4, "new\n猫"), eol(1)])),
+        (b, json!([eol(1)])),
+    ]);
+    let result = fixture.apply(capture);
+    assert!(result.applied, "{:?}", result.reason);
+    assert_eq!(fixture.model(a).text.to_string(), "α😀 A\nnew\n猫\n");
+    assert_eq!(fixture.model(b).text.to_string(), "猫 B\n");
+    assert_eq!(fixture.model(a).eol, "\n");
+    assert!(fixture.model(a).text_epoch() > epoch);
+    assert_eq!(fixture.model(a).save_generation(), generation);
+    fixture.unchanged_disks();
+    fixture.focus(b);
+    fixture.app.undo_editor();
+    assert_eq!(fixture.model(a).text.to_string(), A);
+    assert_eq!(fixture.model(b).text.to_string(), B);
+    assert_eq!(fixture.model(a).eol, "\r\n");
+    assert!(!fixture.model(a).dirty());
+    fixture.focus(a);
+    fixture.app.redo_editor();
+    assert_eq!(fixture.model(a).text.to_string(), "α😀 A\nnew\n猫\n");
+    assert_eq!(fixture.model(b).text.to_string(), "猫 B\n");
+    assert_eq!(fixture.model(a).id, a);
+    assert_eq!(fixture.model(b).id, b);
+    fixture.unchanged_disks();
+}
+
+#[test]
+fn eol_marker_at_zero_does_not_conflict_with_a_real_replacement_at_zero() {
+    let mut fixture = Fixture::new();
+    let capture = fixture.capture(vec![(
+        fixture.a_id,
+        json!([eol(1), edit(0, 0, 0, 4, "changed"), eol(1)]),
+    )]);
+    let result = fixture.apply(capture);
+    assert!(result.applied, "{:?}", result.reason);
+    assert_eq!(fixture.app.doc().text.to_string(), "changedA\nnext\n");
+    fixture.app.undo_editor();
+    assert_eq!(fixture.app.doc().text.to_string(), A);
+    fixture.app.redo_editor();
+    assert_eq!(fixture.app.doc().text.to_string(), "changedA\nnext\n");
+    fixture.unchanged_disks();
+}
+
+#[test]
+fn eol_conversion_maps_both_shared_reversed_selections_and_undo_redo() {
+    let mut fixture = Fixture::new();
+    let a = fixture.a_id;
+    fixture
+        .app
+        .execute("workbench.action.splitEditor", Value::Null);
+    let first = fixture.app.panes.first().unwrap().id;
+    let second = fixture.app.panes.last().unwrap().id;
+    fixture.model_mut(a).activate_view(first);
+    fixture.model_mut(a).set_selections(vec![Selection {
+        cursor: 8,
+        anchor: Some(3),
+        desired_column: None,
+    }]);
+    fixture.model_mut(a).activate_view(second);
+    fixture.model_mut(a).set_selections(vec![Selection {
+        cursor: 3,
+        anchor: Some(8),
+        desired_column: None,
+    }]);
+    let capture = fixture.capture(vec![(a, json!([eol(1)]))]);
+    assert!(fixture.apply(capture).applied);
+    assert_eq!(fixture.model(a).view_state(Some(first)).cursor, 7);
+    assert_eq!(fixture.model(a).view_state(Some(first)).anchor, Some(3));
+    assert_eq!(fixture.model(a).view_state(Some(second)).cursor, 3);
+    assert_eq!(fixture.model(a).view_state(Some(second)).anchor, Some(7));
+    fixture.app.undo_editor();
+    assert_eq!(fixture.model(a).view_state(Some(first)).cursor, 8);
+    assert_eq!(fixture.model(a).view_state(Some(second)).anchor, Some(8));
+    fixture.app.redo_editor();
+    assert_eq!(fixture.model(a).view_state(Some(first)).cursor, 7);
+    assert_eq!(fixture.model(a).view_state(Some(second)).anchor, Some(7));
+    fixture.unchanged_disks();
+}
+
+#[test]
+fn eol_only_without_line_breaks_is_versioned_and_changes_future_enter_with_grouped_history() {
+    let mut fixture = Fixture::new();
+    let a = fixture.a_id;
+    fixture.model_mut(a).text = ropey::Rope::from_str("no breaks");
+    fixture.model_mut(a).eol = "\n".into();
+    let epoch = fixture.model(a).text_epoch();
+    let capture = fixture.capture(vec![(a, json!([eol(2)]))]);
+    assert!(fixture.apply(capture).applied);
+    assert_eq!(fixture.model(a).text.to_string(), "no breaks");
+    assert!(fixture.model(a).text_epoch() > epoch);
+    assert_eq!(fixture.model(a).eol, "\r\n");
+    fixture.app.doc_mut().cursor = fixture.app.doc().text.len_chars();
+    fixture.app.doc_mut().newline();
+    assert_eq!(fixture.model(a).text.to_string(), "no breaks\r\n");
+    fixture.app.undo_editor();
+    fixture.app.undo_editor();
+    assert_eq!(fixture.model(a).text.to_string(), "no breaks");
+    assert_eq!(fixture.model(a).eol, "\n");
+    fixture.app.redo_editor();
+    assert_eq!(fixture.model(a).eol, "\r\n");
+    fixture.unchanged_disks();
+}
+
+#[test]
+fn same_eol_request_is_no_op_and_preserves_native_redo_and_source_proof() {
+    let mut fixture = Fixture::new();
+    fixture.app.doc_mut().insert("temporary", false);
+    fixture.app.undo_editor();
+    let source = fixture.app.doc().capture_workspace_source().unwrap();
+    let capture = fixture.capture(vec![(fixture.a_id, json!([eol(2)]))]);
+    assert!(fixture.apply(capture).applied);
+    assert!(source.current(fixture.app.doc()));
+    fixture.app.redo_editor();
+    assert_eq!(fixture.app.doc().text.to_string(), format!("temporary{A}"));
+    fixture.unchanged_disks();
+}
+
+#[test]
+fn excessive_eol_mapping_refuses_whole_cohort_and_retains_original_dirty_work_and_history() {
+    let mut fixture = Fixture::new();
+    let b = fixture.b_id;
+    fixture.model_mut(b).insert(&"line\n".repeat(4096), false);
+    fixture.model_mut(b).eol = "\n".into();
+    let a_source = fixture
+        .model(fixture.a_id)
+        .capture_workspace_source()
+        .unwrap();
+    let b_source = fixture.model(b).capture_workspace_source().unwrap();
+    let capture = fixture.capture(vec![
+        (fixture.a_id, json!([edit(0, 0, 0, 0, "must not apply")])),
+        (b, json!([eol(2)])),
+    ]);
+    let result = fixture.apply(capture);
+    assert!(!result.applied);
+    assert!(result.reason.unwrap().contains("4096"));
+    assert!(a_source.current(fixture.model(fixture.a_id)));
+    assert!(b_source.current(fixture.model(b)));
+    fixture.unchanged_disks();
+}
+
+#[test]
+fn eol_held_worker_reply_refuses_target_edit_undo_aba_and_preserves_both_redo_heads() {
+    let mut fixture = Fixture::new();
+    let capture = fixture.capture(vec![
+        (fixture.a_id, json!([eol(1)])),
+        (fixture.b_id, json!([eol(1)])),
+    ]);
+    let (entered, release) = fixture.gates(vec![GatePoint::AfterReply]);
+    let token = fixture.start(capture);
+    assert_eq!(entered.recv_timeout(WAIT).unwrap(), GatePoint::AfterReply);
+    fixture.model_mut(fixture.b_id).insert("temporary", false);
+    fixture.model_mut(fixture.b_id).undo();
+    let a_source = fixture
+        .model(fixture.a_id)
+        .capture_workspace_source()
+        .unwrap();
+    let b_source = fixture
+        .model(fixture.b_id)
+        .capture_workspace_source()
+        .unwrap();
+    release.send(()).unwrap();
+    assert!(!fixture.finish(token).applied);
+    assert!(a_source.current(fixture.model(fixture.a_id)));
+    assert!(b_source.current(fixture.model(fixture.b_id)));
+    fixture.model_mut(fixture.b_id).redo();
+    assert_eq!(
+        fixture.model(fixture.b_id).text.to_string(),
+        format!("temporary{B}")
+    );
+    fixture.unchanged_disks();
+}
 fn until(app: &mut App, phase: &str, condition: impl Fn(&App) -> bool) {
     let deadline = Instant::now() + WAIT;
     while !condition(app) {

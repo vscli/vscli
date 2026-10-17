@@ -6,6 +6,12 @@ a claim that any whole category is complete.
 
 ## Current priority: the entire extension API
 
+The [live behavior ledger](extension-api/progress.json) and
+`python3 scripts/extension_api_progress.py --json` retain every stable inventory
+row while reporting named workflow criteria. New EOL workspace edits connect to
+the native worker, shared history and persistence; resource create/rename/delete
+integration remains the next full batch with unchanged acceptance criteria.
+
 Implement the full public stable VS Code extension API with matching observable
 behavior: signatures, overloads, returned values, object identity, events,
 cancellation, errors, disposal, persistence and document-version protection.
@@ -34,7 +40,7 @@ with `workspace.findFiles`,
 public document saves and retained-document text
 `workspace.applyEdit` now reach actual native workers, with shared mirrors/events
 before success and grouped workspace Undo/Redo. Next edit backends include unopened
-resources, file create/rename/delete, snippets, EOL changes, annotations and
+resources, file create/rename/delete, snippets, annotations and
 notebooks; the remaining API order above is unchanged. See
 [native workspace edits](NATIVE_WORKSPACE_EDITS.md) and
 [file discovery](NATIVE_FILE_SEARCH.md) and [watchers](FILE_WATCHERS_API.md). A milestone advances a named

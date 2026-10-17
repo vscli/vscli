@@ -459,7 +459,9 @@ native application. Default multi-resource text refactorings now use a
 [native save continuation](REFACTORING_SAVES_API.md) under the exact-true root
 policy, including actual hidden LSP participants and owned Save As transitions.
 Post-publication save failure retains applied edits and successful peer commits
-with a warning. Resource/snippet/EOL/annotation/notebook apply backends and
+with a warning. Public workspace EOL edits now share native worker preparation,
+identity, grouped Undo/Redo and save behavior; conversion remains bounded to 4,096
+scalar/history steps. Resource/snippet/annotation/notebook apply backends and
 extension save participants remain unfinished; full rename/API parity is not
 claimed. Current save-continuation evidence is 719 host and 1,389 Rust all-target tests
 passing across 67 reports (1,040 library tests; 23 ignored cases grant no
