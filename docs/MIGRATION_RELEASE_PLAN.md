@@ -229,3 +229,11 @@ no-Node portable built-in/profile/shortcut/theme/save-Undo terminal journey.
 The 1,670-test native cohort, formatting and strict Clippy pass. Actual other-platform
 installations, exported profiles, full personal workflows and the whole stable API
 remain open. [Evidence](validation/portable-profile.json).
+
+Public editor EOL repair passes **4/4 local criteria**, with 1,671 passing native
+tests, 816 host tests, four unchanged pinned Sort Lines controls and a real
+Unicode/CRLF edit/save/Undo terminal journey. Complete failure collection exposed
+all three Windows native failures in two binaries at `4e7017f`; a public/native
+buffer mismatch was reproduced and corrected, while a five-second test watchdog
+receives a bounded test-only repair. Fresh Windows results and the entire stable
+API remain required. [Evidence](validation/editor-edit-eol.json).

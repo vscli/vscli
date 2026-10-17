@@ -509,6 +509,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         }
         const capturedSource = documentMirrorRecords.get(document), version = capturedSource.version;
         const edits = [];
+        let editBytes = 0;
         let valid = true;
         const validatePosition = value => {
           const point = coordinates.position(value, 'Edit');
@@ -523,6 +524,12 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           if (!valid) throw new Error('TextEditorEdit is only valid during its callback');
           if (typeof newText !== 'string') throw new TypeError('Edit text must be a string');
           if (edits.length >= 4096) throw new Error('Extension edit count limit exceeded');
+          // Match model edit operations before crossing into native input. The
+          // private captured EOL is authoritative, never public document fields.
+          if (Buffer.byteLength(newText, 'utf8') > 8 * 1024 * 1024) throw new Error('Extension edit input exceeds 8 MiB');
+          newText = newText.replace(/\r\n|\r|\n/g, capturedSource.eol === 2 ? '\r\n' : '\n');
+          editBytes += Buffer.byteLength(newText, 'utf8');
+          if (editBytes > 4 * 1024 * 1024) throw new Error('Normalized extension edits exceed the 4 MiB mirror budget');
           edits.push({ range: coordinates.range(range, 'Edit'), newText, ...(forceMoveMarkers ? {forceMoveMarkers:true} : {}) });
         };
         const builder = supported('TextEditorEdit', {

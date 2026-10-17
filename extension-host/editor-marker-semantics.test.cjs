@@ -86,3 +86,19 @@ test('accepted marker edit ACK cannot reacquire a retired original caller lease'
   await rejected;
   assert.equal(f.calls.length, 1);
 });
+
+test('public edits normalize all delimiters using private captured EOL before native dispatch', async () => {
+  for (const eol of [1, 2]) {
+    const f=fixture();f.document.eol=eol;f.document.version++;f.sync();
+    // Public metadata cannot replace the original native delimiter contract.
+    f.editor.document._snapshot={eol:eol===1?2:1};
+    const completion=f.editor.edit(builder=>builder.insert(new Position(0,0),'α\nβ\rγ\r\n'));
+    assert.equal(f.calls.length,1);assert.equal(f.calls[0].params.edits[0].newText,eol===2?'α\r\nβ\r\nγ\r\n':'α\nβ\nγ\n');
+    assert.equal(f.calls[0].params.edits[0].forceMoveMarkers,true);f.receipt.resolve({applied:true});assert.equal(await completion,true);
+  }
+});
+test('CRLF expansion exceeding the native mirror budget rejects before any native edit request',async()=>{
+  const f=fixture();const original=f.editor.document.getText();
+  await assert.rejects(f.editor.edit(builder=>builder.insert(new Position(0,0),'\n'.repeat(2*1024*1024+1))),/4 MiB mirror budget/);
+  assert.equal(f.calls.length,0);assert.equal(f.editor.document.getText(),original);
+});

@@ -9,7 +9,9 @@ use std::{
 
 const ORIGINAL_A: &str = "猫🙂 A base\r\nlast\r\n";
 const ORIGINAL_B: &str = "B λ unchanged\r\n";
-const WAIT: Duration = Duration::from_secs(5);
+// Test-only scheduling watchdog; actual save barriers and byte/history proofs
+// remain required. Native persistence has its independent production deadlines.
+const WAIT: Duration = Duration::from_secs(30);
 
 struct Fixture {
     _directory: tempfile::TempDir,

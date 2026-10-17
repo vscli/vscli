@@ -490,6 +490,62 @@
         "Whole stable API and fresh exact-head platform/release checks"
       ],
       "validation_receipt": "docs/validation/default-manifest-labels.json"
+    },
+    {
+      "id": "editor-edit-eol-normalization",
+      "api_ids": [
+        "vscode.TextEditor.edit",
+        "vscode.TextEditorEdit.insert",
+        "vscode.TextEditorEdit.replace"
+      ],
+      "criteria": [
+        {
+          "name": "Public multiline editor edits normalize using private original EOL before native dispatch",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-edit-eol.json",
+              "needle": "Public multiline editor edits normalize using private original EOL before native dispatch"
+            }
+          ]
+        },
+        {
+          "name": "Raw/expanded text bounds and public metadata tampering reject without partial native work",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-edit-eol.json",
+              "needle": "Raw/expanded text bounds and public metadata tampering reject without partial native work"
+            }
+          ]
+        },
+        {
+          "name": "Actual native model, exact save bytes, shared identity and Undo agree with public CRLF text",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-edit-eol.json",
+              "needle": "Actual native model, exact save bytes, shared identity and Undo agree with public CRLF text"
+            }
+          ]
+        },
+        {
+          "name": "Unchanged pinned Sort Lines, full native/host regressions, terminal integrity and required style checks retain source evidence",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-edit-eol.json",
+              "needle": "Unchanged pinned Sort Lines, full native/host regressions, terminal integrity and required style checks retain source evidence"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "TextEditorEdit.setEndOfLine, nondefault undo-stop options and remaining edit-builder contracts",
+        "Direct private transport/bypass contracts, unpaired UTF-16 and broader mixed-source EOL behavior",
+        "Actual Windows repair-head CI, personal code workflows, full stable API and release qualification"
+      ],
+      "validation_receipt": "docs/validation/editor-edit-eol.json"
     }
   ],
   "next_batch": {

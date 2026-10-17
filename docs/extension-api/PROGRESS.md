@@ -129,3 +129,13 @@ and required regression checks. The final local suite passes **1,670 Rust tests
 across 72 reports** (1,311 library; 23 ignored; four test threads). This is migration
 integration evidence; the entire stable API and other-platform qualification remain
 open. [Portable receipts](../validation/portable-profile.json).
+
+Public editor EOL normalization passes **4/4 local batch criteria**. A reproduced
+public/native byte mismatch now normalizes CR/LF/CRLF using the private original
+EOL before native dispatch, with bounded expansion and no partial native request.
+The full native run passes **1,671 tests across 73 reports** (1,311 library;
+23 ignored; four test threads), all **816 host tests** pass, and four separately
+run unchanged pinned Sort Lines cases qualify exact CRLF save/Undo. The new
+terminal journey passes. Source differences after the full run and the test-only
+save watchdog repair are explicit in the [receipt](../validation/editor-edit-eol.json).
+Other edit-builder, Windows and entire stable API contracts remain open.

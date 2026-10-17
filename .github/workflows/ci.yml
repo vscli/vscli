@@ -382,10 +382,12 @@ jobs:
         run: |
           python3 -u tests/extension_context_keys_pty.py target/debug/vscli
           python3 -u tests/when_expressions_pty.py target/debug/vscli
-      - name: Run packaged default label workflows
+      - name: Run packaged default labels and editor EOL workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
-        run: python3 -u tests/extension_manifest_labels_pty.py target/debug/vscli
+        run: |
+          python3 -u tests/extension_manifest_labels_pty.py target/debug/vscli
+          python3 -u tests/extension_editor_eol_pty.py target/debug/vscli
       - name: Run native extension language provider workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

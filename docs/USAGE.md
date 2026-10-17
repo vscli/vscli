@@ -1155,3 +1155,7 @@ bundles and language packs remain unqualified. See [default labels](IMPORT_AND_T
 Portable VS Code discovery uses `VSCODE_PORTABLE` and can find the adjacent source
 application's built-ins. Missing/ambiguous applications stay visible for explicit
 selection; discovery never launches the source application. See [portable migration](IMPORT_AND_THEMES.md#portable-installations).
+
+Extension multiline editor edits use the original document's line endings before
+saving. A public/native EOL mismatch is covered by an exact-byte regression and
+an actual terminal save/Undo journey. [Qualification and limits](validation/editor-edit-eol.json).
