@@ -321,7 +321,7 @@ fn public_refactoring_save_as_accepted_closes_old_mirror_opens_saved_mirror_befo
         .find(|doc| doc.path.is_none())
         .unwrap()
         .id;
-    let destination = root.join("saved-untitled.cpp");
+    let destination = root.join("saved-untitled 猫 # %'(.cpp");
     accept(&mut app, destination.to_str().unwrap());
     until(&mut app, "public Save As awaited true", |app| {
         app.message == "API refactoring SaveAs accepted;applied=true;didSave=2;namedCommitted=true"

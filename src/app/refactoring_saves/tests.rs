@@ -329,7 +329,7 @@ fn native_refactoring_save_as_publishes_real_transition_and_cancel_never_rolls_b
         }
         assert!(f.app.workspace_transaction_completion().is_none());
         assert_eq!(f.app.doc().id, f.first);
-        let path = f.app.workspace.root.join("saved-untitled.txt");
+        let path = f.app.workspace.root.join("saved-untitled 猫 # %'(.txt");
         if accept {
             f.app.prompt.as_mut().unwrap().text = path.to_string_lossy().into_owned();
             f.app.prompt.as_mut().unwrap().select_all = false;
@@ -356,7 +356,7 @@ fn native_refactoring_save_as_publishes_real_transition_and_cancel_never_rolls_b
             assert!(!f.model(id).dirty());
             assert_eq!(
                 receipt.saved_resource,
-                Some(crate::lsp::file_uri(&path).unwrap())
+                Some(crate::extensions::document_uri(f.model(id)).unwrap())
             );
             assert!(receipt.saved_generation.is_some());
         } else {

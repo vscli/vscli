@@ -75,7 +75,9 @@ parity remain outstanding.
 An involved untitled model uses the normal native Save As prompt. Acceptance
 preserves its native document ID through actual persistence. A negotiated save
 receipt authorizes the original untitled URI's closed mirror and the saved file
-URI's new mirror, with the actual save generation. No exposed document version is
+URI's new mirror, with the actual save generation. The receipt uses the same
+canonical public extension URI as that mirror, including Windows drives and
+reserved path characters. No exposed document version is
 invented. The close/open/save events precede the public success acknowledgement.
 Cancellation retains the applied dirty untitled edits; another participant may
 already have committed successfully.

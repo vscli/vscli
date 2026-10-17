@@ -145,7 +145,7 @@ def save_as(root, cancel=False):
     title = 'apply canceled SaveAs' if cancel else 'apply SaveAs'
     command(app, 'Refactoring fixture ' + title)
     wait_screen(app, 'Save As (existing files are protected)')
-    destination = root / 'saved-untitled.cpp'
+    destination = root / "saved-untitled 猫 # %'(.cpp"
     if cancel:
         app.send(b'\x1b')
         wait_screen(app, 'automatic refactoring save was canceled')

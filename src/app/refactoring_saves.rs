@@ -37,15 +37,9 @@ pub(super) struct Cohort {
     queued: Instant,
 }
 fn resource(doc: &Document) -> Result<String> {
-    doc.path
-        .as_ref()
-        .map(|path| crate::lsp::file_uri(path))
-        .unwrap_or_else(|| {
-            Ok(doc
-                .untitled_uri()
-                .map(str::to_owned)
-                .unwrap_or_else(|| format!("untitled:vscli-{}", doc.id)))
-        })
+    // This receipt is consumed by public extension mirrors, whose URI spelling
+    // differs from LSP wire URIs for Windows drives and reserved path characters.
+    crate::extensions::document_uri(doc)
 }
 impl Cohort {
     pub(super) fn capture(

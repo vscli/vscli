@@ -83,3 +83,13 @@ Two new terminal journeys and the previous context-key journey pass. Conditions
 are compiled and retained by validated keymaps. Full JavaScript regex/coercion,
 context scope/population and the entire stable API remain open.
 [Source and workflow receipts](../validation/native-when-expressions.json).
+
+The follow-up Save As repair reproduces the Windows receipt mismatch on Linux
+with Unicode/reserved path characters and passes the strengthened public workflow.
+The receipt now uses the public extension URI function. Both terminal Save As
+acceptance and cancellation pass; the unchanged native test count is 1,661 across
+71 reports. An LSP timeout fixture also retains a cancellation barrier received in
+the timeout poll, rather than expecting a duplicate. macOS main CI at `4e6f8b3`
+passes; Windows passed 1,242 library tests before the reproduced Save As failure,
+and Linux retained one LSP barrier failure. Fresh repair-head platform evidence is
+required. [Repair receipts](../validation/refactoring-save-uri.json).

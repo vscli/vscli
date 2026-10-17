@@ -231,8 +231,15 @@ fn held_edit_timeout_reports_once_retains_actual_slot_and_cannot_revive_after_ed
     client.pending.get_mut(&token).unwrap().started = Instant::now() - Duration::from_secs(16);
     let events = client.poll().unwrap();
     assert_eq!(events.iter().filter(|event| matches!(event,Event::RenameResult(request,Err(message)) if request.token == token && message.contains("timed out"))).count(), 1);
-    let events = marker(&mut client, &format!("rename-cancelled:{token}"));
-    no_result(&events);
+    // The peer can acknowledge cancellation during that same poll. Retain its
+    // already observed barrier rather than waiting for a second notification.
+    let canceled = format!("rename-cancelled:{token}");
+    if !events
+        .iter()
+        .any(|event| matches!(event, Event::Message(value) if value == &canceled))
+    {
+        no_result(&marker(&mut client, &canceled));
+    }
     client
         .notify("fixture/malformed", json!({"id":token}))
         .unwrap();
