@@ -245,7 +245,31 @@ fn parent_aba_with_same_resource_bytes_refuses_recovery_without_foreign_overwrit
     let file = parent.join("source");
     fs::write(&file, b"same bytes").unwrap();
     let staged = f.stage(f.capture(vec![delete(file.clone())]));
-    fs::rename(&parent, f.root.join("original-parent")).unwrap();
+    let replacement = fs::rename(&parent, f.root.join("original-parent"));
+    #[cfg(windows)]
+    if replacement
+        .as_ref()
+        .is_err_and(|error| error.kind() == std::io::ErrorKind::PermissionDenied)
+    {
+        // Windows can refuse ancestor renames while retained child handles are
+        // open. Prove the refused attack leaves both live and cold authority
+        // and original bytes intact; do not pretend a replacement occurred.
+        assert!(!f.root.join("original-parent").exists());
+        staged.verify_originals(&f.control()).unwrap();
+        RecoveryAuthority::load(staged.path(), Limits::default(), &f.control()).unwrap();
+        assert_eq!(fs::read(&file).unwrap(), b"same bytes");
+        let journal = staged.path().to_path_buf();
+        drop(staged);
+        // Restart drops the protective handles. The same replacement must
+        // still be rejected by the persisted identity, not only by Windows.
+        fs::rename(&parent, f.root.join("original-parent")).unwrap();
+        fs::create_dir(&parent).unwrap();
+        fs::write(&file, b"same bytes").unwrap();
+        assert!(RecoveryAuthority::load(&journal, Limits::default(), &f.control()).is_err());
+        assert_eq!(fs::read(&file).unwrap(), b"same bytes");
+        return;
+    }
+    replacement.unwrap();
     fs::create_dir(&parent).unwrap();
     fs::write(&file, b"same bytes").unwrap();
     assert!(staged.verify_originals(&f.control()).is_err());
@@ -537,7 +561,28 @@ fn journal_parent_replacement_refuses_live_and_restart_authority() {
     )
     .unwrap();
     let retired = f.root.join("retired-parent");
-    fs::rename(&parent, &retired).unwrap();
+    let replacement = fs::rename(&parent, &retired);
+    #[cfg(windows)]
+    if replacement
+        .as_ref()
+        .is_err_and(|error| error.kind() == std::io::ErrorKind::PermissionDenied)
+    {
+        assert!(!retired.exists());
+        staged.verify_originals(&f.control()).unwrap();
+        RecoveryAuthority::load(staged.path(), Limits::default(), &f.control()).unwrap();
+        assert_eq!(fs::read(&file).unwrap(), b"keep");
+        drop(staged);
+        fs::rename(&parent, &retired).unwrap();
+        fs::create_dir(&parent).unwrap();
+        fs::rename(retired.join("journal"), parent.join("journal")).unwrap();
+        assert!(
+            RecoveryAuthority::load(&parent.join("journal"), Limits::default(), &f.control())
+                .is_err()
+        );
+        assert_eq!(fs::read(&file).unwrap(), b"keep");
+        return;
+    }
+    replacement.unwrap();
     fs::create_dir(&parent).unwrap();
     // Moving the original journal itself into a new parent does not renew its
     // ORIGINAL parent authority even though its own inode is unchanged.

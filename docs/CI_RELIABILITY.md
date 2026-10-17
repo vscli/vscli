@@ -123,3 +123,22 @@ source-action API witness. Retained failure evidence shows its provider callback
 ran and returned all four descriptors; target editing never started. The returned
 public action list was not recorded, so an omitted registration is not established
 and the root cause remains open. Producer failure artifacts remain available.
+
+
+At `e1ff5a8`, the Windows library reaches 1,237 passes and three failures. The
+journal flush/archive cases that previously failed now pass. The remaining two
+journal controls attempt ancestor renames that Windows can deny while retained
+child handles are open. They now verify that refusal preserves live/cold authority
+and bytes, then drop the live handles, perform the replacement and require cold
+recovery to reject the foreign parent. Unix retains its live-replacement assertions.
+The provider picker waits for its actual revealed caret rather than the unrelated
+history loader, and public URI matching reuses known native models without I/O.
+The independent stable-save captures pass on all three platforms at this head;
+the earlier macOS witness failure remains a retained unresolved observation.
+
+A local default-parallel context regression run hits the theme test helper's
+five-second watchdog (1,303 other library cases pass). That helper now asserts an
+action was queued, drains all deferred replies, and uses a 30-second test watchdog.
+Production behavior/deadlines are unchanged. The final complete local run uses
+four Rust test threads; this is recorded as its execution condition, not a
+performance qualification or an explanation proven for the earlier timeout.

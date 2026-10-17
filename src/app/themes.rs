@@ -341,9 +341,22 @@ fn installed_packages(directory: Option<&Path>) -> Result<Vec<(PathBuf, Value)>>
 mod tests {
     use super::*;
     fn poll(app: &mut App) {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while !app.poll_theme() {
-            assert!(std::time::Instant::now() < deadline);
+        assert!(
+            app.theme_state.pending.is_some(),
+            "Theme action was not queued: {}",
+            app.message
+        );
+        // These controls assert selection/persistence, not filesystem throughput.
+        // Drain deferred/configuration replies too; one received reply need not
+        // mean the current requested theme has finished.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while app.theme_state.pending.is_some() {
+            app.poll_theme();
+            assert!(
+                std::time::Instant::now() < deadline,
+                "Theme worker did not finish: {}",
+                app.message
+            );
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
     }

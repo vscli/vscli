@@ -600,13 +600,23 @@ impl App {
         if self.extension_providers.loading.is_some() {
             bail!("Previous extension location is still loading")
         }
-        if self
+        let public_uri = crate::extensions::extension_file_uri(&path)?;
+        if let Some(existing) = self
             .documents
             .iter()
             .chain(&self.hidden_documents)
-            .any(|d| d.path.as_ref() == Some(&path))
+            .find_map(|doc| {
+                doc.path
+                    .as_ref()
+                    .filter(|native| {
+                        *native == &path
+                            || crate::extensions::document_uri(doc)
+                                .is_ok_and(|uri| uri == public_uri)
+                    })
+                    .cloned()
+            })
         {
-            return self.install_provider_target(Target::Existing(path), range);
+            return self.install_provider_target(Target::Existing(existing), range);
         }
         let context = Context::capture(self);
         let open: Vec<_> = self
