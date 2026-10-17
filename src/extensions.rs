@@ -40,8 +40,17 @@ pub(crate) const MAX_COMMANDS: usize = 4096;
 pub struct Package {
     pub id: String,
     pub version: String,
+    #[serde(serialize_with = "serialize_host_path")]
     pub path: PathBuf,
     pub sha256: Option<String>,
+}
+fn serialize_host_path<S: serde::Serializer>(
+    path: &Path,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    lsp::extension_host_path(path)
+        .map_err(serde::ser::Error::custom)?
+        .serialize(serializer)
 }
 impl Package {
     pub fn read(path: &Path) -> Result<Self> {
@@ -633,7 +642,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages, "fileParticipants":client.file_participation.enabled,
-                "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+                "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -1634,9 +1643,34 @@ pub(crate) fn document_uri(doc: &Document) -> Result<String> {
     if let Some(uri) = doc.untitled_uri() {
         return Ok(uri.to_owned());
     }
-    doc.path
-        .as_deref()
-        .map_or_else(|| Ok(format!("untitled:vscli-{}", doc.id)), lsp::file_uri)
+    doc.path.as_deref().map_or_else(
+        || Ok(format!("untitled:vscli-{}", doc.id)),
+        extension_file_uri,
+    )
+}
+fn extension_file_uri(path: &Path) -> Result<String> {
+    let uri = url::Url::from_file_path(path)
+        .map_err(|_| anyhow::anyhow!("Invalid native extension file path"))?;
+    Ok(extension_file_uri_url(&uri))
+}
+fn extension_file_uri_url(uri: &url::Url) -> String {
+    // Match the vendored upstream URI's default file formatting. LSP wire
+    // spelling stays independent; native extension mirrors use this one key.
+    const PATH: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+        .remove(b'-')
+        .remove(b'_')
+        .remove(b'.')
+        .remove(b'~')
+        .remove(b'/');
+    let mut path: Vec<u8> = percent_encoding::percent_decode_str(uri.path()).collect();
+    if path.len() >= 3 && path[0] == b'/' && path[1].is_ascii_alphabetic() && path[2] == b':' {
+        path[1].make_ascii_lowercase();
+    }
+    format!(
+        "file://{}{}",
+        uri.host_str().unwrap_or(""),
+        percent_encoding::percent_encode(&path, PATH)
+    )
 }
 fn selected_languages(packages: &[Package]) -> Result<HashSet<String>> {
     let mut languages = HashSet::new();
@@ -1746,6 +1780,34 @@ fn selections_for(doc: &Document, view: Option<u64>) -> Vec<Value> {
 mod tests {
     use super::*;
     use std::fs;
+    #[test]
+    fn native_extension_file_uri_spelling_matches_the_upstream_uri_formatter() {
+        let inputs = [
+            "file:///C:/work/space%20%E7%8C%AB%23%25.rs",
+            "file:///tmp/a:b@c[de](f)!g'*.rs",
+            "file://server/share/a%20b",
+            "file:///tmp/%25literal%2Fpart~.rs",
+        ];
+        let formatted: Vec<_> = inputs
+            .iter()
+            .map(|uri| extension_file_uri_url(&url::Url::parse(uri).unwrap()))
+            .collect();
+        let script = "const {Uri}=require(process.argv[1]);process.stdout.write(JSON.stringify(JSON.parse(process.argv[2]).map(value=>Uri.parse(value).toString())));";
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(script)
+            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("extension-host/uri.cjs"))
+            .arg(serde_json::to_string(&inputs).unwrap())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let upstream: Vec<String> = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(formatted, upstream);
+    }
     #[test]
     fn show_generation_tolerates_only_contiguous_measured_viewport_updates() {
         let mut docs = [Document::from_text("dirty 猫🙂\r\n")];

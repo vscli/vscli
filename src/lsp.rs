@@ -244,6 +244,23 @@ pub fn file_uri(path: &Path) -> Result<String> {
         .map(String::from)
         .map_err(|_| anyhow::anyhow!("Not an absolute file path: {}", path.display()))
 }
+
+/// Native canonical paths retain Windows' verbatim prefix for filesystem work.
+/// Public extension paths use the ordinary path encoded by the existing URL
+/// converter, so URI.file never mistakes that prefix for a UNC authority.
+pub(crate) fn extension_host_path(path: &Path) -> Result<PathBuf> {
+    #[cfg(windows)]
+    {
+        Url::from_file_path(path)
+            .map_err(|_| anyhow::anyhow!("Invalid extension filesystem path"))?
+            .to_file_path()
+            .map_err(|_| anyhow::anyhow!("Invalid extension file URI"))
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(path.to_owned())
+    }
+}
 pub fn uri_path(uri: &str) -> Result<PathBuf> {
     let path = Url::parse(uri)?
         .to_file_path()
@@ -2672,6 +2689,34 @@ mod tests {
     use super::*;
     use crate::transport::read_message;
     use std::io::BufReader;
+    #[cfg(windows)]
+    #[test]
+    fn native_verbatim_paths_serialize_as_public_file_paths_without_changing_native_identity() {
+        for (native, public) in [
+            (r"\\?\C:\work\space 猫#%.txt", r"C:\work\space 猫#%.txt"),
+            (
+                r"\\?\UNC\server\share\space 猫#%.txt",
+                r"\\server\share\space 猫#%.txt",
+            ),
+        ] {
+            let original = PathBuf::from(native);
+            assert_eq!(extension_host_path(&original).unwrap(), Path::new(public));
+            assert_eq!(
+                file_uri(&original).unwrap(),
+                file_uri(Path::new(public)).unwrap()
+            );
+            let package = crate::extensions::Package {
+                id: "fixture.path".into(),
+                version: "1.0.0".into(),
+                path: original.clone(),
+                sha256: None,
+            };
+            let wire = serde_json::to_value(&package).unwrap();
+            assert_eq!(wire["path"].as_str(), Some(public));
+            assert_eq!(package.path, original);
+        }
+    }
+
     #[test]
     fn signature_actual_slot_survives_cancellation_and_timeout_until_exact_release() {
         const PEER: &str = r#"

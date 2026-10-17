@@ -4,9 +4,9 @@ const assert = require('node:assert/strict');
 const { createApi } = require('./api.cjs');
 const { Uri } = require('./api-types.cjs');
 
-function fixture(handle = () => { throw new Error('Unexpected native request'); }) {
+function fixture(handle = () => { throw new Error('Unexpected native request'); }, nativeUri) {
   const calls = [], root = '/tmp/cache-workspace';
-  const uri = Uri.file(`${root}/main.cpp`).toString();
+  const uri = nativeUri ?? Uri.file(`${root}/main.cpp`).toString();
   const snapshot = { id: 7, uri, version: 1, text: '猫🙂\r\noriginal', languageId: 'cpp', isDirty: false };
   let generation = 0;
   const runtime = createApi((method, params) => { calls.push({method, params}); return handle(method, params); }, () => {}, { session: 8 });
@@ -109,4 +109,16 @@ test('canonical aliases and query/fragment-qualified URIs are not guessed equiva
   }
   assert.equal(f.calls.length, 3);
   assert(f.calls.every(call => call.method === 'nativeDocumentOpen'));
+});
+
+
+test('native file URI spelling and upstream drive/percent formatting share the original cache without new acquisitions', async () => {
+  for (const uri of ['file:///C:/work/source.cpp', 'file:///tmp/cache-workspace/a:b@c.cpp', 'file:///tmp/cache-workspace/a%20b.cpp']) {
+    const f = fixture(undefined, uri);
+    const canonical = Uri.parse(uri);
+    assert.equal(await f.api.workspace.openTextDocument(canonical), f.doc);
+    assert.equal(f.calls.length, 0);
+    assert.equal(f.api.workspace.textDocuments.length, 1);
+    assert.equal(f.doc.isClosed, false);
+  }
 });

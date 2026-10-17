@@ -5,6 +5,7 @@ const {normalizeOptions}=require('./editor-presentation.cjs');
 const path = require('node:path');
 const uriFrom = Uri.from, uriFormat = Uri.prototype.toString, uriParse = Uri.parse, uriFile = Uri.file;
 const uriFilePath = Object.getOwnPropertyDescriptor(Uri.prototype, 'fsPath').get;
+const resourceKey = value => Reflect.apply(uriFormat, Reflect.apply(uriParse, Uri, [value]), []);
 const NATIVE_COMMANDS = Object.freeze(['undo', 'redo', 'editor.action.selectAll', 'cursorLeft', 'cursorRight', 'cursorUp', 'cursorDown', 'cursorHome', 'cursorEnd', 'cursorTop', 'cursorBottom','files.participants.resetChoice']);
 function createDocumentServices(request, options, model) {
   let pending = 0, queuedBytes = 0;
@@ -87,11 +88,11 @@ function createDocumentServices(request, options, model) {
       // does not acquire a native reference or renew that reference's lifetime.
       // Resolve only string paths here; canonical aliases still need native IO.
       if (resource) {
-        const cached = [...prior.values()].find(snapshot => snapshot.uri === resource);
+        const cached = [...prior.values()].find(snapshot => resourceKey(snapshot.uri) === resource);
         if (cached) {
           guard();
           const current = model.snapshot(cached.document);
-          if (!current || current.model !== cached.model || current.uri !== resource || model.document(cached.document) !== cached.model) throw new Error('Cached native document mirror was retired');
+          if (!current || current.model !== cached.model || resourceKey(current.uri) !== resource || model.document(cached.document) !== cached.model) throw new Error('Cached native document mirror was retired');
           return cached.model;
         }
       }

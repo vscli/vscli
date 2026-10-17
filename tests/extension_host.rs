@@ -72,6 +72,58 @@ fn unchanged_command_extension_edits_native_unicode_buffers_and_preserves_undo()
     assert_eq!(app.doc().text.to_string(), "a\n猫\n🙂");
 }
 #[test]
+fn public_file_uri_roundtrip_and_workspace_edit_preserve_reserved_filename_identity_and_bytes() {
+    let directory = tempfile::tempdir().unwrap();
+    #[cfg(unix)]
+    let name = "space 猫#%@:[one](two)!'.txt";
+    #[cfg(windows)]
+    let name = "space 猫#%@[one](two)!'.txt";
+    let path = directory.path().join(name);
+    let original = "λ🙂 original\r\n";
+    std::fs::write(&path, original).unwrap();
+    let extension = package(
+        directory.path(),
+        "uri",
+        r#"
+const v=require('vscode'),assert=require('node:assert/strict');
+exports.activate=context=>{
+ context.subscriptions.push(v.commands.registerCommand('session.uri',async()=>{
+  const doc=v.window.activeTextEditor.document;
+  assert.equal(await v.workspace.openTextDocument(doc.uri),doc);
+  assert.equal(v.workspace.textDocuments.length,1);
+  const edit=new v.WorkspaceEdit(); edit.insert(doc.uri,new v.Position(0,0),'public URI ');
+  const ok=await v.workspace.applyEdit(edit);
+  await v.window.showInformationMessage('public file URI edit='+ok);
+ }));
+};"#,
+    );
+    let mut app = App::new(directory.path().into(), Profile::Linux);
+    app.open(&path).unwrap();
+    let identity = app.doc().id;
+    app.start_extension_packages(vec![extension]).unwrap();
+    until(&mut app, |app| {
+        app.extension_host.as_ref().is_some_and(|host| host.ready)
+    });
+    app.execute("session.uri", Value::Null);
+    until(&mut app, |app| app.message == "public file URI edit=true");
+    assert_eq!(app.doc().id, identity);
+    assert_eq!(app.documents.len(), 1);
+    assert_eq!(app.doc().text.to_string(), format!("public URI {original}"));
+    app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        format!("public URI {original}")
+    );
+    app.execute("undo", Value::Null);
+    until(&mut app, |app| app.doc().text == original);
+    app.execute("workbench.action.files.save", Value::Null);
+    until(&mut app, |app| !app.saves_pending());
+    assert_eq!(app.doc().id, identity);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+}
+
+#[test]
 fn invalid_stale_and_crashed_extensions_cannot_destroy_native_edits() {
     let directory = tempfile::tempdir().unwrap();
     let mut app = App::new(directory.path().into(), Profile::Linux);

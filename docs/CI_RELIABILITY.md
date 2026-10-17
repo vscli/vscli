@@ -67,3 +67,15 @@ Selected startup themes now append their notice, preserving the existing startup
 or extension failure. Automatic fallback themes and background customization
 refreshes stay quiet; manual choices retain their direct acknowledgement. The
 12 native theme controls and all 35 core terminal scenarios pass locally.
+
+Windows at `417a83d` passed Node controls but failed 51 native cases. Verbatim
+filesystem paths were interpreted as URI authorities (`file://%3F/...`), and
+native/public URI spellings differed for drive colons and reserved characters.
+Package descriptors and the host workspace now use ordinary public filesystem
+paths while native paths retain their original identity. Extension mirror URIs
+follow the vendored upstream formatter; LSP wire spelling stays separate. A real
+public URI/cache/WorkspaceEdit/save/Undo case, a direct upstream formatter oracle,
+799 host tests, 1,651 full native regression tests and 38 terminal scenarios pass
+locally. The receipt records the later non-allocating test assertion cleanup and
+its focused final check separately. Windows-specific controls and fresh platform
+CI remain required. See [native extension URI evidence](validation/native-extension-uris.json).
