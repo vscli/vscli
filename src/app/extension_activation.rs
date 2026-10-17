@@ -524,7 +524,9 @@ impl App {
                     {
                         continue;
                     }
-                    if owners.len() >= 1024 || bytes + id.len() + owner.len() > 256 * 1024 {
+                    if owners.len() >= crate::extensions::MAX_COMMANDS
+                        || bytes + id.len() + owner.len() > 1024 * 1024
+                    {
                         limited = true;
                         continue;
                     }
@@ -542,7 +544,9 @@ impl App {
                 }
                 let title: String = title.chars().take(128).collect();
                 let label = format!("Extension: {title} [{owner}]");
-                if commands.len() >= 1024 || bytes + label.len() + id.len() > 256 * 1024 {
+                if commands.len() >= crate::extensions::MAX_COMMANDS
+                    || bytes + label.len() + id.len() > 1024 * 1024
+                {
                     limited = true;
                     break;
                 }
@@ -557,7 +561,7 @@ impl App {
         self.activation.owners = owners;
         self.activation.notices = snapshot.notices;
         if limited && self.activation.notices.len() < 128 {
-            self.activation.notices.push("Dormant command catalog reached its 1024-command / 256 KiB budget; excess commands are unavailable".into());
+            self.activation.notices.push("Dormant command catalog reached its 4096-command / 1 MiB budget; excess commands are unavailable".into());
         }
         self.refresh_dormant_bindings();
         if let Some(notice) = self.activation.notices.first() {
@@ -1162,6 +1166,40 @@ mod tests {
         app.activation.configured = true;
         app.activation.loaded = true;
         app
+    }
+    #[test]
+    fn large_imported_dormant_command_catalog_retains_commands_after_the_old_limit() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        let mut global = Preferences::default();
+        let catalog = (0..90)
+            .map(|index| {
+                let owner = format!("cohort.p{index:03}");
+                global.set(&owner, true).unwrap();
+                let mut item = metadata(&owner);
+                for command in 0..20 {
+                    let id = format!("{owner}.c{command}");
+                    item.commands
+                        .insert(id.clone(), format!("Cohort {index} command {command}"));
+                    item.events.insert(ActivationEvent::Command(id));
+                }
+                (owner, item)
+            })
+            .collect();
+        app.publish_activation_catalog(Snapshot {
+            global,
+            workspace: Preferences::default(),
+            catalog,
+            matched: BTreeSet::new(),
+            notices: Vec::new(),
+            language_configurations: Default::default(),
+        });
+        assert_eq!(app.activation.commands.len(), 1800);
+        assert_eq!(app.activation.owners.len(), 1800);
+        assert_eq!(app.activation.owners["cohort.p089.c19"], "cohort.p089");
+        assert!(app.activation.notices.is_empty());
+        assert!(app.extension_host.is_none());
+        assert_eq!(app.doc().text.to_string(), "unsaved 猫");
     }
     #[test]
     fn stopped_plan_cannot_start_a_host_or_consume_a_later_native_document() {

@@ -39,8 +39,7 @@ Release gates:
 - [ ] Reconcile every selected extension's exact version, platform, dependencies,
   enabled state and contributed settings/keybindings. Import existing local
   packages where possible. Activation must follow an explicit migration choice;
-  installation alone must not start code. The current eight-package selected
-  code-host limit must not silently truncate a larger imported setup.
+  installation alone must not start code. Selected code-host limits must not silently truncate a larger imported setup.
 - [ ] Qualify the user's extension workflows and cross-extension interactions.
   Keep the complete stable API inventory open until its behavioral contracts are
   met. Evaluate upstream host/converter reuse before adding more custom bridges.
@@ -122,15 +121,33 @@ contribution filtering, extension storage, exported `.code-profile` input,
 portable/custom path inference, source engine-version resolution, platform-native
 binaries and cross-platform UI/release qualification remain open.
 
-## Next implementation batch
+## Selected extension cohort capacity
 
-Remove the eight-package selected-host barrier while keeping callback/service
-queues bounded. Completion requires a 90-package synthetic selected session with
+The selected host now admits 128 packages and 4,096 commands within 8 MiB /
+250,000 manifest nodes, while callback/service queues retain separate bounds.
+Batch completion requires a 90-package synthetic selected session with
 more than 1,024 contributed commands, explicit rejection beyond the new package
 and manifest-node budgets, unchanged eight-slot callback protections, actual
 native command dispatch/edit/save/Undo, restart, full relevant Rust/host checks
-and PTY evidence. Do not activate the personal cohort just to claim that it works;
+and PTY evidence. A synthetic large-cohort session provides this capacity evidence;
+it does not establish personal extension compatibility. See
+[cohort receipts](validation/extension-cohort.json). Do not activate the personal cohort just to claim that it works;
 report engine/proposed-API and missing-backend failures per package.
+
+Local result: **6/6 named cohort criteria pass**, with 1,647 Rust tests across 68
+reports (1,295 library; 23 ignored), 798 host tests, one large-cohort terminal
+journey, four activation journeys and five session journeys. Formatting and
+strict locked Clippy pass. No personal code was activated.
+
+## Next implementation batch
+
+Repair the failing release CI before extending exported-profile import. Reproduce
+canonical-directory aliases locally, fix genuine identity failures, make path and
+filename fixtures respect host filesystem contracts, retain deterministic save
+transaction evidence, isolate pinned upstream fixtures from build-cache restores,
+and retain partial producer artifacts without masking the initiating failure.
+Completion requires the relevant native/host controls and required PR checks to
+pass; a local pass does not qualify another platform.
 
 Before expanding migration-specific compatibility shims, compare pinned upstream
 host, configuration, theme and keybinding resolver reuse against the real profile.

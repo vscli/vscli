@@ -99,14 +99,14 @@ impl App {
                     .or_else(|| requested.map(|name| Preference { name, path: None }));
                 let theme = if let Some(selection) = selection {
                     match resolve(&selection, &choices) {
-                        Ok(theme) => Some(Styled::new(theme, settings)),
+                        Ok(theme) => Some(Styled::quiet(theme, settings)),
                         Err(error) => {
                             notices.push(format!("Theme unchanged: {error:#}"));
                             None
                         }
                     }
                 } else {
-                    Some(Styled::new(fallback, settings))
+                    Some(Styled::quiet(fallback, settings))
                 };
                 Loaded {
                     theme,
@@ -609,6 +609,21 @@ mod customization_tests {
         assert_eq!(app.doc().text.len_chars(), 0);
     }
 
+    #[test]
+    fn initial_background_theme_load_preserves_a_concurrent_extension_failure() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.configure_themes(
+            Some(root.path().join("store")),
+            None,
+            Some("VSCLI Light".into()),
+            None,
+        );
+        app.message = "Cannot start selected extension session".into();
+        settle(&mut app);
+        assert_eq!(app.theme.name, "VSCLI Light");
+        assert_eq!(app.message, "Cannot start selected extension session");
+    }
     #[test]
     fn background_color_refresh_preserves_the_settings_reload_notice() {
         let root = tempfile::tempdir().unwrap();

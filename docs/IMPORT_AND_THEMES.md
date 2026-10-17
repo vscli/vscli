@@ -116,7 +116,10 @@ one million entries and 64 MiB of path metadata; directory nesting is bounded at
 64 levels. State database/WAL snapshots each allow 256 MiB. These are explicit
 errors, not truncation. Installation does not qualify a package's runtime API,
 services, complete disabled declarative-contribution behavior or visual fidelity.
-The current selected code-host capacity and remaining APIs are still release gaps.
+The selected code host admits up to 128 packages, 4,096 commands and 250,000
+manifest JSON nodes within its 8 MiB aggregate manifest budget. Callback/service
+queues keep separate bounds. Personal runtime workflows and remaining APIs are
+still release gaps.
 
 ## Personal color customizations
 

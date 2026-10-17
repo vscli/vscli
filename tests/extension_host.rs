@@ -427,7 +427,7 @@ fn duplicate_packages_and_cumulative_contributions_reject_before_start() {
         let file = item.path.join("package.json");
         let mut manifest: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
         manifest["contributes"]["commands"] =
-            serde_json::json!(vec![serde_json::json!({"command":"unused"}); 600]);
+            serde_json::json!(vec![serde_json::json!({"command":"unused"}); 2100]);
         std::fs::write(file, manifest.to_string()).unwrap();
     }
     assert!(

@@ -22,7 +22,7 @@ test('missing dependencies, cycles and cohort overflow reject before any code ca
   const hooks = { activate() { throw new Error('must not execute'); } };
   assert.throws(() => createActivation([item('test.a', ['test.missing'])], hooks), /not selected/);
   assert.throws(() => createActivation([item('test.a', ['test.b']), item('test.b', ['test.a'])], hooks), /dependency cycle/);
-  assert.throws(() => createActivation(Array.from({ length: 9 }, (_, i) => item(`test.p${i}`)), hooks), /eight/);
+  assert.throws(() => createActivation(Array.from({ length: 129 }, (_, i) => item(`test.p${i}`)), hooks), /128/);
 });
 test('runtime reverse waits reject rather than deadlock and failures do not retry', async () => {
   let calls = 0, service;
@@ -79,4 +79,16 @@ test('failed owners cannot issue fresh requests or revive registrations from ret
   await assert.rejects(stale.window.showInformationMessage('late'), /not active/);
   assert.equal(requests, 0);
   assert.deepEqual(runtime.commandSnapshot(), []);
+});
+
+
+test('ninety selected packages activate a deep dependency graph and retain every export', async () => {
+  const items = Array.from({ length: 90 }, (_, i) => item(`test.p${i}`, i < 89 ? [`test.p${i+1}`] : []));
+  const calls = [];
+  const service = createActivation(items, { activate(selected) { calls.push(selected.id); return { id: selected.id }; } });
+  await service.activate('test.p0');
+  assert.equal(service.facade().all.length, 90);
+  assert.deepEqual(calls, items.map(entry => entry.id).reverse());
+  assert(service.statuses().every(entry => entry.state === 'active'));
+  assert.equal(service.extension('test.p89').exports.id, 'test.p89');
 });

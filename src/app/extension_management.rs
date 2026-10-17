@@ -175,8 +175,8 @@ impl App {
         if self.extension_job.is_some() || self.extension_retirement.is_some() {
             anyhow::bail!("An extension operation or retirement is already running");
         }
-        if packages.is_empty() || packages.len() > 8 {
-            anyhow::bail!("Select between one and eight code extensions");
+        if packages.is_empty() || packages.len() > crate::extension_activation::MAX_SELECTED {
+            anyhow::bail!("Select between one and 128 code extensions");
         }
         packages.sort_by(|a, b| a.id.cmp(&b.id));
         if packages.windows(2).any(|pair| pair[0].id == pair[1].id) {

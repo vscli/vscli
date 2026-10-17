@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const MAX_ENABLED: usize = 128;
-pub const MAX_SELECTED: usize = 8;
+pub const MAX_SELECTED: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Scope {
@@ -346,7 +346,7 @@ fn visit(
         bail!("Extension {id} cannot activate: {reason}");
     }
     if visiting.len() >= MAX_SELECTED {
-        bail!("Extension dependency closure exceeds eight selected packages");
+        bail!("Extension dependency closure exceeds 128 selected packages");
     }
     visiting.push(id.into());
     for dependency in &metadata.dependencies {
@@ -355,7 +355,7 @@ fn visit(
     visiting.pop();
     if ordered.len() >= MAX_SELECTED {
         bail!(
-            "Extension cohort exceeds eight selected packages; stop a cohort before selecting more"
+            "Extension cohort exceeds 128 selected packages; stop a cohort before selecting more"
         );
     }
     finished.insert(id.into());
@@ -465,6 +465,32 @@ mod tests {
         assert!(Metadata::installed(&item).is_err());
     }
     #[test]
+    fn ninety_package_dependency_closure_is_complete_and_dependencies_precede_roots() {
+        let catalog = (0..90)
+            .map(|index| {
+                let id = format!("test.p{index:03}");
+                let next = format!("test.p{:03}", index + 1);
+                let dependencies = if index < 89 {
+                    vec![next.as_str()]
+                } else {
+                    Vec::new()
+                };
+                (id.clone(), metadata(&id, &dependencies))
+            })
+            .collect::<BTreeMap<_, _>>();
+        let enabled = catalog.keys().cloned().collect();
+        let result = plan(
+            &catalog,
+            &enabled,
+            &[],
+            &BTreeSet::from(["test.p000".into()]),
+        )
+        .unwrap();
+        assert_eq!(result.ordered.len(), 90);
+        assert_eq!(result.ordered.first().unwrap().package.id, "test.p089");
+        assert_eq!(result.ordered.last().unwrap().package.id, "test.p000");
+    }
+    #[test]
     fn disabled_missing_cyclic_and_oversized_dependency_graphs_do_not_create_a_plan() {
         let mut catalog = BTreeMap::from([("test.a".into(), metadata("test.a", &["test.b"]))]);
         let roots = BTreeSet::from(["test.a".into()]);
@@ -489,7 +515,7 @@ mod tests {
                 .to_string()
                 .contains("cycle")
         );
-        let catalog = (0..9)
+        let catalog = (0..129)
             .map(|i| {
                 let id = format!("test.p{i}");
                 (id.clone(), metadata(&id, &[]))
@@ -500,7 +526,7 @@ mod tests {
             plan(&catalog, &enabled, &[], &enabled)
                 .unwrap_err()
                 .to_string()
-                .contains("eight")
+                .contains("budget")
         );
     }
 }

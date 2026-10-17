@@ -1,4 +1,5 @@
 'use strict';
+const limits = require('./limits.cjs');
 const types = require('./api-types.cjs');
 const { createCallerContext } = require('./caller-context.cjs');
 const coordinates = require('./coordinates.cjs');
@@ -233,7 +234,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         if (typeof id !== 'string' || !id || id.length > 1024 || typeof callback !== 'function') throw new Error(`Invalid command: ${id}`);
         if (reserved.has(id) || id.startsWith('cursor')) throw new Error(`Native command is reserved: ${id}`);
         if (commands.has(id)) throw new Error(`Duplicate command: ${id}; registered by ${commands.get(id).owner}`);
-        if (commands.size >= 1024) throw new Error('Extension command limit reached');
+        if (commands.size >= limits.commands) throw new Error('Extension command limit reached');
         commands.set(id, { owner, callback: callers.bindAsync(owner, (...args) => callback.apply(thisArg, args)) });
         const disposable = track(owner, new Disposable(() => { commands.delete(id); publishCommands(); }));
         publishCommands();

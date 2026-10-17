@@ -1,0 +1,110 @@
+{
+  "schema": "vscli-extension-cohort-validation-v1",
+  "base_commit": "9580f97586bb37823a42d4ca1455bf44095474c2",
+  "scope": "Selected-host capacity and native dispatch for 90 synthetic packages, 1800 commands and a 90-deep dependency graph; independent callback/service concurrency remains bounded.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1685,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "dae93338899ae8db953f9406a54ab20777e78e8cb27258f24d2dd339a8131cb1"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "0f0ae5246fe6eeab3e179a35a1970582a4720ef0acfb6f1bd791cb38817514f9"
+  },
+  "environment": {
+    "platform": "Linux-7.2.8-arch1-2-x86_64-with-glibc2.44"
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked",
+      "passed": 1647,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 68,
+      "library_passed": 1295,
+      "log": "/tmp/vscli-cohort-final-rust.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-cohort-final-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-cohort-final-build.log"
+    },
+    {
+      "command": "node --test extension-host/*.test.cjs",
+      "passed": 798,
+      "failed": 0,
+      "log": "/tmp/vscli-cohort-host-full.log"
+    },
+    {
+      "command": "python3 scripts/test_extension_api_progress.py",
+      "passed": 3,
+      "failed": 0
+    }
+  ],
+  "terminal_checks": [
+    {
+      "command": "python3 tests/extension_cohort_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "result": "passed",
+      "log": "/tmp/vscli-cohort-final-pty.log"
+    },
+    {
+      "command": "python3 tests/extension_activation_pty.py target/debug/vscli",
+      "passed_scenarios": 4,
+      "result": "passed",
+      "log": "/tmp/vscli-cohort-final-activation-pty.log"
+    },
+    {
+      "command": "python3 tests/extension_sessions_pty.py target/debug/vscli",
+      "passed_scenarios": 5,
+      "result": "passed",
+      "log": "/tmp/vscli-cohort-final-sessions-pty.log"
+    },
+    {
+      "command": "python3 tests/imported_appearance_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "result": "passed",
+      "log": "/tmp/vscli-cohort-final-appearance-pty.log"
+    }
+  ],
+  "criteria": {
+    "passed": 6,
+    "total": 6,
+    "items": [
+      "90 packages and 1800 commands including the last package",
+      "90-deep dependency order and retained exports",
+      "Explicit 129-package and 250000-manifest-node rejection",
+      "Dormant native command catalog beyond the former 1024-command limit",
+      "Native Unicode/CRLF edit/save/Undo, restart and unchanged source files",
+      "Rust/host checks, formatting and strict Clippy; existing actual callback bounds retained"
+    ]
+  },
+  "corrected_terminal_findings": [
+    "Large session ready status summarizes package count instead of overflowing with IDs",
+    "Automatic initial theme load preserves a concurrent optional-host failure; manual theme choices still announce"
+  ],
+  "qualification": "Linux native/PTY evidence only. No personal code activated; full API, proposed APIs, visual fidelity and platform/release acceptance remain open. CI failures at 9580f97 are separately tracked."
+}

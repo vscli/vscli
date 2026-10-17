@@ -34,7 +34,8 @@ pub use surfaces::{
 
 const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
-const MAX_PACKAGES: usize = 8;
+const MAX_PACKAGES: usize = crate::extension_activation::MAX_SELECTED;
+pub(crate) const MAX_COMMANDS: usize = 4096;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Package {
     pub id: String,
@@ -123,7 +124,7 @@ fn manifest_nodes(value: &Value) -> usize {
 }
 fn validate_packages(packages: &[Package]) -> Result<Vec<Package>> {
     if packages.is_empty() || packages.len() > MAX_PACKAGES {
-        bail!("Select between one and eight code extensions");
+        bail!("Select between one and 128 code extensions");
     }
     let mut selected = packages.to_vec();
     selected.sort_by(|a, b| a.id.cmp(&b.id));
@@ -136,8 +137,8 @@ fn validate_packages(packages: &[Package]) -> Result<Vec<Package>> {
         let (size, manifest) = read_manifest(&package.path)?;
         bytes += size;
         nodes += manifest_nodes(&manifest);
-        if bytes > 8 * 1024 * 1024 || nodes > 50_000 {
-            bail!("Extension session manifest budget exceeded (8 MiB / 50,000 nodes)");
+        if bytes > 8 * 1024 * 1024 || nodes > 250_000 {
+            bail!("Extension session manifest budget exceeded (8 MiB / 250,000 nodes)");
         }
         let id = format!(
             "{}.{}",
@@ -155,7 +156,7 @@ fn validate_packages(packages: &[Package]) -> Result<Vec<Package>> {
         };
         bindings += count(&manifest["contributes"]["keybindings"]);
         commands += count(&manifest["contributes"]["commands"]);
-        if bindings > 1024 || commands > 1024 {
+        if bindings > 1024 || commands > MAX_COMMANDS {
             bail!("Extension session contribution limit exceeded");
         }
     }
@@ -379,6 +380,7 @@ impl Client {
         let session = NEXT_SESSION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let runtime = tempfile::tempdir()?;
         for (name, source) in [
+            ("limits.cjs", include_str!("../extension-host/limits.cjs")),
             (
                 "editor-presentation.cjs",
                 include_str!("../extension-host/editor-presentation.cjs"),
@@ -1044,7 +1046,7 @@ impl Client {
     }
     fn register_commands(&mut self, value: Value) -> Result<()> {
         let registrations: Vec<Registration> = serde_json::from_value(value)?;
-        if registrations.len() > 1024 {
+        if registrations.len() > MAX_COMMANDS {
             bail!("Extension command limit exceeded");
         }
         let mut commands = Vec::new();
@@ -1385,7 +1387,7 @@ impl Client {
                         }
                         bindings.push((owner.to_owned(), item["keybindings"].clone()));
                         if let Some(contributions) = item["contributions"].as_array() {
-                            if contributions.len() > 1024 {
+                            if contributions.len() > MAX_COMMANDS {
                                 bail!("Extension command contribution limit exceeded");
                             }
                             for contribution in contributions {
@@ -1418,7 +1420,11 @@ impl Client {
                     self.ready = true;
                     messages.push(format!(
                         "Extension ready: {} ({} commands)",
-                        self.identity,
+                        if self.identity.len() > 64 {
+                            format!("{} packages", self.packages.len())
+                        } else {
+                            self.identity.clone()
+                        },
                         self.commands.len()
                     ));
                 }

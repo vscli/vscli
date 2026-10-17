@@ -1,4 +1,5 @@
 'use strict';
+const limits = require('./limits.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const Module = require('node:module');
@@ -45,15 +46,15 @@ function nodes(value) {
   return 1 + Object.values(value).reduce((sum, item) => sum + nodes(item), 0);
 }
 function prepare(inputs, retained = []) {
-  if (!Array.isArray(inputs) || !inputs.length || inputs.length > 8) throw new Error('Select between one and eight code extensions');
+  if (!Array.isArray(inputs) || !inputs.length || inputs.length > limits.packages) throw new Error('Select between one and 128 code extensions');
   let bytes = 0, count = 0, bindings = 0, contributions = 0;
-  if (inputs.length + retained.length > 8) throw new Error('Extension cohort exceeds eight selected packages');
+  if (inputs.length + retained.length > limits.packages) throw new Error('Extension cohort exceeds 128 selected packages');
   const ids = new Set(retained.map(item => item.id));
   function account(manifest, size) {
     bytes += size; count += nodes(manifest);
     bindings += Array.isArray(manifest.contributes?.keybindings) ? manifest.contributes.keybindings.length : manifest.contributes?.keybindings ? 1 : 0;
     contributions += manifest.contributes?.commands?.length || 0;
-    if (bytes > 8 * 1024 * 1024 || count > 50000 || bindings > 1024 || contributions > 1024) throw new Error('Extension session cumulative manifest or contribution limit exceeded');
+    if (bytes > 8 * 1024 * 1024 || count > limits.manifestNodes || bindings > 1024 || contributions > limits.commands) throw new Error('Extension session cumulative manifest or contribution limit exceeded');
   }
   for (const item of retained) account(item.manifest, item.manifestBytes);
   return inputs.map(input => {
@@ -132,7 +133,7 @@ function activationHooks() {
   };
 }
 async function activateBatch(message, targets) {
-  if (!Array.isArray(targets) || targets.length > 8 || targets.some(id => typeof id !== 'string' || !packages.some(item => item.id === id))) throw new Error('Invalid selected activation targets');
+  if (!Array.isArray(targets) || targets.length > limits.packages || targets.some(id => typeof id !== 'string' || !packages.some(item => item.id === id))) throw new Error('Invalid selected activation targets');
   const origin = { id: message.id, owner: message.params.owner, active: true };
   activationBusy = true;
   try { await activationRequest.run(origin, async () => { for (const id of [...new Set(targets)].sort()) await activation.activate(id); }); }
