@@ -31,7 +31,22 @@ restart and original shared model identity. The terminal journey uses an invocat
 trace and a later acknowledged host command to prove an inactive shortcut did not
 invoke its extension. See [exact validation receipts](validation/extension-context-keys.json).
 
+Native conditions now support boolean groups, equality/inequality, numeric
+comparisons, array/object membership and the nonbacktracking regex subset.
+Boolean false and numeric zero are falsy; an empty array or object is truthy.
+Unquoted `== true`/`== false` follow upstream truthiness, while quoted strings
+retain string comparison. The same parser serves imported user bindings and
+extension defaults. Validated keymaps retain compiled conditions, and contributed
+conditions are precompiled during session preparation.
+
+The checked-in MIT upstream parser/evaluator is a test oracle, isolated from the
+native runtime. Six hundred exact comparisons cover the listed operators and
+JSON value cases. Native terminal journeys cover no-Node resource/numeric/regex
+conditions and public extension context/membership conditions, including actual
+Unicode/CRLF edit/save/Undo. See [condition receipts](validation/native-when-expressions.json).
+
 This does not qualify every `executeCommand` target or the whole context system.
-Full expression operators/value coercions, every native `config.*`/workbench key,
+JavaScript regex lookaround/backreferences, complete UTF-16/Unicode/coercion
+semantics, every native `config.*`/workbench key,
 scoped context hierarchy, lifecycle equivalence across host failure/restart,
 arbitrary non-JSON objects and the entire stable API remain open.

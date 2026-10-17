@@ -73,3 +73,13 @@ pass on unchanged host JS, and the new terminal journey passes. The preceding
 theme-helper timeout and source difference are retained in the receipt. Whole
 expression/scoped context and entire stable API qualification remain open.
 [Evidence](../validation/extension-context-keys.json).
+
+Native condition integration passes **4/4 local batch criteria**: 600 exact
+comparisons with the pinned upstream parser/evaluator, source-preserving imported
+rules and diagnostics, native resource/public extension values in actual terminal
+shortcuts, and required native regression checks. The full suite passes **1,661
+Rust tests across 71 reports** (1,304 library; 23 ignored; four test threads).
+Two new terminal journeys and the previous context-key journey pass. Conditions
+are compiled and retained by validated keymaps. Full JavaScript regex/coercion,
+context scope/population and the entire stable API remain open.
+[Source and workflow receipts](../validation/native-when-expressions.json).

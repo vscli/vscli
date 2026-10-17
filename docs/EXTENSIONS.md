@@ -530,5 +530,6 @@ Selected extensions can use `commands.executeCommand('setContext', key, value)`
 to control native conditional shortcuts, including during module evaluation at
 welcome. URI normalization, undefined removal, bounded retained acknowledgements
 and actual conditional shortcut/edit/save/Undo are locally tested. Values remain
-session-local; full expression/scoped context equivalence and other built-in
-command targets stay open. See [extension context keys](CONTEXT_KEYS_API.md).
+session-local. Native conditions include numeric comparisons, membership and
+a bounded regex subset; complete JavaScript regex/coercion/scoped context
+equivalence and other built-in command targets stay open. See [extension context keys](CONTEXT_KEYS_API.md).

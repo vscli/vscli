@@ -1,0 +1,1 @@
+exports.isLinux=process.platform==='linux';exports.isMacintosh=process.platform==='darwin';exports.isWindows=process.platform==='win32';for(const k of ['isChrome','isEdge','isFirefox','isSafari','isWeb','isChromeOS'])exports[k]=false;

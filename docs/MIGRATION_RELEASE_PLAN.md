@@ -186,3 +186,14 @@ plus formatting and strict Clippy. Entire stable API, personal code execution an
 platform/release qualification remain outstanding. Windows journal failures and
 macOS reference-witness evidence retain their own CI status and are not counted
 as passed by this local checkpoint.
+
+## Imported condition checkpoint
+
+**4/4 local criteria pass**: pinned differential operator evidence (600 exact
+evaluations), source-preserving rule diagnostics/priority/removals, actual native
+resource and public extension context shortcuts with Unicode/CRLF save/Undo, and
+the 1,661-test native regression/format/Clippy cohort. Two new terminal journeys
+and the context-key regression journey pass. This adds membership, numeric
+comparisons and a bounded regex subset; complete JavaScript regex semantics,
+all workbench/config contexts, scoped resolution and physical key delivery remain
+requirements. [Validation receipts](validation/native-when-expressions.json).

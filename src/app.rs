@@ -1388,6 +1388,49 @@ impl App {
                 json!(self.keymap.profile == Profile::Windows),
             ),
         ]);
+        context.insert("workspaceFolderCount".into(), json!(1));
+        context.insert("isWeb".into(), json!(false));
+        context.insert(
+            "isMacNative".into(),
+            json!(self.keymap.profile == Profile::Macos),
+        );
+        context.insert(
+            "resourceSet".into(),
+            json!(self.active_document().is_some()),
+        );
+        for key in [
+            "resourceScheme",
+            "resourceFilename",
+            "resourceExtname",
+            "resourceLangId",
+        ] {
+            context.insert(key.into(), Value::Null);
+        }
+        if let Some(document) = self.active_document()
+            && let Ok(uri) = crate::extensions::document_uri(document)
+            && let Ok(uri) = url::Url::parse(&uri)
+        {
+            let decoded = percent_encoding::percent_decode_str(uri.path()).decode_utf8_lossy();
+            let path = Path::new(decoded.as_ref());
+            context.insert("resourceScheme".into(), json!(uri.scheme()));
+            context.insert(
+                "resourceFilename".into(),
+                json!(
+                    path.file_name()
+                        .map(|name| name.to_string_lossy())
+                        .unwrap_or_default()
+                ),
+            );
+            context.insert(
+                "resourceExtname".into(),
+                json!(
+                    path.extension()
+                        .map(|extension| format!(".{}", extension.to_string_lossy()))
+                        .unwrap_or_default()
+                ),
+            );
+            context.insert("resourceLangId".into(), json!(self.language()));
+        }
         if let Some(host) = &self.extension_host {
             // Native focused-editor facts take precedence over root extension
             // keys, as scoped editor contexts do over the workbench root.

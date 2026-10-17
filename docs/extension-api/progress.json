@@ -369,6 +369,61 @@
         "Personal code extension qualification and fresh exact-head platform/release checks"
       ],
       "validation_receipt": "docs/validation/extension-context-keys.json"
+    },
+    {
+      "id": "native-context-conditions",
+      "api_ids": [
+        "vscode.commands.executeCommand"
+      ],
+      "criteria": [
+        {
+          "name": "Pinned upstream differential evidence for boolean, equality, numeric, membership and supported regex conditions",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-when-expressions.json",
+              "needle": "Pinned upstream differential evidence for boolean, equality, numeric, membership and supported regex conditions"
+            }
+          ]
+        },
+        {
+          "name": "Imported rule diagnostics preserve source bytes, precedence and explicit removals",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-when-expressions.json",
+              "needle": "Imported rule diagnostics preserve source bytes, precedence and explicit removals"
+            }
+          ]
+        },
+        {
+          "name": "Native resource context and public extension values control actual terminal edit/save/Undo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-when-expressions.json",
+              "needle": "Native resource context and public extension values control actual terminal edit/save/Undo"
+            }
+          ]
+        },
+        {
+          "name": "Full native regression, formatting and strict locked Clippy on the recorded source",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-when-expressions.json",
+              "needle": "Full native regression, formatting and strict locked Clippy on the recorded source"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Complete JavaScript RegExp UTF-16/Unicode, lookaround/backreference and coercion behavior",
+        "All config/workbench context values and scoped context hierarchy",
+        "Full keybinding resolver/chord/removal equivalence and physical terminal delivery",
+        "Whole stable API, personal code workflows and exact-head platform release gates"
+      ],
+      "validation_receipt": "docs/validation/native-when-expressions.json"
     }
   ],
   "next_batch": {

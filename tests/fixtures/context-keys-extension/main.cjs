@@ -4,6 +4,9 @@ exports.activate=async context=>{
  await moduleContext;
  for(const [key,value]of Object.entries({'fixture.enabled':true,'fixture.zero':0,'fixture.null':null,'editorTextFocus':false}))await v.commands.executeCommand('setContext',key,value);
  await v.commands.executeCommand('setContext','fixture.uris',[v.Uri.file('/tmp/context λ')]);
+ await v.commands.executeCommand('setContext','fixture.modes',['plaintext']);
+ await v.commands.executeCommand('setContext','fixture.count',2);
+ await v.commands.executeCommand('setContext','fixture.name','RUST');
  context.subscriptions.push(v.commands.registerCommand('fixture.context.edit',async()=>{
   require('node:fs').appendFileSync(require('node:path').join(v.workspace.rootPath,'context-entered'),'edit\n');
   assert.equal(await v.window.activeTextEditor.edit(edit=>edit.insert(new v.Position(0,0),'context ')),true);

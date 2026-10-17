@@ -169,6 +169,17 @@ fn validate_packages(packages: &[Package]) -> Result<Vec<Package>> {
         if bindings > 1024 || commands > MAX_COMMANDS {
             bail!("Extension session contribution limit exceeded");
         }
+        // This preflight runs in preparation/startup, before input/rendering
+        // installs contributed rules. Reuse its parsed conditions at admission.
+        let raw_bindings = &manifest["contributes"]["keybindings"];
+        let entries: Vec<_> = raw_bindings
+            .as_array()
+            .map_or_else(|| vec![raw_bindings], |values| values.iter().collect());
+        for binding in entries {
+            if let Some(source) = binding["when"].as_str() {
+                let _ = crate::keys::precompile_when(source);
+            }
+        }
     }
     Ok(selected)
 }
