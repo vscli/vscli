@@ -215,3 +215,10 @@ Delivery process checkpoint: all **814 host tests** pass through directory
 discovery locally. The new terminal jobs have already passed locally; workflow
 syntax parses. This changes failure collection and automatic test discovery,
 without relaxing assertions or qualifying another platform.
+
+CI discovery correction: run `node scripts/test_extension_host.cjs`. Local Node 26
+accepted a directory argument, but all three Node 24 CI jobs at `7ffc243` rejected
+it as a module path before running host tests. The driver discovers explicit
+contract filenames and invokes the previously working `node --test <files>`
+interface without shell globbing. Failed logs are retained; no test failure is
+reclassified as success.

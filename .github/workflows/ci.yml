@@ -65,7 +65,7 @@ jobs:
         with:
           node-version: '24'
       - name: Run all extension host contracts
-        run: node --test extension-host
+        run: node scripts/test_extension_host.cjs
       - name: Collect every native test binary failure
         run: cargo test --locked --no-fail-fast
       - name: Exercise document references through aliased temporary directories
