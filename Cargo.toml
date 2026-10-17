@@ -47,6 +47,7 @@ ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
 semver = "1"
 ratatui-image = { version = "11.1.0", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

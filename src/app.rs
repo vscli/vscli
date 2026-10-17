@@ -43,6 +43,7 @@ mod virtual_documents;
 mod workspace_edits;
 pub(crate) mod workspace_transactions;
 
+mod migration;
 mod session;
 mod snippet_catalogs;
 mod snippets;
@@ -138,6 +139,11 @@ pub(crate) fn native_command_ids() -> Vec<String> {
 }
 
 pub const COMMANDS: &[(&str, &str)] = &[
+    ("Preferences: Import from VS Code", "vscli.migration.import"),
+    (
+        "Preferences: Roll Back VS Code Import",
+        "vscli.migration.rollback",
+    ),
     ("View: Keep Editor", "workbench.action.keepEditor"),
     ("View: Pin Editor", "workbench.action.pinEditor"),
     ("View: Unpin Editor", "workbench.action.unpinEditor"),
@@ -425,6 +431,8 @@ pub enum PromptKind {
     Snippet,
     Theme,
     ThemeFile,
+    VscodeImportPath,
+    VscodeExtensionsPath,
     Open,
     SaveAs,
     Find,
@@ -485,6 +493,12 @@ pub enum AfterSave {
     CloseAll,
 }
 pub enum Modal {
+    Migration {
+        generation: u64,
+        title: String,
+        text: String,
+        scroll: usize,
+    },
     FileEditReview(crate::file_edit_review::dialog::Dialog),
     ExtensionTree,
     ExtensionSurfaces(extension_surfaces::Picker),
@@ -652,6 +666,7 @@ pub struct App {
     symbols: symbols::State,
     workspace_symbols: workspace_symbols::State,
     theme_state: themes::State,
+    migration: migration::State,
     pub settings: crate::settings::Settings,
     pub imported_keybinding_notices: Vec<String>,
     settings_loader: Option<crate::settings::Loader>,
@@ -675,6 +690,7 @@ pub struct App {
 }
 impl Drop for App {
     fn drop(&mut self) {
+        self.settle_migration();
         self.settle_symbols();
         self.settle_extension_file_search();
         self.settle_virtual_documents();
@@ -794,6 +810,7 @@ impl App {
             symbols: symbols::State::default(),
             workspace_symbols: workspace_symbols::State::default(),
             theme_state: themes::State::default(),
+            migration: migration::State::default(),
             settings: crate::settings::Settings::default(),
             imported_keybinding_notices: Vec::new(),
             settings_loader: None,
@@ -826,6 +843,7 @@ impl App {
         let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
         let mut changed = actions_changed | brand_changed | changed;
+        changed |= self.poll_migration();
         changed |= self.poll_settings_writes();
         if let Some(result) = self
             .settings_loader
@@ -1891,6 +1909,8 @@ impl App {
                 text: format!("{}\n\nNative palette: editor background/foreground/selection/current line, shared panels, line numbers and accent.\nSyntax colors map to 14 native categories; this is not TextMate scope parity.\n\n{}", self.theme.name, self.theme.warnings.join("\n")),
                 scroll: 0,
             }),
+            "vscli.migration.import" => self.open_vscode_import(),
+            "vscli.migration.rollback" => self.rollback_vscode_import(),
             "vscli.theme.load" => self.start_prompt(PromptKind::ThemeFile, String::new()),
             "vscli.debug.evaluate" => self.start_prompt(PromptKind::DebugEvaluate, String::new()),
             "explorer.newFile" => self.start_prompt(
@@ -2493,6 +2513,10 @@ impl App {
         }
     }
     fn modal_key(&mut self, key: KeyEvent) {
+        if matches!(self.modal, Some(Modal::Migration { .. })) {
+            self.migration_key(key);
+            return;
+        }
         if matches!(self.modal, Some(Modal::FileEditReview(_))) {
             if let Some(Modal::FileEditReview(dialog)) = self.modal.take() {
                 self.file_edit_review_key(key, dialog);
@@ -2961,6 +2985,10 @@ impl App {
             PromptKind::Theme => self.accept_theme(&p.text, p.selected),
             PromptKind::StopExtension => self.stop_selected_extension(p.text.trim()),
             PromptKind::ThemeFile => self.load_theme(self.resolve_path(&p.text)),
+            PromptKind::VscodeImportPath => self.import_vscode_path(self.resolve_path(&p.text)),
+            PromptKind::VscodeExtensionsPath => {
+                self.set_import_extension_directory(self.resolve_path(&p.text))
+            }
             PromptKind::DebugEvaluate => {
                 if let Some(client) = self.debugger.as_mut() {
                     if let Err(e) = client.evaluate(&p.text) {

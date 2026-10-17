@@ -48,14 +48,29 @@ struct Args {
     #[arg(long)]
     settings: Option<PathBuf>,
     /// Preview importing a VS Code User directory (settings, keybindings, snippets)
-    #[arg(long, conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension"])]
+    #[arg(long, num_args=0..=1, default_missing_value="auto", conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension"])]
     import_vscode: Option<PathBuf>,
+    /// List detected VS Code installations and named profiles without changing them
+    #[arg(long, conflicts_with = "import_vscode")]
+    list_vscode_profiles: bool,
+    /// Select a discovered VS Code profile by name, ID, or product:ID
+    #[arg(long, requires = "import_vscode")]
+    vscode_profile: Option<String>,
     /// VS Code extensions directory from which to copy the selected color theme
     #[arg(long, requires = "import_vscode")]
     vscode_extensions: Option<PathBuf>,
     /// Activate the imported profile copy after a successful preview
     #[arg(long, requires = "import_vscode")]
     apply_import: bool,
+    /// Copy registered local extension packages into the imported profile
+    #[arg(long, requires = "import_vscode")]
+    import_extensions: bool,
+    /// Grant imported source-enabled code extensions permission to activate
+    #[arg(long, requires_all=["import_extensions", "apply_import"])]
+    activate_imported_extensions: bool,
+    /// Restore the profile active before the most recent import
+    #[arg(long, conflicts_with_all=["import_vscode", "list_vscode_profiles", "install_extension", "list_extensions", "extension"])]
+    rollback_import: bool,
     /// Native configuration root for import and startup (default: OS config directory)
     #[arg(long)]
     config_dir: Option<PathBuf>,
@@ -191,9 +206,23 @@ fn main() -> Result<()> {
         .config_dir
         .clone()
         .or_else(vscli::migration::config_directory);
+    let mut profile_warning = None;
+    let active_config = config_root.as_deref().map(|root| {
+        vscli::migration::active_directory(root).unwrap_or_else(|error| {
+            profile_warning = Some(format!(
+                "Imported profile unavailable; using native configuration: {error:#}"
+            ));
+            root.into()
+        })
+    });
     let extensions_directory = args
         .extensions_dir
         .clone()
+        .or_else(|| {
+            active_config
+                .as_deref()
+                .and_then(vscli::migration::imported_extensions_directory)
+        })
         .or_else(vscli::extension_store::default_directory);
     if let Some(id) = args
         .enable_extension
@@ -211,7 +240,13 @@ fn main() -> Result<()> {
             .clone()
             .or_else(|| args.paths.iter().find(|path| path.is_dir()).cloned())
             .unwrap_or(std::env::current_dir()?);
-        let paths = vscli::extension_activation::state::Paths::new(config_root.as_deref(), &root)?;
+        let paths = vscli::extension_activation::state::Paths::new(
+            active_config
+                .as_deref()
+                .filter(|path| vscli::migration::imported_extensions_directory(path).is_some())
+                .or(config_root.as_deref()),
+            &root,
+        )?;
         let enabled = args.enable_extension.is_some();
         vscli::extension_activation::state::change(
             paths.path(args.extension_scope)?,
@@ -297,17 +332,67 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    if let Some(source) = &args.import_vscode {
-        let preview = vscli::migration::preview_with_extensions(
-            source,
-            profile,
-            args.vscode_extensions.as_deref(),
+    if args.rollback_import {
+        let restored = vscli::migration::rollback(
+            config_root
+                .as_deref()
+                .context("No native configuration directory; use --config-dir")?,
         )?;
+        println!("Restored profile: {}", restored.display());
+        return Ok(());
+    }
+    if args.list_vscode_profiles {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&vscli::migration::discovery::discover()?)?
+        );
+        return Ok(());
+    }
+    if let Some(source) = &args.import_vscode {
+        let preview = if source == std::path::Path::new("auto") {
+            let discovery = vscli::migration::discovery::discover()?;
+            let mut selected = vscli::migration::discovery::select(
+                &discovery.profiles,
+                args.vscode_profile.as_deref(),
+            )?;
+            if let Some(extensions) = &args.vscode_extensions {
+                selected.extensions = extensions.clone();
+            }
+            let mut preview = vscli::migration::preview_profile(&selected, profile)?;
+            preview.report.notices.extend(discovery.notices);
+            preview
+        } else {
+            let extensions = args
+                .vscode_extensions
+                .clone()
+                .or_else(|| {
+                    directories::BaseDirs::new()
+                        .map(|base| base.home_dir().join(".vscode/extensions"))
+                })
+                .context("No VS Code extension directory; use --vscode-extensions")?;
+            let selected = if args.vscode_profile.is_some() {
+                let sources = vscli::migration::discovery::installation(
+                    "Custom VS Code",
+                    source,
+                    &extensions,
+                )?;
+                vscli::migration::discovery::select(&sources, args.vscode_profile.as_deref())?
+            } else {
+                vscli::migration::discovery::default_source("Custom VS Code", source, &extensions)?
+            };
+            vscli::migration::preview_profile(&selected, profile)?
+        };
         let report = if args.apply_import {
-            preview.apply(
+            preview.apply_controlled(
                 config_root
                     .as_deref()
                     .context("Native configuration directory unavailable; set --config-dir")?,
+                vscli::migration::ApplyOptions {
+                    import_extensions: args.import_extensions,
+                    activate_extensions: args.activate_imported_extensions,
+                },
+                &std::sync::atomic::AtomicBool::new(false),
+                &mut |done, total, id| eprintln!("Importing local extensions {done}/{total}: {id}"),
             )?
         } else {
             preview.report
@@ -315,15 +400,6 @@ fn main() -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&report)?);
         return Ok(());
     }
-    let mut profile_warning = None;
-    let active_config = config_root.as_deref().map(|root| {
-        vscli::migration::active_directory(root).unwrap_or_else(|error| {
-            profile_warning = Some(format!(
-                "Imported profile unavailable; using native configuration: {error:#}"
-            ));
-            root.into()
-        })
-    });
     if args.doctor {
         println!(
             "VSCLI {}\nProfile: {profile:?}\nTerminal: {}\nTERM_PROGRAM: {}\nInteractive stdin/stdout: {}/{}\nMultiplexer: {}\nRecovery: {}\nUser keybindings: {}\n\nImplemented: UTF-8 editing, tabs, selections, undo/redo, safe save, find/replace,\nquick open, explorer, multi-cursor editing, split views, workspace search, native stdio LSP,\nterminal sessions, project tasks, Git status/diff/stage/commit/history,\nDAP breakpoints/stepping/variables, command palette, keybinding imports, crash snapshots.\nExtensions: optional experimental command/edit host via --extension (requires Node).\n\nRun F1 → Keyboard Inspector inside the editor to test actual key delivery.\nCtrl+Shift+P and other modified keys may require enhanced keyboard support.",
@@ -368,11 +444,21 @@ fn main() -> Result<()> {
         bail!("Workspace must be a directory");
     }
     let mut app = App::new(root, profile);
+    app.configure_migration(
+        config_root.clone(),
+        args.extensions_dir
+            .clone()
+            .or_else(vscli::extension_store::default_directory),
+    );
     app.configure_recents(config_root.as_deref());
-    app.configure_extension_storage(config_root.as_deref());
+    let extension_profile_config = active_config
+        .as_deref()
+        .filter(|path| vscli::migration::imported_extensions_directory(path).is_some())
+        .or(config_root.as_deref());
+    app.configure_extension_storage(extension_profile_config);
     app.extensions_directory = extensions_directory.clone();
     app.extension_registry = registry;
-    app.configure_extension_activation(config_root.as_deref());
+    app.configure_extension_activation(extension_profile_config);
     app.extension_node = args.extension_node.clone();
     let settings_path = args
         .settings
@@ -380,7 +466,7 @@ fn main() -> Result<()> {
         .or_else(|| active_config.as_ref().map(|p| p.join("settings.json")));
     let settings_error = app.configure_settings(settings_path).err();
     app.configure_themes(
-        args.extensions_dir.clone(),
+        extensions_directory.clone(),
         active_config
             .as_ref()
             .map(|path| path.join("theme-selection.json")),

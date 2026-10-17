@@ -51,7 +51,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     } else {
         0
     };
-    let height = (header + 1 + 7 + recent + footer).min(area.height);
+    let height = (header + 1 + 8 + recent + footer).min(area.height);
     let content = Rect::new(
         area.x + area.width.saturating_sub(width) / 2,
         area.y + area.height.saturating_sub(height) / 2,
@@ -96,6 +96,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     let body_width = if wide { width / 2 - 2 } else { width };
     let context = app.context();
     for (i, (label, command)) in [
+        ("Import from VS Code", "vscli.migration.import"),
         ("New File", "workbench.action.files.newUntitledFile"),
         ("Open File", "workbench.action.files.openFile"),
         ("Open Recent File", "workbench.action.openRecent"),

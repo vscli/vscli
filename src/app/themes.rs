@@ -10,6 +10,7 @@ struct Styled {
     base: Theme,
     rendered: Theme,
     settings: crate::settings::Settings,
+    announce: bool,
 }
 impl Styled {
     fn new(base: Theme, settings: crate::settings::Settings) -> Self {
@@ -18,8 +19,21 @@ impl Styled {
             base,
             rendered,
             settings,
+            announce: true,
         }
     }
+    fn quiet(base: Theme, settings: crate::settings::Settings) -> Self {
+        Self {
+            announce: false,
+            ..Self::new(base, settings)
+        }
+    }
+}
+struct Configuration {
+    directory: Option<PathBuf>,
+    preferences: Option<PathBuf>,
+    requested: Option<String>,
+    explicit_file: Option<PathBuf>,
 }
 #[derive(Default)]
 pub(super) struct State {
@@ -30,6 +44,7 @@ pub(super) struct State {
     base: Theme,
     configured: bool,
     refresh_pending: bool,
+    deferred: Option<Configuration>,
 }
 impl App {
     pub fn configure_themes(
@@ -40,6 +55,12 @@ impl App {
         explicit_file: Option<PathBuf>,
     ) {
         if self.theme_state.pending.is_some() {
+            self.theme_state.deferred = Some(Configuration {
+                directory,
+                preferences,
+                requested,
+                explicit_file,
+            });
             return;
         }
         self.theme_state.preferences = preferences.clone();
@@ -169,7 +190,7 @@ impl App {
         self.theme_state.pending = Some(receiver);
         std::thread::spawn(move || {
             let _ = sender.send(Ok(Loaded {
-                theme: Some(Styled::new(base, settings)),
+                theme: Some(Styled::quiet(base, settings)),
                 choices: None,
                 notices: Vec::new(),
             }));
@@ -185,6 +206,15 @@ impl App {
             Err(TryRecvError::Disconnected) => Err("Theme loader stopped".into()),
         };
         self.theme_state.pending = None;
+        if let Some(configuration) = self.theme_state.deferred.take() {
+            self.configure_themes(
+                configuration.directory,
+                configuration.preferences,
+                configuration.requested,
+                configuration.explicit_file,
+            );
+            return true;
+        }
         match result {
             Ok(mut loaded) => {
                 if let Some(choices) = loaded.choices {
@@ -194,8 +224,12 @@ impl App {
                     self.theme_state.base = styled.base;
                     if styled.settings == self.settings {
                         self.theme_state.refresh_pending = false;
-                        loaded.notices.extend(styled.rendered.warnings.clone());
-                        self.message = format!("Color theme: {}", styled.rendered.name);
+                        if styled.announce {
+                            loaded.notices.extend(styled.rendered.warnings.clone());
+                            self.message = format!("Color theme: {}", styled.rendered.name);
+                        } else if styled.rendered.warnings != self.theme.warnings {
+                            loaded.notices.extend(styled.rendered.warnings.clone());
+                        }
                         self.theme = styled.rendered;
                     } else {
                         // A settings reply cannot authorize an older appearance.
@@ -575,6 +609,50 @@ mod customization_tests {
         assert_eq!(app.doc().text.len_chars(), 0);
     }
 
+    #[test]
+    fn background_color_refresh_preserves_the_settings_reload_notice() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.theme_state.configured = true;
+        app.settings = settings("#123456");
+        app.message = "Settings reloaded".into();
+        app.refresh_theme_customizations();
+        settle(&mut app);
+        assert!(
+            app.message.starts_with("Settings reloaded"),
+            "{}",
+            app.message
+        );
+        assert_eq!(app.theme.colors.foreground, Color::Rgb(18, 52, 86));
+    }
+    #[test]
+    fn newer_profile_theme_request_supersedes_an_inflight_old_profile_reply() {
+        let root = tempfile::tempdir().unwrap();
+        let theme = root.path().join("latest.json");
+        std::fs::write(
+            &theme,
+            r##"{"name":"Latest Profile","colors":{"editor.foreground":"#123456"}}"##,
+        )
+        .unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let before = app.theme.colors.foreground;
+        let (sender, receiver) = mpsc::sync_channel(1);
+        app.theme_state.pending = Some(receiver);
+        app.theme_state.configured = true;
+        app.configure_themes(None, None, None, Some(theme));
+        sender
+            .send(Ok(Loaded {
+                theme: Some(Styled::new(Theme::light(), app.settings.clone())),
+                choices: None,
+                notices: Vec::new(),
+            }))
+            .unwrap();
+        assert!(app.poll_theme());
+        assert_eq!(app.theme.colors.foreground, before);
+        settle(&mut app);
+        assert_eq!(app.theme.name, "Latest Profile");
+        assert_eq!(app.theme.colors.foreground, Color::Rgb(18, 52, 86));
+    }
     #[test]
     fn stale_style_never_publishes_and_latest_settings_are_reapplied_to_selected_base() {
         let root = tempfile::tempdir().unwrap();

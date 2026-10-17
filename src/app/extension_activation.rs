@@ -191,7 +191,7 @@ fn load(
     })
 }
 impl App {
-    /// Always use the native user root, never a repository file or copied import profile.
+    /// Use the selected native extension profile root, never a repository file.
     pub fn configure_extension_activation(&mut self, config_root: Option<&Path>) {
         self.activation.configured = true;
         self.activation.config_root = config_root.map(Path::to_owned);

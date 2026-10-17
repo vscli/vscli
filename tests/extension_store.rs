@@ -235,7 +235,7 @@ fn cumulative_manifest_budget_limits_listing_without_disabling_direct_ids() {
         write!(
             zip,
             "{}",
-            json!({"publisher":"example","name":name,"version":"1.0.0","metadata":vec![0; 30_000]})
+            json!({"publisher":"example","name":name,"version":"1.0.0","metadata":vec![0; 130_000]})
         )
         .unwrap();
         zip.finish().unwrap();

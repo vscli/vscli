@@ -446,6 +446,18 @@ Color continuity uses at most 256 recent byte edits and 512 unchanged-text segme
 
 ## Importing VS Code and choosing themes
 
+The welcome screen's **Import from VS Code**, or **F1 → Preferences: Import from
+VS Code**, opens native profile discovery and review. Imported settings and keys
+apply without replacing open documents. Package copying and code activation are
+separate review choices. **Preferences: Roll Back VS Code Import** restores the
+preceding profile while retaining copies and unsaved buffers.
+
+`vscli --list-vscode-profiles` lists discovered sources; `vscli --import-vscode`
+previews a default source, and `--vscode-profile NAME` selects a registered named
+profile. `--import-extensions` copies its registered local packages; explicit
+`--activate-imported-extensions --apply-import` grants source-enabled code packages
+permission to activate. `--rollback-import` restores the preceding profile.
+
 `vscli --import-vscode /path/to/Code/User` previews a migration. Add
 `--apply-import` to activate a versioned profile copy while retaining original files
 and earlier native profiles. `--vscode-extensions` selects the source extension

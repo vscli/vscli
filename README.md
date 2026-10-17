@@ -84,23 +84,27 @@ Recovery of unsaved buffers after a crash is enabled separately by default.
 
 ## Coming from VS Code?
 
-Preview an import using the VS Code **User** directory containing your
-`settings.json`, `keybindings.json`, and `snippets/`:
+Choose **Import from VS Code** on the welcome screen, or run
+**F1 → Preferences: Import from VS Code**. Pick a local profile, review its
+configuration and extensions, then apply a separate native copy. Open documents
+and unsaved edits stay in place. Code activation is a separate choice in review.
+
+CLI equivalents:
 
 ```sh
-vscli --import-vscode /path/to/Code/User
+vscli --list-vscode-profiles
+vscli --import-vscode
+vscli --import-vscode --import-extensions --apply-import
 ```
 
-Review the compatibility report, then add `--apply-import` to use a native copy:
+Use `--vscode-profile NAME` to choose a named profile, or pass a User directory
+after `--import-vscode`. Add `--activate-imported-extensions` only when you want
+source-enabled code extensions to activate. To restore the previous profile,
+use **Preferences: Roll Back VS Code Import** or `vscli --rollback-import`.
 
-```sh
-vscli --import-vscode /path/to/Code/User --apply-import
-vscli .
-```
-
-Your original VS Code files stay unchanged. Unsupported settings and shortcuts
-are reported; importing them doesn't enable missing features. See the
-[migration and theme guide](docs/IMPORT_AND_THEMES.md) for details.
+Your original VS Code files stay unchanged. Unsupported behavior is reported;
+copying an extension does not establish that all its features work. See the
+[migration and theme guide](docs/IMPORT_AND_THEMES.md) for setup and current limits.
 
 Use **F1 → Preferences: Color Theme** to choose a built-in or installed theme.
 Imported `workbench.colorCustomizations` applies to supported native colors,

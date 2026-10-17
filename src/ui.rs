@@ -1039,6 +1039,10 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::Theme => " Color Theme · select or Load Color Theme File from commands ",
         PromptKind::SearchExtensions => " Search Open VSX · Enter searches · Esc cancels ",
         PromptKind::StopExtension => " Stop Selected Extension ID (publisher.name) ",
+        PromptKind::VscodeExtensionsPath => {
+            " Import VS Code · installed extensions directory path "
+        }
+        PromptKind::VscodeImportPath => " Import VS Code · User directory path ",
         PromptKind::ThemeFile => " Load VS Code Color Theme (JSON/JSONC path) ",
         PromptKind::Open => " Open File (absolute or workspace-relative) ",
         PromptKind::SaveAs => " Save As (existing files are protected) ",
@@ -1279,6 +1283,12 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
             title,
             text,
             scroll,
+        }
+        | Modal::Migration {
+            title,
+            text,
+            scroll,
+            ..
         } => {
             let inner = popup(
                 frame,

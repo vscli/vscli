@@ -15,14 +15,15 @@ with evidence and an explanation. Do not turn these into a guessed overall
 compatibility percentage.
 
 The first real acceptance case is the user's existing local VS Code setup. A
-read-only baseline discovered 99 distinct installed extension IDs; the existing
-import preview produced 115 notices. Those are inventory and report counts,
-not measured compatibility. Personal configuration contents and package lists
+raw directory scan found 99 distinct IDs; the authoritative registered profile
+index contains 93 version records resolving to 90 selected IDs. The existing
+configuration preview produced 115 notices. These are inventory and report
+counts, not measured compatibility. Personal configuration contents and package lists
 stay outside the repository. Synthetic fixtures exercise the same mechanisms.
 The personal profile's fourteen color overrides target cursor/overview-ruler
 surfaces outside the current native palette. Native launch and byte-preserving
-copy have been checked; the 99-extension cohort and custom UI styling have not
-been qualified. The color-customization batch below does not close these gaps.
+configuration/package copy have been checked. The 90 selected extensions' runtime
+workflows and custom UI styling have not been qualified. The color-customization batch below does not close these gaps.
 
 Release gates:
 
@@ -88,22 +89,54 @@ TextMate/semantic token fidelity, fonts/icons/layout, custom CSS, full profile
 import and extension migration remain open. Theme files and every other original
 setting remain preserved.
 
+## Guided profile and local-package migration
+
+Local batch completion criteria (not full migration acceptance):
+
+1. Discover default/registered named profiles and resource inheritance, with
+   custom User/extension directory selection in native review and the CLI.
+2. Preserve configuration bytes and reconcile registered package identity,
+   selected version, platform metadata, dependencies and source disablement.
+3. Snapshot local package files independently and publish configuration, package
+   registry, initial execution grants and rollback reference together.
+4. Keep code disabled unless explicitly granted; source-disabled code remains
+   ungranted. Copy and native editing work without Node.
+5. Apply/rollback in the native UI retains shared dirty documents and replaces
+   imported shortcuts; canceled/failed work leaves the previous profile active.
+6. Exercise native package activation only after an explicit grant, including
+   edit/save/Undo and unchanged originals; pass integrity, regression and PTY checks.
+
+Local result: **6/6 batch criteria passed**. The delivered cohort passes 1,642 Rust
+tests across 67 reports (1,292 library; 23 ignored), 35 core terminal scenarios,
+two migration journeys, the appearance journey and two welcome scenarios.
+Formatting, strict locked Clippy and the native build pass. A private copy of
+the actual profile contains all **90/90 selected packages**, with matching
+selected versions/manifest hashes and byte-exact configuration; native launch,
+package listing and Unicode/CRLF edit/save/Undo pass without Node. There are
+**zero personal code execution grants**. See [validation receipts](validation/profile-migration.json).
+
+The personal cohort contains 80 code packages, 1,683 contributed commands, 169
+keybindings and 13 packages requesting proposed APIs. These counts are concrete
+requirements; they do not establish behavioral compatibility. Full source-disabled
+contribution filtering, extension storage, exported `.code-profile` input,
+portable/custom path inference, source engine-version resolution, platform-native
+binaries and cross-platform UI/release qualification remain open.
+
 ## Next implementation batch
 
-Build the guided profile/extension migration flow around the existing atomic
-profile-copy importer and extension store. Completion requires automatic source
-selection with a custom-path fallback, per-package version/enabled/dependency
-reconciliation, a review of settings/appearance/shortcuts/extensions, and an
-apply/retry/rollback path that retains original files and unsaved work. Exercise
-that flow through the native UI and the real 99-extension inventory. Report
-unqualified workflows individually; do not declare that all extensions work
-because installation succeeded.
+Remove the eight-package selected-host barrier while keeping callback/service
+queues bounded. Completion requires a 90-package synthetic selected session with
+more than 1,024 contributed commands, explicit rejection beyond the new package
+and manifest-node budgets, unchanged eight-slot callback protections, actual
+native command dispatch/edit/save/Undo, restart, full relevant Rust/host checks
+and PTY evidence. Do not activate the personal cohort just to claim that it works;
+report engine/proposed-API and missing-backend failures per package.
 
 Before expanding migration-specific compatibility shims, compare pinned upstream
 host, configuration, theme and keybinding resolver reuse against the real profile.
 Use that result to choose the execution/presentation route for its extension
-cohort. Preserve bounded background work without using existing package or API
-limits as a reason to reduce the migration scope.
+cohort. Preserve bounded background work without using package or API limits as a
+reason to reduce the migration scope.
 
 ## References
 

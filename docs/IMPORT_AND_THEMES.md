@@ -5,6 +5,10 @@ The report separates copied data from implemented behavior. The native editor an
 theme loader do not need Node or execute extension code.
 
 ```sh
+# Discover local installations and named profiles, or preview the default profile.
+vscli --list-vscode-profiles
+vscli --import-vscode
+vscli --import-vscode --vscode-profile 'My Profile'
 # Read-only preview; use the User directory containing settings.json and snippets/.
 vscli --import-vscode /path/to/Code/User
 # Explicitly activate a versioned native profile copy.
@@ -13,10 +17,19 @@ vscli --import-vscode /path/to/Code/User --apply-import
 vscli --import-vscode /path/to/Code/User --vscode-extensions /path/to/extensions --apply-import
 ```
 
+The welcome screen's **Import from VS Code** action and
+**F1 → Preferences: Import from VS Code** provide native profile selection and
+review. **P** chooses a custom User directory; **E** chooses its extension folder.
+In review, **I** includes local packages and **A** explicitly allows source-enabled
+code packages to activate. **Enter** applies. Configuration loads in the current
+window without replacing open models or discarding unsaved edits. Escape cancels
+preparation; a completed atomic activation is still reported if cancellation
+arrives after commit. Workers retain their slot until they actually finish.
+
 `--config-dir /path/to/native-config` isolates the destination and subsequent
 startup. Without it, the OS-native VSCLI configuration directory is used.
 The preview prints JSON with source files, byte count and compatibility notices.
-Settings, keybindings and direct `snippets/*.json` / `*.code-snippets` files are
+Settings, keybindings, user tasks and direct `snippets/*.json` / `*.code-snippets` files are
 copied byte-for-byte, including comments and unknown values. Invalid JSONC or
 invalid top-level types fail before activation. Unsupported keybinding expressions
 remain in the copied file and are skipped by the native imported-profile loader;
@@ -35,8 +48,11 @@ package. Absolute includes and symlink aliases are reported instead of being cop
 with broken references; relative include files retain their original bytes. Theme imports and automatic
 imported-keybinding loads reject nonregular files before opening them. Missing, invalid or unsupported themes are reported; configuration import
 can still succeed. Built-in themes shipped inside the VS Code application are not
-automatically discovered by this directory scan. Extension executable code,
-accounts, sync data and the entire VS Code profile system are not migrated.
+automatically discovered by this directory scan. Registered named profiles and
+per-resource inheritance flags are supported. User `tasks.json` is preserved;
+native task execution still reads workspace `.vscode/tasks.json`. Accounts,
+Settings Sync, complete profile management and extension storage migration remain
+outstanding.
 
 All copied files are prepared and synced in a temporary directory, then renamed
 into `imports/<uuid>`. A single atomic `active-profile.json` replacement activates
@@ -58,6 +74,49 @@ most 128 extension packages and 128 theme declarations per package. Selected the
 snapshots contain at most eight files and 4 MiB. Limits fail or report incomplete
 coverage explicitly. Imported user snippets are available through **Insert Snippet**;
 copying bytes alone does not provide completion snippets.
+
+## Local extension packages and rollback
+
+Add `--import-extensions` to copy registered local packages together with the
+configuration. Add `--activate-imported-extensions` with `--apply-import` to grant
+source-enabled code packages permission to activate. Without that grant,
+installation does not start code. Source-disabled code packages remain ungranted.
+
+```sh
+vscli --import-vscode --import-extensions --apply-import
+vscli --import-vscode --import-extensions --activate-imported-extensions --apply-import
+vscli --rollback-import
+```
+
+The registered profile index supplies identity, version and paths. When it holds
+multiple versions, migration selects the highest registered version for this
+platform and reports the reconciliation. Original version metadata remains in
+`extension-migration.json`. Source application engine-version selection and
+cross-platform native binaries need further qualification. Unregistered folders
+are reported rather than silently installed. No registry download is required.
+
+Disabled identifiers are read from a private snapshot of the profile's SQLite
+database and WAL. The importer queries extension disablement, not account or
+secret records, and creates no SQLite sidecars in the original User directory.
+The source package manifest must still match its preview. Packages are streamed
+into independent native generations; executable modes and confined relative links
+are retained. Special files and escaping/absolute links fail the import.
+
+A profile's settings, packages, initial execution grants and rollback reference
+are staged before its active pointer is atomically replaced. A failed or canceled
+copy leaves the previous active profile intact. Native startup and CLI package
+operations select the imported package store unless `--extensions-dir` overrides
+it. Rollback selects the preceding profile without deleting either generation,
+including modified imported settings. Existing native settings are restored when
+rolling back the first import. Earlier copies made before rollback metadata was
+implemented cannot automatically roll back.
+
+Current local-copy bounds are 2,048 packages, 16 GiB total bytes, 2 GiB per file,
+one million entries and 64 MiB of path metadata; directory nesting is bounded at
+64 levels. State database/WAL snapshots each allow 256 MiB. These are explicit
+errors, not truncation. Installation does not qualify a package's runtime API,
+services, complete disabled declarative-contribution behavior or visual fidelity.
+The current selected code-host capacity and remaining APIs are still release gaps.
 
 ## Personal color customizations
 
