@@ -151,13 +151,14 @@ strict locked Clippy pass. No personal code was activated.
 
 ## Next implementation batch
 
-Repair the failing release CI before extending exported-profile import. Reproduce
-canonical-directory aliases locally, fix genuine identity failures, make path and
-filename fixtures respect host filesystem contracts, retain deterministic save
-transaction evidence, isolate pinned upstream fixtures from build-cache restores,
-and retain partial producer artifacts without masking the initiating failure.
-Completion requires the relevant native/host controls and required PR checks to
-pass; a local pass does not qualify another platform.
+Finish exact-head platform CI qualification before release. Main CI now discovers
+all host contract tests from the extension-host directory, instead of maintaining
+six selected filename lists. Native Cargo tests use `--no-fail-fast` so one failed
+test binary does not hide failures in later binaries; the job still fails. The
+new context/complex-condition/default-label terminal journeys run on Unix CI.
+Use each run's complete evidence to repair the next platform gap, and retain the
+failed receipts. The observed associated-untitled Windows EOL fixture assumptions
+have a focused repair; actual Windows results remain required.
 
 Before expanding migration-specific compatibility shims, compare pinned upstream
 host, configuration, theme and keybinding resolver reuse against the real profile.
@@ -209,3 +210,8 @@ placeholder theme labels; these counts do not qualify every label or color.
 There are 1,668 passing Rust and 814 host tests. Preferred-language manifest
 bundles, language packs, richer presentation, all code workflows and the entire
 stable API remain required. [Evidence](validation/default-manifest-labels.json).
+
+Delivery process checkpoint: all **814 host tests** pass through directory
+discovery locally. The new terminal jobs have already passed locally; workflow
+syntax parses. This changes failure collection and automatic test discovery,
+without relaxing assertions or qualifying another platform.
