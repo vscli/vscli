@@ -485,6 +485,11 @@ common text styles follow edits and Undo/Redo; they do not modify file contents.
 Hover, before/after attachments, gutter images, overview rulers and richer CSS
 remain outstanding. See [editor decorations](EDITOR_DECORATIONS_API.md).
 
+Selected code extensions can publish session context flags through `setContext`
+to enable conditional shortcuts. Native editor facts retain precedence; stopping
+the selected host clears its context values. See [context behavior and current
+limits](CONTEXT_KEYS_API.md).
+
 ## Settings
 
 Use `--settings /path/to/settings.json` to select a user settings file for reading and native settings writes. By default, VSCLI reads `settings.json` beside its user keybindings file. An activated import supplies the native copy's user settings/keybindings/snippet directory unless explicit CLI paths override it. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.

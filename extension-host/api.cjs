@@ -101,7 +101,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     captureCaller: owner => callers.bind(owner, () => { assertOwner(owner); sessionOptions.assertOwner?.(owner); }),
     workspace: () => ({ root: workspaceRoot, identity: workspaceEditConfigurationIdentity }),
   });
-  const reserved = new Set(sessionOptions.reservedCommands || []);
+  const reserved = new Set([...(sessionOptions.reservedCommands || []), 'setContext']);
   let registrationCount = 0, commandCalls = 0;
   const promptBudget = { pending: 0, bytes: 0 };
   const fileSystem = filesystem.createFileSystem({ assertOwner, track, bindProvider: callers.bindProvider, invokeProviderResult: callers.invokeProviderResult, bindProviderResult: callers.bindProviderResult, bindProviderCleanup: callers.bindProviderCleanup });
@@ -244,6 +244,21 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       },
       async executeCommand(id, ...args) {
         assertOwner(owner);
+        if (id === 'setContext') {
+          if (sessionOptions.contextKeys !== true) throw new Error('Native context keys are unavailable');
+          if (typeof args[0] !== 'string' || Buffer.byteLength(args[0]) > 1024) throw new TypeError('setContext requires a string key within 1024 UTF-8 bytes');
+          const value = args[1], remove = value === undefined;
+          // Upstream extHostApiCommands forwards two arguments; the workbench
+          // context service recursively turns URI values into public strings.
+          const encoded = JSON.stringify(remove ? null : value, (_key, item) =>
+            item && typeof item === 'object' && item.$mid === 1
+              ? Reflect.apply(formatDocumentUri, Uri.revive(item), []) : item);
+          if (encoded === undefined || Buffer.byteLength(encoded) > 65536) throw new Error('Context value exceeds JSON / 64 KiB bounds');
+          const snapshot = JSON.parse(encoded);
+          const acknowledged = await documentServices.call(owner, 'nativeContextSet', { key:args[0], remove, value:snapshot });
+          if (acknowledged !== null) throw new Error('Invalid native context command acknowledgement');
+          return undefined;
+        }
         if(id==='vscode.executeWorkspaceSymbolProvider'){if(!sessionOptions.languageProviders)throw new Error('Native language providers are unavailable');return providers.queryWorkspaceSymbols(owner,args[0]);}
         if(renameProviders.commands.includes(id)){if(!sessionOptions.languageProviders)throw new Error('Native language providers are unavailable');return renameProviders.execute(owner,id,args);}
         if(navigationProviders.commands.includes(id)){if(!sessionOptions.languageProviders)throw new Error('Native language providers are unavailable');return navigationProviders.execute(owner,id,args);}
@@ -254,7 +269,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
         commandCalls++;
         try { return await command.callback(...args); } finally { commandCalls--; }
       },
-      async getCommands() { return [...NATIVE_COMMANDS, ...(sessionOptions.languageProviders?[...navigationProviders.commands,...renameProviders.commands,'vscode.executeWorkspaceSymbolProvider']:[]), ...commands.keys()]; },
+      async getCommands() { return [...NATIVE_COMMANDS, ...(sessionOptions.contextKeys ? ['setContext'] : []), ...(sessionOptions.languageProviders?[...navigationProviders.commands,...renameProviders.commands,'vscode.executeWorkspaceSymbolProvider']:[]), ...commands.keys()]; },
     });
   }
   function sourceEnd(text) {

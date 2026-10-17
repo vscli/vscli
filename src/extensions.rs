@@ -1,4 +1,5 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
+pub(crate) mod context_keys;
 mod decorations;
 mod diagnostics;
 mod document_loads;
@@ -311,6 +312,7 @@ pub struct Client {
     next_id: u64,
     heartbeat: Instant,
     pub keybindings: Option<Value>,
+    pub(crate) context_keys: context_keys::Keys,
     pub ready: bool,
     pub commands: Vec<(String, String)>,
     pub identity: String,
@@ -653,6 +655,7 @@ impl Client {
             next_id: 0,
             heartbeat: Instant::now(),
             keybindings: None,
+            context_keys: context_keys::Keys::default(),
             ready: false,
             commands: Vec::new(),
             identity: packages
@@ -670,7 +673,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages, "fileParticipants":client.file_participation.enabled,
-                "locale": prepared.locale, "applicationRoot": lsp::extension_host_path(std::env::current_exe()?.parent().context("No application root")?)?, "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
+                "contextKeys": true, "locale": prepared.locale, "applicationRoot": lsp::extension_host_path(std::env::current_exe()?.parent().context("No application root")?)?, "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -1192,6 +1195,24 @@ impl Client {
                             bail!("Outdated activation registry");
                         }
                         self.register_activation(&message["params"]["activation"])?;
+                    }
+                    "nativeContextSet" => {
+                        let id = message["id"]
+                            .as_str()
+                            .filter(|id| !id.is_empty() && id.len() <= 128)
+                            .map(str::to_owned);
+                        let result = if id.is_some() {
+                            self.set_context_request(message["params"].take())
+                        } else {
+                            Err(anyhow::anyhow!("Invalid context request ID"))
+                        };
+                        let response = match result {
+                            Ok(()) => json!({"id":id,"result":null}),
+                            Err(error) => {
+                                json!({"id":id,"error":{"message":services::bounded_error(&error)}})
+                            }
+                        };
+                        self.process.send(response)?;
                     }
                     "nativeDocumentOpen"
                     | "nativeDocumentLoad"

@@ -524,3 +524,11 @@ unsupported grant cohorts refuse before package copying. The actual isolated
 184-package profile copy has 113 code packages and zero execution grants;
 package copying does not establish their runtime/API compatibility. See
 [built-in profile validation](validation/builtin-profile-migration.json).
+
+
+Selected extensions can use `commands.executeCommand('setContext', key, value)`
+to control native conditional shortcuts, including during module evaluation at
+welcome. URI normalization, undefined removal, bounded retained acknowledgements
+and actual conditional shortcut/edit/save/Undo are locally tested. Values remain
+session-local; full expression/scoped context equivalence and other built-in
+command targets stay open. See [extension context keys](CONTEXT_KEYS_API.md).

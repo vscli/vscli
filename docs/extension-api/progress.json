@@ -313,6 +313,62 @@
         "Failing exact-head platform CI and release artifacts"
       ],
       "validation_receipt": "docs/validation/extension-localization.json"
+    },
+    {
+      "id": "extension-context-key-command",
+      "api_ids": [
+        "vscode.commands.executeCommand",
+        "vscode.commands.getCommands"
+      ],
+      "criteria": [
+        {
+          "name": "Public setContext values, URI normalization, removal and void result before promise completion",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-context-keys.json",
+              "needle": "Public setContext values, URI normalization, removal and void result before promise completion"
+            }
+          ]
+        },
+        {
+          "name": "Bounded shared queue, unknown-outcome timeout, malformed receipt and stale owner/session refusal",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-context-keys.json",
+              "needle": "Bounded shared queue, unknown-outcome timeout, malformed receipt and stale owner/session refusal"
+            }
+          ]
+        },
+        {
+          "name": "Native module/activation context and conditional shortcut use without replacing editor facts",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-context-keys.json",
+              "needle": "Native module/activation context and conditional shortcut use without replacing editor facts"
+            }
+          ]
+        },
+        {
+          "name": "Native shared identity, edit/save/Undo, restart and terminal invocation trace with required checks",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-context-keys.json",
+              "needle": "Native shared identity, edit/save/Undo, restart and terminal invocation trace with required checks"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Complete native expression parser/coercions and context-key population/scoped hierarchy",
+        "Lifecycle equivalence of global context across extension host restart/failure; current values are session-local",
+        "Other executeCommand targets and the complete stable extension API",
+        "Personal code extension qualification and fresh exact-head platform/release checks"
+      ],
+      "validation_receipt": "docs/validation/extension-context-keys.json"
     }
   ],
   "next_batch": {

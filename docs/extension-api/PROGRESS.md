@@ -63,3 +63,13 @@ actual isolated copy contains 184/184 matching packages, 113 code packages and z
 personal execution grants. All 1,656 Rust tests pass locally. This is migration
 integration evidence; whole stable-API qualification remains open.
 [Source/binary and workflow receipts](../validation/builtin-profile-migration.json).
+
+
+Extension context keys pass **4/4 named local workflow criteria**, including
+module/activation calls at welcome, retained bounded requests, actual conditional
+shortcuts and shared edit/save/Undo/restart. The final native suite passes 1,659
+tests across 70 reports (23 ignored; four Rust test threads), all 811 host tests
+pass on unchanged host JS, and the new terminal journey passes. The preceding
+theme-helper timeout and source difference are retained in the receipt. Whole
+expression/scoped context and entire stable API qualification remain open.
+[Evidence](../validation/extension-context-keys.json).

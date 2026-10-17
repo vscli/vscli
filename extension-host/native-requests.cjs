@@ -14,25 +14,26 @@ function createNativeRequests(send, origin, timers = globalThis) {
     const findFiles = method === 'nativeFindFiles';
     const refactoringSave=applyEdit&&params.args?.refactoringSave===true&&params.args?.metadata?.isRefactoring===true;
     const applyTargets=applyEdit&&params.args?.targetReceipts===true?new Map(params.args.entries.map(entry=>[entry.uri,entry.document])):undefined;
+    const contextSet = method === 'nativeContextSet';
     const tabsClose = method === 'nativeTabsClose';
     const virtual = method === 'nativeVirtualDocumentOpen' || method === 'nativeVirtualDocumentChange' || method === 'nativeUntitledDocumentOpen' || method === 'nativeDocumentLanguage' || method === 'nativeEditorSelections';
     const editorOperation = method === 'nativeEditorSelections' || method === 'nativeDocumentShow' || method === 'nativeEditorOptions' || method === 'nativeEditorReveal' || method === 'nativeEditorDecorations' || method === 'nativeEditorInsertSnippet';
     const load = ['nativeDocumentLoad','nativeVirtualDocumentLoad','nativeUntitledDocumentLoad'].includes(method);
     const admission = method === 'nativeDocumentLoadBegin', loadCancel = method === 'nativeDocumentLoadCancel';
-    const retained = admission || loadCancel || load || save || applyEdit || findFiles || virtual || editorOperation || tabsClose;
+    const retained = contextSet || admission || loadCancel || load || save || applyEdit || findFiles || virtual || editorOperation || tabsClose;
     const expectedTabKind = tabsClose ? params.args?.kind : undefined;
     const expectedTabIds = tabsClose && Array.isArray(params.args?.ids) ? params.args.ids.slice() : undefined;
     const expectedEditor = method !== 'nativeDocumentShow' && editorOperation ? params.args?.editor : undefined;
     const decoration = method === 'nativeEditorDecorations', snippetOperation = method === 'nativeEditorInsertSnippet';
     const expectedKey = decoration ? params.args?.key : undefined, expectedDocument = decoration || snippetOperation ? params.args?.document : undefined;
     const context = origin();
-    if (method === 'prompt' || ['nativeDocumentLoadBegin','nativeDocumentLoadCancel','nativeVirtualDocumentLoad','nativeUntitledDocumentLoad','nativeDocumentLoad', 'nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeTabsClose', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
+    if (method === 'prompt' || ['nativeContextSet', 'nativeDocumentLoadBegin','nativeDocumentLoadCancel','nativeVirtualDocumentLoad','nativeUntitledDocumentLoad','nativeDocumentLoad', 'nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeTabsClose', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
       if (context?.active && Number.isSafeInteger(context.id)) params = { ...params, command: context.id, commandOwner: context.owner };
     }
     const id = `host-${++nextId}`;
     const frame = { id, method, params };
     let bytes = 0;
-    if (['nativeDocumentLoadBegin','nativeDocumentLoadCancel','nativeVirtualDocumentLoad','nativeUntitledDocumentLoad','nativeDocumentLoad', 'nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeTabsClose', 'nativeCommand'].includes(method)) {
+    if (['nativeContextSet', 'nativeDocumentLoadBegin','nativeDocumentLoadCancel','nativeVirtualDocumentLoad','nativeUntitledDocumentLoad','nativeDocumentLoad', 'nativeDocumentOpen', 'nativeDocumentShow', 'nativeDocumentSave', 'nativeWorkspaceApplyEdit', 'nativeFindFiles', 'nativeVirtualDocumentOpen', 'nativeVirtualDocumentChange', 'nativeUntitledDocumentOpen', 'nativeDocumentLanguage', 'nativeEditorSelections', 'nativeEditorOptions', 'nativeEditorReveal', 'nativeEditorDecorations', 'nativeEditorInsertSnippet', 'nativeTabsClose', 'nativeCommand'].includes(method)) {
       try {
         const encoded = JSON.stringify(frame);
         if (encoded.length > 2 * 1024 * 1024) throw new Error('Native document service wire payload limit reached');
@@ -43,7 +44,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     // Only internal document-services supplies this exact callback object.
     if (retained && lifecycle) lifecycle.retained = true;
     return new Promise((resolve, reject) => {
-      const call = { resolve, reject, save, applyEdit, applyTargets, refactoringSave, findFiles, virtual, load, admission, loadCancel, editorOperation, expectedEditor, expectedKey, expectedDocument, decoration, snippetOperation, tabsClose, expectedTabKind, expectedTabIds, bytes, terminal: retained ? lifecycle?.onTerminal : undefined, timer: undefined };
+      const call = { resolve, reject, contextSet, save, applyEdit, applyTargets, refactoringSave, findFiles, virtual, load, admission, loadCancel, editorOperation, expectedEditor, expectedKey, expectedDocument, decoration, snippetOperation, tabsClose, expectedTabKind, expectedTabIds, bytes, terminal: retained ? lifecycle?.onTerminal : undefined, timer: undefined };
       function release() {
         if (pending.get(id) !== call) return;
         pending.delete(id); serviceBytes -= call.bytes; timers.clearTimeout(call.timer);
@@ -55,7 +56,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
         call.timer = timers.setTimeout(() => {
           if (pending.get(id) !== call) return;
           if (!retained) release();
-          reject(new Error(tabsClose ? 'Native tab close timed out; outcome is unknown' : save ? 'Native document save acknowledgement timed out; save outcome is unknown' : applyEdit ? 'Native workspace edit acknowledgement timed out; edit outcome is unknown' : findFiles ? 'Native findFiles acknowledgement timed out; search outcome is unknown' : load || virtual || editorOperation ? 'Native generated document acknowledgement timed out; publication outcome is unknown' : `Native request timed out: ${method}`));
+          reject(new Error(contextSet ? 'Native context update acknowledgement timed out; outcome is unknown' : tabsClose ? 'Native tab close timed out; outcome is unknown' : save ? 'Native document save acknowledgement timed out; save outcome is unknown' : applyEdit ? 'Native workspace edit acknowledgement timed out; edit outcome is unknown' : findFiles ? 'Native findFiles acknowledgement timed out; search outcome is unknown' : load || virtual || editorOperation ? 'Native generated document acknowledgement timed out; publication outcome is unknown' : `Native request timed out: ${method}`));
         }, save || refactoringSave || tabsClose || method === 'prompt' ? 360000 : 5000);
         send(frame);
       }
@@ -70,6 +71,7 @@ function createNativeRequests(send, origin, timers = globalThis) {
     const call = pending.get(message.id);
     if (!call) return false;
     const hasResult = Object.hasOwn(message, 'result'), hasError = Object.hasOwn(message, 'error');
+    if (call.contextSet && (hasResult === hasError || (hasResult && message.result !== null) || (hasError && (!message.error || typeof message.error.message !== 'string' || message.error.message.length > 4096 || Buffer.byteLength(message.error.message) > 4096)))) return false;
     if (call.tabsClose && (hasResult === hasError || (hasResult && (!message.result ||
         Array.isArray(message.result) || Object.keys(message.result).length !== 3 ||
         typeof message.result.closed !== 'boolean' || message.result.kind !== call.expectedTabKind ||

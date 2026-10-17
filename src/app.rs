@@ -1230,7 +1230,7 @@ impl App {
     }
     pub fn context(&self) -> HashMap<String, Value> {
         let breadcrumbs = self.breadcrumbs_view();
-        HashMap::from([
+        let mut context = HashMap::from([
             ("breadcrumbsPossible".into(), json!(breadcrumbs.possible)),
             ("breadcrumbsVisible".into(), json!(breadcrumbs.visible)),
             (
@@ -1387,7 +1387,15 @@ impl App {
                 "isWindows".into(),
                 json!(self.keymap.profile == Profile::Windows),
             ),
-        ])
+        ]);
+        if let Some(host) = &self.extension_host {
+            // Native focused-editor facts take precedence over root extension
+            // keys, as scoped editor contexts do over the workbench root.
+            for (key, value) in host.context_keys.values() {
+                context.entry(key.clone()).or_insert_with(|| value.clone());
+            }
+        }
+        context
     }
     pub fn language(&self) -> &str {
         self.active_document().map_or("plaintext", |d| {
