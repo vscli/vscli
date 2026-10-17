@@ -348,6 +348,27 @@ impl Preview {
                 self.report.unresolved_extensions.join("\n")
             );
         }
+        if options.activate_extensions {
+            let blocked: Vec<_> = self
+                .report
+                .extensions
+                .iter()
+                .flat_map(|inventory| &inventory.selected)
+                .filter(|package| package.code && package.enabled)
+                .flat_map(|package| {
+                    package
+                        .runtime_blockers
+                        .iter()
+                        .map(|reason| format!("{}: {reason}", package.id))
+                })
+                .collect();
+            if !blocked.is_empty() {
+                bail!(
+                    "Imported code activation is blocked; the active profile was not changed. Copy without code activation to retain the packages:\n{}",
+                    blocked.join("\n")
+                );
+            }
+        }
         let root = destination_path(root)?;
         if self
             .source_roots

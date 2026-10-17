@@ -124,6 +124,22 @@ configuration. Add `--activate-imported-extensions` with `--apply-import` to gra
 source-enabled code packages permission to activate. Without that grant,
 installation does not start code. Source-disabled code packages remain ungranted.
 
+Review and the JSON inventory identify known code activation blockers per package.
+Packages requesting proposed APIs are currently rejected by the compatibility host;
+an explicit bulk activation request now fails before writing the destination or
+changing the active profile. Leave **A** unchecked, or omit
+`--activate-imported-extensions`, to copy all selected packages without granting
+execution. Source-disabled packages retain their state and do not block grants
+for other packages. The original manifests and configuration remain unchanged.
+An empty blocker list does not qualify the stable API, engine, native backend or
+an extension's workflows. Current detection covers declared proposed API requests;
+other failures remain explicit outstanding qualification.
+
+Native review shows the source filename separately from its full location, so
+long temporary or custom parent paths do not hide the export's filename. The
+complete location remains in the preview report. Terminal regression fixtures use
+a long parent path on every platform.
+
 ```sh
 vscli --import-vscode --import-extensions --apply-import
 vscli --import-vscode --import-extensions --activate-imported-extensions --apply-import

@@ -286,13 +286,43 @@ impl App {
         let report = &preview.report;
         let inventory = report.extensions.as_ref();
         let packages = inventory.map_or(0, |value| value.selected.len());
-        let mut lines =
-            vec![
-            format!("Source: {}", report.source.display()),
-            report.profile.as_ref().and_then(|source| source.application.as_ref()).map_or_else(
-                || "Application: not selected; choose B on the profile picker for built-ins".into(),
-                |app| format!("Application: {} {} · {}", app.name, app.version, app.root.display()),
+        let blocked = inventory.map_or(0, |inventory| {
+            inventory
+                .selected
+                .iter()
+                .filter(|package| {
+                    package.code && package.enabled && !package.runtime_blockers.is_empty()
+                })
+                .count()
+        });
+        let mut lines = vec![
+            format!(
+                "Source: {}",
+                report
+                    .source
+                    .file_name()
+                    .unwrap_or(report.source.as_os_str())
+                    .to_string_lossy()
             ),
+            format!("Location: {}", report.source.display()),
+            report
+                .profile
+                .as_ref()
+                .and_then(|source| source.application.as_ref())
+                .map_or_else(
+                    || {
+                        "Application: not selected; choose B on the profile picker for built-ins"
+                            .into()
+                    },
+                    |app| {
+                        format!(
+                            "Application: {} {} · {}",
+                            app.name,
+                            app.version,
+                            app.root.display()
+                        )
+                    },
+                ),
             format!(
                 "Configuration: {} files · {} bytes",
                 report.files.len(),
@@ -324,6 +354,9 @@ impl App {
                 .into(),
             String::new(),
         ];
+        if blocked != 0 {
+            lines.push(format!("Code activation blocked for {blocked} source-enabled packages. Leave A unchecked to copy their files; resolve the reported requirements before granting execution."));
+        }
         lines.push("Configuration and compatibility notices:".into());
         if !report.unresolved_extensions.is_empty() {
             lines.push("Unresolved extensions (package import is blocked; I allows configuration-only import):".into());
@@ -342,7 +375,7 @@ impl App {
             lines.push("Extensions (source state retained; workflows remain unqualified):".into());
             lines.extend(inventory.selected.iter().map(|package| {
                 format!(
-                    "{} {}@{}{}",
+                    "{} {}@{}{}{}",
                     if package.enabled {
                         "enabled "
                     } else {
@@ -350,7 +383,12 @@ impl App {
                     },
                     package.id,
                     package.version,
-                    if package.code { " · code" } else { " · data" }
+                    if package.code { " · code" } else { " · data" },
+                    if package.code && !package.runtime_blockers.is_empty() {
+                        " · activation blocked"
+                    } else {
+                        ""
+                    }
                 )
             }));
         }
@@ -823,5 +861,56 @@ mod tests {
         assert_eq!(app.doc().text.to_string(), before.2);
         assert!(app.doc().dirty());
         assert_eq!(fs::read_to_string(path).unwrap(), original);
+    }
+    #[test]
+    fn review_names_known_activation_blockers_and_failed_grants_preserve_dirty_buffers() {
+        let root = tempfile::tempdir().unwrap();
+        let source = source(root.path());
+        let manifest = source.extensions.join("fixture.native/package.json");
+        let mut value: Value = serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+        value["enabledApiProposals"] = json!(["fixtureProposal"]);
+        fs::write(manifest, value.to_string()).unwrap();
+        let native = root.path().join("native");
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.configure_migration(Some(native.clone()), None);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("retained λ🙂\r\n", false);
+        let before = (
+            app.doc().id,
+            app.doc().revision,
+            app.doc().text.to_string(),
+            app.doc().selections(),
+        );
+        app.migration.options = ApplyOptions {
+            import_extensions: true,
+            activate_extensions: true,
+        };
+        app.start_migration(Work::Preview(source));
+        settle(&mut app);
+        let Some(Modal::Migration { text, .. }) = &app.modal else {
+            panic!("Missing native migration review")
+        };
+        assert!(
+            text.contains("Code activation blocked for 1")
+                && text.contains("fixture.native")
+                && text.contains("activation blocked")
+        );
+        app.migration_key(key(KeyCode::Enter));
+        settle(&mut app);
+        assert!(
+            app.message.contains("activation is blocked"),
+            "{}",
+            app.message
+        );
+        assert!(!native.exists());
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().revision,
+                app.doc().text.to_string(),
+                app.doc().selections()
+            ),
+            before
+        );
     }
 }

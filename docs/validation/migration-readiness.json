@@ -1,0 +1,143 @@
+{
+  "schema": "vscli-migration-readiness-validation-v1",
+  "base_commit": "df785f11ff68ca804f2af8529db8b8acc60042e9",
+  "scope": "Known code activation preflight and visible source identity integrated with existing migration; whole stable API and complete personal setup migration remain required.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1745,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "b04433856a62cdd950f157f5d8dcceeb07e3c891d917ad9693577867e4ddc536"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "4519fc66c910b83427749d49645a127b68d2f70344fc41744125e402767dd8e3"
+  },
+  "criteria": {
+    "passed": 5,
+    "total": 5,
+    "items": [
+      "Keep the source filename visible beneath long parent paths while retaining the complete location",
+      "Report known per-package proposed API blockers without executing package code",
+      "Reject unsupported bulk execution grants before publication, preserving configuration and dirty models",
+      "Retain complete package copying without grants and source-disabled behavior",
+      "Pass affected terminal journeys, complete native regression, formatting and strict locked Clippy on recorded source"
+    ]
+  },
+  "checks": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --all-targets --locked --no-fail-fast",
+      "reports": 73,
+      "passed": 1684,
+      "failed": 0,
+      "ignored": 23,
+      "library_passed": 1323,
+      "log": "/tmp/vscli-migration-readiness-final-rust.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-migration-readiness-final-clippy.log"
+    },
+    {
+      "script": "tests/migration_blockers_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-migration-readiness-migration_blockers-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/exported_profile_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-migration-readiness-exported_profile-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/builtin_profile_migration_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-migration-readiness-builtin_profile_migration-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/profile_migration_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-migration-readiness-profile_migration-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/portable_profile_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-migration-readiness-portable_profile-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "command": "python3 -m py_compile tests/exported_profile_pty.py tests/migration_blockers_pty.py",
+      "result": "passed"
+    },
+    {
+      "command": "parse .github/workflows/ci.yml with yaml.safe_load",
+      "result": "passed"
+    }
+  ],
+  "actual_source_preview": {
+    "source_selected_packages": 184,
+    "declared_code_packages": 113,
+    "known_blocked_code_packages": 30,
+    "known_blocked_source_enabled_code_packages": 30,
+    "blocked_by_origin": {
+      "user": 13,
+      "built_in": 17
+    },
+    "unresolved_extensions": 0,
+    "destination_created": false,
+    "code_execution_grants": 0
+  },
+  "qualification_conditions": [
+    "The actual 184-package preview is read-only; all 30 proposed-API request packages are source-enabled (13 user, 17 built-ins). Zero execution grants and no destination writes are observed.",
+    "Known blockers mirror explicit host rejection of declared proposed APIs; an empty blocker list is not engine/backend/API/workflow qualification.",
+    "Eight local terminal scenarios are from five migration scripts. Native test evidence is local Linux; fresh complete repair-head CI is required.",
+    "Host JavaScript is unchanged. The preceding df785f1 host/native phases pass on all three platforms, while its complete macOS job fails at the retained filename-visibility observation.",
+    "New behavior uses the existing atomic migration pipeline and introduces no new runtime permission prompt. Source-disabled packages remain ungranted.",
+    "Affected terminal journeys ran before the final full native suite so their UI regressions could be repaired before broader validation."
+  ],
+  "failed_observations_retained": [
+    {
+      "log": "/tmp/vscli-export-ci-macos-failure-plain.log",
+      "ci_run": 39078414812,
+      "job": 117530251683,
+      "observed": "The full source location clips personal.code-profile under the macOS temporary root; native and host tests pass.",
+      "repair": "Show the source filename separately from its full location; retain the original filename assertion and force a long parent path on every platform."
+    },
+    {
+      "log": "/tmp/vscli-export-long-source-before.log",
+      "observed": "The same filename visibility failure reproduces locally under a long TMPDIR before the product repair."
+    },
+    {
+      "log": "/tmp/vscli-migration-blockers-pty-diagnostic.log",
+      "observed": "The first preflight fixture incorrectly expected the native configuration directory to be absent after editor startup. Actual startup state/MRU/session files already exist; document bytes are unchanged and no code runs.",
+      "repair": "Capture the complete live configuration tree before the attempted grant and require byte-for-byte equality afterward, with no active-profile pointer. The separate CLI check still requires its nonexistent destination to remain absent."
+    }
+  ],
+  "outstanding": [
+    "Fresh complete three-platform CI for the repaired source",
+    "All personal extension workflows and engine/platform/backend qualification",
+    "Proposed APIs required by this actual setup, full stable API and richer presentation/storage",
+    "Entire reviewed release/artifact qualification; no tag or publication created"
+  ]
+}

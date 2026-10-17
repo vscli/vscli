@@ -17,6 +17,8 @@ pub struct Package {
     pub manifest_sha256: String,
     pub code: bool,
     #[serde(default)]
+    pub runtime_blockers: Vec<String>,
+    #[serde(default)]
     pub built_in: bool,
     pub dependencies: Vec<String>,
     pub contributions: Vec<String>,
@@ -219,6 +221,13 @@ pub(super) fn inventory_selected(
         );
     }
     for package in selected.values() {
+        if package.code && !package.runtime_blockers.is_empty() {
+            result.notices.push(format!(
+                "{}: code activation blocked: {}. Package copying remains available; native contribution support is separate.",
+                package.id,
+                package.runtime_blockers.join("; ")
+            ));
+        }
         for dependency in &package.dependencies {
             if !selected.contains_key(dependency) {
                 result.notices.push(format!("{} requires {dependency}, which is absent from this profile; activation remains unqualified",package.id));
@@ -292,6 +301,14 @@ fn package(
         enabled: !disabled.contains(&id),
         manifest_sha256: format!("{:x}", Sha256::digest(manifest_bytes)),
         code: manifest.get("main").is_some() || manifest.get("browser").is_some(),
+        runtime_blockers: if manifest.get("enabledApiProposals").is_some_and(|value| {
+            value.as_array().is_some_and(|values| !values.is_empty())
+                || value.as_str().is_some_and(|value| !value.is_empty())
+        }) {
+            vec!["Requested proposed APIs are rejected by the current compatibility host".into()]
+        } else {
+            Vec::new()
+        },
         built_in,
         dependencies,
         contributions: manifest

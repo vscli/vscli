@@ -12,7 +12,10 @@ from profile_migration_pty import command, finish_after_failure, fixture
 
 def run():
     with tempfile.TemporaryDirectory(prefix="vscli-exported-profile-") as temporary:
-        root = Path(temporary)
+        # Keep the export filename beyond a normal terminal width on every OS.
+        # macOS temporary roots exposed source identity clipping in CI.
+        root = Path(temporary) / ("source-parent-" * 8)
+        root.mkdir()
         user, extensions = fixture(root)
         app_root = root / "application/resources/app"
         theme = app_root / "extensions/export-theme"

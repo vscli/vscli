@@ -267,3 +267,33 @@ locked Clippy. All six scenarios across the exported, ordinary, built-in and
 portable migration terminal scripts pass. The regression journey exposed a clipped
 application-picker hint; product help now uses three visible lines and the unchanged
 assertion passes. [Source/binary receipts](validation/exported-profile.json).
+
+## Activation preflight and source identity
+
+The `df785f1` main run passes Linux and Windows, while macOS reaches the new
+migration journeys and exposes a clipped exported filename under its long temporary
+root. Host/native phases pass on all three platforms. The failed observation is
+retained; the source filename now has its own visible line, with the full location
+retained separately. The same failure reproduces on Linux, and the unchanged
+filename assertion now runs beneath a deliberately long parent directory.
+
+A read-only preview of the actual 184-package source reports **30 code packages
+requesting proposed APIs: 13 user packages and 17 built-ins**, all source-enabled.
+The current host explicitly rejects those requests; none was activated. Migration
+review now names these known blockers and bulk activation refuses them before
+destination writes. Copy without grants remains available for the full selected
+cohort. Source disablement is retained. Empty known-blocker lists do not establish
+extension compatibility. The whole stable API, proposed APIs needed by this setup
+and every personal workflow remain requirements.
+
+Batch completion criteria: visible source identity under long paths; per-package
+known blocker evidence without code execution; pre-publication rejection and
+unchanged configuration/dirty buffers; full package copying without grants and
+source-disabled behavior; relevant terminal, native, formatting and strict Clippy
+checks on a recorded source/binary cohort.
+
+Local result: **5/5 batch criteria pass**, with 1,684 Rust tests across 73 reports
+(1,323 library; 23 ignored; four threads), eight terminal scenarios, formatting
+and strict locked Clippy. Affected migration terminal journeys ran before the
+full native suite. [Source/binary and failed observations](validation/migration-readiness.json).
+Fresh complete repair-head platform results remain required.

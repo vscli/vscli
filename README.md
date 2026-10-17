@@ -88,6 +88,8 @@ Choose **Import from VS Code** on the welcome screen, or run
 **F1 → Preferences: Import from VS Code**. Pick a local profile, review its
 configuration and extensions, then apply a separate native copy. Open documents
 and unsaved edits stay in place. Code activation is a separate choice in review.
+Review names known activation blockers; you can still copy packages with code
+activation off. Other extension features may also remain unsupported.
 
 CLI equivalents:
 

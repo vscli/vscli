@@ -235,6 +235,7 @@ jobs:
           python3 -u tests/builtin_profile_migration_pty.py target/debug/vscli
           python3 -u tests/portable_profile_pty.py target/debug/vscli
           python3 -u tests/exported_profile_pty.py target/debug/vscli
+          python3 -u tests/migration_blockers_pty.py target/debug/vscli
       - name: Run native code action queue workflow
         if: runner.os != 'Windows'
         timeout-minutes: 2

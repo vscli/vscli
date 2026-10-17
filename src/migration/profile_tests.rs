@@ -27,6 +27,119 @@ fn fixture(root: &Path) -> discovery::Source {
     discovery::default_source("Fixture", &user, &extensions).unwrap()
 }
 #[test]
+fn proposed_api_requirements_are_visible_and_block_grants_before_any_destination_write() {
+    let root = tempfile::tempdir().unwrap();
+    let source = fixture(root.path());
+    let manifest_path = source.extensions.join("fixture.native-1.0.0/package.json");
+    let mut manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["enabledApiProposals"] = json!(["fixtureProposal"]);
+    let original = serde_json::to_vec_pretty(&manifest).unwrap();
+    fs::write(&manifest_path, &original).unwrap();
+    let native = root.path().join("native");
+    let inspect = || preview_profile(&source, crate::keys::Profile::Linux).unwrap();
+    let preview = inspect();
+    let package = &preview.report.extensions.as_ref().unwrap().selected[0];
+    assert!(package.code && package.enabled);
+    assert_eq!(package.runtime_blockers.len(), 1);
+    assert!(
+        preview
+            .report
+            .extensions
+            .as_ref()
+            .unwrap()
+            .notices
+            .iter()
+            .any(
+                |notice| notice.contains("fixture.native") && notice.contains("activation blocked")
+            )
+    );
+    let options = ApplyOptions {
+        import_extensions: true,
+        activate_extensions: true,
+    };
+    let failure = preview
+        .apply_controlled(&native, options, &AtomicBool::new(false), &mut |_, _, _| {})
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(failure.contains("fixture.native") && failure.contains("proposed APIs"));
+    assert!(!native.exists());
+    let copied = inspect()
+        .apply_controlled(
+            &native,
+            ApplyOptions {
+                activate_extensions: false,
+                ..options
+            },
+            &AtomicBool::new(false),
+            &mut |_, _, _| {},
+        )
+        .unwrap();
+    assert_eq!(copied.extensions_imported, 1);
+    assert_eq!(copied.extensions_execution_enabled, 0);
+    let pointer = fs::read(native.join("active-profile.json")).unwrap();
+    assert!(
+        inspect()
+            .apply_controlled(&native, options, &AtomicBool::new(false), &mut |_, _, _| {})
+            .is_err()
+    );
+    assert_eq!(
+        fs::read(native.join("active-profile.json")).unwrap(),
+        pointer
+    );
+    assert_eq!(fs::read(manifest_path).unwrap(), original);
+}
+
+#[test]
+fn source_disabled_proposed_packages_copy_without_execution_grants_when_activation_is_requested() {
+    let root = tempfile::tempdir().unwrap();
+    let source = fixture(root.path());
+    let manifest = source.extensions.join("fixture.native-1.0.0/package.json");
+    let mut value: Value = serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+    value["enabledApiProposals"] = json!(["fixtureProposal"]);
+    fs::write(&manifest, value.to_string()).unwrap();
+    fs::create_dir_all(source.user.join("globalStorage")).unwrap();
+    let database_path = source.user.join("globalStorage/state.vscdb");
+    let database = rusqlite::Connection::open(&database_path).unwrap();
+    database.execute_batch("CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value BLOB); INSERT INTO ItemTable VALUES ('extensionsIdentifiers/disabled', '[{\"id\":\"fixture.native\"}]');").unwrap();
+    drop(database);
+    let before = fs::read(&database_path).unwrap();
+    let preview = preview_profile(&source, crate::keys::Profile::Linux).unwrap();
+    let package = &preview.report.extensions.as_ref().unwrap().selected[0];
+    assert!(!package.enabled && !package.runtime_blockers.is_empty());
+    let report = preview
+        .apply_controlled(
+            &root.path().join("native"),
+            ApplyOptions {
+                import_extensions: true,
+                activate_extensions: true,
+            },
+            &AtomicBool::new(false),
+            &mut |_, _, _| {},
+        )
+        .unwrap();
+    assert_eq!(report.extensions_imported, 1);
+    assert_eq!(report.extensions_execution_enabled, 0);
+    assert_eq!(fs::read(database_path).unwrap(), before);
+    let prefs: Value = serde_json::from_slice(
+        &fs::read(
+            report
+                .activated_profile
+                .unwrap()
+                .join("extensions-enabled.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        prefs["extensions"]
+            .as_object()
+            .unwrap()
+            .values()
+            .all(|value| value != true)
+    );
+}
+#[test]
 fn config_and_exact_packages_publish_together_with_explicit_grants_and_rollback() {
     let root = tempfile::tempdir().unwrap();
     let source = fixture(root.path());
