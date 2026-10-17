@@ -330,25 +330,13 @@ mod tests {
         }
     }
     fn assert_cleanup(path: &Path) {
-        let lock = path.with_file_name(format!(
-            "{}.vscli-write.lock",
-            path.file_name().unwrap().to_string_lossy()
-        ));
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&lock)
-            .unwrap();
-        file.try_lock().unwrap();
-        file.unlock().unwrap();
+        drop(crate::persistence::WriteLock::try_acquire(path).unwrap());
         let mut paths: Vec<_> = fs::read_dir(path.parent().unwrap())
             .unwrap()
             .map(|entry| entry.unwrap().path())
             .collect();
         paths.sort();
-        let mut expected = vec![path.to_path_buf(), lock];
-        expected.sort();
-        assert_eq!(paths, expected);
+        assert_eq!(paths, vec![path.to_path_buf()]);
     }
     #[test]
     fn authorized_save_returns_original_snapshot_after_new_typing_and_preserves_dirty_undo() {

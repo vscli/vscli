@@ -123,8 +123,9 @@ remains unqualified. Directory-sync failures after successful persistence are
 reported as durability warnings. Advisory locking cannot exclude an
 uncooperative writer racing the final filesystem check and rename.
 
-Settings patches and ordinary native saves cooperate via the same canonical
-`.vscli-write.lock` protocol, but each has its own one-worker lane. There is no
+Settings patches and ordinary native saves share a canonical-resource lock in
+memory, matching the resource-map approach in VS Code's disk provider. No
+persistent save-lock file is created. Each still has its own one-worker lane. There is no
 global one-worker claim across the two. Successful document commits force a
 fresh settings-loader read, including after a profile change.
 

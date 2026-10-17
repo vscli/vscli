@@ -101,13 +101,8 @@ impl Fixture {
                     .starts_with(".tmp")),
             "Shutdown returned before adjacent temporary-file cleanup"
         );
-        let lock = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(self.a.with_file_name("a.cpp.vscli-write.lock"))
-            .unwrap();
-        lock.try_lock().unwrap();
-        lock.unlock().unwrap();
+        assert!(!self.a.with_file_name("a.cpp.vscli-write.lock").exists());
+        drop(crate::persistence::WriteLock::try_acquire(&self.a).unwrap());
     }
 }
 

@@ -967,6 +967,15 @@ In the installed extensions picker, **e/d** enable or disable the selected packa
 
 Use `vscli --enable-extension publisher.name` to remember a global code grant without starting Node. `--disable-extension publisher.name --extension-scope workspace --workspace /path/to/project` writes a workspace override under the native user configuration root. Missing installed IDs and malformed existing state reject without replacing previous grants. These flags can be used without an interactive terminal.
 
+Document saves, Save As, autosave and native settings writes no longer create
+`*.vscli-write.lock` files. Saves to the same resource serialize within this
+process; other processes are checked through the original disk bytes and native
+file identity. Atomic replacement still uses a temporary file beside the target,
+which is removed or renamed when the write settles. No persistent lock directory
+is used. Sidecars left by older releases are ignored and are not automatically
+deleted; after closing older vscli instances, those old files can be removed.
+See [save locking and integrity](SAVE_LOCKS.md).
+
 Selected extensions can use `workspace.applyEdit` for retained and unopened local
 text models, including hidden and untitled documents, with one grouped native
 Undo/Redo operation. `TextEdit.setEndOfLine` supports explicit LF/CRLF conversion

@@ -108,6 +108,12 @@ server transitions; real-clangd qualification exercises opening C++ and paramete
 hints without `--lsp`. Installed rust-analyzer launch selection is implemented,
 while broad real Rust project behavior remains outstanding qualification.
 
+Native document and settings saves now coordinate through an in-memory resource
+map, following the pinned VS Code disk provider approach. They create no persistent
+per-document sidecar or separate lock directory. Original disk/model identity and
+content checks remain; other editor processes are external writers. Atomic writes
+still use transient adjacent files. See [save locking and integrity](SAVE_LOCKS.md).
+
 Native LSP save notifications honor static server options and can carry an exact
 committed Rope independently of newer live text. Serialization runs on the bounded
 transport writer; oversize escaping cannot publish a partial frame. Four framed

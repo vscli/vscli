@@ -88,6 +88,8 @@ def editor(root, name, *, setup=True, workspace=False):
         yield app, source, user, local
         app.finish()
         assert app.process.restored, "Settings workflow leaked terminal mode"
+        assert not list(case.rglob('*.vscli-write.lock')), 'Settings save left persistent lock files in the project'
+        assert not list(case.rglob('.tmp*')), 'Settings save left temporary files after shutdown'
         finished = True
     except BaseException:
         print(f"Settings PTY failure ({name}):\n{app.screen.text()}", file=sys.stderr)

@@ -90,15 +90,6 @@ fn until(app: &mut App, predicate: impl Fn(&App) -> bool) {
         thread::sleep(Duration::from_millis(1));
     }
 }
-fn lock(path: &Path) -> fs::File {
-    let mut name = path.file_name().unwrap().to_os_string();
-    name.push(".vscli-write.lock");
-    fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(path.with_file_name(name))
-        .unwrap()
-}
 fn assert_cleanup(root: &Path, targets: &[&Path]) {
     assert!(fs::read_dir(root).unwrap().all(|entry| {
         !entry
@@ -108,9 +99,10 @@ fn assert_cleanup(root: &Path, targets: &[&Path]) {
             .starts_with(".tmp")
     }));
     for target in targets {
-        let lock = lock(target);
-        lock.try_lock().unwrap();
-        lock.unlock().unwrap();
+        drop(crate::persistence::WriteLock::try_acquire(target).unwrap());
+        let mut name = target.file_name().unwrap().to_os_string();
+        name.push(".vscli-write.lock");
+        assert!(!target.with_file_name(name).exists());
     }
 }
 
@@ -123,11 +115,7 @@ fn real_settings_preparation_serializes_native_save_and_preserves_dirty_settings
     });
     let id = fixture.app.doc().id;
     let info = fixture.prepared_settings();
-    let held_lock = lock(&fixture.settings);
-    assert!(matches!(
-        held_lock.try_lock(),
-        Err(fs::TryLockError::WouldBlock)
-    ));
+    assert!(crate::persistence::WriteLock::try_acquire(&fixture.settings).is_err());
     assert_eq!(info.matching_models, vec![id]);
     fixture.app.doc_mut().insert("// unsaved λ🙂\r\n", false);
     let dirty = fixture.app.doc().text.clone();
@@ -151,10 +139,7 @@ fn real_settings_preparation_serializes_native_save_and_preserves_dirty_settings
     fixture.app.retire_unapproved_settings_write();
     gates.reach(&mut fixture.app, GatePoint::BeforePrepared);
     until(&mut fixture.app, |app| !app.settings_writes_busy());
-    assert!(matches!(
-        held_lock.try_lock(),
-        Err(fs::TryLockError::WouldBlock)
-    ));
+    assert!(crate::persistence::WriteLock::try_acquire(&fixture.settings).is_err());
     assert_eq!(fs::read(&fixture.settings).unwrap(), SETTINGS.as_bytes());
     gates.release.try_send(()).unwrap();
     until(&mut fixture.app, |app| !app.persistence_pending());

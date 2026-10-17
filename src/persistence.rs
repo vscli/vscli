@@ -1,10 +1,10 @@
 //! Worker-only destination guards shared by native persistence coordinators.
 //!
 //! Model authorization belongs to the caller. These opaque guards retain native
-//! handles, a cooperating-writer lock and the observed destination baseline.
+//! handles, a process-local resource lock and the observed destination baseline.
 //! Settings-writer migration is deferred until its Windows fix is qualified.
 //! Final checks cannot close an uncooperative writer's check-to-rename race.
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, ensure};
 use ropey::Rope;
 use sha2::{Digest, Sha256};
 use std::{
@@ -12,9 +12,10 @@ use std::{
     fs::{self, File, Metadata, OpenOptions, Permissions},
     io::{BufWriter, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
-    thread,
-    time::{Duration, Instant, SystemTime},
+    time::SystemTime,
 };
+mod write_lock;
+pub(crate) use write_lock::WriteLock;
 
 pub const MAX_BYTES: usize = 32 * 1024 * 1024;
 const PATH_BYTES: usize = 4096;
@@ -99,23 +100,17 @@ pub(crate) fn destination(path: &Path) -> Result<PathBuf> {
     Ok(canonical)
 }
 
-struct LockedFile(File);
-impl Drop for LockedFile {
-    fn drop(&mut self) {
-        let _ = self.0.unlock();
-    }
-}
-fn open_regular(path: &Path, lock: bool) -> Result<File> {
+fn open_regular(path: &Path) -> Result<File> {
     match fs::symlink_metadata(path) {
         Ok(metadata) => ensure!(
             metadata.file_type().is_file(),
-            "Persistence payload/lock must be an ordinary file; symlinks are refused"
+            "Persistence payload must be an ordinary file; symlinks are refused"
         ),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(error.into()),
     }
     let mut options = OpenOptions::new();
-    options.read(true).write(lock).create(lock).truncate(false);
+    options.read(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
@@ -132,14 +127,14 @@ fn open_regular(path: &Path, lock: bool) -> Result<File> {
     let metadata = file.metadata()?;
     ensure!(
         metadata.file_type().is_file(),
-        "Persistence payload/lock must be an ordinary file"
+        "Persistence payload must be an ordinary file"
     );
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
         ensure!(
             metadata.file_attributes() & 0x400 == 0,
-            "Persistence payload/lock must not be a reparse point"
+            "Persistence payload must not be a reparse point"
         );
     }
     Ok(file)
@@ -208,7 +203,7 @@ fn file_identity(file: &File) -> Result<FileIdentity> {
     #[cfg(not(any(unix, windows)))]
     {
         let _ = file;
-        bail!("Native persistence identity unavailable on this platform")
+        anyhow::bail!("Native persistence identity unavailable on this platform")
     }
 }
 fn open_directory(path: &Path) -> Result<File> {
@@ -298,7 +293,7 @@ impl Baseline {
             !matches!(expected, Expected::Missing | Expected::Exact(None)),
             "File already exists; existing bytes preserved"
         );
-        let mut file = open_regular(path, false)?;
+        let mut file = open_regular(path)?;
         let metadata = file.metadata()?;
         ensure!(
             metadata.len() <= max_bytes as u64,
@@ -349,7 +344,7 @@ impl Baseline {
             "Persistence target changed while being read"
         );
         ensure!(
-            Signature::of(&open_regular(path, false)?)? == signature,
+            Signature::of(&open_regular(path)?)? == signature,
             "Persistence target pathname changed while being read"
         );
         Ok(Self::Present(Present {
@@ -396,7 +391,7 @@ fn matching_models(
             match fs::symlink_metadata(path) {
                 Ok(_) => {
                     let canonical = fs::canonicalize(path)?;
-                    let identity = file_identity(&open_regular(&canonical, false)?)?;
+                    let identity = file_identity(&open_regular(&canonical)?)?;
                     Ok(canonical == target || matches!(baseline,
                         Baseline::Present(present) if present.signature.identity == identity))
                 }
@@ -418,9 +413,7 @@ pub struct Target {
     parent: PathBuf,
     parent_handle: File,
     parent_identity: FileIdentity,
-    lock: LockedFile,
-    lock_path: PathBuf,
-    lock_identity: FileIdentity,
+    _lock: WriteLock,
     baseline: Baseline,
     expected: Expected,
     max_bytes: usize,
@@ -448,23 +441,7 @@ impl Target {
         let parent = path.parent().unwrap().to_path_buf();
         let parent_handle = open_directory(&parent)?;
         let parent_identity = file_identity(&parent_handle)?;
-        let mut name = path.file_name().unwrap().to_os_string();
-        name.push(".vscli-write.lock");
-        let lock_path = parent.join(name);
-        validate_path(&lock_path)?;
-        let lock = open_regular(&lock_path, true)?;
-        let deadline = Instant::now() + Duration::from_secs(1);
-        loop {
-            match lock.try_lock() {
-                Ok(()) => break,
-                Err(fs::TryLockError::WouldBlock) if Instant::now() < deadline => {
-                    thread::sleep(Duration::from_millis(10))
-                }
-                Err(error) => bail!("Persistence lock unavailable: {error}"),
-            }
-        }
-        let lock = LockedFile(lock);
-        let lock_identity = file_identity(&lock.0)?;
+        let lock = WriteLock::acquire(&path)?;
         let baseline = Baseline::read(&path, options.max_bytes, &options.expected)?;
         if let Baseline::Present(present) = &baseline {
             ensure!(
@@ -479,9 +456,7 @@ impl Target {
             parent,
             parent_handle,
             parent_identity,
-            lock,
-            lock_path,
-            lock_identity,
+            _lock: lock,
             baseline,
             expected: options.expected,
             max_bytes: options.max_bytes,
@@ -596,11 +571,6 @@ impl Target {
                 && file_identity(&open_directory(&self.parent)?)? == self.parent_identity,
             "Persistence parent directory identity changed after preparation"
         );
-        ensure!(
-            file_identity(&self.lock.0)? == self.lock_identity
-                && file_identity(&open_regular(&self.lock_path, false)?)? == self.lock_identity,
-            "Persistence lock pathname no longer names the owned lock"
-        );
         Ok(())
     }
 }
@@ -713,7 +683,7 @@ impl Drop for TemporaryCleanup {
                 return;
             }
             if let (Ok(named), Ok(owned)) = (
-                open_regular(&path, false).and_then(|file| file_identity(&file)),
+                open_regular(&path).and_then(|file| file_identity(&file)),
                 file_identity(&self.source),
             ) && named == owned
             {
@@ -809,20 +779,8 @@ mod tests {
         paths
     }
     fn assert_clean(path: &Path) {
-        let mut lock = path.file_name().unwrap().to_os_string();
-        lock.push(".vscli-write.lock");
-        let lock = path.with_file_name(lock);
-        assert_eq!(
-            files(path.parent().unwrap()),
-            vec![path.to_path_buf(), lock.clone()]
-                .into_iter()
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect::<Vec<_>>()
-        );
-        let file = open_regular(&lock, false).unwrap();
-        file.try_lock().unwrap();
-        file.unlock().unwrap();
+        assert_eq!(files(path.parent().unwrap()), vec![path.to_path_buf()]);
+        drop(WriteLock::try_acquire(path).unwrap());
     }
     #[test]
     fn exact_rope_streaming_preserves_unicode_crlf_permissions_and_receipt_hash() {
@@ -982,7 +940,7 @@ mod tests {
     }
     #[cfg(unix)]
     #[test]
-    fn aliases_hardlinks_membership_and_owned_lock_replacement_are_checked() {
+    fn aliases_and_hardlinks_retain_original_membership_checks_without_sidecars() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("main.cpp");
         fs::write(&path, "baseline").unwrap();
@@ -1005,12 +963,7 @@ mod tests {
         fs::write(&linked, "unrelated").unwrap();
         assert!(prepared.commit().is_err());
         assert_eq!(fs::read(&path).unwrap(), b"baseline");
-        let prepared = stage(&path, Expected::Captured, "new");
-        let lock = root.path().join("main.cpp.vscli-write.lock");
-        fs::remove_file(&lock).unwrap();
-        fs::write(&lock, "replacement lock").unwrap();
-        assert!(prepared.commit().is_err());
-        assert_eq!(fs::read(&path).unwrap(), b"baseline");
+        assert!(!root.path().join("main.cpp.vscli-write.lock").exists());
     }
     #[cfg(unix)]
     #[test]
@@ -1040,7 +993,7 @@ mod tests {
     }
     #[cfg(unix)]
     #[test]
-    fn payload_symlink_fifo_and_lock_symlink_are_refused_without_blocking() {
+    fn payload_symlink_and_fifo_are_refused_and_legacy_lock_symlink_is_untouched() {
         use std::{ffi::CString, os::unix::ffi::OsStrExt};
         let root = tempfile::tempdir().unwrap();
         let real = root.path().join("real.txt");
@@ -1056,16 +1009,16 @@ mod tests {
         fs::remove_file(&path).unwrap();
         fs::write(&path, "baseline").unwrap();
         let lock = root.path().join("target.txt.vscli-write.lock");
-        // Earlier payload refusals leave the stable regular sidecar behind.
-        // Prove its ownership was released before replacing this fixture path.
-        let owned = open_regular(&lock, false).unwrap();
-        owned.try_lock().unwrap();
-        owned.unlock().unwrap();
-        drop(owned);
-        fs::remove_file(&lock).unwrap();
+        assert!(!lock.exists());
         std::os::unix::fs::symlink(&real, &lock).unwrap();
-        assert!(Target::open(&path, options(Expected::Captured)).is_err());
+        stage(&path, Expected::Captured, "new").commit().unwrap();
+        assert!(
+            fs::symlink_metadata(&lock)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
         assert_eq!(fs::read(&real).unwrap(), b"real");
-        assert_eq!(fs::read(&path).unwrap(), b"baseline");
+        assert_eq!(fs::read(&path).unwrap(), b"new");
     }
 }

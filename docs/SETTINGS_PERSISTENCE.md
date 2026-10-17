@@ -49,11 +49,13 @@ require closing that model before retrying.
 
 The worker writes and syncs an adjacent temporary file, then rechecks exact
 baseline bytes, native file identity, permissions, parent identity, requested
-parent aliases and the owned lock before atomic replacement. Missing files use
-atomic no-clobber persistence. Preparation may create parent directories and a
-stable `.vscli-write.lock` sidecar before authorization. The advisory lock
-coordinates cooperating writers; an uncooperative process can still race the
-last check and rename. Cleanup after an externally renamed parent is best
+parent aliases before atomic replacement. Missing files use
+atomic no-clobber persistence. Preparation may create parent directories; its
+resource lock lives only in memory, shared with ordinary saves in this process.
+No `.vscli-write.lock` sidecar or separate on-disk lock directory is created.
+Other editor processes are external writers; exact baseline and identity checks
+detect observed changes, while a race between the last check and rename remains
+possible. Cleanup after an externally renamed parent is best
 effort. Settings writes fence disk-watcher publications, and settings reloads
 retain one actual worker while invalidating earlier results.
 
