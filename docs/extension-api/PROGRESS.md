@@ -110,3 +110,14 @@ literal LF, but now assert the public document's declared EOL; native disk check
 independently require CRLF on Windows and LF elsewhere. All four local untitled
 integration cases, formatting and strict Clippy pass. Native editing behavior is
 unchanged; actual Windows qualification remains a CI gate.
+
+Complete host discovery exposed **19 Windows failures** at `37cd1e0`: cached/
+shared document and untitled fixtures mixed drive-relative Unix roots with native
+absolute paths; event assertions assumed Unix fsPath separators; real watcher
+predicates compared canonical public URI paths against unnormalized OS strings;
+workspace root checks ignored upstream lowercase drive formatting. Fixtures now
+use native absolute roots and compare the appropriate URI fields/identities.
+All 814 host tests pass locally with real watcher events and original occupancy,
+mutation, identity and negative controls retained. Formatting and strict Clippy
+pass; actual Windows qualification remains required. The failed complete log is
+retained at `/tmp/vscli-complete-host-ci-windows.log`.

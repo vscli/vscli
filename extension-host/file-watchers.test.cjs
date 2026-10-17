@@ -21,8 +21,8 @@ function fixture() {
 test('workspace strings filter paths and preserve independent create/change/delete flags',()=>{
   const f=fixture(),watch=f.api.createFileSystemWatcher('**/*.rs',false,true,false),seen=[];
   assert.equal(watch.ignoreCreateEvents,false);assert.equal(watch.ignoreChangeEvents,true);
-  watch.onDidCreate(uri=>seen.push(['create',uri.fsPath]));watch.onDidChange(uri=>seen.push(['change',uri.fsPath]));
-  watch.onDidDelete(uri=>seen.push(['delete',uri.fsPath]));
+  watch.onDidCreate(uri=>seen.push(['create',uri.path]));watch.onDidChange(uri=>seen.push(['change',uri.path]));
+  watch.onDidDelete(uri=>seen.push(['delete',uri.path]));
   for(const [type,file] of [[2,'/workspace/a.rs'],[1,'/workspace/a.rs'],[3,'/workspace/a.rs'],[2,'/outside/a.rs'],[2,'/workspace/a.txt']])
     f.starts[0].emit({type,uri:Uri.file(file)});
   assert.deepEqual(seen,[['create','/workspace/a.rs'],['delete','/workspace/a.rs']]);
@@ -31,9 +31,9 @@ test('workspace strings filter paths and preserve independent create/change/dele
 });
 test('outside relative and file bases are snapshotted, nonrecursive watches bypass excludes',()=>{
   const f=fixture(),base=Uri.file('/outside'),pattern=new RelativePattern(base,'*.rs');
-  const watch=f.api.createFileSystemWatcher(pattern),seen=[];watch.onDidCreate(uri=>seen.push(uri.fsPath));
+  const watch=f.api.createFileSystemWatcher(pattern),seen=[];watch.onDidCreate(uri=>seen.push(uri.path));
   pattern.base='/different';pattern.pattern='*.txt';
-  assert.equal(f.starts[0].uri.fsPath,'/outside');assert.equal(f.starts[0].options.recursive,false);
+  assert.equal(f.starts[0].uri.path,'/outside');assert.equal(f.starts[0].options.recursive,false);
   assert.deepEqual(f.starts[0].options.excludes,[]);
   f.starts[0].emit({type:2,uri:Uri.file('/outside/a.rs')});f.starts[0].emit({type:2,uri:Uri.file('/outside/sub/a.rs')});
   assert.deepEqual(seen,['/outside/a.rs']);watch.dispose();
@@ -42,7 +42,7 @@ test('outside relative and file bases are snapshotted, nonrecursive watches bypa
   assert.equal(changed,1);file.dispose();
 });
 test('configured exclusions refresh backend while stale callbacks and disposed owners stay inert',()=>{
-  const f=fixture(),watch=f.api.createFileSystemWatcher('**/*'),seen=[];watch.onDidCreate(uri=>seen.push(uri.fsPath));
+  const f=fixture(),watch=f.api.createFileSystemWatcher('**/*'),seen=[];watch.onDidCreate(uri=>seen.push(uri.path));
   f.setSettings({'**/ignored/**':true});f.manager.refresh();assert.equal(f.starts.length,2);assert(f.starts[0].closed);
   f.starts[0].emit({type:2,uri:Uri.file('/workspace/stale')});
   f.starts[1].emit({type:2,uri:Uri.file('/workspace/ignored/a')});f.starts[1].emit({type:2,uri:Uri.file('/workspace/good')});

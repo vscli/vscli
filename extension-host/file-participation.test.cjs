@@ -16,7 +16,7 @@ function releases(frames){return frames.filter(frame=>frame.method==='filePartic
 test('negotiated public will subscriptions deliver full native participant DTOs with actual completion',async()=>{
  const {runtime,api,frames}=fixture();let calls=0;
  api.workspace.onWillCreateFiles(event=>{
-  calls++;assert.equal(event.files[0].fsPath,'/tmp/a.cpp');
+  calls++;assert.equal(event.files[0].path,'/tmp/a.cpp');
   const edit=new WorkspaceEdit();edit.replace(uri,new Range(0,0,0,0),'猫🙂');
   edit.createFile(Uri.file('/tmp/b.cpp'),{contents:new Uint8Array([0,1,255])},{label:'binary',needsConfirmation:true});
   event.waitUntil(Promise.resolve(edit));

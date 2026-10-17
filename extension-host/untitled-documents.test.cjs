@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createApi } = require('./api.cjs');
 const { Uri } = require('./api-types.cjs');
+const path = require('node:path'), ROOT = path.resolve('/tmp/workspace');
 function deferred() { let resolve, reject; const promise = new Promise((a,b) => { resolve=a; reject=b; }); return {promise,resolve,reject}; }
 function fixture(handle, options = {}) {
   let runtime, generation = 0, next = 0;
@@ -20,7 +21,7 @@ function fixture(handle, options = {}) {
     else publish(id,{uri:Uri.file(args.path).toString(),text:'猫🙂\r\nfile',isDirty:false});
     return {document:id};
   },()=>{}, {session:7,untitledDocuments:true,...options});
-  runtime.configure('/tmp/workspace',[],[{},{}]);sync();
+  runtime.configure(ROOT,[],[{},{}]);sync();
   return {runtime,api:runtime.forExtension('test.owner'),records,calls,publish,sync,terminal};
 }
 test('noarg, undefined, empty options and null create distinct writable dirty hidden documents',async()=>{
@@ -54,7 +55,7 @@ test('file paths and file URIs accept UTF8 options, other encodings refuse befor
   const f=fixture();let reads=0;
   const a=await f.api.workspace.openTextDocument('file.txt',{get encoding(){reads++;return 'utf8';}});
   const b=await f.api.workspace.openTextDocument(Uri.file('/tmp/other.txt'),{encoding:'utf8'});
-  assert.equal(reads,1);assert.equal(a.isUntitled,false);assert.equal(b.isUntitled,false);assert.equal(f.calls[0].params.args.path,'/tmp/workspace/file.txt');
+  assert.equal(reads,1);assert.equal(a.isUntitled,false);assert.equal(b.isUntitled,false);assert.equal(f.calls[0].params.args.path,path.join(ROOT,'file.txt'));
   for(const encoding of ['utf16le','utf8bom','unknown','utf-8',null,3])await assert.rejects(f.api.workspace.openTextDocument('/tmp/file',{encoding}),/encoding/);
   assert.equal(f.calls.length,2);
 });

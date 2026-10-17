@@ -10,8 +10,8 @@ test('native create/rename/delete preserve source event shape, URI revival and o
  operations.publish(frame(1,'create',[{target:'file:///tmp/a%20%F0%9F%99%82.cpp'}]));
  operations.publish(frame(2,'rename',[{source:'file:///tmp/a',target:'file:///tmp/b'}]));
  operations.publish(frame(3,'delete',[{target:'file:///tmp/b'}]));
- assert.equal(events.length,3);assert.ok(events[0].files[0] instanceof Uri);assert.equal(events[0].files[0].fsPath,'/tmp/a 🙂.cpp');
- assert.equal(events[1].files[0].oldUri.fsPath,'/tmp/a');assert.equal(events[1].files[0].newUri.fsPath,'/tmp/b');
+ assert.equal(events.length,3);assert.ok(events[0].files[0] instanceof Uri);assert.equal(events[0].files[0].path,'/tmp/a 🙂.cpp');
+ assert.equal(events[1].files[0].oldUri.path,'/tmp/a');assert.equal(events[1].files[0].newUri.path,'/tmp/b');
  for(const event of events){assert.ok(Object.isFrozen(event));assert.equal(Object.isFrozen(event.files),false);}
  assert.equal(Object.isFrozen(events[1].files[0]),false);
 });

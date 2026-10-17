@@ -11,7 +11,7 @@ test('workspace facade retains getters and folder identity while exposing author
   runtime.configure(root, [], []);
   const first = v.workspace.workspaceFolders[0];
   const inside = v.Uri.joinPath(first.uri, 'source', '猫#.cpp');
-  assert.equal(v.workspace.name, path.basename(root)); assert.equal(v.workspace.rootPath, root);
+  assert.equal(v.workspace.name, path.basename(root)); assert.equal(v.workspace.rootPath, Uri.file(root).fsPath);
   assert.equal(v.workspace.workspaceFile, undefined);
   assert.equal(v.workspace.getWorkspaceFolder(inside), first);
   assert.equal(runtime.api.workspace.getWorkspaceFolder(inside), first);
@@ -21,7 +21,7 @@ test('workspace facade retains getters and folder identity while exposing author
   assert.equal(v.workspace.workspaceFolders.length, 1);
   runtime.configure(root, [], []); assert.equal(v.workspace.workspaceFolders[0], first);
   const replacement = path.resolve('replacement'); runtime.configure(replacement, [], []);
-  assert.equal(v.workspace.name, 'replacement'); assert.equal(v.workspace.rootPath, replacement);
+  assert.equal(v.workspace.name, 'replacement'); assert.equal(v.workspace.rootPath, Uri.file(replacement).fsPath);
   assert.equal(v.workspace.getWorkspaceFolder(inside), undefined);
 });
 test('unimplemented workspace trust, mutation and native folder events remain explicit', () => {

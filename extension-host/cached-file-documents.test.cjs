@@ -3,9 +3,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createApi } = require('./api.cjs');
 const { Uri } = require('./api-types.cjs');
+const path = require('node:path');
 
 function fixture(handle = () => { throw new Error('Unexpected native request'); }, nativeUri) {
-  const calls = [], root = '/tmp/cache-workspace';
+  const calls = [], root = path.resolve('/tmp/cache-workspace');
   const uri = nativeUri ?? Uri.file(`${root}/main.cpp`).toString();
   const snapshot = { id: 7, uri, version: 1, text: '猫🙂\r\noriginal', languageId: 'cpp', isDirty: false };
   let generation = 0;
@@ -89,7 +90,8 @@ test('same-URI model replacement during options capture cannot satisfy the origi
 
 test('file URI getters are captured once and a legitimate text advance retains the original model', async () => {
   const f = fixture(), reads = {};
-  const fields = {scheme: 'file', authority: '', path: `${f.root}/main.cpp`, query: '', fragment: ''};
+  const nativeUri = Uri.file(path.join(f.root, 'main.cpp'));
+  const fields = {scheme: 'file', authority: nativeUri.authority, path: nativeUri.path, query: '', fragment: ''};
   const input = {toString() {throw new Error('Untrusted formatter');}, get fsPath() {throw new Error('Untrusted path');}};
   for (const [key, value] of Object.entries(fields)) Object.defineProperty(input, key, {get() {
     reads[key] = (reads[key] || 0) + 1;

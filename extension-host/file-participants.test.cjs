@@ -71,9 +71,9 @@ test('queued listener disposal and newly registered listeners follow AsyncEmitte
 test('cancellation discards contributions but retains actual occupancy and source queued delivery data',async()=>{
   const {engine}=fixture(), gate=deferred(), cts=new CancellationTokenSource(), calls=[];let cancellation=0;
   engine.forOwner('one').onWillRenameFiles(event=>{
-    calls.push(event.files[0].newUri.fsPath);event.token.onCancellationRequested(()=>cancellation++);event.waitUntil(gate.promise);
+    calls.push(event.files[0].newUri.path);event.token.onCancellationRequested(()=>cancellation++);event.waitUntil(gate.promise);
   });
-  engine.forOwner('two').onWillRenameFiles(event=>calls.push(`two:${event.files[0].newUri.fsPath}`));
+  engine.forOwner('two').onWillRenameFiles(event=>calls.push(`two:${event.files[0].newUri.path}`));
   const first=engine.fire(frame(),5000,cts.token);cts.cancel();assert.equal(cancellation,1);
   assert.equal(engine.busy(),true);assert.throws(()=>engine.fire(frame(2),5000),/actually occupied/);
   gate.resolve(edit('discarded'));assert.equal(await first.result,undefined);await first.settled;assert.equal(engine.busy(),false);

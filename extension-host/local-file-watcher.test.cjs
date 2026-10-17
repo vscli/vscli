@@ -14,7 +14,7 @@ async function fixture(t, baseSuffix = '') {
   t.after(async () => { handle?.dispose(); await handle?.closed; await disk.rm(root, { recursive: true, force: true }); });
   return { root, base: path.join(root, baseSuffix), events, errors,
     start(options = {}) {
-      handle = watchLocal(Uri.file(this.base), options, event => events.push({ type: event.type, path: event.uri.fsPath }), error => errors.push(error));
+      handle = watchLocal(Uri.file(this.base), options, event => events.push({ type: event.type, uri: event.uri.toString() }), error => errors.push(error));
       return handle;
     },
   };
@@ -26,7 +26,7 @@ async function until(predicate, label) {
     await new Promise(resolve => setTimeout(resolve, 10));
   }
 }
-function has(f, type, name) { return f.events.some(event => event.type === type && event.path === path.join(f.root, name)); }
+function has(f, type, name) { return f.events.some(event => event.type === type && event.uri === Uri.file(path.join(f.root, name)).toString()); }
 
 test('real create/change/delete/rename notifications have no initial create flood', async t => {
   const f = await fixture(t);
