@@ -331,6 +331,7 @@ fn installed_packages(directory: Option<&Path>) -> Result<Vec<(PathBuf, Value)>>
         .map(|packages| {
             packages
                 .into_iter()
+                .filter(|package| package.enabled)
                 .map(|package| (package.path, package.manifest))
                 .collect()
         })

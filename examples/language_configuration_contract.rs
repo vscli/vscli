@@ -58,6 +58,7 @@ fn configurations(
             captured_bytes(&fixture["configuration"], &fixture["configurationSha256"])?,
         )?;
         let package = Installed {
+            enabled: true,
             id: format!(
                 "{}.{}",
                 manifest["publisher"]
@@ -211,6 +212,7 @@ fn bundled_configuration() -> Result<Arc<Configuration>> {
         );
     }
     let package = Installed {
+        enabled: true,
         id: "vscode.cpp".into(),
         version: "1.0.0".into(),
         path: root.clone(),

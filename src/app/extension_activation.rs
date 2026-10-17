@@ -137,15 +137,15 @@ fn load(
         .map(|directory| Store::new(directory.into()).list())
         .transpose()?
         .unwrap_or_default();
-    if installed.len() > lifecycle::MAX_ENABLED {
-        anyhow::bail!("Extension activation catalog exceeds 128 installed packages");
+    if installed.len() > lifecycle::MAX_CATALOG {
+        anyhow::bail!("Extension activation catalog exceeds 2048 installed packages");
     }
     let language_configurations =
         crate::language_configuration::Catalog::load(&installed, &global, &local);
     notices.extend(language_configurations.warnings.iter().cloned());
     for installed in installed {
-        if catalog.len() >= lifecycle::MAX_ENABLED {
-            anyhow::bail!("Extension activation catalog exceeds 128 installed packages");
+        if catalog.len() >= lifecycle::MAX_CATALOG {
+            anyhow::bail!("Extension activation catalog exceeds 2048 installed packages");
         }
         match Metadata::installed(&installed) {
             Ok(metadata) => {
@@ -173,9 +173,9 @@ fn load(
     for package in retained {
         catalog.insert(package.id.clone(), Metadata::selected(package)?);
     }
-    if catalog.len() > lifecycle::MAX_ENABLED {
+    if catalog.len() > lifecycle::MAX_CATALOG {
         anyhow::bail!(
-            "Extension activation catalog exceeds 128 packages including retained snapshots"
+            "Extension activation catalog exceeds 2048 packages including retained snapshots"
         );
     }
     let matches = lifecycle::workspace::scan(workspace, &catalog, &enabled);

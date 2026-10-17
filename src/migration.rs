@@ -1,4 +1,5 @@
 //! Read-only migration preview and atomic activation of versioned imported profile copies.
+pub mod application;
 pub mod discovery;
 pub mod packages;
 #[cfg(test)]
@@ -84,19 +85,24 @@ pub fn preview_with_extensions(
     profile: crate::keys::Profile,
     extensions: Option<&Path>,
 ) -> Result<Preview> {
-    preview_layout(source, profile, extensions, None)
+    preview_layout(source, profile, extensions, None, None)
 }
 pub fn preview_profile(
     source: &discovery::Source,
     profile: crate::keys::Profile,
 ) -> Result<Preview> {
+    let inventory = packages::inventory(source)?;
     let mut preview = preview_layout(
         &source.user,
         profile,
         Some(&source.extensions),
         Some(source.clone()),
+        Some(&inventory),
     )?;
-    preview.report.extensions = Some(packages::inventory(source)?);
+    preview.report.extensions = Some(inventory);
+    if let Some(application) = &source.application {
+        preview.source_roots.push(application.root.clone());
+    }
     Ok(preview)
 }
 fn preview_layout(
@@ -104,6 +110,7 @@ fn preview_layout(
     profile: crate::keys::Profile,
     extensions: Option<&Path>,
     layout: Option<discovery::Source>,
+    inventory: Option<&packages::Inventory>,
 ) -> Result<Preview> {
     let source = fs::canonicalize(source).context("Cannot open VS Code User directory")?;
     if !source.is_dir() {
@@ -234,7 +241,30 @@ fn preview_layout(
             directories::BaseDirs::new().map(|dirs| dirs.home_dir().join(".vscode/extensions"));
         let directory = extensions.or(default_extensions.as_deref());
         if let Some(directory) = directory {
-            match snapshot_theme(directory, &name) {
+            let snapshot = if let Some(inventory) = inventory {
+                snapshot_package_themes(
+                    inventory
+                        .selected
+                        .iter()
+                        .filter(|package| package.enabled)
+                        .map(|package| package.path.clone())
+                        .collect(),
+                    &name,
+                )
+                .and_then(|found| {
+                    // An explicit unpacked theme directory remains a supported
+                    // data-only source when no authoritative user index exists.
+                    // This fallback never registers or executes package code.
+                    if found.is_none() && !inventory.index.exists() {
+                        snapshot_theme(directory, &name)
+                    } else {
+                        Ok(found)
+                    }
+                })
+            } else {
+                snapshot_theme(directory, &name)
+            };
+            match snapshot {
                 Ok(Some((relative, files, warnings))) => {
                     result.report.notices.extend(warnings);
                     for (path, bytes) in files {
@@ -343,10 +373,21 @@ impl Preview {
                 .extensions
                 .as_ref()
                 .context("Preview has no registered extension inventory")?;
+            // Refuse an unsupported explicit execution cohort before copying
+            // any package payload; the active profile remains untouched.
+            let mut preferences = crate::extension_activation::Preferences::default();
+            for package in &inventory.selected {
+                if package.code && options.activate_extensions && package.enabled {
+                    preferences.set(&package.id, true)?;
+                    self.report.extensions_execution_enabled += 1;
+                }
+            }
+            let grants = serde_json::to_vec_pretty(&preferences)?;
             let sources: Vec<_> = inventory
                 .selected
                 .iter()
                 .map(|package| crate::extension_store::DirectorySource {
+                    enabled: package.enabled,
                     path: package.path.clone(),
                     id: package.id.clone(),
                     version: package.version.clone(),
@@ -356,15 +397,6 @@ impl Preview {
             let store = crate::extension_store::Store::new(staging.path().join("extensions"));
             let installed = store.import_directories(&sources, cancel, progress)?;
             self.report.extensions_imported = installed.len();
-            let mut preferences = crate::extension_activation::Preferences::default();
-            for package in &inventory.selected {
-                if package.code {
-                    let enabled = options.activate_extensions && package.enabled;
-                    preferences.set(&package.id, enabled)?;
-                    self.report.extensions_execution_enabled += usize::from(enabled);
-                }
-            }
-            let grants = serde_json::to_vec_pretty(&preferences)?;
             write_new(&staging.path().join("extensions-enabled.json"), &grants)?;
             write_new(
                 &staging.path().join("extension-migration.json"),
@@ -526,6 +558,12 @@ fn snapshot_theme(directory: &Path, selected: &str) -> Result<Option<ThemeSnapsh
             bail!("Theme discovery exceeds 128 extension packages");
         }
     }
+    snapshot_package_themes(packages, selected)
+}
+fn snapshot_package_themes(
+    mut packages: Vec<PathBuf>,
+    selected: &str,
+) -> Result<Option<ThemeSnapshot>> {
     packages.sort();
     let mut manifest_bytes = 0;
     for package in packages {

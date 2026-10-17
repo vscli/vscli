@@ -1,0 +1,153 @@
+{
+  "schema": "vscli-builtin-profile-migration-validation-v1",
+  "base_commit": "2321572f3261aa7f19ea6a149903702a7f4e39b6",
+  "scope": "Source application and built-in/user package migration; native theme, snippet and typing-data availability; independent metadata/execution bounds and dirty native integration. Entire stable API and all personal extension workflows remain required.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1703,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "9c4817771b260db9ead21016e783cdc7891306b241ddda12a008b4c29b3a3038"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "2137aa176df2e2230f52b837dec06f85d06cd042ce441a6559ba6c1d10ee9aa4"
+  },
+  "criteria": {
+    "passed": 5,
+    "total": 5,
+    "items": [
+      "Read-only automatic/manual application selection, bounded built-in inventory, version reconciliation and exact manifest identity",
+      "Atomic independent snapshots preserve source availability and separate code consent; old profile and originals survive",
+      "184-package installed metadata/native data works within separate execution and I/O bounds; disabled data is hidden",
+      "Native application picker, enabled built-in snippet with no Node, dirty Unicode/CRLF save/Undo and live rollback",
+      "Full relevant native regression, actual private 184-package launch, formatting, strict Clippy and documented remaining scope"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked",
+      "passed": 1656,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 69,
+      "library_passed": 1302,
+      "log": "/tmp/vscli-builtins-qualified-rust.log"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-builtins-qualified-final-clippy.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-builtins-qualified-build.log"
+    },
+    {
+      "command": "python3 tests/builtin_profile_migration_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-builtins-qualified-builtin-pty.log"
+    },
+    {
+      "command": "python3 tests/profile_migration_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "failed": 0,
+      "log": "/tmp/vscli-builtins-qualified-migration-pty.log"
+    },
+    {
+      "command": "python3 tests/imported_appearance_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-builtins-qualified-appearance-pty.log"
+    },
+    {
+      "command": "python3 scripts/test_extension_api_progress.py",
+      "passed": 3,
+      "failed": 0,
+      "log": "/tmp/vscli-builtins-qualified-ledger.log"
+    },
+    {
+      "command": "private actual-profile native terminal journey against retained 184-package copy",
+      "passed_scenarios": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-builtins-qualified-personal-native-pty.log"
+    }
+  ],
+  "personal_profile": {
+    "selected_packages": 184,
+    "imported_packages": 184,
+    "matching_versions_manifest_hashes_and_enabled_state": 184,
+    "source_builtin_packages": 95,
+    "selected_builtin_ids": 94,
+    "code_packages": 113,
+    "execution_grants": 0,
+    "source_disabled_packages": 1,
+    "settings_and_keybindings_byte_exact": true,
+    "previous_profile_retained": true,
+    "native_startup_with_184_packages_without_node": true,
+    "native_installed_package_picker": true,
+    "unicode_crlf_edit_save_undo": true,
+    "all_extension_workflows_qualified": false
+  },
+  "personal_copy_source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1703,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "5aa9960a09834065209e70010f19e034bbc4a2086d88012141281de1f068f118",
+    "binary_sha256": "b6f2644b46f8795369cc6143777a3cb4428670276f61dfefa17d314c10daeb78"
+  },
+  "source_note": "The original personal package copy has its own recorded source/binary cohort. After correcting the unpacked-theme fallback and two test assertions, all 1656 Rust tests, four migration/appearance terminal journeys and the private 184-package native journey pass on source_cohort and binary. Payload copying is not repeated: versions/manifest hashes/enablement remain matched, and the already copied profile is exercised with the final binary. No personal code was activated.",
+  "unchanged_host_runtime": "Host JavaScript is unchanged from the preceding 805-test localization cohort; that evidence retains its own source receipt rather than being claimed as a new host run.",
+  "outstanding": [
+    "Fresh exact-head Linux/macOS/Windows CI, Windows journal flush qualification and independent macOS source-action witness root cause",
+    "Native UI language packs, package manifest localization, full TextMate/token/fonts/icons/layout/CSS/rich presentation",
+    "All personal code extension workflows, proposed APIs required by the personal cohort and source engine validity",
+    "Full contribution/enablement override behavior, extension storage, exported profiles and remaining entire stable API families",
+    "Release review and actual packaged artifact qualification; no publication is performed"
+  ],
+  "repaired_during_validation": [
+    {
+      "observation": "Initial appearance journey failed because the selected theme was not in an authoritative extension index.",
+      "fix": "Retain explicit unpacked theme data fallback when no user index exists; never register or execute its code.",
+      "evidence": "New native data-only fallback integrity control and passing final appearance journey; original failure retained in /tmp/vscli-builtins-appearance-pty.log."
+    },
+    {
+      "observation": "One full library run expected a prepared preference worker to remain busy after a poll that may legally join it.",
+      "fix": "Assert occupied-slot/non-overlap before permitting terminal polling; original preference bytes and profile ABA assertions remain.",
+      "evidence": "All 1656 final native regression tests pass; failed run retained in /tmp/vscli-builtins-repaired-rust.log."
+    }
+  ]
+}

@@ -78,9 +78,12 @@ mod tests {
         take_prepared(&mut app);
         let b = directory.path().join("profile-b/settings.json");
         app.configure_settings(Some(b)).unwrap();
-        app.poll_file_participant_preferences();
+        // The original prepared worker occupies its slot until the terminal
+        // poll joins it. That poll may legitimately retire AND join a fast
+        // worker, so assert non-overlap before allowing it to consume receipt.
         assert!(app.file_participant_preferences.worker.busy());
         assert!(app.reset_file_participant_choice().is_err());
+        app.poll_file_participant_preferences();
         app.configure_settings(Some(path.with_file_name("settings.json")))
             .unwrap();
         assert!(!app.file_participant_preview_choice_reset());

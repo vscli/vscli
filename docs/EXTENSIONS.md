@@ -503,3 +503,24 @@ Formatting and overload behavior follow pinned upstream
 and its API adapter. Local native and terminal evidence is recorded in
 [localization receipts](validation/extension-localization.json); this does not
 qualify the entire localization/environment or stable API surface.
+
+
+## Source application packages during migration
+
+Profile discovery can associate the source application; the native **B** picker
+or `--vscode-application PATH` supplies an explicit executable/installation/app
+root. Built-in packages join the registered user inventory without executing code.
+Newest version wins and equal versions prefer the built-in, following the pinned
+[upstream scanner selection rule](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/extensionManagement/common/extensionsScannerService.ts).
+Source engine validity remains unqualified. Independent snapshots retain raw
+manifests and source availability; native theme, snippet and typing data consumers
+skip source-disabled packages. Missing code grants do not suppress enabled native
+data in new imports.
+
+Installed activation and typing metadata allow 2,048 packages under existing
+aggregate byte/node/read bounds. Selected sessions and remembered code grants
+remain bounded separately at 128; callback/service limits are unchanged. Explicit
+unsupported grant cohorts refuse before package copying. The actual isolated
+184-package profile copy has 113 code packages and zero execution grants;
+package copying does not establish their runtime/API compatibility. See
+[built-in profile validation](validation/builtin-profile-migration.json).

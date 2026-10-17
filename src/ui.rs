@@ -1039,6 +1039,9 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::Theme => " Color Theme · select or Load Color Theme File from commands ",
         PromptKind::SearchExtensions => " Search Open VSX · Enter searches · Esc cancels ",
         PromptKind::StopExtension => " Stop Selected Extension ID (publisher.name) ",
+        PromptKind::VscodeApplicationPath => {
+            " Import VS Code · application or resources/app path (built-ins) "
+        }
         PromptKind::VscodeExtensionsPath => {
             " Import VS Code · installed extensions directory path "
         }

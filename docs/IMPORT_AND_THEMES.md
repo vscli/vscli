@@ -19,7 +19,8 @@ vscli --import-vscode /path/to/Code/User --vscode-extensions /path/to/extensions
 
 The welcome screen's **Import from VS Code** action and
 **F1 → Preferences: Import from VS Code** provide native profile selection and
-review. **P** chooses a custom User directory; **E** chooses its extension folder.
+review. **P** chooses a custom User directory; **E** chooses its extension folder;
+**B** chooses the source application and its built-in packages.
 In review, **I** includes local packages and **A** explicitly allows source-enabled
 code packages to activate. **Enter** applies. Configuration loads in the current
 window without replacing open models or discarding unsaved edits. Escape cancels
@@ -187,3 +188,43 @@ and selected-theme snapshots after source removal. PTY workflows exercise actual
 imported settings/bindings, custom RGB output, theme selection, restart persistence
 and failed-load behavior. These are native behavior tests, not differential proof
 of VS Code theme parity.
+
+
+## Source application and built-in packages
+
+Local discovery also inspects the corresponding application without running it.
+If several installations match, choose the intended executable, installation
+folder or `resources/app` directory with **B** on the profile picker, or pass:
+
+```sh
+vscli --import-vscode --vscode-application /path/to/Code --import-extensions --apply-import
+```
+
+The preview counts registered user versions, source built-ins and selected IDs
+separately. The combined inventory keeps the newest available version of a
+duplicate ID and prefers a built-in on an equal version. Source engine validity
+and native binaries still need qualification. A configuration-only import can
+snapshot a selected built-in theme without starting its code.
+
+Copying retains source enablement independently of execution consent. Native
+snippets, themes and typing configurations skip source-disabled packages;
+source-enabled data remains usable without granting its package's code access.
+The installed metadata catalogue admits 2,048 packages within its existing byte
+and JSON-node limits. Selected code sessions remain bounded at 128 packages with
+separately bounded callback queues. An explicit grant cohort beyond its supported
+size is refused before payload copying, preserving the active profile.
+
+Local qualification covers a synthetic application and a private copy of all
+184 selected IDs from the actual setup: 95 source built-ins yield 94 selected
+built-in IDs alongside 90 selected user IDs. Versions, manifest hashes, enabled
+state and configuration bytes match; native launch, installed listing and
+Unicode/CRLF save/Undo work without Node. All 113 code packages remain ungranted.
+This does not qualify their execution, all declarative contribution kinds,
+workspace enablement overrides across every consumer, native language packs,
+TextMate grammars, fonts/icons, arbitrary CSS or the entire stable API. See
+[built-in migration receipts](validation/builtin-profile-migration.json).
+
+
+An explicitly supplied unpacked theme directory still works for configuration-only
+imports when no authoritative user extension index exists. Only its selected
+contained JSON theme/include data is copied; its code remains unregistered.

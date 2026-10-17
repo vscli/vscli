@@ -14,6 +14,8 @@ pub struct Source {
     pub extensions: PathBuf,
     #[serde(default)]
     pub use_default: Map<String, Value>,
+    #[serde(default)]
+    pub application: Option<super::application::Application>,
 }
 impl Source {
     pub fn resource_directory(&self, kind: &str) -> &Path {
@@ -74,7 +76,17 @@ pub fn discover() -> Result<Discovery> {
             root.join("extensions"),
         ));
     }
-    discover_installations(&installs)
+    let mut result = discover_installations(&installs)?;
+    let products: std::collections::BTreeSet<_> =
+        result.profiles.iter().map(|s| s.product.clone()).collect();
+    for product in products {
+        let (application, notices) = super::application::discover(&product);
+        for source in result.profiles.iter_mut().filter(|s| s.product == product) {
+            source.application = application.clone();
+        }
+        result.notices.extend(notices);
+    }
+    Ok(result)
 }
 
 pub fn discover_installations(installs: &[(String, PathBuf, PathBuf)]) -> Result<Discovery> {
@@ -108,6 +120,7 @@ pub fn default_source(product: &str, user: &Path, extensions: &Path) -> Result<S
         default_user: user.clone(),
         extensions: crate::document::absolute_path(extensions)?,
         use_default: Map::new(),
+        application: None,
     })
 }
 

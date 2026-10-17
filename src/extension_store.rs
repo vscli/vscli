@@ -36,9 +36,16 @@ pub struct Installed {
     pub source: String,
     pub sha256: String,
     pub compatibility: String,
+    #[serde(default = "enabled_by_default")]
+    pub enabled: bool,
+}
+fn enabled_by_default() -> bool {
+    true
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct Package {
+    #[serde(default = "enabled_by_default")]
+    enabled: bool,
     id: String,
     version: String,
     directory: String,
@@ -135,6 +142,7 @@ impl Store {
             bail!("Installed extension manifest identity changed");
         }
         Ok(Installed {
+            enabled: package.enabled,
             id,
             version,
             path,
@@ -291,6 +299,10 @@ impl Store {
         let directory = format!("package-{}", uuid::Uuid::new_v4());
         let destination = self.root.join(&directory);
         let package = Package {
+            enabled: registry
+                .packages
+                .get(&id)
+                .is_none_or(|entry| entry.current.enabled),
             id: id.clone(),
             version,
             directory,

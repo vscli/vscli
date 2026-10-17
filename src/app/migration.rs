@@ -41,6 +41,7 @@ struct Job {
 enum Work {
     Discover(Option<PathBuf>),
     Preview(Source),
+    Application(Source, PathBuf),
     Apply(Box<Preview>, ApplyOptions),
     Rollback,
 }
@@ -119,6 +120,11 @@ impl App {
             self.start_migration(Work::Preview(source));
         }
     }
+    pub(super) fn set_import_application_path(&mut self, path: PathBuf) {
+        if let Some(source) = self.migration.sources.get(self.migration.selected).cloned() {
+            self.start_migration(Work::Application(source, path));
+        }
+    }
     pub(super) fn rollback_vscode_import(&mut self) {
         self.start_migration(Work::Rollback);
     }
@@ -167,6 +173,10 @@ impl App {
                             discovery::discover()?
                         };
                         Ok(Output::Sources(sources))
+                    }
+                    Work::Application(mut source, path) => {
+                        source.application = Some(engine::application::Application::open(&path)?);
+                        Ok(Output::Preview(engine::preview_profile(&source, profile)?))
                     }
                     Work::Preview(source) => {
                         Ok(Output::Preview(engine::preview_profile(&source, profile)?))
@@ -238,7 +248,7 @@ impl App {
     fn show_migration_sources(&mut self, notices: &[String]) {
         let mut lines = vec![
             "Choose the VS Code profile to bring across.".into(),
-            "↑/↓ select · Enter reviews · P custom User directory · E extensions directory · Esc cancels".into(),
+            "↑/↓ select · Enter reviews · P custom User directory · E extensions directory · B application/built-ins · Esc cancels".into(),
             String::new(),
         ];
         for (index, source) in self.migration.sources.iter().enumerate() {
@@ -266,14 +276,22 @@ impl App {
         let report = &preview.report;
         let inventory = report.extensions.as_ref();
         let packages = inventory.map_or(0, |value| value.selected.len());
-        let mut lines = vec![
+        let mut lines =
+            vec![
             format!("Source: {}", report.source.display()),
+            report.profile.as_ref().and_then(|source| source.application.as_ref()).map_or_else(
+                || "Application: not selected; choose B on the profile picker for built-ins".into(),
+                |app| format!("Application: {} {} · {}", app.name, app.version, app.root.display()),
+            ),
             format!(
                 "Configuration: {} files · {} bytes",
                 report.files.len(),
                 report.bytes
             ),
-            format!("Registered extensions: {packages} selected IDs"),
+            format!(
+                "Extensions: {packages} selected IDs · {} source built-ins",
+                inventory.map_or(0, |inventory| inventory.built_in_packages)
+            ),
             String::new(),
             format!(
                 "[{}] Copy registered local extension packages · I toggles",
@@ -351,6 +369,15 @@ impl App {
                         self.migration.sources.get(self.migration.selected).cloned()
                     {
                         self.start_migration(Work::Preview(source));
+                    }
+                }
+                KeyCode::Char('b' | 'B') => {
+                    if let Some(source) = self.migration.sources.get(self.migration.selected) {
+                        let path = source.application.as_ref().map_or_else(String::new, |app| {
+                            app.root.to_string_lossy().into_owned()
+                        });
+                        self.modal = None;
+                        self.start_prompt(PromptKind::VscodeApplicationPath, path);
                     }
                 }
                 KeyCode::Char('e' | 'E') => {
@@ -446,6 +473,11 @@ impl App {
                 self.show_migration_sources(&sources.notices);
             }
             Ok(Output::Preview(preview)) => {
+                if let Some(source) = &preview.report.profile
+                    && let Some(previous) = self.migration.sources.get_mut(self.migration.selected)
+                {
+                    *previous = source.clone();
+                }
                 self.migration.preview = Some(preview);
                 self.migration.phase = Phase::Review;
                 self.show_migration_review();

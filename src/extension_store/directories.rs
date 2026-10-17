@@ -9,6 +9,7 @@ const MAX_PATH_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Clone)]
 pub struct DirectorySource {
+    pub enabled: bool,
     pub path: PathBuf,
     pub id: String,
     pub version: String,
@@ -72,6 +73,7 @@ impl Store {
                 bail!("Local package snapshot identity/version differs from preview");
             }
             let package = Package {
+                enabled: source.enabled,
                 id: id.clone(),
                 version,
                 directory,
@@ -275,6 +277,7 @@ mod tests {
         )
         .unwrap();
         DirectorySource {
+            enabled: true,
             path,
             id: format!("fixture.{name}"),
             version: version.into(),

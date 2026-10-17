@@ -12,7 +12,7 @@ use std::{
     sync::Arc,
 };
 
-const PACKAGES: usize = 128;
+const PACKAGES: usize = crate::extension_activation::MAX_CATALOG;
 const REFERENCES: usize = 256;
 const FILE_BYTES: usize = 64 * 1024;
 const READ_BYTES: usize = 4 * 1024 * 1024;
@@ -115,11 +115,14 @@ impl Catalog {
         let mut packages = installed.iter().take(PACKAGES).collect::<Vec<_>>();
         packages.sort_by(|a, b| a.id.cmp(&b.id));
         if installed.len() > PACKAGES {
-            catalog.warn("Language configuration catalog exceeds 128 installed packages; remaining packages omitted");
+            catalog.warn("Language configuration catalog exceeds 2048 installed packages; remaining packages omitted");
         }
         let mut references = 0usize;
         let mut remaining = READ_BYTES;
         for package in packages {
+            if !package.enabled {
+                continue;
+            }
             if !workspace
                 .extensions
                 .get(&package.id)

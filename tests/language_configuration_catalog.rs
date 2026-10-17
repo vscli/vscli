@@ -9,6 +9,7 @@ fn package(root: &Path, id: &str, text: &str) -> Installed {
     fs::create_dir_all(&directory).unwrap();
     fs::write(directory.join("language.json"), text).unwrap();
     Installed {
+        enabled: true,
         id: id.into(),
         version: "1.2.3".into(),
         path: directory,
@@ -358,12 +359,12 @@ fn json_depth_pair_file_package_and_reference_work_limits_are_enforced() {
             .iter()
             .any(|warning| warning.contains("256 language"))
     );
-    let catalog = load(&vec![installed; 129]);
+    let catalog = load(&vec![installed; 2049]);
     assert!(
         catalog
             .warnings
             .iter()
-            .any(|warning| warning.contains("128 installed"))
+            .any(|warning| warning.contains("2048 installed"))
     );
 }
 

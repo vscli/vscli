@@ -114,15 +114,20 @@ selected versions/manifest hashes and byte-exact configuration; native launch,
 package listing and Unicode/CRLF edit/save/Undo pass without Node. There are
 **zero personal code execution grants**. See [validation receipts](validation/profile-migration.json).
 
-The installed source application is VS Code 1.118.0 and contains 95 built-in
-packages (34 with code). The combined source has 184 distinct user/built-in IDs;
-these built-ins are not part of the verified 90-package user-profile copy. Built-in
-package discovery/copy and separate data/code catalog budgets remain required.
+The source application is VS Code 1.118.0 and contains 95 built-in packages.
+A new atomic private profile copy contains all **184/184 selected IDs**: 94 selected
+built-in IDs plus 90 user IDs, including 113 code packages and one source-disabled
+package. All versions, manifest hashes and enabled state match; settings and keys
+are byte-exact. Native launch, installed listing and Unicode/CRLF save/Undo pass
+without Node, with zero personal code grants. The earlier 90-package generation
+is retained. This validates copying and native integration, not those extensions'
+workflows. See [built-in migration evidence](validation/builtin-profile-migration.json).
 
 The personal user cohort contains 80 code packages, 1,683 contributed commands, 169
 keybindings and 13 packages requesting proposed APIs. These counts are concrete
-requirements; they do not establish behavioral compatibility. Full source-disabled
-contribution filtering, extension storage, exported `.code-profile` input,
+requirements; they do not establish behavioral compatibility. Source-disabled
+native theme/snippet/typing data is now filtered. Other contribution consumers,
+workspace override fidelity, extension storage, exported `.code-profile` input,
 portable/custom path inference, source engine-version resolution, platform-native
 binaries and cross-platform UI/release qualification remain open.
 
@@ -167,3 +172,17 @@ portable profile export/import. [Theme customization](https://code.visualstudio.
 and pinned [1.95.0 colorThemeData.ts](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/services/themes/common/colorThemeData.ts)
 provide the customization precedence reference. Native presentation differences
 and executed test evidence must remain distinct from upstream qualification.
+
+
+## Source application migration checkpoint
+
+**5/5 local batch criteria pass**: source application selection and version
+reconciliation; atomic built-in/user snapshots and disabled metadata; an installed
+catalogue larger than the selected-code bound; actual native data/application
+picker/dirty-buffer/rollback integration; and required local regression checks.
+There are 1,656 passing Rust tests across 69 reports (23 ignored), four relevant
+migration/appearance terminal journeys and the private 184-package native journey,
+plus formatting and strict Clippy. Entire stable API, personal code execution and
+platform/release qualification remain outstanding. Windows journal failures and
+macOS reference-witness evidence retain their own CI status and are not counted
+as passed by this local checkpoint.

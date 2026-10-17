@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
+pub const MAX_CATALOG: usize = 2048;
 pub const MAX_ENABLED: usize = 128;
 pub const MAX_SELECTED: usize = 128;
 
@@ -152,6 +153,7 @@ impl Metadata {
     /// Read a selected generation in a background planning worker.
     pub fn selected(package: &Package) -> Result<Self> {
         let item = Installed {
+            enabled: true,
             id: package.id.clone(),
             version: package.version.clone(),
             path: package.path.clone(),
@@ -286,7 +288,7 @@ pub fn plan(
     retained: &[Metadata],
     roots: &BTreeSet<String>,
 ) -> Result<Plan> {
-    if catalog.len() > MAX_ENABLED || enabled.len() > MAX_ENABLED || retained.len() > MAX_SELECTED {
+    if catalog.len() > MAX_CATALOG || enabled.len() > MAX_ENABLED || retained.len() > MAX_SELECTED {
         bail!("Extension activation catalog budget exceeded");
     }
     let mut available = catalog.clone();
@@ -369,13 +371,14 @@ mod tests {
     use serde_json::json;
     fn metadata(id: &str, dependencies: &[&str]) -> Metadata {
         let (publisher, name) = id.split_once('.').unwrap();
-        Metadata::installed(&Installed { id: id.into(), version: "1.0.0".into(),
+        Metadata::installed(&Installed { enabled: true, id: id.into(), version: "1.0.0".into(),
             path: format!("/snapshot/{id}").into(), source: "fixture".into(), sha256: "hash".into(), compatibility: "fixture".into(),
             manifest: json!({"publisher":publisher,"name":name,"main":"main.cjs","extensionDependencies":dependencies}) }).unwrap()
     }
     #[test]
     fn registered_languages_require_contributions_not_activation_events() {
         let item = Installed {
+            enabled: true,
             id: "test.languages".into(),
             version: "1.0.0".into(),
             path: "/snapshot/test.languages".into(),
@@ -437,6 +440,7 @@ mod tests {
     #[test]
     fn contribution_events_are_inferred_and_unsupported_events_remain_explicit() {
         let mut item = Installed {
+            enabled: true,
             id: "test.events".into(),
             version: "1.0.0".into(),
             path: "/snapshot".into(),

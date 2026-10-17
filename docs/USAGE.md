@@ -458,6 +458,15 @@ profile. `--import-extensions` copies its registered local packages; explicit
 `--activate-imported-extensions --apply-import` grants source-enabled code packages
 permission to activate. `--rollback-import` restores the preceding profile.
 
+Automatic discovery associates the source application and its built-in packages.
+On the native profile picker, **B** chooses an application path if discovery cannot
+select one. The CLI equivalent is `--vscode-application PATH`; executable,
+installation and `resources/app` paths are accepted without launching VS Code.
+Registered and built-in versions are reconciled; a newer version wins and an
+equal-version built-in wins. Engine validity is still a separate compatibility gate.
+Source-disabled themes, snippets and typing configurations stay hidden. Enabled
+native data does not require a code-execution grant or a JavaScript runtime.
+
 `vscli --import-vscode /path/to/Code/User` previews a migration. Add
 `--apply-import` to activate a versioned profile copy while retaining original files
 and earlier native profiles. `--vscode-extensions` selects the source extension

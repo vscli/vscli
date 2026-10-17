@@ -4,6 +4,7 @@ use crate::editing_profile::{ProfileId, TypingOptions};
 
 fn installed(root: &Path) -> crate::extension_store::Installed {
     crate::extension_store::Installed {
+        enabled: true,
         id: "test.native".into(),
         version: "1.0.0".into(),
         path: root.into(),

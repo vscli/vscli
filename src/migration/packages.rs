@@ -16,6 +16,8 @@ pub struct Package {
     pub enabled: bool,
     pub manifest_sha256: String,
     pub code: bool,
+    #[serde(default)]
+    pub built_in: bool,
     pub dependencies: Vec<String>,
     pub contributions: Vec<String>,
     pub target_platform: Option<String>,
@@ -25,17 +27,20 @@ pub struct Package {
 pub struct Inventory {
     pub index: PathBuf,
     pub registered_versions: usize,
+    #[serde(default)]
+    pub built_in_packages: usize,
     pub selected: Vec<Package>,
     pub notices: Vec<String>,
 }
 
 pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
     let index = source.extension_index();
-    if !index.exists() {
-        return Ok(Inventory {index,notices:vec!["No registered extension index was found; unregistered extension folders are not silently selected".into()],..Inventory::default()});
-    }
-    let rows: Vec<Value> = serde_json::from_slice(&read(&index, 8 * MAX_FILE)?)
-        .context("Invalid VS Code extension profile index")?;
+    let rows: Vec<Value> = if index.exists() {
+        serde_json::from_slice(&read(&index, 8 * MAX_FILE)?)
+            .context("Invalid VS Code extension profile index")?
+    } else {
+        Vec::new()
+    };
     if rows.len() > MAX_PACKAGES {
         bail!("Extension profile exceeds {MAX_PACKAGES} registered versions");
     }
@@ -46,6 +51,11 @@ pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
         registered_versions: rows.len(),
         ..Inventory::default()
     };
+    if !result.index.exists() {
+        result.notices.push("No registered user extension index was found; unregistered user folders are not silently selected".into());
+    }
+    let mut metadata_bytes = 0usize;
+    let mut metadata_nodes = 0usize;
     for row in rows {
         let id = row
             .pointer("/identifier/id")
@@ -86,40 +96,22 @@ pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
         if !platform_matches(target_platform.as_deref()) {
             result.notices.push(format!("{id}@{version}: package platform {:?} differs from this editor; native binaries remain unqualified",target_platform));
         }
-        let dependencies = manifest
-            .get("extensionDependencies")
-            .and_then(Value::as_array)
-            .map(|values| {
-                values
-                    .iter()
-                    .map(|value| {
-                        let id = value
-                            .as_str()
-                            .context("Invalid extension dependency")?
-                            .to_ascii_lowercase();
-                        crate::extension_activation::validate_id(&id)?;
-                        Ok(id)
-                    })
-                    .collect::<Result<Vec<_>>>()
-            })
-            .transpose()?
-            .unwrap_or_default();
-        let package = Package {
-            id: id.clone(),
-            version: version.into(),
+        metadata_budget(
+            &manifest_bytes,
+            &manifest,
+            &mut metadata_bytes,
+            &mut metadata_nodes,
+        )?;
+        let package = package(
             path,
-            enabled: !disabled.contains(&id),
-            manifest_sha256: format!("{:x}", Sha256::digest(&manifest_bytes)),
-            code: manifest.get("main").is_some() || manifest.get("browser").is_some(),
-            dependencies,
-            contributions: manifest
-                .get("contributes")
-                .and_then(Value::as_object)
-                .map(|object| object.keys().cloned().collect())
-                .unwrap_or_default(),
-            target_platform,
+            &manifest_bytes,
+            &manifest,
+            id.clone(),
+            version.into(),
             metadata,
-        };
+            &disabled,
+            false,
+        )?;
         let replace = match selected.get(&id) {
             None => true,
             Some(old) => {
@@ -137,6 +129,75 @@ pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
     if result.registered_versions > selected.len() {
         result.notices.push(format!("{} registered versions resolve to {} IDs; the highest registered version for this platform is selected and other variants remain in the original index",result.registered_versions,selected.len()));
     }
+    if let Some(application) = &source.application {
+        let root = fs::canonicalize(application.extensions())?;
+        let mut entries = fs::read_dir(&root)?
+            .take(MAX_PACKAGES + 1)
+            .collect::<std::io::Result<Vec<_>>>()?;
+        if entries.len() > MAX_PACKAGES {
+            bail!("Built-in package directory exceeds {MAX_PACKAGES} entries");
+        }
+        entries.sort_by_key(|entry| entry.file_name());
+        for entry in entries {
+            if !entry.file_type()?.is_dir() {
+                continue;
+            }
+            let path = fs::canonicalize(entry.path())?;
+            if !path.starts_with(&root) {
+                bail!("Built-in package escapes source application");
+            }
+            let manifest_path = path.join("package.json");
+            if !manifest_path.is_file() {
+                continue;
+            }
+            let bytes = read(&manifest_path, MAX_FILE)?;
+            let manifest: Value =
+                serde_json::from_slice(&bytes).context("Invalid built-in package manifest")?;
+            metadata_budget(&bytes, &manifest, &mut metadata_bytes, &mut metadata_nodes)?;
+            let id = format!(
+                "{}.{}",
+                manifest["publisher"]
+                    .as_str()
+                    .context("Built-in package has no publisher")?,
+                manifest["name"]
+                    .as_str()
+                    .context("Built-in package has no name")?
+            )
+            .to_ascii_lowercase();
+            crate::extension_activation::validate_id(&id)?;
+            let version = manifest["version"]
+                .as_str()
+                .context("Built-in package has no version")?;
+            let parsed = semver::Version::parse(version)?;
+            let package = package(
+                path,
+                &bytes,
+                &manifest,
+                id.clone(),
+                version.into(),
+                Map::new(),
+                &disabled,
+                true,
+            )?;
+            result.built_in_packages += 1;
+            // Pinned upstream scanner prefers a newer version and the built-in
+            // on an equal version. Source engine validity remains unqualified.
+            if selected.get(&id).is_none_or(|old| {
+                semver::Version::parse(&old.version).is_ok_and(|old| parsed >= old)
+            }) {
+                selected.insert(id, package);
+            }
+        }
+        if selected.len() > MAX_PACKAGES {
+            bail!("Combined source exceeds {MAX_PACKAGES} distinct packages");
+        }
+        result.notices.push(format!("Source application {} supplies {} built-in packages; engine/native backend compatibility remains unqualified", application.version, result.built_in_packages));
+    } else {
+        result.notices.push(
+            "Source application was not selected; built-in packages are absent from this preview"
+                .into(),
+        );
+    }
     for package in selected.values() {
         for dependency in &package.dependencies {
             if !selected.contains_key(dependency) {
@@ -148,6 +209,79 @@ pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
     }
     result.selected = selected.into_values().collect();
     Ok(result)
+}
+
+fn metadata_budget(
+    bytes: &[u8],
+    manifest: &Value,
+    total: &mut usize,
+    nodes: &mut usize,
+) -> Result<()> {
+    *total = total.saturating_add(bytes.len());
+    let mut remaining = vec![manifest];
+    while let Some(value) = remaining.pop() {
+        *nodes = nodes.saturating_add(1);
+        if *total > 8 * MAX_FILE || *nodes > 250_000 {
+            bail!("Source extension manifests exceed 8 MiB / 250,000 JSON-node metadata budget");
+        }
+        match value {
+            Value::Object(value) => remaining.extend(value.values()),
+            Value::Array(value) => remaining.extend(value),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+#[allow(clippy::too_many_arguments)]
+fn package(
+    path: PathBuf,
+    manifest_bytes: &[u8],
+    manifest: &Value,
+    id: String,
+    version: String,
+    metadata: Map<String, Value>,
+    disabled: &BTreeSet<String>,
+    built_in: bool,
+) -> Result<Package> {
+    let target_platform = metadata
+        .get("targetPlatform")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let dependencies = manifest
+        .get("extensionDependencies")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .map(|value| {
+                    let id = value
+                        .as_str()
+                        .context("Invalid extension dependency")?
+                        .to_ascii_lowercase();
+                    crate::extension_activation::validate_id(&id)?;
+                    Ok(id)
+                })
+                .collect::<Result<Vec<_>>>()
+        })
+        .transpose()?
+        .unwrap_or_default();
+    Ok(Package {
+        id: id.clone(),
+        version,
+        path,
+        enabled: !disabled.contains(&id),
+        manifest_sha256: format!("{:x}", Sha256::digest(manifest_bytes)),
+        code: manifest.get("main").is_some() || manifest.get("browser").is_some(),
+        built_in,
+        dependencies,
+        contributions: manifest
+            .get("contributes")
+            .and_then(Value::as_object)
+            .map(|object| object.keys().cloned().collect())
+            .unwrap_or_default(),
+        target_platform,
+        metadata,
+    })
 }
 
 fn platform_matches(platform: Option<&str>) -> bool {

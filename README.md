@@ -102,6 +102,12 @@ after `--import-vscode`. Add `--activate-imported-extensions` only when you want
 source-enabled code extensions to activate. To restore the previous profile,
 use **Preferences: Roll Back VS Code Import** or `vscli --rollback-import`.
 
+Discovery also looks for the source application so its built-in extensions can
+come across. If it is missing or ambiguous, press **B** on the profile picker or
+pass `--vscode-application /path/to/Code` (an executable, installation directory or
+`resources/app` root). Source-disabled native data stays disabled; copying packages
+without code activation still makes enabled themes, snippets and typing data available.
+
 Your original VS Code files stay unchanged. Unsupported behavior is reported;
 copying an extension does not establish that all its features work. See the
 [migration and theme guide](docs/IMPORT_AND_THEMES.md) for setup and current limits.

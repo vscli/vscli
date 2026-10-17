@@ -59,6 +59,9 @@ struct Args {
     /// VS Code extensions directory from which to copy the selected color theme
     #[arg(long, requires = "import_vscode")]
     vscode_extensions: Option<PathBuf>,
+    /// Source VS Code application, installation directory or resources/app root (built-ins)
+    #[arg(long, requires = "import_vscode")]
+    vscode_application: Option<PathBuf>,
     /// Activate the imported profile copy after a successful preview
     #[arg(long, requires = "import_vscode")]
     apply_import: bool,
@@ -361,6 +364,10 @@ fn main() -> Result<()> {
             if let Some(extensions) = &args.vscode_extensions {
                 selected.extensions = extensions.clone();
             }
+            if let Some(path) = &args.vscode_application {
+                selected.application =
+                    Some(vscli::migration::application::Application::open(path)?);
+            }
             let mut preview = vscli::migration::preview_profile(&selected, profile)?;
             preview.report.notices.extend(discovery.notices);
             preview
@@ -373,7 +380,7 @@ fn main() -> Result<()> {
                         .map(|base| base.home_dir().join(".vscode/extensions"))
                 })
                 .context("No VS Code extension directory; use --vscode-extensions")?;
-            let selected = if args.vscode_profile.is_some() {
+            let mut selected = if args.vscode_profile.is_some() {
                 let sources = vscli::migration::discovery::installation(
                     "Custom VS Code",
                     source,
@@ -383,6 +390,10 @@ fn main() -> Result<()> {
             } else {
                 vscli::migration::discovery::default_source("Custom VS Code", source, &extensions)?
             };
+            if let Some(path) = &args.vscode_application {
+                selected.application =
+                    Some(vscli::migration::application::Application::open(path)?);
+            }
             vscli::migration::preview_profile(&selected, profile)?
         };
         let report = if args.apply_import {

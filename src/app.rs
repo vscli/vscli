@@ -433,6 +433,7 @@ pub enum PromptKind {
     ThemeFile,
     VscodeImportPath,
     VscodeExtensionsPath,
+    VscodeApplicationPath,
     Open,
     SaveAs,
     Find,
@@ -2991,6 +2992,9 @@ impl App {
             PromptKind::StopExtension => self.stop_selected_extension(p.text.trim()),
             PromptKind::ThemeFile => self.load_theme(self.resolve_path(&p.text)),
             PromptKind::VscodeImportPath => self.import_vscode_path(self.resolve_path(&p.text)),
+            PromptKind::VscodeApplicationPath => {
+                self.set_import_application_path(self.resolve_path(&p.text))
+            }
             PromptKind::VscodeExtensionsPath => {
                 self.set_import_extension_directory(self.resolve_path(&p.text))
             }
@@ -3526,6 +3530,7 @@ mod tests {
                 app.configure_extension_activation(Some(&dir.path().join("config")));
                 app.modal = Some(Modal::Extensions {
                     items: vec![crate::extension_store::Installed {
+                        enabled: true,
                         id: "test.modifiers".into(),
                         version: "1".into(),
                         path: dir.path().join("package"),

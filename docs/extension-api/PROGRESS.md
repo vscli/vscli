@@ -54,3 +54,12 @@ welcome terminal journeys, formatting and strict Clippy. Completed-resource
 references share the native extension URI spelling; Windows journal durability
 uses identity-checked retained-object flush handles. Fresh platform CI remains
 required. [Exact evidence and outstanding gates](../validation/platform-repair.json).
+
+
+Source application migration passes 5/5 named local criteria, including built-in
+package reconciliation, source-disabled native data, a 184-package native catalogue,
+application-picker/dirty-buffer/rollback integration and regression checks. The
+actual isolated copy contains 184/184 matching packages, 113 code packages and zero
+personal execution grants. All 1,656 Rust tests pass locally. This is migration
+integration evidence; whole stable-API qualification remains open.
+[Source/binary and workflow receipts](../validation/builtin-profile-migration.json).

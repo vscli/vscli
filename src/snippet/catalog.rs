@@ -131,6 +131,9 @@ impl Catalog {
     ) {
         let mut inspected = 0;
         for package in packages {
+            if !package.enabled {
+                continue;
+            }
             let Some(contributions) = package.manifest.pointer("/contributes/snippets") else {
                 continue;
             };
