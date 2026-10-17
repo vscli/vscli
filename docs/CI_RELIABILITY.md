@@ -60,3 +60,10 @@ two rows, keeping the settings filename visible. Three native welcome controls,
 two terminal journeys, formatting and strict Clippy pass locally; see
 [focused path-rendering evidence](validation/long-profile-path.json). This follow-up
 does not qualify the separately failing Windows native path/URI boundary.
+
+The Linux core terminal run at `417a83d` also exposed an overbroad quiet-startup
+rule: an explicitly loaded or restored theme no longer announced its name.
+Selected startup themes now append their notice, preserving the existing startup
+or extension failure. Automatic fallback themes and background customization
+refreshes stay quiet; manual choices retain their direct acknowledgement. The
+12 native theme controls and all 35 core terminal scenarios pass locally.

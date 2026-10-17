@@ -11,6 +11,7 @@ struct Styled {
     rendered: Theme,
     settings: crate::settings::Settings,
     announce: bool,
+    append_notice: bool,
 }
 impl Styled {
     fn new(base: Theme, settings: crate::settings::Settings) -> Self {
@@ -20,6 +21,13 @@ impl Styled {
             rendered,
             settings,
             announce: true,
+            append_notice: false,
+        }
+    }
+    fn startup(base: Theme, settings: crate::settings::Settings) -> Self {
+        Self {
+            append_notice: true,
+            ..Self::new(base, settings)
         }
     }
     fn quiet(base: Theme, settings: crate::settings::Settings) -> Self {
@@ -99,7 +107,7 @@ impl App {
                     .or_else(|| requested.map(|name| Preference { name, path: None }));
                 let theme = if let Some(selection) = selection {
                     match resolve(&selection, &choices) {
-                        Ok(theme) => Some(Styled::quiet(theme, settings)),
+                        Ok(theme) => Some(Styled::startup(theme, settings)),
                         Err(error) => {
                             notices.push(format!("Theme unchanged: {error:#}"));
                             None
@@ -226,7 +234,12 @@ impl App {
                         self.theme_state.refresh_pending = false;
                         if styled.announce {
                             loaded.notices.extend(styled.rendered.warnings.clone());
-                            self.message = format!("Color theme: {}", styled.rendered.name);
+                            let notice = format!("Color theme: {}", styled.rendered.name);
+                            self.message = if styled.append_notice {
+                                format!("{} · {notice}", self.message)
+                            } else {
+                                notice
+                            };
                         } else if styled.rendered.warnings != self.theme.warnings {
                             loaded.notices.extend(styled.rendered.warnings.clone());
                         }
@@ -622,7 +635,11 @@ mod customization_tests {
         app.message = "Cannot start selected extension session".into();
         settle(&mut app);
         assert_eq!(app.theme.name, "VSCLI Light");
-        assert_eq!(app.message, "Cannot start selected extension session");
+        assert!(
+            app.message
+                .starts_with("Cannot start selected extension session")
+        );
+        assert!(app.message.contains("Color theme: VSCLI Light"));
     }
     #[test]
     fn background_color_refresh_preserves_the_settings_reload_notice() {
