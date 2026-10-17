@@ -239,6 +239,80 @@
         "Review annotations and negotiate the usable gateway",
         "Trash, non-Linux, cross-volume and custom filesystem backends"
       ]
+    },
+    {
+      "id": "extension-message-localization",
+      "api_ids": [
+        "vscode.l10n.t",
+        "vscode.l10n.bundle",
+        "vscode.l10n.uri",
+        "vscode.env.appName",
+        "vscode.env.appRoot",
+        "vscode.env.appHost",
+        "vscode.env.language",
+        "vscode.env.uiKind",
+        "vscode.env.remoteName"
+      ],
+      "criteria": [
+        {
+          "name": "Public translation overloads, translator comments and fallback",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "All three t overloads"
+            }
+          ]
+        },
+        {
+          "name": "Selected package bundle, URI and bounded load refusal",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "Owner bundles and URI"
+            }
+          ]
+        },
+        {
+          "name": "Preferred language reaches module evaluation and native metadata",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "Preferred language and metadata"
+            }
+          ]
+        },
+        {
+          "name": "Native editing, original bytes and explicit restart preserve language/identity",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "Native edit/save/Undo"
+            }
+          ]
+        },
+        {
+          "name": "CLI translation and no-Node editing pass required local checks",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "CLI rendering"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Built-in language-pack bundle locations and manifest package.nls localization",
+        "Automatic migration of the source application locale/argv and native interface translations",
+        "Other environment, telemetry, URI-handler, clipboard and remote services",
+        "Entire stable API, required proposed APIs and personal user/built-in workflows",
+        "Failing exact-head platform CI and release artifacts"
+      ],
+      "validation_receipt": "docs/validation/extension-localization.json"
     }
   ],
   "next_batch": {

@@ -1,0 +1,121 @@
+{
+  "schema": "vscli-extension-localization-validation-v1",
+  "base_commit": "f142595ec901a21247f350b5b5f14ebaf2c29a13",
+  "scope": "Public extension message translation, preferred language, owner-specific bundle/URI and six application metadata values. Native chrome translation, built-in language-pack and other environment services remain open.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1701,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "9172511699f96e6e140740e1e1d4911c65010a32e47fe1af79526a9faf7f2e88"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "0edb8da9fc187450dc1c0de169f342f6dd9c947069a2607279ed59eee4778cb5"
+  },
+  "criteria": {
+    "passed": 5,
+    "total": 5,
+    "items": [
+      "All three t overloads, comment disambiguation, values and original-message fallback",
+      "Owner bundles and URI, retained generation and rejected escaping/oversized/malformed data",
+      "Preferred language and metadata available before module evaluation",
+      "Native edit/save/Undo and restart retain language and shared identity",
+      "CLI rendering, original source preservation, native no-Node operation and required regression checks"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked",
+      "passed": 1652,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 69,
+      "library_passed": 1298,
+      "log": "/tmp/vscli-localization-final-rust.log"
+    },
+    {
+      "command": "node --test extension-host/*.test.cjs",
+      "passed": 805,
+      "failed": 0,
+      "new_localization_tests": 6,
+      "log": "/tmp/vscli-localization-all-host.log"
+    },
+    {
+      "command": "cargo test --locked --test extension_localization",
+      "passed": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-localization-native.log"
+    },
+    {
+      "command": "python3 tests/extension_localization_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "failed": 0,
+      "log": "/tmp/vscli-localization-pty.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-localization-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-localization-build.log"
+    },
+    {
+      "command": "python3 scripts/test_extension_api_progress.py",
+      "passed": 3,
+      "failed": 0
+    }
+  ],
+  "upstream_reuse": {
+    "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+    "files": [
+      "src/vs/workbench/api/common/extHostLocalizationService.ts",
+      "src/vs/workbench/api/common/extHost.api.impl.ts",
+      "src/vs/base/common/strings.ts"
+    ],
+    "license": "MIT; adapted formatting/overloads retain notice in localization.cjs"
+  },
+  "application_metadata": [
+    "env.appName",
+    "env.appRoot",
+    "env.appHost",
+    "env.language",
+    "env.uiKind",
+    "env.remoteName"
+  ],
+  "limits": {
+    "bundle_bytes": 1048576,
+    "session_bundle_bytes": 8388608,
+    "bundle_string_entries": 16384,
+    "selected_packages": 128,
+    "preferred_language_bytes": 64
+  },
+  "qualification": "Linux native, Node and PTY only. The full stable API remains required; no entire namespace, complete setup, Windows/macOS or release qualification is inferred.",
+  "remaining": [
+    "Built-in language-pack bundle locations and manifest package.nls localization",
+    "Automatic migration of the source application locale/argv and native interface translations",
+    "Other environment, telemetry, URI-handler, clipboard and remote services",
+    "Entire stable API, required proposed APIs and personal user/built-in workflows",
+    "Failing exact-head platform CI and release artifacts"
+  ]
+}

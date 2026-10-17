@@ -39,3 +39,10 @@ public Undo/Redo, truthful partial-failure receipts, data-integrity tests and a
 terminal workflow. EOL edits are a usable adjacent checkpoint, not completion of
 that batch. Other-platform, custom filesystem, trash and large-conversion
 obligations stay visible after a local backend becomes usable.
+
+The [extension message localization slice](../validation/extension-localization.json)
+passes 5/5 named local workflow criteria: three public translation overloads,
+per-owner data/URI and fallback, preferred-language bootstrap, native editing and
+restart, and a no-Node/translated terminal journey. Six environment metadata
+values are exposed. Built-in language-pack resolution and the remaining
+environment/whole-API contracts remain open.

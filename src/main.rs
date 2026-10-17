@@ -148,6 +148,9 @@ struct Args {
     /// Node executable for the optional extension host
     #[arg(long, default_value = "node")]
     extension_node: String,
+    /// Preferred language for extension messages (native chrome currently uses English)
+    #[arg(long, default_value = "en", value_parser = vscli::extensions::parse_locale)]
+    locale: String,
     /// Restore the previous clean-file session for this workspace (explicit files take precedence)
     #[arg(long, conflicts_with = "no_session")]
     restore_session: bool,
@@ -444,6 +447,7 @@ fn main() -> Result<()> {
         bail!("Workspace must be a directory");
     }
     let mut app = App::new(root, profile);
+    app.configure_locale(&args.locale)?;
     app.configure_migration(
         config_root.clone(),
         args.extensions_dir

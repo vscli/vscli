@@ -165,12 +165,13 @@ async function dispatch(message) {
           }
           // A failed startup must never publish partially activated command registries.
           if (!['commands', 'languageProviders'].includes(method) || (ready && !activating)) send({ method, params });
-        }, { session, fileParticipants: message.params.fileParticipants === true, sharedGeneratedDocumentLoads: message.params.sharedGeneratedDocumentLoads === true, sharedDocumentLoads: message.params.sharedDocumentLoads === true, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, workspaceUnopenedEdits: message.params.workspaceUnopenedEdits === true, workspaceEndOfLineEdits: message.params.workspaceEndOfLineEdits === true, workspaceRefactoringSaves: message.params.workspaceRefactoringSaves === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true, editorDecorations: message.params.editorDecorations === true, editorSnippets: message.params.editorSnippets === true, editorTabs: message.params.editorTabs === true });
+        }, { session, locale: message.params.locale, applicationRoot: message.params.applicationRoot, fileParticipants: message.params.fileParticipants === true, sharedGeneratedDocumentLoads: message.params.sharedGeneratedDocumentLoads === true, sharedDocumentLoads: message.params.sharedDocumentLoads === true, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, workspaceUnopenedEdits: message.params.workspaceUnopenedEdits === true, workspaceEndOfLineEdits: message.params.workspaceEndOfLineEdits === true, workspaceRefactoringSaves: message.params.workspaceRefactoringSaves === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true, editorDecorations: message.params.editorDecorations === true, editorSnippets: message.params.editorSnippets === true, editorTabs: message.params.editorTabs === true });
         const schemas = packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration)
           ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
         root = message.params.root; configuration = message.params.configuration;
         runtime.configure(root, schemas, configuration);
         runtime.configureSurfaces(packages);
+        runtime.configureLocalization(packages);
         runtime.sync(message.params.state);
         activation = createActivation(packages, activationHooks());
         runtime.setActivation(activation);
@@ -197,7 +198,7 @@ async function dispatch(message) {
         if (owner !== undefined && owner !== null && (typeof owner !== 'string' || ![...packages, ...items].some(item => item.id === owner))) throw new Error('Activation owner is not selected');
         if (items.length) {
           runtime.configureSurfaces(items);
-          activation.add(items); packages.push(...items); packages.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+          activation.add(items); runtime.configureLocalization(items); packages.push(...items); packages.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
           runtime.configure(root, packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration) ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]), configuration);
         }
         runtime.mergeExtensionState(message.params.extensionState || {});

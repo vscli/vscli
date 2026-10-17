@@ -476,3 +476,30 @@ is exercised through native dispatch/edit/save/Undo and terminal restart. This
 removes the earlier eight-package admission barrier; it does not qualify the
 personal extension cohort or additional APIs. Callback/service occupancy remains
 bounded separately. [Validation receipts](validation/extension-cohort.json).
+
+## Extension message localization
+
+`--locale fr` selects the preferred extension language; the default is `en`.
+Native workbench chrome currently uses English. The selected language is retained
+when restarting the optional extension session in the same editor process.
+
+`vscode.l10n.t` supports positional arguments, named arguments and the options /
+translator-comment overload, including comment-specific keys and original-message
+fallback. Each selected package's `l10n` folder supplies its
+`bundle.l10n.<locale>.json`; `l10n.bundle` and `l10n.uri` refer to that owner's
+loaded bundle. English avoids bundle I/O. Missing, invalid, oversized or escaping
+bundles leave original messages available and report the load issue. Data reads
+are bounded to 1 MiB per bundle, 8 MiB per session and 16,384 string entries per
+bundle; files must be regular and remain inside the selected package.
+
+The optional API also exposes actual application metadata through `env.appName`,
+`appRoot`, `appHost`, `language`, `uiKind` and local `remoteName`, plus `UIKind`.
+Other environment services remain in the full API backlog. Built-in language-pack
+bundle resolution, manifest `package.nls` localization, automatic VS Code argv
+locale migration and complete native UI translation remain open.
+
+Formatting and overload behavior follow pinned upstream
+[localization service](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostLocalizationService.ts)
+and its API adapter. Local native and terminal evidence is recorded in
+[localization receipts](validation/extension-localization.json); this does not
+qualify the entire localization/environment or stable API surface.

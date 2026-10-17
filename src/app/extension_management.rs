@@ -74,6 +74,17 @@ impl Job {
     }
 }
 impl App {
+    pub fn configure_locale(&mut self, locale: &str) -> Result<()> {
+        if self.extension_host.is_some()
+            || self.extension_job.is_some()
+            || self.extension_retirement.is_some()
+        {
+            anyhow::bail!("Change the preferred language before starting extensions");
+        }
+        self.extension_locale =
+            crate::extensions::parse_locale(locale).map_err(anyhow::Error::msg)?;
+        Ok(())
+    }
     pub(super) fn manage_extension(&mut self, action: Action) {
         if self.extension_job.is_some() {
             self.message = "An extension operation is already running".into();
@@ -196,7 +207,8 @@ impl App {
         )?
         .with_editor_tabs(self.extension_editor_tabs.clone())?
         .with_file_participation()
-        .with_storage_root(self.extension_services.config_root.clone());
+        .with_storage_root(self.extension_services.config_root.clone())
+        .with_locale(&self.extension_locale)?;
         if let Some(activation) = activation {
             prepared = prepared.with_activation(activation)?;
         }

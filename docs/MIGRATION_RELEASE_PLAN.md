@@ -114,7 +114,12 @@ selected versions/manifest hashes and byte-exact configuration; native launch,
 package listing and Unicode/CRLF edit/save/Undo pass without Node. There are
 **zero personal code execution grants**. See [validation receipts](validation/profile-migration.json).
 
-The personal cohort contains 80 code packages, 1,683 contributed commands, 169
+The installed source application is VS Code 1.118.0 and contains 95 built-in
+packages (34 with code). The combined source has 184 distinct user/built-in IDs;
+these built-ins are not part of the verified 90-package user-profile copy. Built-in
+package discovery/copy and separate data/code catalog budgets remain required.
+
+The personal user cohort contains 80 code packages, 1,683 contributed commands, 169
 keybindings and 13 packages requesting proposed APIs. These counts are concrete
 requirements; they do not establish behavioral compatibility. Full source-disabled
 contribution filtering, extension storage, exported `.code-profile` input,

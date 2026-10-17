@@ -1,5 +1,6 @@
 'use strict';
 const limits = require('./limits.cjs');
+const { createLocalization } = require('./localization.cjs');
 const types = require('./api-types.cjs');
 const { createCallerContext } = require('./caller-context.cjs');
 const coordinates = require('./coordinates.cjs');
@@ -49,6 +50,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter(), visibleChanged = new EventEmitter(), columnChanged = new EventEmitter(), saved = new EventEmitter(), selectionChanged = new EventEmitter(), optionsChanged = new EventEmitter(), rangesChanged = new EventEmitter();
   const configuration = createConfiguration();
+  const localization = createLocalization(sessionOptions.locale ?? 'en', (owner, text) => console.error(owner + ': ' + text));
   let active, workspaceRoot, activation, generation = -1;
   const facades = new Map(), owned = new Map();
   const callers = createCallerContext(owner => { assertActiveOwner(owner); sessionOptions.assertOwner?.(owner); });
@@ -539,6 +541,9 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     FileSystemError: filesystem.FileSystemError, FileType: filesystem.FileType,
     FilePermission: filesystem.FilePermission, FileChangeType: filesystem.FileChangeType,
     version: '1.95.0',
+    UIKind: Object.freeze({ Desktop: 1, Web: 2 }),
+    env: supported('env', Object.freeze({ appName: 'VSCLI', appRoot: sessionOptions.applicationRoot ?? '', appHost: 'desktop', language: sessionOptions.locale ?? 'en', uiKind: 1, remoteName: undefined })),
+    l10n: supported('l10n', localization.forOwner('')),
     TextEditorCursorStyle:editorPresentation.TextEditorCursorStyle, TextEditorLineNumbersStyle:editorPresentation.TextEditorLineNumbersStyle, TextEditorRevealType:editorPresentation.TextEditorRevealType,
     TextEditorSelectionChangeKind: Object.freeze({Keyboard:1,Mouse:2,Command:3}),
     ViewColumn: Object.freeze({ Active: -1, Beside: -2, One: 1, Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9 }),
@@ -592,6 +597,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     setActivation(value) { activation = value; },
     // Private runtime hooks, intentionally absent from the vscode facade.
     runWithOwner: callers.run, currentCallerOwner: callers.currentOwner,
+    configureLocalization(items) { localization.add(items); },
     contextForExtension(owner) { return { ...mementos.forOwner(owner), extension: activation?.extension(owner) }; },
     mergeExtensionState: mementos.merge,
     configureSurfaces(items) {
@@ -635,6 +641,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       // The native document objects are shared; only request-producing editor handles are scoped.
       const facade = supported('vscode', {
         ...api,
+        l10n: supported('l10n', localization.forOwner(owner)),
         languages: supported('languages', { ...diagnostics.forOwner(owner), ...(sessionOptions.languageProviders ? providers.forOwner(owner) : {}),
           ...(sessionOptions.documentLanguage ? {setTextDocumentLanguage:(document,language)=>documentServices.setTextDocumentLanguage(owner,document,language)} : {}) }),
         window: supported('window', {

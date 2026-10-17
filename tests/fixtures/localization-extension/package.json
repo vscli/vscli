@@ -1,0 +1,12 @@
+{
+  "publisher": "fixture",
+  "name": "localization",
+  "version": "1.0.0",
+  "engines": { "vscode": "^1.95.0" },
+  "main": "main.cjs",
+  "l10n": "./l10n",
+  "contributes": {
+    "commands": [{ "command": "fixture.localized", "title": "Localized editing" }],
+    "keybindings": [{ "key": "f9", "command": "fixture.localized" }]
+  }
+}

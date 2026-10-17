@@ -212,6 +212,7 @@ struct Edit {
     edits: Vec<NativeTextEdit>,
 }
 pub struct Prepared {
+    locale: String,
     file_participation: bool,
     storage_root: Option<PathBuf>,
     editor_inventory: Option<editor_inventory::Inventory>,
@@ -221,7 +222,29 @@ pub struct Prepared {
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
     activation: Option<Vec<String>>,
 }
+pub fn parse_locale(value: &str) -> std::result::Result<String, String> {
+    let mut parts = value.split('-');
+    let first = parts.next().unwrap_or("");
+    if value.len() > 64
+        || !(2..=8).contains(&first.len())
+        || !first.bytes().all(|byte| byte.is_ascii_alphabetic())
+        || parts.any(|part| {
+            part.is_empty()
+                || part.len() > 8
+                || !part.bytes().all(|byte| byte.is_ascii_alphanumeric())
+        })
+    {
+        return Err(
+            "Expected a preferred language tag such as en, fr or zh-CN (at most 64 bytes)".into(),
+        );
+    }
+    Ok(value.into())
+}
 impl Prepared {
+    pub fn with_locale(mut self, locale: &str) -> Result<Self> {
+        self.locale = parse_locale(locale).map_err(anyhow::Error::msg)?;
+        Ok(self)
+    }
     /// Opt in to the experimental native participant coordinator transport.
     /// Core Explorer does not use it until contributed-edit application is wired.
     pub fn with_file_participation(mut self) -> Self {
@@ -352,6 +375,7 @@ impl Client {
         let refs: Vec<_> = documents.iter().chain(hidden).collect();
         let (mirror, state) = MirrorState::default().next_refs(&refs, documents.get(active))?;
         Ok(Prepared {
+            locale: "en".into(),
             file_participation: false,
             storage_root: None,
             editor_inventory: None,
@@ -389,6 +413,10 @@ impl Client {
         let session = NEXT_SESSION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let runtime = tempfile::tempdir()?;
         for (name, source) in [
+            (
+                "localization.cjs",
+                include_str!("../extension-host/localization.cjs"),
+            ),
             ("limits.cjs", include_str!("../extension-host/limits.cjs")),
             (
                 "editor-presentation.cjs",
@@ -642,7 +670,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages, "fileParticipants":client.file_participation.enabled,
-                "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
+                "locale": prepared.locale, "applicationRoot": lsp::extension_host_path(std::env::current_exe()?.parent().context("No application root")?)?, "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)

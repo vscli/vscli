@@ -1128,3 +1128,7 @@ old untitled document close and a new file document open and save; native buffer
 identity and Undo history survive. Repeated opens of a retained untitled URI reuse
 that document, while content/options opens receive fresh resource names. See
 [untitled document behavior, recovery and qualification](UNTITLED_DOCUMENTS_API.md).
+
+Preferred extension language: `vscli --locale fr --extension /path/to/package file.txt`
+loads that package's French message bundle when declared. Native interface labels
+currently remain English. The language choice alone starts no JavaScript process.
