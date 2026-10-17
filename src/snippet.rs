@@ -1,6 +1,6 @@
 //! Native TextMate-style snippet templates. Parsing/expansion is separate from
 //! editor sessions so every edit can be staged before changing a document.
-use anyhow::{Result, bail, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use std::{collections::BTreeMap, ops::Range};
 
 pub mod catalog;
@@ -187,6 +187,15 @@ where
 #[derive(Clone, Debug)]
 pub struct Template {
     nodes: Vec<Node>,
+}
+
+/// Canonical defaults retained only for one public array insertion preparation.
+/// This is not a live document/session authority.
+#[derive(Default)]
+pub(crate) struct ApiFragments {
+    defaults: BTreeMap<u32, Vec<Node>>,
+    choices: BTreeMap<u32, Vec<String>>,
+    payload: usize,
 }
 
 /// Document-specific indentation, applied to template text before resolving
@@ -397,7 +406,7 @@ impl Template {
         variables: &mut dyn VariableResolver,
         whitespace: &Whitespace<'_>,
     ) -> Result<Expansion> {
-        self.expand_with_resolver_inner(variables, whitespace, false)
+        self.expand_with_resolver_inner(variables, whitespace, false, true)
     }
 
     pub(crate) fn expand_for_completion(
@@ -405,7 +414,60 @@ impl Template {
         variables: &mut dyn VariableResolver,
         whitespace: &Whitespace<'_>,
     ) -> Result<Expansion> {
-        self.expand_with_resolver_inner(variables, whitespace, true)
+        self.expand_with_resolver_inner(variables, whitespace, true, true)
+    }
+
+    /// API keepWhitespace bypasses indentation adjustment, while retaining
+    /// linked placeholder materialization, per-occurrence variables and model EOL.
+    pub(crate) fn expand_api_fragment(
+        &self,
+        variables: &mut dyn VariableResolver,
+        whitespace: &Whitespace<'_>,
+        keep_whitespace: bool,
+        fragments: &mut ApiFragments,
+    ) -> Result<Expansion> {
+        let mut defaults = fragments.defaults.clone();
+        collect_defaults(&self.nodes, &mut defaults);
+        let mut choices = fragments.choices.clone();
+        collect_default_choices(&self.nodes, &mut choices);
+        let mut nodes = materialize(
+            &self.nodes,
+            &defaults,
+            &choices,
+            &mut Vec::new(),
+            0,
+            &mut (0, 0),
+        )?;
+        if keep_whitespace {
+            // Source adjustWhitespace always normalizes eligible Text EOLs,
+            // even when indentation adjustment is disabled. Nested fragment
+            // defaults and choices remain subject to the original API filter.
+            for node in &mut nodes {
+                if let Node::Text(text) = node {
+                    *text = text
+                        .replace("\r\n", "\n")
+                        .replace('\r', "\n")
+                        .replace('\n', whitespace.eol);
+                    ensure!(
+                        text.len() <= MAX_EXPANSION,
+                        "Snippet expansion exceeds 1 MiB"
+                    );
+                }
+            }
+        } else {
+            whitespace.adjust(&mut nodes, &mut None, false, &mut 0)?;
+        }
+        resolve_api_nodes(&mut nodes, variables, &mut None, &mut 0, 0)?;
+        // Capture resolved first defaults before subsequent fragments are
+        // parsed, matching parseFragment's combined-tree first-default rule.
+        capture_api_defaults(&nodes, fragments)?;
+        let mut result = Self { nodes }.expand_nodes_inner(
+            &mut |_: &str, _: Option<&str>| Ok(None),
+            BTreeMap::new(),
+            false,
+        )?;
+        result.normalize_model_eol(whitespace.eol)?;
+        Ok(result)
     }
 
     fn expand_with_resolver_inner(
@@ -413,6 +475,7 @@ impl Template {
         variables: &mut dyn VariableResolver,
         whitespace: &Whitespace<'_>,
         completion: bool,
+        adjust_whitespace: bool,
     ) -> Result<Expansion> {
         ensure!(
             whitespace.leading.len() <= MAX_EXPANSION,
@@ -433,7 +496,9 @@ impl Template {
             0,
             &mut budget,
         )?;
-        whitespace.adjust(&mut nodes, &mut None, false, &mut 0)?;
+        if adjust_whitespace {
+            whitespace.adjust(&mut nodes, &mut None, false, &mut 0)?;
+        }
         let mut result = Self { nodes }.expand_nodes(variables, BTreeMap::new())?;
         if completion {
             result.normalize_completion_eol(whitespace.eol)?;
@@ -448,6 +513,14 @@ impl Template {
         variables: &mut dyn VariableResolver,
         defaults: BTreeMap<u32, Vec<Node>>,
     ) -> Result<Expansion> {
+        self.expand_nodes_inner(variables, defaults, true)
+    }
+    fn expand_nodes_inner(
+        &self,
+        variables: &mut dyn VariableResolver,
+        defaults: BTreeMap<u32, Vec<Node>>,
+        ensure_final: bool,
+    ) -> Result<Expansion> {
         let mut builder = Builder {
             result: Expansion::default(),
             chars: 0,
@@ -458,7 +531,8 @@ impl Template {
             parents: Vec::new(),
         };
         builder.nodes(&self.nodes, 0)?;
-        if !builder.result.placeholders.is_empty()
+        if ensure_final
+            && !builder.result.placeholders.is_empty()
             && !builder.result.placeholders.iter().any(|p| p.index == 0)
         {
             builder.result.placeholders.push(Placeholder {
@@ -471,6 +545,135 @@ impl Template {
         }
         Ok(builder.result)
     }
+}
+
+fn resolve_api_nodes(
+    nodes: &mut [Node],
+    variables: &mut dyn VariableResolver,
+    preceding: &mut Option<String>,
+    bytes: &mut usize,
+    depth: usize,
+) -> Result<()> {
+    ensure!(depth <= MAX_DEPTH, "Snippet expansion exceeds 64 levels");
+    for node in nodes {
+        if let Node::Marker {
+            key: Key::Variable(name),
+            transform,
+            ..
+        } = node
+        {
+            let resolved = variables.resolve(name, preceding.as_deref())?;
+            if let Some(value) = resolved {
+                *node = Node::Text(if let Some(transform) = transform {
+                    transform.apply(&value)?
+                } else {
+                    value
+                });
+            } else if let Some(transform) = transform {
+                *node = Node::Text(transform.apply("")?);
+            }
+        }
+        match node {
+            Node::Text(text) => {
+                *bytes = bytes
+                    .checked_add(text.len())
+                    .context("Snippet expansion byte overflow")?;
+                ensure!(*bytes <= MAX_EXPANSION, "Snippet expansion exceeds 1 MiB");
+                *preceding = Some(
+                    text.rsplit(['\r', '\n'])
+                        .next()
+                        .unwrap_or("")
+                        .chars()
+                        .take_while(|c| matches!(c, ' ' | '\t'))
+                        .collect(),
+                );
+            }
+            Node::Marker { children, .. } => {
+                resolve_api_nodes(children, variables, preceding, bytes, depth + 1)?
+            }
+        }
+    }
+    Ok(())
+}
+fn api_nodes_payload(nodes: &[Node], depth: usize) -> Result<usize> {
+    ensure!(depth <= MAX_DEPTH, "Snippet default depth exceeds bounds");
+    let mut bytes = nodes
+        .len()
+        .checked_mul(std::mem::size_of::<Node>())
+        .context("Snippet default payload overflow")?;
+    for node in nodes {
+        bytes = bytes
+            .checked_add(match node {
+                Node::Text(text) => text.len(),
+                Node::Marker {
+                    key,
+                    children,
+                    choices,
+                    transform,
+                } => {
+                    let mut payload = api_nodes_payload(children, depth + 1)?;
+                    if let Key::Variable(name) = key {
+                        payload = payload
+                            .checked_add(name.len())
+                            .context("Snippet default payload overflow")?;
+                    }
+                    for choice in choices {
+                        payload = payload
+                            .checked_add(std::mem::size_of::<String>() + choice.len())
+                            .context("Snippet default payload overflow")?;
+                    }
+                    if let Some(t) = transform {
+                        payload = payload
+                            .checked_add(t.pattern.len() + t.format.len() + t.flags.len())
+                            .context("Snippet default payload overflow")?;
+                    }
+                    payload
+                }
+            })
+            .context("Snippet default payload overflow")?;
+        ensure!(
+            bytes <= MAX_EXPANSION,
+            "Snippet canonical default payload exceeds 1 MiB"
+        );
+    }
+    Ok(bytes)
+}
+fn capture_api_defaults(nodes: &[Node], fragments: &mut ApiFragments) -> Result<()> {
+    for node in nodes {
+        if let Node::Marker {
+            key,
+            children,
+            choices,
+            ..
+        } = node
+        {
+            if let Key::Stop(index) = key
+                && *index != 0
+                && !fragments.defaults.contains_key(index)
+                && (!children.is_empty() || !choices.is_empty())
+            {
+                let extra = api_nodes_payload(children, 0)?
+                    .checked_add(
+                        choices.len() * std::mem::size_of::<String>()
+                            + choices.iter().map(String::len).sum::<usize>(),
+                    )
+                    .context("Snippet default payload overflow")?;
+                let payload = fragments
+                    .payload
+                    .checked_add(extra)
+                    .context("Snippet default payload overflow")?;
+                ensure!(
+                    payload <= MAX_EXPANSION,
+                    "Snippet canonical default payload exceeds 1 MiB"
+                );
+                fragments.defaults.insert(*index, children.clone());
+                fragments.choices.insert(*index, choices.clone());
+                fragments.payload = payload;
+            }
+            capture_api_defaults(children, fragments)?;
+        }
+    }
+    Ok(())
 }
 
 fn collect_default_choices(nodes: &[Node], result: &mut BTreeMap<u32, Vec<String>>) {

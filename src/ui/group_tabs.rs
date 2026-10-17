@@ -33,13 +33,7 @@ pub(super) fn bounded_label(name: &str) -> String {
 }
 
 fn document_label(doc: &Document) -> String {
-    doc.path
-        .as_ref()
-        .and_then(|path| path.file_name())
-        .map_or_else(
-            || "Untitled".into(),
-            |name| bounded_label(&name.to_string_lossy()),
-        )
+    bounded_label(&doc.name())
 }
 
 struct Label {

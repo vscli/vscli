@@ -13,6 +13,14 @@ use std::{
 #[derive(Serialize, Deserialize)]
 struct SavedDocument<T = String> {
     path: Option<PathBuf>,
+    #[serde(default)]
+    untitled_uri: Option<String>,
+    #[serde(default)]
+    associated_path: Option<PathBuf>,
+    #[serde(default)]
+    api_created_untitled: bool,
+    #[serde(default)]
+    language_override: Option<String>,
     text: T,
     disk_content: Option<T>,
     cursor: usize,
@@ -46,6 +54,10 @@ impl Session<SharedText> {
                 .filter(|d| d.dirty())
                 .map(|d| SavedDocument {
                     path: d.path.clone(),
+                    untitled_uri: d.untitled_uri().map(str::to_owned),
+                    associated_path: d.associated_path().map(Path::to_path_buf),
+                    api_created_untitled: d.api_created_untitled(),
+                    language_override: d.language_override().map(str::to_owned),
                     text: SharedText(d.text.clone()),
                     disk_content: d.disk_content.clone().map(SharedText),
                     cursor: d.cursor,
@@ -117,22 +129,17 @@ impl Recovery {
             if session.version != 1 {
                 continue;
             }
-            for saved in session.documents {
-                let baseline = saved.disk_content.as_deref().map(ropey::Rope::from_str);
-                let mut doc = Document::from_rope(baseline.clone().unwrap_or_default());
-                doc.path = saved.path;
-                doc.disk_content = baseline;
-                doc.move_to(saved.cursor.min(doc.len()), false);
-                // Undo recovered edits returns to the actual saved baseline, not a clean
-                // snapshot containing unsaved text. Empty recovered files matter too.
-                doc.select_all();
-                doc.insert(&saved.text, false);
-                doc.move_to(saved.cursor.min(doc.len()), false);
-                if !saved.selections.is_empty() {
-                    doc.set_selections(saved.selections);
-                }
-                docs.push(doc);
-            }
+            // A late malformed metadata record cannot partially publish a
+            // journal or authorize its removal. Keep that original file intact.
+            let staged = session
+                .documents
+                .into_iter()
+                .map(restore_document)
+                .collect::<Result<Vec<_>>>();
+            let Ok(staged) = staged else {
+                continue;
+            };
+            docs.extend(staged);
             consumed.push(path);
         }
         Ok((docs, consumed))
@@ -169,7 +176,70 @@ impl Recovery {
     }
 }
 
-type Signature = Vec<(u64, Option<PathBuf>, u64, u64)>;
+fn restore_document(saved: SavedDocument) -> Result<Document> {
+    anyhow::ensure!(
+        saved.text.len() as u64 <= crate::document::MAX_FILE_BYTES
+            && !saved.text.contains('\0')
+            && saved.disk_content.as_ref().is_none_or(|text| {
+                text.len() as u64 <= crate::document::MAX_FILE_BYTES && !text.contains('\0')
+            })
+            && saved.selections.len() <= 10_000,
+        "Recovery source exceeds native bounds"
+    );
+    if let Some(path) = &saved.path {
+        let bytes = path.as_os_str().as_encoded_bytes();
+        anyhow::ensure!(
+            !bytes.is_empty() && bytes.len() <= 4096 && !bytes.contains(&0),
+            "Invalid recovered path"
+        );
+    }
+    let api_untitled = saved.api_created_untitled || saved.untitled_uri.is_some();
+    let mut doc = if api_untitled {
+        anyhow::ensure!(
+            saved.path.is_none() && saved.disk_content.is_none(),
+            "Untitled recovery contains a saved file baseline"
+        );
+        Document::from_untitled(
+            saved.untitled_uri,
+            &saved.text,
+            saved.language_override,
+            saved.associated_path,
+        )?
+    } else {
+        anyhow::ensure!(
+            saved.associated_path.is_none(),
+            "Associated path requires an API untitled resource"
+        );
+        let baseline = saved.disk_content.as_deref().map(ropey::Rope::from_str);
+        let mut doc = Document::from_rope(baseline.clone().unwrap_or_default());
+        doc.path = saved.path;
+        doc.disk_content = baseline;
+        doc.set_language_override(saved.language_override)?;
+        doc.move_to(saved.cursor.min(doc.len()), false);
+        // Preserve the existing legacy recovery Undo-to-disk behavior.
+        doc.select_all();
+        doc.insert(&saved.text, false);
+        doc
+    };
+    doc.move_to(saved.cursor.min(doc.len()), false);
+    if !saved.selections.is_empty() {
+        doc.set_selections(saved.selections);
+    }
+    Ok(doc)
+}
+
+#[derive(PartialEq, Eq)]
+struct SignatureEntry {
+    id: u64,
+    path: Option<PathBuf>,
+    revision: u64,
+    saved_revision: u64,
+    untitled_uri: Option<String>,
+    associated_path: Option<PathBuf>,
+    api_created_untitled: bool,
+    language_override: Option<String>,
+}
+type Signature = Vec<SignatureEntry>;
 struct Request {
     signature: Signature,
     session: Session<SharedText>,
@@ -240,7 +310,16 @@ impl Worker {
         }
         let signature: Signature = documents
             .iter()
-            .map(|d| (d.id, d.path.clone(), d.revision, d.saved_revision))
+            .map(|d| SignatureEntry {
+                id: d.id,
+                path: d.path.clone(),
+                revision: d.revision,
+                saved_revision: d.saved_revision,
+                untitled_uri: d.untitled_uri().map(str::to_owned),
+                associated_path: d.associated_path().map(Path::to_path_buf),
+                api_created_untitled: d.api_created_untitled(),
+                language_override: d.language_override().map(str::to_owned),
+            })
             .collect();
         if self.persisted.as_ref() == Some(&signature) {
             return Ok(false);
@@ -518,5 +597,99 @@ mod tests {
         b.persist(&docs).unwrap();
         Recovery::consume(&old);
         b.finish().unwrap();
+    }
+}
+
+#[cfg(test)]
+mod api_untitled_tests {
+    use super::*;
+
+    #[test]
+    fn recovery_retains_api_untitled_metadata_empty_dirty_and_initial_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        let path = dir.path().join("target.cpp");
+        let store = Recovery::new(state.clone()).unwrap();
+        let mut doc = Document::from_untitled(
+            Some("untitled:/target.cpp".into()),
+            "α😀\r\nβ\r\n",
+            Some("cpp".into()),
+            Some(path.clone()),
+        )
+        .unwrap();
+        doc.insert("new ", false);
+        doc.set_selections(vec![Selection::caret(2), Selection::caret(5)]);
+        let content = doc.text.to_string();
+        let selections = doc.selections();
+        let empty = Document::from_untitled(Some("untitled:empty".into()), "", None, None).unwrap();
+        store.persist(&[doc, empty]).unwrap();
+        drop(store);
+        let restored = Recovery::new(state).unwrap();
+        let (mut docs, consumed) = restored.restore().unwrap();
+        assert_eq!(docs.len(), 2);
+        assert_eq!(consumed.len(), 1);
+        assert_eq!(docs[0].untitled_uri(), Some("untitled:/target.cpp"));
+        assert_eq!(docs[0].associated_path(), Some(path.as_path()));
+        assert_eq!(docs[0].language_override(), Some("cpp"));
+        assert_eq!(docs[0].text.to_string(), content);
+        assert_eq!(docs[0].selections(), selections);
+        assert!(docs[0].path.is_none() && docs[0].dirty() && docs[0].api_dirty());
+        assert!(docs[1].is_empty() && docs[1].dirty() && docs[1].api_dirty());
+        // Recovery does not manufacture an insertion of API initial content.
+        docs[0].undo();
+        assert_eq!(docs[0].text.to_string(), content);
+        docs[0].insert("post recovery", false);
+        docs[0].undo();
+        assert_eq!(docs[0].text.to_string(), content);
+        assert!(docs[0].dirty());
+    }
+
+    #[test]
+    fn late_invalid_untitled_recovery_metadata_preserves_entire_original_journal() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        fs::create_dir(&state).unwrap();
+        let journal = state.join("old.json");
+        let bytes = serde_json::to_vec(&serde_json::json!({"version":1,"documents":[
+            {"path":null,"text":"valid work","disk_content":null,"cursor":0},
+            {"path":null,"text":"invalid work","disk_content":null,"cursor":0,
+             "untitled_uri":"file:///tmp/wrong","api_created_untitled":true}
+        ]}))
+        .unwrap();
+        fs::write(&journal, &bytes).unwrap();
+        let store = Recovery::new(state).unwrap();
+        let (docs, consumed) = store.restore().unwrap();
+        assert!(docs.is_empty() && consumed.is_empty());
+        assert_eq!(fs::read(journal).unwrap(), bytes);
+    }
+
+    #[test]
+    fn recovery_worker_signature_tracks_language_metadata_without_text_edits() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Recovery::new(dir.path().into()).unwrap();
+        let mut worker = Worker::start(store).unwrap();
+        let mut doc = Document::from_untitled(None, "", None, None).unwrap();
+        worker.submit_refs(&[&doc]).unwrap();
+        let settle = |worker: &mut Worker| {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            while worker.pending {
+                worker.poll().unwrap();
+                assert!(std::time::Instant::now() < deadline);
+                std::thread::yield_now();
+            }
+        };
+        settle(&mut worker);
+        assert!(!worker.submit_refs(&[&doc]).unwrap());
+        let revision = doc.revision;
+        doc.set_language_override(Some("rust".into())).unwrap();
+        assert_eq!(doc.revision, revision);
+        assert!(worker.submit_refs(&[&doc]).unwrap());
+        settle(&mut worker);
+        worker.preserve_refs(&[&doc]).unwrap();
+        let reopened = Recovery::new(dir.path().into()).unwrap();
+        assert_eq!(
+            reopened.restore().unwrap().0[0].language_override(),
+            Some("rust")
+        );
     }
 }

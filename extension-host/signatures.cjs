@@ -15,7 +15,7 @@ function array(value, maximum) {
   return result;
 }
 function string(value, maximum = 8192) {
-  if (typeof value !== 'string' || Buffer.byteLength(value) > maximum) throw new Error('Signature string exceeds its budget or has invalid type');
+  if (typeof value !== 'string' || value.length > maximum || Buffer.byteLength(value) > maximum) throw new Error('Signature string exceeds its budget or has invalid type');
   return value;
 }
 function index(value) {
@@ -101,7 +101,7 @@ function createSignatures(options) {
   const retained = new Map(); let nextHandle = 0, occupied;
   function current(cached) {
     return options.registered(cached.entry, cached.epoch) && !cached.document.isClosed &&
-      options.document(cached.documentId) === cached.document && cached.document.uri.toString() === cached.uri;
+      options.document(cached.documentId) === cached.document && (options.languageEpoch?.(cached.document) ?? 0) === cached.languageEpoch && cached.document.uri.toString() === cached.uri;
   }
   function purge() { for (const [handle, cached] of retained) if (!current(cached)) retained.delete(handle); }
   function reserve(call, request) {
@@ -155,7 +155,7 @@ function createSignatures(options) {
     let total = bytes;
     for (const cached of retained.values()) total += cached.bytes;
     if (retained.size >= MAX_HANDLES || total > MAX_CACHE_BYTES) throw new Error('Signature help cache budget exceeded');
-    const cached = { entry: call.entry, epoch: call.epoch, document: call.document, documentId: call.document._snapshot.id, uri: call.document.uri.toString(), original, request, bytes };
+    const cached = { entry: call.entry, epoch: call.epoch, languageEpoch: call.languageEpoch ?? 0, document: call.document, documentId: call.document._snapshot.id, uri: call.document.uri.toString(), original, request, bytes };
     options.assertCurrent(call);
     if (!current(cached)) throw new Error('Signature help became stale before publication');
     options.assertCurrent(call);

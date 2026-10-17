@@ -74,12 +74,15 @@ check that loading remains native. These are synthetic package tests and source
 checks; they do not extend the differential evidence below or qualify arbitrary
 published snippet packages.
 
-This remains a partial snippet feature. Choice presentation, nested session
+This remains a partial snippet feature. Choice presentation, command-driven nested session
 merging and complete contributed-language registration remain pending. LSP advertises
 `snippetSupport: true`; native and extension completion snippets use the
 [atomic completion transaction](COMPLETIONS.md), including import edits and semantic
 EOL field mapping. That path is separate from the pinned API insertion traces below.
-The optional extension API does not yet provide `TextEditor.insertSnippet`.
+The optional extension API now connects `TextEditor.insertSnippet` to the native
+parser and exact addressed view. Its overloads/options, guarded receipts,
+clipboard worker bounds and separately executed native/terminal qualification are
+recorded in [public editor snippets](EDITOR_SNIPPETS_API.md).
 See [usage](USAGE.md#snippets) for a literal-template binding.
 
 ## Evidence
@@ -115,8 +118,10 @@ An additional 34 cases (118 observations) compare multiline insertion with the
 actual pinned editor. Cases cover spaces/tabs, indentation at each insertion
 point, nested defaults and choices, Unicode, LF/CRLF conversion, primary and
 secondary selection order, typing across fields, and undo/redo. API and user
-command entry points are captured separately; the user command is now connected
-to terminal dispatch, while the extension insertion API remains unfinished. The first Windows CI comparison exposed the platform default for a new empty
+command entry points are captured separately. The user command is connected
+to terminal dispatch; the new public host bridge has separate evidence in
+[editor snippets](EDITOR_SNIPPETS_API.md). These older native comparisons do not
+qualify that bridge. The first Windows CI comparison exposed the platform default for a new empty
 document: CRLF on Windows versus LF on Unix. Native documents now use that
 default when the initial text has no line breaks. Offline fixtures preserve
 the platform difference. All 118 observations matched on each platform in
@@ -176,7 +181,7 @@ need further implementation and differential qualification. No general regex
 or snippet parity claim follows from the captured cases.
 
 Parsing is limited to 64 KiB of source, 64 nesting levels and 10,000 markers;
-expansion is limited to 1 MiB and 10,000 occurrences. These limits bound native
+each expansion is limited to 1 MiB and 10,000 occurrences. These limits bound native
 work and prevent recursive defaults from exhausting memory. Completion/extension
 integration must preserve atomic rejection, request revisions, shared document
 identity, independent views, and grouped undo while exposing these limits.
@@ -185,3 +190,29 @@ The syntax and initial semantics were checked against the [official guide](https
 and the MIT-licensed [pinned parser](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/editor/contrib/snippet/browser/snippetParser.ts).
 Reference observations come from the actual editor, not a reimplementation of
 its parser.
+
+## Extension API snippet builders
+
+The optional host exports `SnippetString` with all public builder methods:
+`appendText`, `appendTabstop`, `appendPlaceholder`, `appendChoice`, and
+`appendVariable`. Placeholder and variable callbacks share automatic tabstop
+numbering with their nested builders. Choice escaping, variable-default escaping,
+fluent return identity and callback failure behavior have local host tests.
+
+`TextEditor.insertSnippet` accepts these values through the new native bridge.
+Omitted/falsy locations and empty arrays use private current editor selections;
+explicit arrays replace the prior session. Omitted options default both undo
+flags true; a supplied partial options object defaults missing flags false via
+truthiness. `keepWhitespace` defaults false. See [the public API contract](EDITOR_SNIPPETS_API.md)
+for common indentation/EOL behavior, limits and executed qualification.
+Completion conversion retains the resulting snippet string without flattening it.
+The comparison source is the
+[pinned VS Code 1.141.0 implementation](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/snippetString.ts).
+
+This qualifies building and transferring snippet source. It does not qualify
+native nested-placeholder navigation, interactive choice selection, arbitrary
+variable expansion, legacy constructor inheritance, or complete snippet-extension
+workflows. Public `TextEditor.insertSnippet` has separately executed host/native
+and terminal evidence in [editor snippets](EDITOR_SNIPPETS_API.md); that evidence
+does not broaden this builder comparison. No local VS Code process was launched
+for this comparison.

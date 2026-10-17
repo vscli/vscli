@@ -1,0 +1,22 @@
+{
+  "publisher":"fixture","name":"rename-provider","version":"1.0.0","main":"extension.cjs",
+  "contributes":{"commands":[
+    {"command":"renameFixture.queries","title":"Rename fixture public queries"},
+    {"command":"renameFixture.prepareTargets","title":"Rename fixture prepare shared hidden targets"},
+    {"command":"renameFixture.source","title":"Rename fixture show source"},
+    {"command":"renameFixture.verifyApplied","title":"Rename fixture verify grouped apply"},
+    {"command":"renameFixture.verifyUndo","title":"Rename fixture verify grouped Undo"},
+    {"command":"renameFixture.verifyRedo","title":"Rename fixture verify grouped Redo"},
+    {"command":"renameFixture.armPrepare","title":"Rename fixture arm held prepare"},
+    {"command":"renameFixture.armEdit","title":"Rename fixture arm held edit"},
+    {"command":"renameFixture.release","title":"Rename fixture release actual callback"},
+    {"command":"renameFixture.dispose","title":"Rename fixture dispose provider"},
+    {"command":"renameFixture.heldRedo","title":"Rename fixture verify held Redo"},
+    {"command":"renameFixture.sourceClean","title":"Rename fixture verify original Undo"},
+    {"command":"renameFixture.sourceDirty","title":"Rename fixture verify original Redo"},
+    {"command":"renameFixture.capacity","title":"Rename fixture hold capacity"},
+    {"command":"renameFixture.capacityOverflow","title":"Rename fixture verify capacity overflow"},
+    {"command":"renameFixture.capacityRelease","title":"Rename fixture release capacity"},
+    {"command":"renameFixture.verifySingle","title":"Rename fixture verify single apply"}
+  ]}
+}

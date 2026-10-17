@@ -7,17 +7,17 @@ use std::{
 };
 
 #[derive(Clone, PartialEq)]
-struct Context {
+pub(super) struct Context {
     workspace: PathBuf,
     document: Option<u64>,
-    documents: Vec<(u64, u64, u64, Option<PathBuf>)>,
+    documents: Vec<(u64, u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
     groups: crate::editor_groups::UiProof,
     focus: Focus,
 }
 impl Context {
-    fn capture(app: &App) -> Self {
+    pub(super) fn capture(app: &App) -> Self {
         Self {
             workspace: app.workspace.root.clone(),
             document: app.active_document().map(|d| d.id),
@@ -25,7 +25,15 @@ impl Context {
                 .documents
                 .iter()
                 .chain(&app.hidden_documents)
-                .map(|d| (d.id, d.revision, d.text_epoch(), d.path.clone()))
+                .map(|d| {
+                    (
+                        d.id,
+                        d.revision,
+                        d.text_epoch(),
+                        d.resource_epoch(),
+                        d.path.clone(),
+                    )
+                })
                 .collect(),
             selections: app
                 .active_document()
@@ -35,28 +43,37 @@ impl Context {
             focus: app.focus.clone(),
         }
     }
-    fn valid(&self, app: &App) -> bool {
+    pub(super) fn valid(&self, app: &App) -> bool {
         self == &Self::capture(app) && app.modal.is_none()
     }
 }
 struct Loading {
     receiver: Receiver<Result<Target, String>>,
+    worker: Option<std::thread::JoinHandle<()>>,
+    completed: Option<Result<Target, String>>,
     context: Context,
     generation: u64,
     symbol: Symbol,
+    selection: bool,
+    global: Option<(
+        crate::extensions::providers::WorkspaceSymbolTicket,
+        super::workspace_symbols::Context,
+    )>,
 }
 enum Target {
     Open(PathBuf),
     Loaded(Box<Document>),
 }
-fn load_target(path: &Path, open: &[PathBuf]) -> Result<Target> {
+fn load_target(path: &Path, open: &[PathBuf], limit: u64) -> Result<Target> {
     let path = crate::document::absolute_path(path)?;
     if open.contains(&path) {
         // Parent aliases can still resolve after the file is deleted. Reuse the
         // captured native buffer rather than requiring its backing file to exist.
         return Ok(Target::Open(path));
     }
-    Ok(Target::Loaded(Box::new(Document::open_existing(&path)?)))
+    Ok(Target::Loaded(Box::new(Document::open_existing_bounded(
+        &path, limit,
+    )?)))
 }
 #[derive(Default)]
 pub(super) struct State {
@@ -73,6 +90,15 @@ pub(super) struct State {
     loading: Option<Loading>,
 }
 impl App {
+    /// Called only by intentional App shutdown; ordinary retirement retains the lane.
+    pub(super) fn settle_symbols(&mut self) {
+        self.cancel_symbols();
+        if let Some(mut loader) = self.symbols.loading.take()
+            && let Some(worker) = loader.worker.take()
+        {
+            let _ = worker.join();
+        }
+    }
     pub(super) fn invalidate_symbol_context(&mut self) {
         let picker_stale = self.symbols.context.as_ref().is_some_and(|c| {
             !c.valid(self)
@@ -90,6 +116,7 @@ impl App {
         }
     }
     pub(super) fn cancel_symbols(&mut self) {
+        self.cancel_workspace_provider_symbols();
         if self.provider_symbols_active() {
             self.cancel_extension_provider();
         }
@@ -115,6 +142,9 @@ impl App {
             self.focus = Focus::Editor;
         }
         if !workspace && self.extension_language_request("textDocument/documentSymbol", json!({})) {
+            return;
+        }
+        if workspace && self.start_workspace_provider_symbols() {
             return;
         }
         if self.documents.len() + self.hidden_documents.len() > 128 {
@@ -168,6 +198,9 @@ impl App {
         }
     }
     pub(super) fn native_symbol_picker_waiting(&self) -> bool {
+        if self.workspace_provider_symbols_active() {
+            return self.workspace_provider_symbols_waiting();
+        }
         self.symbols.context.is_some()
             && self.symbol_source_current()
             && (self.symbols.pending || self.symbols.queued || self.symbols.changed.is_some())
@@ -208,13 +241,15 @@ impl App {
             };
             return;
         }
-        let result = client.sync(&self.documents).and_then(|_| {
-            if self.symbols.workspace {
-                client.workspace_symbols(&self.symbols.query)
-            } else {
-                client.request_document_symbols(&self.documents[self.active])
-            }
-        });
+        let result = client
+            .sync_retained(&self.documents, &self.hidden_documents)
+            .and_then(|_| {
+                if self.symbols.workspace {
+                    client.workspace_symbols(&self.symbols.query)
+                } else {
+                    client.request_document_symbols(&self.documents[self.active])
+                }
+            });
         self.symbols.pending = result.is_ok();
         self.symbols.queued = false;
         self.symbols.changed = None;
@@ -227,6 +262,9 @@ impl App {
         };
     }
     pub fn symbol_items(&self, query: &str) -> Vec<&Symbol> {
+        if self.workspace_provider_symbols_active() {
+            return self.workspace_provider_symbol_items(query);
+        }
         let source = if self.provider_symbols_active() {
             &self.extension_providers.symbols
         } else {
@@ -241,7 +279,8 @@ impl App {
         items.into_iter().map(|(_, _, item)| item).collect()
     }
     pub fn symbols_workspace(&self) -> bool {
-        !self.provider_symbols_active() && self.symbols.workspace
+        self.workspace_provider_symbols_active()
+            || !self.provider_symbols_active() && self.symbols.workspace
     }
     pub(super) fn symbol_response(
         &mut self,
@@ -290,6 +329,10 @@ impl App {
         Ok(())
     }
     pub(super) fn accept_symbol(&mut self, query: &str, selected: usize) {
+        if self.workspace_provider_symbols_active() {
+            self.accept_workspace_provider_symbol(query, selected);
+            return;
+        }
         if self.provider_symbols_active() {
             self.accept_provider_symbol(query, selected);
             return;
@@ -316,24 +359,140 @@ impl App {
             self.message = "No matching symbols".into();
             return;
         };
-        if let Err(error) = self.reveal_hidden_symbol(&symbol.path, &symbol.range) {
+        if let Err(error) = self.begin_symbol_navigation(symbol, true, None) {
             self.cancel_symbols();
             self.message = format!("Symbol navigation: {error:#}");
-            return;
+        }
+    }
+    pub(super) fn open_global_symbol(
+        &mut self,
+        uri: &str,
+        range: Option<lsp::Range>,
+        ticket: crate::extensions::providers::WorkspaceSymbolTicket,
+        context: super::workspace_symbols::Context,
+    ) -> Result<()> {
+        self.check_global_symbol_admission(None)?;
+        anyhow::ensure!(
+            context.current(self)
+                && self
+                    .extension_host
+                    .as_ref()
+                    .is_some_and(|host| host.workspace_symbol_ticket_current(&ticket)),
+            "Original workspace symbol owner changed before navigation"
+        );
+        if let Some(index) = self
+            .documents
+            .iter()
+            .chain(&self.hidden_documents)
+            .find(|doc| crate::extensions::document_uri(doc).ok().as_deref() == Some(uri))
+            .map(|doc| doc.id)
+        {
+            if let Some(range) = range {
+                let doc = self
+                    .documents
+                    .iter()
+                    .chain(&self.hidden_documents)
+                    .find(|doc| doc.id == index)
+                    .unwrap();
+                symbol_offset(doc, &range)?;
+            }
+            let previous = self.suspend_navigation_observation();
+            let result = (|| -> Result<()> {
+                self.open_preview_model(index, crate::editor_groups::OpenMode::Committed)?;
+                if let Some(range) = range {
+                    let offset = symbol_offset(self.doc(), &range)?;
+                    self.doc_mut().clear_secondary();
+                    self.doc_mut().move_to(offset, false);
+                }
+                self.focus = Focus::Editor;
+                self.sync_pane();
+                self.remember_active_file();
+                Ok(())
+            })();
+            self.resume_navigation_observation(
+                previous,
+                if result.is_ok() {
+                    navigation_history::Reason::Jump
+                } else {
+                    navigation_history::Reason::Ordinary
+                },
+            );
+            result?;
+            self.message = format!("Symbol in {}", self.doc().name());
+            return Ok(());
+        }
+        let url = url::Url::parse(uri)?;
+        anyhow::ensure!(
+            url.query().is_none() && url.fragment().is_none(),
+            "Symbol URI query/fragment has no native file backend"
+        );
+        let path = url.to_file_path().map_err(|_| {
+            anyhow::anyhow!("Symbol URI scheme has no retained native document or opener backend")
+        })?;
+        let origin = lsp::Position {
+            line: 0,
+            character: 0,
+        };
+        self.begin_symbol_navigation(
+            Symbol {
+                label: uri.into(),
+                path,
+                range: range.unwrap_or(lsp::Range {
+                    start: origin,
+                    end: origin,
+                }),
+            },
+            range.is_some(),
+            Some((ticket, context)),
+        )
+    }
+    fn begin_symbol_navigation(
+        &mut self,
+        symbol: Symbol,
+        selection: bool,
+        global: Option<(
+            crate::extensions::providers::WorkspaceSymbolTicket,
+            super::workspace_symbols::Context,
+        )>,
+    ) -> Result<()> {
+        if let Err(error) =
+            self.reveal_hidden_symbol(&symbol.path, selection.then_some(&symbol.range))
+        {
+            self.cancel_symbols();
+            self.message = format!("Symbol navigation: {error:#}");
+            return Err(error);
         }
         if let Some(index) = self.symbol_document(&symbol.path) {
-            let result = self.focus_symbol(index, &symbol.range);
-            self.cancel_symbols();
-            if let Err(error) = result {
-                self.message = format!("Symbol navigation: {error:#}");
+            let result = self.focus_symbol_selection(index, selection.then_some(&symbol.range));
+            if global.is_none() {
+                self.cancel_symbols();
             }
-            return;
+            return result;
         }
         if self.symbols.loading.is_some() {
             self.message = "A symbol file is still loading; retry shortly".into();
             self.cancel_symbols();
-            return;
+            bail!("A symbol file is still loading; retry shortly");
         }
+        let limit = if global.is_some() {
+            self.check_global_symbol_admission(None)?;
+            anyhow::ensure!(
+                self.documents
+                    .len()
+                    .saturating_add(self.hidden_documents.len())
+                    < 128,
+                "Workspace symbol target exceeds 128 native models"
+            );
+            (4 * 1024 * 1024
+                - self
+                    .documents
+                    .iter()
+                    .chain(&self.hidden_documents)
+                    .map(|doc| doc.text.len_bytes())
+                    .sum::<usize>()) as u64
+        } else {
+            crate::document::MAX_FILE_BYTES
+        };
         let (sender, receiver) = mpsc::sync_channel(1);
         let path = symbol.path.clone();
         let open: Vec<_> = self
@@ -342,26 +501,33 @@ impl App {
             .chain(&self.hidden_documents)
             .filter_map(|d| d.path.clone())
             .collect();
-        std::thread::spawn(move || {
-            let _ = sender.send(load_target(&path, &open).map_err(|e| format!("{e:#}")));
+        let worker = std::thread::spawn(move || {
+            let _ = sender.send(load_target(&path, &open, limit).map_err(|e| format!("{e:#}")));
         });
         self.symbols.context = None;
         self.symbols.items.clear();
         self.symbols.loading = Some(Loading {
             receiver,
+            worker: Some(worker),
+            completed: None,
             context: Context::capture(self),
             generation: self.symbols.generation,
             symbol,
+            selection,
+            global,
         });
         self.message = "Opening symbol file…".into();
+        Ok(())
     }
-    fn reveal_hidden_symbol(&mut self, path: &Path, range: &lsp::Range) -> Result<()> {
+    fn reveal_hidden_symbol(&mut self, path: &Path, range: Option<&lsp::Range>) -> Result<()> {
         if let Some(index) = self
             .hidden_documents
             .iter()
             .position(|d| d.path.as_deref() == Some(path))
         {
-            symbol_offset(&self.hidden_documents[index], range)?;
+            if let Some(range) = range {
+                symbol_offset(&self.hidden_documents[index], range)?;
+            }
             self.can_admit_editor(self.hidden_documents[index].id)?;
             if self.group_fallback {
                 let doc = self.hidden_documents.remove(index);
@@ -375,6 +541,20 @@ impl App {
         }
         Ok(())
     }
+    fn check_global_symbol_admission(&self, next: Option<&Document>) -> Result<()> {
+        super::extension_services::Context::check_budget(self)?;
+        let docs = self.documents.iter().chain(&self.hidden_documents);
+        let bytes = docs.clone().map(|doc| doc.text.len_bytes()).sum::<usize>();
+        anyhow::ensure!(
+            bytes.saturating_add(next.map_or(0, |doc| doc.text.len_bytes())) <= 4 * 1024 * 1024,
+            "Workspace symbol target exceeds 4 MiB mirror budget"
+        );
+        anyhow::ensure!(
+            docs.count() + usize::from(next.is_some()) <= 128,
+            "Workspace symbol target exceeds 128 native models"
+        );
+        Ok(())
+    }
     fn symbol_document(&self, path: &Path) -> Option<usize> {
         let uri = lsp::file_uri(path).ok();
         self.documents.iter().position(|d| {
@@ -383,8 +563,10 @@ impl App {
                 .is_some_and(|p| p == path || uri.is_some() && lsp::file_uri(p).ok() == uri)
         })
     }
-    fn focus_symbol(&mut self, index: usize, range: &lsp::Range) -> Result<()> {
-        let offset = symbol_offset(&self.documents[index], range)?;
+    fn focus_symbol_selection(&mut self, index: usize, range: Option<&lsp::Range>) -> Result<()> {
+        let offset = range
+            .map(|range| symbol_offset(&self.documents[index], range))
+            .transpose()?;
         let previous = self.suspend_navigation_observation();
         if !self.group_fallback {
             let result = self.open_preview_model(
@@ -401,8 +583,10 @@ impl App {
         self.active = index;
         self.focus = Focus::Editor;
         self.sync_pane();
-        self.doc_mut().clear_secondary();
-        self.doc_mut().move_to(offset, false);
+        if let Some(offset) = offset {
+            self.doc_mut().clear_secondary();
+            self.doc_mut().move_to(offset, false);
+        }
         self.sync_pane();
         self.remember_active_file();
         self.resume_navigation_observation(previous, navigation_history::Reason::Jump);
@@ -410,12 +594,28 @@ impl App {
         Ok(())
     }
     pub(super) fn poll_symbols(&mut self) -> bool {
-        let mut changed = false;
-        if let Some(loader) = &self.symbols.loading {
-            let result = match loader.receiver.try_recv() {
-                Ok(result) => Some(result),
-                Err(TryRecvError::Empty) => None,
-                Err(TryRecvError::Disconnected) => Some(Err("Symbol loader stopped".into())),
+        let mut changed = self.poll_workspace_provider_symbols();
+        if let Some(loader) = &mut self.symbols.loading {
+            if loader.completed.is_none() {
+                loader.completed = match loader.receiver.try_recv() {
+                    Ok(result) => Some(result),
+                    Err(TryRecvError::Empty) => None,
+                    Err(TryRecvError::Disconnected) => Some(Err("Symbol loader stopped".into())),
+                };
+            }
+            let result = if loader
+                .worker
+                .as_ref()
+                .is_none_or(std::thread::JoinHandle::is_finished)
+            {
+                if let Some(worker) = loader.worker.take()
+                    && worker.join().is_err()
+                {
+                    loader.completed = Some(Err("Symbol loader panicked".into()));
+                }
+                loader.completed.take()
+            } else {
+                None
             };
             if let Some(result) = result {
                 let loader = self.symbols.loading.take().unwrap();
@@ -423,35 +623,76 @@ impl App {
                 if loader.generation == self.symbols.generation
                     && loader.context.valid(self)
                     && self.prompt.is_none()
+                    && loader.global.as_ref().is_none_or(|(ticket, context)| {
+                        context.current(self)
+                            && self
+                                .extension_host
+                                .as_ref()
+                                .is_some_and(|host| host.workspace_symbol_ticket_current(ticket))
+                    })
                 {
-                    let result =
-                        result
-                            .map_err(anyhow::Error::msg)
-                            .and_then(|target| match target {
-                                Target::Open(path) => {
-                                    self.reveal_hidden_symbol(&path, &loader.symbol.range)?;
-                                    let index = self
-                                        .symbol_document(&path)
-                                        .context("Resolved symbol buffer is no longer open")?;
-                                    self.focus_symbol(index, &loader.symbol.range)
+                    let result = result.map_err(anyhow::Error::msg).and_then(|target| {
+                        if loader.global.is_some() {
+                            let next = match &target {
+                                Target::Loaded(doc)
+                                    if self
+                                        .symbol_document(
+                                            doc.path
+                                                .as_ref()
+                                                .context("Loaded symbol has no path")?,
+                                        )
+                                        .is_none()
+                                        && !self
+                                            .hidden_documents
+                                            .iter()
+                                            .any(|old| old.path == doc.path) =>
+                                {
+                                    Some(doc.as_ref())
                                 }
-                                Target::Loaded(mut doc) => {
-                                    self.reveal_hidden_symbol(
-                                        doc.path.as_ref().context("Loaded symbol has no path")?,
-                                        &loader.symbol.range,
-                                    )?;
-                                    if let Some(index) = self.symbol_document(
-                                        doc.path.as_ref().context("Loaded symbol has no path")?,
-                                    ) {
-                                        return self.focus_symbol(index, &loader.symbol.range);
-                                    }
-                                    let offset = symbol_offset(&doc, &loader.symbol.range)?;
-                                    self.settings.apply(&mut doc);
+                                _ => None,
+                            };
+                            self.check_global_symbol_admission(next)?;
+                        }
+                        match target {
+                            Target::Open(path) => {
+                                self.reveal_hidden_symbol(
+                                    &path,
+                                    loader.selection.then_some(&loader.symbol.range),
+                                )?;
+                                let index = self
+                                    .symbol_document(&path)
+                                    .context("Resolved symbol buffer is no longer open")?;
+                                self.focus_symbol_selection(
+                                    index,
+                                    loader.selection.then_some(&loader.symbol.range),
+                                )
+                            }
+                            Target::Loaded(mut doc) => {
+                                self.reveal_hidden_symbol(
+                                    doc.path.as_ref().context("Loaded symbol has no path")?,
+                                    loader.selection.then_some(&loader.symbol.range),
+                                )?;
+                                if let Some(index) = self.symbol_document(
+                                    doc.path.as_ref().context("Loaded symbol has no path")?,
+                                ) {
+                                    return self.focus_symbol_selection(
+                                        index,
+                                        loader.selection.then_some(&loader.symbol.range),
+                                    );
+                                }
+                                let offset = loader
+                                    .selection
+                                    .then(|| symbol_offset(&doc, &loader.symbol.range))
+                                    .transpose()?;
+                                self.settings.apply(&mut doc);
+                                if let Some(offset) = offset {
                                     doc.move_to(offset, false);
-                                    self.install_open_document(*doc)?;
-                                    Ok(())
                                 }
-                            });
+                                self.install_open_document(*doc)?;
+                                Ok(())
+                            }
+                        }
+                    });
                     if let Err(error) = result {
                         self.message = format!("Symbol navigation: {error:#}");
                     }
@@ -724,8 +965,12 @@ mod tests {
         };
         app.symbols.loading = Some(Loading {
             receiver,
+            worker: None,
+            completed: None,
             context: Context::capture(&app),
             generation: app.symbols.generation,
+            selection: true,
+            global: None,
             symbol: Symbol {
                 label: "open".into(),
                 path: path.clone(),
@@ -772,8 +1017,12 @@ mod tests {
         let (_sender, receiver) = mpsc::sync_channel(1);
         app.symbols.loading = Some(Loading {
             receiver,
+            worker: None,
+            completed: None,
             context: Context::capture(&app),
             generation: app.symbols.generation,
+            selection: true,
+            global: None,
             symbol: symbol.clone(),
         });
         app.symbols.items = vec![symbol];
@@ -802,8 +1051,12 @@ mod tests {
         };
         app.symbols.loading = Some(Loading {
             receiver,
+            worker: None,
+            completed: None,
             context: Context::capture(&app),
             generation: app.symbols.generation,
+            selection: true,
+            global: None,
             symbol: Symbol {
                 label: "target".into(),
                 path: path.clone(),
@@ -849,8 +1102,12 @@ mod tests {
         };
         app.symbols.loading = Some(Loading {
             receiver,
+            worker: None,
+            completed: None,
             context: Context::capture(&app),
             generation: app.symbols.generation,
+            selection: true,
+            global: None,
             symbol: Symbol {
                 label: "target".into(),
                 path: path.clone(),
@@ -877,5 +1134,133 @@ mod tests {
         assert_eq!(app.doc().text.to_string(), text);
         assert_eq!(app.doc().selections(), selections);
         assert_eq!(std::fs::read(&path).unwrap(), b"target\r\n");
+    }
+}
+#[test]
+fn symbol_loader_retains_received_result_until_actual_exit_and_join() {
+    struct Release(Option<mpsc::SyncSender<()>>);
+    impl Drop for Release {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+    for canceled in [false, true] {
+        let root = tempfile::tempdir().unwrap();
+        let target = root.path().join("target.cpp");
+        std::fs::write(&target, "猫🙂 target\r\n").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("unsaved source\r\n", false);
+        let original = (
+            app.doc().id,
+            app.doc().text.to_string(),
+            app.doc().selections(),
+        );
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let (entered, entry) = mpsc::sync_channel(1);
+        let (release, gate) = mpsc::sync_channel(1);
+        let path = target.clone();
+        let worker = std::thread::spawn(move || {
+            let result = load_target(&path, &[], crate::document::MAX_FILE_BYTES)
+                .map_err(|error| format!("{error:#}"));
+            sender.send(result).unwrap();
+            entered.send(()).unwrap();
+            gate.recv().unwrap();
+        });
+        app.symbols.loading = Some(Loading {
+            receiver,
+            worker: Some(worker),
+            completed: None,
+            context: Context::capture(&app),
+            generation: app.symbols.generation,
+            selection: true,
+            global: None,
+            symbol: Symbol {
+                label: "target".into(),
+                path: target.clone(),
+                range: lsp::Range {
+                    start: lsp::Position {
+                        line: 0,
+                        character: 1,
+                    },
+                    end: lsp::Position {
+                        line: 0,
+                        character: 3,
+                    },
+                },
+            },
+        });
+        let mut release = Release(Some(release));
+        entry.recv_timeout(Duration::from_secs(8)).unwrap();
+        app.poll_symbols();
+        assert!(app.symbols.loading.as_ref().unwrap().completed.is_some());
+        assert!(app.symbols.loading.as_ref().unwrap().worker.is_some());
+        assert_eq!(
+            app.documents.len(),
+            1,
+            "Reply alone cannot publish while actual worker is held"
+        );
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().text.to_string(),
+                app.doc().selections()
+            ),
+            original
+        );
+        if canceled {
+            app.cancel_symbols();
+            assert!(app.symbols.loading.is_some());
+            app.start_symbols(true);
+            assert!(app.symbols.loading.as_ref().unwrap().worker.is_some());
+            let mut terminal =
+                ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 30)).unwrap();
+            terminal
+                .draw(|frame| crate::ui::draw(frame, &mut app))
+                .unwrap();
+            app.poll_symbols();
+            assert!(
+                app.symbols.loading.as_ref().unwrap().worker.is_some(),
+                "Retired result remains occupied during new intent and real paint"
+            );
+        }
+        release.0.take().unwrap().send(()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(8);
+        while app.symbols.loading.is_some() {
+            app.poll_symbols();
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        if canceled {
+            assert_eq!(app.documents.len(), 1);
+            assert_eq!(
+                (
+                    app.doc().id,
+                    app.doc().text.to_string(),
+                    app.doc().selections()
+                ),
+                original
+            );
+        } else {
+            assert_eq!(app.documents.len(), 2);
+            assert_eq!(app.doc().path.as_deref(), Some(target.as_path()));
+            assert_eq!(app.doc().cursor, 1);
+            assert!(app.doc().anchor.is_none());
+            assert_eq!(
+                app.documents
+                    .iter()
+                    .find(|doc| doc.id == original.0)
+                    .unwrap()
+                    .text
+                    .to_string(),
+                original.1
+            );
+        }
+        assert_eq!(
+            std::fs::read(&target).unwrap(),
+            "猫🙂 target\r\n".as_bytes()
+        );
     }
 }

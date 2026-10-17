@@ -1,0 +1,17 @@
+{
+  "publisher": "fixture", "name": "refactoring-save", "version": "1.0.0", "main": "extension.cjs",
+  "contributes": {"commands": [
+    {"command":"refactorFixture.prepare","title":"Refactoring fixture prepare cohort"},
+    {"command":"refactorFixture.apply","title":"Refactoring fixture apply default cohort"},
+    {"command":"refactorFixture.applyOff","title":"Refactoring fixture apply disabled cohort"},
+    {"command":"refactorFixture.armRename","title":"Refactoring fixture arm F2 cohort"},
+    {"command":"refactorFixture.applied","title":"Refactoring fixture verify saved cohort"},
+    {"command":"refactorFixture.undo","title":"Refactoring fixture verify grouped Undo"},
+    {"command":"refactorFixture.redo","title":"Refactoring fixture verify grouped Redo"},
+    {"command":"refactorFixture.single","title":"Refactoring fixture apply single"},
+    {"command":"refactorFixture.saveAs","title":"Refactoring fixture apply SaveAs"},
+    {"command":"refactorFixture.cancelSaveAs","title":"Refactoring fixture apply canceled SaveAs"},
+    {"command":"refactorFixture.conflict","title":"Refactoring fixture apply conflict"},
+    {"command":"refactorFixture.unsupported","title":"Refactoring fixture refuse mixed edits"}
+  ]}
+}

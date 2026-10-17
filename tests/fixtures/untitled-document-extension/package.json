@@ -1,0 +1,74 @@
+{
+  "publisher": "fixture",
+  "name": "untitled-documents",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "untitled.options",
+        "title": "Untitled API content options"
+      },
+      {
+        "command": "untitled.edit",
+        "title": "Untitled API edit supplied content"
+      },
+      {
+        "command": "untitled.initial",
+        "title": "Untitled API verify initial content"
+      },
+      {
+        "command": "untitled.undo",
+        "title": "Untitled API public undo"
+      },
+      {
+        "command": "untitled.save",
+        "title": "Untitled API save options"
+      },
+      {
+        "command": "untitled.associated",
+        "title": "Untitled API associated path"
+      },
+      {
+        "command": "untitled.saveAssociated",
+        "title": "Untitled API save associated path"
+      },
+      {
+        "command": "untitled.existing",
+        "title": "Untitled API reject existing target"
+      },
+      {
+        "command": "untitled.late",
+        "title": "Untitled API late target open"
+      },
+      {
+        "command": "untitled.protected",
+        "title": "Untitled API protected late save"
+      },
+      {
+        "command": "untitled.original",
+        "title": "Untitled API restore original"
+      },
+      {
+        "command": "untitled.clean",
+        "title": "Untitled API verify original clean"
+      },
+      {
+        "command": "untitled.dirty",
+        "title": "Untitled API verify original dirty"
+      },
+      {
+        "command": "untitled.editSaved",
+        "title": "Untitled API edit saved file"
+      },
+      {
+        "command": "untitled.cleanSaved",
+        "title": "Untitled API verify saved file clean"
+      },
+      {
+        "command": "untitled.dirtySaved",
+        "title": "Untitled API verify saved file dirty"
+      }
+    ]
+  }
+}

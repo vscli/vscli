@@ -14,6 +14,8 @@ pub struct Item {
     pub label: String,
     pub detail: String,
     pub documentation: String,
+    pub documentation_kind: crate::documentation::Kind,
+    pub display_documentation: String,
     pub value: Value,
     pub resolved: bool,
     filter: String,
@@ -191,34 +193,12 @@ fn parse_item(value: Value) -> Result<Item> {
     {
         bail!("Completion text is empty or exceeds 4 KiB");
     }
-    let documentation = match value.get("documentation") {
-        None | Some(Value::Null) => "",
-        Some(Value::String(text)) => text,
-        Some(Value::Object(object)) => {
-            if object
-                .get("isTrusted")
-                .is_some_and(|v| v != &Value::Bool(false))
-                || object
-                    .get("supportHtml")
-                    .is_some_and(|v| v != &Value::Bool(false))
-            {
-                bail!("Trusted or HTML completion documentation is not supported");
-            }
-            if let Some(kind) = object.get("kind")
-                && !matches!(kind.as_str(), Some("plaintext" | "markdown"))
-            {
-                bail!("Invalid completion documentation kind");
-            }
-            object
-                .get("value")
-                .and_then(Value::as_str)
-                .context("Invalid completion documentation")?
-        }
-        _ => bail!("Invalid completion documentation"),
-    };
-    if documentation.len() > MAX_DOCUMENTATION {
-        bail!("Completion documentation exceeds 32 KiB");
-    }
+    let documentation = crate::documentation::Part::parse(
+        value.get("documentation"),
+        crate::documentation::Kind::Plaintext,
+        MAX_DOCUMENTATION,
+    )?;
+    let documentation_display_bytes = documentation.display.len();
     let mut boundaries = Vec::new();
     let mut previous: Option<char> = None;
     for character in filter.chars() {
@@ -233,11 +213,13 @@ fn parse_item(value: Value) -> Result<Item> {
     Ok(Item {
         label: label.to_owned(),
         detail: detail.to_owned(),
-        documentation: documentation.to_owned(),
+        documentation_kind: documentation.kind,
+        documentation: documentation.source,
+        display_documentation: documentation.display,
         filter: filter.to_lowercase(),
         sort: sort.to_owned(),
         boundaries,
-        bytes: MAX_ITEM_BYTES - budget.0,
+        bytes: MAX_ITEM_BYTES - budget.0 + documentation_display_bytes,
         value,
         resolved: false,
     })
@@ -410,5 +392,34 @@ mod tests {
             )
             .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod documentation_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn documentation_kind_survives_model_parse_and_resolution_without_text_mutation() {
+        let mut model=Model::parse(json!([{"label":"item","documentation":{"kind":"markdown","value":"space&nbsp;\\~literal\\~ `&nbsp;`"}}]),"").unwrap();
+        let item = model.selected_item().unwrap();
+        assert_eq!(
+            item.documentation_kind,
+            crate::documentation::Kind::Markdown
+        );
+        assert_eq!(item.documentation, "space&nbsp;\\~literal\\~ `&nbsp;`");
+        assert_eq!(item.display_documentation, "space ~literal~ &nbsp;");
+        let original = item.value.clone();
+        let mut resolved = original.clone();
+        resolved["documentation"] = json!({"kind":"plaintext","value":"&nbsp; \\*literal\\*"});
+        model
+            .replace_selected_resolved(&original, resolved)
+            .unwrap();
+        let item = model.selected_item().unwrap();
+        assert_eq!(
+            item.documentation_kind,
+            crate::documentation::Kind::Plaintext
+        );
+        assert_eq!(item.display_documentation, "&nbsp; \\*literal\\*");
     }
 }

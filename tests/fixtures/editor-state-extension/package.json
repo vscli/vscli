@@ -1,0 +1,23 @@
+{
+  "publisher": "fixture",
+  "name": "editor-state",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "contributes": {
+    "languages": [{"id": "fixture-notes", "extensions": [".fixture-notes"]}],
+    "commands": [
+      {"command": "editorState.language", "title": "Editor state language lifecycle"},
+      {"command": "editorState.selections", "title": "Editor state selections"},
+      {"command": "editorState.clamp", "title": "Editor state clamp selections"},
+      {"command": "editorState.inactive", "title": "Editor state inactive selections"},
+      {"command": "editorState.armMovement", "title": "Editor state arm movement"},
+      {"command": "editorState.original", "title": "Editor state show original"},
+      {"command": "editorState.clean", "title": "Editor state verify original clean"},
+      {"command": "editorState.dirty", "title": "Editor state verify original dirty"},
+      {"command": "editorState.prepareSave", "title": "Editor state prepare language save"},
+      {"command": "editorState.save", "title": "Editor state save language"},
+      {"command": "editorState.editSaved", "title": "Editor state edit saved language"},
+      {"command": "editorState.cleanSaved", "title": "Editor state verify saved language clean"}
+    ]
+  }
+}

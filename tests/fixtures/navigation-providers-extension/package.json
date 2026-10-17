@@ -1,0 +1,82 @@
+{
+  "publisher": "fixture",
+  "name": "navigation-providers",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "contributes": {
+    "languages": [
+      {
+        "id": "nav-hold",
+        "extensions": [
+          ".hold"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "navigationProviders.source",
+        "title": "Navigation providers show source"
+      },
+      {
+        "command": "navigationProviders.prepareTarget",
+        "title": "Navigation providers prepare shared target"
+      },
+      {
+        "command": "navigationProviders.target",
+        "title": "Navigation providers verify collapsed reveal"
+      },
+      {
+        "command": "navigationProviders.targetUndo",
+        "title": "Navigation providers verify target undo"
+      },
+      {
+        "command": "navigationProviders.targetRedo",
+        "title": "Navigation providers verify target redo"
+      },
+      {
+        "command": "navigationProviders.queries",
+        "title": "Navigation providers public queries"
+      },
+      {
+        "command": "navigationProviders.armHeld",
+        "title": "Navigation providers arm held callback"
+      },
+      {
+        "command": "navigationProviders.releaseHeld",
+        "title": "Navigation providers release held callback"
+      },
+      {
+        "command": "navigationProviders.languageABA",
+        "title": "Navigation providers language ABA"
+      },
+      {
+        "command": "navigationProviders.disposeHeld",
+        "title": "Navigation providers dispose held registration"
+      },
+      {
+        "command": "navigationProviders.capacity",
+        "title": "Navigation providers hold capacity"
+      },
+      {
+        "command": "navigationProviders.capacityOverflow",
+        "title": "Navigation providers verify capacity overflow"
+      },
+      {
+        "command": "navigationProviders.capacityRelease",
+        "title": "Navigation providers release capacity"
+      },
+      {
+        "command": "navigationProviders.originalClean",
+        "title": "Navigation providers verify original clean"
+      },
+      {
+        "command": "navigationProviders.originalDirty",
+        "title": "Navigation providers verify original dirty"
+      },
+      {
+        "command": "navigationProviders.heldRedo",
+        "title": "Navigation providers verify held redo"
+      }
+    ]
+  }
+}

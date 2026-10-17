@@ -48,7 +48,21 @@ impl Key {
             id: doc.id,
             revision: doc.revision,
             epoch: doc.text_epoch(),
-            language: language(doc.path.as_deref()?)?,
+            language: if let Some(id) = doc.language_override() {
+                match id {
+                    "c" => "c",
+                    "cpp" => "cpp",
+                    "rust" => "rust",
+                    "python" => "python",
+                    "javascript" => "javascript",
+                    "typescript" => "typescript",
+                    "tsx" => "tsx",
+                    "json" => "json",
+                    _ => return None,
+                }
+            } else {
+                language(doc.path.as_deref()?)?
+            },
         })
     }
 }
@@ -537,6 +551,20 @@ impl Drop for Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn virtual_language_override_produces_epoch_owned_grammar_work() {
+        let mut doc = Document::from_virtual("test:/sample.cpp".into(), "int value = 1;").unwrap();
+        assert!(Key::for_doc(&doc).is_none());
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        let original = Key::for_doc(&doc).unwrap();
+        assert_eq!(original.language, "cpp");
+        doc.refresh_virtual_content("int next = 2;").unwrap();
+        let refreshed = Key::for_doc(&doc).unwrap();
+        assert_eq!(original.id, refreshed.id);
+        assert_ne!(original.epoch, refreshed.epoch);
+        assert_ne!(original.revision, refreshed.revision);
+    }
+
     fn controlled(doc: &Document) -> (Engine, Receiver<Request>, SyncSender<Response>) {
         let (sender, requests) = mpsc::sync_channel(1);
         let (responses, receiver) = mpsc::sync_channel(2);

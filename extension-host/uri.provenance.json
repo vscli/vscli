@@ -1,0 +1,59 @@
+{
+  "revision": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "sources": [
+    {
+      "path": "src/vs/base/common/uri.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/uri.ts",
+      "sha256": "65bc6eefd07704297435d71a9da87dec1ca9103c0575bf29ce00f291a24114c9",
+      "bytes": 23307
+    },
+    {
+      "path": "src/vs/base/common/path.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/path.ts",
+      "sha256": "3ee9852efa3c404fbb5b8015b9633f5b17b38b9ed619cfbbc38a89d2169dbacf",
+      "bytes": 43987
+    },
+    {
+      "path": "src/vs/base/common/charCode.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/charCode.ts",
+      "sha256": "ddb45e08c0f66a253a52ca5eaafc705687ceda45229ce5c9a1aa64d0fb34e510",
+      "bytes": 18958
+    },
+    {
+      "path": "src/vs/base/common/marshallingIds.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/marshallingIds.ts",
+      "sha256": "3048bf85eed631d42e32ef8684a64019bcc5befe9e7eb94de445fd4c66cb9acd",
+      "bytes": 911
+    },
+    {
+      "path": "src/vs/base/common/platform.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/platform.ts",
+      "sha256": "c6e8f86c52ca1b521ec5a3a852791e621a632b96e63325fc2892eea281f90d98",
+      "bytes": 8882
+    },
+    {
+      "path": "src/vs/base/common/process.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/process.ts",
+      "sha256": "c72b499f137a9f52134cd816db076f02712b7ee279f2957b53740639f80d9083",
+      "bytes": 2366
+    },
+    {
+      "path": "src/vscode-dts/vscode.d.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.d.ts",
+      "sha256": "a4321528e86dcdcb8450287f2a263055c46a622119cdb186de85ac3b19ce9608",
+      "bytes": 742274
+    },
+    {
+      "path": "LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/LICENSE.txt",
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9",
+      "bytes": 1088
+    },
+    {
+      "path": "src/vs/base/test/common/uri.test.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/test/common/uri.test.ts",
+      "sha256": "386c5a5d4875cac55123e8d0fe44b2df102634832c13dc4243bdf44ee7a7d924",
+      "bytes": 32085
+    }
+  ]
+}

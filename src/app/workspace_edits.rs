@@ -22,6 +22,7 @@ pub(super) struct WorkspaceEditTarget {
     pub document: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub version: WorkspaceVersion,
 }
 
@@ -323,6 +324,7 @@ pub(super) fn apply_workspace_edit(
             document.path == target.path
                 && document.revision == target.revision
                 && document.text_epoch() == target.text_epoch
+                && document.resource_epoch() == target.resource_epoch
                 && target_current(target, document)
                 && version_current(change.version, target.version)?,
             "Workspace document changed since this request; request code actions again"
@@ -435,6 +437,7 @@ mod tests {
             document: document.id,
             revision: document.revision,
             text_epoch: document.text_epoch(),
+            resource_epoch: document.resource_epoch(),
             version: WorkspaceVersion::Extension(7),
         }
     }

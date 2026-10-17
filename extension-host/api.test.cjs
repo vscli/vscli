@@ -119,14 +119,14 @@ test('metadata updates retain text, offsets and identity without emitting text c
   let changes = 0;
   runtime.api.workspace.onDidChangeTextDocument(() => changes++);
   const { text, ...metadata } = state.documents[0];
-  runtime.sync({ ...state, generation: 2, documents: [{ ...metadata, uri: 'untitled:renamed', version: 2, isDirty: false }],
+  runtime.sync({ ...state, generation: 2, documents: [{ ...metadata, version: 2, isDirty: false }],
     selections: [{ anchor: { line: 1, character: 2 }, active: { line: 1, character: 2 } }] });
   assert.equal(runtime.api.window.activeTextEditor.document, document);
   assert.equal(document.getText(), text);
   assert.equal(document.offsetAt(new runtime.api.Position(1, 0)), 5);
   assert.equal(document.eol, 2);
   assert.equal(document.isDirty, false);
-  assert.equal(document.uri.toString(), 'untitled:renamed');
+  assert.equal(document.uri.toString(), 'untitled:test');
   assert.equal(changes, 0);
   assert.equal(runtime.api.window.activeTextEditor.selection.active.line, 1);
 });

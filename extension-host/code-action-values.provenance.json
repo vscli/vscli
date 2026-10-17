@@ -1,0 +1,48 @@
+{
+  "scope": "Source-derived stable VS Code 1.141.0 value semantics; no runtime differential execution",
+  "upstream_repository": "microsoft/vscode",
+  "upstream_commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "version": "1.141.0",
+  "license": "MIT",
+  "sources": [
+    {
+      "path": "LICENSE.txt",
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9",
+      "bytes": 1088,
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/LICENSE.txt"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostLanguageFeatures.ts",
+      "sha256": "50cc5877cbac67a68143c9cda93ec8a1b48cde85932c32990dce19bd075be254",
+      "bytes": 134148,
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostLanguageFeatures.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/codeActionKind.ts",
+      "sha256": "b015165145939b7c38d16f7f2fbe325a587e875e35ee4a789cfe469bc709f0f9",
+      "bytes": 2205,
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/codeActionKind.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes.ts",
+      "sha256": "4e5f4635e6fc23fd82707bcf47d2bb5a27ef81f89eac88ff4e0ae2cc92518acc",
+      "bytes": 110689,
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes.ts"
+    },
+    {
+      "path": "src/vscode-dts/vscode.d.ts",
+      "sha256": "a4321528e86dcdcb8450287f2a263055c46a622119cdb186de85ac3b19ce9608",
+      "bytes": 742274,
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.d.ts"
+    }
+  ],
+  "runtime_tests": "Root execution and remaining qualification recorded in docs/CODE_ACTION_VALUES_API.md",
+  "native_adaptations": [
+    "Code action kind wire values must be CodeActionKind instances containing primitive strings of at most 128 UTF-8 bytes. Arbitrary constructor values remain legal in extension code.",
+    "Native filters use original bounded detached dot-separated request kind, not public methods or mutable provider context. Existing mismatch rows are dropped; upstream adapter warns before conversion. Empty requests become undefined context.only.",
+    "No file/command/snippet/notebook backend enabled; existing edit snapshot rejection, workspace/version proofs and budgets retained."
+  ],
+  "root_adaptations": [
+    "Retain source prototype method ordering and initialize the source separator as a static field before ES5 decoration."
+  ]
+}

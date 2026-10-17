@@ -41,6 +41,7 @@ impl App {
             self.pane_areas.clear();
             self.editor_area = Rect::default();
         }
+        self.refresh_extension_editor_inventory();
     }
     pub(super) fn apply_group_change(&mut self, change: Change) {
         for member in &change.inserted {
@@ -296,6 +297,7 @@ impl App {
             self.pane_areas.clear();
             self.active_pane = 0;
             self.editor_area = Rect::default();
+            self.refresh_extension_editor_inventory();
             return;
         };
         if self.panes.is_empty() {
@@ -319,6 +321,7 @@ impl App {
         }
         let view = self.panes[self.active_pane].id;
         self.doc_mut().activate_view(view);
+        self.refresh_extension_editor_inventory();
     }
     pub(super) fn focus_tab(&mut self, member: Membership) -> Result<()> {
         self.breadcrumbs_ui_command("vscli.focusTab");
@@ -417,6 +420,7 @@ impl App {
         if !self.editor_groups.membership_current(member) {
             anyhow::bail!("Original editor tab was closed or replaced");
         }
+        self.prepare_api_tab_retention(member.document)?;
         let change = self.close_editor_membership(member)?;
         self.record_closed_tab(member);
         self.apply_group_change(change);
@@ -430,7 +434,7 @@ impl App {
                 .iter()
                 .position(|doc| doc.id == member.document)
         {
-            self.documents.remove(index);
+            self.remove_or_retain_api_document(index);
             self.project_editor_groups();
         }
         if self.documents.is_empty() {

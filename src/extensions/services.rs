@@ -2,8 +2,10 @@ use super::*;
 use crate::extension_state::{Scope, Store};
 use std::collections::VecDeque;
 
+pub(crate) const SAVE_SERVICE_LIFETIME: Duration = Duration::from_secs(360);
 pub(crate) const SERVICE_LIFETIME: Duration = Duration::from_secs(3);
 pub(crate) const NATIVE_COMMANDS: &[&str] = &[
+    "files.participants.resetChoice",
     "undo",
     "redo",
     "editor.action.selectAll",
@@ -29,9 +31,52 @@ pub(crate) struct Request {
 #[derive(Clone)]
 pub(crate) enum Operation {
     Open(Open),
+    LoadBegin(Arc<super::document_loads::Ticket>),
+    LoadCancel,
+    Save(Save),
+    TabsClose {
+        capture: Arc<super::editor_tabs::Capture>,
+        preserve_focus: bool,
+        context: super::editor_state::Context,
+    },
+    WorkspaceApply(Arc<crate::app::workspace_transactions::Capture>),
+    FindFiles(
+        Arc<crate::workspace_file_search::Capture>,
+        Arc<std::sync::atomic::AtomicBool>,
+    ),
+    UntitledOpen(Arc<super::untitled::Capture>),
+    VirtualOpen(Arc<super::text_content::Capture>),
+    VirtualChange(Arc<super::text_content::Capture>),
+    EditorState(Arc<super::editor_state::Capture>),
     Show(Show),
     Command(Command),
     State(StatePatch),
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct TabsCloseArgs {
+    kind: String,
+    ids: Vec<String>,
+    preserve_focus: bool,
+}
+impl TabsCloseArgs {
+    fn parse(value: Value) -> Result<Self> {
+        let args: Self = serde_json::from_value(value)?;
+        if !matches!(args.kind.as_str(), "tabs" | "groups")
+            || args.ids.is_empty()
+            || args.ids.len() > 512
+            || args.ids.iter().any(|id| id.is_empty() || id.len() > 128)
+        {
+            bail!("Invalid native tab close kind or identifiers");
+        }
+        Ok(args)
+    }
+}
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Save {
+    pub document: u64,
+    pub version: u64,
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -39,11 +84,17 @@ pub(crate) struct Open {
     pub path: String,
 }
 #[derive(Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct Show {
     pub document: u64,
     pub version: u64,
     pub selection: Option<lsp::Range>,
+    #[serde(default)]
+    pub view_column: Option<i32>,
+    #[serde(default)]
+    pub preserve_focus: bool,
+    #[serde(default)]
+    pub preview: Option<bool>,
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -64,22 +115,132 @@ pub(crate) struct NativeService {
     pub request: Request,
     pub operation: Operation,
     pub started: Instant,
+    payload_bytes: usize,
+    save_origin: Option<Mirror>,
+    save_path_wait: Option<Instant>,
+    pub(crate) caller_retired: Arc<std::sync::atomic::AtomicBool>,
+    /// Original selected caller admits this read; session ownership then
+    /// outlives that caller/command. It grants no edit/save authority.
+    pub(crate) customer_owned: bool,
+    pub(crate) load_origin: Option<Arc<super::document_loads::Ticket>>,
 }
 impl NativeService {
     pub fn fresh(&self) -> Result<()> {
-        if self.started.elapsed() >= SERVICE_LIFETIME {
+        if let Some(ticket) = &self.load_origin {
+            return ticket.current(self.request.session);
+        }
+        let lifetime = if matches!(
+            self.operation,
+            Operation::Save(_) | Operation::TabsClose { .. }
+        ) {
+            SAVE_SERVICE_LIFETIME
+        } else if matches!(self.operation, Operation::WorkspaceApply(_)) {
+            Duration::from_secs(5)
+        } else if matches!(self.operation, Operation::FindFiles(..)) {
+            Duration::from_secs(10)
+        } else {
+            SERVICE_LIFETIME
+        };
+        if self.started.elapsed() >= lifetime {
             bail!("Native extension service expired; retry");
         }
         Ok(())
     }
 }
+pub(crate) fn bounded_error(error: &anyhow::Error) -> String {
+    let mut text = format!("{error:#}");
+    let mut end = text.len().min(4096);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text.truncate(end);
+    text
+}
+fn save_wait_origin_matches(pending: &Pending, request: &Request) -> bool {
+    pending.method == "initialize"
+        || pending.method == "activate" && pending.owner.is_none()
+        || pending.owner.as_deref() == request.command_owner.as_deref()
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FileSearchCancel {
+    session: u64,
+    owner: String,
+    request: String,
+}
 impl Client {
+    pub(crate) fn set_file_search_context(
+        &mut self,
+        context: Option<crate::workspace_file_search::Context>,
+    ) {
+        self.file_search_context = context;
+    }
+    pub(crate) fn cancel_native_file_search(&mut self, params: Value) -> Result<()> {
+        if serde_json::to_vec(&params)?.len() > 1024 {
+            bail!("File discovery cancellation exceeds bounds");
+        }
+        let request: FileSearchCancel = serde_json::from_value(params)?;
+        self.validate_native_origin(request.session, &request.owner, None, None)?;
+        // Only this exact native-admitted request owns the cancellation flag.
+        if let Some(service) = self.services.iter().find(|service| {
+            service.id == request.request
+                && service.request.session == request.session
+                && service.request.owner == request.owner
+        }) && let Operation::FindFiles(_, flag) = &service.operation
+        {
+            flag.store(true, std::sync::atomic::Ordering::Release);
+        }
+        Ok(())
+    }
+    pub(crate) fn set_workspace_edit_context(
+        &mut self,
+        context: Option<crate::app::workspace_transactions::CaptureContext>,
+    ) {
+        self.workspace_edit_context = context;
+    }
+    #[cfg(test)]
     pub(crate) fn queue_service(&mut self, method: &str, id: Value, params: Value) -> Result<()> {
+        self.queue_service_with_models(method, id, params, &[], &[])
+    }
+    pub(crate) fn queue_service_with_models(
+        &mut self,
+        method: &str,
+        id: Value,
+        params: Value,
+        documents: &[Document],
+        hidden: &[Document],
+    ) -> Result<()> {
+        let started = Instant::now();
         if self.services.len() >= 8 {
             bail!("Native extension service queue limit reached");
         }
-        if serde_json::to_vec(&params)?.len() > 72 * 1024 {
-            bail!("Native extension service exceeds 72 KiB");
+        let payload_bytes = serde_json::to_vec(&params)?.len();
+        let limit = if matches!(
+            method,
+            "nativeEditorSelections" | "nativeEditorDecorations" | "nativeEditorInsertSnippet"
+        ) {
+            1024 * 1024
+        } else if matches!(
+            method,
+            "nativeWorkspaceApplyEdit"
+                | "nativeUntitledDocumentOpen"
+                | "nativeVirtualDocumentOpen"
+                | "nativeVirtualDocumentChange"
+        ) {
+            2 * 1024 * 1024
+        } else {
+            72 * 1024
+        };
+        if payload_bytes > limit
+            || self
+                .services
+                .iter()
+                .map(|service| service.payload_bytes)
+                .sum::<usize>()
+                .saturating_add(payload_bytes)
+                > 8 * 1024 * 1024
+        {
+            bail!("Native extension service exceeds method or queue byte budget");
         }
         let id = id
             .as_str()
@@ -89,20 +250,184 @@ impl Client {
         if self.services.iter().any(|request| request.id == id) {
             bail!("Duplicate native service ID");
         }
-        let request: Request = serde_json::from_value(params)?;
-        self.validate_native_origin(
-            request.session,
-            &request.owner,
-            request.command,
-            request.command_owner.as_deref(),
-        )?;
+        let mut request: Request = serde_json::from_value(params)?;
+        let completion = matches!(
+            method,
+            "nativeVirtualDocumentLoad" | "nativeUntitledDocumentLoad" | "nativeDocumentLoadCancel"
+        );
+        let load_origin = if completion {
+            let kind = match method {
+                "nativeVirtualDocumentLoad" => Some(super::document_loads::Kind::Virtual),
+                "nativeUntitledDocumentLoad" => Some(super::document_loads::Kind::Untitled),
+                _ => None,
+            };
+            Some(self.document_loads.consume(
+                request.session,
+                &request.owner,
+                kind,
+                &mut request.args,
+            )?)
+        } else {
+            None
+        };
+        if !completion {
+            self.validate_native_origin(
+                request.session,
+                &request.owner,
+                request.command,
+                request.command_owner.as_deref(),
+            )?;
+        }
+        let caller_retired = if completion {
+            load_origin
+                .as_ref()
+                .expect("validated customer admission")
+                .caller_retired
+                .clone()
+        } else {
+            self.owner_lifetimes.capture(&request.owner)?
+        };
+        let mut load_origin = load_origin;
         let operation = match method {
-            "nativeDocumentOpen" => {
+            "nativeDocumentLoadBegin" => {
+                let context = self
+                    .editor_state_context
+                    .clone()
+                    .context("Document admission context unavailable")?;
+                let ticket = self.document_loads.begin(
+                    request.session,
+                    &request.owner,
+                    context,
+                    caller_retired.clone(),
+                    &request.args,
+                )?;
+                load_origin = Some(ticket.clone());
+                request.args = Value::Null;
+                Operation::LoadBegin(ticket)
+            }
+            "nativeDocumentLoadCancel" => {
+                load_origin = None;
+                Operation::LoadCancel
+            }
+
+            "nativeTabsClose" => {
+                let args = TabsCloseArgs::parse(request.args.clone())?;
+                let context = self
+                    .editor_state_context
+                    .clone()
+                    .context("Native tab close context is unavailable")?;
+                // Never capture a newer candidate inventory under the host
+                // handles of the last transport-accepted mirror.
+                let capture = self
+                    .editor_tabs()
+                    .context("Native tab inventory is unavailable")?
+                    .capture_published(&args.kind, &args.ids)?;
+                request.args = Value::Null;
+                Operation::TabsClose {
+                    capture: Arc::new(capture),
+                    preserve_focus: args.preserve_focus,
+                    context,
+                }
+            }
+            "nativeDocumentLanguage"
+            | "nativeEditorSelections"
+            | "nativeEditorOptions"
+            | "nativeEditorReveal"
+            | "nativeEditorDecorations"
+            | "nativeEditorInsertSnippet" => {
+                let capture =
+                    self.capture_editor_operation(&request.args, method, documents, hidden)?;
+                request.args = Value::Null;
+                Operation::EditorState(capture)
+            }
+            "nativeUntitledDocumentOpen" | "nativeUntitledDocumentLoad" => {
+                let capture = self.capture_untitled(&request.args, documents, hidden)?;
+                request.args = Value::Null;
+                Operation::UntitledOpen(capture)
+            }
+            "nativeVirtualDocumentOpen"
+            | "nativeVirtualDocumentLoad"
+            | "nativeVirtualDocumentChange" => {
+                let change = method == "nativeVirtualDocumentChange";
+                let capture =
+                    self.capture_text_content(&request.args, change, documents, hidden)?;
+                request.args = Value::Null;
+                if change {
+                    Operation::VirtualChange(capture)
+                } else {
+                    Operation::VirtualOpen(capture)
+                }
+            }
+            "nativeFindFiles" => {
+                let context = self
+                    .file_search_context
+                    .clone()
+                    .context("Native file discovery context unavailable")?;
+                let capture =
+                    crate::workspace_file_search::Capture::new(context, &request.args, started)?;
+                request.args = Value::Null;
+                Operation::FindFiles(capture, Arc::new(std::sync::atomic::AtomicBool::new(false)))
+            }
+            "nativeWorkspaceApplyEdit" => {
+                use crate::app::workspace_transactions::{Origin, capture_workspace_transaction};
+                let context = self
+                    .workspace_edit_context
+                    .clone()
+                    .context("Workspace edit context is unavailable")?;
+                let entries = request.args["entries"]
+                    .as_array()
+                    .filter(|entries| entries.len() <= 128)
+                    .context("Workspace target budget exceeded")?;
+                // Capture the complete trusted inventory at native receipt.
+                // Unopened targets carry a URI, never a fabricated model ID.
+                // The joined transaction worker resolves aliases against these
+                // original retained proofs before it loads a new model.
+                let targets = self.mirrored_snapshotset(documents, hidden)?;
+                for entry in entries {
+                    if let Some(document) = entry.get("document") {
+                        let document = document.as_u64().context("Invalid workspace target")?;
+                        let target = targets
+                            .iter()
+                            .find(|target| target.document == document)
+                            .context("Workspace target is not mirrored")?;
+                        if entry
+                            .get("version")
+                            .is_some_and(|version| version.as_u64() != Some(target.version))
+                        {
+                            bail!("Workspace target version changed before native receipt");
+                        }
+                    } else if entry.get("version").is_some() {
+                        bail!("An unopened workspace target cannot borrow a retained version");
+                    }
+                }
+                let origin =
+                    Origin::new(request.session, &id, &request.owner, caller_retired.clone())?;
+                let capture = capture_workspace_transaction(
+                    documents,
+                    hidden,
+                    &targets,
+                    origin,
+                    &request.args,
+                    context,
+                    started,
+                )?;
+                // The immutable native capture owns the admitted text and proofs.
+                request.args = Value::Null;
+                Operation::WorkspaceApply(capture)
+            }
+            "nativeDocumentOpen" | "nativeDocumentLoad" => {
                 let open: Open = serde_json::from_value(request.args.clone())?;
                 if open.path.len() > 16 * 1024 || open.path.is_empty() {
                     bail!("Invalid document path");
                 }
                 Operation::Open(open)
+            }
+            "nativeDocumentSave" => {
+                let save: Save = serde_json::from_value(request.args.clone())?;
+                if save.document == 0 || save.version == 0 {
+                    bail!("Invalid save model/version");
+                }
+                Operation::Save(save)
             }
             "nativeDocumentShow" => Operation::Show(serde_json::from_value(request.args.clone())?),
             "nativeCommand" => {
@@ -118,18 +443,126 @@ impl Client {
             "nativeStateWrite" => Operation::State(serde_json::from_value(request.args.clone())?),
             _ => bail!("Unknown native service"),
         };
-        if !matches!(operation, Operation::State(_))
+        if !matches!(
+            operation,
+            Operation::LoadBegin(_)
+                | Operation::LoadCancel
+                | Operation::State(_)
+                | Operation::Save(_)
+                | Operation::TabsClose { .. }
+                | Operation::WorkspaceApply(_)
+                | Operation::FindFiles(..)
+                | Operation::UntitledOpen(_)
+                | Operation::VirtualOpen(_)
+                | Operation::VirtualChange(_)
+                | Operation::EditorState(_)
+        ) && method != "nativeDocumentLoad"
             && request.generation != Some(self.mirror.generation)
+            && !(matches!(
+                operation,
+                Operation::Open(_) | Operation::Show(_) | Operation::Command(_)
+            ) && self.mirror.show_generation_current(request.generation))
         {
             bail!("Native document state changed before service request; retry");
         }
+        let save_origin = if let Operation::Save(save) = &operation {
+            let mirror = self
+                .mirror
+                .mirrors
+                .get(&save.document)
+                .context("Save model is not mirrored")?;
+            if mirror.version != save.version || mirror.uri.len() > 4096 || mirror.eol.len() > 2 {
+                bail!("Save source mirror changed or exceeds metadata budget");
+            }
+            Some(mirror.clone())
+        } else {
+            None
+        };
         self.services.push_back(NativeService {
             id,
             request,
             operation,
-            started: Instant::now(),
+            started,
+            payload_bytes,
+            save_origin,
+            save_path_wait: None,
+            caller_retired,
+            customer_owned: matches!(
+                method,
+                "nativeDocumentLoad"
+                    | "nativeDocumentLoadBegin"
+                    | "nativeDocumentLoadCancel"
+                    | "nativeVirtualDocumentLoad"
+                    | "nativeUntitledDocumentLoad"
+            ),
+            load_origin,
         });
         Ok(())
+    }
+    // Exact service-owned human wait; caller owner and originating command
+    // owner can differ. No unrelated pending command receives a deadline reset.
+    pub(crate) fn set_document_save_path_wait(
+        &mut self,
+        service: &NativeService,
+        waiting: bool,
+    ) -> Result<()> {
+        let current = self
+            .services
+            .front_mut()
+            .filter(|current| {
+                current.id == service.id
+                    && current.request.session == service.request.session
+                    && current.request.owner == service.request.owner
+                    && matches!(
+                        current.operation,
+                        Operation::Save(_) | Operation::TabsClose { .. }
+                    )
+            })
+            .context("Document save service no longer pending")?;
+        if waiting {
+            if current.save_path_wait.is_none() {
+                current.save_path_wait = Some(Instant::now());
+            }
+        } else if current.save_path_wait.take().is_some()
+            && let Some(command) = current.request.command
+            && let Some(pending) = self.pending.get_mut(&command)
+            && save_wait_origin_matches(pending, &current.request)
+        {
+            pending.started = Instant::now();
+        }
+        Ok(())
+    }
+    pub(super) fn document_save_command_waiting(&self, command: u64) -> bool {
+        self.services.iter().any(|service| {
+            matches!(
+                service.operation,
+                Operation::Save(_) | Operation::TabsClose { .. }
+            ) && service.request.session == self.session
+                && service.request.command == Some(command)
+                && service
+                    .save_path_wait
+                    .is_some_and(|started| started.elapsed() < super::prompts::PROMPT_LIFETIME)
+                && self
+                    .pending
+                    .get(&command)
+                    .is_some_and(|pending| save_wait_origin_matches(pending, &service.request))
+        })
+    }
+    pub(super) fn expire_document_save_path_waits(&mut self) {
+        for service in &mut self.services {
+            if service
+                .save_path_wait
+                .is_some_and(|started| started.elapsed() >= super::prompts::PROMPT_LIFETIME)
+            {
+                service.save_path_wait = None;
+                if let Some(command) = service.request.command
+                    && let Some(pending) = self.pending.get_mut(&command)
+                    && save_wait_origin_matches(pending, &service.request)
+                {
+                    pending.started = Instant::now();
+                }
+            }
+        }
     }
     pub(crate) fn queued_services(&self) -> impl Iterator<Item = &NativeService> {
         self.services.iter()
@@ -139,8 +572,34 @@ impl Client {
     }
     pub(crate) fn service_valid(&self, service: &NativeService) -> Result<()> {
         service.fresh()?;
-        if !matches!(service.operation, Operation::State(_))
+        if !service.customer_owned
+            && service
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        {
+            bail!("Original native caller lifetime has retired");
+        }
+        if !matches!(
+            service.operation,
+            Operation::LoadBegin(_)
+                | Operation::LoadCancel
+                | Operation::State(_)
+                | Operation::Save(_)
+                | Operation::TabsClose { .. }
+                | Operation::WorkspaceApply(_)
+                | Operation::FindFiles(..)
+                | Operation::UntitledOpen(_)
+                | Operation::VirtualOpen(_)
+                | Operation::VirtualChange(_)
+                | Operation::EditorState(_)
+        ) && !service.customer_owned
             && service.request.generation != Some(self.mirror.generation)
+            && !(matches!(
+                service.operation,
+                Operation::Open(_) | Operation::Show(_) | Operation::Command(_)
+            ) && self
+                .mirror
+                .show_generation_current(service.request.generation))
         {
             bail!("Native document state changed before service completion; retry");
         }
@@ -151,7 +610,37 @@ impl Client {
         {
             bail!("Native service is no longer pending");
         }
-        if matches!(service.operation, Operation::State(_)) {
+        if service.customer_owned {
+            anyhow::ensure!(
+                matches!(
+                    service.operation,
+                    Operation::Open(_)
+                        | Operation::LoadBegin(_)
+                        | Operation::LoadCancel
+                        | Operation::UntitledOpen(_)
+                        | Operation::VirtualOpen(_)
+                ) && service.request.session == self.session,
+                "Original document load customer retired"
+            );
+            return Ok(());
+        }
+        if matches!(
+            service.operation,
+            Operation::Save(_) | Operation::TabsClose { .. }
+        ) {
+            self.validate_native_origin(service.request.session, &service.request.owner, None, None)
+        } else if matches!(
+            service.operation,
+            Operation::LoadBegin(_)
+                | Operation::LoadCancel
+                | Operation::State(_)
+                | Operation::WorkspaceApply(_)
+                | Operation::FindFiles(..)
+                | Operation::UntitledOpen(_)
+                | Operation::VirtualOpen(_)
+                | Operation::VirtualChange(_)
+                | Operation::EditorState(_)
+        ) {
             // Receipt already authorized the exact origin. An accepted durable
             // patch may outlive that command; never bind it to a later command.
             self.validate_selected_owner(service.request.session, &service.request.owner)
@@ -177,9 +666,15 @@ impl Client {
         }) {
             bail!("Native service response no longer pending");
         }
+        if matches!(
+            service.operation,
+            Operation::Save(_) | Operation::TabsClose { .. }
+        ) {
+            self.set_document_save_path_wait(service, false)?;
+        }
         let message = match result {
             Ok(result) => json!({"id":id,"result":result}),
-            Err(error) => json!({"id":id,"error":{"message":format!("{error:#}")}}),
+            Err(error) => json!({"id":id,"error":{"message":bounded_error(&error)}}),
         };
         self.process.send(message)?;
         self.services.pop_front();
@@ -190,7 +685,28 @@ impl Client {
             mirror.version == version
                 && mirror.revision == document.revision
                 && mirror.text_epoch == document.text_epoch()
+                && mirror.resource_epoch == document.resource_epoch()
                 && document_uri(document).ok().as_ref() == Some(&mirror.uri)
+                && mirror.eol == document.eol
+        })
+    }
+    pub(crate) fn service_save_document_current(
+        &self,
+        service: &NativeService,
+        document: &Document,
+    ) -> bool {
+        let Operation::Save(save) = &service.operation else {
+            return false;
+        };
+        service.save_origin.as_ref().is_some_and(|origin| {
+            document.id == save.document
+                && document.revision == origin.revision
+                && document.text_epoch() == origin.text_epoch
+                && document.resource_epoch() == origin.resource_epoch
+                && document.save_generation() == origin.save_generation
+                && document.eol == origin.eol
+                && document_uri(document).ok().as_ref() == Some(&origin.uri)
+                && self.service_document_current(document, save.version)
         })
     }
     pub(crate) fn state_store(&self) -> Option<Store> {
@@ -225,6 +741,601 @@ pub(super) fn empty_queue() -> VecDeque<NativeService> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn admitted_customer_load_outlives_only_its_caller_origin_and_not_session_or_deadline() {
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let request = json!({"session":client.session,"owner":owner,"generation":client.mirror.generation,"args":{"path":"new.txt"}});
+        let mut forged = request.clone();
+        forged["owner"] = json!("unselected.owner");
+        assert!(
+            client
+                .queue_service("nativeDocumentLoad", json!("forged"), forged)
+                .is_err()
+        );
+        client
+            .queue_service("nativeDocumentLoad", json!("load"), request)
+            .unwrap();
+        let original = client.service().unwrap().clone();
+        assert!(original.customer_owned);
+        client
+            .register_activation(&json!([{"id":owner,"state":"failed"}]))
+            .unwrap();
+        assert!(
+            original
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        assert!(client.service_valid(&original).is_ok());
+        let mut expired = original.clone();
+        expired.started = Instant::now() - SERVICE_LIFETIME;
+        assert!(client.service_valid(&expired).is_err());
+        client.session += 1;
+        assert!(client.service_valid(&original).is_err());
+    }
+
+    #[test]
+    fn native_open_and_commands_tolerate_display_only_but_reject_source_editor_and_origin_changes()
+    {
+        for (method, args) in [
+            ("nativeDocumentOpen", json!({"path":"next.cpp"})),
+            ("nativeCommand", json!({"id":"cursorRight"})),
+        ] {
+            let directory = tempfile::tempdir().unwrap();
+            let extension =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+            let mut doc = Document::from_text("猫🙂 original\r\n");
+            let mut client = Client::start(
+                "node",
+                &extension,
+                directory.path(),
+                &[],
+                0,
+                &Settings::default(),
+            )
+            .unwrap();
+            let owner = client.packages[0].id.clone();
+            client.pending.insert(
+                900,
+                Pending {
+                    owner: Some(owner.clone()),
+                    method: "execute".into(),
+                    started: Instant::now(),
+                },
+            );
+            let stamp = json!({"activeEditor":"editor-1","editors":[{
+                "id":"editor-1","document":doc.id,"viewColumn":1,
+                "selections":[],"options":{"tabSize":4},"visibleRanges":[]}]});
+            let (initial, _) = client
+                .mirror
+                .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&stamp))
+                .unwrap();
+            let generation = initial.generation;
+            let mut measured = stamp.clone();
+            measured["editors"][0]["visibleRanges"] =
+                json!([{"start":{"line":0,"character":0},"end":{"line":1,"character":0}}]);
+            let (next, _) = initial
+                .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&measured))
+                .unwrap();
+            assert!(next.generation > generation);
+            client.mirror = next;
+            let request = json!({"session":client.session,"owner":owner,"command":900,"commandOwner":owner,"generation":generation,"args":args});
+            client
+                .queue_service(method, json!("original"), request.clone())
+                .unwrap();
+            let original = client.service().unwrap().clone();
+            assert!(client.service_valid(&original).is_ok(), "{method}");
+            for (field, value) in [
+                ("command", json!(901)),
+                ("owner", json!("other.owner")),
+                ("commandOwner", json!("other.owner")),
+                ("session", json!(client.session + 1)),
+                ("generation", json!(client.mirror.generation + 1)),
+                ("generation", json!(generation - 1)),
+            ] {
+                let mut invalid = request.clone();
+                invalid[field] = value;
+                assert!(
+                    client
+                        .queue_service(method, json!("invalid"), invalid)
+                        .is_err(),
+                    "{method} {field}"
+                );
+            }
+            measured["editors"][0]["visibleRanges"] = json!([]);
+            let (next, _) = client
+                .mirror
+                .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&measured))
+                .unwrap();
+            client.mirror = next;
+            assert!(
+                client.service_valid(&original).is_ok(),
+                "{method}: contiguous viewport ABA remains presentation-only"
+            );
+            let command = client.pending.remove(&900).unwrap();
+            assert!(
+                client.service_valid(&original).is_err(),
+                "{method}: original command remains required"
+            );
+            client.pending.insert(900, command);
+            let session = client.session;
+            client.session += 1;
+            assert!(client.service_valid(&original).is_err());
+            client.session = session;
+            let baseline = client.mirror.clone();
+            for (field, value) in [
+                ("id", json!("editor-replaced")),
+                ("viewColumn", json!(2)),
+                ("document", json!(doc.id + 1)),
+                (
+                    "selections",
+                    json!([{"anchor":{"line":0,"character":0},"active":{"line":0,"character":1}}]),
+                ),
+            ] {
+                let mut changed = measured.clone();
+                changed["editors"][0][field] = value;
+                let (next, _) = baseline
+                    .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&changed))
+                    .unwrap();
+                client.mirror = next;
+                assert!(
+                    client.service_valid(&original).is_err(),
+                    "{method}: native editor {field} is outside the interval"
+                );
+                assert!(
+                    client
+                        .queue_service(method, json!("changed-editor"), request.clone())
+                        .is_err()
+                );
+            }
+            client.mirror = baseline;
+            doc.insert("X", false);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), "猫🙂 original\r\n");
+            let (changed, _) = client
+                .mirror
+                .next_refs_with_editor_stamp(&[&doc], Some(&doc), Some(&measured))
+                .unwrap();
+            client.mirror = changed;
+            assert!(
+                client.service_valid(&original).is_err(),
+                "{method}: source ABA retires completion"
+            );
+            assert!(
+                client
+                    .queue_service(method, json!("stale-source"), request)
+                    .is_err()
+            );
+            assert_eq!(client.services.len(), 1);
+            assert_eq!(client.service().unwrap().id, "original");
+        }
+    }
+
+    #[test]
+    fn tab_close_dto_is_strict_bounded_and_preserves_original_order() {
+        let args =
+            TabsCloseArgs::parse(json!({"kind":"tabs","ids":["b","a","b"],"preserveFocus":true}))
+                .unwrap();
+        assert_eq!(args.ids, ["b", "a", "b"]);
+        assert!(args.preserve_focus);
+        let max = vec!["x".repeat(128); 512];
+        assert!(
+            TabsCloseArgs::parse(json!({"kind":"groups","ids":max,"preserveFocus":false})).is_ok()
+        );
+        for invalid in [
+            json!({"kind":"tabs","ids":[],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":[""],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":["x".repeat(129)],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":vec!["x";513],"preserveFocus":false}),
+            json!({"kind":"views","ids":["x"],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":[1],"preserveFocus":false}),
+            json!({"kind":"tabs","ids":["x"],"preserveFocus":0}),
+            json!({"kind":"tabs","ids":["x"]}),
+            json!({"kind":"tabs","ids":["x"],"preserveFocus":false,"generation":1}),
+        ] {
+            assert!(TabsCloseArgs::parse(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn tab_close_admits_only_published_inventory_and_retains_exact_human_wait_and_caller() {
+        use std::sync::atomic::Ordering;
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let document = Document::from_text("dirty 猫🙂\r\n");
+        let newer = Document::from_text("unpublished\r\n");
+        let mut groups = crate::editor_groups::Groups::with_empty_group();
+        let original_member = groups.open(document.id).unwrap().active.unwrap();
+        let mut published = super::super::editor_tabs::Inventory::default();
+        published.observe(&groups, &[&document]).unwrap();
+        let old_id = published.wire().unwrap()["groups"][0]["tabs"][0]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        client.editor_tabs = Some(published.clone());
+        client.mirror.tabs = Some(published.clone());
+        let layers = Arc::new(Vec::new());
+        client.set_editor_state_context(Some(
+            super::super::editor_state::Context::new(directory.path().into(), layers.clone(), 7)
+                .unwrap(),
+        ));
+        groups.open(newer.id).unwrap();
+        let mut candidate = published;
+        candidate.observe(&groups, &[&document, &newer]).unwrap();
+        let newer_id = candidate.wire().unwrap()["groups"][0]["tabs"][1]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        client.set_editor_tabs(candidate);
+        let owner = client.packages[0].id.clone();
+        let old_clock = Instant::now() - Duration::from_secs(45);
+        for command in [900, 901] {
+            client.pending.insert(
+                command,
+                Pending {
+                    owner: Some(owner.clone()),
+                    method: "execute".into(),
+                    started: old_clock,
+                },
+            );
+        }
+        let args = |ids: Vec<String>| json!({"session":client.session,"owner":owner,"command":900,"commandOwner":owner,"generation":0,"args":{"kind":"tabs","ids":ids,"preserveFocus":true}});
+        let accepted = args(vec![old_id.clone(), old_id.clone()]);
+        let unpublished = args(vec![newer_id]);
+        assert!(
+            client
+                .queue_service("nativeTabsClose", json!("unpublished"), unpublished)
+                .is_err()
+        );
+        assert!(client.services.is_empty());
+        client
+            .queue_service("nativeTabsClose", json!("original-close"), accepted.clone())
+            .unwrap();
+        let original = client.service().unwrap().clone();
+        let Operation::TabsClose {
+            capture,
+            preserve_focus,
+            context,
+        } = &original.operation
+        else {
+            panic!("wrong operation")
+        };
+        assert_eq!(capture.ids(), &[old_id.clone(), old_id]);
+        assert_eq!(capture.memberships(), &[original_member]);
+        assert!(*preserve_focus);
+        assert!(context.current(directory.path(), &layers, 7));
+        assert!(original.request.args.is_null());
+        assert!(
+            client.service_valid(&original).is_ok(),
+            "global mirror generation does not authorize tab close"
+        );
+        client.set_document_save_path_wait(&original, true).unwrap();
+        assert!(client.document_save_command_waiting(900));
+        assert!(!client.document_save_command_waiting(901));
+        let start = client.service().unwrap().save_path_wait;
+        client.set_document_save_path_wait(&original, true).unwrap();
+        assert_eq!(client.service().unwrap().save_path_wait, start);
+        client.services.front_mut().unwrap().save_path_wait =
+            Some(Instant::now() - Duration::from_secs(301));
+        assert!(!client.document_save_command_waiting(900));
+        client.expire_document_save_path_waits();
+        assert!(client.pending[&900].started > old_clock);
+        assert_eq!(client.pending[&901].started, old_clock);
+        let reset = client.pending[&900].started;
+        client
+            .set_document_save_path_wait(&original, false)
+            .unwrap();
+        assert_eq!(client.pending[&900].started, reset);
+        let mut timed = original.clone();
+        timed.started = Instant::now() - Duration::from_secs(359);
+        assert!(timed.fresh().is_ok());
+        timed.started = Instant::now() - Duration::from_secs(360);
+        assert!(timed.fresh().is_err());
+        for index in 1..8 {
+            client
+                .queue_service(
+                    "nativeTabsClose",
+                    json!(format!("close-{index}")),
+                    accepted.clone(),
+                )
+                .unwrap();
+        }
+        assert!(
+            client
+                .queue_service("nativeTabsClose", json!("overflow"), accepted)
+                .is_err()
+        );
+        assert_eq!(client.services.len(), 8);
+        client
+            .register_activation(&json!([{"id":owner,"state":"failed"}]))
+            .unwrap();
+        client
+            .register_activation(&json!([{"id":owner,"state":"active"}]))
+            .unwrap();
+        assert!(original.caller_retired.load(Ordering::Acquire));
+        assert!(
+            client.service_valid(&original).is_err(),
+            "same-owner reactivation must not renew an admitted close"
+        );
+        client.session += 1;
+        assert!(client.service_valid(&original).is_err());
+        assert_eq!(client.services.len(), 8);
+    }
+    #[test]
+    fn file_search_cancellation_requires_exact_owner_session_request_and_operation() {
+        use std::sync::atomic::Ordering;
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let document = Document::from_text("dirty 猫🙂\r\n");
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[document],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let context = crate::workspace_file_search::Context::new(
+            directory.path().into(),
+            Arc::new(Vec::new()),
+            0,
+        )
+        .unwrap();
+        client.set_file_search_context(Some(context));
+        let args = json!({"session":client.session,"owner":owner,"args":{
+            "include":{"pattern":"**/*.rs","baseUri":null},
+            "exclude":{"mode":"none","pattern":null},"maxResults":null}});
+        client
+            .queue_service("nativeFindFiles", json!("search-original"), args)
+            .unwrap();
+        let service = client.service().unwrap().clone();
+        let Operation::FindFiles(_, flag) = &service.operation else {
+            panic!("wrong operation");
+        };
+        for params in [
+            json!({"session":client.session,"owner":owner,"request":"another-request"}),
+            json!({"session":client.session+1,"owner":owner,"request":"search-original"}),
+            json!({"session":client.session,"owner":"unknown.owner","request":"search-original"}),
+            json!({"session":client.session,"owner":owner,"request":"search-original","extra":true}),
+        ] {
+            let _ = client.cancel_native_file_search(params);
+            assert!(!flag.load(Ordering::Acquire));
+        }
+        client
+            .cancel_native_file_search(json!({"session":client.session,"owner":owner,
+            "request":"search-original"}))
+            .unwrap();
+        assert!(flag.load(Ordering::Acquire));
+        client
+            .answer_service(&service, Ok(json!({"uris":[],"cancelled":true})))
+            .unwrap();
+        client
+            .queue_service(
+                "nativeStateWrite",
+                json!("state-original"),
+                json!({
+            "session":client.session,"owner":owner,"args":{
+                "scope":"global","key":"test","remove":false,"value":true}}),
+            )
+            .unwrap();
+        let state = client.service().unwrap().clone();
+        client
+            .cancel_native_file_search(json!({"session":client.session,"owner":owner,
+            "request":"state-original"}))
+            .unwrap();
+        assert!(matches!(
+            client.service().unwrap().operation,
+            Operation::State(_)
+        ));
+        assert!(client.service_valid(&state).is_ok());
+    }
+    #[test]
+    fn queued_native_save_keeps_original_caller_lifetime_across_reactivation() {
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let document = Document::from_text("original 猫🙂\r\n");
+        let document_id = document.id;
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[document],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let version = client.mirror.mirrors[&document_id].version;
+        let args = json!({"session":client.session,"owner":owner,
+            "args":{"document":document_id,"version":version}});
+        client
+            .queue_service("nativeDocumentSave", json!("original-save"), args.clone())
+            .unwrap();
+        let original = client.service().unwrap().clone();
+        assert!(client.service_valid(&original).is_ok());
+        client
+            .register_activation(&json!([{"id":owner,"state":"failed"}]))
+            .unwrap();
+        assert!(client.service_valid(&original).is_err());
+        client
+            .register_activation(&json!([{"id":owner,"state":"active"}]))
+            .unwrap();
+        assert!(!client.owner_retired(&owner));
+        assert!(
+            client.service_valid(&original).is_err(),
+            "an owner string cannot renew a queued caller"
+        );
+        client
+            .answer_service(&original, Err(anyhow::anyhow!("original caller retired")))
+            .unwrap();
+        client
+            .queue_service("nativeDocumentSave", json!("replacement-save"), args)
+            .unwrap();
+        let replacement = client.service().unwrap().clone();
+        assert!(client.service_valid(&replacement).is_ok());
+        assert!(!Arc::ptr_eq(
+            &original.caller_retired,
+            &replacement.caller_retired
+        ));
+        assert!(
+            original
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        assert!(
+            !replacement
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        drop(client);
+        assert!(
+            replacement
+                .caller_retired
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+    }
+
+    #[test]
+    fn exact_save_as_service_wait_pauses_and_resets_only_its_original_command() {
+        let directory = tempfile::tempdir().unwrap();
+        let extension =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/command-extension");
+        let document = Document::from_text("猫🙂 unsaved\r\n");
+        let document_id = document.id;
+        let mut client = Client::start(
+            "node",
+            &extension,
+            directory.path(),
+            &[document],
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        let owner = client.packages[0].id.clone();
+        let old = Instant::now() - Duration::from_secs(45);
+        client.pending.insert(
+            900,
+            Pending {
+                owner: Some(owner.clone()),
+                method: "execute".into(),
+                started: old,
+            },
+        );
+        client.pending.insert(
+            901,
+            Pending {
+                owner: Some(owner.clone()),
+                method: "execute".into(),
+                started: old,
+            },
+        );
+        let version = client.mirror.mirrors[&document_id].version;
+        client
+            .queue_service(
+                "nativeDocumentSave",
+                json!("save-wait"),
+                json!({"session":client.session,"owner":owner,
+            "command":900,"commandOwner":owner,"generation":client.mirror.generation,
+            "args":{"document":document_id,"version":version}}),
+            )
+            .unwrap();
+        let service = client.service().unwrap().clone();
+        client.set_document_save_path_wait(&service, true).unwrap();
+        assert!(client.document_save_command_waiting(900));
+        assert!(!client.document_save_command_waiting(901));
+        let original_wait = client.service().unwrap().save_path_wait;
+        client.set_document_save_path_wait(&service, true).unwrap();
+        assert_eq!(
+            client.service().unwrap().save_path_wait,
+            original_wait,
+            "poll must not renew human wait"
+        );
+        client.services.front_mut().unwrap().save_path_wait =
+            Some(Instant::now() - Duration::from_secs(301));
+        assert!(!client.document_save_command_waiting(900));
+        client.expire_document_save_path_waits();
+        assert!(client.service().unwrap().save_path_wait.is_none());
+        client.set_document_save_path_wait(&service, false).unwrap();
+        assert!(client.pending[&900].started > old);
+        assert_eq!(client.pending[&901].started, old);
+        let resumed = client.pending[&900].started;
+        client.set_document_save_path_wait(&service, false).unwrap();
+        assert_eq!(
+            client.pending[&900].started, resumed,
+            "no waiting lease means no additional reset"
+        );
+        let mut stale = service;
+        stale.id = "old-service".into();
+        assert!(client.set_document_save_path_wait(&stale, true).is_err());
+        assert_eq!(client.pending[&900].started, resumed);
+    }
+    #[test]
+    fn save_human_wait_keeps_registered_caller_separate_from_origin() {
+        let request: Request = serde_json::from_value(json!({"session":1,"owner":"callee.b",
+            "command":9,"commandOwner":"origin.a","args":{"document":1,"version":1}}))
+        .unwrap();
+        let started = Instant::now();
+        let original = Pending {
+            owner: Some("origin.a".into()),
+            method: "execute".into(),
+            started,
+        };
+        assert!(save_wait_origin_matches(&original, &request));
+        let callee = Pending {
+            owner: Some("callee.b".into()),
+            method: "execute".into(),
+            started,
+        };
+        assert!(!save_wait_origin_matches(&callee, &request));
+        let initialization = Pending {
+            owner: None,
+            method: "initialize".into(),
+            started,
+        };
+        assert!(save_wait_origin_matches(&initialization, &request));
+    }
+    #[test]
+    fn save_dto_rejects_unknown_and_invalid_version_types_without_open_show_coercion() {
+        use super::Save;
+        let parsed: Save =
+            serde_json::from_value(serde_json::json!({"document":1,"version":2})).unwrap();
+        assert_eq!(parsed.document, 1);
+        assert_eq!(parsed.version, 2);
+        for invalid in [
+            serde_json::json!({"document":1,"version":2,"path":"other"}),
+            serde_json::json!({"document":1,"version":2.5}),
+            serde_json::json!({"document":1,"version":-1}),
+            serde_json::json!({"document":1}),
+        ] {
+            assert!(serde_json::from_value::<Save>(invalid).is_err());
+        }
+    }
     use super::*;
     #[test]
     fn late_reply_cannot_consume_same_request_id_in_a_replacement_session() {
@@ -354,11 +1465,23 @@ mod tests {
         );
         let service = client.service().unwrap().clone();
         assert!(client.service_valid(&service).is_ok());
-        client.mirror.generation += 1;
+        let original_mirror = client.mirror.clone();
+        let changed_document = Document::from_text("real source change 猫🙂\r\n");
+        let (changed, _) = client
+            .mirror
+            .next_refs(&[&changed_document], Some(&changed_document))
+            .unwrap();
+        assert!(changed.generation > original_mirror.generation);
+        assert!(!changed.show_generation_current(service.request.generation));
+        client.mirror = changed;
         assert!(client.service_valid(&service).is_err());
-        client.mirror.generation -= 1;
+        client.mirror = original_mirror;
+        assert!(client.service_valid(&service).is_ok());
         let mut expired = service;
         expired.started = Instant::now() - SERVICE_LIFETIME;
         assert!(client.service_valid(&expired).is_err());
     }
 }
+
+#[cfg(test)]
+mod save_wait_poll_tests;

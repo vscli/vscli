@@ -58,7 +58,7 @@ struct Change {
 #[derive(PartialEq)]
 struct CommandContext {
     workspace: PathBuf,
-    document: Option<(u64, u64, u64, Option<PathBuf>)>,
+    document: Option<(u64, u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
     groups: crate::editor_groups::UiProof,
@@ -74,9 +74,15 @@ impl CommandContext {
         }
         Ok(Self {
             workspace: app.workspace.root.clone(),
-            document: app
-                .active_document()
-                .map(|doc| (doc.id, doc.revision, doc.text_epoch(), doc.path.clone())),
+            document: app.active_document().map(|doc| {
+                (
+                    doc.id,
+                    doc.revision,
+                    doc.text_epoch(),
+                    doc.resource_epoch(),
+                    doc.path.clone(),
+                )
+            }),
             selections: app
                 .active_document()
                 .map_or_else(Vec::new, Document::selections),
@@ -199,6 +205,11 @@ impl App {
                 &id.to_ascii_lowercase(),
             )
     }
+    pub(super) fn registered_document_language(&self, language: &str) -> bool {
+        self.activation.catalog.iter().any(|(id, metadata)| {
+            self.extension_enabled(id) && metadata.languages.contains(language)
+        })
+    }
     pub fn extension_activation_notices(&self) -> &[String] {
         &self.activation.notices
     }
@@ -215,19 +226,21 @@ impl App {
         self.refresh_document_language_configurations();
     }
     pub(super) fn configure_document_language(&self, doc: &mut Document) -> Result<()> {
-        let language = doc
-            .path
-            .as_deref()
-            .map_or("plaintext", crate::languages::language);
+        let language = doc.language_override().unwrap_or_else(|| {
+            doc.path
+                .as_deref()
+                .map_or("plaintext", crate::languages::language)
+        });
         doc.set_language_configuration(self.language_configuration(language))
     }
     pub(super) fn refresh_document_language_configurations(&mut self) {
         let catalog = Arc::clone(&self.activation.language_configurations);
         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
-            let language = doc
-                .path
-                .as_deref()
-                .map_or("plaintext", crate::languages::language);
+            let language = doc.language_override().unwrap_or_else(|| {
+                doc.path
+                    .as_deref()
+                    .map_or("plaintext", crate::languages::language)
+            });
             if let Err(error) = doc.set_language_configuration(catalog.for_language(language)) {
                 self.message = format!("Native language configuration rejected: {error:#}");
             }
@@ -788,9 +801,12 @@ impl App {
             .iter()
             .chain(&self.hidden_documents)
             .map(|doc| {
-                doc.path
-                    .as_deref()
-                    .map_or("plaintext", crate::lsp::language)
+                doc.language_override()
+                    .unwrap_or_else(|| {
+                        doc.path
+                            .as_deref()
+                            .map_or("plaintext", crate::lsp::language)
+                    })
                     .to_owned()
             })
             .collect();
@@ -918,13 +934,23 @@ impl App {
             .map(|item| item.package.clone())
             .collect();
         let targets = vec![owner.to_owned()];
+        self.refresh_extension_editor_inventory();
         if let Some(host) = &mut self.extension_host {
+            host.set_editor_inventory(self.extension_editor_inventory.clone());
+            host.set_editor_tabs(self.extension_editor_tabs.clone());
             let additions = packages
                 .iter()
                 .filter(|package| !host.packages.iter().any(|old| old.id == package.id))
                 .cloned()
                 .collect();
             let request = ActivationRequest {
+                registered_languages: plan
+                    .ordered
+                    .iter()
+                    .flat_map(|item| item.languages.iter())
+                    .filter(|id| id.len() <= 128 && !id.contains('\0'))
+                    .cloned()
+                    .collect(),
                 surface_declarations: declarations,
                 additions,
                 targets,
@@ -1120,6 +1146,7 @@ mod tests {
                 sha256: None,
             },
             dependencies: BTreeSet::new(),
+            languages: BTreeSet::new(),
             events: BTreeSet::new(),
             unsupported_events: BTreeSet::new(),
             commands: BTreeMap::new(),

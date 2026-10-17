@@ -1,4 +1,5 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 const { Disposable, EventEmitter, Uri } = require('./api-types.cjs');
 const limits = Object.freeze({ channels: 32, status: 64, views: 8, children: 256, handles: 1024, updateBytes: 65536 });
 function text(value, max, name, empty = true) {
@@ -13,9 +14,12 @@ class TreeItem {
     this.collapsibleState = collapsibleState;
   }
 }
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [ThemeColor, TreeItem]) es5ClassCompat(value);
+
 const enums = Object.freeze({ StatusBarAlignment: Object.freeze({ Left: 1, Right: 2 }),
   TreeItemCollapsibleState: Object.freeze({ None: 0, Collapsed: 1, Expanded: 2 }), ThemeColor, TreeItem });
-function createSurfaces(notify, session, track, execute, assertOwner = () => {}) {
+function createSurfaces(notify, session, track, execute, assertOwner = () => {}, callers = {}) {
   const channels = new Map(), statuses = new Map(), views = new Map(), declared = new Map();
   let sequence = 0, treeCallbackPending = false;
   function send(owner, id, op, data = {}) {
@@ -109,10 +113,11 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
     if (!declared.get(owner)?.has(id)) throw new Error(`Tree view is not contributed by ${owner}: ${id}`);
     if (views.has(id)) throw new Error(`Tree view is already registered: ${id}`);
     if (views.size >= limits.views) throw new Error('Tree view limit reached');
-    if (!options || !options.treeDataProvider || typeof options.treeDataProvider.getChildren !== 'function' || typeof options.treeDataProvider.getTreeItem !== 'function') throw new TypeError('Invalid tree provider');
+    const provider = callers.bindProvider?.(owner, options?.treeDataProvider) ?? options?.treeDataProvider;
+    if (!provider || typeof provider.getChildren !== 'function' || typeof provider.getTreeItem !== 'function') throw new TypeError('Invalid tree provider');
     if (options.canSelectMany || options.dragAndDropController || options.manageCheckboxStateManually) throw new Error('Native trees currently support single selection without drag/drop/checkboxes');
     const changed = new EventEmitter(), expanded = new EventEmitter(), collapsed = new EventEmitter(), selected = new EventEmitter();
-    const state = { owner, id, provider: options.treeDataProvider, generation: ++sequence, handles: new Map(), elements: new Map(), identifiers: new Map(),
+    const state = { owner, id, provider, generation: ++sequence, handles: new Map(), elements: new Map(), identifiers: new Map(),
       next: 0, title: declared.get(owner).get(id), description: '', message: '', visible: false, selection: [], disposed: false };
     views.set(id, state);
     function publish() { send(owner, id, 'tree', { title: state.title, description: state.description, message: state.message, generation: state.generation }); }
@@ -133,7 +138,10 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
       send(owner, id, 'treeDispose');
     });
     const view = { dispose: () => disposable.dispose(), get visible() { return state.visible; }, get selection() { return state.selection.slice(); },
-      onDidChangeVisibility: changed.event, onDidExpandElement: expanded.event, onDidCollapseElement: collapsed.event, onDidChangeSelection: selected.event,
+      onDidChangeVisibility: callers.bindEvent?.(owner, changed.event) ?? changed.event,
+      onDidExpandElement: callers.bindEvent?.(owner, expanded.event) ?? expanded.event,
+      onDidCollapseElement: callers.bindEvent?.(owner, collapsed.event) ?? collapsed.event,
+      onDidChangeSelection: callers.bindEvent?.(owner, selected.event) ?? selected.event,
       reveal() { return Promise.reject(new Error('Native tree reveal/getParent navigation is not implemented')); } };
     state.events = { changed, expanded, collapsed, selected };
     for (const key of ['title', 'description', 'message']) Object.defineProperty(view, key, {
@@ -154,7 +162,11 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
     // A caller timeout, refresh or disposal cannot cancel extension promises.
     // Retain one shared slot until the actual callback chain has settled.
     treeCallbackPending = true;
-    try { return await loadTreeChildren(params, view); }
+    try {
+      // Scope extension-returned Thenables and item getters, but leave this
+      // actual-slot finally outside that lease so retirement cannot suppress it.
+      return await (callers.invokeProviderResult ? callers.invokeProviderResult(view.provider, () => loadTreeChildren(params, view)) : loadTreeChildren(params, view));
+    }
     finally { treeCallbackPending = false; }
   }
   async function loadTreeChildren(params, view) {

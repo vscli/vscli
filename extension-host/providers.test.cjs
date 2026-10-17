@@ -32,14 +32,15 @@ test('completion invocation translates bounded trigger contexts and rejects inva
   assert.equal(seen.length, 3); assert.equal(providers.pendingCount(), 0);
 });
 
-test('provider selectors score exact languages/schemes and reject unsupported filters explicitly', () => {
+test('provider selectors score exact languages/schemes and patterns while rejecting bounds', () => {
   const { document } = fixture();
   assert.equal(score(selector('cpp'), document), 10);
   assert.equal(score(selector('*'), document), 5);
   assert.equal(score(selector([{ language: 'rust' }, { language: '*', scheme: 'file' }]), document), 10);
   assert.equal(score(selector({ language: 'cpp', scheme: 'untitled' }), document), 0);
   assert.equal(score(selector({}), document), 0);
-  assert.throws(() => selector({ language: 'cpp', pattern: '**/*.cpp' }), /language and scheme/);
+  assert.equal(score(selector({ language: 'cpp', pattern: '**/*.cpp' }), document), 10);
+  assert.equal(score(selector({ language: 'cpp', pattern: '**/*.rs' }), document), 0);
   assert.throws(() => selector(Array(33).fill('cpp')), /32 entries/);
 });
 
@@ -122,7 +123,7 @@ test('hover, locations, formatting, hierarchical symbols and signatures convert 
   const signature = new types.SignatureInformation('f(猫,🙂)'); signature.parameters = [new types.ParameterInformation([2, 3]), new types.ParameterInformation([4, 6])];
   const help = new types.SignatureHelp(); help.signatures = [signature]; help.activeParameter = 1;
   assert.equal(normalize('signature', help, document).signatures[0].parameters[1].label[1], 6);
-  assert.throws(() => normalize('definition', new types.Location(Uri.parse('https://example.com'), range), document), /local file/);
+  assert.equal(normalize('definition', new types.Location(Uri.parse('https://example.com'), range), document)[0].uri, 'https://example.com/');
   assert.throws(() => normalize('formatting', [types.TextEdit.insert(new Position(0, 2), 'x')], document), /splits UTF-16/);
   assert.throws(() => normalize('hover', new types.Hover(Object.assign(new types.MarkdownString('x'), { isTrusted: true })), document), /Trusted/);
 });
@@ -154,8 +155,9 @@ test('late cancellation listeners run once asynchronously and remain disposable'
   const source = new types.CancellationTokenSource(parent.token); let observed = 0;
   source.token.onCancellationRequested(() => observed++);
   const discarded = source.token.onCancellationRequested(() => observed += 100); discarded.dispose();
-  assert.equal(observed, 0); assert.equal(source.token.isCancellationRequested, true);
-  await new Promise(done => setTimeout(done, 5)); assert.equal(observed, 1);
+  assert.equal(observed, 0); assert.equal(source.token.isCancellationRequested, false);
+  await new Promise(done => setTimeout(done, 5));
+  assert.equal(source.token.isCancellationRequested, true); assert.equal(observed, 1);
   source.dispose(); parent.dispose();
 });
 
@@ -287,5 +289,37 @@ test('completion normalization getters cannot publish retired lists or resolved 
     }
     assert.equal(retired, true); assert.equal(providers.retainedCompletionCount(), 0);
     assert.equal(providers.pendingCount(), 0);
+  }
+});
+
+
+test('formatting and completion reject EOL, snippet and annotated edits without partial results', () => {
+  const { document } = fixture(), selected = new Range(0, 1, 0, 3);
+  const ordinary = types.TextEdit.replace(selected, 'valid');
+  const annotated = types.TextEdit.replace(selected, 'annotated'); annotated.annotationId = 'review';
+  for (const unsupported of [types.TextEdit.setEndOfLine(2), annotated, types.SnippetTextEdit.replace(selected, new types.SnippetString('$1'))]) {
+    assert.throws(() => normalize('formatting', [ordinary, unsupported], document), /unsupported|Unsupported/);
+    assert.throws(() => normalize('completion', [{ label: 'unsafe', textEdit: unsupported }], document), /unsupported|Unsupported/);
+    assert.throws(() => normalize('completion', [{ label: 'unsafe', additionalTextEdits: [ordinary, unsupported] }], document), /unsupported|Unsupported/);
+  }
+  assert.equal(document.getText(), '猫🙂x\r\nsecond'); assert.equal(document.version, 3); assert(document.isDirty);
+});
+
+test('completion captures one edit and one primitive text value for both insertion representations', () => {
+  const { document } = fixture(); let editReads = 0, textReads = 0;
+  const value = { range: new Range(0, 1, 0, 3), get newText() { textReads++; return textReads === 1 ? 'same' : 'torn'; } };
+  const item = { label: 'single', get textEdit() { editReads++; return editReads === 1 ? value : types.TextEdit.setEndOfLine(2); } };
+  const result = normalize('completion', [item], document).items[0];
+  assert.equal(editReads, 1); assert.equal(textReads, 1);
+  assert.equal(result.insertText, 'same'); assert.equal(result.textEdit.newText, 'same');
+});
+
+test('edit constructors and enums retain shared identity across extension facades', () => {
+  const { createApi } = require('./api.cjs');
+  const values = require('./edit-values.cjs');
+  const runtime = createApi(() => {}, () => {}, { session: 7 });
+  for (const api of [runtime.api, runtime.forExtension('edit.identity')]) {
+    for (const name of ['TextEdit', 'WorkspaceEdit', 'SnippetTextEdit', 'NotebookEdit', 'NotebookRange', 'NotebookCellData', 'NotebookData', 'NotebookCellKind', 'EndOfLine']) assert.equal(api[name], values[name], name);
+    assert.equal(api.EndOfLine[2], 'CRLF'); assert.equal(api.NotebookCellKind[1], 'Markup');
   }
 });

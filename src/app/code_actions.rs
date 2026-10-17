@@ -90,7 +90,7 @@ impl App {
         }
         if let Some(command) = command {
             let client = self.lsp.as_mut().context("Language server disconnected")?;
-            client.sync(&self.documents)?;
+            client.sync_retained(&self.documents, &self.hidden_documents)?;
             let token = client.execute_action_command(request, json!({
                 "command":command["command"], "arguments":command.get("arguments").cloned().unwrap_or_else(|| json!([]))
             }))?;
@@ -115,6 +115,7 @@ impl App {
                     document: snapshot.id,
                     revision: snapshot.revision,
                     text_epoch: snapshot.text_epoch,
+                    resource_epoch: snapshot.resource_epoch,
                     version: WorkspaceVersion::Native(snapshot.version),
                 })
             })
@@ -142,6 +143,7 @@ impl App {
                         id: target.document,
                         revision: target.revision,
                         text_epoch: target.text_epoch,
+                        resource_epoch: target.resource_epoch,
                         version,
                     },
                 )

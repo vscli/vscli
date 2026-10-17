@@ -16,7 +16,7 @@ def fixture(root):
     extension.mkdir()
     manifest = {'publisher': 'fixture', 'name': 'documents', 'version': '1.0.0', 'main': 'extension.cjs',
                 'contributes': {'commands': [{'command': 'documents.' + name, 'title': 'Document service ' + name}
-                                            for name in ('show', 'edit', 'state', 'crash')],
+                                            for name in ('show', 'edit', 'state', 'crash', 'close', 'reopen')],
                                 'views': {'explorer': [{'id': 'documents.hiddenTree', 'name': 'Hidden Document Mirror'}]}}}
     (extension / 'package.json').write_text(json.dumps(manifest))
     (extension / 'extension.cjs').write_text(r"""
@@ -24,9 +24,18 @@ const vscode=require('vscode'); const assert=require('node:assert/strict');
 exports.activate=async context=>{
  let opened;
  vscode.workspace.onDidOpenTextDocument(doc=>{opened=doc; assert.equal(vscode.window.activeTextEditor,undefined);});
- const doc=await vscode.workspace.openTextDocument(vscode.Uri.file(require('node:path').join(vscode.workspace.rootPath,'input.txt')));
+ const same=await Promise.all([vscode.workspace.openTextDocument(vscode.Uri.file(require('node:path').join(vscode.workspace.rootPath,'input.txt'))),vscode.workspace.openTextDocument('input.txt')]);
+ assert.equal(same[0],same[1]);const doc=same[0];
  assert.equal(opened,doc); assert.equal(vscode.window.activeTextEditor,undefined); assert.deepEqual(vscode.window.visibleTextEditors,[]);
  assert.equal(doc.getText(),'α😀\r\nsecond');
+ // Fill all eight native request slots before yielding to IO. A cached reopen
+ // must return the original model without needing a ninth native service slot.
+ const missing=Array.from({length:8},(_,i)=>vscode.workspace.openTextDocument(require('node:path').join(vscode.workspace.rootPath,'missing-cache-'+i+'.txt')));
+ const settling=Promise.allSettled(missing);
+ assert.equal(await vscode.workspace.openTextDocument('input.txt',{encoding:'utf8'}),doc);
+ assert.equal(await vscode.workspace.openTextDocument(vscode.Uri.file(require('node:path').join(vscode.workspace.rootPath,'input.txt'))),doc);
+ assert((await settling).every(result=>result.status==='rejected'));
+ assert.equal(opened,doc);assert.equal(vscode.workspace.textDocuments.length,1);
  let closed=0;context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(value=>{if(value===doc)closed++;}));
  function checkHidden(){assert.equal(closed,0);assert.equal(doc.isClosed,false);assert(vscode.workspace.textDocuments.includes(doc));}
  const output=vscode.window.createOutputChannel('Hidden document output');output.appendLine('Hidden document mirror retained');output.show(true);
@@ -47,6 +56,17 @@ exports.activate=async context=>{
   await vscode.commands.executeCommand('redo'); assert.equal(doc.getText(),'α😀\r\ndirty second');
   await vscode.window.showInformationMessage('native edit undo redo observed');
  });
+ register('close',async()=>{
+  assert(await vscode.window.tabGroups.close(vscode.window.tabGroups.activeTabGroup.activeTab));
+  checkHidden();assert.equal(vscode.window.activeTextEditor,undefined);
+  assert.equal(doc.getText(),'α😀\r\nsecond');
+  await vscode.window.showInformationMessage('native tab closed document retained');
+ });
+ register('reopen',async()=>{
+  const same=await vscode.workspace.openTextDocument('input.txt');assert.equal(same,doc);
+  const editor=await vscode.window.showTextDocument(same,{preview:false});assert.equal(editor.document,doc);checkHidden();
+  await vscode.window.showInformationMessage('native retained document reopened');
+ });
  register('state',async()=>{
   checkHidden();
   await context.workspaceState.update('marker','local');
@@ -66,7 +86,7 @@ def run(root):
     config, recovery = root / 'config', root / 'recovery'
     args = ('--config-dir', config, '--recovery-dir', recovery, '--no-session')
     app = Editor(root, *args, '--extension', extension, recovery=True, enhanced=True)
-    wait(app, '(4 commands)')
+    wait(app, '(6 commands)')
     wait(app, 'No open editors')
     # Activation assertions verify onDidOpen fired before the promise and both
     # active/visible editors remained empty despite the loaded hidden model.
@@ -85,8 +105,22 @@ def run(root):
     wait(app, 'No open editors')
     command(app, 'Document service show')
     wait(app, 'native shown same identity')
+    command(app, 'Document service close')
+    wait(app, 'native tab closed document retained')
+    wait(app, 'No open editors')
+    command(app, 'Document service reopen')
+    wait(app, 'native retained document reopened')
     command(app, 'Document service edit')
     wait(app, 'native edit undo redo observed')
+    command(app, 'Document service close')
+    wait(app, 'Save changes')
+    app.send(b'd')
+    wait(app, 'native tab closed document retained')
+    wait(app, 'No open editors')
+    command(app, 'Document service reopen')
+    wait(app, 'native retained document reopened')
+    app.send(CTRL_Z)
+    wait(app, 'dirty second')
     assert file.read_bytes().decode() == original
     command(app, 'Document service crash')
     wait(app, 'Extension host stopped')
@@ -107,9 +141,9 @@ def run(root):
     recovered.send(CTRL_Z)
     save(recovered, file, original)
     recovered.finish()
-    print('PASS: welcome hidden open → output/status/tree mirror preservation → shared identity show → delegated undo/redo → host crash → dirty recovery/save/undo')
+    print('PASS: hidden open/cache → eight busy slots → clean tab close/reopen → dirty discard/reopen/Undo → shared identity → host crash/recovery/save/undo')
     restarted = Editor(root, *args, '--extension', extension, recovery=True, enhanced=True)
-    wait(restarted, '(4 commands)')
+    wait(restarted, '(6 commands)')
     wait(restarted, 'No open editors')
     command(restarted, 'Document service state')
     wait(restarted, 'native launches=2 workspace=local')

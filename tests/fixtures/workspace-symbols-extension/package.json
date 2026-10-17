@@ -1,0 +1,23 @@
+{
+  "publisher":"fixture","name":"workspace-symbols","version":"1.0.0","main":"extension.cjs",
+  "contributes":{"commands":[
+    {"command":"workspaceSymbols.queryZero","title":"Workspace symbols query zero editors"},
+    {"command":"workspaceSymbols.prepare","title":"Workspace symbols prepare shared targets"},
+    {"command":"workspaceSymbols.source","title":"Workspace symbols show source"},
+    {"command":"workspaceSymbols.target","title":"Workspace symbols verify resolved target"},
+    {"command":"workspaceSymbols.hidden","title":"Workspace symbols verify hidden target"},
+    {"command":"workspaceSymbols.targetUndo","title":"Workspace symbols verify target Undo"},
+    {"command":"workspaceSymbols.targetRedo","title":"Workspace symbols verify target Redo"},
+    {"command":"workspaceSymbols.sourceUndo","title":"Workspace symbols verify source Undo"},
+    {"command":"workspaceSymbols.sourceRedo","title":"Workspace symbols verify source Redo"},
+    {"command":"workspaceSymbols.armList","title":"Workspace symbols arm held list"},
+    {"command":"workspaceSymbols.armResolve","title":"Workspace symbols arm held resolve"},
+    {"command":"workspaceSymbols.release","title":"Workspace symbols release actual callback"},
+    {"command":"workspaceSymbols.dispose","title":"Workspace symbols dispose held provider"},
+    {"command":"workspaceSymbols.capacity","title":"Workspace symbols hold capacity"},
+    {"command":"workspaceSymbols.capacityOverflow","title":"Workspace symbols verify capacity overflow"},
+    {"command":"workspaceSymbols.capacityRelease","title":"Workspace symbols release capacity"},
+    {"command":"workspaceSymbols.indexReady","title":"Workspace symbols verify hidden indexing"},
+    {"command":"workspaceSymbols.indexed","title":"Workspace symbols verify accepted index"}
+  ]}
+}

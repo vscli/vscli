@@ -27,6 +27,7 @@ struct ModelProof {
     index: usize,
     document: u64,
     path: Option<PathBuf>,
+    resource_epoch: u64,
     revision: u64,
     epoch: u64,
     saved_revision: u64,
@@ -40,6 +41,7 @@ impl ModelProof {
             index,
             document: doc.id,
             path: doc.path.clone(),
+            resource_epoch: doc.resource_epoch(),
             revision: doc.revision,
             epoch: doc.text_epoch(),
             saved_revision: doc.saved_revision,
@@ -55,6 +57,7 @@ impl ModelProof {
         pool.get(self.index).is_some_and(|doc| {
             doc.id == self.document
                 && doc.path == self.path
+                && doc.resource_epoch() == self.resource_epoch
                 && doc.revision == self.revision
                 && doc.text_epoch() == self.epoch
                 && doc.saved_revision == self.saved_revision
@@ -367,6 +370,11 @@ impl App {
                 .try_reserve(1)
                 .context("Cannot reserve preview model storage")?;
         }
+        // Replacement can remove an API-referenced preview's last membership.
+        // Reserve native hidden storage before committing the layout change.
+        if let Some((member, _)) = &admission.replacement {
+            self.prepare_api_tab_retention(member.document)?;
+        }
         // Every fallible admission/configuration check is now complete. There is
         // no callback, await, I/O or further fallible edit until Change applies.
         let change = self.commit_preview_open(admission)?;
@@ -388,7 +396,7 @@ impl App {
                     .position(|doc| doc.id == member.document)
             {
                 // Only the exact safe preview authorized above can be removed.
-                self.documents.remove(index);
+                self.remove_or_retain_api_document(index);
             }
         }
         self.active = self

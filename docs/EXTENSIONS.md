@@ -1,5 +1,30 @@
 # Extension installation and experimental host
 
+Selected extensions can now subscribe to `workspace.onDidCreateFiles`,
+`onDidRenameFiles` and `onDidDeleteFiles` for completed native Explorer operations.
+File/folder creation, rename and system-trash deletion publish public Uri payloads
+after document mirrors. Watcher notifications remain independent; will-operation
+participants now have a native text/review path; bulk resource edits still need
+their public backend. See
+[file operation events](FILE_OPERATION_EVENTS_API.md).
+
+Selected editor extensions can now subscribe to all three public will-file
+events. Native preflight, configured timeout, review/confirmation and grouped
+ordinary-text application run before original Explorer effects. Unsupported
+selected edit kinds refuse the entire additional selection visibly. See
+[native participant behavior and limits](NATIVE_FILE_PARTICIPANTS.md).
+
+Specialized native coordinator developers can opt in to the
+[participant transport](FILE_PARTICIPATION_TRANSPORT.md). This library boundary
+has actual selected-extension tests; it is not an editor setting or CLI mode.
+
+**F1 → Reset choice for 'File operation needs preview'** now resets the native
+profile's remembered preview policy. Extensions can invoke the same stable
+`files.participants.resetChoice` command with no arguments and no open editor.
+The native [review/preferences model](FILE_EDIT_REVIEW.md) retains complete edit
+payloads and now feeds the editor's text/review workflow. Full ordered resource,
+snippet, EOL and notebook application remains required.
+
 VSCLI now has an optional CommonJS extension process. It is an independent, original compatibility shim; the Rust executable remains the owner of native buffers, rendering, input, and persistence. This is an experiment toward the full extension requirement, not completion of that requirement.
 
 ## Installing and managing packages
@@ -99,19 +124,128 @@ F1 lists registered commands. Manifest keybindings retain their original combina
 
 ## Native documents, commands and persistent state
 
-`workspace.openTextDocument(pathOrFileUri)` reads an existing regular UTF-8 file on a bounded native worker. It returns the same shared document object already retained for that path, including dirty or deleted backing files. Opening a new model alone creates no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden models share the host's existing 4 MiB total mirror budget with visible tabs. Models remain native-owned after host stop or failure. Showing or natively opening one moves its Document identity and undo history into the tab store; native watching and settings also include retained hidden models. Dirty hidden models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean hidden models are excluded from clean-session layout metadata.
+Visible `TextEditor` handles additionally expose native options and measured
+visible ranges with scoped change events. Option assignment changes shared
+indentation or the addressed pane's cursor/line-number style. `revealRange` scrolls
+that pane without changing focus or selections; unknown viewport dimensions stay
+unknown until a native frame measures them. API changes are ephemeral rather than
+settings-file writes. See [editor presentation](EDITOR_PRESENTATION_API.md) for
+auto detection, coercion, bounds, terminal shape mappings and executed evidence.
 
-`window.showTextDocument(documentOrFile, options)` displays the model in the active native editor group. The implemented options are `selection` (a strictly validated UTF-16 Range), `preview: false`, `preserveFocus: false`, and `viewColumn: ViewColumn.Active`. Omitted options use a permanent tab in the active group. Unsupported options reject before opening a file or changing focus. Selection applies only to the target view; other shared pane selections remain intact. Untitled content/language overloads, other URI schemes, preview tabs, preserve-focus behavior, positional view-column overloads, and separate extension editor handles for every pane remain unsupported.
+`window.createTextEditorDecorationType` and `TextEditor.setDecorations` add
+independent range styles to each visible pane, including shared-file panes.
+Foreground/background, bold, italic, underline, strike-through and whole-line
+backgrounds render natively. Empty setters clear the addressed type; disposal and
+editor/creator retirement remove its display authority. Decorations follow real
+edits and Undo/Redo without creating history entries or changing saved bytes.
+Hover/attachments, gutter images, overview rulers and richer CSS remain display
+gaps. See [decoration behavior, bounds and evidence](EDITOR_DECORATIONS_API.md).
+
+`TextEditor.insertSnippet(snippet, where?, options?)` targets the exact visible
+editor, including an inactive shared pane, and native insertion focuses that pane.
+Omitted/falsy locations or `[]` use its private selections; positions/ranges and
+arrays supply explicit targets. Omitted options default both undo flags true;
+when an options object is supplied, missing flags are false. `keepWhitespace`
+defaults false. The guarded native receipt follows mirror/events; the host never
+inserts simulated text. Seventeen focused host cases, all 617 host tests, 1,279
+Rust all-target tests, four actual selected-host/App workflows and four new
+terminal journeys pass. See [editor snippets](EDITOR_SNIPPETS_API.md)
+for byte/range/mirror limits, clipboard workers and remaining choice/nesting gaps.
+
+`window.tabGroups` exposes actual native groups and all their text tabs, including
+inactive tabs and separate shared-document memberships. Frozen public objects and
+getter arrays retain identity through ordinary metadata updates; tab/group events
+follow document/editor mirror publication. `close` supports tabs, groups and
+homogeneous arrays, using real Save/Discard/Cancel and untitled Save As. Tab
+preserveFocus restores the original surviving group; the pinned upstream group
+close ignores that flag. Welcome retains one actual empty group. All seven stable
+TabInput constructors are exported; diff, custom editor, webview, notebook and
+terminal tab backends remain outstanding. See [tab behavior and evidence](EDITOR_TABS_API.md).
+
+`workspace.openTextDocument(pathOrFileUri)` returns an already mirrored file
+directly, preserving the shared document object and current dirty text without
+another native request or reference acquisition. Relative paths resolve against
+the private workspace root; file URI matches use captured private geometry.
+These cached opens consume no native request slot and emit no duplicate open
+event. Canonical aliases still require native path resolution; URI query and
+fragment namespaces are not guessed equivalent. A cache miss reads an existing
+regular UTF-8 file on a bounded native worker. Opening a new model alone creates
+no tab, pane or active editor; the welcome screen remains empty. Up to 16 hidden
+models share the host's existing 4 MiB total mirror budget with visible tabs.
+Models remain native-owned after host stop or failure. Showing or natively
+opening one moves its Document identity and undo history into the tab store;
+native watching and settings also include retained hidden models. Dirty hidden
+models join crash recovery and the ordinary Save/Discard/Cancel exit flow; clean
+hidden models are excluded from clean-session layout metadata.
+
+A genuine native file, untitled or readonly virtual open acquires a reference
+shared by the extension-host session. Each acquisition expires independently
+after three minutes; cached opens and showing a document preserve its original
+lifetime. Closing the last tab or replacing a preview keeps a referenced model
+hidden with the same public document, native identity and history. Expiry and
+host stop/crash/replacement release API ownership; dirty/history, editor and
+pending-worker ownership can keep the model alive. Discard on a retained file
+reads the current disk on a joined background worker before reverting and closing
+the tab. Changed text/settings/membership or a failed read preserves original
+work. Native Undo can restore accepted discarded edits. Untitled Discard releases
+only its original model/resource references. See [reference behavior and remaining
+qualification](../src/document_references/README.md).
+
+`window.showTextDocument(documentOrFile, options)` and its positional view-column
+overload display the retained model in native groups. Supported options include
+`selection` (a strictly validated UTF-16 Range), `preview: false`, boolean
+`preserveFocus`, and `viewColumn` Active/Beside, existing columns 1–4 or the next
+reachable column. Beside reuses a right-hand group or creates one; preserveFocus
+retains the original group/focus and returns the actual shown editor. Omitted
+options use a permanent tab in the active group. Selection applies only to the
+target view. Separate public editor handles share document identity and history
+across panes, and inactive visible editors can receive selections. Preview tabs,
+sparse columns requiring empty groups and configured downward Beside placement
+remain unsupported. See [editor inventory](EDITOR_INVENTORY_API.md) for bounds,
+lifetime/event behavior and qualification, and [untitled documents](UNTITLED_DOCUMENTS_API.md)
+for content/language opens.
 
 Extensions may delegate these native commands without arguments: `undo`, `redo`, `editor.action.selectAll`, `cursorLeft`, `cursorRight`, `cursorUp`, `cursorDown`, `cursorHome`, `cursorEnd`, `cursorTop` and `cursorBottom`. The focused native editor is required. Native mirror updates precede acknowledgements and promise callbacks. Other built-in commands, including task/shell execution and save, explicitly reject through this API; native UI commands remain available normally.
 
-Document, command and storage services use a shared eight-request FIFO and one occupied filesystem worker. Requests expire after three seconds; canceled work retains its slot until the worker actually finishes. Document operations capture both visible and hidden identities, text epochs/revisions, paths, selections, pane layout, focus, workspace and interaction epoch. A newer context rejects a late result without changing text or editor selection. At most 128 retained models participate in a document service request. Existing native input and prompts take precedence; extensions should await requests and retry a reported stale-context rejection deliberately.
+`await document.save()` saves that retained local or untitled model through native persistence, including inactive/hidden documents. True follows shared mirror publication and `onDidSaveTextDocument`; native Save As cancellation returns false. External conflicts, closed documents, retired callers and ambiguous outcomes reject. Saving preserves focus, shared identity and Undo/Redo; text entered after authorization remains dirty. See [save behavior, deadlines and evidence](NATIVE_DOCUMENT_SAVE.md). Virtual/custom filesystem saves and full upstream save participants remain outstanding.
+
+`workspace.applyEdit` supports atomic text and explicit EOL transactions across retained local, untitled and unopened local models, with all mirror/change publications before true and grouped native Undo/Redo. Hidden targets retain their identity and do not gain tabs. Plain edits do not persist files. Multi-resource refactoring metadata uses the root `files.refactoring.autoSave` policy and native save continuation. File/snippet/annotation/notebook and custom-resource backends remain pending. See [workspace edits](NATIVE_WORKSPACE_EDITS.md), including EOL conversion bounds.
+
+Document, command and storage services use a shared eight-request FIFO within an 8 MiB payload budget. Ordinary services use one occupied filesystem worker and expire after three seconds; canceled work retains its slot until the worker actually finishes. Those document operations capture both visible and hidden identities, text epochs/revisions, paths, selections, pane layout, focus, workspace and interaction epoch. A newer context rejects a late result without changing text or editor selection. Workspace text transactions use an actual joined preparation worker, target-specific original proofs and a five-second absolute deadline; navigation alone does not invalidate them. Save uses the existing independent native persistence worker, specific-model proof, a 300-second Save As human wait and a 360-second service/host acknowledgement envelope; timeout never frees an actually occupied save or proves that no write happened. At most 128 retained models participate in an ordinary document service request. Existing native input and prompts take precedence; extensions should await requests and retry a reported stale-context rejection deliberately.
 
 `ExtensionContext.globalState` and `workspaceState` support synchronous `get`/`keys` and asynchronous `update`; `undefined` deletes a key while JSON null remains a value. Pending updates are visible synchronously, and successful promises follow a native atomic commit. Failed patches remove their pending overlay and retain previously confirmed state. Values are captured as bounded JSON snapshots when update is called. Each extension has separate global and canonical-workspace state under the **native configuration root**, including when an imported profile is active. Initial values load on the startup worker before extension activation. An update is authorized against its exact command origin on receipt, then may finish after that command returns without being rebound to a newer command. Stop or replacement cancels pending writes before commit where possible; already committed state remains durable and replies go only to the current session. Concurrent instances lock, reread and merge individual key patches instead of replacing unrelated keys. Malformed existing state rejects activation or update while retaining the source bytes.
 
 State supports 1,024 keys and 256 KiB per scope, 1 KiB keys, 64 KiB new values, 10,000 JSON values and 32 nesting levels. Generated directories, payloads and locks reject symlinks/nonregular files. State writes grant no extension execution consent. A directory-sync error can be reported after replacement committed; power-loss durability and hostile filesystem races remain unqualified. SecretStorage, storage-URI APIs and `globalState.setKeysForSync` cloud synchronization are not implemented. See [storage integrity details](EXTENSION_STATE.md).
 
 Native and Node fixtures cover activation-time hidden open, event-before-promise ordering, exact document reuse, Unicode/CRLF selection validation, shared pane selection isolation, stale worker replies, bounded queues and malformed arguments, deleted-file alias reuse, dirty hidden recovery, Memento ownership/merging and scope isolation. Two Unix PTY journeys exercise empty welcome → hidden open → same-identity show → native undo/redo → host crash → interruption/recovery/save/undo, followed by persisted global/workspace state after restart. These are synthetic workflows; full document/Memento differential parity and a published extension corpus using these services remain unqualified.
+
+The cached-file continuation passes eight new host regressions and the complete
+727-test host suite. The two native document PTY journeys also pass, including
+reopening the same hidden file while all eight native request slots are busy,
+then editing, Undo/Redo, host crash, dirty recovery and unchanged original disk
+bytes until explicit save. Formatting and strict locked all-target Clippy pass.
+At that milestone shared misses and provider-resource cache qualification were unfinished; the current continuation below adds file sharing and resource-cache guards. Encoding reload and exact disposal/history archival remain outstanding. Native lifetime wiring now passes twenty App and
+two checked-reload controls, including three actual selected-host cases for
+unchanged cache deadlines, public expiry close/readable old documents and
+provider refresh without renewal. All 1,510 Rust tests pass (1,161 library;
+23 ignored); the document terminal journey also passes clean close/reopen and
+dirty Discard/reopen/Undo with the original public document.
+
+The current loader continuation returns any already mirrored matching resource
+before provider/backend routing, including a disposed provider's retained
+document. Private identity captured before argument getters prevents a replacement
+at the same URI from satisfying the old open. Concurrent file misses share one
+session-owned native read per original URI across extensions. The first caller
+is validated at admission; each waiter still validates its own original lifetime
+before returning the document. A retired first caller does not poison another
+live waiter. Eight actual lanes and 128 waiting callers bound the shared loader;
+timeout retains the entry and wire capacity until the exact terminal response.
+An operation refused before admission leaves no stuck URI entry. Native read
+workers retain their slot through real exit and joining. Seven new sharing tests,
+five new cached-resource tests, one retained-wire test, all 740 host tests and
+1,513 Rust tests pass (1,164 library; 23 ignored), plus formatting and strict
+locked all-target Clippy. Three document/provider terminal journeys pass on this
+continuation. The continuation below adds original admission for provider/untitled misses; encoding reload still needs its backend.
 
 ## Native output, status and tree surfaces
 
@@ -217,13 +351,23 @@ The API reference target for this initial experiment is VS Code 1.95.0; the expo
 - Native installed snippet contributions, independently of the optional host.
 - CommonJS `require('vscode')`, explicit eager activation of up to eight packages, owned command/event registrations, extension path/URI, and extension mode. Each package receives its own API facade over shared document objects and configuration. Bundled modules resolve their package facade; modules outside selected package directories that require `vscode` are unsupported.
 - Command registration/disposal/execution, contribution titles in the native palette, single-message notifications without choices, and the bounded native Quick Pick/Input Box subset described above.
-- Active editor and selections as read-only mirrors; synchronous document text, lines, UTF-16 position/offset conversion, ranges, selections, URIs, and document lifecycle/change events.
+- Visible/active editors with shared documents and independent pane handles; selection setters/events, resolved options/events, measured visible ranges/events and native revealRange. Synchronous document text, lines, UTF-16 position/offset conversion, ranges, URIs and document lifecycle/change events.
 - `TextEditor.edit` replace/insert/delete on open native buffers. Rust validates identity, version, UTF-16 boundaries, overlapping ranges, the 4,096-edit count limit, and size before one native undoable transaction. Stale requests resolve `false`; malformed transactions reject without partial changes.
+- `TextEditor.insertSnippet` has a private view-specific native bridge with retained acknowledgement and source/caller guards. Host/native and four new terminal workflows pass; see [the separate API contract](EDITOR_SNIPPETS_API.md).
 - A single workspace folder and configuration reads from extension-declared defaults, imported user settings, and workspace `.vscode/settings.json`, including language overrides, `inspect`, and live change events.
 
 Document versions increase across edits and undo/redo observations. Native text epochs detect intervening text changes even when edit followed by undo restores the same revision before one host poll; stale extension edits reject and the next mirror publishes a new version. Cursor-only updates still reuse cached text. State generations reject outdated document notifications. All mirrors are updated before document event callbacks run. Protocol v4 tags command registries and edits with their session and package owner and sends document text only for new or changed document revisions; selection, dirty-state, and path updates reuse cached text. Ordered state notifications precede edit acknowledgements, and the native baseline advances only after a message is queued successfully. Changed text still uses full snapshots rather than edit deltas; the total mirrored text budget is 4 MiB, transport frames are limited to 16 MiB, and pending requests and concurrent shim command calls are capped at 64 with a 30-second native timeout. An idle host receives a heartbeat every five seconds; a missing reply uses the same timeout. One process failure, stalled callback or timeout stops the entire selected cohort; restart remains explicit. Crossing a host limit stops or rejects extension work while preserving native buffers.
 
-Unsupported service APIs throw explicit errors. Browser-only packages, proposed APIs, providers beyond the seven language adapters, webviews, notebooks, custom editors, workspace edits, settings writes, SecretStorage/cloud synchronization, unsupported activation events, extension menus, and built-in commands outside the documented delegation list remain unsupported. Only the active editor is mirrored in `visibleTextEditors`; independent extension editor handles for split panes remain incomplete. Package engine ranges, native module ABI compatibility, and the full URI API are not yet validated. Local VSIX installation and rollback are implemented; native Open VSX registry workflows are described above.
+Unsupported service APIs throw explicit errors. Browser-only packages, proposed APIs,
+providers beyond the documented language adapters, webviews, notebooks, custom
+editors, richer workspace-edit backends, settings writes, SecretStorage/cloud
+synchronization, unsupported activation events, extension menus and built-in
+commands outside the documented delegation list remain unsupported. The standard
+App/CLI mirrors all visible native editors with independent split-pane handles;
+remaining editor APIs and presentation limits are tracked in
+[editor inventory](EDITOR_INVENTORY_API.md). Package engine ranges and native module
+ABI compatibility remain unqualified. Local VSIX installation and rollback are
+implemented; native Open VSX registry workflows are described above.
 
 ## Session limits and failure behavior
 
@@ -308,3 +452,21 @@ Enabled dormant commands/default bindings are available before Node starts. Nati
 Every declared dependency must be installed and separately enabled, or explicitly selected for the current run-once cohort. Dependencies activate first; missing/disabled dependencies and cycles reject before module evaluation. The eight-package cohort is cumulative: another event cannot silently evict an active package. `vscode.extensions` exposes only selected same-host packages; cached activation coalesces calls and keeps exports by reference inside Node. Native code starts no Node process until an enabled eligible closure contains code. A declarative-only event needs no runtime. Package engine compatibility and broad extension APIs remain unqualified.
 
 Disable retires the entire selected host if the effective disabled ID is selected. Stop/crash/start failure pauses automatic retry until explicit enable or restart; failed same-host packages remain failed until a cohort restart, while older active owners remain usable. A stop clears queued command dispatch and native prompts. This does not provide dependency installation, safe hot unloading, cross-host exports or full VS Code activation parity. Current evidence includes six native activation integrations, eight scheduler integrity/bounds regressions, Node dependency/export/failure tests, and three PTY workflows covering explicit remembered grants, missing dependency consent, exact Unicode edits/save/undo, disable/reaping/reopen, non-contributed command activation with dependency Input Box cancel/accept, and cancellation of deferred dispatch while native input/save remains responsive during held activation. Unchanged Sort Lines 1.12.0 (MIT, pinned `eaf02bb141f1853d571b1e97574c6857e80a727c`) is additionally qualified on Node 26.10.0: local VSIX install, CLI grant without starting Node, inferred command/F9 lazy activation, shared document identity, exact save and undo. The compiled upstream emits literal LF replacement text; this native path saves that text and undo restores the original CRLF bytes. TextEditorEdit normalization to the document EOL, and broad VS Code EOL parity, remain unqualified. The source files are checked byte-for-byte unchanged.
+
+## Full API implementation priority
+
+The [full extension API workstream](EXTENSION_API.md) tracks current implementation
+and evidence. The [retained broad todo](FEATURE_TODO.md) places complete stable API
+compatibility first and final CI/release qualification after feature work.
+
+Generated-document loads now receive native customer admission before invoking
+a content provider or creating untitled text. The original one-use ticket binds
+resource, kind, session and settings to an absolute 60-second deadline; completion
+never renews it or reacquires a stopped consumer. Virtual and explicit untitled
+URI misses share their work; fresh noarg/options creations remain distinct.
+Every caller still checks its own original lease and private model before
+receiving a document. Provider disposal rejects that provider's work; unused
+admissions cancel. Publication timeout holds the original shared entry until
+its actual typed native reply, preventing duplicate work from a premature retry.
+All 748 host tests, 1,519 Rust tests and four selected untitled/provider terminal
+journeys pass. Broader backends, timing and full extension parity remain open.

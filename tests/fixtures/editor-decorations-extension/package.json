@@ -1,0 +1,17 @@
+{
+  "publisher":"fixture","name":"editor-decorations","version":"1.0.0","main":"extension.cjs",
+  "contributes":{"commands":[
+    {"command":"editorDecorations.shared","title":"Editor decorations shared styles"},
+    {"command":"editorDecorations.replace","title":"Editor decorations replace range"},
+    {"command":"editorDecorations.clear","title":"Editor decorations clear first"},
+    {"command":"editorDecorations.dispose","title":"Editor decorations dispose types"},
+    {"command":"editorDecorations.armStart","title":"Editor decorations arm native start edit"},
+    {"command":"editorDecorations.forcedInsert","title":"Editor decorations forced API insert"},
+    {"command":"editorDecorations.inserted","title":"Editor decorations verify insertion"},
+    {"command":"editorDecorations.dirty","title":"Editor decorations verify dirty history"},
+    {"command":"editorDecorations.clean","title":"Editor decorations verify clean history"},
+    {"command":"editorDecorations.retire","title":"Editor decorations retire second editor"},
+    {"command":"editorDecorations.reentrant","title":"Editor decorations reentrant source edit"},
+    {"command":"editorDecorations.reentrantUndo","title":"Editor decorations reentrant undo"}
+  ]}
+}

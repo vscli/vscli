@@ -1,6 +1,10 @@
 # VSCLI delivery and open source plan
 
-The current priority order and audited gaps are in [the parity and user experience plan](PARITY_PLAN.md). The milestone dates, Phase 0 program and initial backlog below are the original planning assumptions, not current delivery estimates or completion claims.
+The current feature-first backlog and full extension API priority are maintained
+in [FEATURE_TODO.md](FEATURE_TODO.md). Earlier audited gaps are in
+[the parity and user experience plan](PARITY_PLAN.md). The milestone dates, Phase 0
+program and initial backlog below are original planning assumptions, not current
+delivery estimates or completion claims.
 
 ## Release strategy
 

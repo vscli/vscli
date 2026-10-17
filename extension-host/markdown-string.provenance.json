@@ -1,0 +1,70 @@
+{
+  "upstream": "microsoft/vscode",
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "release": "1.141.0",
+  "license": "MIT",
+  "scope": "Source-derived MarkdownString wrapper/base append behavior; native display boundaries retained",
+  "qualification": "17 prepared tests; no Node/native/upstream execution by author",
+  "sources": [
+    {
+      "path": "LICENSE.txt",
+      "bytes": 1088,
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/LICENSE.txt"
+    },
+    {
+      "path": "src/vs/base/common/errors.ts",
+      "bytes": 9084,
+      "sha256": "4771945225f0689ea9feef5fcf148dc493791edaf8693d5e11b057ce4a8d0b6e",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/errors.ts"
+    },
+    {
+      "path": "src/vs/base/common/htmlContent.ts",
+      "bytes": 11113,
+      "sha256": "e73a6e7a9f3d312d2f0e652ddac66ad11e1dcb452885c5c6943a32d743ee5387",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/htmlContent.ts"
+    },
+    {
+      "path": "src/vs/base/common/iconLabels.ts",
+      "bytes": 3986,
+      "sha256": "8b6420cf996d4ab4a13b68e9446576462749b39ccdfede6b9ddccb8bccff29c6",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/iconLabels.ts"
+    },
+    {
+      "path": "src/vs/base/common/strings.ts",
+      "bytes": 92501,
+      "sha256": "41a86465c9bb64edc600a7950596c73aa71fd901568f3075b69e6865753587ab",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/strings.ts"
+    },
+    {
+      "path": "src/vs/base/common/themables.ts",
+      "bytes": 3457,
+      "sha256": "b0ca99912396a08c83efd070fd8ddfadc37e7debf798d1c87f36fcaa077de183",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/themables.ts"
+    },
+    {
+      "path": "src/vs/base/common/types.ts",
+      "bytes": 12847,
+      "sha256": "0a17b8d00093ff63b8387508fcacfe82dfb1838ddcc44bd8315eabfd48c32076",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/types.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypeConverters.ts",
+      "bytes": 155704,
+      "sha256": "d61eb0ecb7dd822fec63da45e49be1e0510985753adc83c8a35d7cf100b9f396",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypeConverters.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/markdownString.ts",
+      "bytes": 2711,
+      "sha256": "aaf1832518eb4adb568d0081564cdf6a4d64219de92ada4824224b335c3863ad",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/markdownString.ts"
+    },
+    {
+      "path": "src/vscode-dts/vscode.d.ts",
+      "bytes": 742274,
+      "sha256": "a4321528e86dcdcb8450287f2a263055c46a622119cdb186de85ac3b19ce9608",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.d.ts"
+    }
+  ]
+}

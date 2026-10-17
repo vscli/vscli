@@ -787,12 +787,17 @@ impl Document {
         // Do not clone cursor history, snippet state or generated pair tables
         // merely to throw them away: the bounded live cohort is all we copy.
         let state = ViewState {
+            editor_owner: std::sync::Arc::new(()),
             cursor: origin.cursor,
             anchor: origin.anchor,
             secondary: origin.secondary.clone(),
             top: origin.top,
             left: origin.left,
             desired_column: origin.desired_column,
+            line_numbers_override: copy_from.and(origin.line_numbers_override),
+            cursor_style_override: copy_from.and(origin.cursor_style_override),
+            explicit_viewport: copy_from.is_some() && origin.explicit_viewport,
+            decorations: super::decorations::Decorations::default(),
             cursor_history: Vec::new(),
             snippet: None,
             snippet_generation: origin.snippet_generation,

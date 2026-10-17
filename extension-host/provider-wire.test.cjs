@@ -7,7 +7,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 function frame(message) { const body = Buffer.from(JSON.stringify(message)); return Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`), body]); }
-async function harness(t, bundled = false) {
+async function harness(t, bundled = false, navigation = false) {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'vscli-provider-wire-'));
   fs.writeFileSync(path.join(folder, 'package.json'), JSON.stringify({ name: 'provider', publisher: 'test', version: '1', main: 'extension.cjs' }));
   fs.writeFileSync(path.join(folder, 'extension.cjs'), `
@@ -53,6 +53,18 @@ async function harness(t, bundled = false) {
       }, '.');
       context.subscriptions.push(registration);
       context.subscriptions.push(v.commands.registerCommand('provider.dispose', () => registration.dispose()));
+      if (${navigation}) {
+        const provider = name => ({ provideDefinition() {
+          v.window.showInformationMessage('navigation callback: ' + name);
+          return new v.Location(v.Uri.file('/winner-' + name + '.cpp'), new v.Range(0, 0, 0, 1));
+        }});
+        context.subscriptions.push(v.languages.registerDefinitionProvider({language: 'cpp', exclusive: true}, provider('cpp')));
+        context.subscriptions.push(v.languages.registerDefinitionProvider({language: '*', exclusive: true}, provider('wildcard')));
+        context.subscriptions.push(v.commands.registerCommand('provider.publicRust', async () => {
+          const results = await v.commands.executeCommand('vscode.executeDefinitionProvider', v.Uri.file('/other.rs'), new v.Position(0, 0));
+          return results.map(result => result.uri.path);
+        }));
+      }
     };
   `);
   const child = spawn(process.execPath, [path.join(__dirname, 'host.cjs')], { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -86,11 +98,12 @@ async function harness(t, bundled = false) {
     }; waiters.add(check); check();
   });
   const state = { generation: 1, documents: [{ id: 1, uri: 'file:///test.cpp', text: '猫🙂x\r\n', version: 3, languageId: 'cpp', isDirty: true }], active: 1, selections: [] };
+  if (navigation) state.documents.push({ id: 2, uri: 'file:///other.rs', text: 'rust\r\n', version: 3, languageId: 'rust', isDirty: true });
   send({ id: 1, method: 'initialize', params: { protocol: 4, session: 7, languageProviders: true, extensions: [{ id: 'test.provider', version: '1', path: folder }], root: folder, state, configuration: [] } });
   const initialized = await receive(message => message.id === 1); assert.equal(initialized.error, undefined);
   const provider = initialized.result.languageProviders[0]; assert.equal(provider.owner, 'test.provider');
   const params = { session: 7, owner: provider.owner, provider: provider.id, document: 1, version: 3, position: { line: 0, character: 3 } };
-  return { send, receive, params, state };
+  return { send, receive, params, state, providers: initialized.result.languageProviders, queued: messages };
 }
 test('host publishes activated providers and serves original edits with exact-owner cancellation', { timeout: 10000 }, async t => {
   const { send, receive, params } = await harness(t);
@@ -139,4 +152,32 @@ test('host resolves an original opaque completion through framed owner-scoped re
   await receive(message => message.id === 4);
   send({ id: 5, method: 'resolveLanguageCompletion', params: { ...params, origin: 2, handle } });
   assert.match((await receive(message => message.id === 5)).error.message, /Stale/);
+});
+
+test('framed native ranking and public queries share original exclusive order without invoking rank callbacks', { timeout: 10000 }, async t => {
+  const { send, receive, providers, queued } = await harness(t, false, true);
+  const navigation = providers.filter(provider => provider.type === 'definition');
+  assert.equal(navigation.length, 2);
+  const rank = { session: 7, type: 'definition', document: 1, version: 3, languageEpoch: 0 };
+  send({ id: 2, method: 'rankLanguageProviders', params: rank });
+  const initial = await receive(message => message.id === 2);
+  assert.equal(initial.error, undefined);
+  assert.deepEqual(initial.result, { providers: [{ id: navigation[0].id, owner: navigation[0].owner }] });
+  assert(!queued.some(message => message.method === 'message' || message.method === 'languageProviderReleased'));
+  // Refusing a stale candidate must not reorder the authoritative registry.
+  send({ id: 3, method: 'rankLanguageProviders', params: { ...rank, document: 2, languageEpoch: 1 } });
+  assert((await receive(message => message.id === 3)).error);
+  send({ id: 4, method: 'rankLanguageProviders', params: rank });
+  assert.deepEqual((await receive(message => message.id === 4)).result, initial.result);
+  // An actual public Rust query moves the wildcard exclusive to the front.
+  send({ id: 5, method: 'execute', params: { session: 7, owner: 'test.provider', command: 'provider.publicRust', args: [] } });
+  const publicResult = await receive(message => message.id === 5);
+  assert.equal(publicResult.error, undefined);
+  assert.deepEqual(publicResult.result, ['/winner-wildcard.cpp']);
+  assert.equal((await receive(message => message.method === 'message')).params.text, 'navigation callback: wildcard');
+  send({ id: 6, method: 'rankLanguageProviders', params: rank });
+  const after = await receive(message => message.id === 6);
+  assert.equal(after.error, undefined);
+  assert.deepEqual(after.result, { providers: [{ id: navigation[1].id, owner: navigation[1].owner }] });
+  assert(!queued.some(message => message.method === 'message' || message.method === 'languageProviderReleased'));
 });

@@ -117,6 +117,7 @@ impl Event {
 pub struct Metadata {
     pub package: Package,
     pub dependencies: BTreeSet<String>,
+    pub languages: BTreeSet<String>,
     pub events: BTreeSet<Event>,
     pub unsupported_events: BTreeSet<String>,
     pub commands: BTreeMap<String, String>,
@@ -210,6 +211,7 @@ impl Metadata {
                 events.insert(Event::Command(id.into()));
             }
         }
+        let mut contributed_languages = BTreeSet::new();
         let languages = &manifest["contributes"]["languages"];
         if !languages.is_null() {
             let values = languages
@@ -225,6 +227,7 @@ impl Metadata {
                 if id.is_empty() || id.len() > 1024 {
                     bail!("Invalid contributed language ID");
                 }
+                contributed_languages.insert(id.into());
                 events.insert(Event::Language(id.into()));
             }
         }
@@ -253,6 +256,7 @@ impl Metadata {
         Ok(Self {
             package: Package::installed(item),
             dependencies,
+            languages: contributed_languages,
             events,
             unsupported_events,
             commands,
@@ -368,6 +372,27 @@ mod tests {
         Metadata::installed(&Installed { id: id.into(), version: "1.0.0".into(),
             path: format!("/snapshot/{id}").into(), source: "fixture".into(), sha256: "hash".into(), compatibility: "fixture".into(),
             manifest: json!({"publisher":publisher,"name":name,"main":"main.cjs","extensionDependencies":dependencies}) }).unwrap()
+    }
+    #[test]
+    fn registered_languages_require_contributions_not_activation_events() {
+        let item = Installed {
+            id: "test.languages".into(),
+            version: "1.0.0".into(),
+            path: "/snapshot/test.languages".into(),
+            source: "fixture".into(),
+            sha256: "hash".into(),
+            compatibility: "fixture".into(),
+            manifest: json!({"publisher":"test","name":"languages","main":"main.cjs",
+                "activationEvents":["onLanguage:unregistered"],
+                "contributes":{"languages":[{"id":"registered"},{"id":"cpp"}]}}),
+        };
+        let metadata = Metadata::installed(&item).unwrap();
+        assert_eq!(
+            metadata.languages,
+            BTreeSet::from(["registered".into(), "cpp".into()])
+        );
+        assert!(metadata.matches(&Event::Language("unregistered".into())));
+        assert!(!metadata.languages.contains("unregistered"));
     }
     #[test]
     fn consent_defaults_disabled_and_workspace_override_does_not_change_global_state() {

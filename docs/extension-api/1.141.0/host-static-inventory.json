@@ -1,0 +1,3809 @@
+{
+  "classes": {
+    "CancellationSignal": {
+      "extends": null,
+      "location": {
+        "end_byte": 3477,
+        "end_line": 88,
+        "file": "current/extension-host/cancellation.cjs",
+        "line": 53,
+        "start_byte": 2312
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 2895,
+              "end_line": 69,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 54,
+              "start_byte": 2341
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "dispose": [
+          {
+            "location": {
+              "end_byte": 3475,
+              "end_line": 87,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 82,
+              "start_byte": 3307
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "disposed": [
+          {
+            "location": {
+              "end_byte": 2433,
+              "end_line": 57,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 57,
+              "start_byte": 2412
+            },
+            "mode": "instance_assignment"
+          },
+          {
+            "location": {
+              "end_byte": 3374,
+              "end_line": 84,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 84,
+              "start_byte": 3354
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "event": [
+          {
+            "location": {
+              "end_byte": 2890,
+              "end_line": 68,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 58,
+              "start_byte": 2439
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "fire": [
+          {
+            "location": {
+              "end_byte": 3304,
+              "end_line": 81,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 70,
+              "start_byte": 2898
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "listeners": [
+          {
+            "location": {
+              "end_byte": 2387,
+              "end_line": 55,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 55,
+              "start_byte": 2361
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "next": [
+          {
+            "location": {
+              "end_byte": 2406,
+              "end_line": 56,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 56,
+              "start_byte": 2393
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "CancellationSignal"
+    },
+    "CancellationTokenSource": {
+      "extends": null,
+      "location": {
+        "end_byte": 5480,
+        "end_line": 151,
+        "file": "current/extension-host/cancellation.cjs",
+        "line": 132,
+        "start_byte": 4852
+      },
+      "members": {
+        "cancel": [
+          {
+            "location": {
+              "end_byte": 5263,
+              "end_line": 144,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 141,
+              "start_byte": 5131
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 5028,
+              "end_line": 136,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 133,
+              "start_byte": 4886
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "dispose": [
+          {
+            "location": {
+              "end_byte": 5478,
+              "end_line": 150,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 145,
+              "start_byte": 5266
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "token": [
+          {
+            "location": {
+              "end_byte": 5128,
+              "end_line": 140,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 137,
+              "start_byte": 5031
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "CancellationTokenSource"
+    },
+    "CodeAction": {
+      "extends": null,
+      "location": {
+        "end_byte": 1196,
+        "end_line": 11,
+        "file": "current/extension-host/code-action-types.cjs",
+        "line": 11,
+        "start_byte": 1085
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 1194,
+              "end_line": 11,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 11,
+              "start_byte": 1104
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "kind": [
+          {
+            "location": {
+              "end_byte": 1191,
+              "end_line": 11,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 11,
+              "start_byte": 1175
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "title": [
+          {
+            "location": {
+              "end_byte": 1149,
+              "end_line": 11,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 11,
+              "start_byte": 1131
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "CodeAction"
+    },
+    "CodeActionKind": {
+      "extends": null,
+      "location": {
+        "end_byte": 559,
+        "end_line": 8,
+        "file": "current/extension-host/code-action-types.cjs",
+        "line": 3,
+        "start_byte": 65
+      },
+      "members": {
+        "append": [
+          {
+            "location": {
+              "end_byte": 358,
+              "end_line": 5,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 5,
+              "start_byte": 270
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 267,
+              "end_line": 4,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 4,
+              "start_byte": 90
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "contains": [
+          {
+            "location": {
+              "end_byte": 480,
+              "end_line": 6,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 6,
+              "start_byte": 361
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "intersects": [
+          {
+            "location": {
+              "end_byte": 557,
+              "end_line": 7,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 7,
+              "start_byte": 483
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "value": [
+          {
+            "location": {
+              "end_byte": 243,
+              "end_line": 4,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 4,
+              "start_byte": 225
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "CodeActionKind"
+    },
+    "CompletionItem": {
+      "extends": null,
+      "location": {
+        "end_byte": 1621,
+        "end_line": 16,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 16,
+        "start_byte": 1506
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 1619,
+              "end_line": 16,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 16,
+              "start_byte": 1529
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "kind": [
+          {
+            "location": {
+              "end_byte": 1616,
+              "end_line": 16,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 16,
+              "start_byte": 1600
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "label": [
+          {
+            "location": {
+              "end_byte": 1574,
+              "end_line": 16,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 16,
+              "start_byte": 1556
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "CompletionItem"
+    },
+    "CompletionList": {
+      "extends": null,
+      "location": {
+        "end_byte": 1750,
+        "end_line": 17,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 17,
+        "start_byte": 1622
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 1748,
+              "end_line": 17,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 17,
+              "start_byte": 1645
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isIncomplete": [
+          {
+            "location": {
+              "end_byte": 1745,
+              "end_line": 17,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 17,
+              "start_byte": 1713
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "items": [
+          {
+            "location": {
+              "end_byte": 1711,
+              "end_line": 17,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 17,
+              "start_byte": 1693
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "CompletionList"
+    },
+    "Diagnostic": {
+      "extends": null,
+      "location": {
+        "end_byte": 646,
+        "end_line": 11,
+        "file": "current/extension-host/diagnostic-types.cjs",
+        "line": 6,
+        "start_byte": 279
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 644,
+              "end_line": 10,
+              "file": "current/extension-host/diagnostic-types.cjs",
+              "line": 7,
+              "start_byte": 300
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "message": [
+          {
+            "location": {
+              "end_byte": 613,
+              "end_line": 9,
+              "file": "current/extension-host/diagnostic-types.cjs",
+              "line": 9,
+              "start_byte": 591
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "range": [
+          {
+            "location": {
+              "end_byte": 589,
+              "end_line": 9,
+              "file": "current/extension-host/diagnostic-types.cjs",
+              "line": 9,
+              "start_byte": 571
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "severity": [
+          {
+            "location": {
+              "end_byte": 639,
+              "end_line": 9,
+              "file": "current/extension-host/diagnostic-types.cjs",
+              "line": 9,
+              "start_byte": 615
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "Diagnostic"
+    },
+    "DiagnosticRelatedInformation": {
+      "extends": null,
+      "location": {
+        "end_byte": 913,
+        "end_line": 17,
+        "file": "current/extension-host/diagnostic-types.cjs",
+        "line": 12,
+        "start_byte": 647
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 911,
+              "end_line": 16,
+              "file": "current/extension-host/diagnostic-types.cjs",
+              "line": 13,
+              "start_byte": 686
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "location": [
+          {
+            "location": {
+              "end_byte": 882,
+              "end_line": 15,
+              "file": "current/extension-host/diagnostic-types.cjs",
+              "line": 15,
+              "start_byte": 858
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "message": [
+          {
+            "location": {
+              "end_byte": 906,
+              "end_line": 15,
+              "file": "current/extension-host/diagnostic-types.cjs",
+              "line": 15,
+              "start_byte": 884
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "DiagnosticRelatedInformation"
+    },
+    "Disposable": {
+      "extends": null,
+      "location": {
+        "end_byte": 10802,
+        "end_line": 240,
+        "file": "current/extension-host/api-types.cjs",
+        "line": 221,
+        "start_byte": 10340
+      },
+      "members": {
+        "#call": [
+          {
+            "location": {
+              "end_byte": 10407,
+              "end_line": 223,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 223,
+              "start_byte": 10390
+            },
+            "mode": "instance_assignment"
+          },
+          {
+            "location": {
+              "end_byte": 10517,
+              "end_line": 227,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 227,
+              "start_byte": 10495
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 10410,
+              "end_line": 223,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 223,
+              "start_byte": 10370
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "dispose": [
+          {
+            "location": {
+              "end_byte": 10528,
+              "end_line": 229,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 224,
+              "start_byte": 10413
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "from": [
+          {
+            "location": {
+              "end_byte": 10800,
+              "end_line": 239,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 230,
+              "start_byte": 10531
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "Disposable"
+    },
+    "DocumentSymbol": {
+      "extends": null,
+      "location": {
+        "end_byte": 3817,
+        "end_line": 49,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 26,
+        "start_byte": 2427
+      },
+      "members": {
+        "children": [
+          {
+            "location": {
+              "end_byte": 2590,
+              "end_line": 28,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 28,
+              "start_byte": 2578
+            },
+            "mode": "assigned_object_field"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 2633,
+              "end_line": 30,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 27,
+              "start_byte": 2452
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "detail": [
+          {
+            "location": {
+              "end_byte": 2547,
+              "end_line": 28,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 28,
+              "start_byte": 2541
+            },
+            "mode": "assigned_object_field"
+          }
+        ],
+        "kind": [
+          {
+            "location": {
+              "end_byte": 2553,
+              "end_line": 28,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 28,
+              "start_byte": 2549
+            },
+            "mode": "assigned_object_field"
+          }
+        ],
+        "name": [
+          {
+            "location": {
+              "end_byte": 2539,
+              "end_line": 28,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 28,
+              "start_byte": 2535
+            },
+            "mode": "assigned_object_field"
+          }
+        ],
+        "range": [
+          {
+            "location": {
+              "end_byte": 2560,
+              "end_line": 28,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 28,
+              "start_byte": 2555
+            },
+            "mode": "assigned_object_field"
+          }
+        ],
+        "selectionRange": [
+          {
+            "location": {
+              "end_byte": 2576,
+              "end_line": 28,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 28,
+              "start_byte": 2562
+            },
+            "mode": "assigned_object_field"
+          }
+        ],
+        "validate": [
+          {
+            "location": {
+              "end_byte": 3815,
+              "end_line": 48,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 31,
+              "start_byte": 2636
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "DocumentSymbol"
+    },
+    "EventEmitter": {
+      "extends": null,
+      "location": {
+        "end_byte": 12322,
+        "end_line": 281,
+        "file": "current/extension-host/api-types.cjs",
+        "line": 242,
+        "start_byte": 10804
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 11498,
+              "end_line": 257,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 243,
+              "start_byte": 10827
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "dispose": [
+          {
+            "location": {
+              "end_byte": 12320,
+              "end_line": 280,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 276,
+              "start_byte": 12217
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "event": [
+          {
+            "location": {
+              "end_byte": 11493,
+              "end_line": 256,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 249,
+              "start_byte": 11108
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "fire": [
+          {
+            "location": {
+              "end_byte": 12214,
+              "end_line": 275,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 269,
+              "start_byte": 11956
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "EventEmitter"
+    },
+    "Hover": {
+      "extends": null,
+      "location": {
+        "end_byte": 1909,
+        "end_line": 18,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 18,
+        "start_byte": 1751
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 1907,
+              "end_line": 18,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 18,
+              "start_byte": 1765
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "contents": [
+          {
+            "location": {
+              "end_byte": 1859,
+              "end_line": 18,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 18,
+              "start_byte": 1796
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "range": [
+          {
+            "location": {
+              "end_byte": 1904,
+              "end_line": 18,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 18,
+              "start_byte": 1886
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "Hover"
+    },
+    "Location": {
+      "extends": null,
+      "location": {
+        "end_byte": 2096,
+        "end_line": 19,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 19,
+        "start_byte": 1910
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 2094,
+              "end_line": 19,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 19,
+              "start_byte": 1927
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "range": [
+          {
+            "location": {
+              "end_byte": 2091,
+              "end_line": 19,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 19,
+              "start_byte": 1979
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "uri": [
+          {
+            "location": {
+              "end_byte": 1977,
+              "end_line": 19,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 19,
+              "start_byte": 1963
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "Location"
+    },
+    "MarkdownString": {
+      "extends": null,
+      "location": {
+        "end_byte": 1446,
+        "end_line": 14,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 9,
+        "start_byte": 964
+      },
+      "members": {
+        "appendCodeblock": [
+          {
+            "location": {
+              "end_byte": 1444,
+              "end_line": 13,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 13,
+              "start_byte": 1331
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "appendMarkdown": [
+          {
+            "location": {
+              "end_byte": 1328,
+              "end_line": 12,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 12,
+              "start_byte": 1269
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "appendText": [
+          {
+            "location": {
+              "end_byte": 1266,
+              "end_line": 11,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 11,
+              "start_byte": 1160
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 1157,
+              "end_line": 10,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 10,
+              "start_byte": 989
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isTrusted": [
+          {
+            "location": {
+              "end_byte": 1128,
+              "end_line": 10,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 10,
+              "start_byte": 1106
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "supportHtml": [
+          {
+            "location": {
+              "end_byte": 1154,
+              "end_line": 10,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 10,
+              "start_byte": 1130
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "supportThemeIcons": [
+          {
+            "location": {
+              "end_byte": 1104,
+              "end_line": 10,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 10,
+              "start_byte": 1062
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "value": [
+          {
+            "location": {
+              "end_byte": 1060,
+              "end_line": 10,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 10,
+              "start_byte": 1042
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "MarkdownString"
+    },
+    "MutableToken": {
+      "extends": null,
+      "location": {
+        "end_byte": 4098,
+        "end_line": 115,
+        "file": "current/extension-host/cancellation.cjs",
+        "line": 90,
+        "start_byte": 3479
+      },
+      "members": {
+        "cancel": [
+          {
+            "location": {
+              "end_byte": 3988,
+              "end_line": 108,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 101,
+              "start_byte": 3828
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 3578,
+              "end_line": 94,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 91,
+              "start_byte": 3502
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "dispose": [
+          {
+            "location": {
+              "end_byte": 4096,
+              "end_line": 114,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 109,
+              "start_byte": 3991
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isCancellationRequested": [
+          {
+            "location": {
+              "end_byte": 3640,
+              "end_line": 95,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 95,
+              "start_byte": 3581
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "onCancellationRequested": [
+          {
+            "location": {
+              "end_byte": 3825,
+              "end_line": 100,
+              "file": "current/extension-host/cancellation.cjs",
+              "line": 96,
+              "start_byte": 3643
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "MutableToken"
+    },
+    "ParameterInformation": {
+      "extends": null,
+      "location": {
+        "end_byte": 4920,
+        "end_line": 69,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 69,
+        "start_byte": 4763
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 4918,
+              "end_line": 69,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 69,
+              "start_byte": 4792
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "documentation": [
+          {
+            "location": {
+              "end_byte": 4915,
+              "end_line": 69,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 69,
+              "start_byte": 4881
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "label": [
+          {
+            "location": {
+              "end_byte": 4846,
+              "end_line": 69,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 69,
+              "start_byte": 4828
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "ParameterInformation"
+    },
+    "Position": {
+      "extends": null,
+      "location": {
+        "end_byte": 4944,
+        "end_line": 100,
+        "file": "current/extension-host/api-types.cjs",
+        "line": 29,
+        "start_byte": 1690
+      },
+      "members": {
+        "Max": [
+          {
+            "location": {
+              "end_byte": 2049,
+              "end_line": 37,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 34,
+              "start_byte": 1881
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "Min": [
+          {
+            "location": {
+              "end_byte": 1878,
+              "end_line": 33,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 30,
+              "start_byte": 1709
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "character": [
+          {
+            "location": {
+              "end_byte": 2932,
+              "end_line": 55,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 55,
+              "start_byte": 2889
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "compareTo": [
+          {
+            "location": {
+              "end_byte": 3168,
+              "end_line": 62,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 56,
+              "start_byte": 2935
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 2850,
+              "end_line": 53,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 46,
+              "start_byte": 2439
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isAfter": [
+          {
+            "location": {
+              "end_byte": 3566,
+              "end_line": 73,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 73,
+              "start_byte": 3511
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isAfterOrEqual": [
+          {
+            "location": {
+              "end_byte": 3624,
+              "end_line": 74,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 74,
+              "start_byte": 3569
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isBefore": [
+          {
+            "location": {
+              "end_byte": 3334,
+              "end_line": 67,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 63,
+              "start_byte": 3171
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isBeforeOrEqual": [
+          {
+            "location": {
+              "end_byte": 3508,
+              "end_line": 72,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 68,
+              "start_byte": 3337
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isEqual": [
+          {
+            "location": {
+              "end_byte": 3720,
+              "end_line": 75,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 75,
+              "start_byte": 3627
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isPosition": [
+          {
+            "location": {
+              "end_byte": 2204,
+              "end_line": 40,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 38,
+              "start_byte": 2052
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "line": [
+          {
+            "location": {
+              "end_byte": 2886,
+              "end_line": 54,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 54,
+              "start_byte": 2853
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "of": [
+          {
+            "location": {
+              "end_byte": 2436,
+              "end_line": 45,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 41,
+              "start_byte": 2207
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "toJSON": [
+          {
+            "location": {
+              "end_byte": 4942,
+              "end_line": 99,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 99,
+              "start_byte": 4875
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "translate": [
+          {
+            "location": {
+              "end_byte": 4260,
+              "end_line": 85,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 76,
+              "start_byte": 3723
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "with": [
+          {
+            "location": {
+              "end_byte": 4872,
+              "end_line": 98,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 86,
+              "start_byte": 4263
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "Position"
+    },
+    "Range": {
+      "extends": null,
+      "location": {
+        "end_byte": 7457,
+        "end_line": 163,
+        "file": "current/extension-host/api-types.cjs",
+        "line": 102,
+        "start_byte": 4946
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 5890,
+              "end_line": 125,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 112,
+              "start_byte": 5355
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "contains": [
+          {
+            "location": {
+              "end_byte": 6399,
+              "end_line": 138,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 130,
+              "start_byte": 6089
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "end": [
+          {
+            "location": {
+              "end_byte": 5962,
+              "end_line": 127,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 127,
+              "start_byte": 5931
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "intersection": [
+          {
+            "location": {
+              "end_byte": 6735,
+              "end_line": 144,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 140,
+              "start_byte": 6496
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isEmpty": [
+          {
+            "location": {
+              "end_byte": 6019,
+              "end_line": 128,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 128,
+              "start_byte": 5965
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isEqual": [
+          {
+            "location": {
+              "end_byte": 6493,
+              "end_line": 139,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 139,
+              "start_byte": 6402
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isRange": [
+          {
+            "location": {
+              "end_byte": 5140,
+              "end_line": 106,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 103,
+              "start_byte": 4962
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isSingleLine": [
+          {
+            "location": {
+              "end_byte": 6086,
+              "end_line": 129,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 129,
+              "start_byte": 6022
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "of": [
+          {
+            "location": {
+              "end_byte": 5352,
+              "end_line": 111,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 107,
+              "start_byte": 5143
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "start": [
+          {
+            "location": {
+              "end_byte": 5928,
+              "end_line": 126,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 126,
+              "start_byte": 5893
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "toJSON": [
+          {
+            "location": {
+              "end_byte": 7455,
+              "end_line": 162,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 162,
+              "start_byte": 7412
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "union": [
+          {
+            "location": {
+              "end_byte": 6984,
+              "end_line": 150,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 145,
+              "start_byte": 6738
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "with": [
+          {
+            "location": {
+              "end_byte": 7409,
+              "end_line": 161,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 151,
+              "start_byte": 6987
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "Range"
+    },
+    "Selection": {
+      "extends": "Range",
+      "location": {
+        "end_byte": 8554,
+        "end_line": 189,
+        "file": "current/extension-host/api-types.cjs",
+        "line": 165,
+        "start_byte": 7459
+      },
+      "members": {
+        "active": [
+          {
+            "location": {
+              "end_byte": 8394,
+              "end_line": 186,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 186,
+              "start_byte": 8357
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "anchor": [
+          {
+            "location": {
+              "end_byte": 8354,
+              "end_line": 185,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 185,
+              "start_byte": 8317
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 8314,
+              "end_line": 184,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 171,
+              "start_byte": 7757
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isReversed": [
+          {
+            "location": {
+              "end_byte": 8450,
+              "end_line": 187,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 187,
+              "start_byte": 8397
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isSelection": [
+          {
+            "location": {
+              "end_byte": 7754,
+              "end_line": 170,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 166,
+              "start_byte": 7493
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "toJSON": [
+          {
+            "location": {
+              "end_byte": 8552,
+              "end_line": 188,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 188,
+              "start_byte": 8453
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "Selection"
+    },
+    "SignatureHelp": {
+      "extends": null,
+      "location": {
+        "end_byte": 5216,
+        "end_line": 71,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 71,
+        "start_byte": 5101
+      },
+      "members": {
+        "activeParameter": [
+          {
+            "location": {
+              "end_byte": 5211,
+              "end_line": 71,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 71,
+              "start_byte": 5187
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "activeSignature": [
+          {
+            "location": {
+              "end_byte": 5185,
+              "end_line": 71,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 71,
+              "start_byte": 5161
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 5214,
+              "end_line": 71,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 71,
+              "start_byte": 5123
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "signatures": [
+          {
+            "location": {
+              "end_byte": 5159,
+              "end_line": 71,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 71,
+              "start_byte": 5139
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "SignatureHelp"
+    },
+    "SignatureInformation": {
+      "extends": null,
+      "location": {
+        "end_byte": 5100,
+        "end_line": 70,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 70,
+        "start_byte": 4921
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 5098,
+              "end_line": 70,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 70,
+              "start_byte": 4950
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "documentation": [
+          {
+            "location": {
+              "end_byte": 5095,
+              "end_line": 70,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 70,
+              "start_byte": 5061
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "label": [
+          {
+            "location": {
+              "end_byte": 5004,
+              "end_line": 70,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 70,
+              "start_byte": 4986
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "parameters": [
+          {
+            "location": {
+              "end_byte": 5026,
+              "end_line": 70,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 70,
+              "start_byte": 5006
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "SignatureInformation"
+    },
+    "SnippetString": {
+      "extends": null,
+      "location": {
+        "end_byte": 2908,
+        "end_line": 66,
+        "file": "current/extension-host/snippet-string.cjs",
+        "line": 31,
+        "start_byte": 1381
+      },
+      "members": {
+        "appendChoice": [
+          {
+            "location": {
+              "end_byte": 2440,
+              "end_line": 54,
+              "file": "current/extension-host/snippet-string.cjs",
+              "line": 50,
+              "start_byte": 2245
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "appendPlaceholder": [
+          {
+            "location": {
+              "end_byte": 2242,
+              "end_line": 49,
+              "file": "current/extension-host/snippet-string.cjs",
+              "line": 39,
+              "start_byte": 1868
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "appendTabstop": [
+          {
+            "location": {
+              "end_byte": 1865,
+              "end_line": 38,
+              "file": "current/extension-host/snippet-string.cjs",
+              "line": 38,
+              "start_byte": 1781
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "appendText": [
+          {
+            "location": {
+              "end_byte": 1778,
+              "end_line": 37,
+              "file": "current/extension-host/snippet-string.cjs",
+              "line": 37,
+              "start_byte": 1700
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "appendVariable": [
+          {
+            "location": {
+              "end_byte": 2906,
+              "end_line": 65,
+              "file": "current/extension-host/snippet-string.cjs",
+              "line": 55,
+              "start_byte": 2443
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 1472,
+              "end_line": 32,
+              "file": "current/extension-host/snippet-string.cjs",
+              "line": 32,
+              "start_byte": 1405
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isSnippetString": [
+          {
+            "location": {
+              "end_byte": 1628,
+              "end_line": 35,
+              "file": "current/extension-host/snippet-string.cjs",
+              "line": 33,
+              "start_byte": 1475
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "value": [
+          {
+            "location": {
+              "end_byte": 1450,
+              "end_line": 32,
+              "file": "current/extension-host/snippet-string.cjs",
+              "line": 32,
+              "start_byte": 1426
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "SnippetString"
+    },
+    "SymbolInformation": {
+      "extends": null,
+      "location": {
+        "end_byte": 4762,
+        "end_line": 68,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 50,
+        "start_byte": 3818
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 4534,
+              "end_line": 63,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 51,
+              "start_byte": 3846
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "containerName": [
+          {
+            "location": {
+              "end_byte": 3990,
+              "end_line": 52,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 52,
+              "start_byte": 3960
+            },
+            "mode": "instance_assignment"
+          },
+          {
+            "location": {
+              "end_byte": 4146,
+              "end_line": 55,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 55,
+              "start_byte": 4112
+            },
+            "mode": "instance_assignment"
+          },
+          {
+            "location": {
+              "end_byte": 4204,
+              "end_line": 57,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 57,
+              "start_byte": 4167
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "kind": [
+          {
+            "location": {
+              "end_byte": 3958,
+              "end_line": 52,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 52,
+              "start_byte": 3942
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "location": [
+          {
+            "location": {
+              "end_byte": 4104,
+              "end_line": 54,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 54,
+              "start_byte": 4043
+            },
+            "mode": "instance_assignment"
+          },
+          {
+            "location": {
+              "end_byte": 4485,
+              "end_line": 60,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 60,
+              "start_byte": 4361
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "name": [
+          {
+            "location": {
+              "end_byte": 3940,
+              "end_line": 52,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 52,
+              "start_byte": 3924
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "validate": [
+          {
+            "location": {
+              "end_byte": 4760,
+              "end_line": 67,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 64,
+              "start_byte": 4537
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "SymbolInformation"
+    },
+    "TextDocument": {
+      "extends": null,
+      "location": {
+        "end_byte": 15515,
+        "end_line": 350,
+        "file": "current/extension-host/api-types.cjs",
+        "line": 283,
+        "start_byte": 12324
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 12396,
+              "end_line": 284,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 284,
+              "start_byte": 12347
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "eol": [
+          {
+            "location": {
+              "end_byte": 13429,
+              "end_line": 305,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 305,
+              "start_byte": 13372
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "fileName": [
+          {
+            "location": {
+              "end_byte": 13093,
+              "end_line": 299,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 299,
+              "start_byte": 13051
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "getText": [
+          {
+            "location": {
+              "end_byte": 13658,
+              "end_line": 311,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 307,
+              "start_byte": 13481
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isClosed": [
+          {
+            "location": {
+              "end_byte": 13307,
+              "end_line": 303,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 303,
+              "start_byte": 13255
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isDirty": [
+          {
+            "location": {
+              "end_byte": 13252,
+              "end_line": 302,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 302,
+              "start_byte": 13204
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "isUntitled": [
+          {
+            "location": {
+              "end_byte": 13369,
+              "end_line": 304,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 304,
+              "start_byte": 13310
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "languageId": [
+          {
+            "location": {
+              "end_byte": 13150,
+              "end_line": 300,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 300,
+              "start_byte": 13096
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "lineAt": [
+          {
+            "location": {
+              "end_byte": 15513,
+              "end_line": 349,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 339,
+              "start_byte": 14914
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "lineCount": [
+          {
+            "location": {
+              "end_byte": 13478,
+              "end_line": 306,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 306,
+              "start_byte": 13432
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "offsetAt": [
+          {
+            "location": {
+              "end_byte": 14514,
+              "end_line": 328,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 325,
+              "start_byte": 14381
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "positionAt": [
+          {
+            "location": {
+              "end_byte": 14911,
+              "end_line": 338,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 329,
+              "start_byte": 14517
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "uri": [
+          {
+            "location": {
+              "end_byte": 13048,
+              "end_line": 298,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 298,
+              "start_byte": 13017
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "validatePosition": [
+          {
+            "location": {
+              "end_byte": 14095,
+              "end_line": 319,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 312,
+              "start_byte": 13661
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "validateRange": [
+          {
+            "location": {
+              "end_byte": 14378,
+              "end_line": 324,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 320,
+              "start_byte": 14098
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "version": [
+          {
+            "location": {
+              "end_byte": 13201,
+              "end_line": 301,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 301,
+              "start_byte": 13153
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "TextDocument"
+    },
+    "TextEdit": {
+      "extends": null,
+      "location": {
+        "end_byte": 2426,
+        "end_line": 25,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 20,
+        "start_byte": 2097
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 2191,
+              "end_line": 21,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 21,
+              "start_byte": 2116
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "delete": [
+          {
+            "location": {
+              "end_byte": 2424,
+              "end_line": 24,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 24,
+              "start_byte": 2368
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "insert": [
+          {
+            "location": {
+              "end_byte": 2365,
+              "end_line": 23,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 23,
+              "start_byte": 2268
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "newText": [
+          {
+            "location": {
+              "end_byte": 2188,
+              "end_line": 21,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 21,
+              "start_byte": 2166
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "range": [
+          {
+            "location": {
+              "end_byte": 2164,
+              "end_line": 21,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 21,
+              "start_byte": 2146
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "replace": [
+          {
+            "location": {
+              "end_byte": 2265,
+              "end_line": 22,
+              "file": "current/extension-host/provider-types.cjs",
+              "line": 22,
+              "start_byte": 2194
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "TextEdit"
+    },
+    "ThemeColor": {
+      "extends": null,
+      "location": {
+        "end_byte": 486,
+        "end_line": 8,
+        "file": "current/extension-host/surfaces.cjs",
+        "line": 8,
+        "start_byte": 399
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 484,
+              "end_line": 8,
+              "file": "current/extension-host/surfaces.cjs",
+              "line": 8,
+              "start_byte": 418
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "id": [
+          {
+            "location": {
+              "end_byte": 481,
+              "end_line": 8,
+              "file": "current/extension-host/surfaces.cjs",
+              "line": 8,
+              "start_byte": 436
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "ThemeColor"
+    },
+    "TreeItem": {
+      "extends": null,
+      "location": {
+        "end_byte": 685,
+        "end_line": 15,
+        "file": "current/extension-host/surfaces.cjs",
+        "line": 9,
+        "start_byte": 487
+      },
+      "members": {
+        "collapsibleState": [
+          {
+            "location": {
+              "end_byte": 678,
+              "end_line": 13,
+              "file": "current/extension-host/surfaces.cjs",
+              "line": 13,
+              "start_byte": 638
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 683,
+              "end_line": 14,
+              "file": "current/extension-host/surfaces.cjs",
+              "line": 10,
+              "start_byte": 506
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "label": [
+          {
+            "location": {
+              "end_byte": 632,
+              "end_line": 12,
+              "file": "current/extension-host/surfaces.cjs",
+              "line": 12,
+              "start_byte": 614
+            },
+            "mode": "instance_assignment"
+          }
+        ],
+        "resourceUri": [
+          {
+            "location": {
+              "end_byte": 603,
+              "end_line": 11,
+              "file": "current/extension-host/surfaces.cjs",
+              "line": 11,
+              "start_byte": 579
+            },
+            "mode": "instance_assignment"
+          }
+        ]
+      },
+      "name": "TreeItem"
+    },
+    "Uri": {
+      "extends": null,
+      "location": {
+        "end_byte": 10338,
+        "end_line": 219,
+        "file": "current/extension-host/api-types.cjs",
+        "line": 191,
+        "start_byte": 8556
+      },
+      "members": {
+        "authority": [
+          {
+            "location": {
+              "end_byte": 9326,
+              "end_line": 203,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 203,
+              "start_byte": 9284
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 8620,
+              "end_line": 192,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 192,
+              "start_byte": 8570
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "file": [
+          {
+            "location": {
+              "end_byte": 8746,
+              "end_line": 194,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 194,
+              "start_byte": 8672
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "fragment": [
+          {
+            "location": {
+              "end_byte": 9515,
+              "end_line": 206,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 206,
+              "start_byte": 9445
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "from": [
+          {
+            "location": {
+              "end_byte": 9112,
+              "end_line": 200,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 195,
+              "start_byte": 8749
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "fsPath": [
+          {
+            "location": {
+              "end_byte": 9604,
+              "end_line": 207,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 207,
+              "start_byte": 9518
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "joinPath": [
+          {
+            "location": {
+              "end_byte": 9222,
+              "end_line": 201,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 201,
+              "start_byte": 9115
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "parse": [
+          {
+            "location": {
+              "end_byte": 8669,
+              "end_line": 193,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 193,
+              "start_byte": 8623
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "path": [
+          {
+            "location": {
+              "end_byte": 9390,
+              "end_line": 204,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 204,
+              "start_byte": 9329
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "query": [
+          {
+            "location": {
+              "end_byte": 9442,
+              "end_line": 205,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 205,
+              "start_byte": 9393
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "scheme": [
+          {
+            "location": {
+              "end_byte": 9281,
+              "end_line": 202,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 202,
+              "start_byte": 9225
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "toJSON": [
+          {
+            "location": {
+              "end_byte": 10336,
+              "end_line": 218,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 218,
+              "start_byte": 10204
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "toString": [
+          {
+            "location": {
+              "end_byte": 10201,
+              "end_line": 217,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 217,
+              "start_byte": 10101
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "with": [
+          {
+            "location": {
+              "end_byte": 10098,
+              "end_line": 216,
+              "file": "current/extension-host/api-types.cjs",
+              "line": 208,
+              "start_byte": 9607
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "Uri"
+    },
+    "WorkspaceEdit": {
+      "extends": null,
+      "location": {
+        "end_byte": 4276,
+        "end_line": 45,
+        "file": "current/extension-host/code-action-types.cjs",
+        "line": 20,
+        "start_byte": 1933
+      },
+      "members": {
+        "constructor": [
+          {
+            "location": {
+              "end_byte": 2046,
+              "end_line": 21,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 21,
+              "start_byte": 1957
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "createFile": [
+          {
+            "location": {
+              "end_byte": 4166,
+              "end_line": 42,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 42,
+              "start_byte": 4114
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "delete": [
+          {
+            "location": {
+              "end_byte": 3006,
+              "end_line": 31,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 31,
+              "start_byte": 2937
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "deleteFile": [
+          {
+            "location": {
+              "end_byte": 4274,
+              "end_line": 44,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 44,
+              "start_byte": 4222
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "entries": [
+          {
+            "location": {
+              "end_byte": 3891,
+              "end_line": 40,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 40,
+              "start_byte": 3783
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "get": [
+          {
+            "location": {
+              "end_byte": 3780,
+              "end_line": 39,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 39,
+              "start_byte": 3696
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "has": [
+          {
+            "location": {
+              "end_byte": 3693,
+              "end_line": 38,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 38,
+              "start_byte": 3633
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "insert": [
+          {
+            "location": {
+              "end_byte": 2934,
+              "end_line": 30,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 30,
+              "start_byte": 2825
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "renameFile": [
+          {
+            "location": {
+              "end_byte": 4219,
+              "end_line": 43,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 43,
+              "start_byte": 4169
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "replace": [
+          {
+            "location": {
+              "end_byte": 2822,
+              "end_line": 29,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 29,
+              "start_byte": 2693
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "set": [
+          {
+            "location": {
+              "end_byte": 2690,
+              "end_line": 28,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 23,
+              "start_byte": 2153
+            },
+            "mode": "method_or_accessor"
+          }
+        ],
+        "size": [
+          {
+            "location": {
+              "end_byte": 2150,
+              "end_line": 22,
+              "file": "current/extension-host/code-action-types.cjs",
+              "line": 22,
+              "start_byte": 2049
+            },
+            "mode": "method_or_accessor"
+          }
+        ]
+      },
+      "name": "WorkspaceEdit"
+    }
+  },
+  "constants": {
+    "CancellationToken": {
+      "location": {
+        "end_byte": 4849,
+        "end_line": 130,
+        "file": "current/extension-host/cancellation.cjs",
+        "line": 121,
+        "start_byte": 4476
+      },
+      "members": [
+        "None",
+        "Cancelled"
+      ]
+    },
+    "CodeActionTriggerKind": {
+      "location": {
+        "end_byte": 1083,
+        "end_line": 10,
+        "file": "current/extension-host/code-action-types.cjs",
+        "line": 10,
+        "start_byte": 1019
+      },
+      "members": [
+        "Invoke",
+        "Automatic"
+      ]
+    },
+    "CompletionItemKind": {
+      "location": {
+        "end_byte": 620,
+        "end_line": 6,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 6,
+        "start_byte": 339
+      },
+      "members": [
+        "Text",
+        "Method",
+        "Function",
+        "Constructor",
+        "Field",
+        "Variable",
+        "Class",
+        "Interface",
+        "Module",
+        "Property",
+        "Unit",
+        "Value",
+        "Enum",
+        "Keyword",
+        "Snippet",
+        "Color",
+        "File",
+        "Reference",
+        "Folder",
+        "EnumMember",
+        "Constant",
+        "Struct",
+        "Event",
+        "Operator",
+        "TypeParameter"
+      ]
+    },
+    "CompletionTriggerKind": {
+      "location": {
+        "end_byte": 5332,
+        "end_line": 72,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 72,
+        "start_byte": 5223
+      },
+      "members": [
+        "Invoke",
+        "TriggerCharacter",
+        "TriggerForIncompleteCompletions"
+      ]
+    },
+    "DiagnosticSeverity": {
+      "location": {
+        "end_byte": 205,
+        "end_line": 4,
+        "file": "current/extension-host/diagnostic-types.cjs",
+        "line": 4,
+        "start_byte": 120
+      },
+      "members": [
+        "Error",
+        "Warning",
+        "Information",
+        "Hint"
+      ]
+    },
+    "DiagnosticTag": {
+      "location": {
+        "end_byte": 277,
+        "end_line": 5,
+        "file": "current/extension-host/diagnostic-types.cjs",
+        "line": 5,
+        "start_byte": 213
+      },
+      "members": [
+        "Unnecessary",
+        "Deprecated"
+      ]
+    },
+    "METHODS": {
+      "location": {
+        "end_byte": 1109,
+        "end_line": 19,
+        "file": "current/extension-host/providers.cjs",
+        "line": 10,
+        "start_byte": 514
+      },
+      "members": [
+        "codeaction",
+        "completion",
+        "hover",
+        "definition",
+        "references",
+        "formatting",
+        "symbols",
+        "signature"
+      ]
+    },
+    "SignatureHelpTriggerKind": {
+      "location": {
+        "end_byte": 5434,
+        "end_line": 73,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 73,
+        "start_byte": 5340
+      },
+      "members": [
+        "Invoke",
+        "TriggerCharacter",
+        "ContentChange"
+      ]
+    },
+    "SymbolKind": {
+      "location": {
+        "end_byte": 910,
+        "end_line": 7,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 7,
+        "start_byte": 628
+      },
+      "members": [
+        "File",
+        "Module",
+        "Namespace",
+        "Package",
+        "Class",
+        "Method",
+        "Property",
+        "Field",
+        "Constructor",
+        "Enum",
+        "Interface",
+        "Function",
+        "Variable",
+        "Constant",
+        "String",
+        "Number",
+        "Boolean",
+        "Array",
+        "Object",
+        "Key",
+        "Null",
+        "EnumMember",
+        "Struct",
+        "Event",
+        "Operator",
+        "TypeParameter"
+      ]
+    },
+    "SymbolTag": {
+      "location": {
+        "end_byte": 962,
+        "end_line": 8,
+        "file": "current/extension-host/provider-types.cjs",
+        "line": 8,
+        "start_byte": 918
+      },
+      "members": [
+        "Deprecated"
+      ]
+    },
+    "canceled": {
+      "location": {
+        "end_byte": 4468,
+        "end_line": 120,
+        "file": "current/extension-host/cancellation.cjs",
+        "line": 120,
+        "start_byte": 4369
+      },
+      "members": [
+        "isCancellationRequested",
+        "onCancellationRequested"
+      ]
+    },
+    "enums": {
+      "location": {
+        "end_byte": 880,
+        "end_line": 17,
+        "file": "current/extension-host/surfaces.cjs",
+        "line": 16,
+        "start_byte": 692
+      },
+      "members": [
+        "StatusBarAlignment",
+        "TreeItemCollapsibleState"
+      ]
+    },
+    "limits": {
+      "location": {
+        "end_byte": 202,
+        "end_line": 3,
+        "file": "current/extension-host/surfaces.cjs",
+        "line": 3,
+        "start_byte": 90
+      },
+      "members": [
+        "channels",
+        "status",
+        "views",
+        "children",
+        "handles",
+        "updateBytes"
+      ]
+    },
+    "none": {
+      "location": {
+        "end_byte": 4361,
+        "end_line": 119,
+        "file": "current/extension-host/cancellation.cjs",
+        "line": 119,
+        "start_byte": 4269
+      },
+      "members": [
+        "isCancellationRequested",
+        "onCancellationRequested"
+      ]
+    },
+    "noopDisposable": {
+      "location": {
+        "end_byte": 1481,
+        "end_line": 31,
+        "file": "current/extension-host/cancellation.cjs",
+        "line": 31,
+        "start_byte": 1433
+      },
+      "members": []
+    }
+  },
+  "scope": "Static syntax only; no constructor/provider or wire execution.",
+  "supported_facades": [
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 4543,
+            "end_line": 96,
+            "file": "current/extension-host/activation.cjs",
+            "line": 96,
+            "start_byte": 4526
+          },
+          "name": "id"
+        },
+        {
+          "location": {
+            "end_byte": 4592,
+            "end_line": 97,
+            "file": "current/extension-host/activation.cjs",
+            "line": 97,
+            "start_byte": 4551
+          },
+          "name": "extensionUri"
+        },
+        {
+          "location": {
+            "end_byte": 4626,
+            "end_line": 97,
+            "file": "current/extension-host/activation.cjs",
+            "line": 97,
+            "start_byte": 4594
+          },
+          "name": "extensionPath"
+        },
+        {
+          "location": {
+            "end_byte": 4650,
+            "end_line": 98,
+            "file": "current/extension-host/activation.cjs",
+            "line": 98,
+            "start_byte": 4634
+          },
+          "name": "extensionKind"
+        },
+        {
+          "location": {
+            "end_byte": 4718,
+            "end_line": 99,
+            "file": "current/extension-host/activation.cjs",
+            "line": 99,
+            "start_byte": 4658
+          },
+          "name": "packageJSON"
+        },
+        {
+          "location": {
+            "end_byte": 4777,
+            "end_line": 100,
+            "file": "current/extension-host/activation.cjs",
+            "line": 100,
+            "start_byte": 4726
+          },
+          "name": "isActive"
+        },
+        {
+          "location": {
+            "end_byte": 4822,
+            "end_line": 101,
+            "file": "current/extension-host/activation.cjs",
+            "line": 101,
+            "start_byte": 4785
+          },
+          "name": "exports"
+        },
+        {
+          "location": {
+            "end_byte": 4869,
+            "end_line": 102,
+            "file": "current/extension-host/activation.cjs",
+            "line": 102,
+            "start_byte": 4830
+          },
+          "name": "activate"
+        }
+      ],
+      "location": {
+        "end_byte": 4877,
+        "end_line": 103,
+        "file": "current/extension-host/activation.cjs",
+        "line": 95,
+        "start_byte": 4495
+      },
+      "name": "Extension",
+      "spreads": []
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 5302,
+            "end_line": 112,
+            "file": "current/extension-host/activation.cjs",
+            "line": 108,
+            "start_byte": 4973
+          },
+          "name": "getExtension"
+        },
+        {
+          "location": {
+            "end_byte": 5373,
+            "end_line": 113,
+            "file": "current/extension-host/activation.cjs",
+            "line": 113,
+            "start_byte": 5310
+          },
+          "name": "all"
+        },
+        {
+          "location": {
+            "end_byte": 5797,
+            "end_line": 121,
+            "file": "current/extension-host/activation.cjs",
+            "line": 114,
+            "start_byte": 5381
+          },
+          "name": "onDidChange"
+        }
+      ],
+      "location": {
+        "end_byte": 5805,
+        "end_line": 122,
+        "file": "current/extension-host/activation.cjs",
+        "line": 107,
+        "start_byte": 4941
+      },
+      "name": "extensions",
+      "spreads": []
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 5083,
+            "end_line": 84,
+            "file": "current/extension-host/api.cjs",
+            "line": 74,
+            "start_byte": 4300
+          },
+          "name": "registerCommand"
+        },
+        {
+          "location": {
+            "end_byte": 5611,
+            "end_line": 93,
+            "file": "current/extension-host/api.cjs",
+            "line": 85,
+            "start_byte": 5091
+          },
+          "name": "executeCommand"
+        },
+        {
+          "location": {
+            "end_byte": 5691,
+            "end_line": 94,
+            "file": "current/extension-host/api.cjs",
+            "line": 94,
+            "start_byte": 5619
+          },
+          "name": "getCommands"
+        }
+      ],
+      "location": {
+        "end_byte": 5699,
+        "end_line": 95,
+        "file": "current/extension-host/api.cjs",
+        "line": 73,
+        "start_byte": 4270
+      },
+      "name": "commands",
+      "spreads": []
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 7955,
+            "end_line": 143,
+            "file": "current/extension-host/api.cjs",
+            "line": 143,
+            "start_byte": 7947
+          },
+          "name": "document"
+        },
+        {
+          "location": {
+            "end_byte": 7997,
+            "end_line": 143,
+            "file": "current/extension-host/api.cjs",
+            "line": 143,
+            "start_byte": 7957
+          },
+          "name": "_selections"
+        },
+        {
+          "location": {
+            "end_byte": 8115,
+            "end_line": 144,
+            "file": "current/extension-host/api.cjs",
+            "line": 144,
+            "start_byte": 8005
+          },
+          "name": "selection"
+        },
+        {
+          "location": {
+            "end_byte": 8239,
+            "end_line": 145,
+            "file": "current/extension-host/api.cjs",
+            "line": 145,
+            "start_byte": 8123
+          },
+          "name": "selections"
+        },
+        {
+          "location": {
+            "end_byte": 10238,
+            "end_line": 183,
+            "file": "current/extension-host/api.cjs",
+            "line": 146,
+            "start_byte": 8247
+          },
+          "name": "edit"
+        }
+      ],
+      "location": {
+        "end_byte": 10246,
+        "end_line": 184,
+        "file": "current/extension-host/api.cjs",
+        "line": 142,
+        "start_byte": 7915
+      },
+      "name": "TextEditor",
+      "spreads": []
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 9574,
+            "end_line": 169,
+            "file": "current/extension-host/api.cjs",
+            "line": 169,
+            "start_byte": 9517
+          },
+          "name": "replace"
+        },
+        {
+          "location": {
+            "end_byte": 9729,
+            "end_line": 173,
+            "file": "current/extension-host/api.cjs",
+            "line": 170,
+            "start_byte": 9586
+          },
+          "name": "insert"
+        },
+        {
+          "location": {
+            "end_byte": 9882,
+            "end_line": 177,
+            "file": "current/extension-host/api.cjs",
+            "line": 174,
+            "start_byte": 9741
+          },
+          "name": "delete"
+        }
+      ],
+      "location": {
+        "end_byte": 9894,
+        "end_line": 178,
+        "file": "current/extension-host/api.cjs",
+        "line": 168,
+        "start_byte": 9477
+      },
+      "name": "TextEditorEdit",
+      "spreads": []
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 10380,
+            "end_line": 188,
+            "file": "current/extension-host/api.cjs",
+            "line": 188,
+            "start_byte": 10363
+          },
+          "name": "version"
+        },
+        {
+          "location": {
+            "end_byte": 10430,
+            "end_line": 189,
+            "file": "current/extension-host/api.cjs",
+            "line": 189,
+            "start_byte": 10386
+          },
+          "name": "EndOfLine"
+        },
+        {
+          "location": {
+            "end_byte": 10570,
+            "end_line": 190,
+            "file": "current/extension-host/api.cjs",
+            "line": 190,
+            "start_byte": 10436
+          },
+          "name": "ViewColumn"
+        },
+        {
+          "location": {
+            "end_byte": 10648,
+            "end_line": 191,
+            "file": "current/extension-host/api.cjs",
+            "line": 191,
+            "start_byte": 10576
+          },
+          "name": "ExtensionMode"
+        },
+        {
+          "location": {
+            "end_byte": 11080,
+            "end_line": 201,
+            "file": "current/extension-host/api.cjs",
+            "line": 192,
+            "start_byte": 10654
+          },
+          "name": "window"
+        },
+        {
+          "location": {
+            "end_byte": 11620,
+            "end_line": 212,
+            "file": "current/extension-host/api.cjs",
+            "line": 202,
+            "start_byte": 11086
+          },
+          "name": "workspace"
+        },
+        {
+          "location": {
+            "end_byte": 11651,
+            "end_line": 213,
+            "file": "current/extension-host/api.cjs",
+            "line": 213,
+            "start_byte": 11626
+          },
+          "name": "commands"
+        },
+        {
+          "location": {
+            "end_byte": 11706,
+            "end_line": 214,
+            "file": "current/extension-host/api.cjs",
+            "line": 214,
+            "start_byte": 11657
+          },
+          "name": "extensions"
+        }
+      ],
+      "location": {
+        "end_byte": 11712,
+        "end_line": 215,
+        "file": "current/extension-host/api.cjs",
+        "line": 186,
+        "start_byte": 10266
+      },
+      "name": "vscode",
+      "spreads": [
+        "...types",
+        "...providerTypes",
+        "...diagnosticTypes",
+        "...surfaces.types"
+      ]
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 10842,
+            "end_line": 195,
+            "file": "current/extension-host/api.cjs",
+            "line": 195,
+            "start_byte": 10801
+          },
+          "name": "activeTextEditor"
+        },
+        {
+          "location": {
+            "end_byte": 10909,
+            "end_line": 196,
+            "file": "current/extension-host/api.cjs",
+            "line": 196,
+            "start_byte": 10850
+          },
+          "name": "visibleTextEditors"
+        },
+        {
+          "location": {
+            "end_byte": 10965,
+            "end_line": 197,
+            "file": "current/extension-host/api.cjs",
+            "line": 197,
+            "start_byte": 10917
+          },
+          "name": "onDidChangeActiveTextEditor"
+        },
+        {
+          "location": {
+            "end_byte": 11004,
+            "end_line": 198,
+            "file": "current/extension-host/api.cjs",
+            "line": 198,
+            "start_byte": 10973
+          },
+          "name": "showInformationMessage"
+        },
+        {
+          "location": {
+            "end_byte": 11039,
+            "end_line": 199,
+            "file": "current/extension-host/api.cjs",
+            "line": 199,
+            "start_byte": 11012
+          },
+          "name": "showWarningMessage"
+        },
+        {
+          "location": {
+            "end_byte": 11072,
+            "end_line": 200,
+            "file": "current/extension-host/api.cjs",
+            "line": 200,
+            "start_byte": 11047
+          },
+          "name": "showErrorMessage"
+        }
+      ],
+      "location": {
+        "end_byte": 11080,
+        "end_line": 201,
+        "file": "current/extension-host/api.cjs",
+        "line": 192,
+        "start_byte": 10662
+      },
+      "name": "window",
+      "spreads": [
+        "...createPrompts(request, sessionOptions.session, '', promptBudget)",
+        "...surfaces.forExtension('')"
+      ]
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 11183,
+            "end_line": 203,
+            "file": "current/extension-host/api.cjs",
+            "line": 203,
+            "start_byte": 11128
+          },
+          "name": "textDocuments"
+        },
+        {
+          "location": {
+            "end_byte": 11273,
+            "end_line": 204,
+            "file": "current/extension-host/api.cjs",
+            "line": 204,
+            "start_byte": 11191
+          },
+          "name": "workspaceFolders"
+        },
+        {
+          "location": {
+            "end_byte": 11335,
+            "end_line": 205,
+            "file": "current/extension-host/api.cjs",
+            "line": 205,
+            "start_byte": 11281
+          },
+          "name": "rootPath"
+        },
+        {
+          "location": {
+            "end_byte": 11381,
+            "end_line": 206,
+            "file": "current/extension-host/api.cjs",
+            "line": 206,
+            "start_byte": 11343
+          },
+          "name": "onDidChangeTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 11424,
+            "end_line": 207,
+            "file": "current/extension-host/api.cjs",
+            "line": 207,
+            "start_byte": 11389
+          },
+          "name": "onDidOpenTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 11468,
+            "end_line": 208,
+            "file": "current/extension-host/api.cjs",
+            "line": 208,
+            "start_byte": 11432
+          },
+          "name": "onDidCloseTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 11510,
+            "end_line": 209,
+            "file": "current/extension-host/api.cjs",
+            "line": 209,
+            "start_byte": 11476
+          },
+          "name": "onDidSaveTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 11553,
+            "end_line": 210,
+            "file": "current/extension-host/api.cjs",
+            "line": 210,
+            "start_byte": 11518
+          },
+          "name": "getConfiguration"
+        },
+        {
+          "location": {
+            "end_byte": 11612,
+            "end_line": 211,
+            "file": "current/extension-host/api.cjs",
+            "line": 211,
+            "start_byte": 11561
+          },
+          "name": "onDidChangeConfiguration"
+        }
+      ],
+      "location": {
+        "end_byte": 11620,
+        "end_line": 212,
+        "file": "current/extension-host/api.cjs",
+        "line": 202,
+        "start_byte": 11097
+      },
+      "name": "workspace",
+      "spreads": []
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 13910,
+            "end_line": 248,
+            "file": "current/extension-host/api.cjs",
+            "line": 248,
+            "start_byte": 13769
+          },
+          "name": "languages"
+        },
+        {
+          "location": {
+            "end_byte": 14637,
+            "end_line": 259,
+            "file": "current/extension-host/api.cjs",
+            "line": 249,
+            "start_byte": 13920
+          },
+          "name": "window"
+        },
+        {
+          "location": {
+            "end_byte": 15346,
+            "end_line": 271,
+            "file": "current/extension-host/api.cjs",
+            "line": 260,
+            "start_byte": 14647
+          },
+          "name": "workspace"
+        },
+        {
+          "location": {
+            "end_byte": 15384,
+            "end_line": 272,
+            "file": "current/extension-host/api.cjs",
+            "line": 272,
+            "start_byte": 15356
+          },
+          "name": "commands"
+        },
+        {
+          "location": {
+            "end_byte": 15685,
+            "end_line": 280,
+            "file": "current/extension-host/api.cjs",
+            "line": 273,
+            "start_byte": 15394
+          },
+          "name": "extensions"
+        }
+      ],
+      "location": {
+        "end_byte": 15695,
+        "end_line": 281,
+        "file": "current/extension-host/api.cjs",
+        "line": 246,
+        "start_byte": 13723
+      },
+      "name": "vscode",
+      "spreads": [
+        "...api"
+      ]
+    },
+    {
+      "keys": [],
+      "location": {
+        "end_byte": 13910,
+        "end_line": 248,
+        "file": "current/extension-host/api.cjs",
+        "line": 248,
+        "start_byte": 13780
+      },
+      "name": "languages",
+      "spreads": [
+        "...diagnostics.forOwner(owner)",
+        "...(sessionOptions.languageProviders ? providers.forOwner(owner) : {})"
+      ]
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 14085,
+            "end_line": 251,
+            "file": "current/extension-host/api.cjs",
+            "line": 251,
+            "start_byte": 14042
+          },
+          "name": "showTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 14195,
+            "end_line": 253,
+            "file": "current/extension-host/api.cjs",
+            "line": 253,
+            "start_byte": 14140
+          },
+          "name": "activeTextEditor"
+        },
+        {
+          "location": {
+            "end_byte": 14280,
+            "end_line": 254,
+            "file": "current/extension-host/api.cjs",
+            "line": 254,
+            "start_byte": 14207
+          },
+          "name": "visibleTextEditors"
+        },
+        {
+          "location": {
+            "end_byte": 14368,
+            "end_line": 255,
+            "file": "current/extension-host/api.cjs",
+            "line": 255,
+            "start_byte": 14292
+          },
+          "name": "onDidChangeActiveTextEditor"
+        },
+        {
+          "location": {
+            "end_byte": 14457,
+            "end_line": 256,
+            "file": "current/extension-host/api.cjs",
+            "line": 256,
+            "start_byte": 14380
+          },
+          "name": "showInformationMessage"
+        },
+        {
+          "location": {
+            "end_byte": 14542,
+            "end_line": 257,
+            "file": "current/extension-host/api.cjs",
+            "line": 257,
+            "start_byte": 14469
+          },
+          "name": "showWarningMessage"
+        },
+        {
+          "location": {
+            "end_byte": 14625,
+            "end_line": 258,
+            "file": "current/extension-host/api.cjs",
+            "line": 258,
+            "start_byte": 14554
+          },
+          "name": "showErrorMessage"
+        }
+      ],
+      "location": {
+        "end_byte": 14637,
+        "end_line": 259,
+        "file": "current/extension-host/api.cjs",
+        "line": 249,
+        "start_byte": 13928
+      },
+      "name": "window",
+      "spreads": [
+        "...createPrompts(request, sessionOptions.session, owner, promptBudget)",
+        "...surfaces.forExtension(owner)"
+      ]
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 14736,
+            "end_line": 261,
+            "file": "current/extension-host/api.cjs",
+            "line": 261,
+            "start_byte": 14693
+          },
+          "name": "openTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 14803,
+            "end_line": 262,
+            "file": "current/extension-host/api.cjs",
+            "line": 262,
+            "start_byte": 14748
+          },
+          "name": "textDocuments"
+        },
+        {
+          "location": {
+            "end_byte": 14897,
+            "end_line": 263,
+            "file": "current/extension-host/api.cjs",
+            "line": 263,
+            "start_byte": 14815
+          },
+          "name": "workspaceFolders"
+        },
+        {
+          "location": {
+            "end_byte": 14963,
+            "end_line": 264,
+            "file": "current/extension-host/api.cjs",
+            "line": 264,
+            "start_byte": 14909
+          },
+          "name": "rootPath"
+        },
+        {
+          "location": {
+            "end_byte": 15027,
+            "end_line": 265,
+            "file": "current/extension-host/api.cjs",
+            "line": 265,
+            "start_byte": 14975
+          },
+          "name": "onDidChangeTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 15088,
+            "end_line": 266,
+            "file": "current/extension-host/api.cjs",
+            "line": 266,
+            "start_byte": 15039
+          },
+          "name": "onDidOpenTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 15150,
+            "end_line": 267,
+            "file": "current/extension-host/api.cjs",
+            "line": 267,
+            "start_byte": 15100
+          },
+          "name": "onDidCloseTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 15210,
+            "end_line": 268,
+            "file": "current/extension-host/api.cjs",
+            "line": 268,
+            "start_byte": 15162
+          },
+          "name": "onDidSaveTextDocument"
+        },
+        {
+          "location": {
+            "end_byte": 15257,
+            "end_line": 269,
+            "file": "current/extension-host/api.cjs",
+            "line": 269,
+            "start_byte": 15222
+          },
+          "name": "getConfiguration"
+        },
+        {
+          "location": {
+            "end_byte": 15334,
+            "end_line": 270,
+            "file": "current/extension-host/api.cjs",
+            "line": 270,
+            "start_byte": 15269
+          },
+          "name": "onDidChangeConfiguration"
+        }
+      ],
+      "location": {
+        "end_byte": 15346,
+        "end_line": 271,
+        "file": "current/extension-host/api.cjs",
+        "line": 260,
+        "start_byte": 14658
+      },
+      "name": "workspace",
+      "spreads": []
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 15551,
+            "end_line": 276,
+            "file": "current/extension-host/api.cjs",
+            "line": 276,
+            "start_byte": 15516
+          },
+          "name": "getExtension"
+        },
+        {
+          "location": {
+            "end_byte": 15599,
+            "end_line": 277,
+            "file": "current/extension-host/api.cjs",
+            "line": 277,
+            "start_byte": 15565
+          },
+          "name": "all"
+        },
+        {
+          "location": {
+            "end_byte": 15660,
+            "end_line": 278,
+            "file": "current/extension-host/api.cjs",
+            "line": 278,
+            "start_byte": 15613
+          },
+          "name": "onDidChange"
+        }
+      ],
+      "location": {
+        "end_byte": 15674,
+        "end_line": 279,
+        "file": "current/extension-host/api.cjs",
+        "line": 275,
+        "start_byte": 15478
+      },
+      "name": "extensions",
+      "spreads": []
+    },
+    {
+      "keys": [
+        {
+          "location": {
+            "end_byte": 6246,
+            "end_line": 115,
+            "file": "current/extension-host/host.cjs",
+            "line": 115,
+            "start_byte": 6213
+          },
+          "name": "subscriptions"
+        },
+        {
+          "location": {
+            "end_byte": 6274,
+            "end_line": 115,
+            "file": "current/extension-host/host.cjs",
+            "line": 115,
+            "start_byte": 6248
+          },
+          "name": "extensionPath"
+        },
+        {
+          "location": {
+            "end_byte": 6311,
+            "end_line": 115,
+            "file": "current/extension-host/host.cjs",
+            "line": 115,
+            "start_byte": 6276
+          },
+          "name": "extensionUri"
+        },
+        {
+          "location": {
+            "end_byte": 6372,
+            "end_line": 116,
+            "file": "current/extension-host/host.cjs",
+            "line": 116,
+            "start_byte": 6321
+          },
+          "name": "extensionMode"
+        },
+        {
+          "location": {
+            "end_byte": 6442,
+            "end_line": 117,
+            "file": "current/extension-host/host.cjs",
+            "line": 117,
+            "start_byte": 6382
+          },
+          "name": "asAbsolutePath"
+        }
+      ],
+      "location": {
+        "end_byte": 6501,
+        "end_line": 119,
+        "file": "current/extension-host/host.cjs",
+        "line": 114,
+        "start_byte": 6173
+      },
+      "name": "ExtensionContext",
+      "spreads": [
+        "...runtime.contextForExtension(item.id)"
+      ]
+    }
+  ]
+}

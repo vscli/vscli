@@ -1,0 +1,34 @@
+{
+  "base_revision": "c2eb0939dfcafdbf654d845baef34ea782eb9cde",
+  "prepared_at": "2026-10-11",
+  "execution": "Source-only author preparation; root qualification is recorded in docs/EXTENSION_CALLERS.md",
+  "new_code": "Original optional-host runtime glue; no upstream code port",
+  "primary_node_documentation": "https://nodejs.org/api/async_context.html#class-asynclocalstorage",
+  "node_documentation_observed_version": "v26.11.1",
+  "read_only_repository_seams": [
+    {
+      "path": "extension-host/activation.cjs",
+      "sha256": "1c2bb2e5c40a9f6b7d4a08acec69488efef51ae824e7856a5d57645cdb9144ce"
+    },
+    {
+      "path": "extension-host/symbols.cjs",
+      "sha256": "1e3eb0013f32cff259e13d2a003e999d603cb8e4b34e03b39de2271db86e7c71"
+    },
+    {
+      "path": "extension-host/document-services.cjs",
+      "sha256": "a1b3248d0715be18d2d868402a488274b45f3f5831ecb8983afdd06f1c0bc09b"
+    },
+    {
+      "path": "src/extensions.rs",
+      "sha256": "297232aa4b4df178cb494182f1409270366914e740b39cc86e1d0c17c20090f7"
+    }
+  ],
+  "independent_root_changes": "ES5 helper imports/decorators and extension_edit_values_pty.py; preserve on adoption",
+  "adopted_after_revision": "a4238d3eccc915af36ad67c892e05621b05e468f",
+  "correction_manifest_sha256": "f42da63824aed1f247920681d9246c97b4659d8128cab96d254d363109a5d3de",
+  "correction_patch_sha256": "4db8cc67d8d4495cee053e79ae80676de281e5b14314ff70346b46bdceb14996",
+  "native_adaptations": [
+    "Retired caller leases cannot borrow same-owner replacements; retired event listeners are inert while raw cleanup remains callable.",
+    "Custom filesystem metadata is snapshotted as primitive DTOs; directory snapshots are bounded to 65536 entries and 8 MiB."
+  ]
+}

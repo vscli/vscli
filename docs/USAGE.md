@@ -39,7 +39,7 @@ Useful options:
 
 New documents and files without line breaks use CRLF on Windows and LF on Unix. Existing LF/CRLF content determines the document's line ending for subsequent insertion; opening does not rewrite file bytes. Mixed-line-ending selection and `files.eol` settings migration remain unqualified.
 
-The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary text entry, grapheme-aware horizontal movement, visual-column vertical movement, keyboard/mouse selection, undo/redo, indentation, comments, line deletion, literal find, replace all, and go to line.
+The editor supports UTF-8 file open/save and Save As, multiple tabs, ordinary text entry, grapheme-aware horizontal movement, visual-column vertical movement, keyboard/mouse selection, undo/redo, indentation, comments, line deletion, literal find, replace all, and go to line. Editor groups start at the top of the workbench with their tabs and breadcrumbs; there is no separate VSCLI title row.
 
 Save and Save As now persist on a background native worker. You can keep typing
 or switch editors while an authorized save finishes: the captured text reaches
@@ -219,7 +219,16 @@ rollback and removal are reflected on the next invocation. Contributed paths
 must remain inside the package. User, workspace and installed files share the
 128-file, 4096-snippet and 16 MiB read limits; warnings leave valid catalogs usable.
 
-Choice menus, nested snippet merging and extension API insertion are still unfinished.
+Enabled extensions can call `await editor.insertSnippet(new vscode.SnippetString(template), where, options)`
+through the native parser. Omitted/falsy `where` or `[]` uses that editor's private
+selections; explicit positions/ranges and arrays are supported. Successful native
+insertion focuses the addressed pane and leaves files unsaved. Omitted options
+default both undo flags true; `{keepWhitespace: true}` leaves omitted undo flags
+false, so specify them explicitly when needed. Host/native tests and four new
+terminal journeys pass. See [editor snippets](EDITOR_SNIPPETS_API.md) for limits
+and the separately scoped evidence.
+
+Choice menus and command-driven nested snippet merging remain unfinished.
 Completion snippets use native linked fields; see [IntelliSense](COMPLETIONS.md). Unsupported regex
 constructs fail explicitly. See [snippet evidence and limits](SNIPPETS.md).
 
@@ -365,7 +374,7 @@ and [official client normalization](https://github.com/microsoft/vscode-language
 | Rename symbol | F2 | F2 | F2 |
 | Problems | Ctrl+Shift+M | Ctrl+Shift+M | Cmd+Shift+M |
 
-Completion appears automatically after ordinary identifier typing or a server/provider trigger character, and Ctrl+Space requests it explicitly. The nonmodal caret popup uses Up/Down, Page Up/Down, Tab/Enter acceptance and Escape dismissal; snippet placeholder Tab retains precedence. Formatting is undoable. Rename currently accepts unversioned text edits, stages validation before changing any buffer, and leaves files unsaved for review; undo is per file. It refuses edits to other unsaved buffers. Versioned rename edits, file operations, completion follow-up commands, server provisioning, automatic restart, multiple simultaneous servers, and advanced capability negotiation remain incomplete. Native code-action support has its own stricter transaction rules below. The server is terminated when the editor exits; graceful shutdown is still pending. Diagnostics lacking server versions have weaker stale-result guarantees.
+Completion appears automatically after ordinary identifier typing or a server/provider trigger character, and Ctrl+Space requests it explicitly. The nonmodal caret popup uses Up/Down, Page Up/Down, Tab/Enter acceptance and Escape dismissal; snippet placeholder Tab retains precedence. Formatting is undoable. F2 uses extension rename providers or the selected native LSP, including advertised preparation. Text edits are prepared atomically across dirty, shared, hidden and unopened local files; Undo/Redo restores the whole cohort. Multi-resource refactoring currently requires `files.refactoring.autoSave: false`; the default save continuation remains unfinished. Single-resource rename stays unsaved under the default policy. Resource operations, snippet/EOL/annotation/notebook application, completion follow-up commands, server provisioning, automatic restart, multiple simultaneous servers, and advanced capability negotiation remain incomplete. See [rename contracts and qualification](RENAME_PROVIDERS_API.md). Native code-action support has its own stricter transaction rules below. The server is terminated when the editor exits; graceful shutdown is still pending. Diagnostics lacking server versions have weaker stale-result guarantees.
 
 A deterministic subprocess fixture tests synchronization, completion, formatting, and rejection of a stale response. The local real-server integration test covers clangd diagnostics, hover, and formatting. This does not establish compatibility with every server.
 
@@ -449,6 +458,12 @@ Preferences: Load Color Theme File loads JSON/JSONC directly. `--theme PATH`
 overrides the saved selection. Themes are native data and do not start Node.
 See [import guarantees, theme mappings and limits](IMPORT_AND_THEMES.md).
 
+Selected code extensions can style ranges independently in each visible native
+pane through `createTextEditorDecorationType` and `setDecorations`. Colors and
+common text styles follow edits and Undo/Redo; they do not modify file contents.
+Hover, before/after attachments, gutter images, overview rulers and richer CSS
+remain outstanding. See [editor decorations](EDITOR_DECORATIONS_API.md).
+
 ## Settings
 
 Use `--settings /path/to/settings.json` to select a user settings file for reading and native settings writes. By default, VSCLI reads `settings.json` beside its user keybindings file. An activated import supplies the native copy's user settings/keybindings/snippet directory unless explicit CLI paths override it. Workspace `.vscode/settings.json` is layered above user settings. Ctrl+, (Cmd+, on macOS) opens the user settings JSON file. Comments and trailing commas are accepted.
@@ -459,9 +474,23 @@ settings buffers and winning language overrides refuse the write with a notice.
 Background persistence and forced reloads keep filesystem work out of the
 toggle's input handler. See [scope, bounds and evidence](SETTINGS_PERSISTENCE.md).
 
-The current supported subset includes the native language-server controls above, `editor.tabSize` (1–16), `editor.insertSpaces`, and `editor.lineNumbers` (`on`, `off`, `relative`, `interval`). Indentation width applies to editing, cursor/mouse coordinates, rendering, and LSP formatting options. Language blocks such as `[python]` and `[javascript][typescript]` override general values; a single-language block takes priority over a multi-language block. Workspace values override user values within the same identifier group. Combined-language groups retain their first occurrence order across scopes; changing that order can change precedence. This follows the pinned [configuration model](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/configuration/common/configurationModels.ts).
+The current supported subset includes the native language-server controls above,
+`editor.tabSize` (1–16), `editor.indentSize` (1–16 or `"tabSize"`),
+`editor.insertSpaces`, `editor.lineNumbers` (`on`, `off`, `relative`, `interval`)
+and `editor.cursorStyle` (`line`, `block`, `underline`, `line-thin`,
+`block-outline`, `underline-thin`). Tab width controls rendered columns and mouse
+coordinates; indent width controls editing, comments and LSP formatting options.
+Selected extensions can change resolved model/view options and explicitly request
+auto indentation detection. Thin/outline cursors map to the nearest terminal
+shape. See [editor presentation](EDITOR_PRESENTATION_API.md) for API behavior and
+limits. Language blocks such as `[python]` and `[javascript][typescript]` override
+general values; a single-language block takes priority over a multi-language block.
+Workspace values override user values within the same identifier group.
+Combined-language groups retain their first occurrence order across scopes;
+changing that order can change precedence. This follows the pinned
+[configuration model](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/configuration/common/configurationModels.ts).
 
-Settings reload in the background every two seconds. Malformed updates retain the previous configuration. Entries outside the native subset and invalid native values appear in F1 → Settings: Compatibility Report. A notice about an extension setting does not mean an enabled extension cannot read it. Native `off`/`afterDelay` autosave and opt-in native file formatting on explicit Save are implemented within their documented bounds. Automatic indentation detection, complete theme semantics, broader save participants, profiles, remote scopes, policies, and the broader settings catalog remain incomplete; importing those entries does not enable their behavior.
+Settings reload in the background every two seconds. Malformed updates retain the previous configuration. Entries outside the native subset and invalid native values appear in F1 → Settings: Compatibility Report. A notice about an extension setting does not mean an enabled extension cannot read it. Native `off`/`afterDelay` autosave and opt-in native file formatting on explicit Save are implemented within their documented bounds. Automatic indentation detection on file opening, complete theme semantics, broader save participants, profiles, remote scopes, policies, and the broader settings catalog remain incomplete; importing those entries does not enable their behavior.
 
 Enable `"editor.formatOnSave": true`, optionally inside `[cpp]` or another language block, to format an ordinary named visible model with its native language server before Save. `editor.formatOnSaveMode` supports `"file"` only. After-delay autosave skips formatting. Missing formatters, formatter errors, unsupported targets/options and the 1500 ms native save deadline fall back to saving current bytes with a notice. Escape cancels pending formatting; a still-running canceled callback retains actual formatter capacity until its reply or server retirement. Valid formatting is a separate Undo step; null or unchanged results add none. See [behavior, integrity checks and outstanding qualification](FORMAT_ON_SAVE.md).
 
@@ -570,6 +599,15 @@ Enabled command extensions can show a native single-selection Quick Pick or Inpu
 
 
 Extensions can read an existing file through `workspace.openTextDocument` without opening a tab, then display the same native document with `showTextDocument`. Hidden models retain identity, undo, file watching and dirty recovery. Global/workspace Memento state persists under the native configuration root, separately from imported profiles. A small explicit set of movement, selection and undo/redo commands can be delegated to the native editor. See [supported options, service bounds and qualification](EXTENSIONS.md#native-documents-commands-and-persistent-state); unsupported file schemes, preview tabs, save/task delegation and cloud state sync reject explicitly.
+
+Selected extensions receive distinct editor handles for each visible native pane,
+including two panes sharing the same document and Undo history. `showTextDocument`
+supports Active/Beside, existing columns 1–4, the next reachable column and
+`preserveFocus`; the positional column overload is supported too. Selection setters
+can target an inactive visible pane without changing focus. Closing or hiding an
+editor retires its handle; reopening the same file returns a new one. Visible,
+active and view-column events follow the native inventory, including an empty
+workbench. See [editor inventory and remaining limits](EDITOR_INVENTORY_API.md).
 
 ## Recent files and reopening closed editors
 
@@ -728,13 +766,25 @@ A matching selected extension can instead provide document symbols through the
 same picker, including hierarchical symbols for untitled buffers.
 Workspace symbol search also works from an empty welcome screen.
 
+Selected extensions can supply global workspace symbols through
+`languages.registerWorkspaceSymbolProvider`. All registered global providers
+participate, independently of the active document and document selectors. The
+public `vscode.executeWorkspaceSymbolProvider(query)` returns fresh symbols
+without opening editors or eagerly resolving them. Original Ctrl+T navigation
+resolves the selected original symbol before opening its target; indexers may
+await `workspace.openTextDocument` without dismissing the picker or changing
+focus. See [workspace-symbol API behavior and evidence](WORKSPACE_SYMBOLS_API.md).
+
 The native searchable picker displays names, kinds, containing symbols and file
 locations. Document search filters one response locally; workspace queries wait
 200 ms after input changes, cancel superseded requests and clear obsolete results.
 Hierarchical `DocumentSymbol` uses `selectionRange`; flat `SymbolInformation` and
 range-bearing `WorkspaceSymbol` use their location range. Range-less workspace
-symbols requiring `workspaceSymbol/resolve`, non-file URIs, malformed ranges and
-oversized responses produce explicit errors. Range-less resolve, symbol previews,
+symbols requiring native LSP `workspaceSymbol/resolve`, non-file LSP URIs,
+malformed ranges and oversized responses produce explicit errors. The optional
+extension route supports lazy `resolveWorkspaceSymbol` and retained non-file
+models; an absent resolved range opens its URI without changing the selection.
+Unsupported URI editor backends, native LSP range-less resolve, symbol previews,
 grouping modes and complete VS Code navigation behavior remain incomplete.
 The separate [Outline section](OUTLINE.md) merged after its named local and
 platform checks; [Breadcrumbs](BREADCRUMBS.md) also merged after all required checks.
@@ -752,7 +802,8 @@ Targets needing filesystem alias resolution use one bounded background loader.
 It matches the resolved path to captured open buffers before reading file contents,
 so a dirty buffer remains usable through a parent alias after its file is deleted.
 Closed targets must be existing regular files within the existing 32 MiB open
-limit; missing files never create buffers.
+limit on the native LSP route. The optional extension route additionally uses
+the remaining 4 MiB aggregate model budget. Missing files never create buffers.
 Cancellation retains the worker slot until it finishes. A server response cannot
 guarantee the revision of an unopened file, so this path validates the supplied
 range against freshly read text rather than claiming a server-version snapshot.
@@ -916,11 +967,39 @@ In the installed extensions picker, **e/d** enable or disable the selected packa
 
 Use `vscli --enable-extension publisher.name` to remember a global code grant without starting Node. `--disable-extension publisher.name --extension-scope workspace --workspace /path/to/project` writes a workspace override under the native user configuration root. Missing installed IDs and malformed existing state reject without replacing previous grants. These flags can be used without an interactive terminal.
 
+Selected extensions can use `workspace.applyEdit` for retained and unopened local
+text models, including hidden and untitled documents, with one grouped native
+Undo/Redo operation. `TextEdit.setEndOfLine` supports explicit LF/CRLF conversion
+after text replacements, preserving shared identity and selections. Plain text
+and EOL transactions leave files untouched until saved. Multi-resource refactoring
+metadata uses the root `files.refactoring.autoSave` policy and native save continuation.
+See [native workspace edits](NATIVE_WORKSPACE_EDITS.md)
+for limits, failure behavior and remaining edit backends.
+
+Selected extensions can register `workspace.registerTextDocumentContentProvider`
+for a custom URI scheme, then open and show its content in a native read-only tab.
+Provider change events refresh the same document; cached content remains after
+provider disposal. Editing and saving return false, and native Save opens no
+Save As prompt. This supports generated previews without creating files. See
+[virtual text documents](VIRTUAL_DOCUMENTS_API.md) for limits and remaining
+custom-resource backends.
+
 ## Native extension language providers
 
-A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Format Document**, **Parameter Hints**, and **Go to Symbol in Editor**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). The highest-scoring matching provider wins, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Completion requests automatically after identifier typing or registered trigger characters; parameter hints use automatic triggers/retriggers and local overload navigation as described above.
+Selected extensions can change a retained document's language using
+`languages.setTextDocumentLanguage`, assign `TextEditor.selection` or
+`TextEditor.selections`, and listen to `window.onDidChangeTextEditorSelection`.
+Language changes preserve text, dirty state and Undo/Redo, and update native syntax,
+language settings and automatic server selection. Selection positions clamp to
+actual UTF-16 document bounds; an empty array becomes one origin selection.
+Changing an inactive editor's selections preserves focus. Language identifiers
+must be native builtins or actual registered extension contributions. Current
+public editor inventory still exposes one editor per document, so full split-view
+identity remains outstanding. See [behavior, limits and evidence](EDITOR_STATE_API.md).
 
-Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. Definitions and references reuse dirty/shared buffers and load closed files asynchronously. Completion uses the nonmodal caret popup with Up/Down selection, Tab/Enter acceptance and Escape cancellation; native snippet placeholder Tab retains precedence. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Completion resolution and linked snippet fields with atomic import edits are supported. Completion commands, workspace symbol providers and provider aggregation remain unsupported. See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).
+A running selected extension can supply **Language: Complete**, **Hover**, **Go to Definition**, **Find References**, **Go to Implementation**, **Go to Type Definition**, **Go to Declaration**, **Format Document**, **Parameter Hints**, **Go to Symbol in Editor**, and **Go to Symbol in Workspace**. Use the existing native commands and platform shortcuts (for example Ctrl+Space completion and Linux Ctrl+Shift+I formatting). Navigation aggregates matching extension providers and displays a location picker for multiple targets. Other routes choose the highest-scoring provider, with the newest registration breaking ties; if no extension matches, commands retain their native LSP route. Implementation uses Ctrl+F12 (Cmd+F12 on macOS) when its provider is available. Type Definition and Declaration are available from the palette without default shortcuts. Completion requests automatically after identifier typing or registered trigger characters; parameter hints use automatic triggers/retriggers and local overload navigation as described above.
+
+Completion and formatting preserve the document's EOL convention, stage strict UTF-16 edits, and retain native save/undo. All five navigation actions reuse dirty/shared buffers, load closed files asynchronously and place the caret at the target selection start. Completion uses the nonmodal caret popup with Up/Down selection, Tab/Enter acceptance and Escape cancellation; native snippet placeholder Tab retains precedence. Symbols filter in the native searchable picker; parameter hints use the nonmodal native panel. Completion resolution and linked snippet fields with atomic import edits are supported. Completion commands and aggregation for remaining non-navigation routes remain unsupported. Global workspace-symbol providers aggregate independently of document selectors; see [workspace-symbol APIs](WORKSPACE_SYMBOLS_API.md). Public execute queries for all five navigation families return locations without focusing an editor; see [navigation API scope](NAVIGATION_PROVIDERS_API.md). See [provider bounds, context guards and evidence](EXTENSION_PROVIDERS.md).
 
 The empty workbench uses an original graphical VSCLI mark, clickable actions and recent files. Settings shows the active user JSON path; Ctrl+, opens it (Cmd+, on macOS), with workspace overrides in `.vscode/settings.json`. [Welcome rendering and terminal qualification](WELCOME.md) describes the high-resolution Kitty path and cell fallback.
 
@@ -990,3 +1069,41 @@ saved sticky prefix; older schemas restore nonsticky. Dirty/untitled recovery re
 independent. Mouse close gestures and graphical sticky-row layouts remain outside
 this candidate. Schema-3 integrity and session checks pass locally; platform
 qualification remains pending. See [scope and evidence](STICKY_TABS.md).
+
+Selected extensions can discover local files with `workspace.findFiles`, including
+`RelativePattern` directories, configured exclusions and cancellation. See
+[file discovery](NATIVE_FILE_SEARCH.md) for supported behavior and limits.
+
+Selected extensions can subscribe to external file creation, changes and deletion
+with `workspace.createFileSystemWatcher`, using workspace globs or explicit
+`RelativePattern` bases. Matching watches share local OS workers, recursive
+watches honor `files.watcherExclude`, and disposing a watcher stops delivery.
+See [filesystem watcher behavior and bounds](FILE_WATCHERS_API.md).
+
+## Extension edits before file operations
+
+Selected extensions can contribute text changes before Explorer creates, renames
+or trashes a file/folder. Apply accepts the proposed changes; Preview shows the
+original and replacement text ranges and lets you select edits; Skip or Escape
+continues the file operation without those changes. Confirmation-marked edits
+require preview. Remember stores your Apply/Preview preference in the current
+profile; **F1 → Reset choice for 'File operation needs preview'** clears it.
+
+`"files.participants.timeout": 60000` is the default callback budget in
+milliseconds. Set it to `0` to disable participant callbacks. Escape while
+callbacks run skips additional edits. Ordinary text edits retain native grouped
+Undo/Redo and stay unsaved. File/snippet/EOL/notebook contributions still require
+their apply backends and produce an explicit whole-selection refusal. See
+[native participant behavior and qualification](NATIVE_FILE_PARTICIPANTS.md).
+
+## Extension-created untitled documents
+
+Extensions can create editable unsaved documents with initial content/language or
+an explicit `untitled:` URI. Initial content is outside Undo history; saving uses
+the native persistence worker and, when needed, the ordinary Save As prompt.
+Canceling the prompt does not write a file. Associated destinations remain
+separate from a saved path until a successful receipt. Extensions observe the
+old untitled document close and a new file document open and save; native buffer
+identity and Undo history survive. Repeated opens of a retained untitled URI reuse
+that document, while content/options opens receive fresh resource names. See
+[untitled document behavior, recovery and qualification](UNTITLED_DOCUMENTS_API.md).

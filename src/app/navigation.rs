@@ -270,7 +270,9 @@ impl OpenIntent {
                 let end = crate::lsp::offset(app.doc(), range.end).unwrap();
                 app.doc_mut().clear_secondary();
                 app.doc_mut().move_to(start, false);
-                app.doc_mut().move_to(end, true);
+                if start != end {
+                    app.doc_mut().move_to(end, true);
+                }
             }
             Self::Search(hit) => {
                 app.doc_mut().clear_secondary();

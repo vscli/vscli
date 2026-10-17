@@ -22,6 +22,9 @@ symbols supply a guarded sibling picker.
 [Editor groups](docs/EDITOR_GROUPS.md) retain independent tabs, historical views
 and MRU closing. Native previews support Keep Editor and permanent edit promotion;
 delayed Save→Close targets the original tab.
+[Public extension tabs](docs/EDITOR_TABS_API.md) expose the actual groups and
+inactive/shared text tabs, change events and native Save/Discard/Cancel closes.
+Welcome and the last-tab close retain one real empty group without creating a file.
 The Breadcrumbs toggle now saves its root setting through
 [native background settings persistence](docs/SETTINGS_PERSISTENCE.md), preserving
 comments and guarding unsaved settings buffers.
@@ -32,7 +35,7 @@ Legacy boolean exclusions retain raw imported settings; see the
 
 This alpha implements a **subset** of VS Code commands and bindings. Native language features include diagnostics, completion, explicit parameter hints, symbols, navigation, formatting and limited rename/refactoring. One native language server is active per window; manual configuration and disable controls remain available. Clean-file session restoration is opt-in and separate from dirty-buffer crash recovery. Native debugging supports breakpoints, stepping, stack/variables and expression evaluation through an explicitly configured stdio adapter; Python/debugpy is tested.
 
-An optional Node.js **CommonJS compatibility host** runs up to eight authorized packages with supported lazy activation. Its bounded subset includes shared documents/edits, configuration/Mementos, seven language-provider routes, diagnostic collections, native prompts and output/status/tree surfaces. Native Open VSX installation, themes and snippet catalogs work without code activation. See [extension compatibility](docs/EXTENSIONS.md), [diagnostic scope](docs/DIAGNOSTICS.md) and [named provider workflows](docs/EXTENSION_PROVIDERS.md): installing or activating an extension does not establish that all its features work.
+An optional Node.js **CommonJS compatibility host** runs up to eight authorized packages with supported lazy activation. Its bounded subset includes shared documents, [atomic workspace text edits and grouped Undo/Redo](docs/NATIVE_WORKSPACE_EDITS.md), configuration/Mementos, twelve language-provider routes, including [global workspace symbols](docs/WORKSPACE_SYMBOLS_API.md), diagnostic collections, native prompts and output/status/tree surfaces. Native Open VSX installation, themes and snippet catalogs work without code activation. See [extension compatibility](docs/EXTENSIONS.md), [diagnostic scope](docs/DIAGNOSTICS.md) and [named provider workflows](docs/EXTENSION_PROVIDERS.md): installing or activating an extension does not establish that all its features work.
 
 Full keybinding behavior and extension compatibility remain project goals. CI covers Linux, macOS and Windows, with Unix PTY workflows on Linux/macOS. Physical keyboard/layout, arbitrary terminal graphics and Windows ConPTY qualification remain incomplete; folding and many advanced IDE workflows remain outstanding. Resolved completion and linked snippet/import insertion follow the [bounded IntelliSense contract](docs/COMPLETIONS.md).
 
@@ -65,7 +68,7 @@ The longer-term design lives in:
 1. [Completion criteria](docs/RELEASE_CHECKLIST.md): the active full-project goal and remaining release requirements.
 2. [Architecture](docs/ARCHITECTURE.md): product scope, technical decisions, process boundaries, editing model, terminal experience, and performance budgets.
 3. [Compatibility](docs/COMPATIBILITY.md): keybindings, configuration, extension execution, distribution, and a measurable compatibility contract.
-4. [Current parity plan](docs/PARITY_PLAN.md): implemented subsets, remaining scope and next priorities.
+4. [Feature backlog](docs/FEATURE_TODO.md) and [full extension API workstream](docs/EXTENSION_API.md): current priorities, implementation and evidence. The [earlier parity plan](docs/PARITY_PLAN.md) retains the broader audited gaps.
 5. [Original roadmap](docs/ROADMAP.md): feasibility experiments, release gates, initial estimates and open-source stewardship.
 
 The architecture documents describe the intended larger IDE; not every component is implemented in this alpha. Their timelines and performance budgets are planning targets, not measured results.

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 use crossterm::{
-    cursor::Show,
+    cursor::{SetCursorStyle, Show},
     event::{
         self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
         KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
@@ -178,6 +178,7 @@ fn restore_terminal() {
         DisableMouseCapture,
         DisableBracketedPaste,
         Show,
+        SetCursorStyle::DefaultUserShape,
         LeaveAlternateScreen
     );
     let _ = terminal::disable_raw_mode();
@@ -541,6 +542,7 @@ fn main() -> Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
     let mut redraw = true;
+    let mut last_cursor_style = None;
     let mut last_recovery = Instant::now();
     let editing_result = (|| -> Result<()> {
         while app.running {
@@ -556,6 +558,26 @@ fn main() -> Result<()> {
             redraw |= app.poll();
             if redraw {
                 terminal.draw(|frame| ui::draw(frame, &mut app))?;
+                // Terminal shape support varies. Thin line uses the bar shape;
+                // outline block and thin underline use their solid equivalents.
+                let shape = app
+                    .active_document()
+                    .filter(|_| {
+                        app.focus == vscli::app::Focus::Editor
+                            && app.prompt.is_none()
+                            && app.modal.is_none()
+                    })
+                    .map_or(SetCursorStyle::DefaultUserShape, |doc| {
+                        match doc.editor_cursor_style() {
+                            2 | 5 => SetCursorStyle::SteadyBlock,
+                            3 | 6 => SetCursorStyle::SteadyUnderScore,
+                            _ => SetCursorStyle::SteadyBar,
+                        }
+                    });
+                if last_cursor_style != Some(shape) {
+                    execute!(terminal.backend_mut(), shape)?;
+                    last_cursor_style = Some(shape);
+                }
                 redraw = false;
             }
             if event::poll(Duration::from_millis(50))? {

@@ -1,0 +1,166 @@
+{
+  "contract": "vscli-source-audit-limitations-v1",
+  "execution": "None: names and source branches are evidence only; existing test files were copied but not executed.",
+  "limitations": [
+    {
+      "api": "vscode.version",
+      "status": "declared_old_version",
+      "detail": "Host reports 1.95.0 while audited stable scope is 1.141.0. Raising the number is not an implementation fix.",
+      "source": "current/extension-host/api.cjs"
+    },
+    {
+      "api": "vscode.commands.executeCommand",
+      "status": "partial",
+      "detail": "Extension registrations plus finite NATIVE_COMMANDS only; native delegation accepts no arguments. No complete execute-provider/original command protocol.",
+      "source": "current/extension-host/document-services.cjs"
+    },
+    {
+      "api": "vscode.workspace.openTextDocument",
+      "status": "partial_overloads",
+      "detail": "File path/file URI only; content/untitled overload and custom schemes reject. Multi-root resources and filesystem providers absent.",
+      "source": "current/extension-host/document-services.cjs"
+    },
+    {
+      "api": "vscode.window.showTextDocument",
+      "status": "partial_overloads",
+      "detail": "Active group only; positional view-column overload, preview true, preserveFocus true reject even though newer native editor features exist. Mirror/editor handle is document keyed rather than exact group membership.",
+      "source": "current/extension-host/document-services.cjs"
+    },
+    {
+      "api": "vscode.window.visibleTextEditors",
+      "status": "partial_result",
+      "detail": "Returns active editor only. Independent shared-document group views, tabGroups and visible/selection/options/range events are absent.",
+      "source": "current/extension-host/api.cjs"
+    },
+    {
+      "api": "vscode.TextEditor",
+      "status": "partial",
+      "detail": "Selection getter only (no setter); no options, visibleRanges, viewColumn, revealRange, decorations or insertSnippet. edit rejects undoStopBefore/After false.",
+      "source": "current/extension-host/api.cjs"
+    },
+    {
+      "api": "vscode.TextEditorEdit",
+      "status": "partial",
+      "detail": "replace/insert/delete only; setEndOfLine absent. Native transaction/version guard exists but overload and stop grouping require independent qualification.",
+      "source": "current/extension-host/api.cjs"
+    },
+    {
+      "api": "vscode.TextDocument",
+      "status": "partial",
+      "detail": "save and getWordRangeAtPosition missing. Change notifications are full-document replacements; per-edit ranges/reasons, willSave and save participant orchestration are not provided.",
+      "source": "current/extension-host/api.cjs"
+    },
+    {
+      "api": "vscode.WorkspaceEdit",
+      "status": "partial",
+      "detail": "Text-edit construction exists for code-action consumption; create/rename/delete file are recorded as unsupported and rejected; snippet/notebook/metadata operations and general workspace.applyEdit absent.",
+      "source": "current/extension-host/code-action-types.cjs"
+    },
+    {
+      "api": "vscode.WorkspaceConfiguration.update",
+      "status": "rejects",
+      "detail": "Method always rejects; native persistent settings implementation is not connected. Full resource/multi-root inspection and API target semantics need explicit review.",
+      "source": "current/extension-host/configuration.cjs"
+    },
+    {
+      "api": "vscode.ExtensionContext",
+      "status": "partial",
+      "detail": "Subscriptions/path/URI/mode/extension/globalState/workspaceState exist; secrets, storage/log paths, environment-variable collections and languageModelAccessInformation missing. Global state cloud synchronization rejects.",
+      "source": "current/extension-host/host.cjs"
+    },
+    {
+      "api": "vscode.window.showInformationMessage/showWarningMessage/showErrorMessage",
+      "status": "partial_overloads",
+      "detail": "Notification without choices only; items/options/modal branches reject.",
+      "source": "current/extension-host/api.cjs"
+    },
+    {
+      "api": "vscode.window.showQuickPick/showInputBox",
+      "status": "partial_overloads",
+      "detail": "No supplied cancellation tokens, multi-pick, ignoreFocusOut, validation/password options, advanced items, buttons or stateful createQuickPick/createInputBox.",
+      "source": "current/extension-host/prompts.cjs"
+    },
+    {
+      "api": "vscode.languages",
+      "status": "partial_provider_family",
+      "detail": "Eight registrations: completion, hover, definition, references, document formatting, symbols, signature, code actions. Other families, match/getLanguages/setTextDocumentLanguage/setLanguageConfiguration absent; selector supports language/scheme only.",
+      "source": "current/extension-host/providers.cjs"
+    },
+    {
+      "api": "vscode.CompletionItemProvider",
+      "status": "partial_result_contract",
+      "detail": "Resolution exists but commands, commitCharacters, keepWhitespace reject; insert/replace pairs, selector pattern and complete metadata not implemented. DTO writable fields are not proof of native consumption.",
+      "source": "current/extension-host/providers.cjs"
+    },
+    {
+      "api": "vscode.CodeActionProvider",
+      "status": "partial_result_contract",
+      "detail": "Direct/lazy text edit handling exists with bounded retained original object identity; command-bearing actions and unsupported workspace operations reject; documentation metadata rejects. This is not complete command execution/applyEdit semantics.",
+      "source": "current/extension-host/code-actions.cjs"
+    },
+    {
+      "api": "vscode.DefinitionProvider/ReferenceProvider",
+      "status": "partial_result_contract",
+      "detail": "Provider result locations require local file URI. Virtual/remote/notebook/custom schemes cannot retain location behavior.",
+      "source": "current/extension-host/providers.cjs"
+    },
+    {
+      "api": "vscode.DiagnosticCollection",
+      "status": "bounded_partial_qualification",
+      "detail": "Collection-local behaviors have existing reference evidence; aggregate empty-resource bookkeeping and full lifecycle remain qualified only by their named scope. Shared read/edit identity, counts and normalization must remain guarded.",
+      "source": "current/extension-host/diagnostics.cjs"
+    },
+    {
+      "api": "vscode.MarkdownString/Uri/SnippetString",
+      "status": "partial_contract",
+      "detail": "Markdown HTML/trust rejected by provider normalization. SnippetString public builders including callback placeholders/variables/choices now exist in source, while native nested navigation/choice UI/variables/TextEditor.insertSnippet remain outstanding. Uri strict flag and several URI edge semantics remain unqualified.",
+      "source": "current/extension-host/provider-types.cjs"
+    },
+    {
+      "api": "vscode.window.createOutputChannel",
+      "status": "partial_overloads",
+      "detail": "Text channels exist; log:true overload/LogOutputChannel logging, severity and events not implemented.",
+      "source": "current/extension-host/surfaces.cjs"
+    },
+    {
+      "api": "vscode.StatusBarItem",
+      "status": "partial_contract",
+      "detail": "Limited plain-text tooltip, colors and backgrounds; accessibilityInformation and rich latest options absent.",
+      "source": "current/extension-host/surfaces.cjs"
+    },
+    {
+      "api": "vscode.TreeView/TreeDataProvider",
+      "status": "partial_contract",
+      "detail": "Contributed single-selection bounded trees; reveal rejects; no getParent/resolveTreeItem, drag/drop, checkboxes or full item icons/context/menu semantics.",
+      "source": "current/extension-host/surfaces.cjs"
+    },
+    {
+      "api": "vscode.extensions",
+      "status": "partial_contract",
+      "detail": "Owner activation/dependencies/registry exist; cross-host lookup and browser/remote extension placement remain unqualified/unsupported.",
+      "source": "current/extension-host/activation.cjs"
+    }
+  ],
+  "entirely_absent_namespaces": [
+    "authentication",
+    "chat",
+    "comments",
+    "debug",
+    "env",
+    "l10n",
+    "lm",
+    "notebooks",
+    "scm",
+    "tasks",
+    "tests"
+  ],
+  "additional_absent_domains_in_present_namespaces": [
+    "filesystem/search/watch/file events/multi-root/trust",
+    "terminals/tasks environment",
+    "decorations/theme icons/colors/theme events",
+    "progress/dialogs/URLs/webview panels/views/custom editors",
+    "all omitted language providers/semantic tokens/inlay hints/folding/selection/call/type hierarchy/drop/paste/notebook support",
+    "tabGroups/editor selection/visibility/options events"
+  ],
+  "compatibility_method": "Every overload and result/input field needs semantic fixtures and native integrity/lifecycle tests. Missing or rejecting APIs remain explicit; stubs or Proxy removal do not satisfy the contract. Optional compatibility host stays isolated from native core editing."
+}

@@ -78,8 +78,10 @@ struct Stamp {
     document: u64,
     revision: u64,
     epoch: u64,
+    language_epoch: u64,
     saved: u64,
     path: Option<PathBuf>,
+    resource_epoch: u64,
     workspace: PathBuf,
     source: Source,
 }
@@ -89,8 +91,10 @@ impl Stamp {
             document: doc.id,
             revision: doc.revision,
             epoch: doc.text_epoch(),
+            language_epoch: doc.language_epoch(),
             saved: doc.save_generation(),
             path: doc.path.clone(),
+            resource_epoch: doc.resource_epoch(),
             workspace: workspace.into(),
             source,
         }
@@ -99,14 +103,18 @@ impl Stamp {
         self.document == doc.id
             && self.revision == doc.revision
             && self.epoch == doc.text_epoch()
+            && self.language_epoch == doc.language_epoch()
             && self.saved == doc.save_generation()
             && self.path == doc.path
+            && self.resource_epoch == doc.resource_epoch()
             && self.source == *source
             && self.workspace == workspace
     }
     fn same_resource(&self, other: &Self) -> bool {
         self.document == other.document
+            && self.language_epoch == other.language_epoch
             && self.path == other.path
+            && self.resource_epoch == other.resource_epoch
             && self.source == other.source
             && self.workspace == other.workspace
     }
@@ -237,7 +245,9 @@ impl App {
         if let Some(path) = &doc.path
             && let Some(client) = &self.lsp
         {
-            let language = crate::lsp::language(path);
+            let language = doc
+                .language_override()
+                .unwrap_or_else(|| crate::lsp::language(path));
             let capability = &client.capabilities["documentSymbolProvider"];
             if client.ready
                 && (capability == true || capability.is_object())
@@ -508,7 +518,7 @@ impl App {
             Source::Native(instance) => {
                 let client = self.lsp.as_mut().unwrap();
                 client
-                    .sync(&self.documents)
+                    .sync_retained(&self.documents, &self.hidden_documents)
                     .and_then(|()| client.request_document_symbols(&self.documents[self.active]))
                     .map(|token| Call::Native {
                         token,
@@ -994,6 +1004,67 @@ mod tests {
         );
         app.doc_mut().redo();
         assert_eq!(app.doc().text.to_string(), "seed猫🙂\r\nbody\r\n");
+    }
+    #[test]
+    fn native_outline_uses_changed_language_even_when_file_extension_disagrees() {
+        let (_root, mut app) = fixture();
+        let id = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        let selections = app.doc().selections();
+        app.doc_mut()
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        // The actual framed server remains the fixture; its supported language
+        // selects the new native document lifetime just as an automatic launch.
+        app.lsp.as_mut().unwrap().language = "python".into();
+        app.lsp.as_mut().unwrap().sync(&app.documents).unwrap();
+        assert!(matches!(app.outline_source(), Source::Native(_)));
+        assert!(app.observe_outline());
+        let token = launch(&mut app);
+        release(&mut app, token, symbols()).unwrap();
+        assert!(app.outline_view().actionable);
+        assert_eq!(app.outline_view().tree.unwrap().nodes[0].name, "猫");
+        assert_eq!(app.doc().selections(), selections);
+        assert_eq!(app.doc().language_override(), Some("python"));
+        assert_integrity_and_redo(&mut app, id, epoch);
+    }
+    #[test]
+    fn metadata_language_round_trip_retires_outline_before_server_sync() {
+        let (_root, mut app) = fixture();
+        let id = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        let token = launch(&mut app);
+        release(&mut app, token, symbols()).unwrap();
+        assert!(app.outline_view().actionable);
+        app.doc_mut()
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        app.doc_mut()
+            .set_language_override(Some("cpp".into()))
+            .unwrap();
+        // Source bytes, text epoch and actual server's last synchronization are
+        // unchanged. The metadata lifetime alone must retire the published tree.
+        assert!(!app.outline_view().actionable);
+        assert!(app.outline_accept().is_err());
+        app.lsp.as_mut().unwrap().sync(&app.documents).unwrap();
+        app.observe_outline();
+        let held = launch(&mut app);
+        let selections = app.doc().selections();
+        app.doc_mut()
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        app.doc_mut()
+            .set_language_override(Some("cpp".into()))
+            .unwrap();
+        assert!(app.observe_outline());
+        assert!(app.outline.pending.is_none());
+        assert!(!app.lsp.as_ref().unwrap().symbol_available());
+        release(&mut app, held, symbols()).unwrap();
+        assert!(app.lsp.as_ref().unwrap().symbol_available());
+        assert!(!app.outline_view().actionable);
+        assert!(app.outline_view().tree.is_none());
+        assert_eq!(app.doc().selections(), selections);
+        assert_integrity_and_redo(&mut app, id, epoch);
     }
     #[test]
     fn malformed_refresh_preserves_previous_tree_inert_without_automatic_retry_spin() {

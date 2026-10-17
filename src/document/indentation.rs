@@ -439,11 +439,11 @@ fn normalize(doc: &Document, indent: &str) -> String {
     render(doc, width(doc, indent))
 }
 fn shift(doc: &Document, indent: &str) -> String {
-    let tab_size = doc.tab_size.clamp(1, 16);
+    let tab_size = doc.indent_size();
     render(doc, (width(doc, indent) / tab_size + 1) * tab_size)
 }
 fn unshift(doc: &Document, indent: &str) -> String {
-    let tab_size = doc.tab_size.clamp(1, 16);
+    let tab_size = doc.indent_size();
     render(
         doc,
         width(doc, indent).saturating_sub(1) / tab_size * tab_size,

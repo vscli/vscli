@@ -1,0 +1,123 @@
+{
+  "observed_utc": "2026-10-11T13:29:30.025108+00:00",
+  "latest_release_response": {
+    "url": "https://api.github.com/repos/microsoft/vscode/releases/405666847",
+    "assets_url": "https://api.github.com/repos/microsoft/vscode/releases/405666847/assets",
+    "upload_url": "https://uploads.github.com/repos/microsoft/vscode/releases/405666847/assets{?name,label}",
+    "html_url": "https://github.com/microsoft/vscode/releases/tag/1.141.0",
+    "id": 405666847,
+    "author": {
+      "login": "alexr00",
+      "id": 38270282,
+      "node_id": "MDQ6VXNlcjM4MjcwMjgy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/38270282?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/alexr00",
+      "html_url": "https://github.com/alexr00",
+      "followers_url": "https://api.github.com/users/alexr00/followers",
+      "following_url": "https://api.github.com/users/alexr00/following{/other_user}",
+      "gists_url": "https://api.github.com/users/alexr00/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/alexr00/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/alexr00/subscriptions",
+      "organizations_url": "https://api.github.com/users/alexr00/orgs",
+      "repos_url": "https://api.github.com/users/alexr00/repos",
+      "events_url": "https://api.github.com/users/alexr00/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/alexr00/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": true
+    },
+    "node_id": "RE_kwDOAn8RLM4YLfwf",
+    "tag_name": "1.141.0",
+    "target_commitish": "main",
+    "name": "1.141.0",
+    "draft": false,
+    "immutable": false,
+    "prerelease": false,
+    "created_at": "2026-10-06T08:15:52Z",
+    "updated_at": "2026-10-07T11:01:16Z",
+    "published_at": "2026-10-07T11:01:16Z",
+    "assets": [],
+    "tarball_url": "https://api.github.com/repos/microsoft/vscode/tarball/1.141.0",
+    "zipball_url": "https://api.github.com/repos/microsoft/vscode/zipball/1.141.0",
+    "body": "https://code.visualstudio.com/updates/v1_141",
+    "reactions": {
+      "url": "https://api.github.com/repos/microsoft/vscode/releases/405666847/reactions",
+      "total_count": 61,
+      "+1": 21,
+      "-1": 0,
+      "laugh": 9,
+      "hooray": 7,
+      "confused": 0,
+      "heart": 9,
+      "rocket": 8,
+      "eyes": 7
+    }
+  },
+  "stable_update_response": {
+    "url": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/code-stable-x64-1791276637.tar.gz",
+    "name": "1.141.0",
+    "version": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+    "productVersion": "1.141.0",
+    "hash": "ea716c7f7a3637e080260da0493c4e9374f09721",
+    "timestamp": 1791275621288,
+    "sha256hash": "d77d588f0454cbaaa71e723497de4160d15b95fba4988abe177b1432e6bd570a",
+    "supportsFastUpdate": true,
+    "notes": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c"
+  },
+  "tag_ref_response": {
+    "ref": "refs/tags/1.141.0",
+    "node_id": "MDM6UmVmNDE4ODE5MDA6cmVmcy90YWdzLzEuMTQxLjA=",
+    "url": "https://api.github.com/repos/microsoft/vscode/git/refs/tags/1.141.0",
+    "object": {
+      "sha": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+      "type": "commit",
+      "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2a59476c9bfcb90b3ddc372c36762471b7dfad1c"
+    }
+  },
+  "annotated_tag_response": null,
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "version": "1.141.0",
+  "declaration_url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.d.ts",
+  "baseline_1_95_commit": "912bb683695358a54ae0c670461738984cbb5b95",
+  "current_head": "7fe73a340c44133963b2eae30c248ab090e1f516",
+  "current_head_ref": "refs/heads/feat/extension-api-foundations",
+  "current_snapshot_notice": "Copied source bytes are authoritative; the manifest binds this cohort. The current implementation was tested separately; these static generators do not execute JavaScript, native editors or VS Code.",
+  "source_bindings": {
+    "upstream/LICENSE.txt": {
+      "bytes": 1088,
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9"
+    },
+    "upstream/package.json": {
+      "bytes": 15690,
+      "sha256": "d7d7a4df07a1499a111ee0680546c63f249f9da4262278df209ac5821e9f5bd6"
+    },
+    "upstream/vscode-1.95.0.d.ts": {
+      "bytes": 689506,
+      "sha256": "3279c6be36b8408aa128417d6773803d256579c8af724923d2b477c1d694c380"
+    },
+    "upstream/vscode.d.ts": {
+      "bytes": 742274,
+      "sha256": "a4321528e86dcdcb8450287f2a263055c46a622119cdb186de85ac3b19ce9608"
+    }
+  },
+  "parser_versions": {
+    "tree-sitter": "0.25.2",
+    "tree-sitter-typescript": "0.23.2",
+    "tree-sitter-javascript": "0.25.0"
+  },
+  "proposed_directory_url": "https://api.github.com/repos/microsoft/vscode/contents/src/vscode-dts?ref=2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "host_refresh_utc": "2026-10-11T13:46:31.366215+00:00",
+  "host_refresh_scope": "Root adoption refresh after value/event and native-coordinate integration. Original initial and agent snapshots remain archived outside this repository; this committed audit contains one current source snapshot.",
+  "current_snapshot_head_after_refresh": "498c05d63f9faad4019bb514a36d7c0764dbec79",
+  "adoption": {
+    "source_package_manifest_sha256": "80a17bbbf8986a148ce5651be48febb73169c40deda707123077543405565720",
+    "implementation_head": "498c05d63f9faad4019bb514a36d7c0764dbec79",
+    "filtered_paths": [
+      "current-initial/",
+      "initial-*",
+      "__pycache__/"
+    ],
+    "refresh_includes_uncommitted_documentation": true
+  }
+}

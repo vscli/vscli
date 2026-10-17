@@ -3,7 +3,10 @@ use std::{
     fs,
     path::PathBuf,
     sync::mpsc::{self, Receiver},
+    thread::JoinHandle,
 };
+mod preflight;
+pub(crate) use preflight::Preflight;
 
 #[derive(Clone)]
 pub enum Action {
@@ -14,11 +17,19 @@ pub enum Action {
 }
 pub struct Job {
     receiver: Receiver<std::result::Result<Action, String>>,
+    thread: Option<JoinHandle<()>>,
+    terminal: Option<std::result::Result<Action, String>>,
 }
 impl Job {
     pub fn start(action: Action) -> Self {
+        Self::start_inner(action, None)
+    }
+    pub(crate) fn start_preflighted(preflight: std::sync::Arc<Preflight>) -> Self {
+        Self::start_inner(preflight.action.clone(), Some(preflight))
+    }
+    fn start_inner(action: Action, preflight: Option<std::sync::Arc<Preflight>>) -> Self {
         let (sender, receiver) = mpsc::sync_channel(1);
-        std::thread::spawn(move || {
+        let thread = std::thread::spawn(move || {
             let mut action = action;
             match &mut action {
                 Action::Rename { from: path, .. } | Action::Trash(path) => {
@@ -30,18 +41,58 @@ impl Job {
                 }
                 _ => {}
             }
-            let result = perform(&action)
-                .map(|_| action)
-                .map_err(|e| format!("{e:#}"));
+            let result = (|| -> Result<()> {
+                if let Some(preflight) = preflight {
+                    let canceled = std::sync::atomic::AtomicBool::new(false);
+                    let control = crate::resource_journal::Control::new(
+                        &canceled,
+                        std::time::Instant::now() + std::time::Duration::from_secs(5),
+                    );
+                    preflight.verify(&control)?;
+                }
+                perform(&action)
+            })()
+            .map(|_| action)
+            .map_err(|e| format!("{e:#}"));
             let _ = sender.send(result);
         });
-        Self { receiver }
+        Self {
+            receiver,
+            thread: Some(thread),
+            terminal: None,
+        }
     }
     pub fn poll(&mut self) -> Option<std::result::Result<Action, String>> {
-        match self.receiver.try_recv() {
-            Ok(result) => Some(result),
-            Err(mpsc::TryRecvError::Empty) => None,
-            Err(_) => Some(Err("File operation worker disconnected".into())),
+        if self.terminal.is_none() {
+            match self.receiver.try_recv() {
+                Ok(result) => self.terminal = Some(result),
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(_) => {
+                    self.terminal = Some(Err(
+                        "File operation worker disconnected; outcome unknown".into()
+                    ))
+                }
+            }
+        }
+        if self
+            .thread
+            .as_ref()
+            .is_some_and(|thread| !thread.is_finished())
+        {
+            return None;
+        }
+        if let Some(thread) = self.thread.take()
+            && thread.join().is_err()
+        {
+            self.terminal = Some(Err("File operation worker panicked; outcome unknown".into()));
+        }
+        self.terminal.take()
+    }
+}
+impl Drop for Job {
+    fn drop(&mut self) {
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
         }
     }
 }
@@ -98,5 +149,38 @@ mod tests {
         })
         .unwrap();
         assert_eq!(fs::read_to_string(new).unwrap(), "preserve me");
+    }
+    #[test]
+    fn terminal_reply_does_not_release_worker_before_actual_exit_and_join() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let (release, gate) = mpsc::sync_channel(1);
+        let thread = std::thread::spawn(move || {
+            sender
+                .send(Ok(Action::CreateFolder(std::env::temp_dir())))
+                .unwrap();
+            gate.recv().unwrap();
+        });
+        let mut job = Job {
+            receiver,
+            thread: Some(thread),
+            terminal: None,
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while job.terminal.is_none() {
+            assert!(job.poll().is_none());
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(job.thread.is_some());
+        release.send(()).unwrap();
+        let action = loop {
+            if let Some(action) = job.poll() {
+                break action;
+            }
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        };
+        assert!(matches!(action, Ok(Action::CreateFolder(_))));
+        assert!(job.thread.is_none());
     }
 }
