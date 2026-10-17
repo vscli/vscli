@@ -80,7 +80,7 @@ exports.activate = context => {
     } finally { listener.dispose(); saveListener.dispose(); }
   }));
   context.subscriptions.push(v.commands.registerCommand('gateway.save', async request => {
-    const document = v.workspace.textDocuments.find(d => d.uri.toString() === request.uri);
+    const document = v.workspace.textDocuments.find(d => d.uri.toString() === v.Uri.parse(request.uri).toString());
     assert(document, 'the original file model stays mirrored for public save');
     const saved = await document.save();
     assert.equal(saved, true);

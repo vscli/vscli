@@ -106,3 +106,20 @@ On this source, 1,652 native tests, 11 relevant host lifecycle controls, two doc
 terminal journeys, two welcome terminal journeys, formatting, strict Clippy and
 build pass locally. The long-root welcome controls also pass. Actual macOS/Windows
 qualification remains pending; see [platform repair receipts](validation/platform-repair.json).
+
+
+The `4fd5416` Windows library run passes 1,220 cases and fails 16: fifteen journal
+archive/recovery cases still receive access denied when `ReOpenFile` requests
+flush access, plus one remaining public-save fixture URI comparison. This is
+actual Windows evidence, not a successful durability qualification. The follow-up
+resolves the retained handle's final kernel path and opens that path for flushing,
+retaining no-follow/reparse rejection and verifying the original file identity
+before use. A foreign replacement still cannot acquire flush authority. The
+public-save fixture compares upstream-formatted URIs. Fresh Windows results are
+required before treating either boundary as qualified.
+
+The independent stable-capture macOS run at the same head also fails its positive
+source-action API witness. Retained failure evidence shows its provider callback
+ran and returned all four descriptors; target editing never started. The returned
+public action list was not recorded, so an omitted registration is not established
+and the root cause remains open. Producer failure artifacts remain available.

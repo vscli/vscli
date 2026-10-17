@@ -44,36 +44,50 @@ pub(super) fn open(path: &Path, directory: bool) -> Result<File> {
     }
     Ok(file)
 }
-// Reopen the retained object, never a pathname, when Windows requires write
-// access to flush metadata. Inspection handles remain read-only and no-follow.
+// Resolve the retained object for identity-checked Windows metadata flushing.
+// Inspection handles remain read-only and no-follow.
 pub(super) fn durability_handle(file: &File) -> Result<File> {
     #[cfg(windows)]
     {
         use std::{
-            ffi::c_void,
-            os::windows::io::{AsRawHandle, FromRawHandle},
+            ffi::{OsString, c_void},
+            os::windows::{ffi::OsStringExt, fs::OpenOptionsExt, io::AsRawHandle},
         };
         #[link(name = "kernel32")]
         unsafe extern "system" {
-            fn ReOpenFile(
-                original: *mut c_void,
-                access: u32,
-                share: u32,
+            fn GetFinalPathNameByHandleW(
+                handle: *mut c_void,
+                path: *mut u16,
+                size: u32,
                 flags: u32,
-            ) -> *mut c_void;
+            ) -> u32;
         }
-        // GENERIC_READ | GENERIC_WRITE; share read/write/delete; retain both
-        // backup semantics (directories) and OPEN_REPARSE_POINT (no traversal).
-        // SAFETY: the live File owns original. A successful return is a newly
-        // owned handle and is immediately put under File's RAII ownership.
-        let raw = unsafe { ReOpenFile(file.as_raw_handle(), 0xc0000000, 7, 0x02200000) };
+        let mut path = vec![0u16; 32768];
+        // SAFETY: the live File retains handle ownership; path is initialized
+        // writable storage of exactly size UTF-16 units. No handle is transferred.
+        let length = unsafe {
+            GetFinalPathNameByHandleW(
+                file.as_raw_handle(),
+                path.as_mut_ptr(),
+                path.len() as u32,
+                0,
+            )
+        };
         ensure!(
-            raw as isize != -1,
-            "Resource journal flush access unavailable: {}",
+            length > 0 && (length as usize) < path.len(),
+            "Resource journal retained flush path unavailable: {}",
             std::io::Error::last_os_error()
         );
-        // SAFETY: ReOpenFile returned a new, valid handle, owned only here.
-        let reopened = unsafe { File::from_raw_handle(raw) };
+        let path = PathBuf::from(OsString::from_wide(&path[..length as usize]));
+        // ReOpenFile returns ACCESS_DENIED for retained directory handles on
+        // the Windows CI runner. CreateFile may open that object's current
+        // kernel path for flushing; identity is checked before the handle is used.
+        let reopened = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .custom_flags(0x02200000)
+            .open(path)
+            .context("Resource journal flush access unavailable")?;
         ensure!(
             identity(&reopened)? == identity(file)?,
             "Resource journal flush identity changed"
