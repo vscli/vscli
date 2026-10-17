@@ -298,6 +298,7 @@ const SUPPORTED: &[&str] = &[
     "files.participants.timeout",
     "files.autoSaveDelay",
     "workbench.colorTheme",
+    "workbench.colorCustomizations",
     "workbench.editor.enablePreview",
     "workbench.editor.enablePreviewFromQuickOpen",
     "workbench.editor.preventPinnedEditorClose",
@@ -431,6 +432,8 @@ impl Settings {
                         | "workbench.editor.preventPinnedEditorClose"
                         | "files.refactoring.autoSave"
                         | "files.participants.timeout"
+                        | "workbench.colorTheme"
+                        | "workbench.colorCustomizations"
                 )
             {
                 self.warnings.push(format!(
@@ -441,6 +444,8 @@ impl Settings {
                 self.warnings.push(format!(
                     "{source}: {key} is not a native setting; extensions may read it"
                 ));
+            } else if key == "workbench.colorCustomizations" && value.is_object() {
+                self.warnings.push(format!("{source}: color customizations apply to the native palette; unmapped surfaces appear in Preferences: Color Theme Report"));
             } else if !valid(key, value) {
                 self.warnings.push(if key == "files.autoSaveDelay" {
                     format!("{source}: invalid value for {key}; native autosave disabled (delay must be 0–86400000 ms)")
@@ -1039,6 +1044,7 @@ fn valid(key: &str, value: &Value) -> bool {
             PreventPinnedEditorClose::parse(value).is_some()
         }
         "workbench.colorTheme" => value.is_string(),
+        "workbench.colorCustomizations" => value.is_object(),
         "workbench.editor.enablePreview" | "workbench.editor.enablePreviewFromQuickOpen" => {
             value.is_boolean()
         }

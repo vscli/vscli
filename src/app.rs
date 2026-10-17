@@ -845,6 +845,7 @@ impl App {
                         self.retire_save_code_actions("settings changed during code actions");
                         self.retire_save_formatting("settings changed during formatting");
                         let previous = std::mem::replace(&mut self.settings, settings);
+                        self.refresh_theme_customizations();
                         if !self.settings.editor_preview().enabled
                             && let Err(error) = self.keep_preview_tabs()
                         {
@@ -970,6 +971,7 @@ impl App {
             }
         };
         self.settings_profile_loaded();
+        self.refresh_theme_customizations();
         if !self.settings.editor_preview().enabled {
             self.keep_preview_tabs()?;
         }

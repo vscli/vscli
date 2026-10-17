@@ -4,13 +4,21 @@ This is the retained project backlog, updated 2026-10-12. Items describe remaini
 work across features that may already have partial implementations. They are not
 a claim that any whole category is complete.
 
-## Current priority: the entire extension API
+## Current priority: migration usability and release
+
+Follow the [migration release plan](MIGRATION_RELEASE_PLAN.md): bring an existing
+VS Code setup across with settings, visual customizations, snippets, extensions
+and keybindings working together. The entire stable extension API stays in scope.
+The existing ordered-resource work is preserved; it remains an integration gap,
+while delivery priority now follows complete migration and daily editing workflows.
+
+### Retained full extension API scope
 
 The [live behavior ledger](extension-api/progress.json) and
 `python3 scripts/extension_api_progress.py --json` retain every stable inventory
 row while reporting named workflow criteria. New EOL workspace edits connect to
 the native worker, shared history and persistence; resource create/rename/delete
-integration remains the next full batch with unchanged acceptance criteria.
+integration retains its full acceptance criteria alongside the migration release work.
 
 Implement the full public stable VS Code extension API with matching observable
 behavior: signatures, overloads, returned values, object identity, events,

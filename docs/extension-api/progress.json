@@ -242,7 +242,7 @@
     }
   ],
   "next_batch": {
-    "name": "Ordered public resource edits (scope retained)",
+    "name": "Ordered public resource edits (retained API batch; migration/release takes priority)",
     "criteria": [
       "Public create \u2192 text edit \u2192 rename \u2192 text edit \u2192 delete runs through the native ordered controller.",
       "Original caller/model/resource/settings proofs authorize effects; annotation review and will-file participants run at the proper boundary.",

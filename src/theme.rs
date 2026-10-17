@@ -1,4 +1,6 @@
 //! Native VS Code color-theme reader. Scope colors map onto native syntax categories.
+mod customizations;
+
 use anyhow::{Context, Result, bail};
 use ratatui::style::Color;
 use serde_json::Value;
@@ -22,6 +24,8 @@ pub struct Colors {
 #[derive(Clone)]
 pub struct Theme {
     pub name: String,
+    pub settings_id: String,
+    defaults: Colors,
     pub colors: Colors,
     pub tokens: [Color; 14],
     pub warnings: Vec<String>,
@@ -39,6 +43,8 @@ impl Default for Theme {
         };
         Self {
             name: "VSCLI Dark".into(),
+            settings_id: "VSCLI Dark".into(),
+            defaults: colors,
             colors,
             tokens: [
                 Color::Rgb(105, 145, 116),
@@ -64,6 +70,7 @@ impl Theme {
     pub fn light() -> Self {
         let mut theme = Self::default();
         theme.name = "VSCLI Light".into();
+        theme.settings_id = theme.name.clone();
         theme.colors = Colors {
             background: Color::Rgb(255, 255, 255),
             panel: Color::Rgb(243, 243, 243),
@@ -73,6 +80,7 @@ impl Theme {
             selection: Color::Rgb(173, 214, 255),
             current_line: Color::Rgb(245, 245, 245),
         };
+        theme.defaults = theme.colors;
         theme.tokens = [
             Color::Rgb(0, 128, 0),
             Color::Rgb(163, 21, 21),
@@ -99,6 +107,55 @@ impl Theme {
     pub fn load_confined(path: &Path, root: &Path) -> Result<Self> {
         let root = fs::canonicalize(root)?;
         load(path, &mut HashSet::new(), &mut 0, Some(&root))
+    }
+
+    fn apply_colors(&mut self, colors: &serde_json::Map<String, Value>) -> Result<()> {
+        let previous_foreground = self.colors.foreground;
+        // Resolve background first so transparent overlays blend against the right base.
+        if let Some(color) = colors.get("editor.background").and_then(Value::as_str) {
+            self.colors.background =
+                color_value(color, self.colors.background).context("Invalid editor.background")?;
+        }
+        let mut unsupported = Vec::new();
+        for (key, value) in colors {
+            let target = match key.as_str() {
+                "editor.background" => continue,
+                "editor.foreground" => &mut self.colors.foreground,
+                "sideBar.background" | "editorWidget.background" => &mut self.colors.panel,
+                "editorLineNumber.foreground" => &mut self.colors.muted,
+                "focusBorder" | "textLink.foreground" => &mut self.colors.accent,
+                "editor.selectionBackground" => &mut self.colors.selection,
+                "editor.lineHighlightBackground" => &mut self.colors.current_line,
+                _ => {
+                    unsupported.push(key.as_str());
+                    continue;
+                }
+            };
+            *target = color_value(
+                value.as_str().context("Theme color must be a string")?,
+                self.colors.background,
+            )
+            .with_context(|| format!("Invalid color for {key}"))?;
+        }
+        if !unsupported.is_empty() {
+            self.warnings.push(format!(
+                "{} workbench color keys are not mapped: {}{}",
+                unsupported.len(),
+                unsupported
+                    .iter()
+                    .take(6)
+                    .map(|key| key.chars().take(120).collect::<String>())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                if unsupported.len() > 6 { ", …" } else { "" }
+            ));
+        }
+        for index in [7, 10] {
+            if self.tokens[index] == previous_foreground {
+                self.tokens[index] = self.colors.foreground;
+            }
+        }
+        Ok(())
     }
     pub fn token(&self, style: usize) -> Color {
         self.tokens
@@ -175,53 +232,11 @@ fn load(
                 .to_string_lossy()
                 .into_owned()
         });
+    theme.settings_id = theme.name.clone();
     if let Some(colors) = value.get("colors").and_then(Value::as_object) {
-        let previous_foreground = theme.colors.foreground;
-        // Resolve background first so transparent overlays blend against the right base.
-        if let Some(color) = colors.get("editor.background").and_then(Value::as_str) {
-            theme.colors.background =
-                color_value(color, theme.colors.background).context("Invalid editor.background")?;
-        }
-        let mut unsupported = Vec::new();
-        for (key, value) in colors {
-            let target = match key.as_str() {
-                "editor.background" => continue,
-                "editor.foreground" => &mut theme.colors.foreground,
-                "sideBar.background" | "editorWidget.background" => &mut theme.colors.panel,
-                "editorLineNumber.foreground" => &mut theme.colors.muted,
-                "focusBorder" | "textLink.foreground" => &mut theme.colors.accent,
-                "editor.selectionBackground" => &mut theme.colors.selection,
-                "editor.lineHighlightBackground" => &mut theme.colors.current_line,
-                _ => {
-                    unsupported.push(key.as_str());
-                    continue;
-                }
-            };
-            *target = color_value(
-                value.as_str().context("Theme color must be a string")?,
-                theme.colors.background,
-            )
-            .with_context(|| format!("Invalid color for {key}"))?;
-        }
-        if !unsupported.is_empty() {
-            theme.warnings.push(format!(
-                "{} workbench color keys are not mapped: {}{}",
-                unsupported.len(),
-                unsupported
-                    .iter()
-                    .take(6)
-                    .copied()
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                if unsupported.len() > 6 { ", …" } else { "" }
-            ));
-        }
-        for index in [7, 10] {
-            if theme.tokens[index] == previous_foreground {
-                theme.tokens[index] = theme.colors.foreground;
-            }
-        }
+        theme.apply_colors(colors)?;
     }
+
     if let Some(rules) = value.get("tokenColors").and_then(Value::as_array) {
         theme.warnings.push("Token scopes use an approximate mapping to 14 native syntax categories; full TextMate scope matching is not implemented".into());
         if rules

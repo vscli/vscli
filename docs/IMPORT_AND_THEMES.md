@@ -59,6 +59,27 @@ snapshots contain at most eight files and 4 MiB. Limits fail or report incomplet
 coverage explicitly. Imported user snippets are available through **Insert Snippet**;
 copying bytes alone does not provide completion snippets.
 
+## Personal color customizations
+
+Imported `workbench.colorCustomizations` now applies to the native palette below.
+Global values are followed by matching theme blocks such as `[My Theme]`,
+`[One][Two]` and `[*Dark*]`; wildcards work at the edges of theme names.
+User/workspace objects merge before matching the active theme's settings ID.
+Theme-specific values override global values, including workspace globals.
+
+RGBA values blend against the final customized editor background. `"default"`
+selects the native built-in light/dark default for the mapped color. Invalid
+entries retain the theme color and produce a notice. These built-in defaults and
+shared native surfaces are approximations, not the complete VS Code color registry.
+
+Changes and removals reload in the background, and switching themes recalculates
+customizations from the original theme. Stale appearance replies cannot replace
+newer settings. Source theme/configuration files are never rewritten to apply
+colors. F1 → Preferences: Color Theme Report lists unmapped surfaces.
+
+The [migration release plan](MIGRATION_RELEASE_PLAN.md) retains full profile,
+appearance, keybinding and extension migration requirements beyond this slice.
+
 ## Native color themes
 
 Use **F1 → Preferences: Color Theme** for built-in dark/light palettes and installed

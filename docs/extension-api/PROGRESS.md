@@ -30,7 +30,9 @@ Workflows with a source receipt also compare its complete recorded source digest
 with the current checkout. A mismatch labels the passed criteria as historical
 evidence. New code does not silently inherit a previous run's qualification.
 
-The next full batch remains ordered resource edits. Its acceptance criteria
+The current delivery priority is [migration usability and release](../MIGRATION_RELEASE_PLAN.md).
+The entire stable API remains in scope. The retained ordered resource-edit batch
+still has its complete acceptance criteria; its unfinished code is preserved. Those criteria
 include public create → edit → rename → edit → delete, will-file/review policy,
 dirty/shared/hidden models and retired history, genuine model/operation events,
 public Undo/Redo, truthful partial-failure receipts, data-integrity tests and a

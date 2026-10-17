@@ -2,9 +2,24 @@ use super::*;
 use crate::theme::{Choice, Preference, Theme};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 struct Loaded {
-    theme: Option<Theme>,
+    theme: Option<Styled>,
     choices: Option<Vec<Choice>>,
     notices: Vec<String>,
+}
+struct Styled {
+    base: Theme,
+    rendered: Theme,
+    settings: crate::settings::Settings,
+}
+impl Styled {
+    fn new(base: Theme, settings: crate::settings::Settings) -> Self {
+        let rendered = base.customized(&settings);
+        Self {
+            base,
+            rendered,
+            settings,
+        }
+    }
 }
 #[derive(Default)]
 pub(super) struct State {
@@ -12,6 +27,9 @@ pub(super) struct State {
     choices: Vec<Choice>,
     preferences: Option<PathBuf>,
     directory: Option<PathBuf>,
+    base: Theme,
+    configured: bool,
+    refresh_pending: bool,
 }
 impl App {
     pub fn configure_themes(
@@ -26,6 +44,9 @@ impl App {
         }
         self.theme_state.preferences = preferences.clone();
         self.theme_state.directory = directory.clone();
+        self.theme_state.configured = true;
+        let settings = self.settings.clone();
+        let fallback = self.theme_state.base.clone();
         let (sender, receiver) = mpsc::sync_channel(1);
         self.theme_state.pending = Some(receiver);
         std::thread::spawn(move || {
@@ -57,14 +78,14 @@ impl App {
                     .or_else(|| requested.map(|name| Preference { name, path: None }));
                 let theme = if let Some(selection) = selection {
                     match resolve(&selection, &choices) {
-                        Ok(theme) => Some(theme),
+                        Ok(theme) => Some(Styled::new(theme, settings)),
                         Err(error) => {
                             notices.push(format!("Theme unchanged: {error:#}"));
                             None
                         }
                     }
                 } else {
-                    None
+                    Some(Styled::new(fallback, settings))
                 };
                 Loaded {
                     theme,
@@ -110,6 +131,7 @@ impl App {
         }
         let choices = self.theme_state.choices.clone();
         let preferences = self.theme_state.preferences.clone();
+        let settings = self.settings.clone();
         let (sender, receiver) = mpsc::sync_channel(1);
         self.theme_state.pending = Some(receiver);
         std::thread::spawn(move || {
@@ -122,7 +144,7 @@ impl App {
                     selected.save(&path)?;
                 }
                 Ok(Loaded {
-                    theme: Some(theme),
+                    theme: Some(Styled::new(theme, settings)),
                     choices: None,
                     notices: Vec::new(),
                 })
@@ -131,6 +153,27 @@ impl App {
             let _ = sender.send(result);
         });
         self.message = "Loading color theme…".into();
+    }
+    pub(super) fn refresh_theme_customizations(&mut self) {
+        if !self.theme_state.configured {
+            return;
+        }
+        if self.theme_state.pending.is_some() {
+            self.theme_state.refresh_pending = true;
+            return;
+        }
+        self.theme_state.refresh_pending = false;
+        let base = self.theme_state.base.clone();
+        let settings = self.settings.clone();
+        let (sender, receiver) = mpsc::sync_channel(1);
+        self.theme_state.pending = Some(receiver);
+        std::thread::spawn(move || {
+            let _ = sender.send(Ok(Loaded {
+                theme: Some(Styled::new(base, settings)),
+                choices: None,
+                notices: Vec::new(),
+            }));
+        });
     }
     pub(super) fn poll_theme(&mut self) -> bool {
         let Some(receiver) = &self.theme_state.pending else {
@@ -147,16 +190,26 @@ impl App {
                 if let Some(choices) = loaded.choices {
                     self.theme_state.choices = choices;
                 }
-                if let Some(theme) = loaded.theme {
-                    loaded.notices.extend(theme.warnings.clone());
-                    self.message = format!("Color theme: {}", theme.name);
-                    self.theme = theme;
+                if let Some(styled) = loaded.theme {
+                    self.theme_state.base = styled.base;
+                    if styled.settings == self.settings {
+                        self.theme_state.refresh_pending = false;
+                        loaded.notices.extend(styled.rendered.warnings.clone());
+                        self.message = format!("Color theme: {}", styled.rendered.name);
+                        self.theme = styled.rendered;
+                    } else {
+                        // A settings reply cannot authorize an older appearance.
+                        self.refresh_theme_customizations();
+                    }
                 }
                 if !loaded.notices.is_empty() {
                     self.message = format!("{} · {}", self.message, loaded.notices.join(" · "));
                 }
             }
             Err(error) => self.message = format!("Theme unchanged: {error}"),
+        }
+        if self.theme_state.refresh_pending && self.theme_state.pending.is_none() {
+            self.refresh_theme_customizations();
         }
         true
     }
@@ -194,6 +247,7 @@ fn resolve(selected: &Preference, choices: &[Choice]) -> Result<Theme> {
         let mut theme = Theme::load(path)?;
         if !selected.name.is_empty() {
             theme.name = selected.name.clone();
+            theme.settings_id = selected.name.clone();
         }
         return Ok(theme);
     }
@@ -212,6 +266,7 @@ fn resolve(selected: &Preference, choices: &[Choice]) -> Result<Theme> {
                 .ok_or_else(|| anyhow::anyhow!("Color theme {name:?} is not installed"))?;
             let mut theme = Theme::load_confined(&choice.path, &choice.root)?;
             theme.name = choice.label.clone();
+            theme.settings_id = choice.id.clone();
             Ok(theme)
         }
     }
@@ -421,5 +476,152 @@ mod tests {
         .unwrap();
         assert_eq!(theme.name, "Installed Theme");
         assert_eq!(theme.colors.background, ratatui::style::Color::Rgb(1, 2, 3));
+    }
+}
+
+#[cfg(test)]
+mod customization_tests {
+    use super::*;
+    use ratatui::style::Color;
+    use serde_json::json;
+
+    fn settings(color: &str) -> crate::settings::Settings {
+        crate::settings::Settings::from_values(
+            json!({"workbench.colorCustomizations":{
+                "editor.foreground":color
+            }})
+            .as_object()
+            .unwrap()
+            .clone(),
+            "fixture",
+        )
+        .unwrap()
+    }
+    fn settle(app: &mut App) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while app.theme_state.pending.is_some() {
+            app.poll_theme();
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
+    #[test]
+    fn imported_theme_uses_original_settings_id_and_reload_removal_restores_base() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("User");
+        let package = root.path().join("extensions/theme");
+        std::fs::create_dir_all(&user).unwrap();
+        std::fs::create_dir_all(&package).unwrap();
+        let original = r##"{// keep original\n
+            "workbench.colorTheme":"theme.id",
+            "workbench.colorCustomizations":{"[theme.id]":{"editor.foreground":"#123456"}},
+        }"##;
+        std::fs::write(user.join("settings.json"), original).unwrap();
+        std::fs::write(package.join("package.json"), r#"{"contributes":{"themes":[{"id":"theme.id","label":"Display Label","path":"theme.json"}]}}"#).unwrap();
+        std::fs::write(
+            package.join("theme.json"),
+            r##"{"name":"File Name","colors":{"editor.foreground":"#abcdef"}}"##,
+        )
+        .unwrap();
+        let native = root.path().join("native");
+        let report = crate::migration::preview_with_extensions(
+            &user,
+            Profile::Linux,
+            Some(&root.path().join("extensions")),
+        )
+        .unwrap()
+        .apply(&native)
+        .unwrap();
+        let active = report.activated_profile.unwrap();
+        let path = active.join("settings.json");
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("unsaved λ🙂\r\n", false);
+        let version = app.doc().revision;
+        app.configure_settings(Some(path.clone())).unwrap();
+        app.configure_themes(
+            Some(root.path().join("empty-store")),
+            Some(active.join("theme-selection.json")),
+            None,
+            None,
+        );
+        settle(&mut app);
+        assert_eq!(app.theme.settings_id, "theme.id");
+        assert_eq!(app.theme.colors.foreground, Color::Rgb(18, 52, 86));
+        std::fs::write(
+            &path,
+            r##"{"workbench.colorCustomizations":{"editor.foreground":"#654321"}}"##,
+        )
+        .unwrap();
+        app.configure_settings(Some(path.clone())).unwrap();
+        settle(&mut app);
+        assert_eq!(app.theme.colors.foreground, Color::Rgb(101, 67, 33));
+        std::fs::write(&path, "{}").unwrap();
+        app.configure_settings(Some(path)).unwrap();
+        settle(&mut app);
+        assert_eq!(app.theme.colors.foreground, Color::Rgb(171, 205, 239));
+        app.configure_themes(None, None, None, None);
+        settle(&mut app);
+        assert_eq!(app.theme.colors.foreground, Color::Rgb(171, 205, 239));
+        assert_eq!(app.doc().revision, version);
+        assert_eq!(app.doc().text.to_string(), "unsaved λ🙂\r\n");
+        assert!(app.doc().dirty());
+        assert_eq!(
+            std::fs::read_to_string(user.join("settings.json")).unwrap(),
+            original
+        );
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.len_chars(), 0);
+    }
+
+    #[test]
+    fn stale_style_never_publishes_and_latest_settings_are_reapplied_to_selected_base() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        let original_foreground = app.theme.colors.foreground;
+        app.theme_state.configured = true;
+        let (sender, receiver) = mpsc::sync_channel(1);
+        app.theme_state.pending = Some(receiver);
+        sender
+            .send(Ok(Loaded {
+                theme: Some(Styled::new(Theme::light(), settings("#ff0000"))),
+                choices: None,
+                notices: Vec::new(),
+            }))
+            .unwrap();
+        app.settings = settings("#00ff00");
+        app.refresh_theme_customizations();
+        assert!(app.poll_theme());
+        assert_eq!(app.theme.colors.foreground, original_foreground);
+        assert!(app.theme_state.pending.is_some());
+        settle(&mut app);
+        assert_eq!(app.theme.name, "VSCLI Light");
+        assert_eq!(app.theme.colors.foreground, Color::Rgb(0, 255, 0));
+    }
+
+    #[test]
+    fn failed_theme_or_picker_reply_does_not_drop_a_pending_settings_refresh() {
+        for failed in [true, false] {
+            let root = tempfile::tempdir().unwrap();
+            let mut app = App::new(root.path().into(), Profile::Linux);
+            app.theme_state.configured = true;
+            let (sender, receiver) = mpsc::sync_channel(1);
+            app.theme_state.pending = Some(receiver);
+            let result = if failed {
+                Err("failed fixture".into())
+            } else {
+                Ok(Loaded {
+                    theme: None,
+                    choices: Some(Vec::new()),
+                    notices: Vec::new(),
+                })
+            };
+            sender.send(result).unwrap();
+            app.settings = settings("#123456");
+            app.refresh_theme_customizations();
+            settle(&mut app);
+            assert_eq!(app.theme.colors.foreground, Color::Rgb(18, 52, 86));
+        }
     }
 }

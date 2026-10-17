@@ -2,6 +2,14 @@
 
 The active goal is the complete terminal IDE described by the user, not another basic editor milestone. This checklist records implementation and verification gaps. Passing a subset does not make the overall project complete. Exact compatibility claims require a named VS Code reference and qualified terminal configurations; graphical extensions and restricted services require an explicit compatibility route rather than silent omission.
 
+## Current delivery priority
+
+The [migration release plan](MIGRATION_RELEASE_PLAN.md) defines the current user
+acceptance case: import the user's complete VS Code setup and make its appearance,
+shortcuts and extensions usable together. Preserve the full stable API scope and
+remaining IDE requirements. Release checks and platform qualification are active
+work, rather than deferred until all API implementation is finished.
+
 ## Existing foundation
 
 - [x] Native Rust executable with open/edit/save, tabs, explorer, command palette, and quick open.

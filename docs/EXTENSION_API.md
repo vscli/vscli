@@ -1,8 +1,10 @@
 # Full extension API workstream
 
-The entire public stable VS Code extension API is the current implementation
-priority. The [broad feature todo](FEATURE_TODO.md) remains the project backlog;
-CI repair and release qualification are deferred until after feature work.
+The entire public stable VS Code extension API remains the implementation scope.
+The current delivery priority is [seamless VS Code migration and release usability](MIGRATION_RELEASE_PLAN.md),
+including the user's complete setup and extension workflows. API implementation,
+CI repair and release qualification now serve that delivery goal. The
+[broad feature todo](FEATURE_TODO.md) retains the wider project backlog.
 
 The [live behavior ledger](extension-api/progress.json) now retains the entire
 pinned inventory and names completion criteria, evidence and remaining obligations

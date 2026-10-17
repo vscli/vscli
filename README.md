@@ -103,7 +103,10 @@ are reported; importing them doesn't enable missing features. See the
 [migration and theme guide](docs/IMPORT_AND_THEMES.md) for details.
 
 Use **F1 → Preferences: Color Theme** to choose a built-in or installed theme.
-Themes and snippet packages work without Node.js.
+Imported `workbench.colorCustomizations` applies to supported native colors,
+including theme-specific overrides. Themes and snippet packages work without Node.js.
+See the [migration release plan](docs/MIGRATION_RELEASE_PLAN.md) for the complete
+setup migration goal.
 
 ## Language support and extensions
 
