@@ -46,3 +46,11 @@ per-owner data/URI and fallback, preferred-language bootstrap, native editing an
 restart, and a no-Node/translated terminal journey. Six environment metadata
 values are exposed. Built-in language-pack resolution and the remaining
 environment/whole-API contracts remain open.
+
+
+Platform release repair: the latest local source passes 1,652 Rust tests across
+69 reports (23 ignored), 11 focused host lifecycle controls, two document and two
+welcome terminal journeys, formatting and strict Clippy. Completed-resource
+references share the native extension URI spelling; Windows journal durability
+uses identity-checked retained-object flush handles. Fresh platform CI remains
+required. [Exact evidence and outstanding gates](../validation/platform-repair.json).

@@ -156,7 +156,7 @@ exports.activate=context=>{
   assert.equal(Object.isFrozen(event),true);assert.equal(Object.isFrozen(event.files),false);
   if(kind==='rename'){assert.equal(original.isClosed,true);assert.ok(vscode.workspace.textDocuments.some(document=>document.uri.fsPath===event.files[0].newUri.fsPath));}
   if(kind==='create')assert.ok(vscode.workspace.textDocuments.some(document=>document.uri.fsPath===event.files[0].fsPath));
-  fs.appendFileSync(path.join(root,'events.jsonl'),JSON.stringify({kind,files:event.files.map(file=>file.oldUri?{old:file.oldUri.fsPath,new:file.newUri.fsPath}:file.fsPath)})+'\n');
+  fs.appendFileSync(path.join(root,'events.jsonl'),JSON.stringify({kind,files:event.files.map(file=>file.oldUri?{old:file.oldUri.toString(),new:file.newUri.toString()}:file.toString())})+'\n');
  };
  context.subscriptions.push(vscode.workspace.onDidCreateFiles(event=>record('create',event)),vscode.workspace.onDidRenameFiles(event=>record('rename',event)));
 };
@@ -204,10 +204,13 @@ exports.activate=context=>{
             .lines()
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
-        assert_eq!(events[0], json!({"kind":"create","files":[created]}));
+        assert_eq!(
+            events[0],
+            json!({"kind":"create","files":[crate::extensions::extension_file_uri(&created).unwrap()]})
+        );
         assert_eq!(
             events[1],
-            json!({"kind":"rename","files":[{"old":from,"new":to}]})
+            json!({"kind":"rename","files":[{"old":crate::extensions::extension_file_uri(&from).unwrap(),"new":crate::extensions::extension_file_uri(&to).unwrap()}]})
         );
         assert_eq!(app.doc().id, id);
         assert!(app.doc().dirty());

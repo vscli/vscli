@@ -618,7 +618,9 @@ exports.activate=c=>{for(let i=0;i<9;i++)c.subscriptions.push(v.languages.regist
             KeyCode::Enter,
             KeyModifiers::NONE,
         )));
-        until(&mut app, |app| app.modal.is_none());
+        until(&mut app, |app| {
+            app.modal.is_none() && !app.history_loader_busy()
+        });
         assert_eq!(app.doc().id, id);
         assert_eq!(app.doc().cursor, 2);
         assert!(app.doc().anchor.is_none());

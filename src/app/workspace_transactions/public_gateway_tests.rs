@@ -30,7 +30,8 @@ exports.activate = context => {
     fs.renameSync(temporary, destination);
   }
   context.subscriptions.push(v.commands.registerCommand('gateway.apply', async request => {
-    const documents = request.uris.map(uri => {
+    const documents = request.uris.map(value => {
+      const uri = v.Uri.parse(value).toString();
       const matches = v.workspace.textDocuments.filter(d => d.uri.toString() === uri);
       assert.equal(matches.length, 1, 'one original mirrored model per URI');
       return matches[0];

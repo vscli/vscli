@@ -1609,6 +1609,11 @@ exports.activate = async context => {
             extension.join("extension.cjs"),
             r#"
 const vscode = require('vscode');
+// This fixture pauses a committed receipt behind the mirror budget. Its
+// positive identity checks must not depend on loaded CI reaching the next
+// poll within the separately tested production acknowledgement timeout.
+const realSetTimeout = globalThis.setTimeout;
+globalThis.setTimeout = (callback, delay, ...args) => realSetTimeout(callback, delay === 5000 ? 60000 : delay, ...args);
 exports.activate = context => {
   context.subscriptions.push(vscode.commands.registerCommand('receipt.show', async () => {
     const original = vscode.window.activeTextEditor.document;

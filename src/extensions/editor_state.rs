@@ -424,12 +424,17 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn workspace() -> PathBuf {
+        std::env::current_dir()
+            .unwrap()
+            .join("editor-state-workspace")
+    }
     fn capture(doc: &Document, change: Change) -> Capture {
         Capture {
             document: doc.id,
             change,
             editor: None,
-            context: Context::new(PathBuf::from("/workspace"), Arc::default(), 1).unwrap(),
+            context: Context::new(workspace(), Arc::default(), 1).unwrap(),
             uri: document_uri(doc).unwrap(),
             revision: doc.revision,
             epoch: doc.text_epoch(),
@@ -526,7 +531,7 @@ mod tests {
             doc.save_generation(),
             doc.dirty(),
         );
-        assert!(request.current(&doc, Path::new("/workspace"), &request.context.settings, 1));
+        assert!(request.current(&doc, &workspace(), &request.context.settings, 1));
         request.apply_selections(&mut doc).unwrap();
         assert_eq!(doc.editor_view_stamp().0, 12);
         assert_eq!(doc.selections(), sibling);
@@ -550,7 +555,7 @@ mod tests {
         doc.remove_view(11);
         doc.display_view(11);
         doc.display_view(12);
-        assert!(!request.current(&doc, Path::new("/workspace"), &request.context.settings, 1));
+        assert!(!request.current(&doc, &workspace(), &request.context.settings, 1));
         assert!(request.apply_selections(&mut doc).is_err());
         assert_eq!(doc.selections(), sibling);
         doc.redo();
@@ -566,8 +571,7 @@ mod tests {
                 {"anchor":{"line":0,"character":0},"active":{"line":0,"character":0}}
             ]})),
         );
-        let current =
-            |doc: &Document| old.current(doc, Path::new("/workspace"), &old.context.settings, 1);
+        let current = |doc: &Document| old.current(doc, &workspace(), &old.context.settings, 1);
         assert!(current(&doc));
         doc.insert("x", false);
         doc.undo();
@@ -577,7 +581,7 @@ mod tests {
         doc.set_language_override(Some("cpp".into())).unwrap();
         doc.set_language_override(Some("python".into())).unwrap();
         doc.set_language_override(Some("cpp".into())).unwrap();
-        assert!(!language.current(&doc, Path::new("/workspace"), &language.context.settings, 1));
+        assert!(!language.current(&doc, &workspace(), &language.context.settings, 1));
         let view = capture(
             &doc,
             selections(json!({"document":doc.id,"version":1,"selections":[
@@ -587,7 +591,7 @@ mod tests {
         doc.activate_view(2);
         doc.remove_view(1);
         doc.display_view(1);
-        assert!(!view.current(&doc, Path::new("/workspace"), &view.context.settings, 1));
+        assert!(!view.current(&doc, &workspace(), &view.context.settings, 1));
         assert!(view.apply_selections(&mut doc).is_err());
     }
     #[test]
@@ -645,9 +649,9 @@ mod tests {
     fn scope_identity_refuses_equal_content_settings_and_profile_aba() {
         let doc = Document::from_text("source");
         let old = capture(&doc, Change::Language("cpp".into()));
-        assert!(old.current(&doc, Path::new("/workspace"), &old.context.settings, 1));
-        assert!(!old.current(&doc, Path::new("/workspace"), &Arc::default(), 1));
-        assert!(!old.current(&doc, Path::new("/workspace"), &old.context.settings, 3));
+        assert!(old.current(&doc, &workspace(), &old.context.settings, 1));
+        assert!(!old.current(&doc, &workspace(), &Arc::default(), 1));
+        assert!(!old.current(&doc, &workspace(), &old.context.settings, 3));
         assert!(!old.current(&doc, Path::new("/other"), &old.context.settings, 1));
     }
 }

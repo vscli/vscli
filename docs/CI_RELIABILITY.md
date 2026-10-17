@@ -79,3 +79,30 @@ public URI/cache/WorkspaceEdit/save/Undo case, a direct upstream formatter oracl
 locally. The receipt records the later non-allocating test assertion cleanup and
 its focused final check separately. Windows-specific controls and fresh platform
 CI remain required. See [native extension URI evidence](validation/native-extension-uris.json).
+
+
+At `f142595`, Windows failures fall from 51 to 37 native cases; Linux and macOS
+have one failing library case each. These are test counts, not API coverage.
+Completed file-operation reference removal now uses the same public URI formatter
+as the original model. Windows journal flushes reopen the retained object with
+write access, compare its file identity, and still propagate flush errors; ordinary
+inspection remains read-only. Permission restoration acquires its flush handle
+before applying a read-only attribute. Microsoft documents the
+[write-access requirement](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers)
+and [retained-object reopening](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-reopenfile).
+
+Fixtures now use native absolute resource paths, upstream-formatted public URIs,
+platform-correct file URL decoding and a genuinely changed EOL on either OS.
+Provider navigation waits for its actual file loader, retaining the original
+identity/cursor assertions. The positive paused-receipt fixture extends its own
+five-second acknowledgement timer so loaded CI does not turn identity checks into
+a throughput test; production deadlines and independent timeout controls are unchanged.
+A 164-character temporary root containing a space reproduces the welcome assertion:
+including the explorer border between rows corrupts its reconstruction of a
+correctly wrapped settings path. The assertion now reads only welcome content and
+checks the intended two-row label and filename.
+
+On this source, 1,652 native tests, 11 relevant host lifecycle controls, two document
+terminal journeys, two welcome terminal journeys, formatting, strict Clippy and
+build pass locally. The long-root welcome controls also pass. Actual macOS/Windows
+qualification remains pending; see [platform repair receipts](validation/platform-repair.json).

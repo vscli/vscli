@@ -117,8 +117,7 @@ impl StagedJournal {
             filesystem::identity(&parent_handle)? == location.ancestor_identity,
             "Journal retained parent identity changed during creation"
         );
-        parent_handle
-            .sync_all()
+        filesystem::sync(&parent_handle)
             .context("Journal parent creation durability unavailable")?;
         let directory_handle = filesystem::open(&location.canonical, true)?;
         let identity = filesystem::identity(&directory_handle)?;
@@ -231,12 +230,9 @@ impl StagedJournal {
             self.capture.limits.max_manifest_bytes,
             control,
         )?;
-        self.directory_handle
-            .sync_all()
+        filesystem::sync(&self.directory_handle)
             .context("Journal directory durability unavailable")?;
-        self.parent_handle
-            .sync_all()
-            .context("Journal parent durability unavailable")?;
+        filesystem::sync(&self.parent_handle).context("Journal parent durability unavailable")?;
         self.verify_directory(control)?;
         Ok(())
     }

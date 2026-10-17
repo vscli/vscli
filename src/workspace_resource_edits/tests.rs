@@ -8,6 +8,12 @@ use std::{
 fn control(canceled: &AtomicBool) -> Control<'_> {
     Control::new(canceled, Instant::now() + Duration::from_secs(10))
 }
+// Test-only lexical URIs must identify an absolute local resource on each OS.
+fn fixture_uri(name: &str) -> String {
+    uri(&std::env::temp_dir()
+        .join("vscli-resource-descriptors")
+        .join(name))
+}
 fn prepare(dto: &Value) -> Result<PreparedGroup> {
     let canceled = AtomicBool::new(false);
     let stream = Stream::parse(dto)?;
@@ -20,10 +26,10 @@ fn uri(path: &std::path::Path) -> String {
 #[test]
 fn original_file_groups_and_indices_do_not_cross_text_or_notebook_boundaries() {
     let dto = json!({"edits":[
-        {"newResource":"file:///tmp/a"},
-        {"resource":"file:///tmp/a","textEdit":{"text":"text"}},
-        {"oldResource":"file:///tmp/a","newResource":"file:///tmp/b"},
-        {"resource":"file:///tmp/b","cellEdit":{"editType":1}}
+        {"newResource":fixture_uri("a")},
+        {"resource":fixture_uri("a"),"textEdit":{"text":"text"}},
+        {"oldResource":fixture_uri("a"),"newResource":fixture_uri("b")},
+        {"resource":fixture_uri("b"),"cellEdit":{"editType":1}}
     ]});
     let stream = Stream::parse(&dto).unwrap();
     let canceled = AtomicBool::new(false);
@@ -61,9 +67,9 @@ fn original_file_groups_and_indices_do_not_cross_text_or_notebook_boundaries() {
 #[test]
 fn options_preserve_absent_null_false_and_truthy_effects_with_original_annotations() {
     let dto = json!({"edits":[
-        {"newResource":"file:///tmp/a","options":{"ignoreIfExists":true}},
-        {"newResource":"file:///tmp/b","options":{"overwrite":null,"ignoreIfExists":true}},
-        {"oldResource":"file:///tmp/b","newResource":"file:///tmp/c","options":{"overwrite":false,"copy":true,"recursive":0,"folder":"","skipTrashBin":{},"maxSize":12},"metadata":{"label":"Original","needsConfirmation":true}}
+        {"newResource":fixture_uri("a"),"options":{"ignoreIfExists":true}},
+        {"newResource":fixture_uri("b"),"options":{"overwrite":null,"ignoreIfExists":true}},
+        {"oldResource":fixture_uri("b"),"newResource":fixture_uri("c"),"options":{"overwrite":false,"copy":true,"recursive":0,"folder":"","skipTrashBin":{},"maxSize":12},"metadata":{"label":"Original","needsConfirmation":true}}
     ]});
     let group = prepare(&dto).unwrap();
     assert_eq!(
@@ -100,9 +106,9 @@ fn options_preserve_absent_null_false_and_truthy_effects_with_original_annotatio
 #[test]
 fn absent_contents_zero_bytes_and_binary_contents_remain_distinct() {
     let dto = json!({"edits":[
-        {"newResource":"file:///tmp/a"},
-        {"newResource":"file:///tmp/b","options":{"contents":{"type":"base64","value":""}}},
-        {"newResource":"file:///tmp/c","options":{"contents":{"type":"base64","value":"AP+A"}}}
+        {"newResource":fixture_uri("a")},
+        {"newResource":fixture_uri("b"),"options":{"contents":{"type":"base64","value":""}}},
+        {"newResource":fixture_uri("c"),"options":{"contents":{"type":"base64","value":"AP+A"}}}
     ]});
     let group = prepare(&dto).unwrap();
     let bytes: Vec<_> = group
@@ -126,9 +132,14 @@ fn local_uri_decoding_is_io_free_and_refuses_unsupported_or_qualified_resources(
         vec![target.as_path()]
     );
     assert!(!target.exists());
+    // Windows has native UNC resources; Unix cannot decode a foreign authority.
+    let foreign = "file://foreign.invalid/share/target";
+    #[cfg(windows)]
+    assert!(prepare(&json!({"edits":[{"newResource":foreign}]})).is_ok());
+    #[cfg(not(windows))]
+    assert!(prepare(&json!({"edits":[{"newResource":foreign}]})).is_err());
     for resource in [
         "mem:/target",
-        "file://foreign.invalid/target",
         "file:///tmp/a?query",
         "file:///tmp/a#fragment",
         "file:///tmp/a%00b",
@@ -187,7 +198,7 @@ fn original_cancel_and_deadline_refuse_preparation_without_path_resolution() {
 fn untitled_create_skips_after_whole_stream_revival_without_losing_original_row() {
     let dto = json!({"edits":[{"newResource":"untitled:future","metadata":{"label":"Original"}},
         {"resource":"untitled:future","textEdit":{"text":"new text"},"versionId":99},
-        {"newResource":"file:///tmp/later","options":{"contents":{"type":"base64","value":"AA=="}}}]});
+        {"newResource":fixture_uri("later"),"options":{"contents":{"type":"base64","value":"AA=="}}}]});
     let group = prepare(&dto).unwrap();
     assert_eq!(group.edits.len(), 1);
     assert!(group.edits[0].operation.is_none());
@@ -211,9 +222,9 @@ fn untitled_create_skips_after_whole_stream_revival_without_losing_original_row(
         "later descriptors are revived before first file group"
     );
     let group = prepare(&json!({"edits":[
-        {"oldResource":"file:///tmp/a","newResource":"file:///tmp/b"},
+        {"oldResource":fixture_uri("a"),"newResource":fixture_uri("b")},
         {"newResource":"untitled:barrier"},
-        {"oldResource":"file:///tmp/b","newResource":"file:///tmp/c"}
+        {"oldResource":fixture_uri("b"),"newResource":fixture_uri("c")}
     ]}))
     .unwrap();
     assert_eq!(
@@ -234,7 +245,7 @@ fn untitled_create_skips_after_whole_stream_revival_without_losing_original_row(
 #[test]
 fn source_ignored_options_and_nonnumeric_max_size_are_retained_without_physical_effects() {
     for maximum in [json!("1"), json!(false), json!({"future":true})] {
-        let dto = json!({"edits":[{"oldResource":"file:///tmp/a","options":{"maxSize":maximum,"futureOption":{"nested":"retained"}}}]});
+        let dto = json!({"edits":[{"oldResource":fixture_uri("a"),"options":{"maxSize":maximum,"futureOption":{"nested":"retained"}}}]});
         let group = prepare(&dto).unwrap();
         assert_eq!(
             group.edits[0]
@@ -252,7 +263,7 @@ fn source_ignored_options_and_nonnumeric_max_size_are_retained_without_physical_
     }
     for number in [-1.0, 0.0, 0.5] {
         let group = prepare(
-            &json!({"edits":[{"oldResource":"file:///tmp/a","options":{"maxSize":number}}]}),
+            &json!({"edits":[{"oldResource":fixture_uri("a"),"options":{"maxSize":number}}]}),
         )
         .unwrap();
         assert_eq!(
@@ -273,8 +284,8 @@ fn source_ignored_options_and_nonnumeric_max_size_are_retained_without_physical_
 
 #[test]
 fn whole_stream_raw_budget_counts_text_in_later_phases_and_exact_padding_bytes() {
-    let mut dto = json!({"edits":[{"newResource":"file:///tmp/a","options":{"contents":{"type":"base64","value":"AA=="}}},
-        {"resource":"file:///tmp/a","textEdit":{"text":"x".repeat(1024*1024-1)}}]});
+    let mut dto = json!({"edits":[{"newResource":fixture_uri("a"),"options":{"contents":{"type":"base64","value":"AA=="}}},
+        {"resource":fixture_uri("a"),"textEdit":{"text":"x".repeat(1024*1024-1)}}]});
     assert!(prepare(&dto).is_ok());
     dto["edits"][1]["textEdit"]["text"] = json!("x".repeat(1024 * 1024));
     assert!(prepare(&dto).is_err());

@@ -86,8 +86,7 @@ impl App {
         let Some(ledger) = self.api_documents.ledger.as_mut() else {
             return Ok(());
         };
-        let uri = url::Url::from_file_path(path)
-            .map_err(|_| anyhow::anyhow!("Invalid completed resource URI"))?;
+        let uri = url::Url::parse(&crate::extensions::extension_file_uri(path)?)?;
         let key = ResourceKey::new(
             uri.as_str(),
             ResourceIdentity {

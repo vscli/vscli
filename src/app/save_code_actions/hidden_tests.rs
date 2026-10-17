@@ -10,7 +10,7 @@ use std::{
 
 const ORIGINAL: &str = "猫🙂 A\r\n";
 const PEER: &str = r#"
-import json,sys,urllib.parse
+import json,sys,urllib.parse,urllib.request
 from pathlib import Path
 root=Path(sys.argv[1]);docs={}
 def send(message):
@@ -32,7 +32,7 @@ while True:
  elif method=='shutdown':send({'id':ident,'result':None})
  elif method=='exit':break
  row={'method':method,'id':ident,'params':p,'source':docs.get(uri)}
- if method=='textDocument/didSave':row['disk']=Path(urllib.parse.unquote(urllib.parse.urlparse(uri).path)).read_bytes().decode('utf-8')
+ if method=='textDocument/didSave':row['disk']=Path(urllib.request.url2pathname(urllib.parse.urlparse(uri).path)).read_bytes().decode('utf-8')
  with (root/'events.jsonl').open('a',encoding='utf-8') as f:f.write(json.dumps(row,ensure_ascii=False)+'\n')
 "#;
 struct Fixture {

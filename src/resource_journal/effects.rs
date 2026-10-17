@@ -33,9 +33,7 @@ impl Parent {
         Ok(())
     }
     fn sync(&self) -> Result<()> {
-        self.handle
-            .sync_all()
-            .context("Effect parent durability unavailable")?;
+        filesystem::sync(&self.handle).context("Effect parent durability unavailable")?;
         self.check()
     }
 }
@@ -152,7 +150,7 @@ pub(super) fn create_directory(path: &Path, control: &Control<'_>) -> Result<Nod
     fs::create_dir(path)?;
     parent.sync()?;
     let handle = filesystem::open(path, true)?;
-    handle.sync_all()?;
+    filesystem::sync(&handle)?;
     let metadata = handle.metadata()?;
     Ok(NodeImage {
         path: path.into(),
@@ -315,6 +313,11 @@ pub(super) fn copy_tree(
     // Apply directory permissions after children, so read-only source trees can
     // be copied without silently omitting their entries.
     for (image, original) in post.iter_mut().zip(nodes).rev() {
+        // Acquire flush authority before restoring a read-only attribute.
+        let handle = filesystem::durability_handle(&filesystem::open(
+            &image.path,
+            image.kind == NodeKind::Directory,
+        )?)?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -334,7 +337,6 @@ pub(super) fn copy_tree(
             permissions.set_readonly(original.permissions.readonly);
             fs::set_permissions(&image.path, permissions)?;
         }
-        let handle = filesystem::open(&image.path, image.kind == NodeKind::Directory)?;
         handle.sync_all()?;
         image.permissions = filesystem::permissions(&handle.metadata()?);
         image.modified = filesystem::modified(&handle.metadata()?);

@@ -1676,7 +1676,7 @@ pub(crate) fn document_uri(doc: &Document) -> Result<String> {
         extension_file_uri,
     )
 }
-fn extension_file_uri(path: &Path) -> Result<String> {
+pub(crate) fn extension_file_uri(path: &Path) -> Result<String> {
     let uri = url::Url::from_file_path(path)
         .map_err(|_| anyhow::anyhow!("Invalid native extension file path"))?;
     Ok(extension_file_uri_url(&uri))
@@ -2203,7 +2203,7 @@ mod tests {
         };
         assert!(!client.apply_edit(edit, &mut documents).unwrap());
         let original_eol = documents[0].eol.clone();
-        documents[0].eol = "\r\n".into();
+        documents[0].eol = if original_eol == "\r\n" { "\n" } else { "\r\n" }.into();
         let stale_eol_edit = Edit {
             editor: None,
             session: client.session,

@@ -331,7 +331,10 @@ mod tests {
             .backend()
             .buffer()
             .content
-            .iter()
+            .chunks(150)
+            // The explorer border is outside the welcome content. Including
+            // it between rows corrupts the reconstructed wrapped path.
+            .flat_map(|row| row[26..].iter())
             .map(|c| c.symbol())
             .collect();
         // The settings path may wrap across footer rows on native temp roots.
@@ -339,7 +342,13 @@ mod tests {
             .chars()
             .filter(|character| !character.is_whitespace())
             .collect();
-        assert!(compact.contains(settings.to_string_lossy().as_ref()));
+        let label = recent_parent_label(&settings, Path::new("."), 174);
+        let expected: String = label.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(
+            compact.contains(&expected),
+            "settings={settings:?}; label={label:?}; rendered={text:?}"
+        );
+        assert!(compact.contains("settings.json"));
         assert!(text.contains("ctrl+,"));
         assert!(app.documents.is_empty());
         let inspector = app
