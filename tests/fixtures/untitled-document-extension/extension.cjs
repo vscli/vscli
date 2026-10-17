@@ -3,7 +3,8 @@ exports.activate=context=>{
  const original=v.window.activeTextEditor.document;
  const ordinary='猫🙂 A\r\nlast\r\n',dirty='dirty '+ordinary;
  const initial='猫🙂 generated\r\nint first = 1;\r\n';
- const associatedText='猫🙂 associated\nint associated = 2;\n';
+ const associatedInput='猫🙂 associated\nint associated = 2;\n';
+ const associatedText=document=>associatedInput.replace(/\n/g,document.eol===v.EndOfLine.CRLF?'\r\n':'\n');
  const root=v.Uri.file(v.workspace.rootPath);
  let options,associated,late,closedOptions,eventFailure,changes=0;
  const opened=new Set(),saved=[],lifecycle=[];
@@ -98,15 +99,15 @@ exports.activate=context=>{
   associated=await v.workspace.openTextDocument(uri);assert(opened.has(associated));retained(associated,'',true);
   assert.equal(associated.languageId,'cpp');assert.equal(associated.uri.toString(),uri.toString());
   assert.strictEqual(v.window.activeTextEditor.document,original);const editor=await shown(associated);
-  assert.equal(await editor.edit(edit=>edit.insert(new v.Position(0,0),associatedText)),true);
-  active(associated,associatedText,true);
-  const again=await v.workspace.openTextDocument(uri);assert.strictEqual(again,associated);active(associated,associatedText,true);
+  assert.equal(await editor.edit(edit=>edit.insert(new v.Position(0,0),associatedInput)),true);
+  active(associated,associatedText(associated),true);
+  const again=await v.workspace.openTextDocument(uri);assert.strictEqual(again,associated);active(associated,associatedText(associated),true);
   await v.window.showInformationMessage('API associated untitled;cached=true;cpp=true');
  });
  register('saveAssociated',async()=>{
-  active(associated,associatedText,true);const old=associated,before=saved.length,eventsBefore=lifecycle.length,uri=old.uri.toString();
+  active(associated,associatedText(associated),true);const old=associated,before=saved.length,eventsBefore=lifecycle.length,uri=old.uri.toString();
   assert.equal(await old.save(),true);assert.equal(eventFailure,undefined);
-  associated=await savedResource(old,associatedText,'new.cpp',before,eventsBefore);assert.equal(old.uri.toString(),uri);
+  associated=await savedResource(old,associatedText(old),'new.cpp',before,eventsBefore);assert.equal(old.uri.toString(),uri);
   await v.window.showInformationMessage('API associated saved;direct=true;transition=true;events=close/open/save');
  });
  register('existing',async()=>{
@@ -118,13 +119,13 @@ exports.activate=context=>{
  });
  register('late',async()=>{
   originalIdentity(dirty);late=await v.workspace.openTextDocument(associatedUri('late.cpp'));assert(opened.has(late));retained(late,'',true);
-  const editor=await shown(late);assert.equal(await editor.edit(edit=>edit.insert(new v.Position(0,0),associatedText)),true);
-  active(late,associatedText,true);await v.window.showInformationMessage('API associated late target ready;dirty=true');
+  const editor=await shown(late);assert.equal(await editor.edit(edit=>edit.insert(new v.Position(0,0),associatedInput)),true);
+  active(late,associatedText(late),true);await v.window.showInformationMessage('API associated late target ready;dirty=true');
  });
  register('protected',async()=>{
-  active(late,associatedText,true);const before=saved.length,uri=late.uri.toString(),version=late.version;
+  active(late,associatedText(late),true);const before=saved.length,uri=late.uri.toString(),version=late.version;
   let refused=false;try{refused=(await late.save())===false;}catch(error){refused=true;}
-  assert(refused,'Target appeared after open; save must never overwrite it');active(late,associatedText,true);
+  assert(refused,'Target appeared after open; save must never overwrite it');active(late,associatedText(late),true);
   assert.equal(late.uri.toString(),uri);assert.equal(late.version,version);assert.equal(saved.length,before);
   await v.window.showInformationMessage('API associated late save refused;dirty=true;event=false');
  });

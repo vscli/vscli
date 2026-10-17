@@ -13,7 +13,10 @@ use vscli::{
 const ORIGINAL: &str = "猫🙂 A\r\nlast\r\n";
 const DIRTY: &str = "dirty 猫🙂 A\r\nlast\r\n";
 const INITIAL: &str = "猫🙂 generated\r\nint first = 1;\r\n";
+#[cfg(not(windows))]
 const ASSOCIATED: &str = "猫🙂 associated\nint associated = 2;\n";
+#[cfg(windows)]
+const ASSOCIATED: &str = "猫🙂 associated\r\nint associated = 2;\r\n";
 const PROTECTED: &[u8] = b"existing bytes must survive\r\n";
 fn until(app: &mut App, predicate: impl Fn(&App) -> bool) {
     let deadline = Instant::now() + Duration::from_secs(10);

@@ -103,3 +103,10 @@ new terminal journeys and the private 184-package no-Node journey. The real copi
 profile finds the translated built-in Light 2026 theme; personal code grants stay
 zero. Preferred-language manifests, language packs and the entire stable API
 remain open. [Exact evidence](../validation/default-manifest-labels.json).
+
+Platform follow-up: Windows at `c0b6bd7` passes the Save As repair, then exposes
+two associated untitled fixture assumptions about LF. Those fixtures still insert
+literal LF, but now assert the public document's declared EOL; native disk checks
+independently require CRLF on Windows and LF elsewhere. All four local untitled
+integration cases, formatting and strict Clippy pass. Native editing behavior is
+unchanged; actual Windows qualification remains a CI gate.
