@@ -704,6 +704,9 @@ impl Drop for App {
 }
 impl App {
     pub fn new(root: PathBuf, profile: Profile) -> Self {
+        // Startup resolves aliases once; relative host opens then share the
+        // canonical resource identities used by native document snapshots.
+        let root = std::fs::canonicalize(&root).unwrap_or(root);
         let entries = directory_entries(&root);
         let editor_groups = crate::editor_groups::Groups::with_empty_group();
         let mut editor_layout = crate::editor_layout::Layout::default();

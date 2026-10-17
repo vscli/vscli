@@ -394,7 +394,7 @@ mod tests {
         until(&mut app, |a| a.message.contains("unsaved edits retained"));
         assert_eq!(app.doc().text.to_string(), "original");
         assert!(app.doc_mut().save().is_err());
-        let added = dir.path().join("added.txt");
+        let added = app.workspace.root.join("added.txt");
         std::fs::write(&added, "new").unwrap();
         until(&mut app, |a| a.workspace.files.contains(&added));
         std::fs::remove_file(&added).unwrap();

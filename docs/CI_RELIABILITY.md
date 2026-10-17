@@ -19,3 +19,35 @@ All three new regressions fail against the preceding implementation: visibility 
 After PR #71 merged, the same two repair implementations were rebased onto main 3cc75ab9. Syntax and fixture helper/test bytes are identical to preceding head 2aa40ca5. The combined source passes 1,087 locked all-target Rust tests/51 reports (23 opt-in integrations ignored), all 22 Node code-action/publication tests, formatting, strict Clippy, build and the native terminal color-stability journey. Fresh exact-head CI remains required.
 
 The preceding CI run 38076975970 passed Linux, Windows, quality, commit style and real protocol checks. Its macOS Rust workload passed, but the upstream stable-save reference harness failed a warm API readiness assertion before target authorization. Exact artifact 11678477943 and its ten source blobs were independently verified. Formatter/configuration setup passed and the provider callback returned all four declared kinds; the capture did not retain the eventual public API result before its count assertion. Cancellation, filtering and timing remain unproven. This is distinct from the two repaired native failures; a separately source-bound diagnostic observer is needed. No original failure was reclassified as a success, no count/deadline was relaxed, and no local reference editor was launched.
+
+## Migration release checks and canonical workspace identity
+
+[CI run 39060987348](https://github.com/vscli/vscli/actions/runs/39060987348) at `9580f97` failed on Linux, macOS, Windows and the real
+protocol-server job. Its Linux save-action fixture expired before the intended
+post-action publication case; its macOS logs included `/var` versus `/private/var`
+expectations and filesystem-invalid path/name fixtures. The Windows URI fixture
+expected an uppercase drive despite upstream `URI.fsPath` normalization. A cached
+upstream checkout failed its pinned revision check; capture staging also encountered
+an existing artifact directory or an unstarted producer.
+
+A local aliased `TMPDIR` reproduced three document-reference failures. Canonical
+workspace identity at startup fixes repeated relative extension opens; native
+navigation now owns clean hidden models until its pending alias resolution ends,
+even after the API customer retires. Reopen tests drive the asynchronous native
+lane explicitly. Platform fixtures compare canonical resource paths, allow wrapped
+settings-path presentation, and respect native path/name representability. The
+post-publication save test isolates its transport failure from the separately
+qualified 1,500 ms production deadline; production deadlines are unchanged.
+
+Pinned script-prepared upstream packages now use the runner's temporary directory,
+separate from the Rust build cache. Trusted revision verification precedes fresh
+capture setup. Existing raw/staged evidence is moved aside without replacement;
+CI archives it outside the cached target directory. Staging/upload runs only after
+capture setup succeeded, retaining partial producer evidence without adding an
+unrelated missing-directory error when earlier steps fail. Existing strict source,
+revision and complete-artifact consumer admission remains unchanged.
+
+Local checks and exact source/binary identity are recorded in
+[release-check repair receipts](validation/migration-release-checks.json). Actual
+macOS/Windows and required exact-head GitHub results remain separate gates; local
+alias coverage does not establish those platforms' release qualification.

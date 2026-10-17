@@ -36,7 +36,7 @@ jobs:
       - name: Record exact candidate revision and create cache parent
         env:
           CANDIDATE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: node -e "const fs=require('node:fs');fs.mkdirSync('target/vscode-reference',{recursive:true});fs.mkdirSync('target/save-actions-stable-configuration',{recursive:true});fs.writeFileSync('target/save-actions-stable-configuration/candidate-revision.txt',process.env.CANDIDATE_REVISION+'\n')"
+        run: python3 tests/prepare_save_reference_ci.py
       - name: Capture independent stable candidate (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 6

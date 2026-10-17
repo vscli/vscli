@@ -1222,6 +1222,7 @@ mod tests {
         let mut app = App::new(root.path().into(), Profile::Linux);
         let path = root.path().join("original.txt");
         std::fs::write(&path, "original 猫🙂\r\n").unwrap();
+        let path = std::fs::canonicalize(path).unwrap();
         app.open(&path).unwrap();
         let context = Context::capture(&app);
         app.hidden_documents.push(Document::from_text("unrelated"));

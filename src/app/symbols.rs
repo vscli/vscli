@@ -1245,7 +1245,10 @@ fn symbol_loader_retains_received_result_until_actual_exit_and_join() {
             );
         } else {
             assert_eq!(app.documents.len(), 2);
-            assert_eq!(app.doc().path.as_deref(), Some(target.as_path()));
+            assert_eq!(
+                app.doc().path.as_ref(),
+                Some(&std::fs::canonicalize(&target).unwrap())
+            );
             assert_eq!(app.doc().cursor, 1);
             assert!(app.doc().anchor.is_none());
             assert_eq!(

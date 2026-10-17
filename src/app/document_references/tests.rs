@@ -111,9 +111,42 @@ fn independent_acquisition_deadlines_and_reopen_do_not_replace_the_model() {
     assert!(!app.poll_api_document_references(Some(1), now + MAX_AGE));
     assert_eq!(app.hidden_documents[0].id, id);
     app.open(&path).unwrap();
+    // This test owns a synthetic API customer; drive navigation without the
+    // full host poll retiring that deliberately absent Node session.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while app.active_document().is_none() {
+        app.poll_navigation();
+        assert!(Instant::now() < deadline, "{}", app.message);
+        std::thread::yield_now();
+    }
     assert_eq!(app.doc().id, id);
     assert!(app.hidden_documents.is_empty());
     assert_eq!(app.api_documents.ledger.as_ref().unwrap().len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn aliased_native_reopen_retains_the_clean_original_model_after_api_customer_retirement() {
+    let root = tempfile::tempdir().unwrap();
+    let physical = root.path().join("physical");
+    std::fs::create_dir(&physical).unwrap();
+    let alias = root.path().join("alias");
+    std::os::unix::fs::symlink(&physical, &alias).unwrap();
+    let (mut app, _, id) = opened(&physical);
+    app.acquire_api_document(1, id, Instant::now()).unwrap();
+    app.execute("workbench.action.closeActiveEditor", Value::Null);
+    assert_eq!(app.hidden_documents[0].id, id);
+    assert!(!app.hidden_documents[0].dirty());
+    app.open(&alias.join("main.cpp")).unwrap();
+    assert!(app.navigation.loading());
+    app.poll_api_document_references(None, Instant::now());
+    assert_eq!(app.api_documents.ledger.as_ref().unwrap().len(), 0);
+    assert_eq!(app.hidden_documents[0].id, id);
+    until_actual(&mut app, |app| {
+        app.active_document().is_some_and(|doc| doc.id == id)
+    });
+    assert!(app.hidden_documents.is_empty());
+    assert_eq!(app.doc().text.to_string(), "猫🙂\r\noriginal");
 }
 
 #[test]
@@ -331,12 +364,20 @@ fn resource_epoch_aba_expiry_cannot_release_the_new_binding_at_the_same_path() {
 fn long_native_unicode_paths_keep_reference_receipts_without_reducing_path_admission() {
     let root = tempfile::tempdir().unwrap();
     let mut folder = root.path().to_owned();
-    for _ in 0..12 {
+    // macOS limits a native absolute path to 1024 bytes. URI expansion still
+    // exercises long reference receipts within that host filesystem contract.
+    let depth = if cfg!(target_os = "macos") { 3 } else { 12 };
+    for _ in 0..depth {
         folder = folder.join("猫".repeat(60));
     }
     std::fs::create_dir_all(&folder).unwrap();
     let (mut app, _, id) = opened(&folder);
-    assert!(crate::extensions::document_uri(app.doc()).unwrap().len() > 4096);
+    let minimum_uri = if cfg!(target_os = "macos") {
+        1024
+    } else {
+        4096
+    };
+    assert!(crate::extensions::document_uri(app.doc()).unwrap().len() > minimum_uri);
     app.acquire_api_document(1, id, Instant::now()).unwrap();
     app.execute("workbench.action.closeActiveEditor", Value::Null);
     assert_eq!(app.hidden_documents[0].id, id);
@@ -398,9 +439,15 @@ fn replacing_an_api_referenced_preview_preserves_the_hidden_model_and_original_l
         crate::editor_groups::OpenMode::Preview,
     )
     .unwrap();
-    assert_eq!(app.doc().path.as_ref(), Some(&b));
+    assert_eq!(
+        app.doc().path.as_ref(),
+        Some(&std::fs::canonicalize(&b).unwrap())
+    );
     assert_eq!(app.hidden_documents[0].id, id);
-    assert_eq!(app.hidden_documents[0].path.as_ref(), Some(&a));
+    assert_eq!(
+        app.hidden_documents[0].path.as_ref(),
+        Some(&std::fs::canonicalize(&a).unwrap())
+    );
     assert_eq!(app.api_documents.ledger.as_ref().unwrap().len(), 1);
     assert_eq!(std::fs::read_to_string(a).unwrap(), "猫🙂\r\noriginal");
 }

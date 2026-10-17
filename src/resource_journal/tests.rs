@@ -633,11 +633,17 @@ fn symlink_payload_and_non_utf8_tree_names_refuse_authority() {
     assert!(RecoveryAuthority::load(staged.path(), Limits::default(), &f.control()).is_err());
     let tree = f.root.join("tree");
     fs::create_dir(&tree).unwrap();
-    fs::write(
-        tree.join(std::ffi::OsString::from_vec(vec![255])),
-        b"binary name",
-    )
-    .unwrap();
+    let invalid_name = tree.join(std::ffi::OsString::from_vec(vec![255]));
+    if let Err(error) = fs::write(&invalid_name, b"binary name") {
+        // Some native filesystems refuse non-UTF-8 names before a tree can
+        // contain them. No invalid resource exists to authorize in that case.
+        #[cfg(target_os = "macos")]
+        if error.raw_os_error() == Some(libc::EILSEQ) {
+            assert!(!invalid_name.exists());
+            return;
+        }
+        panic!("Cannot prepare non-UTF-8 fixture: {error}");
+    }
     assert!(
         Capture::prepare(
             vec![delete(tree)],

@@ -270,7 +270,7 @@ mod tests {
         hidden.insert("dirty ", false);
         let id = hidden.id;
         app.hidden_documents.push(hidden);
-        let settings = root.path().join("actual-profile/settings.json");
+        let settings = app.workspace.root.join("actual-profile/settings.json");
         app.configure_settings(Some(settings.clone())).unwrap();
         let mut terminal = Terminal::new(TestBackend::new(150, 38)).unwrap();
         terminal.draw(|f| super::super::draw(f, &mut app)).unwrap();
@@ -281,7 +281,12 @@ mod tests {
             .iter()
             .map(|c| c.symbol())
             .collect();
-        assert!(text.contains(&settings.to_string_lossy().to_string()));
+        // The settings path may wrap across footer rows on native temp roots.
+        let compact: String = text
+            .chars()
+            .filter(|character| !character.is_whitespace())
+            .collect();
+        assert!(compact.contains(settings.to_string_lossy().as_ref()));
         assert!(text.contains("ctrl+,"));
         assert!(app.documents.is_empty());
         let inspector = app

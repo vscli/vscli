@@ -72,7 +72,10 @@ fn config_and_exact_packages_publish_together_with_explicit_grants_and_rollback(
     assert_eq!(rollback(&native).unwrap(), directory);
     assert_eq!(active_directory(&native).unwrap(), directory);
     assert!(second.activated_profile.unwrap().exists());
-    assert_eq!(rollback(&native).unwrap(), native);
+    assert_eq!(
+        rollback(&native).unwrap(),
+        fs::canonicalize(&native).unwrap()
+    );
     assert_eq!(
         fs::read_to_string(native.join("settings.json")).unwrap(),
         "native original"

@@ -1,0 +1,155 @@
+{
+  "schema": "vscli-migration-release-checks-validation-v1",
+  "base_commit": "1bd7df3100e0b8258ce228bc2759350eb9e9ee94",
+  "scope": "Canonical workspace/hidden-model ownership, platform fixture corrections, fresh trusted CI reference capture preparation and cache-isolated unchanged upstream fixtures. Full migration/API/release qualification remains open.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1694,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "c73c1be78376046acb824c6e2df171c4940daa7c5c4e199192d64aa0be8dea85"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "ea34a757a2ea29fe3d2528ae54927a7175bf3cca75d9537b02d98622092c5fa6"
+  },
+  "environment": {
+    "platform": "Linux-7.2.8-arch1-2-x86_64-with-glibc2.44"
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked",
+      "passed": 1648,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 68,
+      "library_passed": 1296,
+      "log": "/tmp/vscli-ci-repair-final-rust.log"
+    },
+    {
+      "command": "TMPDIR=<private aliased temporary root> cargo test --locked --lib",
+      "passed": 1296,
+      "failed": 0,
+      "ignored": 0,
+      "log": "/tmp/vscli-ci-alias-library.log"
+    },
+    {
+      "command": "TMPDIR=<private aliased temporary root> cargo test --locked --lib document_references",
+      "passed": 41,
+      "failed": 0,
+      "log": "/tmp/vscli-ci-alias-after.log"
+    },
+    {
+      "command": "node --test extension-host/*.test.cjs",
+      "passed": 798,
+      "failed": 0,
+      "log": "/tmp/vscli-ci-repair-host.log"
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -p 'prepare_save_reference_ci_test.py'",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -p 'stage_save_actions_reference_test.py'",
+      "passed": 6,
+      "failed": 0
+    },
+    {
+      "command": "python3 scripts/test_extension_api_progress.py",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-ci-repair-final-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-ci-repair-build.log"
+    },
+    {
+      "command": "Workflow YAML parsing and git diff --check",
+      "result": "passed"
+    }
+  ],
+  "upstream_checks": [
+    {
+      "package": "travisthetechie.write-good-linter",
+      "version": "0.1.7",
+      "commit": "c1bf30a5983fd390d63e3d2392f84ca162a72e7b",
+      "source_unchanged": true,
+      "locked_dependencies": true,
+      "native_passed": 2,
+      "terminal_passed": 2,
+      "prepare_log": "/tmp/vscli-ci-write-good-prepare.log",
+      "native_log": "/tmp/vscli-ci-repair-write-good-native.log",
+      "terminal_log": "/tmp/vscli-ci-repair-write-good-pty.log"
+    },
+    {
+      "package": "vscode-samples.code-actions-sample",
+      "version": "0.0.2",
+      "commit": "73e249b3c1ba8422aa5713f1a5db23ed0eab4f7a",
+      "source_unchanged": true,
+      "locked_dependencies": true,
+      "native_passed": 2,
+      "terminal_passed": 2,
+      "prepare_log": "/tmp/vscli-ci-code-actions-prepare.log",
+      "native_log": "/tmp/vscli-ci-repair-sample-native.log",
+      "terminal_log": "/tmp/vscli-ci-repair-sample-pty.log"
+    }
+  ],
+  "terminal_checks": [
+    {
+      "command": "python3 tests/extension_documents_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "result": "passed",
+      "log": "/tmp/vscli-ci-repair-documents-pty.log"
+    },
+    {
+      "command": "python3 tests/extension_virtual_documents_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "result": "passed",
+      "log": "/tmp/vscli-ci-repair-virtual-pty.log"
+    },
+    {
+      "command": "python3 tests/profile_migration_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "result": "passed",
+      "log": "/tmp/vscli-ci-repair-migration-pty.log"
+    }
+  ],
+  "observed_before": [
+    "CI run 39060987348: Linux save-action fixture expired before targeted publication failure",
+    "macOS canonical path and filesystem representability failures",
+    "Windows upstream URI drive-case expectation mismatch",
+    "Pinned Write Good revision mismatch in cached target checkout; available logs do not establish how it acquired that state",
+    "Existing/unstarted save capture staging errors",
+    "Aliased local TMPDIR reproduced three document-reference failures before repair"
+  ],
+  "remaining": [
+    "Fresh exact-head GitHub Linux/macOS/Windows and real-protocol results",
+    "macOS non-UTF-8 filesystem rejection branch and native path limit fixture require actual macOS execution",
+    "Entire stable API, personal extension workflows and visual fidelity",
+    "Packaging/install/recovery qualification and intentional reviewed release tag"
+  ]
+}

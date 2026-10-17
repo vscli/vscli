@@ -36,7 +36,8 @@ test('positions beyond the final line clamp to EOF and valid ranges retain ident
 });
 
 test('file URI round trips spaces Unicode and reserved filename characters', () => {
-  const file = path.resolve('folder with space', '猫#%.rs');
+  // URI.fsPath canonicalizes Windows drive letters to lowercase, upstream.
+  const file = path.resolve('folder with space', '猫#%.rs').replace(/^[A-Z]:/, drive => drive.toLowerCase());
   const uri = Uri.file(file);
   assert.equal(Uri.parse(uri.toString()).fsPath, file);
   assert.match(uri.toString(), /%23%25/);

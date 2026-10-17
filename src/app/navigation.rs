@@ -365,6 +365,11 @@ pub(super) struct State {
     interaction: u64,
     pending: Option<Pending>,
 }
+impl State {
+    pub(super) fn loading(&self) -> bool {
+        self.pending.is_some()
+    }
+}
 impl App {
     pub(super) fn navigation_context(&self) -> Context {
         Context {

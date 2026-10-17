@@ -220,7 +220,7 @@ mod tests {
         );
         assert_eq!(
             selected.extension_index(),
-            extensions.join("extensions.json")
+            fs::canonicalize(extensions.join("extensions.json")).unwrap()
         );
         assert_eq!(select(&profiles, None).unwrap().id, "default");
     }

@@ -240,6 +240,7 @@ impl App {
         // Queue/worker owners outlive API timers. Ordinary extension retirement
         // or interaction cancellation cannot free an actually occupied model.
         let pending = self.persistence_pending()
+            || self.navigation.loading()
             || self.workspace_transactions_pending()
             || self.virtual_documents_pending()
             || self.api_documents.discard.is_some()
