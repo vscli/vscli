@@ -533,3 +533,10 @@ and actual conditional shortcut/edit/save/Undo are locally tested. Values remain
 session-local. Native conditions include numeric comparisons, membership and
 a bounded regex subset; complete JavaScript regex/coercion/scoped context
 equivalence and other built-in command targets stay open. See [extension context keys](CONTEXT_KEYS_API.md).
+
+Packaged default `package.nls.json` messages now reach native dormant command
+titles, theme labels and the optional host's command metadata/public
+`Extension.packageJSON` before activation. The host reuses the pinned MIT upstream
+normalizer; native data consumers use a bounded Rust implementation. This does
+not implement preferred-language manifest bundles or built-in language packs.
+[Default-label behavior and evidence](IMPORT_AND_THEMES.md#packaged-default-labels).

@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/microsoft/vscode",
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "source_path": "src/vs/platform/extensionManagement/common/extensionNls.ts",
+  "source_sha256": "f60d7f7d0a858e853732ccda6c3bca7c78dd0580c3b7ebe6e6a240d598c2158a",
+  "compiled_module": "extension-host/upstream-manifest-nls.cjs",
+  "compiled_sha256": "f5f93763f4c4907fa06c0c05f267b0c77485745d892852426de761f284171f8a",
+  "transformation": "TypeScript transpileModule CommonJS ES2022; JSON type tests and missing-key diagnostic string formatter supplied inline; algorithm unchanged",
+  "license": "MIT notice embedded in compiled module",
+  "native_port": "src/extension_manifest.rs; bounded default-language data loader; no JavaScript runtime needed for native labels"
+}

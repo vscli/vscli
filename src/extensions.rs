@@ -427,6 +427,14 @@ impl Client {
         let runtime = tempfile::tempdir()?;
         for (name, source) in [
             (
+                "manifest-localization.cjs",
+                include_str!("../extension-host/manifest-localization.cjs"),
+            ),
+            (
+                "upstream-manifest-nls.cjs",
+                include_str!("../extension-host/upstream-manifest-nls.cjs"),
+            ),
+            (
                 "localization.cjs",
                 include_str!("../extension-host/localization.cjs"),
             ),

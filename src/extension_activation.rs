@@ -125,6 +125,7 @@ pub struct Metadata {
     pub keybindings: Value,
     pub code: bool,
     pub blocked: Option<String>,
+    pub manifest_warnings: Vec<String>,
 }
 fn strings(value: &Value, limit: usize, name: &str) -> Result<Vec<String>> {
     if value.is_null() {
@@ -167,8 +168,14 @@ impl Metadata {
         Ok(metadata)
     }
     pub fn installed(item: &Installed) -> Result<Self> {
+        Self::installed_with_defaults(item, &mut crate::extension_manifest::Defaults::default())
+    }
+    pub(crate) fn installed_with_defaults(
+        item: &Installed,
+        defaults: &mut crate::extension_manifest::Defaults,
+    ) -> Result<Self> {
         validate_id(&item.id)?;
-        let manifest = &item.manifest;
+        let manifest = defaults.localize(&item.path, &item.manifest);
         let mut dependencies = BTreeSet::new();
         for id in strings(
             &manifest["extensionDependencies"],
@@ -265,6 +272,7 @@ impl Metadata {
             keybindings: manifest["contributes"]["keybindings"].clone(),
             code,
             blocked,
+            manifest_warnings: std::mem::take(&mut defaults.warnings),
         })
     }
     pub fn matches(&self, event: &Event) -> bool {

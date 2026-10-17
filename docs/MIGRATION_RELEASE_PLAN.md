@@ -197,3 +197,15 @@ and the context-key regression journey pass. This adds membership, numeric
 comparisons and a bounded regex subset; complete JavaScript regex semantics,
 all workbench/config contexts, scoped resolution and physical key delivery remain
 requirements. [Validation receipts](validation/native-when-expressions.json).
+
+## Default manifest labels and installed theme capacity
+
+**5/5 local criteria pass** for packaged default label normalization, native
+catalogue coverage after 128 packages, translated source-theme/public metadata
+integration, actual terminal editing/restart and required regression checks.
+The 184-package private copy now discovers the translated built-in Light 2026
+theme without Node. Its source inventory contains 121 default bundles and 19
+placeholder theme labels; these counts do not qualify every label or color.
+There are 1,668 passing Rust and 814 host tests. Preferred-language manifest
+bundles, language packs, richer presentation, all code workflows and the entire
+stable API remain required. [Evidence](validation/default-manifest-labels.json).

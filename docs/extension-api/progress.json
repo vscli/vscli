@@ -424,6 +424,72 @@
         "Whole stable API, personal code workflows and exact-head platform release gates"
       ],
       "validation_receipt": "docs/validation/native-when-expressions.json"
+    },
+    {
+      "id": "default-manifest-label-integration",
+      "api_ids": [
+        "vscode.extensions.getExtension",
+        "vscode.Extension.packageJSON"
+      ],
+      "criteria": [
+        {
+          "name": "Bounded packaged default labels match the reused upstream normalizer and preserve source/fallbacks",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "Bounded packaged default labels match the reused upstream normalizer and preserve source/fallbacks"
+            }
+          ]
+        },
+        {
+          "name": "Native installed theme and dormant command catalogues include translated labels beyond package 128",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "Native installed theme and dormant command catalogues include translated labels beyond package 128"
+            }
+          ]
+        },
+        {
+          "name": "Imported theme settings without a separate ID and public packageJSON/running commands reach real native editing",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "Imported theme settings without a separate ID and public packageJSON/running commands reach real native editing"
+            }
+          ]
+        },
+        {
+          "name": "No-Node and optional-host terminal journeys retain colors, restart, Unicode/CRLF save/Undo and original bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "No-Node and optional-host terminal journeys retain colors, restart, Unicode/CRLF save/Undo and original bytes"
+            }
+          ]
+        },
+        {
+          "name": "Native/host regression, formatting and strict locked Clippy pass on the recorded cohorts",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "Native/host regression, formatting and strict locked Clippy pass on the recorded cohorts"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Preferred-language package.nls.<locale>.json files and built-in language-pack resolution",
+        "Full icon/font/layout/custom-CSS/TextMate/semantic presentation and all personal extension workflows",
+        "Source-theme snapshot declaration limits and installed theme picker capacity qualification beyond this cohort",
+        "Whole stable API and fresh exact-head platform/release checks"
+      ],
+      "validation_receipt": "docs/validation/default-manifest-labels.json"
     }
   ],
   "next_batch": {

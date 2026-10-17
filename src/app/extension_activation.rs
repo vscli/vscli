@@ -143,12 +143,14 @@ fn load(
     let language_configurations =
         crate::language_configuration::Catalog::load(&installed, &global, &local);
     notices.extend(language_configurations.warnings.iter().cloned());
+    let mut manifest_defaults = crate::extension_manifest::Defaults::default();
     for installed in installed {
         if catalog.len() >= lifecycle::MAX_CATALOG {
             anyhow::bail!("Extension activation catalog exceeds 2048 installed packages");
         }
-        match Metadata::installed(&installed) {
+        match Metadata::installed_with_defaults(&installed, &mut manifest_defaults) {
             Ok(metadata) => {
+                notices.extend(metadata.manifest_warnings.iter().cloned());
                 if enabled.contains(&installed.id) {
                     if let Some(reason) = &metadata.blocked {
                         notices.push(format!("{}: {reason}", installed.id));
@@ -1157,6 +1159,7 @@ mod tests {
             keybindings: Value::Null,
             code: true,
             blocked: None,
+            manifest_warnings: Vec::new(),
         }
     }
     fn app(root: &Path) -> App {

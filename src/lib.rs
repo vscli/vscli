@@ -14,6 +14,7 @@ pub mod editor_groups;
 pub mod editor_layout;
 pub mod editor_presentation;
 pub mod extension_activation;
+pub(crate) mod extension_manifest;
 pub mod extension_providers;
 pub mod extension_registry;
 pub mod extension_state;

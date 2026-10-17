@@ -93,3 +93,13 @@ the timeout poll, rather than expecting a duplicate. macOS main CI at `4e6f8b3`
 passes; Windows passed 1,242 library tests before the reproduced Save As failure,
 and Linux retained one LSP barrier failure. Fresh repair-head platform evidence is
 required. [Repair receipts](../validation/refactoring-save-uri.json).
+
+Packaged default manifest labels pass **5/5 named local criteria**. The native
+catalogue includes a theme after 128 packages, source settings can match a
+translated theme without an ID, and public packageJSON/running command metadata
+reach actual edit/save/Undo. There are **1,668 passing Rust tests across 72 reports**
+(1,309 library; 23 ignored; four test threads), **814 passing host tests**, two
+new terminal journeys and the private 184-package no-Node journey. The real copied
+profile finds the translated built-in Light 2026 theme; personal code grants stay
+zero. Preferred-language manifests, language packs and the entire stable API
+remain open. [Exact evidence](../validation/default-manifest-labels.json).

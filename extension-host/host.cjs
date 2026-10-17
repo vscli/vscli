@@ -46,6 +46,7 @@ function nodes(value) {
   return 1 + Object.values(value).reduce((sum, item) => sum + nodes(item), 0);
 }
 function prepare(inputs, retained = []) {
+  const defaults = require('./manifest-localization.cjs').createDefaults(retained.reduce((bytes,item)=>bytes+(item.nlsBytes||0),0), text=>console.error(text));
   if (!Array.isArray(inputs) || !inputs.length || inputs.length > limits.packages) throw new Error('Select between one and 128 code extensions');
   let bytes = 0, count = 0, bindings = 0, contributions = 0;
   if (inputs.length + retained.length > limits.packages) throw new Error('Extension cohort exceeds 128 selected packages');
@@ -73,10 +74,12 @@ function prepare(inputs, retained = []) {
     } finally { fs.closeSync(fd); }
     if (size > 1024 * 1024) throw new Error('Extension manifest exceeds 1 MiB');
 
-    const manifest = JSON.parse(contents.subarray(0, size).toString('utf8'));
-    account(manifest, size);
-    const id = `${manifest.publisher}.${manifest.name}`.toLowerCase();
-    if (id !== input.id || manifest.version !== input.version) throw new Error(`Extension identity changed: ${input.id}`);
+    const original = JSON.parse(contents.subarray(0, size).toString('utf8'));
+    const id = `${original.publisher}.${original.name}`.toLowerCase();
+    if (id !== input.id || original.version !== input.version) throw new Error(`Extension identity changed: ${input.id}`);
+    const localized = defaults.localize(folder, original), manifest = localized.manifest;
+    const manifestBytes = Math.max(size, Buffer.byteLength(JSON.stringify(manifest)));
+    account(manifest, manifestBytes);
     if (ids.has(id)) throw new Error(`Duplicate extension: ${id}`);
     ids.add(id);
     if (manifest.enabledApiProposals?.length) throw new Error(`${id}: proposed extension APIs are not implemented`);
@@ -87,7 +90,7 @@ function prepare(inputs, retained = []) {
       const relative = path.relative(folder, fs.realpathSync(entry));
       if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Extension main must be inside its directory');
     } else if (manifest.browser) throw new Error(`${id}: browser-only code is unsupported`);
-    return { id, folder, entry, manifest, manifestBytes: size, subscriptions: [] };
+    return { id, folder, entry, manifest, manifestBytes, nlsBytes: localized.bytes, subscriptions: [] };
   }).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 function dispose(item) {

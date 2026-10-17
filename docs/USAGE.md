@@ -1146,3 +1146,8 @@ that document, while content/options opens receive fresh resource names. See
 Preferred extension language: `vscli --locale fr --extension /path/to/package file.txt`
 loads that package's French message bundle when declared. Native interface labels
 currently remain English. The language choice alone starts no JavaScript process.
+
+Installed themes and extension command titles can resolve packaged default
+`package.nls.json` labels. Theme discovery considers up to 2,048 installed packages;
+selecting a theme and restarting work without Node. Preferred-language manifest
+bundles and language packs remain unqualified. See [default labels](IMPORT_AND_THEMES.md#packaged-default-labels).

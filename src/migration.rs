@@ -566,6 +566,7 @@ fn snapshot_package_themes(
 ) -> Result<Option<ThemeSnapshot>> {
     packages.sort();
     let mut manifest_bytes = 0;
+    let mut defaults = crate::extension_manifest::Defaults::default();
     for package in packages {
         let manifest_path = package.join("package.json");
         if !manifest_path.is_file() {
@@ -586,6 +587,7 @@ fn snapshot_package_themes(
             Ok(manifest) => manifest,
             Err(_) => continue,
         };
+        let manifest = defaults.localize(&package, &manifest);
         let Some(themes) = manifest
             .pointer("/contributes/themes")
             .and_then(Value::as_array)

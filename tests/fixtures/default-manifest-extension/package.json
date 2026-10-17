@@ -1,0 +1,1 @@
+{"publisher":"fixture","name":"default-manifest","version":"1.0.0","displayName":"%displayName%","main":"main.cjs","engines":{"vscode":"*"},"contributes":{"commands":[{"command":"fixture.defaultManifest.edit","title":"%commandTitle%","category":"%category%"}],"themes":[{"label":"%themeLabel%","uiTheme":"vs-dark","path":"theme.json"}]}}

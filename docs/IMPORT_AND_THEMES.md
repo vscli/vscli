@@ -70,8 +70,9 @@ directory; imported theme paths remain valid when the working directory changes.
 `--keybindings` override their respective imported files.
 
 Limits: 128 snippet files, 4096 inspected directory entries, 1 MiB per configuration
-file and 16 MiB of copied configuration/theme bytes. Theme discovery examines at
-most 128 extension packages and 128 theme declarations per package. Selected theme
+file and 16 MiB of copied configuration/theme bytes. Source-theme snapshots inspect at most 128 declarations per package; explicit
+unindexed-folder scans inspect 128 packages. The installed native theme picker
+considers up to 2,048 packages and reports its 1,024-choice limit. Selected theme
 snapshots contain at most eight files and 4 MiB. Limits fail or report incomplete
 coverage explicitly. Imported user snippets are available through **Insert Snippet**;
 copying bytes alone does not provide completion snippets.
@@ -228,3 +229,25 @@ TextMate grammars, fonts/icons, arbitrary CSS or the entire stable API. See
 An explicitly supplied unpacked theme directory still works for configuration-only
 imports when no authoritative user extension index exists. Only its selected
 contained JSON theme/include data is copied; its code remains unregistered.
+
+## Packaged default labels
+
+Native theme discovery covers the installed catalogue of up to 2,048 packages,
+including packages after the previous 128-package boundary. Packaged
+`package.nls.json` messages resolve `%key%` labels before theme selection and
+settings-based theme snapshots; a label without a separate theme ID is supported.
+Native dormant commands and the optional host's running commands/public
+`Extension.packageJSON` use the same default-message behavior. Original package
+and translation bytes remain unchanged, and native theme discovery needs no
+JavaScript runtime or code execution grant.
+
+String entries and objects with a `message` field are supported. Missing or empty
+translations retain their placeholders. Malformed/unreadable/oversized bundles
+retain original labels; native discovery reports a notice. Default bundles and normalized manifests are each limited to 1 MiB, with an
+8 MiB default-bundle budget per loader. An invalid expansion retains the entire original
+manifest. The optional host reuses the pinned upstream normalizer.
+
+This checkpoint covers packaged default messages. Preferred-language manifest
+files, built-in language-pack resolution, icon themes, custom CSS, full token and
+layout fidelity and the complete stable extension API remain requirements.
+[Validation evidence](validation/default-manifest-labels.json).

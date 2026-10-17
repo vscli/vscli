@@ -443,14 +443,25 @@ pub struct Choice {
 pub fn contributions(packages: &[(PathBuf, Value)]) -> (Vec<Choice>, Vec<String>) {
     let mut choices = Vec::new();
     let mut warnings = Vec::new();
-    for (root, manifest) in packages.iter().take(128) {
+    let mut defaults = crate::extension_manifest::Defaults::default();
+    for (root, manifest) in packages
+        .iter()
+        .take(crate::extension_activation::MAX_CATALOG)
+    {
+        if !manifest
+            .pointer("/contributes/themes")
+            .is_some_and(Value::is_array)
+        {
+            continue;
+        }
+        let manifest = defaults.localize(root, manifest);
         let Some(themes) = manifest
             .pointer("/contributes/themes")
             .and_then(Value::as_array)
         else {
             continue;
         };
-        for theme in themes.iter().take(128) {
+        for theme in themes {
             let Some(relative) = theme.get("path").and_then(Value::as_str) else {
                 continue;
             };
@@ -509,12 +520,14 @@ pub fn contributions(packages: &[(PathBuf, Value)]) -> (Vec<Choice>, Vec<String>
             });
             if choices.len() >= 1024 {
                 warnings.push("Installed theme catalog limited to 1024 entries".into());
+                warnings.extend(defaults.warnings);
                 return (choices, warnings);
             }
         }
     }
-    if packages.len() > 128 {
-        warnings.push("Theme discovery limited to 128 packages".into());
+    warnings.extend(defaults.warnings);
+    if packages.len() > crate::extension_activation::MAX_CATALOG {
+        warnings.push("Theme discovery limited to 2048 installed packages".into());
     }
     (choices, warnings)
 }

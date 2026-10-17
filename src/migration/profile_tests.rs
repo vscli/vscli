@@ -445,3 +445,47 @@ fn unpacked_theme_without_user_index_remains_data_only_even_when_package_copy_is
         "throw new Error('unregistered code must not be imported')"
     );
 }
+
+#[test]
+fn packaged_default_theme_label_without_id_matches_imported_setting_and_preserves_source_bytes() {
+    let root = tempfile::tempdir().unwrap();
+    let source = fixture(root.path());
+    let package = source.extensions.join("fixture.native-1.0.0");
+    let manifest=br#"{"publisher":"fixture","name":"native","version":"1.0.0","main":"main.cjs","contributes":{"themes":[{"label":"%themeLabel%","path":"theme.json"}]}}"#;
+    let translations =
+        br#"{"themeLabel":{"message":"Default translated theme","comment":["Display label"]}}"#;
+    let settings =
+        b"{// preserved comment\n\"workbench.colorTheme\":\"Default translated theme\",}";
+    fs::write(package.join("package.json"), manifest).unwrap();
+    fs::write(package.join("package.nls.json"), translations).unwrap();
+    fs::write(
+        package.join("theme.json"),
+        r##"{"colors":{"editor.foreground":"#123456"}}"##,
+    )
+    .unwrap();
+    fs::write(source.user.join("settings.json"), settings).unwrap();
+    let code = fs::read(package.join("main.cjs")).unwrap();
+    let preview = preview_profile(&source, crate::keys::Profile::Linux).unwrap();
+    let theme_file = preview.theme.as_ref().unwrap().1.clone();
+    let report = preview.apply(&root.path().join("native")).unwrap();
+    let profile = report.activated_profile.unwrap();
+    assert_eq!(report.extensions_execution_enabled, 0);
+    assert_eq!(fs::read(profile.join("settings.json")).unwrap(), settings);
+    assert_eq!(
+        crate::theme::Theme::load(&profile.join(theme_file))
+            .unwrap()
+            .colors
+            .foreground,
+        ratatui::style::Color::Rgb(18, 52, 86)
+    );
+    assert_eq!(fs::read(package.join("package.json")).unwrap(), manifest);
+    assert_eq!(
+        fs::read(package.join("package.nls.json")).unwrap(),
+        translations
+    );
+    assert_eq!(fs::read(package.join("main.cjs")).unwrap(), code);
+    assert_eq!(
+        fs::read(source.user.join("settings.json")).unwrap(),
+        settings
+    );
+}
