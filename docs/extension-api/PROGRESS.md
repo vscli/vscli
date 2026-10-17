@@ -121,3 +121,11 @@ All 814 host tests pass locally with real watcher events and original occupancy,
 mutation, identity and negative controls retained. Formatting and strict Clippy
 pass; actual Windows qualification remains required. The failed complete log is
 retained at `/tmp/vscli-complete-host-ci-windows.log`.
+
+Portable source application inference passes **4/4 local batch criteria**: adjacent
+application/version detection, explicit unknown/ambiguous selection, an actual
+independent built-in/profile copy and no-Node native theme/shortcut/edit/save/Undo,
+and required regression checks. The final local suite passes **1,670 Rust tests
+across 72 reports** (1,311 library; 23 ignored; four test threads). This is migration
+integration evidence; the entire stable API and other-platform qualification remain
+open. [Portable receipts](../validation/portable-profile.json).

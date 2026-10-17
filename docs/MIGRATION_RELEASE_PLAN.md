@@ -222,3 +222,10 @@ it as a module path before running host tests. The driver discovers explicit
 contract filenames and invokes the previously working `node --test <files>`
 interface without shell globbing. Failed logs are retained; no test failure is
 reclassified as success.
+
+Portable application inference passes **4/4 local criteria**, including three
+layout fixtures, explicit missing/ambiguous application selection and an actual
+no-Node portable built-in/profile/shortcut/theme/save-Undo terminal journey.
+The 1,670-test native cohort, formatting and strict Clippy pass. Actual other-platform
+installations, exported profiles, full personal workflows and the whole stable API
+remain open. [Evidence](validation/portable-profile.json).

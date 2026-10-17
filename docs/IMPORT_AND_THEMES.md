@@ -251,3 +251,30 @@ This checkpoint covers packaged default messages. Preferred-language manifest
 files, built-in language-pack resolution, icon themes, custom CSS, full token and
 layout fidelity and the complete stable extension API remain requirements.
 [Validation evidence](validation/default-manifest-labels.json).
+
+## Portable installations
+
+When VSCLI receives `VSCODE_PORTABLE`, discovery includes that data directory's
+profiles and registered user extensions. It now also locates the adjacent source
+application and built-ins without launching VS Code. This follows the standard
+[portable layouts](https://code.visualstudio.com/docs/setup/portable): an in-place
+`data` directory on Windows/Linux, or the channel-specific data directory beside
+the application bundle on macOS. Named profiles sharing the same portable root
+reuse one application inspection. Missing or ambiguous adjacent applications
+produce a notice and remain selectable through **B** in native import review or
+`--vscode-application`.
+
+For example, on a Unix shell:
+
+```sh
+VSCODE_PORTABLE=/path/to/VSCode/data vscli --list-vscode-profiles
+VSCODE_PORTABLE=/path/to/VSCode/data vscli --import-vscode --vscode-profile 'VS Code Portable:default'
+```
+
+The local terminal check covers adjacent built-in discovery, independent package
+and byte-exact configuration copies, imported theme/shortcut use and Unicode/CRLF
+save/Undo without Node or code grants. The three layout fixtures run on the local
+host; they do not qualify physical Windows/macOS installations, every custom
+portable arrangement or those extensions' runtime workflows. Exported
+`.code-profile` files remain an outstanding input format.
+[Portable migration receipts](validation/portable-profile.json).

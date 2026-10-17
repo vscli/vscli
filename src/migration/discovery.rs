@@ -80,13 +80,65 @@ pub fn discover() -> Result<Discovery> {
     let products: std::collections::BTreeSet<_> =
         result.profiles.iter().map(|s| s.product.clone()).collect();
     for product in products {
-        let (application, notices) = super::application::discover(&product);
+        let (application, notices) = application_for(&product, &result.profiles);
         for source in result.profiles.iter_mut().filter(|s| s.product == product) {
             source.application = application.clone();
         }
         result.notices.extend(notices);
     }
     Ok(result)
+}
+
+fn application_for(
+    product: &str,
+    sources: &[Source],
+) -> (Option<super::application::Application>, Vec<String>) {
+    if product != "VS Code Portable" {
+        return super::application::discover(product);
+    }
+    let mut found = std::collections::BTreeMap::new();
+    let mut inspected = std::collections::BTreeSet::new();
+    for source in sources.iter().filter(|source| source.product == product) {
+        if !inspected.insert(&source.default_user) {
+            continue;
+        }
+        let mut candidates = vec![source.default_user.clone()];
+        // macOS keeps the portable data directory beside the application bundle.
+        if let Some(parent) = source.default_user.ancestors().nth(3) {
+            let data = source
+                .default_user
+                .ancestors()
+                .nth(2)
+                .and_then(Path::file_name)
+                .and_then(|name| name.to_str());
+            let bundles: &[&str] = match data {
+                Some("code-portable-data") => &["Visual Studio Code.app"],
+                Some("code-insiders-portable-data") => &["Visual Studio Code - Insiders.app"],
+                _ => &[
+                    "Visual Studio Code.app",
+                    "Visual Studio Code - Insiders.app",
+                    "VSCodium.app",
+                    "Code - OSS.app",
+                ],
+            };
+            candidates.extend(bundles.iter().map(|bundle| parent.join(bundle)));
+        }
+        for path in candidates {
+            if let Ok(application) = super::application::Application::open(&path)
+                && matches!(
+                    application.name.as_str(),
+                    "code" | "code-insiders" | "codium" | "code-oss"
+                )
+            {
+                found.insert(application.root.clone(), application);
+            }
+        }
+    }
+    match found.len() {
+        1 => (found.into_values().next(), Vec::new()),
+        0 => (None, vec!["VS Code Portable: source application not found beside its data; choose an application path to import built-ins".into()]),
+        _ => (None, vec!["VS Code Portable: multiple adjacent applications found; choose an application path to import built-ins".into()]),
+    }
 }
 
 pub fn discover_installations(installs: &[(String, PathBuf, PathBuf)]) -> Result<Discovery> {
@@ -209,6 +261,73 @@ pub fn select(profiles: &[Source], selector: Option<&str>) -> Result<Source> {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn portable_applications_follow_adjacent_installations_and_channel_specific_macos_bundles() {
+        for (data, bundle, product) in [
+            ("data", "resources/app", "code"),
+            (
+                "code-portable-data",
+                "Visual Studio Code.app/Contents/Resources/app",
+                "code",
+            ),
+            (
+                "code-insiders-portable-data",
+                "Visual Studio Code - Insiders.app/Contents/Resources/app",
+                "code-insiders",
+            ),
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let user = root.path().join(data).join("user-data/User");
+            fs::create_dir_all(&user).unwrap();
+            let app = root.path().join(bundle);
+            fs::create_dir_all(app.join("extensions")).unwrap();
+            fs::write(app.join("package.json"), r#"{"version":"1.118.0"}"#).unwrap();
+            fs::write(
+                app.join("product.json"),
+                serde_json::to_vec(&json!({"applicationName":product})).unwrap(),
+            )
+            .unwrap();
+            let sources = installation(
+                "VS Code Portable",
+                &user,
+                &root.path().join(data).join("extensions"),
+            )
+            .unwrap();
+            let (found, notices) = application_for("VS Code Portable", &sources);
+            assert!(notices.is_empty(), "{notices:?}");
+            let found = found.unwrap();
+            assert_eq!(found.root, fs::canonicalize(app).unwrap());
+            assert_eq!(found.version, "1.118.0");
+            assert_eq!(found.name, product);
+        }
+    }
+    #[test]
+    fn portable_unknown_or_ambiguous_installations_require_an_explicit_application() {
+        let root = tempfile::tempdir().unwrap();
+        let user = root.path().join("custom-data/user-data/User");
+        fs::create_dir_all(&user).unwrap();
+        let sources =
+            installation("VS Code Portable", &user, &root.path().join("extensions")).unwrap();
+        let (found, notices) = application_for("VS Code Portable", &sources);
+        assert!(found.is_none());
+        assert!(notices[0].contains("not found"));
+        for (bundle, product) in [
+            ("Visual Studio Code.app", "code"),
+            ("Visual Studio Code - Insiders.app", "code-insiders"),
+        ] {
+            let app = root.path().join(bundle).join("Contents/Resources/app");
+            fs::create_dir_all(app.join("extensions")).unwrap();
+            fs::write(app.join("package.json"), r#"{"version":"1.118.0"}"#).unwrap();
+            fs::write(
+                app.join("product.json"),
+                serde_json::to_vec(&json!({"applicationName":product})).unwrap(),
+            )
+            .unwrap();
+        }
+        let (found, notices) = application_for("VS Code Portable", &sources);
+        assert!(found.is_none());
+        assert!(notices[0].contains("multiple"));
+    }
     #[test]
     fn registered_profiles_keep_inheritance_and_do_not_discover_unregistered_folders() {
         let root = tempfile::tempdir().unwrap();
