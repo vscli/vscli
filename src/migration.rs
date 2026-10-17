@@ -1,6 +1,7 @@
 //! Read-only migration preview and atomic activation of versioned imported profile copies.
 pub mod application;
 pub mod discovery;
+pub mod export;
 pub mod packages;
 #[cfg(test)]
 mod profile_tests;
@@ -23,6 +24,7 @@ pub struct Report {
     pub profile: Option<discovery::Source>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extensions: Option<packages::Inventory>,
+    pub unresolved_extensions: Vec<String>,
     pub files: Vec<PathBuf>,
     pub bytes: usize,
     pub notices: Vec<String>,
@@ -91,6 +93,9 @@ pub fn preview_profile(
     source: &discovery::Source,
     profile: crate::keys::Profile,
 ) -> Result<Preview> {
+    if source.user.is_file() {
+        return export::preview_source(source, profile);
+    }
     let inventory = packages::inventory(source)?;
     let mut preview = preview_layout(
         &source.user,
@@ -165,6 +170,7 @@ fn preview_layout(
             source: source.clone(),
             profile: layout.clone(),
             extensions: None,
+            unresolved_extensions: Vec::new(),
             files: paths.clone(),
             bytes: 0,
             notices: Vec::new(),
@@ -335,6 +341,12 @@ impl Preview {
     ) -> Result<Report> {
         if options.activate_extensions && !options.import_extensions {
             bail!("Code activation requires extension import");
+        }
+        if options.import_extensions && !self.report.unresolved_extensions.is_empty() {
+            bail!(
+                "Exported extensions are unresolved; no profile was activated:\n{}",
+                self.report.unresolved_extensions.join("\n")
+            );
         }
         let root = destination_path(root)?;
         if self

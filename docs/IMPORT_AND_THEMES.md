@@ -1,6 +1,6 @@
 # Importing VS Code configuration and color themes
 
-VSCLI can preview and copy a VS Code **User directory** without modifying it.
+VSCLI can preview and copy a VS Code **User directory** or exported **.code-profile** file without modifying it.
 The report separates copied data from implemented behavior. The native editor and
 theme loader do not need Node or execute extension code.
 
@@ -19,7 +19,7 @@ vscli --import-vscode /path/to/Code/User --vscode-extensions /path/to/extensions
 
 The welcome screen's **Import from VS Code** action and
 **F1 → Preferences: Import from VS Code** provide native profile selection and
-review. **P** chooses a custom User directory; **E** chooses its extension folder;
+review. **P** chooses a custom User directory or `.code-profile` file; **E** chooses its extension folder;
 **B** chooses the source application and its built-in packages.
 In review, **I** includes local packages and **A** explicitly allows source-enabled
 code packages to activate. **Enter** applies. Configuration loads in the current
@@ -76,6 +76,46 @@ considers up to 2,048 packages and reports its 1,024-choice limit. Selected them
 snapshots contain at most eight files and 4 MiB. Limits fail or report incomplete
 coverage explicitly. Imported user snippets are available through **Insert Snippet**;
 copying bytes alone does not provide completion snippets.
+
+## Exported profiles
+
+Use VS Code's profile export, then choose its `.code-profile` file with **P** or:
+
+```sh
+vscli --import-vscode /path/to/My.code-profile --vscode-extensions /path/to/extensions
+vscli --import-vscode /path/to/My.code-profile --vscode-extensions /path/to/extensions --import-extensions --apply-import
+```
+
+The importer decodes the upstream JSON-string resource wrappers. Settings, keys,
+tasks and direct snippet contents retain their UTF-8 bytes, comments and line endings.
+The complete original export is also copied as `source.code-profile`, including
+unknown fields and unapplied state. Null or absent configuration resources remain
+absent. Global workbench state, account reconnection, secrets and extension storage
+are not applied. A different or absent exported keyboard platform produces a notice;
+physical keys are not translated automatically. User tasks remain preserved data.
+
+Requested IDs resolve only against the registered local package index and any
+selected application. A pinned version selects that exact version, including an
+older installed version. Unpinned requests select the highest registered version
+for the requested release channel and this editor's platform. Source-disabled
+requests stay disabled. Unrelated user packages are excluded. Enabled built-ins
+are normally omitted by VS Code exports; choose **B** on the profile picker or
+`--vscode-application PATH` to include the source application's defaults. An export
+alone does not contain its extension packages or all machine-specific settings.
+
+Preview lists unresolved versions, channels, platforms and required dependencies.
+Package import fails before changing the destination when any remain unresolved;
+**I** in review or omitting `--import-extensions` allows an explicit configuration-only
+import. No automatic registry downloads or version substitutions occur. Exported
+application-wide scope is retained and reported; the native copy is profile-scoped.
+
+The original export plus decoded configuration/theme bytes share the 16 MiB budget;
+each decoded configuration file allows 1 MiB, with 128 direct snippet files and
+2,048 extension requests. Unsafe, nested, device or case-colliding snippet names
+fail preview before activation. This implements the pinned
+[profile template](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/services/userDataProfile/browser/userDataProfileImportExportService.ts)
+and its settings/keybindings/snippets/extension resource format. It does not
+establish complete setup, extension workflow or visual compatibility.
 
 ## Local extension packages and rollback
 

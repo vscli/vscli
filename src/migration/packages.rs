@@ -34,6 +34,13 @@ pub struct Inventory {
 }
 
 pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
+    inventory_selected(source, None)
+}
+
+pub(super) fn inventory_selected(
+    source: &discovery::Source,
+    requests: Option<&[super::export::Extension]>,
+) -> Result<Inventory> {
     let index = source.extension_index();
     let rows: Vec<Value> = if index.exists() {
         serde_json::from_slice(&read(&index, 8 * MAX_FILE)?)
@@ -69,6 +76,13 @@ pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
             .context("Extension index entry has no version")?;
         let parsed =
             semver::Version::parse(version).context("Invalid registered extension version")?;
+        if let Some(requests) = requests
+            && !requests
+                .iter()
+                .any(|request| request.matches(&id, version, row.get("metadata"), false))
+        {
+            continue;
+        }
         let path = location(&row, &source.extensions)?;
         let manifest_bytes = read(&path.join("package.json"), MAX_FILE)?;
         let manifest: Value = serde_json::from_slice(&manifest_bytes)
@@ -126,7 +140,7 @@ pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
             selected.insert(id, package);
         }
     }
-    if result.registered_versions > selected.len() {
+    if requests.is_none() && result.registered_versions > selected.len() {
         result.notices.push(format!("{} registered versions resolve to {} IDs; the highest registered version for this platform is selected and other variants remain in the original index",result.registered_versions,selected.len()));
     }
     if let Some(application) = &source.application {
@@ -169,6 +183,13 @@ pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
                 .as_str()
                 .context("Built-in package has no version")?;
             let parsed = semver::Version::parse(version)?;
+            result.built_in_packages += 1;
+            if let Some(request) =
+                requests.and_then(|requests| requests.iter().find(|request| request.id == id))
+                && !request.matches(&id, version, None, true)
+            {
+                continue;
+            }
             let package = package(
                 path,
                 &bytes,
@@ -179,7 +200,6 @@ pub fn inventory(source: &discovery::Source) -> Result<Inventory> {
                 &disabled,
                 true,
             )?;
-            result.built_in_packages += 1;
             // Pinned upstream scanner prefers a newer version and the built-in
             // on an equal version. Source engine validity remains unqualified.
             if selected.get(&id).is_none_or(|old| {
@@ -284,7 +304,7 @@ fn package(
     })
 }
 
-fn platform_matches(platform: Option<&str>) -> bool {
+pub(super) fn platform_matches(platform: Option<&str>) -> bool {
     let target = match (std::env::consts::OS, std::env::consts::ARCH) {
         ("linux", "x86_64") => "linux-x64",
         ("linux", "aarch64") => "linux-arm64",

@@ -98,7 +98,10 @@ vscli --import-vscode --import-extensions --apply-import
 ```
 
 Use `--vscode-profile NAME` to choose a named profile, or pass a User directory
-after `--import-vscode`. Add `--activate-imported-extensions` only when you want
+or exported `.code-profile` file after `--import-vscode`. In the native picker,
+**P** accepts either path. Exported extension requirements resolve against your
+registered local packages; the review lists anything missing before package import.
+Add `--activate-imported-extensions` only when you want
 source-enabled code extensions to activate. To restore the previous profile,
 use **Preferences: Roll Back VS Code Import** or `vscli --rollback-import`.
 

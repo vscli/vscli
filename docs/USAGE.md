@@ -457,6 +457,11 @@ previews a default source, and `--vscode-profile NAME` selects a registered name
 profile. `--import-extensions` copies its registered local packages; explicit
 `--activate-imported-extensions --apply-import` grants source-enabled code packages
 permission to activate. `--rollback-import` restores the preceding profile.
+Pass a `.code-profile` file after `--import-vscode`, or choose it with **P** in
+native discovery, to import an exported profile. Exact local versions, missing
+packages and source disablement appear in review; unresolved package requirements
+block package import before activation. The full export is preserved separately.
+See [exported profiles](IMPORT_AND_THEMES.md#exported-profiles) for state and scope limits.
 
 Automatic discovery associates the source application and its built-in packages.
 On the native profile picker, **B** chooses an application path if discovery cannot

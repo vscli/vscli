@@ -1,0 +1,135 @@
+{
+  "schema": "vscli-exported-profile-validation-v1",
+  "base_commit": "0221430c04be1a301a509ce30db3c16f7b52e82c",
+  "scope": "Exported VS Code profile integration with native atomic migration; entire stable API and complete personal setup fidelity remain required.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1744,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "7f3935e558cbd597c502422ff7c7e372b8b15f988186868e33cfdb403c3ae926"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "f76e8d97fe308df4948081f6dde992ae5ee98d0718752b038746c1cf0a7d1870"
+  },
+  "criteria": {
+    "passed": 5,
+    "total": 5,
+    "items": [
+      "Resource decoding, byte-exact configuration/original export and unknown/null/absent preservation",
+      "Exact local package versions/channels/disablement/platform/dependencies with complete unresolved blocking before destination writes",
+      "CLI/native review through existing atomic publication/rollback with shared dirty model preservation",
+      "No-Node native theme/shortcut/edit/save/Undo/restart/rollback plus ordinary/built-in/portable regression journeys",
+      "Native regression, formatting, strict locked Clippy and retained source/binary evidence"
+    ]
+  },
+  "checks": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --all-targets --locked --no-fail-fast",
+      "reports": 73,
+      "passed": 1681,
+      "failed": 0,
+      "ignored": 23,
+      "library_passed": 1320,
+      "log": "/tmp/vscli-export-profile-final-visible-hints-rust.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-export-profile-final-visible-hints-clippy.log"
+    },
+    {
+      "script": "tests/exported_profile_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-export-profile-exported_profile-visible-hints-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/profile_migration_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-export-profile-profile_migration-visible-hints-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/builtin_profile_migration_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-export-profile-builtin_profile_migration-visible-hints-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/portable_profile_pty.py",
+      "exit_code": 0,
+      "log": "/tmp/vscli-export-profile-portable_profile-visible-hints-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "command": "python3 -m py_compile tests/exported_profile_pty.py",
+      "result": "passed"
+    },
+    {
+      "command": "parse .github/workflows/ci.yml with yaml.safe_load",
+      "result": "passed"
+    }
+  ],
+  "reference": {
+    "revision": "1.95.0",
+    "profile_template": "https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/services/userDataProfile/browser/userDataProfileImportExportService.ts",
+    "resource_classes": [
+      "settingsResource.ts",
+      "keybindingsResource.ts",
+      "tasksResource.ts",
+      "snippetsResource.ts",
+      "extensionsResource.ts"
+    ],
+    "channel_metadata": "https://github.com/microsoft/vscode/blob/1.95.0/src/vs/platform/extensionManagement/common/extensionManagement.ts"
+  },
+  "failed_observations_retained": [
+    {
+      "log": "/tmp/vscli-export-profile-builtin_profile_migration-final-pty.log",
+      "observation": "The new longer one-line picker help clipped its application/built-ins hint at the tested terminal width.",
+      "repair": "Product help now uses three visible lines; the assertion is unchanged. The final full native suite and all four migration scripts above cover this repair."
+    }
+  ],
+  "qualification_conditions": [
+    "Eight new importer tests, one shared-dirty-model native review test and one cross-platform CLI integration case are included in the 1681 native result.",
+    "Six scenarios are from four local Linux PTY scripts; physical Windows/macOS exported-profile behavior is not inferred. The new CI step runs the migration scripts on Unix runners.",
+    "The complete full native result before the picker-hint repair is retained at /tmp/vscli-export-profile-final-rust.log; the final full result above includes the actual UI repair.",
+    "Host JavaScript is unchanged by this batch; the preceding 816-test host result and complete baseline CI are historical evidence, not a new host run.",
+    "Global state, unknown fields and application-scoped intent remain archived with explicit unapplied notices. Nested/unsafe/case-colliding snippet paths are explicitly rejected; they are not silently dropped.",
+    "No personal extension code was activated. A profile export can omit enabled built-ins, machine-specific settings and the package payloads themselves."
+  ],
+  "previous_completed_platform_ci": {
+    "conclusion": "success",
+    "created_at": "2026-10-17T22:46:57Z",
+    "head_sha": "0221430c04be1a301a509ce30db3c16f7b52e82c",
+    "html_url": "https://github.com/vscli/vscli/actions/runs/39076446781",
+    "id": 39076446781,
+    "status": "completed",
+    "updated_at": "2026-10-17T23:10:11Z"
+  },
+  "outstanding": [
+    "Fresh three-platform CI for this new commit",
+    "Registry acquisition of missing exact package versions and full platform/engine/backend qualification",
+    "Exported workbench state, extension storage, accounts, machine settings and broader profile fidelity",
+    "Full personal extension workflows, visual quirks and the entire stable extension API",
+    "Complete reviewed release/version/artifact gates; no tag or publication created"
+  ]
+}

@@ -127,8 +127,8 @@ The personal user cohort contains 80 code packages, 1,683 contributed commands, 
 keybindings and 13 packages requesting proposed APIs. These counts are concrete
 requirements; they do not establish behavioral compatibility. Source-disabled
 native theme/snippet/typing data is now filtered. Other contribution consumers,
-workspace override fidelity, extension storage, exported `.code-profile` input,
-portable/custom path inference, source engine-version resolution, platform-native
+workspace override fidelity, extension storage, exported-profile fidelity,
+custom path inference, source engine-version resolution, platform-native
 binaries and cross-platform UI/release qualification remain open.
 
 ## Selected extension cohort capacity
@@ -237,3 +237,33 @@ all three Windows native failures in two binaries at `4e7017f`; a public/native
 buffer mismatch was reproduced and corrected, while a five-second test watchdog
 receives a bounded test-only repair. Fresh Windows results and the entire stable
 API remain required. [Evidence](validation/editor-edit-eol.json).
+
+## Exported profile integration
+
+Batch completion criteria:
+
+1. Decode the upstream resource wrappers while preserving configuration bytes,
+   null/absent resources, unknown fields and the complete original export.
+2. Reconcile requested local IDs, exact pinned versions, release channels, source
+   disablement, platforms and dependencies; report every unresolved requirement
+   and block package import before destination writes.
+3. Integrate CLI and native review through the existing atomic copy/rollback
+   pipeline, retaining shared dirty models and explicit execution grants.
+4. Qualify native theme/shortcut/edit/save/Undo/restart and rollback without Node,
+   plus ordinary directory, built-in and portable migration regression journeys.
+5. Pass the relevant native regression suite, formatting and strict locked Clippy;
+   retain failures and source/binary evidence separately from platform qualification.
+
+The preceding `0221430` checkpoint passes complete main CI on Linux, macOS and
+Windows, including reference and terminal checks:
+[completed CI](https://github.com/vscli/vscli/actions/runs/39076446781).
+Its optimized Linux archive is a packaging rehearsal, without a tag or publication.
+New exported-profile changes require their own platform results. Full stable API,
+personal extension workflows, storage/state and visual fidelity remain open.
+
+Local result: **5/5 batch criteria pass**. The final source passes 1,681 Rust tests
+across 73 reports (1,320 library; 23 ignored; four threads), formatting and strict
+locked Clippy. All six scenarios across the exported, ordinary, built-in and
+portable migration terminal scripts pass. The regression journey exposed a clipped
+application-picker hint; product help now uses three visible lines and the unchanged
+assertion passes. [Source/binary receipts](validation/exported-profile.json).

@@ -1045,7 +1045,9 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::VscodeExtensionsPath => {
             " Import VS Code · installed extensions directory path "
         }
-        PromptKind::VscodeImportPath => " Import VS Code · User directory path ",
+        PromptKind::VscodeImportPath => {
+            " Import VS Code · User directory path or .code-profile file "
+        }
         PromptKind::ThemeFile => " Load VS Code Color Theme (JSON/JSONC path) ",
         PromptKind::Open => " Open File (absolute or workspace-relative) ",
         PromptKind::SaveAs => " Save As (existing files are protected) ",

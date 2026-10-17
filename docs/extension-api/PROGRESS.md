@@ -31,6 +31,11 @@ with the current checkout. A mismatch labels the passed criteria as historical
 evidence. New code does not silently inherit a previous run's qualification.
 
 The current delivery priority is [migration usability and release](../MIGRATION_RELEASE_PLAN.md).
+Exported `.code-profile` import now passes 5/5 local migration criteria, including
+exact package reconciliation, atomic native review, dirty-buffer retention and
+six migration terminal scenarios. The current native cohort has 1,681 passing
+tests; these results do not qualify additional whole stable API rows.
+[Exported-profile evidence](../validation/exported-profile.json).
 The entire stable API remains in scope. The retained ordered resource-edit batch
 still has its complete acceptance criteria; its unfinished code is preserved. Those criteria
 include public create → edit → rename → edit → delete, will-file/review policy,

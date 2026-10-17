@@ -161,6 +161,14 @@ impl App {
                                 .context("No home directory")?
                                 .home_dir()
                                 .join(".vscode/extensions");
+                            if path.is_file() {
+                                return Ok(Output::Preview(engine::export::preview(
+                                    &path,
+                                    profile,
+                                    &extensions,
+                                    None,
+                                )?));
+                            }
                             discovery::Discovery {
                                 profiles: discovery::installation(
                                     "Custom VS Code",
@@ -248,7 +256,9 @@ impl App {
     fn show_migration_sources(&mut self, notices: &[String]) {
         let mut lines = vec![
             "Choose the VS Code profile to bring across.".into(),
-            "↑/↓ select · Enter reviews · P custom User directory · E extensions directory · B application/built-ins · Esc cancels".into(),
+            "↑/↓ select · Enter reviews · Esc cancels".into(),
+            "P custom User directory or .code-profile file".into(),
+            "E extensions directory · B application/built-ins".into(),
             String::new(),
         ];
         for (index, source) in self.migration.sources.iter().enumerate() {
@@ -264,7 +274,7 @@ impl App {
             ));
         }
         if self.migration.sources.is_empty() {
-            lines.push("No local profiles found. Press P to choose a User directory.".into());
+            lines.push("No local profiles found. Press P to choose a User directory or .code-profile file.".into());
         }
         lines.extend(notices.iter().take(16).cloned());
         self.migration_modal("Import from VS Code", lines.join("\n"));
@@ -315,6 +325,10 @@ impl App {
             String::new(),
         ];
         lines.push("Configuration and compatibility notices:".into());
+        if !report.unresolved_extensions.is_empty() {
+            lines.push("Unresolved extensions (package import is blocked; I allows configuration-only import):".into());
+            lines.extend(report.unresolved_extensions.iter().cloned());
+        }
         lines.extend(
             report
                 .notices
@@ -473,10 +487,14 @@ impl App {
                 self.show_migration_sources(&sources.notices);
             }
             Ok(Output::Preview(preview)) => {
-                if let Some(source) = &preview.report.profile
-                    && let Some(previous) = self.migration.sources.get_mut(self.migration.selected)
-                {
-                    *previous = source.clone();
+                if let Some(source) = &preview.report.profile {
+                    if let Some(previous) = self.migration.sources.get_mut(self.migration.selected)
+                    {
+                        *previous = source.clone();
+                    } else {
+                        self.migration.selected = self.migration.sources.len();
+                        self.migration.sources.push(source.clone());
+                    }
                 }
                 self.migration.preview = Some(preview);
                 self.migration.phase = Phase::Review;
@@ -749,5 +767,61 @@ mod tests {
         assert!(app.modal.is_none());
         assert_eq!(app.doc().text.to_string(), "retained dirty text");
         assert_eq!(engine::active_directory(&native).unwrap(), committed);
+    }
+    #[test]
+    fn exported_path_review_apply_and_rollback_keep_shared_dirty_models() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("profile.code-profile");
+        let original = json!({"name":"Export fixture", "settings":json!({"settings":"{\"editor.tabSize\":2}"}).to_string(),"keybindings":json!({"platform":2,"keybindings":"[{\"key\":\"f6\",\"command\":\"type\",\"args\":{\"text\":\"imported\"}}]"}).to_string(),"extensions":"[]"}).to_string();
+        fs::write(&path, &original).unwrap();
+        let native = root.path().join("native");
+        fs::create_dir(&native).unwrap();
+        fs::write(native.join("settings.json"), "{\"editor.tabSize\":8}").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.configure_migration(Some(native.clone()), None);
+        app.configure_settings(Some(native.join("settings.json")))
+            .unwrap();
+        app.execute("workbench.action.files.newUntitledFile", Value::Null);
+        app.doc_mut().insert("retained λ🙂\r\n", false);
+        app.execute("workbench.action.splitEditor", Value::Null);
+        let before = (
+            app.doc().id,
+            app.doc().revision,
+            app.doc().text.to_string(),
+            app.doc().selections(),
+        );
+        app.import_vscode_path(path.clone());
+        settle(&mut app);
+        assert!(app.migration.phase == Phase::Review, "{}", app.message);
+        assert_eq!(app.migration.sources.len(), 1);
+        assert_eq!(app.migration.sources[0].name, "Export fixture");
+        app.set_import_extension_directory(root.path().join("missing-extensions"));
+        settle(&mut app);
+        assert!(app.migration.phase == Phase::Review, "{}", app.message);
+        app.migration_key(key(KeyCode::Enter));
+        settle(&mut app);
+        assert!(app.migration.phase == Phase::Done, "{}", app.message);
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().revision,
+                app.doc().text.to_string(),
+                app.doc().selections()
+            ),
+            before
+        );
+        assert_eq!(app.doc().tab_size, 2);
+        app.migration_key(key(KeyCode::Esc));
+        app.event(Event::Key(key(KeyCode::F(6))));
+        assert!(app.doc().text.to_string().contains("imported"));
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), before.2);
+        app.rollback_vscode_import();
+        settle(&mut app);
+        assert_eq!(app.doc().tab_size, 8);
+        assert_eq!(app.doc().id, before.0);
+        assert_eq!(app.doc().text.to_string(), before.2);
+        assert!(app.doc().dirty());
+        assert_eq!(fs::read_to_string(path).unwrap(), original);
     }
 }

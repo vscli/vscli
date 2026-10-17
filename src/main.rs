@@ -47,7 +47,7 @@ struct Args {
     /// Import user settings.json; workspace .vscode/settings.json is layered above it
     #[arg(long)]
     settings: Option<PathBuf>,
-    /// Preview importing a VS Code User directory (settings, keybindings, snippets)
+    /// Preview importing a VS Code User directory or exported .code-profile file
     #[arg(long, num_args=0..=1, default_missing_value="auto", conflicts_with_all = ["install_extension", "list_extensions", "uninstall_extension", "rollback_extension"])]
     import_vscode: Option<PathBuf>,
     /// List detected VS Code installations and named profiles without changing them
@@ -56,7 +56,7 @@ struct Args {
     /// Select a discovered VS Code profile by name, ID, or product:ID
     #[arg(long, requires = "import_vscode")]
     vscode_profile: Option<String>,
-    /// VS Code extensions directory from which to copy the selected color theme
+    /// Registered local VS Code extensions used for packages and the selected theme
     #[arg(long, requires = "import_vscode")]
     vscode_extensions: Option<PathBuf>,
     /// Source VS Code application, installation directory or resources/app root (built-ins)
@@ -380,21 +380,41 @@ fn main() -> Result<()> {
                         .map(|base| base.home_dir().join(".vscode/extensions"))
                 })
                 .context("No VS Code extension directory; use --vscode-extensions")?;
-            let mut selected = if args.vscode_profile.is_some() {
-                let sources = vscli::migration::discovery::installation(
-                    "Custom VS Code",
+            if source.is_file() {
+                anyhow::ensure!(
+                    args.vscode_profile.is_none(),
+                    "A .code-profile file already selects its profile; omit --vscode-profile"
+                );
+                vscli::migration::export::preview(
                     source,
+                    profile,
                     &extensions,
-                )?;
-                vscli::migration::discovery::select(&sources, args.vscode_profile.as_deref())?
+                    args.vscode_application
+                        .as_deref()
+                        .map(vscli::migration::application::Application::open)
+                        .transpose()?,
+                )?
             } else {
-                vscli::migration::discovery::default_source("Custom VS Code", source, &extensions)?
-            };
-            if let Some(path) = &args.vscode_application {
-                selected.application =
-                    Some(vscli::migration::application::Application::open(path)?);
+                let mut selected = if args.vscode_profile.is_some() {
+                    let sources = vscli::migration::discovery::installation(
+                        "Custom VS Code",
+                        source,
+                        &extensions,
+                    )?;
+                    vscli::migration::discovery::select(&sources, args.vscode_profile.as_deref())?
+                } else {
+                    vscli::migration::discovery::default_source(
+                        "Custom VS Code",
+                        source,
+                        &extensions,
+                    )?
+                };
+                if let Some(path) = &args.vscode_application {
+                    selected.application =
+                        Some(vscli::migration::application::Application::open(path)?);
+                }
+                vscli::migration::preview_profile(&selected, profile)?
             }
-            vscli::migration::preview_profile(&selected, profile)?
         };
         let report = if args.apply_import {
             preview.apply_controlled(
