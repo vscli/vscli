@@ -36,12 +36,33 @@ function identifiers(key) {
   if (!/^(\[[^\]]+\])+$/.test(key)) return [];
   return [...new Set([...key.matchAll(/\[([^\]]+)\]/g)].map(match => match[1].trim()).filter(Boolean))];
 }
+const formatUri = Uri.prototype.toString;
 function scopeOverride(scope) {
-  if (scope instanceof Uri || scope === null) return {};
-  if (scope && (!scope.uri || scope.uri instanceof Uri) && typeof scope.languageId === 'string' && scope.languageId) return { languageId: scope.languageId };
-  if (scope?.uri instanceof Uri) return {};
+  if (scope instanceof Uri) return {resource:Reflect.apply(formatUri,scope,[])};
+  if (scope === null) return {resource:null};
+  if (!scope || (typeof scope !== 'object' && typeof scope !== 'function')) return undefined;
+  const uri=scope.uri, languageId=scope.languageId;
+  if (uri && !(uri instanceof Uri)) return undefined;
+  if (typeof languageId === 'string' && languageId) return {languageId,resource:uri ? Reflect.apply(formatUri,uri,[]) : null};
+  if (uri instanceof Uri) return {resource:Reflect.apply(formatUri,uri,[])};
   return undefined;
 }
+function updateValue(value) {
+  let count=0;const depths=new WeakMap();
+  const encoded=JSON.stringify(value,function(key,item) {
+    const depth=typeof this==='object' && this ? (depths.get(this) ?? -1)+1 : 0;
+    if (++count>4096 || depth>=64) throw new Error('Configuration value exceeds node/depth budget');
+    if (Buffer.byteLength(key)>65536 || (typeof item==='string' && Buffer.byteLength(item)>65536)) throw new Error('Configuration value exceeds 64 KiB');
+    if (item && typeof item==='object') {
+      if (Array.isArray(item) && item.length>4096) throw new Error('Configuration array exceeds 4096 entries');
+      depths.set(item,depth);
+    }
+    return item;
+  });
+  if (encoded===undefined || Buffer.byteLength(encoded)>65536) throw new Error('Configuration value exceeds JSON / 64 KiB bounds');
+  return JSON.parse(encoded);
+}
+
 function freeze(value) {
   if (value && typeof value === 'object') {
     for (const child of Object.values(value)) freeze(child);
@@ -59,7 +80,7 @@ function defaultFor(type) {
     default: return null;
   }
 }
-function createConfiguration() {
+function createConfiguration(options = {}) {
   const changed = new EventEmitter();
   let properties = empty(), defaults = empty();
   function model(source, filterWorkspace = true) {
@@ -169,8 +190,9 @@ function createConfiguration() {
       update(source, false);
     },
     update, onDidChange: changed.event,
-    get(section = '', scope) {
-      const languageId = scopeOverride(scope)?.languageId;
+    get(section = '', scope, owner) {
+      const guard=owner && options.captureCaller ? options.captureCaller(owner) : undefined;
+      const overrides=scopeOverride(scope) || {},languageId=overrides.languageId;
       const snapshot = lookup(current.effective(languageId), section);
       const result = {
         get(key, fallback) {
@@ -179,7 +201,27 @@ function createConfiguration() {
         },
         has(key) { return Boolean(key) && lookup(snapshot, key) !== undefined; },
         inspect(key) { return inspect(section ? `${section}.${key}` : key, languageId); },
-        update() { return Promise.reject(new Error('VSCLI configuration writes are not implemented')); },
+        async update(key,value,target,overrideInLanguage) {
+          if (options.enabled !== true) throw new Error('VSCLI configuration writes are not implemented by this native host');
+          if (!owner || !guard) throw new Error('Configuration writes require an extension owner');
+          guard();
+          if (typeof key !== 'string' || !key || key.includes('\0')) throw new TypeError('Invalid configuration key');
+          const fullKey=section ? `${section}.${key}` : key;
+          if (Buffer.byteLength(fullKey)>1024) throw new Error('Configuration key exceeds 1 KiB');
+          const destination=target===true || target===1 ? 1 : target===3 ? 3 : 2;
+          let language=null;
+          if (languageId && overrideInLanguage !== false) {
+            const current=inspect(fullKey,languageId);
+            const prior=destination===1 ? current.globalLanguageValue : current.workspaceLanguageValue;
+            if (overrideInLanguage===true || prior!==undefined) language=languageId;
+          }
+          const remove=value===undefined;
+          const snapshot=remove ? null : updateValue(value);
+          guard();
+          const result=await options.write(owner,{key:fullKey,value:snapshot,remove,target:destination,language,resource:overrides.resource ?? null});
+          guard();
+          if (result!==null) throw new Error('Invalid native configuration update acknowledgement');
+        },
       };
       if (record(snapshot)) for (const [key, value] of Object.entries(snapshot)) {
         if (!Object.hasOwn(result, key)) Object.defineProperty(result, key, { value: freeze(structuredClone(value)), enumerable: true });

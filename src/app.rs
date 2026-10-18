@@ -6,6 +6,7 @@ mod debugger;
 mod document_references;
 mod editor_layout;
 mod extension_activation;
+pub(crate) mod extension_configuration;
 mod extension_editor_presentation;
 mod extension_editor_snippets;
 mod extension_editor_state;
@@ -675,6 +676,7 @@ pub struct App {
     settings_error: Option<String>,
     settings_user: Option<PathBuf>,
     settings_writes: settings_persistence::State,
+    extension_configuration: extension_configuration::State,
     saving: saving::State,
     pub diagnostics: HashMap<PathBuf, crate::lsp::DiagnosticPublication>,
     pub editor_area: Rect,
@@ -823,6 +825,7 @@ impl App {
             settings_error: None,
             settings_user: None,
             settings_writes: settings_persistence::State::default(),
+            extension_configuration: extension_configuration::State::default(),
             saving: saving::State::default(),
             diagnostics: HashMap::new(),
             editor_area: Rect::default(),
@@ -851,6 +854,7 @@ impl App {
         let mut changed = actions_changed | brand_changed | changed;
         changed |= self.poll_migration();
         changed |= self.poll_settings_writes();
+        changed |= self.poll_extension_configuration_writes();
         if let Some(result) = self
             .settings_loader
             .as_mut()

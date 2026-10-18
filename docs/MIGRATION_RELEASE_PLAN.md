@@ -339,3 +339,21 @@ four local native-configuration journeys pass. A background status-overwrite
 explanation was an initial suspicion and was not established by source inspection.
 Fresh exact-head platform CI, personal extension workflows and complete stable
 API/visual/storage/release qualification remain open. No release is published.
+
+
+## Native extension configuration writes
+
+The current settings-write batch passes **5/5 local criteria**: values/removal and
+local targets, JSONC/data integrity, original caller/profile/model proofs, actual
+native reload/events and terminal behavior, and regression/style checks. The
+source passes 1,712 native tests, 832 host tests, four unchanged real-extension
+controls and fifteen terminal scenarios. Native language settings survive a
+no-Node restart; dirty/shared document history remains intact.
+[Source-bound evidence](validation/configuration-update.json) records the limits.
+Whole schema/default/scope behavior, immediate clean settings-model reload,
+multi-root/remote settings and upstream/platform qualification remain required.
+
+The preceding EOL/picker head `6e61761` now has complete successful Linux, macOS
+and Windows [main CI](https://github.com/vscli/vscli/actions/runs/39153168639) and
+[dedicated CI](https://github.com/vscli/vscli/actions/runs/39153168576). This is
+historical evidence for that head; the configuration-write source needs fresh CI.

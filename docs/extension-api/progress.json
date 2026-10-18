@@ -726,12 +726,85 @@
         "Fresh upstream-runtime/platform/release qualification; whole stable API and seamless personal migration"
       ],
       "validation_receipt": "docs/validation/editor-set-eol.json"
+    },
+    {
+      "id": "native-configuration-update",
+      "api_ids": [
+        "vscode.workspace.getConfiguration",
+        "vscode.workspace.onDidChangeConfiguration",
+        "vscode.WorkspaceConfiguration.update",
+        "vscode.WorkspaceConfiguration.inspect",
+        "vscode.ConfigurationTarget.Global",
+        "vscode.ConfigurationTarget.Workspace",
+        "vscode.ConfigurationTarget.WorkspaceFolder"
+      ],
+      "criteria": [
+        {
+          "name": "Public JSON values, undefined removal, target overloads and captured language overrides reach real profile/workspace files",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "Public JSON values, undefined removal, target overloads and captured language overrides reach real profile/workspace files"
+            }
+          ]
+        },
+        {
+          "name": "JSONC spans preserve unrelated comments, Unicode/CRLF and native model history; missing removal/no-op preserve directories or identity",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "JSONC spans preserve unrelated comments, Unicode/CRLF and native model history; missing removal/no-op preserve directories or identity"
+            }
+          ]
+        },
+        {
+          "name": "Original profile A\u2192B\u2192A, owner retirement, new dirty model and external-file races refuse unapproved work while retaining actual worker capacity",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "Original profile A\u2192B\u2192A, owner retirement, new dirty model and external-file races refuse unapproved work while retaining actual worker capacity"
+            }
+          ]
+        },
+        {
+          "name": "Native reload and configuration/editor events precede void success; terminal editing and no-Node restart retain actual persisted language behavior",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "Native reload and configuration/editor events precede void success; terminal editing and no-Node restart retain actual persisted language behavior"
+            }
+          ]
+        },
+        {
+          "name": "Complete host/native regressions, unchanged upstream controls, adjacent migration/settings terminal checks, formatting and strict locked Clippy pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "Complete host/native regressions, unchanged upstream controls, adjacent migration/settings terminal checks, formatting and strict locked Clippy pass"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Complete schema/default registration and scope/error fidelity",
+        "Dirty-settings prompting/merge behavior and immediate open clean settings TextDocument reload",
+        "Multi-root, workspace-file, remote, profile and full default-target semantics",
+        "Exact configuration event/runtime and other-platform qualification",
+        "Large value/file limits and broader settings/model-operation arbitration",
+        "Entire stable extension API, personal code workflows, visual fidelity, storage/accounts and cross-platform release gates"
+      ],
+      "validation_receipt": "docs/validation/configuration-update.json"
     }
   ],
   "next_batch": {
     "name": "Ordered public resource edits (retained API batch; migration/release takes priority)",
     "criteria": [
-      "Public create → text edit → rename → text edit → delete runs through the native ordered controller.",
+      "Public create \u2192 text edit \u2192 rename \u2192 text edit \u2192 delete runs through the native ordered controller.",
       "Original caller/model/resource/settings proofs authorize effects; annotation review and will-file participants run at the proper boundary.",
       "Dirty shared/hidden models, conditional destination identity, retired history/views and recovery archives preserve unsaved work.",
       "Mirrors and genuine operation events precede success; public Undo/Redo follows file-group semantics separately from internal rollback.",

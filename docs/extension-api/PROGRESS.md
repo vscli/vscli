@@ -1,5 +1,15 @@
 # Stable API delivery progress
 
+The native configuration-write batch passes **5/5 local criteria**. Public JSON
+values/removal, local targets and language overrides reach actual native settings
+persistence, reload and pre-receipt events. The recorded source passes **1,712 Rust
+tests across 77 reports** (1,343 library; 23 ignored), **832 host tests**, four
+unchanged Sort Lines controls and fifteen terminal scenarios, plus formatting and
+strict locked Clippy. Dirty settings, retired profiles/owners and external-file
+races preserve existing work. [Evidence](../validation/configuration-update.json)
+keeps the full stable API and schema, clean-settings-model, multi-root, upstream,
+platform and personal migration obligations open.
+
 The ordered editor-EOL batch passes **5/5 local criteria**. Negotiated builders,
 EOL-before-text mirrors and history, concurrent editor request order, retained
 worker/source proofs and shared line-end selections reach actual native saving

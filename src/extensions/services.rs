@@ -40,6 +40,7 @@ pub(crate) enum Operation {
         context: super::editor_state::Context,
     },
     WorkspaceApply(Arc<crate::app::workspace_transactions::Capture>),
+    ConfigurationWrite(Arc<crate::app::extension_configuration::Capture>),
     FindFiles(
         Arc<crate::workspace_file_search::Capture>,
         Arc<std::sync::atomic::AtomicBool>,
@@ -131,7 +132,7 @@ impl NativeService {
         }
         let lifetime = if matches!(
             self.operation,
-            Operation::Save(_) | Operation::TabsClose { .. }
+            Operation::Save(_) | Operation::TabsClose { .. } | Operation::ConfigurationWrite(_)
         ) {
             SAVE_SERVICE_LIFETIME
         } else if matches!(self.operation, Operation::WorkspaceApply(_)) {
@@ -169,6 +170,12 @@ struct FileSearchCancel {
     request: String,
 }
 impl Client {
+    pub(crate) fn set_configuration_write_context(
+        &mut self,
+        context: Option<crate::app::extension_configuration::WriteContext>,
+    ) {
+        self.configuration_write_context = context;
+    }
     pub(crate) fn set_file_search_context(
         &mut self,
         context: Option<crate::workspace_file_search::Context>,
@@ -228,6 +235,8 @@ impl Client {
                 | "nativeVirtualDocumentChange"
         ) {
             2 * 1024 * 1024
+        } else if method == "nativeConfigurationUpdate" {
+            96 * 1024
         } else {
             72 * 1024
         };
@@ -328,6 +337,14 @@ impl Client {
                     preserve_focus: args.preserve_focus,
                     context,
                 }
+            }
+            "nativeConfigurationUpdate" => {
+                let capture = self
+                    .configuration_write_context
+                    .as_ref()
+                    .context("Native configuration write context is unavailable")?
+                    .capture(request.args.take())?;
+                Operation::ConfigurationWrite(capture)
             }
             "nativeDocumentLanguage"
             | "nativeEditorSelections"
@@ -448,6 +465,7 @@ impl Client {
             Operation::LoadBegin(_)
                 | Operation::LoadCancel
                 | Operation::State(_)
+                | Operation::ConfigurationWrite(_)
                 | Operation::Save(_)
                 | Operation::TabsClose { .. }
                 | Operation::WorkspaceApply(_)
@@ -584,6 +602,7 @@ impl Client {
             Operation::LoadBegin(_)
                 | Operation::LoadCancel
                 | Operation::State(_)
+                | Operation::ConfigurationWrite(_)
                 | Operation::Save(_)
                 | Operation::TabsClose { .. }
                 | Operation::WorkspaceApply(_)
@@ -634,6 +653,7 @@ impl Client {
             Operation::LoadBegin(_)
                 | Operation::LoadCancel
                 | Operation::State(_)
+                | Operation::ConfigurationWrite(_)
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
                 | Operation::UntitledOpen(_)
@@ -1150,7 +1170,7 @@ mod tests {
             .unwrap();
         assert!(matches!(
             client.service().unwrap().operation,
-            Operation::State(_)
+            Operation::State(_) | Operation::ConfigurationWrite(_)
         ));
         assert!(client.service_valid(&state).is_ok());
     }

@@ -49,7 +49,10 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   let workspaceEditConfigurationIdentity = {};
   const changed = new EventEmitter(), opened = new EventEmitter(), closed = new EventEmitter();
   const activeChanged = new EventEmitter(), visibleChanged = new EventEmitter(), columnChanged = new EventEmitter(), saved = new EventEmitter(), selectionChanged = new EventEmitter(), optionsChanged = new EventEmitter(), rangesChanged = new EventEmitter();
-  const configuration = createConfiguration();
+  const configuration = createConfiguration({enabled:sessionOptions.configurationWrites===true,
+    captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
+    write:(owner,args)=>documentServices.call(owner,'nativeConfigurationUpdate',args),
+  });
   const localization = createLocalization(sessionOptions.locale ?? 'en', (owner, text) => console.error(owner + ': ' + text));
   let active, workspaceRoot, activation, generation = -1;
   const facades = new Map(), owned = new Map();
@@ -581,6 +584,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     FileSystemError: filesystem.FileSystemError, FileType: filesystem.FileType,
     FilePermission: filesystem.FilePermission, FileChangeType: filesystem.FileChangeType,
     version: '1.95.0',
+    ConfigurationTarget: {Global:1,Workspace:2,WorkspaceFolder:3,1:'Global',2:'Workspace',3:'WorkspaceFolder'},
     UIKind: Object.freeze({ Desktop: 1, Web: 2 }),
     env: supported('env', Object.freeze({ appName: 'VSCLI', appRoot: sessionOptions.applicationRoot ?? '', appHost: 'desktop', language: sessionOptions.locale ?? 'en', uiKind: 1, remoteName: undefined })),
     l10n: supported('l10n', localization.forOwner('')),
@@ -719,7 +723,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           onDidOpenTextDocument: event(owner, opened.event),
           onDidCloseTextDocument: event(owner, closed.event),
           onDidSaveTextDocument: event(owner, saved.event),
-          getConfiguration: configuration.get,
+          getConfiguration: (section,scope)=>configuration.get(section,scope,owner),
           onDidChangeConfiguration: event(owner, configuration.onDidChange),
         }),
         commands: commandsFor(owner),

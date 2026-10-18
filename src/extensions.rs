@@ -314,6 +314,7 @@ pub struct Client {
     file_operations: file_operations::Queue,
     file_participation: file_participation::State,
     workspace_edit_context: Option<crate::app::workspace_transactions::CaptureContext>,
+    configuration_write_context: Option<crate::app::extension_configuration::WriteContext>,
     file_search_context: Option<crate::workspace_file_search::Context>,
     owner_lifetimes: owner_lifetimes::OwnerLifetimes,
     text_content_registry: text_content::Registry,
@@ -667,6 +668,7 @@ impl Client {
             file_operations: file_operations::Queue::default(),
             file_participation: file_participation::State::new(prepared.file_participation),
             workspace_edit_context: None,
+            configuration_write_context: None,
             file_search_context: None,
             text_content_registry: text_content::Registry::default(),
             untitled_context: None,
@@ -704,7 +706,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages, "fileParticipants":client.file_participation.enabled,
-                "contextKeys": true, "locale": prepared.locale, "applicationRoot": lsp::extension_host_path(std::env::current_exe()?.parent().context("No application root")?)?, "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorEndOfLineEdits":true, "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
+                "contextKeys": true, "configurationWrites": true, "locale": prepared.locale, "applicationRoot": lsp::extension_host_path(std::env::current_exe()?.parent().context("No application root")?)?, "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorEndOfLineEdits":true, "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -1261,6 +1263,7 @@ impl Client {
                     | "nativeDocumentShow"
                     | "nativeCommand"
                     | "nativeStateWrite"
+                    | "nativeConfigurationUpdate"
                     | "nativeDocumentSave"
                     | "nativeWorkspaceApplyEdit"
                     | "nativeFindFiles"

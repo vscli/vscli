@@ -1,0 +1,275 @@
+{
+  "schema": "vscli-configuration-update-validation-v1",
+  "base_commit": "6e61761139ecb99b92e1f05de13e103866ad8cc0",
+  "scope": "Bounded public WorkspaceConfiguration.update connected to actual native JSONC settings persistence/reload; whole stable API and seamless personal setup migration remain required.",
+  "reference": {
+    "revision": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+    "main_thread": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/browser/mainThreadConfiguration.ts",
+    "extension_host": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostConfiguration.ts"
+  },
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1765,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "6941d0a991841d0b1c894a0b9aeddf697b0e20c8cbf844235e367d7eb5e698ab"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "2ebad250f86f9193c11b584e45b51d666762a0eef2e101edb3144d2a6009f14f"
+  },
+  "criteria": {
+    "passed": 5,
+    "total": 5,
+    "items": [
+      "Public JSON values, undefined removal, target overloads and captured language overrides reach real profile/workspace files",
+      "JSONC spans preserve unrelated comments, Unicode/CRLF and native model history; missing removal/no-op preserve directories or identity",
+      "Original profile A→B→A, owner retirement, new dirty model and external-file races refuse unapproved work while retaining actual worker capacity",
+      "Native reload and configuration/editor events precede void success; terminal editing and no-Node restart retain actual persisted language behavior",
+      "Complete host/native regressions, unchanged upstream controls, adjacent migration/settings terminal checks, formatting and strict locked Clippy pass"
+    ]
+  },
+  "native": {
+    "reports": 77,
+    "passed": 1712,
+    "failed": 0,
+    "ignored": 23,
+    "library": 1343
+  },
+  "host": {
+    "passed": 832,
+    "failed": 0
+  },
+  "new_evidence": {
+    "native_library_tests": 8,
+    "public_native_integration_tests": 3,
+    "host_tests": 6,
+    "terminal_scenarios": 2
+  },
+  "terminal_scenarios": 15,
+  "checks": [
+    {
+      "label": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-qualified-fmt.log"
+    },
+    {
+      "label": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-qualified-clippy.log"
+    },
+    {
+      "label": "rust",
+      "command": [
+        "cargo",
+        "test",
+        "--all-targets",
+        "--locked",
+        "--no-fail-fast",
+        "--",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-qualified-rust.log"
+    },
+    {
+      "label": "build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-qualified-build.log"
+    },
+    {
+      "label": "all-host",
+      "command": [
+        "node",
+        "--test",
+        "extension-host/*.test.cjs"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-host-all.log",
+      "passed_tests": 832
+    },
+    {
+      "label": "configuration-update-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_configuration_update_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-new-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "sort-lines",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "extension_installation",
+        "--test",
+        "extension_host",
+        "upstream_sort_lines",
+        "--",
+        "--ignored"
+      ],
+      "environment": {
+        "VSCLI_TEST_SORT_LINES": "/home/junie/programming/projects/vscli/target/sort-lines-upstream"
+      },
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-sort-lines.log",
+      "passed_tests": 4
+    },
+    {
+      "label": "native_configuration-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/native_configuration_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-native_configuration-pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "label": "imported_appearance-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/imported_appearance_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-imported_appearance-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "profile_migration-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/profile_migration_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-profile_migration-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "exported_profile-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/exported_profile_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-exported_profile-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_editor_set_eol-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_set_eol_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-extension_editor_set_eol-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_editor_undo-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_undo_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-extension_editor_undo-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "progress-script-controls",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-update-script-tests.log",
+      "passed_tests": 28
+    }
+  ],
+  "retained_failures": [
+    {
+      "log": "/tmp/vscli-configuration-update-final-clippy.log",
+      "finding": "One new nested if failed strict Clippy; collapsed before the final full source cohort and all tests."
+    },
+    {
+      "log": "/tmp/vscli-configuration-update-sort-lines-missing-env.log",
+      "finding": "First explicit ignored-control invocation omitted its required fixture environment and exercised no control behavior. Corrected invocation uses the unchanged pinned fixture; all four pass."
+    }
+  ],
+  "upstream_fixture": {
+    "path": "/home/junie/programming/projects/vscli/target/sort-lines-upstream",
+    "revision": "eaf02bb141f1853d571b1e97574c6857e80a727c",
+    "controls": 4
+  },
+  "qualification": {
+    "local": "Five named criteria pass; no whole stable API row is qualified.",
+    "platforms": "This cohort is tested locally on Linux. Previous 6e61761 main CI 39153168639 and dedicated CI 39153168576 passed Linux/macOS/Windows; they do not qualify this new source.",
+    "release": "No package, tag or publication created for this cohort. Existing release rehearsal remains historical.",
+    "personal": "Synthetic code only; no personal extension workflows activated or qualified."
+  },
+  "remaining": [
+    "Complete schema/default registration and scope/error fidelity",
+    "Dirty-settings prompting/merge behavior and immediate open clean settings TextDocument reload",
+    "Multi-root, workspace-file, remote, profile and full default-target semantics",
+    "Exact configuration event/runtime and other-platform qualification",
+    "Large value/file limits and broader settings/model-operation arbitration",
+    "Entire stable extension API, personal code workflows, visual fidelity, storage/accounts and cross-platform release gates"
+  ]
+}

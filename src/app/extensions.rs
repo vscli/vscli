@@ -97,6 +97,7 @@ impl App {
         let busy = host.busy();
         let diagnostics_epoch = host.diagnostics_epoch();
         let decorations_epoch = host.decorations_generation();
+        host.set_configuration_write_context(self.configuration_write_context());
         host.set_workspace_edit_context(if self.settings_error.is_none() {
             workspace_transactions::CaptureContext::new(
                 self.settings.extension_layers().clone(),

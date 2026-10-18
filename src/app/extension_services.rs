@@ -290,6 +290,9 @@ impl App {
             self.message = format!("Native document customer refused: {error:#}");
             return false;
         }
+        if self.complete_extension_configuration_write(host) {
+            return true;
+        }
         // Capture every queued document operation when first observed by App,
         // including requests waiting behind a filesystem write. A later focus,
         // pane or input change must not become their new authorization context.
@@ -306,6 +309,7 @@ impl App {
                 Operation::LoadBegin(_)
                     | Operation::LoadCancel
                     | Operation::State(_)
+                    | Operation::ConfigurationWrite(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -521,6 +525,12 @@ impl App {
         let Some(service) = host.service().cloned() else {
             return false;
         };
+        if self
+            .extension_configuration
+            .pending(service.request.session, &service.id)
+        {
+            return false;
+        }
         if matches!(service.operation, Operation::Save(_))
             && self.document_save_caller_pending(service.request.session, &service.id)
         {
@@ -538,6 +548,7 @@ impl App {
                 Operation::LoadBegin(_)
                     | Operation::LoadCancel
                     | Operation::State(_)
+                    | Operation::ConfigurationWrite(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -554,6 +565,7 @@ impl App {
                 Operation::LoadBegin(_)
                     | Operation::LoadCancel
                     | Operation::State(_)
+                    | Operation::ConfigurationWrite(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -582,6 +594,7 @@ impl App {
                     | Operation::LoadBegin(_)
                     | Operation::LoadCancel
                     | Operation::State(_)
+                    | Operation::ConfigurationWrite(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -637,6 +650,13 @@ impl App {
                 {
                     self.message =
                         format!("Native file discovery refusal reply retained: {answer_error:#}");
+                }
+            }
+            Operation::ConfigurationWrite(capture) => {
+                if let Err(error) =
+                    self.start_extension_configuration_write(service.clone(), capture.clone())
+                {
+                    self.answer_native_service(host, &service, Err(error));
                 }
             }
             Operation::WorkspaceApply(capture) => {

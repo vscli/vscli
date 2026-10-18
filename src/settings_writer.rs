@@ -27,11 +27,17 @@ const MODELS: usize = 128;
 const MODEL_PATH_BYTES: usize = 512 * 1024;
 
 #[derive(Clone)]
+struct Patch {
+    key: String,
+    value: Option<Value>,
+    language: Option<String>,
+    configuration: bool,
+}
+#[derive(Clone)]
 pub struct Intent {
     path: PathBuf,
     profile: u64,
-    key: String,
-    value: Value,
+    patch: Patch,
     models: Vec<(u64, PathBuf)>,
 }
 impl Intent {
@@ -43,14 +49,65 @@ impl Intent {
             !key.is_empty() && key.len() <= KEY_BYTES && !key.contains('\0'),
             "Setting key must contain 1–1024 bytes without NUL"
         );
+        ensure!(
+            !value.is_array() && !value.is_object(),
+            "Settings writer accepts scalar values only"
+        );
         value_bytes(&value)?;
         Ok(Self {
             path,
             profile,
-            key,
-            value,
+            patch: Patch {
+                key,
+                value: Some(value),
+                language: None,
+                configuration: false,
+            },
             models: Vec::new(),
         })
+    }
+    pub(crate) fn configuration(
+        path: PathBuf,
+        profile: u64,
+        key: String,
+        value: Option<Value>,
+        language: Option<String>,
+    ) -> Result<Self> {
+        let mut intent = Self::new(path, profile, key, Value::Null)?;
+        if let Some(language) = &language {
+            ensure!(
+                !language.is_empty()
+                    && language.len() <= 128
+                    && !language.contains(['[', ']'])
+                    && !language.as_bytes().contains(&0),
+                "Invalid settings override language"
+            );
+        }
+        if let Some(value) = &value {
+            value_bytes(value)?;
+            let mut pending = vec![(value, 0usize)];
+            let mut nodes = 0usize;
+            while let Some((value, depth)) = pending.pop() {
+                nodes += 1;
+                ensure!(
+                    nodes <= 4096 && depth < 64,
+                    "Configuration value exceeds node/depth budget"
+                );
+                match value {
+                    Value::Array(values) => {
+                        pending.extend(values.iter().map(|value| (value, depth + 1)))
+                    }
+                    Value::Object(values) => {
+                        pending.extend(values.values().map(|value| (value, depth + 1)))
+                    }
+                    _ => {}
+                }
+            }
+        }
+        intent.patch.value = value;
+        intent.patch.language = language;
+        intent.patch.configuration = true;
+        Ok(intent)
     }
     /// Snapshot all retained file-backed models. The worker resolves aliases;
     /// the UI later validates returned matching IDs and their dirty/epoch state.
@@ -65,7 +122,7 @@ struct Batch {
     id: u64,
     path: PathBuf,
     profile: u64,
-    patches: Vec<(String, Value)>,
+    patches: Vec<Patch>,
     models: Vec<(u64, PathBuf)>,
 }
 impl Batch {
@@ -78,8 +135,13 @@ impl Batch {
             "Settings batch exceeds 16 keys"
         );
         let mut bytes = 0;
-        for (_, value) in &self.patches {
-            bytes += value_bytes(value)?;
+        for patch in &self.patches {
+            bytes += patch
+                .value
+                .as_ref()
+                .map(value_bytes)
+                .transpose()?
+                .unwrap_or(0);
             ensure!(bytes <= VALUE_BYTES, "Settings batch values exceed 64 KiB");
         }
         validate_models(&self.models)?;
@@ -136,10 +198,6 @@ impl Write for Count {
     }
 }
 fn value_bytes(value: &Value) -> Result<usize> {
-    ensure!(
-        !value.is_array() && !value.is_object(),
-        "Settings writer accepts scalar values only"
-    );
     if let Value::String(text) = value {
         ensure!(text.len() <= VALUE_BYTES, "Setting value exceeds 64 KiB");
     }
@@ -160,6 +218,7 @@ pub struct PreparedInfo {
 }
 #[derive(Debug)]
 pub enum Outcome {
+    Unchanged,
     Committed {
         path: PathBuf,
         sha256: [u8; 32],
@@ -255,10 +314,14 @@ impl Writer {
         // A newer UI inventory supersedes the previous snapshot even when
         // scalar patches from the same unapproved target are carried forward.
         batch.models = intent.models;
-        if let Some((_, value)) = batch.patches.iter_mut().find(|(key, _)| key == &intent.key) {
-            *value = intent.value;
+        if let Some(patch) = batch
+            .patches
+            .iter_mut()
+            .find(|patch| patch.key == intent.patch.key && patch.language == intent.patch.language)
+        {
+            *patch = intent.patch;
         } else {
-            batch.patches.push((intent.key, intent.value));
+            batch.patches.push(intent.patch);
         }
         batch.validate()?;
         if self.pending.is_none() {
@@ -735,6 +798,14 @@ fn work(
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
+    if batch
+        .patches
+        .iter()
+        .all(|patch| patch.configuration && patch.value.is_none())
+        && !requested_parent.try_exists()?
+    {
+        return Ok(Outcome::Unchanged);
+    }
     fs::create_dir_all(requested_parent)?;
     let parent = fs::canonicalize(requested_parent)?;
     let parent_handle = open_directory(&parent)?;
@@ -753,16 +824,39 @@ fn work(
         ensure!(!permissions.readonly(), "Settings file is read-only");
     }
     let mut bytes = baseline.input().to_vec();
-    for (key, value) in &batch.patches {
-        bytes = crate::settings_write::patch(&bytes, key, value)?;
+    for patch in &batch.patches {
+        bytes = if patch.configuration {
+            crate::settings_write::patch_configuration(
+                &bytes,
+                &patch.key,
+                patch.value.as_ref(),
+                patch.language.as_deref(),
+            )?
+        } else {
+            crate::settings_write::patch(
+                &bytes,
+                &patch.key,
+                patch
+                    .value
+                    .as_ref()
+                    .context("Missing scalar setting value")?,
+            )?
+        };
     }
     ensure!(bytes.len() <= FILE_BYTES, "Patched settings exceed 1 MiB");
-    let mut temporary = tempfile::NamedTempFile::new_in(&parent)?;
-    temporary.write_all(&bytes)?;
-    if let Baseline::Present { permissions, .. } = &baseline {
-        temporary.as_file().set_permissions(permissions.clone())?;
-    }
-    temporary.as_file().sync_all()?;
+    let unchanged =
+        batch.patches.iter().all(|patch| patch.configuration) && bytes == baseline.input();
+    let temporary = if unchanged {
+        None
+    } else {
+        let mut temporary = tempfile::NamedTempFile::new_in(&parent)?;
+        temporary.write_all(&bytes)?;
+        if let Baseline::Present { permissions, .. } = &baseline {
+            temporary.as_file().set_permissions(permissions.clone())?;
+        }
+        temporary.as_file().sync_all()?;
+        Some(temporary)
+    };
     let expires_at = Instant::now() + authorization;
     let info = PreparedInfo {
         id: batch.id,
@@ -804,6 +898,10 @@ fn work(
         file_identity(&current_parent)? == parent_identity,
         "Settings parent directory identity changed after preparation"
     );
+    if unchanged {
+        return Ok(Outcome::Unchanged);
+    }
+    let temporary = temporary.context("Missing prepared settings content")?;
     match baseline {
         Baseline::Missing => {
             temporary
@@ -866,6 +964,112 @@ mod tests {
     }
     fn assert_unlocked(path: &Path) {
         drop(crate::persistence::WriteLock::try_acquire(path).unwrap());
+    }
+
+    #[test]
+    fn configuration_values_and_removal_reuse_real_authorization_and_preserve_jsonc_bytes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        let original = "{\r\n // keep 猫🙂\r\n '[cpp]':{\"extension.flags\":false, /*keep*/ 'editor.tabSize':2},\r\n root:'unchanged',\r\n}\r\n";
+        fs::write(&path, original).unwrap();
+        let mut writer = Writer::default();
+        let value = serde_json::json!({"enabled":true,"list":["λ🙂",null]});
+        let id = writer
+            .request(
+                Intent::configuration(
+                    path.clone(),
+                    1,
+                    "extension.flags".into(),
+                    Some(value.clone()),
+                    Some("cpp".into()),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        prepared(&mut writer, id);
+        assert_eq!(fs::read(&path).unwrap(), original.as_bytes());
+        writer.authorize(id).unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Committed { .. }
+        ));
+        let expected = original.replacen("false", &serde_json::to_string(&value).unwrap(), 1);
+        assert_eq!(fs::read(&path).unwrap(), expected.as_bytes());
+        let id = writer
+            .request(
+                Intent::configuration(
+                    path.clone(),
+                    1,
+                    "extension.flags".into(),
+                    None,
+                    Some("cpp".into()),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        prepared(&mut writer, id);
+        writer.authorize(id).unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Committed { .. }
+        ));
+        let actual = fs::read_to_string(&path).unwrap();
+        assert!(actual.contains("// keep 猫🙂\r\n"));
+        assert!(actual.contains("/*keep*/ 'editor.tabSize':2"));
+        let parsed: Value = crate::jsonc::parse(&actual).unwrap();
+        assert_eq!(parsed["root"], "unchanged");
+        assert!(parsed["[cpp]"].get("extension.flags").is_none());
+        assert_unlocked(&path);
+    }
+
+    #[test]
+    fn configuration_missing_removal_creates_no_project_directory_and_existing_noop_keeps_identity()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(".vscode/settings.json");
+        let mut writer = Writer::default();
+        let id = writer
+            .request(Intent::configuration(path.clone(), 1, "missing".into(), None, None).unwrap())
+            .unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Unchanged
+        ));
+        assert!(!path.parent().unwrap().exists());
+        fs::create_dir(path.parent().unwrap()).unwrap();
+        let original = b"{ /* keep */ existing: true }\r\n";
+        fs::write(&path, original).unwrap();
+        let identity = file_identity(&File::open(&path).unwrap()).unwrap();
+        let id = writer
+            .request(Intent::configuration(path.clone(), 1, "missing".into(), None, None).unwrap())
+            .unwrap();
+        prepared(&mut writer, id);
+        writer.authorize(id).unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Unchanged
+        ));
+        assert!(file_identity(&File::open(&path).unwrap()).unwrap() == identity);
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert_eq!(fs::read_dir(path.parent().unwrap()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn configuration_removal_does_not_overwrite_an_external_change_after_preparation() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        fs::write(&path, b"{target:[1,2],other:true}\n").unwrap();
+        let mut writer = Writer::default();
+        let id = writer
+            .request(Intent::configuration(path.clone(), 1, "target".into(), None, None).unwrap())
+            .unwrap();
+        prepared(&mut writer, id);
+        let external = b"{target:[3,4],other:'external'}\r\n";
+        fs::write(&path, external).unwrap();
+        writer.authorize(id).unwrap();
+        assert!(finished(&mut writer, id).is_err());
+        assert_eq!(fs::read(&path).unwrap(), external);
+        assert_unlocked(&path);
     }
     #[test]
     fn explicit_authorization_preserves_every_other_jsonc_crlf_byte_and_permissions() {
@@ -1203,7 +1407,12 @@ mod tests {
             id: 1,
             path: path.clone(),
             profile: 1,
-            patches: vec![("x".into(), json!(true))],
+            patches: vec![Patch {
+                key: "x".into(),
+                value: Some(json!(true)),
+                language: None,
+                configuration: false,
+            }],
             models: Vec::new(),
         };
         let mut writer = Writer {

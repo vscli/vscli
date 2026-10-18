@@ -1,0 +1,33 @@
+{
+  "publisher": "fixture",
+  "name": "configuration-update",
+  "version": "1.0.0",
+  "main": "main.cjs",
+  "engines": {
+    "vscode": "*"
+  },
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "fixture.value": {
+          "default": "default",
+          "scope": "language-overridable"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "fixture.configuration.roundtrip",
+        "title": "Write extension configuration"
+      },
+      {
+        "command": "fixture.configuration.language",
+        "title": "Write language configuration"
+      },
+      {
+        "command": "fixture.configuration.refused",
+        "title": "Refuse dirty configuration"
+      }
+    ]
+  }
+}

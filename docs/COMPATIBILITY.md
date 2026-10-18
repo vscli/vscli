@@ -476,3 +476,10 @@ seven PTY journeys pass, as do fresh build, formatting and strict locked all-tar
 Clippy. Fresh rename/direct-save/native save-participant terminal regressions
 also pass, for 34 terminal journeys combined; exact script counts remain in the
 refactoring save contract. The independent native LSP route requires no Node runtime.
+
+
+Extension configuration updates now use the native settings writer for bounded
+local profile/workspace JSON values and language overrides. They await actual
+persistence and native reload; dirty settings refuse without overwriting unsaved
+work. [Behavior and remaining qualification](CONFIGURATION_API.md) distinguish
+this usable path from complete settings or extension compatibility.
