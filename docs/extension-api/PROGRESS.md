@@ -1,5 +1,15 @@
 # Stable API delivery progress
 
+Window progress passes **5/5 local criteria** using the existing native status
+renderer and owned transport. Reports coalesce, exact task values/errors stay in
+the host, and eight actual unresolved tasks retain capacity across retirement.
+Dirty/shared document identity, revision, Undo and disk bytes, empty workbench and
+fresh no-Node editing pass. The source passes **1,721 Rust tests across 78 reports**
+(1,347 library; 23 ignored), **845 host tests**, three actual terminal journeys,
+formatting and strict locked Clippy. [Source/binary evidence](../validation/window-progress.json)
+keeps Notification/Source Control/view progress and whole API/migration/platform
+qualification open.
+
 The Input Box password follow-up passes **5/5 local criteria**. Native masked
 rendering covers initial, typed and pasted graphemes, narrow windows and scrolling;
 exact acceptance, cancellation/stop and native document revision/history remain

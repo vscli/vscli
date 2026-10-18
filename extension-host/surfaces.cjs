@@ -1,6 +1,7 @@
 'use strict';
 const { es5ClassCompat } = require('./es5-class-compat.cjs');
 const { Disposable, EventEmitter, Uri } = require('./api-types.cjs');
+const { CancellationToken } = require('./cancellation.cjs');
 const limits = Object.freeze({ channels: 32, status: 64, views: 8, children: 256, handles: 1024, updateBytes: 65536 });
 function text(value, max, name, empty = true) {
   if (typeof value !== 'string' || Buffer.byteLength(value) > max || (!empty && !value)) throw new TypeError(`Invalid ${name}`);
@@ -18,10 +19,12 @@ class TreeItem {
 for (const value of [ThemeColor, TreeItem]) es5ClassCompat(value);
 
 const enums = Object.freeze({ StatusBarAlignment: Object.freeze({ Left: 1, Right: 2 }),
+  ProgressLocation: Object.freeze({SourceControl:1,Window:10,Notification:15,1:'SourceControl',10:'Window',15:'Notification'}),
   TreeItemCollapsibleState: Object.freeze({ None: 0, Collapsed: 1, Expanded: 2 }), ThemeColor, TreeItem });
 function createSurfaces(notify, session, track, execute, assertOwner = () => {}, callers = {}) {
   const channels = new Map(), statuses = new Map(), views = new Map(), declared = new Map();
   let sequence = 0, treeCallbackPending = false;
+  let progressPending = 0;
   function send(owner, id, op, data = {}) {
     if (!op.endsWith('Dispose')) assertOwner(owner);
     notify('nativeSurface', { session, owner, id, op, ...data });
@@ -106,6 +109,58 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {},
     });
     publish();
     return item;
+  }
+  function progressFor(owner) {
+    const guard = callers.bind?.(owner,()=>assertOwner(owner)) ?? (()=>assertOwner(owner));
+    return async function withProgress(options, task) {
+      guard();
+      if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Invalid progress options');
+      const location=options.location, title=options.title ?? '', cancellable=options.cancellable;
+      if (location !== enums.ProgressLocation.Window) throw new Error('VSCLI progress location is not implemented');
+      text(title,512,'progress title');
+      if(cancellable !== undefined && typeof cancellable !== 'boolean')throw new TypeError('Invalid progress cancellable');
+      if(typeof task !== 'function')throw new TypeError('Progress task must be a function');
+      guard();
+      if(progressPending >= 8)throw new Error('Extension progress task limit reached');
+      progressPending++;
+      let item, registration, active=true, scheduled=false, pending;
+      const close=()=>{if(!active)return;active=false;pending=undefined;item?.dispose();};
+      function flush() {
+        scheduled=false;
+        if(!active || pending===undefined)return;
+        const label=pending;pending=undefined;
+        try {guard();item.text=label;} catch {close();}
+      }
+      try {
+        item=createStatusBarItem(owner,`window-progress-${++sequence}`,1,-1000);
+        registration=own(owner,close);
+        item.name='Extension progress';
+        item.text='⟳ '+(title || 'Working…');item.show();
+        const report=Object.freeze({report(value) {
+          if(!active)return;
+          guard();
+          if(!value || typeof value !== 'object' || Array.isArray(value))throw new TypeError('Invalid progress report');
+          const message=value.message, increment=value.increment;
+          if(message!==undefined)text(message,512,'progress message');
+          if(increment!==undefined && (typeof increment!=='number'||!Number.isFinite(increment)))throw new TypeError('Invalid progress increment');
+          guard();
+          if(message===undefined)return; // Window progress has no discrete increments.
+          const label='⟳ '+([title,message].filter(Boolean).join(': ') || 'Working…');
+          text(label,1024,'progress label');pending=label;
+          if(!scheduled) {
+            scheduled=true;
+            const schedule=()=>queueMicrotask(flush);
+            if(callers.unowned)callers.unowned(schedule);else schedule();
+          }
+        }});
+        const invoke=callers.bindAsync?.(owner,task) ?? task;
+        const result=await invoke(report,CancellationToken.None);
+        guard();return result;
+      } finally {
+        // A retired UI does not release this slot until the actual task settles.
+        progressPending--;registration?.dispose();close();item?.dispose();
+      }
+    };
   }
   function createTreeView(owner, id, options) {
     assertOwner(owner);
@@ -275,6 +330,7 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {},
       for (const [owner, entries] of staged) declared.set(owner, entries);
     },
     forExtension(owner) { return {
+      withProgress: progressFor(owner),
       createOutputChannel: (name, language) => createOutputChannel(owner, name, language),
       createStatusBarItem: (...args) => createStatusBarItem(owner, ...args),
       createTreeView: (id, options) => createTreeView(owner, id, options),

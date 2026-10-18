@@ -432,6 +432,9 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/extension_surfaces_pty.py target/debug/vscli
+      - name: Run public Window progress and native editing workflows
+        if: runner.os != 'Windows'
+        run: python3 -u tests/extension_progress_pty.py target/debug/vscli
       - name: Check syntax colors during terminal edits
         if: runner.os != 'Windows'
         timeout-minutes: 2

@@ -1057,6 +1057,75 @@
         "Personal extension/proposed API workflows, visual/configuration/account/storage migration"
       ],
       "validation_receipt": "docs/validation/input-box-password.json"
+    },
+    {
+      "id": "window-progress",
+      "api_ids": [
+        "vscode.window.withProgress",
+        "vscode.ProgressLocation.Window",
+        "vscode.Progress.report",
+        "vscode.ProgressOptions.title"
+      ],
+      "criteria": [
+        {
+          "name": "Window task lifetime reaches actual native status rendering and returns exact callback values/errors",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Window task lifetime reaches actual native status rendering and returns exact callback values/errors"
+            }
+          ]
+        },
+        {
+          "name": "Reports coalesce without serializing task values; message/type/byte bounds refuse malformed input",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Reports coalesce without serializing task values; message/type/byte bounds refuse malformed input"
+            }
+          ]
+        },
+        {
+          "name": "Eight shared actual tasks retain capacity through owner retirement; original caller/getter/delegation guards refuse renewed authority",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Eight shared actual tasks retain capacity through owner retirement; original caller/getter/delegation guards refuse renewed authority"
+            }
+          ]
+        },
+        {
+          "name": "Native shared dirty identity/revision/Undo/disk and empty-workbench behavior survive completion/failure/stop; terminal editing and no-Node restart pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Native shared dirty identity/revision/Undo/disk and empty-workbench behavior survive completion/failure/stop; terminal editing and no-Node restart pass"
+            }
+          ]
+        },
+        {
+          "name": "Complete all-target Rust/host regression, terminal workflows, documentation, formatting and strict locked Clippy pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Complete all-target Rust/host regression, terminal workflows, documentation, formatting and strict locked Clippy pass"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Notification percentage/cancellation, Source Control and contributed-view progress",
+        "Graphical/theme-icon/accessibility behavior and pinned upstream runtime qualification",
+        "Fresh complete exact-head platform CI and Windows clipboard control",
+        "Whole stable API, personal extension/proposed API workflows and visual/configuration/account/storage migration",
+        "Windows/macOS artifacts and reviewed release publication gates"
+      ],
+      "validation_receipt": "docs/validation/window-progress.json"
     }
   ],
   "next_batch": {

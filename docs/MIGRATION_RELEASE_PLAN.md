@@ -454,4 +454,16 @@ across 19 scripts**, including the new masked-input/raw-output workflows. Checks
 revision, notices and no-Node doctor checks pass. Earlier archives and the existing
 user release binary remain intact. [Archive and binary receipts](validation/linux-release-339e5a6.json)
 record this exact source, isolated clipboard data and pending platform/publication
-gates. The uncommitted Window-progress implementation is not in this archive.
+gates. Window progress is a separate later source cohort and is not in this archive.
+
+
+## Integrated Window progress
+
+The `withProgress` Window batch passes **5/5 local criteria** using the existing
+owned native status renderer and transport. Exact callback values/errors remain
+in the host; coalesced reports, eight retained actual task slots and original
+caller lifetime reach a usable native UI. Dirty/shared editing/history, an empty
+workbench, three terminal journeys and fresh no-Node restart pass. The source
+passes 1,721 Rust tests, 845 host tests, formatting and strict Clippy.
+[Source-bound receipts](validation/window-progress.json) retain remaining progress
+locations/cancellation and whole stable API, platform and personal migration work.

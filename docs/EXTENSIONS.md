@@ -552,3 +552,13 @@ change the captured delimiter. Normalization runs in the isolated optional host;
 native ownership/version/editor checks and shared marker/history semantics remain
 in force. `TextEditorEdit.setEndOfLine` and nondefault undo-stop flags remain
 outstanding. [EOL regression evidence](validation/editor-edit-eol.json).
+
+
+### Progress in the status bar
+
+Extensions can use `window.withProgress` with `ProgressLocation.Window` and report
+messages while a task runs. Results and errors retain their original identity;
+native editing, saving and Undo remain usable. The implementation reuses owned
+native status items. [Bounds, lifetime and evidence](WINDOW_PROGRESS_API.md) keep
+Notification/Source Control/view progress, graphical behavior, platform
+qualification and the whole stable API in the remaining scope.
