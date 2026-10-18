@@ -571,8 +571,8 @@ mod windows_ci {
             finish(Worker::start().unwrap()).unwrap().as_deref(),
             Some(text)
         );
-        // A null-window open can be shared inside one process on Windows.
-        // Use another process to prove actual clipboard contention.
+        // A null-window holder did not block reads in runner observations,
+        // including across processes. Hold a real window in another process.
         let directory = tempfile::tempdir().unwrap();
         let ready = directory.path().join("ready");
         let release = directory.path().join("release");

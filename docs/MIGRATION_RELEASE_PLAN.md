@@ -436,3 +436,14 @@ pass; formatting and strict Clippy pass. The implementation extends the existing
 native prompt controller and transports rather than adding another foundation.
 [Source/binary evidence](validation/input-box-password.json) keeps full Quick Input,
 fresh platform CI and personal authentication/visual/storage migration open.
+
+
+At `79d76e8`, Windows again passes the ordinary native suite and initial OS
+Unicode/CRLF write/read. Its independent null-window holder still allows a read,
+so the proposed process-only repair did not satisfy the contention criterion.
+The control now holds a real window and verifies the exact
+`GetOpenClipboardWindow` receipt before publishing readiness. Nine local shared
+clipboard controls, portable metadata checking including this test guard,
+formatting and strict Clippy pass. Actual fresh Windows execution remains
+required; the batch stays **4/5**, and no backend repair is inferred from a test
+change. [Failure and source receipts](validation/windows-window-holder.json).

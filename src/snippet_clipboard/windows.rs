@@ -11,6 +11,8 @@ const UNICODE_TEXT: u32 = 13;
 #[link(name = "user32")]
 unsafe extern "system" {
     fn OpenClipboard(owner: Handle) -> i32;
+    #[cfg(test)]
+    fn GetOpenClipboardWindow() -> Handle;
     fn CloseClipboard() -> i32;
     fn EmptyClipboard() -> i32;
     fn IsClipboardFormatAvailable(format: u32) -> i32;
@@ -269,5 +271,23 @@ pub(super) fn write(text: &str, cancel: &AtomicBool) -> Result<()> {
 
 #[cfg(test)]
 pub(super) fn hold_open_for_test() -> Result<impl Drop> {
-    Clipboard::open(ptr::null_mut(), &AtomicBool::new(false))
+    struct Held {
+        // Fields drop in declaration order: close before destroying the owner.
+        _clipboard: Clipboard,
+        _window: Window,
+    }
+    impl Drop for Held {
+        fn drop(&mut self) {}
+    }
+    let window = Window::new()?;
+    let clipboard = Clipboard::open(window.0, &AtomicBool::new(false))?;
+    // SAFETY: the window and clipboard open are both live on this thread.
+    ensure!(
+        unsafe { GetOpenClipboardWindow() } == window.0,
+        "Windows did not associate the clipboard open with the holder window"
+    );
+    Ok(Held {
+        _clipboard: clipboard,
+        _window: window,
+    })
 }
