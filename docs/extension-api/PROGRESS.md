@@ -1,5 +1,13 @@
 # Stable API delivery progress
 
+The latest local editor-position batch passes **4/4 criteria**: branded position,
+range and selection handling; retained source/lifetime checks; native shared-model
+save/Undo/Redo and terminal delivery; and regression/style evidence. There are
+**1,685 passing Rust tests** across 74 reports, **819 host tests**, four unchanged
+pinned Sort Lines controls and one new terminal journey. This adds a usable public
+overload and preserves replacement marker semantics; it does not close the entire
+edit-builder or stable API contract. [Evidence](../validation/editor-position-replace.json).
+
 The scope is the entire stable VS Code 1.141.0 API at immutable commit
 `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`. All 776 declarations, 2,366
 member/overload/type rows, sixteen namespaces and the ambient Thenable contract

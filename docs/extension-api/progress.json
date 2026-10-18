@@ -546,6 +546,62 @@
         "Actual Windows repair-head CI, personal code workflows, full stable API and release qualification"
       ],
       "validation_receipt": "docs/validation/editor-edit-eol.json"
+    },
+    {
+      "id": "editor-position-replace",
+      "api_ids": [
+        "vscode.TextEditor.edit",
+        "vscode.TextEditorEdit.replace"
+      ],
+      "criteria": [
+        {
+          "name": "Branded Position, Range and Selection inputs retain clamping, original EOL and replacement marker semantics",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-position-replace.json",
+              "needle": "Branded Position, Range and Selection inputs retain clamping, original EOL and replacement marker semantics"
+            }
+          ]
+        },
+        {
+          "name": "Late builders and source-changing argument getters reject before unauthorized or partial dispatch",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-position-replace.json",
+              "needle": "Late builders and source-changing argument getters reject before unauthorized or partial dispatch"
+            }
+          ]
+        },
+        {
+          "name": "Native shared identity, event-before-answer, UTF-16/clamped positions and exact save/Undo/Redo reach a terminal workflow",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-position-replace.json",
+              "needle": "Native shared identity, event-before-answer, UTF-16/clamped positions and exact save/Undo/Redo reach a terminal workflow"
+            }
+          ]
+        },
+        {
+          "name": "Pinned unchanged Sort Lines controls, complete native/host regressions, formatting and strict Clippy retain source evidence",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-position-replace.json",
+              "needle": "Pinned unchanged Sort Lines controls, complete native/host regressions, formatting and strict Clippy retain source evidence"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Fresh three-platform CI for this new source",
+        "TextEditorEdit.setEndOfLine, nondefault undo-stop flags and remaining edit-builder contracts",
+        "Unpaired UTF-16, private transport/bypass contracts and full platform/runtime qualification",
+        "Whole stable API and seamless personal extension/visual/storage migration"
+      ],
+      "validation_receipt": "docs/validation/editor-position-replace.json"
     }
   ],
   "next_batch": {

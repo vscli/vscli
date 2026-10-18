@@ -533,7 +533,11 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           edits.push({ range: coordinates.range(range, 'Edit'), newText, ...(forceMoveMarkers ? {forceMoveMarkers:true} : {}) });
         };
         const builder = supported('TextEditorEdit', {
-          replace: (range, text) => add(validateRange(range), text),
+          replace: (location, text) => {
+            if (!valid) throw new Error('TextEditorEdit is only valid during its callback');
+            const range = location instanceof Position ? new Range(location, location) : location;
+            add(validateRange(range), text);
+          },
           insert: (position, text) => {
             const point = validatePosition(position);
             add(new Range(point, point), text, true);

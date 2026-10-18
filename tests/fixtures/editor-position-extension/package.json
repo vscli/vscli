@@ -1,0 +1,1 @@
+{"publisher":"fixture","name":"editor-position","version":"1.0.0","main":"main.cjs","engines":{"vscode":"*"},"contributes":{"commands":[{"command":"fixture.editorPosition.replace","title":"Replace at API position"}]}}

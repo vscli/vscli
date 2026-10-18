@@ -297,3 +297,11 @@ Local result: **5/5 batch criteria pass**, with 1,684 Rust tests across 73 repor
 and strict locked Clippy. Affected migration terminal journeys ran before the
 full native suite. [Source/binary and failed observations](validation/migration-readiness.json).
 Fresh complete repair-head platform results remain required.
+
+The `50f60ad` migration repair now passes complete main CI and the dedicated stable
+save reference on Linux, macOS and Windows. Its optimized Linux packaging rehearsal
+passes 46 terminal scenarios, extracted long-path export and activation-preflight
+journeys, archive checksums and embedded revision checks, without a tag or publication.
+[Completed platform run](https://github.com/vscli/vscli/actions/runs/39080068658).
+Entire stable API, personal extension workflows, richer presentation/storage and
+other-platform release artifacts remain open requirements.
