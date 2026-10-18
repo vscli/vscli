@@ -1,5 +1,6 @@
 //! Scoped consumers of actual pinned source-action save observations.
-//! Eligibility is compared across all fourteen cases. Native text/history and
+//! Family requests and child filtering are compared across all fourteen cases.
+//! A requested family is distinct from a successfully applied edit. Native text/history and
 //! framed callbacks are compared only for six named cohorts with at most one
 //! mutating action per supported family; broader provider behavior is retained
 //! as reference evidence rather than claimed as native equivalence.
@@ -1123,7 +1124,7 @@ fn settings(root: &Path, fixture: &Value) -> Settings {
 }
 
 #[test]
-fn supported_policy_eligibility_matches_all_fourteen_observed_save_results() {
+fn supported_policy_family_requests_and_child_filtering_match_fourteen_observations() {
     let rows = corpus();
     for fixture in fixtures() {
         let row = rows.iter().find(|r| r["name"] == fixture["name"]).unwrap();
@@ -1148,12 +1149,21 @@ fn supported_policy_eligibility_matches_all_fourteen_observed_save_results() {
                 SaveActionPolicy::Native(plan) => plan.allows(family, kind),
                 _ => false,
             };
-            assert_eq!(
-                admitted,
-                text.lines().any(|line| line == marker),
-                "{}: {kind}",
-                fixture["name"]
-            );
+            // An exact source-family request proves admission even when its
+            // returned edit later fails to apply. A broader parent request
+            // does not prove its children escaped exclusions, so retain the
+            // actual kind's edit marker as the second positive witness.
+            // Genuine macOS 4d69f8d requests organizeImports but retains
+            // imports=0. Keep that output intact; the separate native
+            // text/history workflows below still compare every snapshot.
+            let requested = row["callbacks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|callback| callback["only"] == kind);
+            let applied = text.lines().any(|line| line == marker);
+            let observed = requested || applied;
+            assert_eq!(admitted, observed, "{}: {kind}", fixture["name"]);
         }
         if let SaveActionPolicy::Native(plan) = policy {
             assert!(!plan.allows(SaveActionFamily::FixAll, "source.fixAllX"));
