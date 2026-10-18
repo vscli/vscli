@@ -89,9 +89,20 @@ fn public_os_watcher_reports_external_create_change_delete_and_disposal_preserve
         }
     };
     let watched = root.join(&observed);
+    app.execute("watch.change", Value::Null);
+    until(&mut app, |app| {
+        app.message == "API waiting changed"
+            && app.extension_host.as_ref().is_some_and(|host| !host.busy())
+    });
+    std::fs::write(root.join("watch-queued.rs"), "unrelated create\r\n").unwrap();
     std::fs::write(&watched, "🙂 changed\r\n").unwrap();
     until(&mut app, |app| {
         app.message == format!("API changed: {observed}")
+    });
+    app.execute("watch.delete", Value::Null);
+    until(&mut app, |app| {
+        app.message == "API waiting deleted"
+            && app.extension_host.as_ref().is_some_and(|host| !host.busy())
     });
     std::fs::remove_file(&watched).unwrap();
     until(&mut app, |app| {

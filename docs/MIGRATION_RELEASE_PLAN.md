@@ -390,3 +390,37 @@ The Linux inherited-pipe fixture uses a controlled descendant and explicit relea
 The prior macOS library SIGABRT has no established cause; fresh CI captures fatal
 output and crash reports. These are separate qualification gates.
 [Exact scope/evidence](validation/windows-clipboard.json).
+
+
+## Isolated Linux archive qualification at `8b6910c`
+
+The extracted optimized Linux archive passes **68 terminal scenarios across 18
+scripts**, including migration, appearance, native no-Node editing, snippets,
+configuration writes and clipboard integration. Checksums, recorded source revision,
+licenses and dependency notices, and an extracted no-Node doctor check pass.
+Private synthetic clipboard helpers isolate every journey from personal data.
+[Exact archive/binary receipts](validation/linux-release-8b6910c.json) retain the
+preceding archive and confirm the existing user release binary is unchanged.
+This is evidence for `8b6910c`, not later source or a published release.
+
+The same head passes Linux main CI and dedicated reference CI on all three OSes.
+macOS's library suite passes without repeating the preceding unexplained abort;
+the watcher integration times out with a later create receipt visible instead of
+the requested change receipt. Source inspection shows later unrelated callbacks
+can overwrite that status; this is a supported race explanation, not a captured
+interleaving. The fixture now pins an actual created resource and explicitly arms
+change/delete phases, while still checking/counting all callbacks and preserving
+native identity, history, disk and post-disposal silence assertions.
+
+Windows compiles/links the native backend, passes the ordinary native suite, and
+successfully writes/reads synthetic Unicode/CRLF clipboard data. Its isolated
+control then fails because another read inside the same process succeeds while
+the test holds the clipboard. A separately gated child process now holds the
+clipboard for the contention assertion. Canceled-write, exact-boundary and empty
+controls remain required; actual fresh Windows execution is the pending gate.
+
+The repaired fixtures pass 1,679 standard Cargo-test cases (23 ignored), the
+actual watcher terminal journey, formatting and strict all-target Clippy. The
+preceding 1,719 all-target count includes additional example-target controls;
+these are distinct commands/cohorts. [Test receipts](validation/platform-test-receipts.json)
+retain the observed failures and fresh platform gates.

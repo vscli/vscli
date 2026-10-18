@@ -49,8 +49,13 @@ def run(root):
             time.sleep(.01)
     assert observed, 'No public OS watcher create event\n' + app.screen.text()
     watched = root / observed
+    command(app, 'Watch files await change')
+    wait_screen(app, 'API waiting changed')
+    (root / 'watch-queued.rs').write_bytes(b'unrelated create\r\n')
     watched.write_bytes('🙂 changed\r\n'.encode())
     wait_screen(app, f'API changed: {observed}', 'a.txt *')
+    command(app, 'Watch files await delete')
+    wait_screen(app, 'API waiting deleted')
     watched.unlink()
     wait_screen(app, f'API deleted: {observed}', 'a.txt *')
     command(app, 'Watch files dispose')

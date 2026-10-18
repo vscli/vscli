@@ -571,9 +571,58 @@ mod windows_ci {
             finish(Worker::start().unwrap()).unwrap().as_deref(),
             Some(text)
         );
-        let held = windows::hold_open_for_test().unwrap();
+        // A null-window open can be shared inside one process on Windows.
+        // Use another process to prove actual clipboard contention.
+        let directory = tempfile::tempdir().unwrap();
+        let ready = directory.path().join("ready");
+        let release = directory.path().join("release");
+        struct Holder(std::process::Child, std::path::PathBuf);
+        impl Drop for Holder {
+            fn drop(&mut self) {
+                let _ = std::fs::write(&self.1, []);
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let mut held = Holder(
+            std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "snippet_clipboard::windows_ci::hold_for_parent",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("VSCLI_TEST_CLIPBOARD_READY", &ready)
+                .env("VSCLI_TEST_CLIPBOARD_RELEASE", &release)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .spawn()
+                .unwrap(),
+            release.clone(),
+        );
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !ready.exists() {
+            assert!(
+                held.0.try_wait().unwrap().is_none(),
+                "Clipboard holder exited before admission"
+            );
+            assert!(Instant::now() < deadline, "Clipboard holder did not start");
+            thread::sleep(Duration::from_millis(1));
+        }
         let error = finish(Worker::start().unwrap()).unwrap_err().to_string();
         assert!(error.contains("Cannot open Windows clipboard"), "{error}");
+        std::fs::write(&release, []).unwrap();
+        loop {
+            if let Some(status) = held.0.try_wait().unwrap() {
+                assert!(status.success(), "Clipboard holder failed: {status}");
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "Clipboard holder did not release"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
         drop(held);
         let canceled = AtomicBool::new(true);
         assert!(windows::write("forbidden", &canceled).is_err());
@@ -602,5 +651,31 @@ mod windows_ci {
             finish(Worker::start().unwrap()).unwrap().as_deref(),
             Some("")
         );
+    }
+
+    #[test]
+    #[ignore = "private isolated Windows clipboard holder; invoked only by the parent CI control"]
+    fn hold_for_parent() {
+        assert_eq!(std::env::var("GITHUB_ACTIONS").as_deref(), Ok("true"));
+        assert_eq!(
+            std::env::var("VSCLI_TEST_WINDOWS_CLIPBOARD").as_deref(),
+            Ok("1")
+        );
+        let ready = std::path::PathBuf::from(
+            std::env::var_os("VSCLI_TEST_CLIPBOARD_READY").expect("parent ready path"),
+        );
+        let release = std::path::PathBuf::from(
+            std::env::var_os("VSCLI_TEST_CLIPBOARD_RELEASE").expect("parent release path"),
+        );
+        let _held = windows::hold_open_for_test().unwrap();
+        std::fs::write(&ready, []).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !release.exists() && release.parent().unwrap().exists() {
+            assert!(
+                Instant::now() < deadline,
+                "Clipboard parent did not release"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
     }
 }

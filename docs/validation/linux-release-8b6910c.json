@@ -1,0 +1,253 @@
+{
+  "revision": "8b6910cab3d2bbc760834183ca603f556af51540",
+  "archive": "/tmp/vscli-export-release-l0ib4isl/source/dist/vscli-0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "archive_sha256": "46bb400f9d912cbe2c9db307ba09590d8b3464e42c0c9ddf0eca15ad270621ac",
+  "archive_bytes": 11497147,
+  "extracted_binary": "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli",
+  "binary_sha256": "61f018adf3bfdc3b338085645007e3b7538713c60414d4b48b52767e4279d83d",
+  "checksums_and_revision_verified": true,
+  "licenses_and_dependency_notices": "present",
+  "source_clean": true,
+  "release_tag_created": false,
+  "published": false,
+  "schema": "vscli-local-release-rehearsal-v1",
+  "build": "optimized isolated clean checkout",
+  "build_log": "/tmp/vscli-windows-clipboard-release-build.log",
+  "terminal_checks": [
+    {
+      "script": "tests/pty_smoke.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/pty_smoke.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-pty_smoke.log",
+      "passed_scenarios": 35
+    },
+    {
+      "script": "tests/migration_blockers_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/migration_blockers_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-migration_blockers_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/exported_profile_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/exported_profile_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-exported_profile_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/profile_migration_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/profile_migration_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-profile_migration_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/builtin_profile_migration_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/builtin_profile_migration_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-builtin_profile_migration_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/portable_profile_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/portable_profile_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-portable_profile_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/extension_editor_eol_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_eol_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_editor_eol_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/extension_editor_position_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_position_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_editor_position_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/extension_editor_undo_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_undo_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_editor_undo_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/extension_editor_set_eol_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_set_eol_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_editor_set_eol_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/extension_configuration_update_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_configuration_update_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_configuration_update_pty.log",
+      "passed_scenarios": 3
+    },
+    {
+      "script": "tests/extension_clipboard_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_clipboard_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_clipboard_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/extension_manifest_labels_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_manifest_labels_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_manifest_labels_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/extension_context_keys_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_context_keys_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_context_keys_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/native_configuration_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/native_configuration_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-native_configuration_pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "script": "tests/extension_editor_snippets_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_snippets_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_editor_snippets_pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "script": "tests/extension_documents_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_documents_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-extension_documents_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/imported_appearance_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/imported_appearance_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-8b-release-imported_appearance_pty.log",
+      "passed_scenarios": 1
+    }
+  ],
+  "total_terminal_scenarios_passed": 68,
+  "extracted_no_node_doctor": "passed",
+  "doctor_log": "/tmp/vscli-8b-release-doctor.log",
+  "clipboard_isolation": "Private synthetic helper data for every script; no personal OS clipboard access",
+  "previous_receipt": "/tmp/vscli-export-release-l0ib4isl/receipt-50f60ad.json",
+  "preserved_previous_archive": "/tmp/vscli-export-release-l0ib4isl/archives/50f60ad/vscli-0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "user_release_binary_preserved_sha256": "0327d581a1ea84e0523614bdf8e99afddd00ce5ac38c1732ae30fa6861138d6c",
+  "ci": {
+    "run": "https://github.com/vscli/vscli/actions/runs/39168456942",
+    "Linux": "success",
+    "macOS": "Library passes, watcher integration status receipt times out",
+    "Windows": "Native suite passes; isolated OS control writes/reads Unicode CRLF successfully, then same-process contention assumption fails"
+  },
+  "outstanding": [
+    "Fresh CI after test repairs; actual Windows contention, canceled write, boundary and empty controls",
+    "Windows/macOS release artifacts",
+    "Whole stable API, personal extension/proposed API workflows and visual/configuration/account/storage fidelity",
+    "Reviewed version and release publication gates"
+  ]
+}
