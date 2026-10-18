@@ -2,7 +2,7 @@
 //! occupied worker merely because its native receipt has retired.
 use anyhow::{Result, bail};
 use std::{
-    io::Read,
+    io::{Read, Write},
     process::{Command, Stdio},
     sync::{
         Arc, OnceLock,
@@ -12,7 +12,7 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
-const MAX_BYTES: usize = 1024 * 1024;
+pub(crate) const MAX_BYTES: usize = 1024 * 1024;
 static BUSY: OnceLock<Arc<AtomicBool>> = OnceLock::new();
 struct Slot(Arc<AtomicBool>);
 impl Drop for Slot {
@@ -38,6 +38,53 @@ impl Worker {
     }
     pub(crate) fn occupied() -> bool {
         BUSY.get().is_some_and(|busy| busy.load(Ordering::Acquire))
+    }
+    pub(crate) fn start_write(text: Arc<str>) -> Result<Self> {
+        if text.len() > MAX_BYTES {
+            bail!("Clipboard text exceeds 1 MiB");
+        }
+        Self::start_with(
+            BUSY.get_or_init(|| Arc::new(AtomicBool::new(false)))
+                .clone(),
+            move |sender, cancel, slot| {
+                let candidates: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
+                    &[("pbcopy", &[])]
+                } else {
+                    &[
+                        ("wl-copy", &[]),
+                        ("xclip", &["-selection", "clipboard", "-in"]),
+                    ]
+                };
+                let _ = sender.send(transfer_commands(candidates, &cancel, &slot, Some(&text)));
+            },
+        )
+    }
+    pub(crate) fn cancel(&self) {
+        self.cancel.store(true, Ordering::Release);
+    }
+    #[cfg(test)]
+    pub(crate) fn start_commands(
+        busy: Arc<AtomicBool>,
+        commands: Vec<(String, Vec<String>)>,
+        input: Option<Arc<str>>,
+    ) -> Result<Self> {
+        Self::start_with(busy, move |sender, cancel, slot| {
+            let arguments: Vec<_> = commands
+                .iter()
+                .map(|(_, args)| args.iter().map(String::as_str).collect::<Vec<_>>())
+                .collect();
+            let candidates: Vec<_> = commands
+                .iter()
+                .zip(&arguments)
+                .map(|((name, _), args)| (name.as_str(), args.as_slice()))
+                .collect();
+            let _ = sender.send(transfer_commands(
+                &candidates,
+                &cancel,
+                &slot,
+                input.as_deref(),
+            ));
+        })
     }
     fn start_with(
         busy: Arc<AtomicBool>,
@@ -103,39 +150,69 @@ fn read_commands(
     cancel: &AtomicBool,
     slot: &Arc<Slot>,
 ) -> Result<Option<String>, String> {
+    transfer_commands(candidates, cancel, slot, None)
+}
+fn transfer_commands(
+    candidates: &[(&str, &[&str])],
+    cancel: &AtomicBool,
+    slot: &Arc<Slot>,
+    input: Option<&str>,
+) -> Result<Option<String>, String> {
+    if input.is_some_and(|text| text.len() > MAX_BYTES) {
+        return Err("Clipboard text exceeds 1 MiB".into());
+    }
     for (name, args) in candidates {
         if cancel.load(Ordering::Acquire) {
             return Ok(None);
         }
         let mut child = match Command::new(name)
             .args(*args)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
+            .stdin(if input.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
+            .stdout(if input.is_none() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
             .stderr(Stdio::null())
             .spawn()
         {
             Ok(child) => child,
             Err(_) => continue,
         };
-        let stdout = child.stdout.take().expect("piped clipboard output");
+        let stdout = child.stdout.take();
+        let stdin = child.stdin.take();
+        let payload = input.map(str::to_owned);
         let (sender, receiver) = mpsc::sync_channel(1);
         let pipe_slot = slot.clone();
         let reader = thread::Builder::new()
             .name("snippet-clipboard-pipe".into())
             .spawn(move || {
                 let _slot = pipe_slot;
-                let mut bytes = Vec::new();
-                let result = stdout
-                    .take(MAX_BYTES as u64 + 1)
-                    .read_to_end(&mut bytes)
-                    .map_err(|error| error.to_string())
-                    .and_then(|_| {
-                        if bytes.len() > MAX_BYTES {
-                            return Err("Snippet clipboard exceeds 1 MiB".into());
-                        }
-                        String::from_utf8(bytes)
-                            .map_err(|_| "Snippet clipboard is not UTF-8".into())
-                    });
+                let result = if let Some(payload) = payload {
+                    stdin
+                        .expect("piped clipboard input")
+                        .write_all(payload.as_bytes())
+                        .map(|()| String::new())
+                        .map_err(|error| error.to_string())
+                } else {
+                    let mut bytes = Vec::new();
+                    stdout
+                        .expect("piped clipboard output")
+                        .take(MAX_BYTES as u64 + 1)
+                        .read_to_end(&mut bytes)
+                        .map_err(|error| error.to_string())
+                        .and_then(|_| {
+                            if bytes.len() > MAX_BYTES {
+                                return Err("Snippet clipboard exceeds 1 MiB".into());
+                            }
+                            String::from_utf8(bytes)
+                                .map_err(|_| "Snippet clipboard is not UTF-8".into())
+                        })
+                };
                 let _ = sender.send(result);
             });
         let reader = match reader {
@@ -350,5 +427,66 @@ mod tests {
         let started = Instant::now();
         assert_eq!(run(vec!["-c".into(), "exec sleep 2".into()]).unwrap(), None);
         assert!(started.elapsed() < Duration::from_secs(1));
+    }
+    #[cfg(unix)]
+    #[test]
+    fn real_clipboard_write_transfers_exact_bytes_and_a_live_descendant_pipe_keeps_the_original_permit()
+     {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("clipboard");
+        let text = "猫🙂\r\nsecond\r\n";
+        let busy = Arc::new(AtomicBool::new(false));
+        let mut worker = Worker::start_commands(
+            busy.clone(),
+            vec![(
+                "/bin/sh".into(),
+                vec![
+                    "-c".into(),
+                    "cat > \"$1\"".into(),
+                    "fixture".into(),
+                    path.to_str().unwrap().into(),
+                ],
+            )],
+            Some(Arc::from(text)),
+        )
+        .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let result = loop {
+            if let Some(result) = worker.try_finish() {
+                break result;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(1));
+        };
+        assert_eq!(result.unwrap().as_deref(), Some(""));
+        assert_eq!(std::fs::read(&path).unwrap(), text.as_bytes());
+        drop(worker);
+        assert!(!busy.load(Ordering::Acquire));
+        assert!(Worker::start_write(Arc::from("x".repeat(MAX_BYTES + 1))).is_err());
+        let mut worker = Worker::start_commands(
+            busy.clone(),
+            vec![(
+                "/bin/sh".into(),
+                vec!["-c".into(), "(sleep 1; cat >/dev/null) <&0 & exit 0".into()],
+            )],
+            Some(Arc::from("x".repeat(MAX_BYTES))),
+        )
+        .unwrap();
+        let result = loop {
+            if let Some(result) = worker.try_finish() {
+                break result;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(1));
+        };
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("pipe has not retired"), "{error}");
+        drop(worker);
+        assert!(busy.load(Ordering::Acquire));
+        assert!(Worker::start_with(busy.clone(), |_, _, _| {}).is_err());
+        while busy.load(Ordering::Acquire) {
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(1));
+        }
     }
 }

@@ -1,0 +1,29 @@
+{
+  "publisher": "fixture",
+  "name": "clipboard",
+  "version": "1.0.0",
+  "main": "main.cjs",
+  "engines": {
+    "vscode": "*"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "fixture.clipboard.roundtrip",
+        "title": "Roundtrip extension clipboard"
+      },
+      {
+        "command": "fixture.clipboard.unavailable",
+        "title": "Refuse unavailable clipboard"
+      },
+      {
+        "command": "fixture.clipboard.retired",
+        "title": "Retire extension clipboard"
+      },
+      {
+        "command": "fixture.clipboard.parallel",
+        "title": "Read parallel clipboard"
+      }
+    ]
+  }
+}

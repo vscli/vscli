@@ -1,0 +1,241 @@
+{
+  "schema": "vscli-clipboard-api-validation-v1",
+  "base_commit": "d789cc92d56d0659cb409f24f3dc18342d2c0be3",
+  "scope": "Public env.clipboard read/write through real bounded native helpers; whole stable API, OS/platform and seamless personal migration qualification remain required.",
+  "reference": {
+    "revision": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+    "extension_host": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostClipboard.ts",
+    "main_thread": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/browser/mainThreadClipboard.ts"
+  },
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1771,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "ef3bd437d0b7ad1dcdff5c7f850feb75f9780642d34a7f048d7ecf447412a49b"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "c4ecfaafebfb86e3f3eb33145ef0b9fb47ff7de2dbb8fe1372c42833f6a49a29"
+  },
+  "criteria": {
+    "passed": 5,
+    "total": 5,
+    "items": [
+      "Frozen original-owner clipboard read/string and write/void contracts validate bounds and well-formed UTF-16 before native dispatch",
+      "The existing one-permit native clipboard worker retains real process and pipe occupancy through read/write cancellation and descendant retirement",
+      "Actual child helpers, unavailable-backend errors, retired callers and eight FIFO reads preserve native dirty models, history and original disk bytes",
+      "Public clipboard and native Ctrl+V share isolated helpers through Unicode CRLF save/Undo/Redo, restart without Node and adjacent integration workflows",
+      "Complete native/host regressions, unchanged upstream controls, terminal checks, formatting and strict locked Clippy pass on the recorded final source"
+    ]
+  },
+  "native": {
+    "reports": 77,
+    "passed": 1719,
+    "failed": 0,
+    "ignored": 23,
+    "library": 1347
+  },
+  "host": {
+    "passed": 837,
+    "failed": 0
+  },
+  "new_evidence": {
+    "native_library_tests": 3,
+    "native_app_scenarios": 4,
+    "host_tests": 5,
+    "terminal_scenarios": 2
+  },
+  "terminal_scenarios": 12,
+  "checks": [
+    {
+      "label": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-fmt.log"
+    },
+    {
+      "label": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-clippy.log"
+    },
+    {
+      "label": "rust",
+      "command": [
+        "cargo",
+        "test",
+        "--all-targets",
+        "--locked",
+        "--no-fail-fast",
+        "--",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-rust.log"
+    },
+    {
+      "label": "build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-build.log"
+    },
+    {
+      "label": "sort-lines",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "extension_installation",
+        "--test",
+        "extension_host",
+        "upstream_sort_lines",
+        "--",
+        "--ignored"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-sort-lines.log"
+    },
+    {
+      "label": "extension_clipboard-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_clipboard_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-extension_clipboard-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_editor_snippets-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_snippets_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-extension_editor_snippets-pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "label": "extension_configuration_update-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_configuration_update_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-extension_configuration_update-pty.log",
+      "passed_scenarios": 3
+    },
+    {
+      "label": "extension_documents-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_documents_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-extension_documents-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_context_keys-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_context_keys_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-qualified-extension_context_keys-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "all-host",
+      "command": [
+        "node",
+        "scripts/test_extension_host.cjs"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-final-host-all.log",
+      "passed_tests": 837
+    },
+    {
+      "label": "progress-script-controls",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-clipboard-script-tests.log",
+      "passed_tests": 28
+    }
+  ],
+  "retained_failures": [
+    {
+      "log": "/tmp/vscli-clipboard-native-focused.log",
+      "finding": "Initial real-host tests caught a missing embedded clipboard.cjs; the write-pipe fixture also needed explicit stdin inheritance for a background shell. Both were repaired before final qualification."
+    },
+    {
+      "log": "/tmp/vscli-clipboard-utf16-before.log",
+      "finding": "New controls reproduced accepted unpaired UTF-16 strings and malformed read receipts. Final admission/framing rejects them before dispatch or slot release. The entire final native/host cohort was rerun after this hardening."
+    }
+  ],
+  "qualification": {
+    "local": "5/5 named local criteria; no whole stable API row qualified.",
+    "helpers": "Real child processes and isolated synthetic helper programs validate the bridge. No personal clipboard contents are accessed.",
+    "platforms": "Locally tested on Linux. macOS helper mapping and native Windows backend/actual desktop qualification remain open.",
+    "ci": "Preceding 4d69f8d main CI passed Linux and Windows; macOS policy-admission comparison was repaired using the original artifact (31 tests pass). Dedicated Windows capture aborted during VS Code download before targets. Fresh feature-head CI is required.",
+    "release": "No release package, tag or publication created for this cohort yet."
+  },
+  "remaining": [
+    "Native Windows clipboard backend and actual OS/display-server qualification",
+    "Larger values, arbitrary UTF-16 strings and full runtime behavior",
+    "Simultaneous clipboard mutations, helper daemon behavior and wider lifecycle qualification",
+    "Remaining environment APIs and the entire stable extension API",
+    "Personal extension workflows/proposals, arbitrary visual/configuration fidelity, storage/accounts and cross-platform release qualification"
+  ]
+}

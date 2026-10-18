@@ -13,6 +13,7 @@ const {createRenameProviders}=require('./rename-providers.cjs');
 const { createPrompts } = require('./prompts.cjs');
 const { createSurfaces } = require('./surfaces.cjs');
 const { createConfiguration } = require('./configuration.cjs');
+const { createClipboard } = require('./clipboard.cjs');
 const { createWorkspaceEdits } = require('./workspace-edits.cjs');
 const { RelativePattern, createFileSearch } = require('./workspace-files.cjs');
 const { createFileWatchers } = require('./file-watchers.cjs');
@@ -52,6 +53,10 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
   const configuration = createConfiguration({enabled:sessionOptions.configurationWrites===true,
     captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
     write:(owner,args)=>documentServices.call(owner,'nativeConfigurationUpdate',args),
+  });
+  const clipboard = createClipboard({enabled:sessionOptions.clipboard===true,
+    captureCaller:owner=>callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);}),
+    request:(owner,method,args)=>documentServices.call(owner,method,args),
   });
   const localization = createLocalization(sessionOptions.locale ?? 'en', (owner, text) => console.error(owner + ': ' + text));
   let active, workspaceRoot, activation, generation = -1;
@@ -586,7 +591,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
     version: '1.95.0',
     ConfigurationTarget: {Global:1,Workspace:2,WorkspaceFolder:3,1:'Global',2:'Workspace',3:'WorkspaceFolder'},
     UIKind: Object.freeze({ Desktop: 1, Web: 2 }),
-    env: supported('env', Object.freeze({ appName: 'VSCLI', appRoot: sessionOptions.applicationRoot ?? '', appHost: 'desktop', language: sessionOptions.locale ?? 'en', uiKind: 1, remoteName: undefined })),
+    env: supported('env', Object.freeze({ appName: 'VSCLI', appRoot: sessionOptions.applicationRoot ?? '', appHost: 'desktop', language: sessionOptions.locale ?? 'en', uiKind: 1, remoteName: undefined, clipboard: clipboard.forOwner('') })),
     l10n: supported('l10n', localization.forOwner('')),
     TextEditorCursorStyle:editorPresentation.TextEditorCursorStyle, TextEditorLineNumbersStyle:editorPresentation.TextEditorLineNumbersStyle, TextEditorRevealType:editorPresentation.TextEditorRevealType,
     TextEditorSelectionChangeKind: Object.freeze({Keyboard:1,Mouse:2,Command:3}),
@@ -685,6 +690,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
       // The native document objects are shared; only request-producing editor handles are scoped.
       const facade = supported('vscode', {
         ...api,
+        env: supported('env', Object.freeze({...api.env,clipboard:clipboard.forOwner(owner)})),
         l10n: supported('l10n', localization.forOwner(owner)),
         languages: supported('languages', { ...diagnostics.forOwner(owner), ...(sessionOptions.languageProviders ? providers.forOwner(owner) : {}),
           ...(sessionOptions.documentLanguage ? {setTextDocumentLanguage:(document,language)=>documentServices.setTextDocumentLanguage(owner,document,language)} : {}) }),

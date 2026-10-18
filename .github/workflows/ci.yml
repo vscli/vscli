@@ -404,6 +404,10 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/extension_configuration_update_pty.py target/debug/vscli
+      - name: Run extension clipboard and native paste workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/extension_clipboard_pty.py target/debug/vscli
       - name: Run native extension language provider workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

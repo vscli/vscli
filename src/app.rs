@@ -6,6 +6,7 @@ mod debugger;
 mod document_references;
 mod editor_layout;
 mod extension_activation;
+mod extension_clipboard;
 pub(crate) mod extension_configuration;
 mod extension_editor_presentation;
 mod extension_editor_snippets;
@@ -677,6 +678,7 @@ pub struct App {
     settings_user: Option<PathBuf>,
     settings_writes: settings_persistence::State,
     extension_configuration: extension_configuration::State,
+    extension_clipboard: extension_clipboard::State,
     saving: saving::State,
     pub diagnostics: HashMap<PathBuf, crate::lsp::DiagnosticPublication>,
     pub editor_area: Rect,
@@ -826,6 +828,7 @@ impl App {
             settings_user: None,
             settings_writes: settings_persistence::State::default(),
             extension_configuration: extension_configuration::State::default(),
+            extension_clipboard: extension_clipboard::State::default(),
             saving: saving::State::default(),
             diagnostics: HashMap::new(),
             editor_area: Rect::default(),
@@ -855,6 +858,7 @@ impl App {
         changed |= self.poll_migration();
         changed |= self.poll_settings_writes();
         changed |= self.poll_extension_configuration_writes();
+        changed |= self.poll_extension_clipboard();
         if let Some(result) = self
             .settings_loader
             .as_mut()

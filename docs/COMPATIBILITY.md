@@ -483,3 +483,10 @@ local profile/workspace JSON values and language overrides. They await actual
 persistence and native reload; dirty settings refuse without overwriting unsaved
 work. [Behavior and remaining qualification](CONFIGURATION_API.md) distinguish
 this usable path from complete settings or extension compatibility.
+
+
+The optional host's [system clipboard bridge](CLIPBOARD_API.md) supports bounded
+public asynchronous reads/writes through native helper receipts. Isolated helper
+and terminal tests cover Unicode/CRLF native paste, history and no-Node restart.
+Actual display-server and Windows clipboard qualification remain open; unavailable
+backends return errors and preserve native editing.

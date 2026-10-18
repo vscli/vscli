@@ -365,3 +365,18 @@ held pre-write reader cannot acknowledge a newer write; shared/hidden clean
 settings refresh before public success, and late dirty edits retain native history
 with an explicit already-persisted error. Hardlink resources remain independent.
 [Receipts and remaining qualification](validation/configuration-model-refresh.json).
+
+
+The asynchronous extension system-clipboard bridge passes **5/5 local criteria**
+on a 1,719-test Rust / 837-test host cohort, with twelve terminal scenarios. Native
+paste shares the same isolated helper data, Unicode/CRLF editing and history
+remain correct, and native editing restarts without Node. Personal clipboard
+contents were not read or changed. Actual OS/display-server and Windows backend
+qualification remain open. [Evidence](validation/clipboard-api.json).
+
+At `4d69f8d`, main CI passed Linux/Windows and failed a macOS save-policy assertion.
+Its unchanged captured artifact proves an organize-imports request despite an
+unapplied edit. The locally reproduced comparison is repaired without modifying
+source captures or output/history oracles. Dedicated Windows capture failed during
+its VS Code download before any target began; this is separate from native tests.
+Fresh feature-head platform runs are required.

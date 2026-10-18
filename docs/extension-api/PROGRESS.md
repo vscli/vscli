@@ -1,5 +1,16 @@
 # Stable API delivery progress
 
+The system-clipboard bridge passes **5/5 local criteria**. Frozen original-owner
+reads/writes use the existing bounded native helper worker; unavailable backends
+refuse, and malformed/late replies retain actual occupancy. Native paste,
+Unicode/CRLF save/Undo/Redo and no-Node restart pass with isolated helper programs.
+The final source passes **1,719 Rust tests across 77 reports** (1,347 library;
+23 ignored), **837 host tests**, four unchanged Sort Lines controls and twelve
+terminal scenarios, plus formatting and strict locked Clippy.
+[Evidence](../validation/clipboard-api.json) retains the initial embedding and
+UTF-16 failures. Actual OS/display-server and Windows backend qualification,
+remaining environment contracts and the whole stable API remain required.
+
 The open-settings integration follow-up passes **4/4 local criteria**. Shared and
 API-hidden settings text/version events now precede configuration-write success;
 an actual held reader cannot satisfy a newer write's receipt. Late dirty edits

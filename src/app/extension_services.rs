@@ -290,7 +290,9 @@ impl App {
             self.message = format!("Native document customer refused: {error:#}");
             return false;
         }
-        if self.complete_extension_configuration_write(host) {
+        if self.complete_extension_clipboard(host)
+            || self.complete_extension_configuration_write(host)
+        {
             return true;
         }
         // Capture every queued document operation when first observed by App,
@@ -310,6 +312,8 @@ impl App {
                     | Operation::LoadCancel
                     | Operation::State(_)
                     | Operation::ConfigurationWrite(_)
+                    | Operation::ClipboardRead
+                    | Operation::ClipboardWrite(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -526,8 +530,11 @@ impl App {
             return false;
         };
         if self
-            .extension_configuration
+            .extension_clipboard
             .pending(service.request.session, &service.id)
+            || self
+                .extension_configuration
+                .pending(service.request.session, &service.id)
         {
             return false;
         }
@@ -549,6 +556,8 @@ impl App {
                     | Operation::LoadCancel
                     | Operation::State(_)
                     | Operation::ConfigurationWrite(_)
+                    | Operation::ClipboardRead
+                    | Operation::ClipboardWrite(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -566,6 +575,8 @@ impl App {
                     | Operation::LoadCancel
                     | Operation::State(_)
                     | Operation::ConfigurationWrite(_)
+                    | Operation::ClipboardRead
+                    | Operation::ClipboardWrite(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -595,6 +606,8 @@ impl App {
                     | Operation::LoadCancel
                     | Operation::State(_)
                     | Operation::ConfigurationWrite(_)
+                    | Operation::ClipboardRead
+                    | Operation::ClipboardWrite(_)
                     | Operation::Save(_)
                     | Operation::WorkspaceApply(_)
                     | Operation::FindFiles(..)
@@ -650,6 +663,11 @@ impl App {
                 {
                     self.message =
                         format!("Native file discovery refusal reply retained: {answer_error:#}");
+                }
+            }
+            Operation::ClipboardRead | Operation::ClipboardWrite(_) => {
+                if let Err(error) = self.start_extension_clipboard(service.clone()) {
+                    self.answer_native_service(host, &service, Err(error));
                 }
             }
             Operation::ConfigurationWrite(capture) => {

@@ -859,6 +859,74 @@
         "Entire stable extension API, personal workflows, arbitrary visual fidelity, storage/accounts and release qualification"
       ],
       "validation_receipt": "docs/validation/configuration-model-refresh.json"
+    },
+    {
+      "id": "native-system-clipboard",
+      "api_ids": [
+        "vscode.env.clipboard",
+        "vscode.Clipboard.readText",
+        "vscode.Clipboard.writeText"
+      ],
+      "criteria": [
+        {
+          "name": "Frozen original-owner clipboard read/string and write/void contracts validate bounds and well-formed UTF-16 before native dispatch",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "Frozen original-owner clipboard read/string and write/void contracts validate bounds and well-formed UTF-16 before native dispatch"
+            }
+          ]
+        },
+        {
+          "name": "The existing one-permit native clipboard worker retains real process and pipe occupancy through read/write cancellation and descendant retirement",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "The existing one-permit native clipboard worker retains real process and pipe occupancy through read/write cancellation and descendant retirement"
+            }
+          ]
+        },
+        {
+          "name": "Actual child helpers, unavailable-backend errors, retired callers and eight FIFO reads preserve native dirty models, history and original disk bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "Actual child helpers, unavailable-backend errors, retired callers and eight FIFO reads preserve native dirty models, history and original disk bytes"
+            }
+          ]
+        },
+        {
+          "name": "Public clipboard and native Ctrl+V share isolated helpers through Unicode CRLF save/Undo/Redo, restart without Node and adjacent integration workflows",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "Public clipboard and native Ctrl+V share isolated helpers through Unicode CRLF save/Undo/Redo, restart without Node and adjacent integration workflows"
+            }
+          ]
+        },
+        {
+          "name": "Complete native/host regressions, unchanged upstream controls, terminal checks, formatting and strict locked Clippy pass on the recorded final source",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "Complete native/host regressions, unchanged upstream controls, terminal checks, formatting and strict locked Clippy pass on the recorded final source"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Native Windows clipboard backend and actual OS/display-server qualification",
+        "Larger values, arbitrary UTF-16 strings and full runtime behavior",
+        "Simultaneous clipboard mutations, helper daemon behavior and wider lifecycle qualification",
+        "Remaining environment APIs and the entire stable extension API",
+        "Personal extension workflows/proposals, arbitrary visual/configuration fidelity, storage/accounts and cross-platform release qualification"
+      ],
+      "validation_receipt": "docs/validation/clipboard-api.json"
     }
   ],
   "next_batch": {

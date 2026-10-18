@@ -41,6 +41,8 @@ pub(crate) enum Operation {
     },
     WorkspaceApply(Arc<crate::app::workspace_transactions::Capture>),
     ConfigurationWrite(Arc<crate::app::extension_configuration::Capture>),
+    ClipboardRead,
+    ClipboardWrite(Arc<str>),
     FindFiles(
         Arc<crate::workspace_file_search::Capture>,
         Arc<std::sync::atomic::AtomicBool>,
@@ -230,6 +232,7 @@ impl Client {
         } else if matches!(
             method,
             "nativeWorkspaceApplyEdit"
+                | "nativeClipboardWrite"
                 | "nativeUntitledDocumentOpen"
                 | "nativeVirtualDocumentOpen"
                 | "nativeVirtualDocumentChange"
@@ -337,6 +340,24 @@ impl Client {
                     preserve_focus: args.preserve_focus,
                     context,
                 }
+            }
+            "nativeClipboardRead" => {
+                ensure_clipboard_read_args(&request.args)?;
+                request.args = Value::Null;
+                Operation::ClipboardRead
+            }
+            "nativeClipboardWrite" => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Args {
+                    text: String,
+                }
+                let args: Args = serde_json::from_value(request.args.take())?;
+                anyhow::ensure!(
+                    args.text.len() <= crate::snippet_clipboard::MAX_BYTES,
+                    "Clipboard text exceeds 1 MiB"
+                );
+                Operation::ClipboardWrite(Arc::from(args.text))
             }
             "nativeConfigurationUpdate" => {
                 let capture = self
@@ -466,6 +487,8 @@ impl Client {
                 | Operation::LoadCancel
                 | Operation::State(_)
                 | Operation::ConfigurationWrite(_)
+                | Operation::ClipboardRead
+                | Operation::ClipboardWrite(_)
                 | Operation::Save(_)
                 | Operation::TabsClose { .. }
                 | Operation::WorkspaceApply(_)
@@ -603,6 +626,8 @@ impl Client {
                 | Operation::LoadCancel
                 | Operation::State(_)
                 | Operation::ConfigurationWrite(_)
+                | Operation::ClipboardRead
+                | Operation::ClipboardWrite(_)
                 | Operation::Save(_)
                 | Operation::TabsClose { .. }
                 | Operation::WorkspaceApply(_)
@@ -654,6 +679,8 @@ impl Client {
                 | Operation::LoadCancel
                 | Operation::State(_)
                 | Operation::ConfigurationWrite(_)
+                | Operation::ClipboardRead
+                | Operation::ClipboardWrite(_)
                 | Operation::WorkspaceApply(_)
                 | Operation::FindFiles(..)
                 | Operation::UntitledOpen(_)
@@ -1505,3 +1532,8 @@ mod tests {
 
 #[cfg(test)]
 mod save_wait_poll_tests;
+
+fn ensure_clipboard_read_args(value: &Value) -> Result<()> {
+    anyhow::ensure!(value.is_null(), "Clipboard read accepts no arguments");
+    Ok(())
+}
