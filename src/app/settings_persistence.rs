@@ -5,6 +5,7 @@ use crate::{
     settings_writer::{Event as WriteEvent, Intent, Outcome, Writer},
 };
 use anyhow::{Context, bail, ensure};
+use std::sync::Arc;
 
 const MODELS: usize = 128;
 const PATH_BYTES: usize = 512 * 1024;
@@ -15,6 +16,15 @@ struct ModelProof {
     text_epoch: u64,
     save_generation: u64,
 }
+pub(super) struct WriteModels(Vec<ModelProof>);
+impl WriteModels {
+    pub(super) fn paths(&self) -> Vec<(u64, PathBuf)> {
+        self.0
+            .iter()
+            .filter_map(|proof| proof.path.clone().map(|path| (proof.id, path)))
+            .collect()
+    }
+}
 struct Request {
     id: u64,
     profile: u64,
@@ -22,7 +32,7 @@ struct Request {
     path: PathBuf,
     scope: RootWriteScope,
     language: String,
-    models: Vec<ModelProof>,
+    models: WriteModels,
     committed: bool,
 }
 #[derive(Default)]
@@ -31,6 +41,7 @@ pub(super) struct State {
     profile: u64,
     configured: bool,
     ready: bool,
+    reload: Arc<()>,
     latest: Option<Request>,
 }
 impl App {
@@ -86,14 +97,20 @@ impl App {
     }
     pub(super) fn settings_profile_loaded(&mut self) {
         self.settings_writes.ready = true;
+        self.settings_writes.reload = Arc::new(());
     }
     pub(super) fn settings_profile_load_failed(&mut self) {
         self.settings_writes.ready = false;
+        self.settings_writes.reload = Arc::new(());
         self.retire_save_code_actions("settings ownership changed during code actions");
         self.retire_save_formatting("settings ownership changed during formatting");
         self.retire_autosave_interest();
     }
     pub(super) fn request_persistent_breadcrumbs(&mut self, enabled: bool) -> Result<()> {
+        ensure!(
+            !self.extension_configuration.busy(),
+            "An extension settings write is still completing; retry the toggle"
+        );
         ensure!(
             self.settings_writes.ready,
             "Settings profile failed to load; fix its settings before writing"
@@ -119,38 +136,8 @@ impl App {
             "breadcrumbs.enabled".into(),
             Value::Bool(enabled),
         )?;
-        let mut models = Vec::new();
-        let mut bytes = 0;
-        for doc in self.documents.iter().chain(&self.hidden_documents) {
-            ensure!(
-                models.len() < MODELS,
-                "Settings write proof exceeds 128 document models"
-            );
-            if let Some(doc_path) = &doc.path {
-                bytes += doc_path.as_os_str().len();
-                ensure!(
-                    bytes <= PATH_BYTES,
-                    "Settings write model paths exceed 512 KiB"
-                );
-                if doc_path == &path && doc.dirty() {
-                    bail!(
-                        "Settings buffer has unsaved changes; save or close it before toggling Breadcrumbs"
-                    );
-                }
-            }
-            models.push(ModelProof {
-                id: doc.id,
-                path: doc.path.clone(),
-                text_epoch: doc.text_epoch(),
-                save_generation: doc.save_generation(),
-            });
-        }
-        let intent = intent.with_models(
-            models
-                .iter()
-                .filter_map(|proof| proof.path.clone().map(|path| (proof.id, path)))
-                .collect(),
-        )?;
+        let models = self.capture_settings_write_models(&path)?;
+        let intent = intent.with_models(models.paths())?;
         let id = self.settings_writes.writer.request(intent)?;
         self.settings_writes.latest = Some(Request {
             id,
@@ -167,6 +154,41 @@ impl App {
         self.set_breadcrumbs_override(Some(enabled));
         self.message = "Saving Breadcrumbs setting…".into();
         Ok(())
+    }
+    pub(super) fn settings_write_ready(&self) -> bool {
+        self.settings_writes.configured && self.settings_writes.ready
+    }
+    pub(super) fn settings_reload_identity(&self) -> Arc<()> {
+        self.settings_writes.reload.clone()
+    }
+    pub(super) fn capture_settings_write_models(&self, path: &Path) -> Result<WriteModels> {
+        let mut models = Vec::new();
+        let mut bytes = 0;
+        for doc in self.documents.iter().chain(&self.hidden_documents) {
+            ensure!(
+                models.len() < MODELS,
+                "Settings write proof exceeds 128 document models"
+            );
+            if let Some(doc_path) = &doc.path {
+                bytes += doc_path.as_os_str().len();
+                ensure!(
+                    bytes <= PATH_BYTES,
+                    "Settings write model paths exceed 512 KiB"
+                );
+                if doc_path.as_path() == path && doc.dirty() {
+                    bail!(
+                        "Settings buffer has unsaved changes; save or close it before updating settings"
+                    );
+                }
+            }
+            models.push(ModelProof {
+                id: doc.id,
+                path: doc.path.clone(),
+                text_epoch: doc.text_epoch(),
+                save_generation: doc.save_generation(),
+            });
+        }
+        Ok(WriteModels(models))
     }
     fn authorize_settings_write(&self, info: &crate::settings_writer::PreparedInfo) -> Result<()> {
         ensure!(
@@ -192,6 +214,13 @@ impl App {
                 == request.scope,
             "Settings scope changed; write retired"
         );
+        self.authorize_settings_write_models(info, &request.models)
+    }
+    pub(super) fn authorize_settings_write_models(
+        &self,
+        info: &crate::settings_writer::PreparedInfo,
+        models: &WriteModels,
+    ) -> Result<()> {
         let mut count = 0;
         for doc in self.documents.iter().chain(&self.hidden_documents) {
             count += 1;
@@ -202,8 +231,8 @@ impl App {
             let Some(path) = &doc.path else {
                 continue;
             };
-            let proof = request
-                .models
+            let proof = models
+                .0
                 .iter()
                 .find(|proof| proof.id == doc.id)
                 .context("Document opened during settings preparation; retry the toggle")?;

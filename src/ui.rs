@@ -1,4 +1,5 @@
 mod editor_layout;
+mod file_edit_review;
 mod group_tabs;
 mod keyboard;
 pub(crate) mod welcome;
@@ -64,31 +65,11 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         return;
     }
     let rows = Layout::vertical([
-        Constraint::Length(1),
         Constraint::Min(1),
         Constraint::Length(1),
         Constraint::Length(1),
     ])
     .split(area);
-    app.tab_area = rows[0];
-    let mut tabs = vec![Span::styled(
-        " VSCLI ",
-        Style::default()
-            .fg(colors.accent)
-            .add_modifier(Modifier::BOLD),
-    )];
-    let workspace = app.workspace.root.file_name().map_or_else(
-        || app.workspace.root.to_string_lossy(),
-        |name| name.to_string_lossy(),
-    );
-    tabs.push(Span::styled(
-        format!(" · {}", group_tabs::bounded_label(&workspace)),
-        Style::default().fg(colors.muted),
-    ));
-    frame.render_widget(
-        Paragraph::new(Line::from(tabs)).style(Style::default().bg(colors.panel)),
-        rows[0],
-    );
     let columns = Layout::horizontal([
         Constraint::Length(if app.sidebar && area.width >= 60 {
             26
@@ -97,7 +78,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         }),
         Constraint::Min(1),
     ])
-    .split(rows[1]);
+    .split(rows[0]);
     if columns[0].width > 0 {
         draw_explorer(frame, app, columns[0]);
     } else {
@@ -134,7 +115,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     frame.render_widget(
         Paragraph::new(format!(" {}", clean(&app.message)))
             .style(Style::default().fg(colors.muted)),
-        rows[2],
+        rows[1],
     );
     let status = if let Some(doc) = app.active_document() {
         format!(
@@ -173,9 +154,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     };
     frame.render_widget(
         Paragraph::new(status).style(Style::default().bg(colors.selection).fg(colors.foreground)),
-        rows[3],
+        rows[2],
     );
-    draw_extension_status(frame, app, rows[3]);
+    draw_extension_status(frame, app, rows[2]);
     draw_signature(frame, app);
     draw_suggestions(frame, app);
     if app.prompt.is_none() && app.modal.is_none() {
@@ -614,7 +595,7 @@ fn draw_breadcrumbs_picker(frame: &mut Frame, app: &mut App) {
 
 fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
     let colors = app.theme.colors;
-    let digits = if app.doc().line_numbers == crate::settings::LineNumbers::Off {
+    let digits = if app.doc().editor_line_numbers() == crate::settings::LineNumbers::Off {
         0
     } else {
         app.doc().line_count().to_string().len().max(3) as u16
@@ -633,15 +614,17 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
     let doc = app.doc_mut();
     let row = doc.row();
     let col = doc.visual_column();
-    if row < doc.top {
-        doc.top = row;
-    } else if row >= doc.top + text_area.height as usize {
-        doc.top = row + 1 - text_area.height as usize;
-    }
-    if col < doc.left {
-        doc.left = col;
-    } else if col >= doc.left + text_area.width as usize {
-        doc.left = col + 1 - text_area.width as usize;
+    if doc.editor_cursor_following() {
+        if row < doc.top {
+            doc.top = row;
+        } else if row >= doc.top + text_area.height as usize {
+            doc.top = row + 1 - text_area.height as usize;
+        }
+        if col < doc.left {
+            doc.left = col;
+        } else if col >= doc.left + text_area.width as usize {
+            doc.left = col + 1 - text_area.width as usize;
+        }
     }
     let doc = app.doc();
     let selections: Vec<_> = doc
@@ -650,6 +633,14 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
         .map(|s| s.range())
         .filter(|range| !range.is_empty())
         .collect();
+    let first_row = doc.top.min(doc.line_count() - 1);
+    let end_row = doc.top.saturating_add(text_area.height as usize);
+    let end = if end_row < doc.line_count() {
+        doc.line_start(end_row)
+    } else {
+        doc.len() + 1
+    };
+    let decorations = doc.decoration_overlay(doc.line_start(first_row)..end, &app.theme);
     let grammar = app.syntax.get(doc);
     let language = app.language();
     for y in 0..text_area.height {
@@ -667,6 +658,12 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
             Block::default().style(base),
             Rect::new(area.x, area.y + y, area.width, 1),
         );
+        if let Some(bg) = decorations.whole_style_at(doc.line_start(row)).bg {
+            frame.render_widget(
+                Block::default().style(Style::default().bg(bg)),
+                Rect::new(text_area.x, text_area.y + y, text_area.width, 1),
+            );
+        }
         let issue = app
             .current_diagnostics()
             .iter()
@@ -685,7 +682,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 f.line == row + 1
                     && f.source.as_ref().and_then(|s| s.path.as_ref()) == doc.path.as_ref()
             });
-        let label = match doc.line_numbers {
+        let label = match doc.editor_line_numbers() {
             crate::settings::LineNumbers::Off => String::new(),
             crate::settings::LineNumbers::Relative if !active => {
                 row.abs_diff(doc.row()).to_string()
@@ -766,7 +763,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                             .map_or(colors.foreground, |style| app.theme.token(style))
                     })
                     .unwrap_or_else(|| styles.get(byte).copied().unwrap_or(colors.foreground));
-                let mut style = base.fg(color);
+                let mut style = base.fg(color).patch(decorations.style_at(char_pos));
                 if matches.iter().any(|r| r.contains(&byte)) {
                     style = style.bg(Color::Rgb(96, 72, 21));
                 }
@@ -817,10 +814,16 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect, focused: bool) {
                 cell.set_style(Style::default().bg(colors.foreground).fg(colors.background));
             }
         }
-        frame.set_cursor_position((
-            text_area.x + (col - doc.left) as u16,
-            text_area.y + (doc.row() - doc.top) as u16,
-        ));
+        if row >= doc.top
+            && row - doc.top < text_area.height as usize
+            && col >= doc.left
+            && col - doc.left < text_area.width as usize
+        {
+            frame.set_cursor_position((
+                text_area.x + (col - doc.left) as u16,
+                text_area.y + (row - doc.top) as u16,
+            ));
+        }
     }
 }
 
@@ -1036,6 +1039,15 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
         PromptKind::Theme => " Color Theme · select or Load Color Theme File from commands ",
         PromptKind::SearchExtensions => " Search Open VSX · Enter searches · Esc cancels ",
         PromptKind::StopExtension => " Stop Selected Extension ID (publisher.name) ",
+        PromptKind::VscodeApplicationPath => {
+            " Import VS Code · application or resources/app path (built-ins) "
+        }
+        PromptKind::VscodeExtensionsPath => {
+            " Import VS Code · installed extensions directory path "
+        }
+        PromptKind::VscodeImportPath => {
+            " Import VS Code · User directory path or .code-profile file "
+        }
         PromptKind::ThemeFile => " Load VS Code Color Theme (JSON/JSONC path) ",
         PromptKind::Open => " Open File (absolute or workspace-relative) ",
         PromptKind::SaveAs => " Save As (existing files are protected) ",
@@ -1069,12 +1081,18 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
     if inner.width == 0 || inner.height == 0 {
         return;
     }
-    let cursor_width = display_width(&p.text[..p.cursor]);
+    let password = matches!(&p.kind, PromptKind::Extension(request) if request.spec.password);
+    let masked;
+    let (text, cursor_width) = if password {
+        masked = "*".repeat(p.text.graphemes(true).count());
+        (masked.as_str(), p.text[..p.cursor].graphemes(true).count())
+    } else {
+        (p.text.as_str(), display_width(&p.text[..p.cursor]))
+    };
     let available = inner.width.saturating_sub(3) as usize;
     let skip = cursor_width.saturating_sub(available);
     let mut visual = 0;
-    let shown: String = p
-        .text
+    let shown: String = text
         .graphemes(true)
         .filter_map(|g| {
             let old = visual;
@@ -1203,6 +1221,10 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
 fn draw_modal(frame: &mut Frame, app: &mut App) {
     let colors = app.theme.colors;
     let (title, text) = match app.modal.as_ref().unwrap() {
+        Modal::FileEditReview(dialog) => {
+            file_edit_review::draw(frame, dialog, colors);
+            return;
+        }
         Modal::ExtensionSurfaces(_) | Modal::ExtensionTree => {
             draw_extension_modal(frame, app);
             return;
@@ -1272,6 +1294,12 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
             title,
             text,
             scroll,
+        }
+        | Modal::Migration {
+            title,
+            text,
+            scroll,
+            ..
         } => {
             let inner = popup(
                 frame,
@@ -1294,6 +1322,28 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
                     };
                     Line::styled(clean(line), Style::default().fg(color))
                 })
+                .collect();
+            frame.render_widget(Paragraph::new(lines), inner);
+            return;
+        }
+        Modal::Documentation {
+            title,
+            model,
+            scroll,
+        } => {
+            let inner = popup(
+                frame,
+                colors,
+                title,
+                110,
+                frame.area().height.saturating_sub(2),
+            );
+            let lines: Vec<_> = model
+                .display
+                .lines()
+                .skip(*scroll)
+                .take(inner.height as usize)
+                .map(|line| Line::styled(clean(line), Style::default().fg(colors.foreground)))
                 .collect();
             frame.render_widget(Paragraph::new(lines), inner);
             return;
@@ -1689,11 +1739,11 @@ fn draw_modal(frame: &mut Frame, app: &mut App) {
                 clean(&path.to_string_lossy())
             ),
         ),
-        Modal::Revert => (
+        Modal::Revert { name, .. } => (
             " Revert File ",
             format!(
                 "Discard in-memory edits and reload {} from disk?\n\n[Y] Revert    [N / Esc] Cancel",
-                clean(&app.doc().name())
+                clean(name)
             ),
         ),
     };
@@ -1777,8 +1827,8 @@ fn draw_suggestions(frame: &mut Frame, app: &App) {
             ));
         }
         // The retained source is bounded, and rendering visits only this small
-        // preview. Markdown remains inert text; terminal escapes are sanitized.
-        let preview: String = item.documentation.chars().take(8192).collect();
+        // preview. Markdown was projected once during publication; links remain inert.
+        let preview: String = item.display_documentation.chars().take(8192).collect();
         lines.extend(preview.lines().take(64).map(|line| Line::raw(clean(line))));
         frame.render_widget(Clear, area);
         frame.render_widget(
@@ -1871,7 +1921,7 @@ fn draw_signature(frame: &mut Frame, app: &App) {
     }
     let mut lines = vec![Line::from(label)];
     lines.extend(
-        clean_multiline(&hint.documentation)
+        clean_multiline(&hint.display_documentation)
             .lines()
             .take(4)
             .map(|line| Line::raw(line.to_owned())),
@@ -2140,6 +2190,64 @@ mod tests {
     use super::*;
     use ratatui::{Terminal, backend::TestBackend};
     #[test]
+    fn explicit_reveal_paints_off_caret_without_scrollback_and_navigation_resumes_follow() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        app.execute(
+            "workbench.action.files.newUntitledFile",
+            serde_json::Value::Null,
+        );
+        app.doc_mut().insert(
+            "α😀\r\nfirst\r\nsecond\r\n0123456789猫tail\r\nfourth\r\n",
+            false,
+        );
+        app.doc_mut().move_to(0, false);
+        let proof = app.doc().editor_view_identity();
+        let before = (
+            app.doc().id,
+            app.doc().text.to_string(),
+            app.doc().revision,
+            app.doc().text_epoch(),
+            app.doc().save_generation(),
+            app.doc().selections(),
+            app.doc().dirty(),
+        );
+        app.doc_mut().reveal_editor_view(&proof, 3, 10).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(50, 12)).unwrap();
+        let area = Rect::new(3, 2, 30, 4);
+        for _ in 0..2 {
+            terminal
+                .draw(|frame| draw_editor(frame, &mut app, area, true))
+                .unwrap();
+            assert_eq!((app.doc().top, app.doc().left), (3, 10));
+            let text = app.editor_area;
+            assert_eq!(terminal.backend().buffer()[(text.x, text.y)].symbol(), "猫");
+        }
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().text.to_string(),
+                app.doc().revision,
+                app.doc().text_epoch(),
+                app.doc().save_generation(),
+                app.doc().selections(),
+                app.doc().dirty()
+            ),
+            before
+        );
+        app.doc_mut().move_to(1, false);
+        app.doc_mut().move_to(0, false);
+        terminal
+            .draw(|frame| draw_editor(frame, &mut app, area, true))
+            .unwrap();
+        assert_eq!((app.doc().top, app.doc().left), (0, 0));
+        app.doc_mut().undo();
+        assert_eq!(app.doc().text.to_string(), "");
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), before.1);
+    }
+
+    #[test]
     fn completion_details_fit_editor_at_all_caret_edges_and_terminal_sizes() {
         for (width, height) in [(12, 4), (39, 24), (48, 20), (76, 24), (100, 30), (160, 40)] {
             let area = Rect::new(7, 3, width, height);
@@ -2388,6 +2496,34 @@ mod tests {
         app.modal = Some(Modal::Inspector);
         terminal.draw(|frame| draw(frame, &mut app)).unwrap();
         assert_eq!(app.outline_area, Rect::default());
+    }
+
+    #[test]
+    fn group_tabs_and_breadcrumbs_start_at_top_after_resize_without_a_title_row() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("header-free.txt");
+        std::fs::write(&file, "alpha\r\nbeta\r\n").unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        app.open(&file).unwrap();
+        let identity = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        for (width, height) in [(110, 32), (50, 12), (80, 24)] {
+            app.event(crossterm::event::Event::Resize(width, height));
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+            let buffer = terminal.backend().buffer();
+            let first_row: String = (0..width).map(|x| buffer[(x, 0)].symbol()).collect();
+            assert!(first_row.contains("header-free.txt"));
+            assert!(!first_row.contains("VSCLI"));
+            assert!(!app.tab_hits.is_empty());
+            assert!(app.tab_hits.iter().all(|hit| hit.area.y == 0));
+            assert_eq!(app.breadcrumbs_area.y, 1);
+            assert_eq!(app.editor_area.y, 2);
+            assert_eq!(app.editor_area.bottom(), height - 2);
+            assert_eq!(app.doc().id, identity);
+            assert_eq!(app.doc().text_epoch(), epoch);
+            assert_eq!(app.doc().text.to_string(), "alpha\r\nbeta\r\n");
+        }
     }
 
     #[test]

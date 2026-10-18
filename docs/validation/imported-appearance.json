@@ -1,0 +1,115 @@
+{
+  "schema": "vscli-imported-appearance-validation-v1",
+  "base_commit": "9f34e55ae526b2c90548ceb5eadfe43dc921a55c",
+  "scope": "Mapped native workbench.colorCustomizations import, precedence, async refresh, theme switching and reset. Full configuration, visual fidelity and extension migration remain unqualified.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1676,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "0126384d7f5bf812405fa124465c94417a809471fca87b7ae808140d2be121af"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "77c9fe2e8e8e863086d7fa696d974a06a67cc8be853a344d704830f1acbd9f25"
+  },
+  "environment": {
+    "platform": "Linux-7.2.8-arch1-2-x86_64-with-glibc2.44",
+    "rust": "rustc 1.99.0 (b940084d7 2026-09-28) (Arch Linux rust 1:1.99.0-1)"
+  },
+  "qualification": "Local Linux native and PTY evidence only. No upstream-runtime, macOS, Windows or complete setup qualification.",
+  "batch_criteria": {
+    "passed": 6,
+    "total": 6,
+    "definition": "docs/MIGRATION_RELEASE_PLAN.md#first-usable-batch-imported-workbench-color-customizations"
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked",
+      "passed": 1625,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 67,
+      "library_passed": 1276,
+      "new_native_tests": 10,
+      "log": "/tmp/vscli-appearance-final-rust.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-appearance-final-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-appearance-final-build.log"
+    },
+    {
+      "command": "python3 scripts/test_extension_api_progress.py",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "terminal_checks": [
+    {
+      "command": "python3 tests/pty_smoke.py target/debug/vscli",
+      "passed_scenarios": 35,
+      "result": "passed",
+      "log": "/tmp/vscli-appearance-smoke.log"
+    },
+    {
+      "command": "python3 tests/imported_appearance_pty.py target/debug/vscli",
+      "passed_journeys": 1,
+      "result": "passed",
+      "log": "/tmp/vscli-appearance-final-pty.log",
+      "evidence": "PASS: imported theme ID/custom colors, bindings, CRLF edit/save/undo, live reload, picker, restart, reset and original-byte preservation without Node"
+    }
+  ],
+  "personal_profile_check": {
+    "command": "python3 /tmp/vscli-personal-migration-check.py",
+    "preview_read_only": true,
+    "activated_in_temporary_config": true,
+    "settings_and_keybindings_byte_exact": true,
+    "native_start_and_appearance_report_without_node": true,
+    "originals_unchanged": true,
+    "extensions_activated": false,
+    "full_profile_qualified": false,
+    "preview_notice_count": 115,
+    "distinct_installed_extension_ids_discovered": 99,
+    "personal_color_overrides": 14,
+    "personal_color_override_surfaces": "cursor/overview-ruler; all outside the current mapped palette",
+    "private_inputs": "Original user configuration and package inventory remain outside the repository.",
+    "log": "/tmp/vscli-personal-migration-check-final.log"
+  },
+  "source_reference": "https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/services/themes/common/colorThemeData.ts",
+  "remaining": [
+    "Full profile discovery/import and guided migration UI",
+    "Exact extension versions, enabled state, dependencies, native contribution and code activation reconciliation",
+    "All 99 personal extension workflows and interactions",
+    "Cursor/overview ruler and other independent surfaces",
+    "TextMate/semantic token fidelity, fonts, icons, layout and arbitrary custom CSS",
+    "Optional compatibility presentation route for webviews/custom editors",
+    "Entire stable extension API, including unfinished ordered resource edits",
+    "Cross-platform and release artifact qualification"
+  ]
+}

@@ -1,0 +1,1 @@
+{"publisher":"fixture","name":"editor-eol","version":"1.0.0","main":"main.cjs","engines":{"vscode":"*"},"contributes":{"commands":[{"command":"fixture.editorEol.normalize","title":"Normalize multiline edit"}]}}

@@ -11,19 +11,54 @@ pub struct MirrorSnapshot {
     pub path: Option<PathBuf>,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
+    pub language_epoch: u64,
     pub version: u64,
 }
 #[derive(Clone, Debug)]
 pub struct Ticket {
     pub id: u64,
     pub session: u64,
-    pub provider: Provider,
+    pub provider: Arc<Provider>,
     pub epoch: u64,
     pub document: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
+    pub language_epoch: u64,
     pub version: u64,
     pub workspace: Arc<Vec<MirrorSnapshot>>,
+}
+#[derive(Clone)]
+pub(crate) struct NavigationRankIntent {
+    source: Arc<NavigationRankSource>,
+}
+struct NavigationRankSource {
+    session: u64,
+    epoch: u64,
+    document: u64,
+    revision: u64,
+    text_epoch: u64,
+    resource_epoch: u64,
+    language_epoch: u64,
+    version: u64,
+    uri: String,
+    kind: Kind,
+    position: lsp::Position,
+    providers: Vec<Provider>,
+    owners: Vec<Arc<std::sync::atomic::AtomicBool>>,
+}
+struct NavigationRanking {
+    id: u64,
+    intent: NavigationRankIntent,
+    started: Instant,
+    canceled: bool,
+    expired: bool,
+}
+pub(crate) struct NavigationRankReply {
+    pub id: u64,
+    pub result: Result<Vec<Provider>, String>,
+    pub fallback: Option<Value>,
 }
 struct Call {
     ticket: Ticket,
@@ -34,10 +69,38 @@ pub(crate) struct Reply {
     pub ticket: Ticket,
     pub result: Result<Value, String>,
 }
+/// A global callback owns a provider and host lifetime, never an invented document.
+#[derive(Clone, Debug)]
+pub(crate) struct WorkspaceSymbolTicket {
+    pub id: u64,
+    pub session: u64,
+    pub provider: Arc<Provider>,
+    pub epoch: u64,
+    retired: Arc<std::sync::atomic::AtomicBool>,
+}
+#[derive(Clone)]
+pub(crate) struct WorkspaceSymbolProvider {
+    pub provider: Arc<Provider>,
+    pub epoch: u64,
+    pub session: u64,
+    retired: Arc<std::sync::atomic::AtomicBool>,
+}
+struct WorkspaceSymbolCall {
+    ticket: WorkspaceSymbolTicket,
+    canceled: bool,
+    started: Instant,
+}
+pub(crate) struct WorkspaceSymbolReply {
+    pub ticket: WorkspaceSymbolTicket,
+    pub result: Result<Value, String>,
+}
 #[derive(Default)]
 pub(super) struct State {
     registry: Registry,
+    ranking: Option<NavigationRanking>,
+    ranked: VecDeque<NavigationRankReply>,
     calls: HashMap<u64, Call>,
+    occupied: HashMap<u64, Ticket>,
     replies: VecDeque<Reply>,
     signature: Option<Ticket>,
     signature_started: Option<Instant>,
@@ -45,8 +108,182 @@ pub(super) struct State {
     symbols: Option<Ticket>,
     symbols_started: Option<Instant>,
     symbols_fenced: bool,
+    workspace_calls: HashMap<u64, WorkspaceSymbolCall>,
+    workspace_occupied: HashMap<u64, WorkspaceSymbolTicket>,
+    workspace_replies: VecDeque<WorkspaceSymbolReply>,
 }
 impl Client {
+    pub(crate) fn workspace_symbol_providers(&self) -> Result<Vec<WorkspaceSymbolProvider>> {
+        self.providers
+            .registry
+            .entries()
+            .iter()
+            .filter(|provider| {
+                provider.kind == Kind::WorkspaceSymbols
+                    && self.provider_owner_ready(&provider.owner)
+            })
+            .map(|provider| {
+                Ok(WorkspaceSymbolProvider {
+                    provider: Arc::new(provider.clone()),
+                    epoch: self.providers.registry.epoch(),
+                    session: self.session,
+                    retired: self.owner_lifetimes.capture(&provider.owner)?,
+                })
+            })
+            .collect()
+    }
+    pub(crate) fn workspace_symbol_provider_current(
+        &self,
+        source: &WorkspaceSymbolProvider,
+    ) -> bool {
+        source.session == self.session
+            && !source.retired.load(std::sync::atomic::Ordering::Acquire)
+            && self.provider_owner_ready(&source.provider.owner)
+            && self
+                .providers
+                .registry
+                .current(&source.provider, source.epoch)
+    }
+    pub(crate) fn workspace_symbol_ticket_current(&self, ticket: &WorkspaceSymbolTicket) -> bool {
+        ticket.session == self.session
+            && ticket.provider.kind == Kind::WorkspaceSymbols
+            && !ticket.retired.load(std::sync::atomic::Ordering::Acquire)
+            && self.provider_owner_ready(&ticket.provider.owner)
+            && self
+                .providers
+                .registry
+                .current(&ticket.provider, ticket.epoch)
+    }
+    pub(crate) fn request_workspace_symbols_from(
+        &mut self,
+        source: &WorkspaceSymbolProvider,
+        query: &str,
+    ) -> Result<WorkspaceSymbolTicket> {
+        anyhow::ensure!(
+            query.len() <= 4096 && !query.contains('\0'),
+            "Workspace symbol query exceeds bounds"
+        );
+        anyhow::ensure!(
+            self.workspace_symbol_provider_current(source),
+            "Workspace symbol provider lifetime changed"
+        );
+        self.start_workspace_symbol_call(
+            source.provider.clone(),
+            source.epoch,
+            source.retired.clone(),
+            "provideWorkspaceSymbols",
+            json!({"session":self.session,"owner":source.provider.owner,
+            "provider":source.provider.id,"query":query}),
+        )
+    }
+    pub(crate) fn request_workspace_symbol_resolve(
+        &mut self,
+        original: &WorkspaceSymbolTicket,
+        item: &Value,
+    ) -> Result<WorkspaceSymbolTicket> {
+        anyhow::ensure!(
+            self.workspace_symbol_ticket_current(original) && original.provider.resolves,
+            "Workspace symbol resolve owner or list changed"
+        );
+        let handle = item["_vscliWorkspaceSymbolHandle"]
+            .as_u64()
+            .filter(|id| *id > 0 && *id <= 9_007_199_254_740_991)
+            .context("Workspace symbol has no original resolve handle")?;
+        self.start_workspace_symbol_call(
+            original.provider.clone(),
+            original.epoch,
+            original.retired.clone(),
+            "resolveLanguageWorkspaceSymbol",
+            json!({"session":self.session,"owner":original.provider.owner,
+            "provider":original.provider.id,"origin":original.id,"handle":handle}),
+        )
+    }
+    fn start_workspace_symbol_call(
+        &mut self,
+        provider: Arc<Provider>,
+        epoch: u64,
+        retired: Arc<std::sync::atomic::AtomicBool>,
+        method: &str,
+        params: Value,
+    ) -> Result<WorkspaceSymbolTicket> {
+        anyhow::ensure!(
+            self.language_provider_capacity(),
+            "Language provider callback limit reached (8); wait for pending callbacks"
+        );
+        let id = self
+            .next_id
+            .checked_add(1)
+            .filter(|id| *id <= 9_007_199_254_740_991)
+            .context("Workspace symbol callback identities exhausted")?;
+        let ticket = WorkspaceSymbolTicket {
+            id,
+            session: self.session,
+            provider,
+            epoch,
+            retired,
+        };
+        self.request(method, params)?;
+        self.providers.workspace_occupied.insert(id, ticket.clone());
+        self.providers.workspace_calls.insert(
+            id,
+            WorkspaceSymbolCall {
+                ticket: ticket.clone(),
+                canceled: false,
+                started: Instant::now(),
+            },
+        );
+        Ok(ticket)
+    }
+    pub(crate) fn cancel_workspace_symbol(&mut self, ticket: &WorkspaceSymbolTicket) -> Result<()> {
+        if ticket.session != self.session {
+            return Ok(());
+        }
+        if let Some(call) = self.providers.workspace_calls.get_mut(&ticket.id) {
+            anyhow::ensure!(
+                call.ticket.provider.id == ticket.provider.id
+                    && call.ticket.provider.owner == ticket.provider.owner,
+                "Workspace symbol cancellation ownership mismatch"
+            );
+            if call.canceled {
+                return Ok(());
+            }
+            call.canceled = true;
+        }
+        self.process
+            .send(json!({"method":"cancelLanguageProvider","params":{
+            "session":self.session,"owner":ticket.provider.owner,"request":ticket.id}}))
+    }
+    pub(crate) fn take_workspace_symbol_replies(&mut self) -> VecDeque<WorkspaceSymbolReply> {
+        std::mem::take(&mut self.providers.workspace_replies)
+    }
+    pub(super) fn workspace_symbol_response(&mut self, id: u64, mut message: Value) -> Result<()> {
+        let Some(call) = self.providers.workspace_calls.remove(&id) else {
+            return Ok(());
+        };
+        if call.canceled {
+            return Ok(());
+        }
+        let result = if !message["error"].is_null() {
+            Err(message["error"]["message"]
+                .as_str()
+                .unwrap_or("Workspace symbol provider failed")
+                .chars()
+                .take(2048)
+                .collect())
+        } else {
+            let value = message["result"].take();
+            provider_result_budget(&value)
+                .map(|()| value)
+                .map_err(|error| error.to_string())
+        };
+        self.providers
+            .workspace_replies
+            .push_back(WorkspaceSymbolReply {
+                ticket: call.ticket,
+                result,
+            });
+        Ok(())
+    }
     pub(crate) fn symbols_available(&self) -> bool {
         !self.providers.symbols_fenced
             && self.providers.symbols.is_none()
@@ -175,7 +412,318 @@ impl Client {
         self.providers.registry.replace(value, &owners)
     }
     pub(crate) fn language_provider_capacity(&self) -> bool {
-        self.providers.calls.len() + self.providers.replies.len() < LIMIT
+        self.language_provider_slots() > 0
+    }
+    pub(crate) fn language_callback_occupied(&self, ticket: &Ticket) -> bool {
+        self.providers
+            .occupied
+            .get(&ticket.id)
+            .is_some_and(|original| {
+                original.session == ticket.session
+                    && original.provider.id == ticket.provider.id
+                    && original.provider.owner == ticket.provider.owner
+            })
+    }
+    pub(crate) fn language_provider_slots(&self) -> usize {
+        let mut ids: HashSet<u64> = self.providers.occupied.keys().copied().collect();
+        ids.extend(self.providers.calls.keys().copied());
+        ids.extend(self.providers.replies.iter().map(|reply| reply.ticket.id));
+        ids.extend(self.providers.workspace_occupied.keys().copied());
+        ids.extend(self.providers.workspace_calls.keys().copied());
+        ids.extend(
+            self.providers
+                .workspace_replies
+                .iter()
+                .map(|reply| reply.ticket.id),
+        );
+        LIMIT.saturating_sub(ids.len())
+    }
+    /// Only the exact actual-callback settlement frame releases occupation.
+    /// A logical reply, cancellation, timeout or owner retirement does not.
+    pub(super) fn language_provider_released(&mut self, value: Value) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Released {
+            session: u64,
+            owner: String,
+            provider: u64,
+            request: u64,
+        }
+        result_budget(&value, 2)?;
+        let release: Released = serde_json::from_value(value)?;
+        anyhow::ensure!(
+            release.owner.len() <= 128
+                && release.provider > 0
+                && release.provider <= 9_007_199_254_740_991
+                && release.request > 0
+                && release.request <= 9_007_199_254_740_991,
+            "Invalid language callback release"
+        );
+        if release.session != self.session {
+            return Ok(());
+        }
+        if let Some(ticket) = self.providers.workspace_occupied.get(&release.request) {
+            anyhow::ensure!(
+                ticket.session == release.session
+                    && ticket.provider.id == release.provider
+                    && ticket.provider.owner == release.owner,
+                "Workspace symbol callback release ownership mismatch"
+            );
+            self.providers.workspace_occupied.remove(&release.request);
+            return Ok(());
+        }
+        let Some(ticket) = self.providers.occupied.get(&release.request) else {
+            return Ok(());
+        };
+        anyhow::ensure!(
+            ticket.session == release.session
+                && ticket.provider.id == release.provider
+                && ticket.provider.owner == release.owner,
+            "Language callback release ownership mismatch"
+        );
+        self.providers.occupied.remove(&release.request);
+        Ok(())
+    }
+    pub(crate) fn navigation_registry_epoch(&self) -> u64 {
+        self.providers.registry.epoch()
+    }
+    pub(crate) fn navigation_registry_current(&self, epoch: u64) -> bool {
+        self.providers.registry.epoch() == epoch
+    }
+    pub(crate) fn provider_registration_matches(
+        &self,
+        provider: &Provider,
+        epoch: u64,
+        document: &Document,
+    ) -> bool {
+        self.provider_owner_ready(&provider.owner)
+            && self.providers.registry.current(provider, epoch)
+            && (provider.kind.is_ordered() || provider.score(document) > 0)
+    }
+    pub(crate) fn navigation_family_registered(&self, kind: Kind) -> bool {
+        kind.is_ordered()
+            && self
+                .providers
+                .registry
+                .entries()
+                .iter()
+                .any(|provider| provider.kind == kind && self.provider_owner_ready(&provider.owner))
+    }
+    pub(crate) fn capture_navigation_rank(
+        &mut self,
+        kind: Kind,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+    ) -> Result<NavigationRankIntent> {
+        anyhow::ensure!(kind.is_ordered(), "Invalid ordered provider family");
+        self.sync_with_hidden(documents, hidden, active)?;
+        let doc = documents
+            .get(active)
+            .context("No active navigation source")?;
+        let mirror = self
+            .mirror
+            .mirrors
+            .get(&doc.id)
+            .context("Navigation source is not mirrored")?;
+        let providers: Vec<_> = self
+            .providers
+            .registry
+            .entries()
+            .iter()
+            .filter(|provider| provider.kind == kind && self.provider_owner_ready(&provider.owner))
+            .cloned()
+            .collect();
+        anyhow::ensure!(
+            providers.len() <= crate::extension_providers::MAX_PROVIDERS,
+            "Navigation registry cohort exceeds 128"
+        );
+        let owners = providers
+            .iter()
+            .map(|provider| self.owner_lifetimes.capture(&provider.owner))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(NavigationRankIntent {
+            source: Arc::new(NavigationRankSource {
+                session: self.session,
+                epoch: self.providers.registry.epoch(),
+                document: doc.id,
+                revision: doc.revision,
+                text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
+                language_epoch: doc.language_epoch(),
+                version: mirror.version,
+                uri: mirror.uri.clone(),
+                kind,
+                position: lsp::position(doc, doc.cursor),
+                providers,
+                owners,
+            }),
+        })
+    }
+    pub(crate) fn navigation_rank_current(
+        &self,
+        intent: &NavigationRankIntent,
+        document: &Document,
+    ) -> bool {
+        let source = &intent.source;
+        source.session == self.session
+            && source.epoch == self.providers.registry.epoch()
+            && source.document == document.id
+            && source.revision == document.revision
+            && source.text_epoch == document.text_epoch()
+            && source.resource_epoch == document.resource_epoch()
+            && source.language_epoch == document.language_epoch()
+            && self.service_document_current(document, source.version)
+            && document_uri(document).ok().as_ref() == Some(&source.uri)
+            && source
+                .owners
+                .iter()
+                .all(|owner| !owner.load(std::sync::atomic::Ordering::Acquire))
+            && source.providers.iter().all(|provider| {
+                self.provider_owner_ready(&provider.owner)
+                    && self.providers.registry.current(provider, source.epoch)
+            })
+    }
+    pub(crate) fn navigation_rank_available(&self) -> bool {
+        self.providers.ranking.is_none() && self.providers.ranked.is_empty()
+    }
+    pub(crate) fn request_navigation_rank(
+        &mut self,
+        intent: &NavigationRankIntent,
+        document: &Document,
+    ) -> Result<u64> {
+        anyhow::ensure!(
+            self.navigation_rank_available(),
+            "Previous navigation matching request is still pending"
+        );
+        anyhow::ensure!(
+            self.navigation_rank_current(intent, document),
+            "Navigation matching source changed"
+        );
+        let id = self
+            .next_id
+            .checked_add(1)
+            .filter(|id| *id <= 9_007_199_254_740_991)
+            .context("Navigation matching request identities exhausted")?;
+        let source = &intent.source;
+        let mut params = json!({"session":source.session,"type":source.kind,
+            "document":source.document,"version":source.version,"languageEpoch":source.language_epoch});
+        if source.kind == Kind::Rename {
+            params["position"] = serde_json::to_value(source.position)?;
+        }
+        self.request("rankLanguageProviders", params)?;
+        self.providers.ranking = Some(NavigationRanking {
+            id,
+            intent: intent.clone(),
+            started: Instant::now(),
+            canceled: false,
+            expired: false,
+        });
+        Ok(id)
+    }
+    pub(crate) fn cancel_navigation_rank(&mut self, id: u64) {
+        if let Some(rank) = &mut self.providers.ranking
+            && rank.id == id
+        {
+            rank.canceled = true;
+        }
+    }
+    pub(crate) fn take_navigation_ranks(&mut self) -> VecDeque<NavigationRankReply> {
+        std::mem::take(&mut self.providers.ranked)
+    }
+    pub(super) fn provider_rank_response(&mut self, id: u64, mut message: Value) -> Result<()> {
+        if !self
+            .providers
+            .ranking
+            .as_ref()
+            .is_some_and(|rank| rank.id == id)
+        {
+            return Ok(());
+        }
+        let rank = self.providers.ranking.take().unwrap();
+        if rank.canceled || rank.expired {
+            return Ok(());
+        }
+        let mut fallback = None;
+        let result = (|| -> Result<Vec<Provider>> {
+            if !message["error"].is_null() {
+                bail!(
+                    "{}",
+                    message["error"]["message"]
+                        .as_str()
+                        .unwrap_or("Navigation matching failed")
+                        .chars()
+                        .take(2048)
+                        .collect::<String>()
+                );
+            }
+            let value = message["result"].take();
+            crate::decorations::json_budget(&value, 64 * 1024)?;
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Ranked {
+                providers: Vec<Entry>,
+                #[serde(default)]
+                fallback: Option<Value>,
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Entry {
+                id: u64,
+                owner: String,
+            }
+            anyhow::ensure!(
+                value["providers"]
+                    .as_array()
+                    .is_some_and(|entries| entries.len() <= 128),
+                "Invalid navigation rank count"
+            );
+            let ranked: Ranked = serde_json::from_value(value)?;
+            if rank.intent.source.kind == Kind::Rename {
+                let value = ranked
+                    .fallback
+                    .context("Missing original rename fallback")?;
+                anyhow::ensure!(
+                    value["placeholder"]
+                        .as_str()
+                        .is_some_and(|text| text.len() <= 64 * 1024),
+                    "Invalid rename fallback placeholder"
+                );
+                let _: lsp::Range = serde_json::from_value(value["range"].clone())?;
+                fallback = Some(value);
+            } else {
+                anyhow::ensure!(
+                    ranked.fallback.is_none(),
+                    "Unexpected navigation fallback metadata"
+                );
+            }
+            let mut seen = HashSet::new();
+            ranked
+                .providers
+                .into_iter()
+                .map(|entry| {
+                    anyhow::ensure!(
+                        entry.id > 0 && seen.insert(entry.id),
+                        "Duplicate or invalid ranked navigation provider"
+                    );
+                    let provider = rank
+                        .intent
+                        .source
+                        .providers
+                        .iter()
+                        .find(|provider| provider.id == entry.id && provider.owner == entry.owner)
+                        .context("Navigation rank borrowed a different registry owner or family")?;
+                    Ok(provider.clone())
+                })
+                .collect()
+        })()
+        .map_err(|error| format!("{error:#}"));
+        self.providers.ranked.push_back(NavigationRankReply {
+            id,
+            result,
+            fallback,
+        });
+        Ok(())
     }
     pub(crate) fn provider_registration_current(&self, ticket: &Ticket) -> bool {
         ticket.session == self.session
@@ -185,11 +733,23 @@ impl Client {
                 .registry
                 .current(&ticket.provider, ticket.epoch)
     }
+    pub(crate) fn rename_owner_lifetime(
+        &self,
+        ticket: &Ticket,
+    ) -> Result<Arc<std::sync::atomic::AtomicBool>> {
+        anyhow::ensure!(
+            ticket.provider.kind == Kind::Rename && self.provider_registration_current(ticket),
+            "Original rename owner retired"
+        );
+        self.owner_lifetimes.capture(&ticket.provider.owner)
+    }
     pub(crate) fn provider_ticket_current(&self, ticket: &Ticket, doc: &Document) -> bool {
         self.provider_registration_current(ticket)
             && ticket.document == doc.id
             && ticket.revision == doc.revision
             && ticket.text_epoch == doc.text_epoch()
+            && ticket.resource_epoch == doc.resource_epoch()
+            && ticket.language_epoch == doc.language_epoch()
             && self.service_document_current(doc, ticket.version)
     }
     pub(crate) fn request_language_provider(
@@ -264,6 +824,9 @@ impl Client {
                 .context("Workspace target is not mirrored")?;
             if mirror.revision != document.revision
                 || mirror.text_epoch != document.text_epoch()
+                || mirror.resource_epoch != document.resource_epoch()
+                || mirror.language_epoch != document.language_epoch()
+                || mirror.eol != document.eol
                 || !ids.insert(document.id)
                 || !uris.insert(&mirror.uri)
             {
@@ -275,6 +838,8 @@ impl Client {
                 path: document.path.clone(),
                 revision: document.revision,
                 text_epoch: document.text_epoch(),
+                resource_epoch: document.resource_epoch(),
+                language_epoch: document.language_epoch(),
                 version: mirror.version,
             });
         }
@@ -296,11 +861,15 @@ impl Client {
                     document.path == target.path
                         && document.revision == target.revision
                         && document.text_epoch() == target.text_epoch
+                        && document.resource_epoch() == target.resource_epoch
+                        && document.language_epoch() == target.language_epoch
                         && self.mirror.mirrors.get(&document.id).is_some_and(|mirror| {
                             mirror.version == target.version
                                 && mirror.uri == target.uri
                                 && mirror.revision == target.revision
                                 && mirror.text_epoch == target.text_epoch
+                                && mirror.resource_epoch == target.resource_epoch
+                                && mirror.eol == document.eol
                         })
                 })
         })
@@ -313,13 +882,17 @@ impl Client {
         active: usize,
         options: Value,
     ) -> Result<Ticket> {
+        anyhow::ensure!(
+            !matches!(provider.kind, Kind::WorkspaceSymbols | Kind::Rename),
+            "Workspace symbol and rename callbacks require their dedicated admission"
+        );
         let doc = documents.get(active).context("No active document")?;
         if !self.provider_owner_ready(&provider.owner)
             || !self
                 .providers
                 .registry
                 .current(provider, self.providers.registry.epoch())
-            || provider.score(doc) == 0
+            || (!provider.kind.is_navigation() && provider.score(doc) == 0)
         {
             bail!("Language provider no longer matches its owner/document");
         }
@@ -348,13 +921,19 @@ impl Client {
             Arc::new(Vec::new())
         };
         let ticket = Ticket {
-            id: self.next_id + 1,
+            id: self
+                .next_id
+                .checked_add(1)
+                .filter(|id| *id <= 9_007_199_254_740_991)
+                .context("Language provider request identities exhausted")?,
             session: self.session,
-            provider: provider.clone(),
+            provider: Arc::new(provider.clone()),
             epoch: self.providers.registry.epoch(),
             document: doc.id,
             revision: doc.revision,
             text_epoch: doc.text_epoch(),
+            resource_epoch: doc.resource_epoch(),
+            language_epoch: doc.language_epoch(),
             version: mirror.version,
             workspace,
         };
@@ -374,6 +953,86 @@ impl Client {
             self.providers.symbols = Some(ticket.clone());
             self.providers.symbols_started = Some(Instant::now());
         }
+        self.providers.occupied.insert(ticket.id, ticket.clone());
+        self.providers.calls.insert(
+            ticket.id,
+            Call {
+                ticket: ticket.clone(),
+                canceled: false,
+                started: Instant::now(),
+            },
+        );
+        Ok(ticket)
+    }
+    pub(crate) fn request_rename_provider(
+        &mut self,
+        provider: &Provider,
+        documents: &[Document],
+        hidden: &[Document],
+        active: usize,
+        position: lsp::Position,
+        new_name: Option<&str>,
+    ) -> Result<Ticket> {
+        let doc = documents
+            .get(active)
+            .context("No original rename document")?;
+        anyhow::ensure!(
+            provider.kind == Kind::Rename
+                && self.provider_registration_matches(
+                    provider,
+                    self.providers.registry.epoch(),
+                    doc
+                ),
+            "Original rename provider/source retired"
+        );
+        anyhow::ensure!(
+            self.language_provider_capacity(),
+            "Language provider callback limit reached (8)"
+        );
+        anyhow::ensure!(
+            new_name.is_some() || provider.resolves,
+            "Provider has no rename preparation"
+        );
+        if let Some(name) = new_name {
+            anyhow::ensure!(name.len() <= 64 * 1024, "Rename name exceeds 64 KiB");
+        }
+        lsp::offset(doc, position)?;
+        self.sync_with_hidden(documents, hidden, active)?;
+        let mirror = self
+            .mirror
+            .mirrors
+            .get(&doc.id)
+            .context("Rename source is not mirrored")?;
+        let ticket = Ticket {
+            id: self
+                .next_id
+                .checked_add(1)
+                .filter(|id| *id <= 9_007_199_254_740_991)
+                .context("Rename callback identities exhausted")?,
+            session: self.session,
+            provider: Arc::new(provider.clone()),
+            epoch: self.providers.registry.epoch(),
+            document: doc.id,
+            revision: doc.revision,
+            text_epoch: doc.text_epoch(),
+            resource_epoch: doc.resource_epoch(),
+            language_epoch: doc.language_epoch(),
+            version: mirror.version,
+            workspace: self.mirrored_snapshotset(documents, hidden)?,
+        };
+        let method = if new_name.is_some() {
+            "provideLanguageRename"
+        } else {
+            "prepareLanguageRename"
+        };
+        let mut params = json!({"session":self.session,"owner":provider.owner,
+            "provider":provider.id,"document":doc.id,"version":ticket.version,
+            "position":position});
+        if let Some(name) = new_name {
+            params["newName"] = json!(name);
+        }
+        self.request(method, params)?;
+        self.providers.occupied.insert(ticket.id, ticket.clone());
         self.providers.calls.insert(
             ticket.id,
             Call {
@@ -409,8 +1068,13 @@ impl Client {
         }
         self.sync_with_hidden(documents, hidden, active)?;
         let mut ticket = original.clone();
-        ticket.id = self.next_id + 1;
+        ticket.id = self
+            .next_id
+            .checked_add(1)
+            .filter(|id| *id <= 9_007_199_254_740_991)
+            .context("Language provider request identities exhausted")?;
         self.request("resolveLanguageCodeAction",json!({"session":self.session,"owner":original.provider.owner,"provider":original.provider.id,"origin":original.id,"handle":handle,"document":document.id,"version":original.version}))?;
+        self.providers.occupied.insert(ticket.id, ticket.clone());
         self.providers.calls.insert(
             ticket.id,
             Call {
@@ -445,13 +1109,18 @@ impl Client {
         }
         self.sync_with_hidden(documents, hidden, active)?;
         let mut ticket = original.clone();
-        ticket.id = self.next_id + 1;
+        ticket.id = self
+            .next_id
+            .checked_add(1)
+            .filter(|id| *id <= 9_007_199_254_740_991)
+            .context("Language provider request identities exhausted")?;
         self.request(
             "resolveLanguageCompletion",
             json!({"session":self.session,
             "owner":original.provider.owner,"provider":original.provider.id,
             "origin":original.id,"handle":handle,"document":doc.id,"version":original.version}),
         )?;
+        self.providers.occupied.insert(ticket.id, ticket.clone());
         self.providers.calls.insert(
             ticket.id,
             Call {
@@ -467,6 +1136,12 @@ impl Client {
             return Ok(());
         }
         if let Some(call) = self.providers.calls.get_mut(&ticket.id) {
+            anyhow::ensure!(
+                call.ticket.session == ticket.session
+                    && call.ticket.provider.id == ticket.provider.id
+                    && call.ticket.provider.owner == ticket.provider.owner,
+                "Language callback cancellation ownership mismatch"
+            );
             if call.canceled {
                 return Ok(());
             }
@@ -524,7 +1199,9 @@ impl Client {
                 .collect())
         } else {
             let value = message["result"].take();
-            (if call.ticket.provider.kind == Kind::Symbols {
+            (if call.ticket.provider.kind == Kind::Rename {
+                crate::decorations::json_budget(&value, 2 * 1024 * 1024).map(|_| ())
+            } else if call.ticket.provider.kind == Kind::Symbols {
                 result_budget(&value, 40)
             } else {
                 provider_result_budget(&value)
@@ -547,6 +1224,38 @@ impl Client {
         Ok(())
     }
     pub(super) fn expire_language_providers(&mut self) -> Result<()> {
+        let expired: Vec<_> = self
+            .providers
+            .workspace_calls
+            .values()
+            .filter(|call| call.started.elapsed() >= DEADLINE)
+            .map(|call| call.ticket.clone())
+            .collect();
+        for ticket in expired {
+            self.cancel_workspace_symbol(&ticket)?;
+            self.providers.workspace_calls.remove(&ticket.id);
+            self.pending.remove(&ticket.id);
+            self.providers
+                .workspace_replies
+                .push_back(WorkspaceSymbolReply {
+                    ticket,
+                    result: Err("Workspace symbol provider timed out".into()),
+                });
+        }
+        if let Some(rank) = &mut self.providers.ranking
+            && !rank.canceled
+            && !rank.expired
+            && rank.started.elapsed() >= DEADLINE
+        {
+            rank.expired = true;
+            self.providers.ranked.push_back(NavigationRankReply {
+                id: rank.id,
+                fallback: None,
+                result: Err(
+                    "Navigation matching timed out; original request remains pending".into(),
+                ),
+            });
+        }
         // A canceled wire reply may arrive long before the actual callback ends.
         // Keep its own clock after the generic Call has been removed.
         if self.providers.signature.is_some()
@@ -674,6 +1383,663 @@ mod tests {
             assert!(Instant::now() < deadline, "No signature reply for {id}");
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+    fn global_symbols_fixture(body: &str) -> (tempfile::TempDir, Client, Settings) {
+        let root = tempfile::tempdir().unwrap();
+        let package = fixture(root.path(), body);
+        let mut docs = Vec::new();
+        let settings = Settings::default();
+        let mut client = Client::start("node", &package, root.path(), &docs, 0, &settings).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !client.ready {
+            client.poll(&mut docs, 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert!(
+            client.mirror.mirrors.is_empty(),
+            "Global callback must not invent an editor"
+        );
+        (root, client, settings)
+    }
+    fn global_symbol_reply(
+        client: &mut Client,
+        settings: &Settings,
+        id: u64,
+    ) -> WorkspaceSymbolReply {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            client.poll(&mut [], 0, settings).unwrap();
+            if let Some(reply) = client.take_workspace_symbol_replies().pop_front() {
+                assert_eq!(reply.ticket.id, id);
+                return reply;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "No actual global symbol response"
+            );
+            std::thread::yield_now();
+        }
+    }
+    #[test]
+    fn global_workspace_symbols_need_no_document_and_resolve_exact_original_object() {
+        let (_root, mut client, settings) = global_symbols_fixture(
+            r#"const v=require('vscode');const original={name:'猫🙂',kind:v.SymbolKind.Function,location:{uri:v.Uri.parse('custom:/symbol')}};original.opaque=original;
+exports.activate=()=>v.languages.registerWorkspaceSymbolProvider({provideWorkspaceSymbols(query){if(query!=='猫')throw Error('query');return [original];},resolveWorkspaceSymbol(item){if(item!==original||item.opaque!==item)throw Error('original lost');return new v.SymbolInformation('resolved',v.SymbolKind.Function,'container',new v.Location(v.Uri.parse('custom:/resolved'),new v.Range(2,3,2,5)));}});"#,
+        );
+        let sources = client.workspace_symbol_providers().unwrap();
+        assert_eq!(sources.len(), 1);
+        let ticket = client
+            .request_workspace_symbols_from(&sources[0], "猫")
+            .unwrap();
+        let value = global_symbol_reply(&mut client, &settings, ticket.id)
+            .result
+            .unwrap();
+        let item = &value["symbols"][0];
+        assert_eq!(item["name"], "猫🙂");
+        assert_eq!(item["location"]["uri"], "custom:/symbol");
+        assert!(item["location"].get("range").is_none());
+        let resolve = client
+            .request_workspace_symbol_resolve(&ticket, item)
+            .unwrap();
+        let resolved = global_symbol_reply(&mut client, &settings, resolve.id)
+            .result
+            .unwrap();
+        assert_eq!(resolved["name"], "resolved");
+        assert_eq!(resolved["location"]["uri"], "custom:/resolved");
+        assert_eq!(
+            resolved["location"]["range"]["start"],
+            json!({"line":2,"character":3})
+        );
+        assert!(client.mirror.mirrors.is_empty());
+        assert!(client.workspace_symbol_ticket_current(&ticket));
+        client.cancel_workspace_symbol(&ticket).unwrap();
+    }
+    #[test]
+    fn global_callbacks_share_eight_slots_and_cancellation_timeout_and_wrong_release_cannot_free_them()
+     {
+        let (root, mut client, settings) = global_symbols_fixture(
+            r#"const v=require('vscode'),fs=require('node:fs'),path=require('node:path');let held=[],entered=0;
+exports.activate=c=>{c.subscriptions.push(v.languages.registerWorkspaceSymbolProvider({provideWorkspaceSymbols(){fs.writeFileSync(path.join(v.workspace.rootPath,'global-entered'),String(++entered));return new Promise(resolve=>held.push(resolve));}}));c.subscriptions.push(v.commands.registerCommand('test.release',()=>{for(const resolve of held.splice(0))resolve([]);}));};"#,
+        );
+        let source = client.workspace_symbol_providers().unwrap().remove(0);
+        let mut tickets = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        for expected in 1..=8 {
+            tickets.push(client.request_workspace_symbols_from(&source, "").unwrap());
+            while std::fs::read_to_string(root.path().join("global-entered"))
+                .ok()
+                .as_deref()
+                != Some(expected.to_string().as_str())
+            {
+                client.poll(&mut [], 0, &settings).unwrap();
+                assert!(Instant::now() < deadline);
+                std::thread::yield_now();
+            }
+        }
+        while std::fs::read_to_string(root.path().join("global-entered"))
+            .ok()
+            .as_deref()
+            != Some("8")
+        {
+            client.poll(&mut [], 0, &settings).unwrap();
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert_eq!(client.language_provider_slots(), 0);
+        assert!(
+            client
+                .request_workspace_symbols_from(&source, "ninth")
+                .is_err()
+        );
+        client.cancel_workspace_symbol(&tickets[0]).unwrap();
+        client
+            .providers
+            .workspace_calls
+            .get_mut(&tickets[1].id)
+            .unwrap()
+            .started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert_eq!(client.take_workspace_symbol_replies().len(), 1);
+        assert_eq!(client.language_provider_slots(), 0);
+        let release = json!({"session":client.session,"owner":source.provider.owner,"provider":source.provider.id,"request":tickets[0].id});
+        let mut wrong = release.clone();
+        wrong["owner"] = json!("other.owner");
+        assert!(client.language_provider_released(wrong).is_err());
+        let mut wrong = release.clone();
+        wrong["provider"] = json!(source.provider.id + 1);
+        assert!(client.language_provider_released(wrong).is_err());
+        let mut wrong = release.clone();
+        wrong["extra"] = true.into();
+        assert!(client.language_provider_released(wrong).is_err());
+        assert_eq!(client.language_provider_slots(), 0);
+        client
+            .execute("test.release", None, &[], 0, &settings)
+            .unwrap();
+        while client.language_provider_slots() != 8 {
+            client.poll(&mut [], 0, &settings).unwrap();
+            client.take_workspace_symbol_replies();
+            assert!(
+                Instant::now() < deadline,
+                "Original actual callbacks did not release"
+            );
+            std::thread::yield_now();
+        }
+        assert!(client.providers.workspace_occupied.is_empty());
+        assert!(client.providers.workspace_calls.is_empty());
+        assert_eq!(client.language_provider_slots(), 8);
+        client.language_provider_released(release).unwrap();
+        assert_eq!(client.language_provider_slots(), 8);
+        assert!(client.mirror.mirrors.is_empty());
+    }
+    #[test]
+    fn global_registration_and_original_owner_proofs_cannot_borrow_replaced_registry() {
+        let (_root, mut client, settings) = global_symbols_fixture(
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerWorkspaceSymbolProvider({provideWorkspaceSymbols:()=>[]});"#,
+        );
+        let source = client.workspace_symbol_providers().unwrap().remove(0);
+        let ticket = client.request_workspace_symbols_from(&source, "").unwrap();
+        global_symbol_reply(&mut client, &settings, ticket.id)
+            .result
+            .unwrap();
+        let descriptors = serde_json::to_value(client.providers.registry.entries()).unwrap();
+        client.register_language_providers(json!([])).unwrap();
+        client.register_language_providers(descriptors).unwrap();
+        assert!(!client.workspace_symbol_provider_current(&source));
+        assert!(!client.workspace_symbol_ticket_current(&ticket));
+        assert!(client.request_workspace_symbols_from(&source, "").is_err());
+        let current = client.workspace_symbol_providers().unwrap().remove(0);
+        let next = client.request_workspace_symbols_from(&current, "").unwrap();
+        assert!(
+            global_symbol_reply(&mut client, &settings, next.id)
+                .result
+                .is_ok()
+        );
+    }
+    fn rank_fixture() -> (tempfile::TempDir, Client, Vec<Document>) {
+        let root = tempfile::tempdir().unwrap();
+        let package = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=c=>{
+c.subscriptions.push(v.languages.registerDefinitionProvider({language:'*',exclusive:true},{provideDefinition(){throw Error('ranking must not call provider');}}));
+c.subscriptions.push(v.languages.registerDefinitionProvider({language:'cpp',exclusive:true},{provideDefinition(){throw Error('ranking must not call provider');}}));
+c.subscriptions.push(v.languages.registerHoverProvider('*',{provideHover(){throw Error('wrong family');}}));};"#,
+        );
+        let mut doc = Document::from_text("猫🙂\r\n");
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        let mut docs = vec![doc];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        assert_eq!(client.providers.registry.entries().len(), 3);
+        (root, client, docs)
+    }
+    fn rank_frame(client: &mut Client, id: u64) -> Value {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Some(frame) = client.process.receive().unwrap()
+                && frame["id"].as_u64() == Some(id)
+            {
+                assert!(client.pending.remove(&id).is_some());
+                return frame;
+            }
+            assert!(Instant::now() < deadline, "Real rank frame did not arrive");
+            std::thread::yield_now();
+        }
+    }
+    #[test]
+    fn navigation_rank_uses_real_host_order_without_invoking_callbacks() {
+        let (_root, mut client, docs) = rank_fixture();
+        let intent = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        let first = intent.source.providers[0].id;
+        assert_eq!(intent.source.providers[0].score(&docs[0]), 5);
+        assert_eq!(intent.source.providers[1].score(&docs[0]), 10);
+        let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+        let frame = rank_frame(&mut client, id);
+        client.provider_rank_response(id, frame).unwrap();
+        let reply = client.take_navigation_ranks().pop_front().unwrap();
+        assert_eq!(reply.id, id);
+        assert_eq!(
+            reply
+                .result
+                .unwrap()
+                .iter()
+                .map(|p| p.id)
+                .collect::<Vec<_>>(),
+            vec![first]
+        );
+        assert!(client.navigation_rank_available());
+        assert_eq!(client.language_provider_slots(), 8);
+        assert!(client.providers.calls.is_empty());
+        assert!(client.providers.occupied.is_empty());
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+        assert!(!docs[0].dirty());
+    }
+    #[test]
+    fn canceled_and_expired_rank_keep_actual_slot_until_exact_real_reply() {
+        let (_root, mut client, docs) = rank_fixture();
+        let intent = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        for expire in [false, true] {
+            let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+            if expire {
+                client.providers.ranking.as_mut().unwrap().started = Instant::now() - DEADLINE;
+                client.expire_language_providers().unwrap();
+                client.expire_language_providers().unwrap();
+                let errors = client.take_navigation_ranks();
+                assert_eq!(errors.len(), 1);
+                assert_eq!(errors[0].id, id);
+                assert!(errors[0].result.as_ref().unwrap_err().contains("timed out"));
+            } else {
+                client.cancel_navigation_rank(id);
+            }
+            assert!(client.pending.contains_key(&id));
+            assert!(!client.navigation_rank_available());
+            assert!(client.request_navigation_rank(&intent, &docs[0]).is_err());
+            client
+                .provider_rank_response(id + 1, json!({"result":{"providers":[]}}))
+                .unwrap();
+            assert!(
+                !client.navigation_rank_available(),
+                "Foreign reply cannot free actual slot"
+            );
+            assert_eq!(client.language_provider_slots(), 8);
+            let frame = rank_frame(&mut client, id);
+            client.provider_rank_response(id, frame.clone()).unwrap();
+            assert!(client.take_navigation_ranks().is_empty());
+            assert!(client.navigation_rank_available());
+            client.provider_rank_response(id, frame).unwrap();
+            assert!(client.take_navigation_ranks().is_empty());
+        }
+    }
+    #[test]
+    fn rank_rejects_malformed_original_cohorts_and_bounds_error_messages() {
+        let (_root, mut client, docs) = rank_fixture();
+        let intent = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        let p = &intent.source.providers[0];
+        let foreign = client
+            .providers
+            .registry
+            .entries()
+            .iter()
+            .find(|p| p.kind == Kind::Hover)
+            .unwrap();
+        let invalid = [
+            json!({"providers":[{"id":p.id,"owner":p.owner},{"id":p.id,"owner":p.owner}]}),
+            json!({"providers":[{"id":p.id,"owner":"different.owner"}]}),
+            json!({"providers":[{"id":foreign.id,"owner":foreign.owner}]}),
+            json!({"providers":[{"id":p.id,"owner":p.owner,"extra":true}]}),
+            json!({"providers":[],"extra":true}),
+        ];
+        for value in invalid {
+            let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+            let mut frame = rank_frame(&mut client, id);
+            frame["result"] = value;
+            client.provider_rank_response(id, frame).unwrap();
+            assert!(
+                !client.navigation_rank_available(),
+                "Error retains bounded result storage until consumed"
+            );
+            assert!(
+                client
+                    .take_navigation_ranks()
+                    .pop_front()
+                    .unwrap()
+                    .result
+                    .is_err()
+            );
+            assert!(client.navigation_rank_available());
+            assert_eq!(client.language_provider_slots(), 8);
+        }
+        let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+        let mut frame = rank_frame(&mut client, id);
+        frame["error"] = json!({"message":"猫".repeat(100_000)});
+        client.provider_rank_response(id, frame).unwrap();
+        let error = client
+            .take_navigation_ranks()
+            .pop_front()
+            .unwrap()
+            .result
+            .unwrap_err();
+        assert_eq!(error.chars().count(), 2048);
+        assert!(client.navigation_rank_available());
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+        assert!(!docs[0].dirty());
+    }
+    #[test]
+    fn held_rank_original_source_cannot_revive_after_edit_undo() {
+        let (_root, mut client, mut docs) = rank_fixture();
+        let intent = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        let id = client.request_navigation_rank(&intent, &docs[0]).unwrap();
+        let original = (docs[0].id, docs[0].revision, docs[0].text.to_string());
+        docs[0].insert("x", false);
+        docs[0].undo();
+        assert_eq!(
+            (docs[0].id, docs[0].revision, docs[0].text.to_string()),
+            original
+        );
+        assert!(!client.navigation_rank_current(&intent, &docs[0]));
+        client.sync_with_hidden(&docs, &[], 0).unwrap();
+        assert!(!client.navigation_rank_current(&intent, &docs[0]));
+        client.cancel_navigation_rank(id);
+        assert!(!client.navigation_rank_available());
+        let frame = rank_frame(&mut client, id);
+        client.provider_rank_response(id, frame).unwrap();
+        assert!(client.take_navigation_ranks().is_empty());
+        assert!(client.request_navigation_rank(&intent, &docs[0]).is_err());
+        let fresh = client
+            .capture_navigation_rank(Kind::Definition, &docs, &[], 0)
+            .unwrap();
+        let next = client.request_navigation_rank(&fresh, &docs[0]).unwrap();
+        let frame = rank_frame(&mut client, next);
+        client.provider_rank_response(next, frame).unwrap();
+        assert!(
+            client
+                .take_navigation_ranks()
+                .pop_front()
+                .unwrap()
+                .result
+                .is_ok()
+        );
+        docs[0].redo();
+        assert_eq!(docs[0].text.to_string(), "x猫🙂\r\n");
+        assert!(docs[0].dirty());
+        assert_eq!(client.language_provider_slots(), 8);
+    }
+    #[test]
+    fn generic_actual_callbacks_remain_occupied_after_cancel_timeout_and_wrong_release() {
+        let root = tempfile::tempdir().unwrap();
+        let body = r#"const v=require('vscode'),fs=require('node:fs'),path=require('node:path');
+let held=[],entered=0;
+exports.activate=c=>{c.subscriptions.push(v.languages.registerHoverProvider('*',{
+ provideHover(){fs.writeFileSync(path.join(v.workspace.rootPath,'entered'),String(++entered));return new Promise(resolve=>held.push(resolve));}
+}));c.subscriptions.push(v.commands.registerCommand('test.release',()=>{for(const resolve of held.splice(0))resolve(undefined);}));};"#;
+        let package = fixture(root.path(), body);
+        let mut docs = [Document::from_text("α🙂\r\n")];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        let mut tickets = Vec::new();
+        for _ in 0..8 {
+            tickets.push(
+                client
+                    .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+                    .unwrap()
+                    .unwrap(),
+            );
+        }
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while std::fs::read_to_string(root.path().join("entered"))
+            .ok()
+            .as_deref()
+            != Some("8")
+        {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(Instant::now() < deadline, "Actual callbacks never entered");
+            std::thread::yield_now();
+        }
+        client
+            .providers
+            .calls
+            .get_mut(&tickets[0].id)
+            .unwrap()
+            .started = Instant::now() - DEADLINE;
+        client.expire_language_providers().unwrap();
+        assert_eq!(client.providers.occupied.len(), 8);
+        assert!(
+            client
+                .take_provider_replies()
+                .pop_front()
+                .unwrap()
+                .result
+                .unwrap_err()
+                .contains("timed out")
+        );
+        for ticket in &tickets {
+            client.cancel_language_provider(ticket).unwrap();
+        }
+        while !client.providers.calls.is_empty() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(
+                Instant::now() < deadline,
+                "Canceled logical replies never arrived"
+            );
+            std::thread::yield_now();
+        }
+        client.take_provider_replies();
+        assert_eq!(client.providers.occupied.len(), 8);
+        assert_eq!(client.language_provider_slots(), 0);
+        let ticket = &tickets[0];
+        let release = json!({"session":client.session,"owner":ticket.provider.owner,"provider":ticket.provider.id,"request":ticket.id});
+        for field in ["owner", "provider"] {
+            let mut wrong = release.clone();
+            wrong[field] = if field == "owner" {
+                json!("wrong.owner")
+            } else {
+                json!(ticket.provider.id + 1)
+            };
+            assert!(client.language_provider_released(wrong).is_err());
+            assert_eq!(client.language_provider_slots(), 0);
+        }
+        let mut wrong = release.clone();
+        wrong["extra"] = true.into();
+        assert!(client.language_provider_released(wrong).is_err());
+        let mut old = release.clone();
+        old["session"] = json!(client.session + 1);
+        client.language_provider_released(old).unwrap();
+        assert_eq!(client.language_provider_slots(), 0);
+        // The real held callbacks have not returned. A provider registry reset
+        // also cannot acquire their actual slots.
+        client.register_language_providers(json!([])).unwrap();
+        assert_eq!(client.language_provider_slots(), 0);
+        client
+            .execute("test.release", None, &docs, 0, &Settings::default())
+            .unwrap();
+        while !client.providers.occupied.is_empty() {
+            client.poll(&mut docs, 0, &Settings::default()).unwrap();
+            assert!(
+                Instant::now() < deadline,
+                "Actual release frames never arrived"
+            );
+            std::thread::yield_now();
+        }
+        assert_eq!(client.language_provider_slots(), 8);
+        client.language_provider_released(release).unwrap();
+        assert_eq!(
+            client.language_provider_slots(),
+            8,
+            "Duplicate cannot release another callback"
+        );
+        assert_eq!(docs[0].text.to_string(), "α🙂\r\n");
+        assert!(!docs[0].dirty());
+    }
+    #[test]
+    fn actual_release_before_response_does_not_release_awaiting_reply_capacity() {
+        let root = tempfile::tempdir().unwrap();
+        let package = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new v.Hover('real framed result')});"#,
+        );
+        let mut docs = [Document::from_text("α🙂\r\n")];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let mut release = None;
+        let mut response = None;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while release.is_none() || response.is_none() {
+            if let Some(mut frame) = client.process.receive().unwrap() {
+                if frame["method"] == "languageProviderReleased"
+                    && frame["params"]["request"].as_u64() == Some(ticket.id)
+                {
+                    release = Some(frame["params"].take());
+                } else if frame["id"].as_u64() == Some(ticket.id) {
+                    response = Some(frame);
+                }
+            }
+            assert!(Instant::now() < deadline, "Real callback did not settle");
+            std::thread::yield_now();
+        }
+        let release = release.unwrap();
+        client.language_provider_released(release.clone()).unwrap();
+        assert_eq!(
+            client.language_provider_slots(),
+            7,
+            "Original logical reply still retained"
+        );
+        client
+            .provider_response(ticket.id, response.unwrap())
+            .unwrap();
+        assert_eq!(
+            client.language_provider_slots(),
+            7,
+            "Unconsumed reply retains its bounded storage"
+        );
+        let actual = client
+            .take_provider_replies()
+            .pop_front()
+            .unwrap()
+            .result
+            .unwrap();
+        assert_eq!(actual["contents"][0], "real framed result");
+        client.pending.remove(&ticket.id);
+        assert_eq!(client.language_provider_slots(), 8);
+        client.language_provider_released(release).unwrap();
+        assert_eq!(client.language_provider_slots(), 8);
+    }
+    #[test]
+    fn held_provider_ticket_refuses_resource_aba_before_and_after_mirror_sync() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.cpp");
+        let moved = root.path().join("moved.cpp");
+        std::fs::write(&path, "猫🙂 original\r\n").unwrap();
+        let mut doc = Document::open(&path).unwrap();
+        doc.insert("dirty ", false);
+        let original_path = doc.path.clone();
+        let proof = (doc.id, doc.revision, doc.text_epoch());
+        let package = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![doc];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        let original_mirrors = client.mirrored_snapshotset(&docs, &[]).unwrap();
+        let mut workspace_ticket = ticket.clone();
+        workspace_ticket.workspace = original_mirrors;
+        assert!(client.provider_ticket_current(&ticket, &docs[0]));
+        std::fs::rename(&path, &moved).unwrap();
+        docs[0].set_resource_path(Some(moved.clone())).unwrap();
+        std::fs::rename(&moved, &path).unwrap();
+        docs[0].set_resource_path(original_path).unwrap();
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        assert!(!client.provider_workspace_current(&workspace_ticket, &docs, &[]));
+        assert!(!client.service_document_current(&docs[0], ticket.version));
+        assert!(client.mirrored_snapshotset(&docs, &[]).is_err());
+        client.sync_with_hidden(&docs, &[], 0).unwrap();
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        assert!(!client.provider_workspace_current(&workspace_ticket, &docs, &[]));
+        let mirror = &client.mirror.mirrors[&docs[0].id];
+        assert!(mirror.version > ticket.version);
+        assert!(client.service_document_current(&docs[0], mirror.version));
+        assert_eq!((docs[0].id, docs[0].revision, docs[0].text_epoch()), proof);
+        assert_eq!(std::fs::read(path).unwrap(), "猫🙂 original\r\n".as_bytes());
+        docs[0].undo();
+        assert_eq!(docs[0].text.to_string(), "猫🙂 original\r\n");
+        docs[0].redo();
+        assert_eq!(docs[0].text.to_string(), "dirty 猫🙂 original\r\n");
+    }
+    #[test]
+    fn held_provider_ticket_refuses_language_metadata_aba_without_text_version_changes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.cpp");
+        std::fs::write(&path, "猫🙂 original\r\n").unwrap();
+        let mut doc = Document::open(&path).unwrap();
+        doc.insert("dirty ", false);
+        let id = doc.id;
+        let revision = doc.revision;
+        let epoch = doc.text_epoch();
+        let package = fixture(
+            root.path(),
+            r#"const v=require('vscode');exports.activate=()=>v.languages.registerHoverProvider('*',{provideHover:()=>new Promise(()=>{})});"#,
+        );
+        let mut docs = vec![doc];
+        let mut client = Client::start(
+            "node",
+            &package,
+            root.path(),
+            &docs,
+            0,
+            &Settings::default(),
+        )
+        .unwrap();
+        ready(&mut client, &mut docs);
+        let ticket = client
+            .request_language_provider(Kind::Hover, &docs, &[], 0, json!({}))
+            .unwrap()
+            .unwrap();
+        assert!(client.provider_ticket_current(&ticket, &docs[0]));
+        docs[0]
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        docs[0].set_language_override(Some("cpp".into())).unwrap();
+        client.sync_with_hidden(&docs, &[], 0).unwrap();
+        assert!(!client.provider_ticket_current(&ticket, &docs[0]));
+        assert_eq!(client.mirror.mirrors[&id].version, ticket.version);
+        assert_eq!(
+            (docs[0].id, docs[0].revision, docs[0].text_epoch()),
+            (id, revision, epoch)
+        );
+        docs[0].undo();
+        assert_eq!(docs[0].text.to_string(), "猫🙂 original\r\n");
+        docs[0].redo();
+        assert_eq!(docs[0].text.to_string(), "dirty 猫🙂 original\r\n");
+        assert_eq!(std::fs::read(path).unwrap(), "猫🙂 original\r\n".as_bytes());
     }
     #[test]
     fn symbols_wire_depth_preserves_sixteen_levels_without_widening_other_kinds() {
@@ -1269,7 +2635,7 @@ provideSignatureHelp(){fs.writeFileSync(p.join(v.workspace.rootPath,'signature-e
         forged.session += 1;
         assert!(!client.provider_ticket_current(&forged, &docs[0]));
         forged = tickets[0].clone();
-        forged.provider.owner = "other.owner".into();
+        Arc::make_mut(&mut forged.provider).owner = "other.owner".into();
         assert!(!client.provider_ticket_current(&forged, &docs[0]));
         let origin = tickets[0].id;
         assert!(

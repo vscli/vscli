@@ -74,8 +74,11 @@ impl App {
             self.editor_presentation.invalidate()?;
         }
         self.editor_geometry_inputs = Some(next);
-        self.editor_presentation
-            .present(geometry, &self.editor_groups, panes)
+        let proof =
+            self.editor_presentation
+                .present(geometry.clone(), &self.editor_groups, panes)?;
+        self.capture_extension_editor_viewports(geometry, &panes);
+        Ok(proof)
     }
 
     /// Fixed-size shape and displayed-content inputs; no Rope/selection clones.
@@ -84,7 +87,8 @@ impl App {
             let group = self.editor_groups.groups().get(index)?;
             let document = group.active()?.document();
             let doc = self.documents.iter().find(|doc| doc.id == document)?;
-            let digits = if doc.line_numbers == crate::settings::LineNumbers::Off {
+            let options = doc.editor_options_for(group.id().value())?;
+            let digits = if options["lineNumbers"] == 0 {
                 0
             } else {
                 (doc.line_count().max(1).ilog10() + 1).max(3) as u16

@@ -1,5 +1,7 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 const { Disposable, EventEmitter, Uri } = require('./api-types.cjs');
+const { CancellationToken } = require('./cancellation.cjs');
 const limits = Object.freeze({ channels: 32, status: 64, views: 8, children: 256, handles: 1024, updateBytes: 65536 });
 function text(value, max, name, empty = true) {
   if (typeof value !== 'string' || Buffer.byteLength(value) > max || (!empty && !value)) throw new TypeError(`Invalid ${name}`);
@@ -13,11 +15,16 @@ class TreeItem {
     this.collapsibleState = collapsibleState;
   }
 }
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [ThemeColor, TreeItem]) es5ClassCompat(value);
+
 const enums = Object.freeze({ StatusBarAlignment: Object.freeze({ Left: 1, Right: 2 }),
+  ProgressLocation: Object.freeze({SourceControl:1,Window:10,Notification:15,1:'SourceControl',10:'Window',15:'Notification'}),
   TreeItemCollapsibleState: Object.freeze({ None: 0, Collapsed: 1, Expanded: 2 }), ThemeColor, TreeItem });
-function createSurfaces(notify, session, track, execute, assertOwner = () => {}) {
+function createSurfaces(notify, session, track, execute, assertOwner = () => {}, callers = {}) {
   const channels = new Map(), statuses = new Map(), views = new Map(), declared = new Map();
   let sequence = 0, treeCallbackPending = false;
+  let progressPending = 0;
   function send(owner, id, op, data = {}) {
     if (!op.endsWith('Dispose')) assertOwner(owner);
     notify('nativeSurface', { session, owner, id, op, ...data });
@@ -103,16 +110,69 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
     publish();
     return item;
   }
+  function progressFor(owner) {
+    const guard = callers.bind?.(owner,()=>assertOwner(owner)) ?? (()=>assertOwner(owner));
+    return async function withProgress(options, task) {
+      guard();
+      if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Invalid progress options');
+      const location=options.location, title=options.title ?? '', cancellable=options.cancellable;
+      if (location !== enums.ProgressLocation.Window) throw new Error('VSCLI progress location is not implemented');
+      text(title,512,'progress title');
+      if(cancellable !== undefined && typeof cancellable !== 'boolean')throw new TypeError('Invalid progress cancellable');
+      if(typeof task !== 'function')throw new TypeError('Progress task must be a function');
+      guard();
+      if(progressPending >= 8)throw new Error('Extension progress task limit reached');
+      progressPending++;
+      let item, registration, active=true, scheduled=false, pending;
+      const close=()=>{if(!active)return;active=false;pending=undefined;item?.dispose();};
+      function flush() {
+        scheduled=false;
+        if(!active || pending===undefined)return;
+        const label=pending;pending=undefined;
+        try {guard();item.text=label;} catch {close();}
+      }
+      try {
+        item=createStatusBarItem(owner,`window-progress-${++sequence}`,1,-1000);
+        registration=own(owner,close);
+        item.name='Extension progress';
+        item.text='⟳ '+(title || 'Working…');item.show();
+        const report=Object.freeze({report(value) {
+          if(!active)return;
+          guard();
+          if(!value || typeof value !== 'object' || Array.isArray(value))throw new TypeError('Invalid progress report');
+          const message=value.message, increment=value.increment;
+          if(message!==undefined)text(message,512,'progress message');
+          if(increment!==undefined && (typeof increment!=='number'||!Number.isFinite(increment)))throw new TypeError('Invalid progress increment');
+          guard();
+          if(message===undefined)return; // Window progress has no discrete increments.
+          const label='⟳ '+([title,message].filter(Boolean).join(': ') || 'Working…');
+          text(label,1024,'progress label');pending=label;
+          if(!scheduled) {
+            scheduled=true;
+            const schedule=()=>queueMicrotask(flush);
+            if(callers.unowned)callers.unowned(schedule);else schedule();
+          }
+        }});
+        const invoke=callers.bindAsync?.(owner,task) ?? task;
+        const result=await invoke(report,CancellationToken.None);
+        guard();return result;
+      } finally {
+        // A retired UI does not release this slot until the actual task settles.
+        progressPending--;registration?.dispose();close();item?.dispose();
+      }
+    };
+  }
   function createTreeView(owner, id, options) {
     assertOwner(owner);
     text(id, 256, 'tree view id', false);
     if (!declared.get(owner)?.has(id)) throw new Error(`Tree view is not contributed by ${owner}: ${id}`);
     if (views.has(id)) throw new Error(`Tree view is already registered: ${id}`);
     if (views.size >= limits.views) throw new Error('Tree view limit reached');
-    if (!options || !options.treeDataProvider || typeof options.treeDataProvider.getChildren !== 'function' || typeof options.treeDataProvider.getTreeItem !== 'function') throw new TypeError('Invalid tree provider');
+    const provider = callers.bindProvider?.(owner, options?.treeDataProvider) ?? options?.treeDataProvider;
+    if (!provider || typeof provider.getChildren !== 'function' || typeof provider.getTreeItem !== 'function') throw new TypeError('Invalid tree provider');
     if (options.canSelectMany || options.dragAndDropController || options.manageCheckboxStateManually) throw new Error('Native trees currently support single selection without drag/drop/checkboxes');
     const changed = new EventEmitter(), expanded = new EventEmitter(), collapsed = new EventEmitter(), selected = new EventEmitter();
-    const state = { owner, id, provider: options.treeDataProvider, generation: ++sequence, handles: new Map(), elements: new Map(), identifiers: new Map(),
+    const state = { owner, id, provider, generation: ++sequence, handles: new Map(), elements: new Map(), identifiers: new Map(),
       next: 0, title: declared.get(owner).get(id), description: '', message: '', visible: false, selection: [], disposed: false };
     views.set(id, state);
     function publish() { send(owner, id, 'tree', { title: state.title, description: state.description, message: state.message, generation: state.generation }); }
@@ -133,7 +193,10 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
       send(owner, id, 'treeDispose');
     });
     const view = { dispose: () => disposable.dispose(), get visible() { return state.visible; }, get selection() { return state.selection.slice(); },
-      onDidChangeVisibility: changed.event, onDidExpandElement: expanded.event, onDidCollapseElement: collapsed.event, onDidChangeSelection: selected.event,
+      onDidChangeVisibility: callers.bindEvent?.(owner, changed.event) ?? changed.event,
+      onDidExpandElement: callers.bindEvent?.(owner, expanded.event) ?? expanded.event,
+      onDidCollapseElement: callers.bindEvent?.(owner, collapsed.event) ?? collapsed.event,
+      onDidChangeSelection: callers.bindEvent?.(owner, selected.event) ?? selected.event,
       reveal() { return Promise.reject(new Error('Native tree reveal/getParent navigation is not implemented')); } };
     state.events = { changed, expanded, collapsed, selected };
     for (const key of ['title', 'description', 'message']) Object.defineProperty(view, key, {
@@ -154,7 +217,11 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
     // A caller timeout, refresh or disposal cannot cancel extension promises.
     // Retain one shared slot until the actual callback chain has settled.
     treeCallbackPending = true;
-    try { return await loadTreeChildren(params, view); }
+    try {
+      // Scope extension-returned Thenables and item getters, but leave this
+      // actual-slot finally outside that lease so retirement cannot suppress it.
+      return await (callers.invokeProviderResult ? callers.invokeProviderResult(view.provider, () => loadTreeChildren(params, view)) : loadTreeChildren(params, view));
+    }
     finally { treeCallbackPending = false; }
   }
   async function loadTreeChildren(params, view) {
@@ -263,6 +330,7 @@ function createSurfaces(notify, session, track, execute, assertOwner = () => {})
       for (const [owner, entries] of staged) declared.set(owner, entries);
     },
     forExtension(owner) { return {
+      withProgress: progressFor(owner),
       createOutputChannel: (name, language) => createOutputChannel(owner, name, language),
       createStatusBarItem: (...args) => createStatusBarItem(owner, ...args),
       createTreeView: (id, options) => createTreeView(owner, id, options),

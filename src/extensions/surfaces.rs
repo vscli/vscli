@@ -204,8 +204,8 @@ fn trim_output(text: &mut Rope, bytes: usize) {
 }
 impl SurfaceState {
     pub fn prepare_declarations(packages: &[Package]) -> Result<SurfaceDeclarations> {
-        if packages.len() > 8 {
-            bail!("Native surface declarations exceed 8 selected packages");
+        if packages.len() > crate::extension_activation::MAX_SELECTED {
+            bail!("Native surface declarations exceed 128 selected packages");
         }
         let mut state = Self::default();
         for package in packages {

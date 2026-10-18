@@ -1,0 +1,21 @@
+{
+  "status": "source-reference receipt; local runtime qualification is recorded in docs/NATIVE_DOCUMENT_SAVE.md",
+  "public_reference_commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "sources": [
+    {
+      "path": "src/vs/workbench/api/common/extHostDocumentData.ts",
+      "sha256": "668a26c798489c0f32f4edcb6b24f974edc641010a9047d4eba30639ca8aeb5f",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostDocumentData.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/browser/mainThreadDocuments.ts",
+      "sha256": "1439b6a7fa1609f5600edace375866638f851cb8e679046360f453a398c31bda",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/browser/mainThreadDocuments.ts"
+    }
+  ],
+  "caller_dependency": {
+    "path": "extension-host/caller-context.cjs",
+    "sha256": "2f701b7d2bb73a261bdac90fab95831b9fd6b0c74a700846b87c8b3fcd117e10"
+  },
+  "implementation": "Native Rust save receipts with a private shared-document hook; no upstream text-file service was ported."
+}

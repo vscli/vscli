@@ -1,0 +1,1 @@
+{"publisher":"fixture","name":"window-progress","version":"1.0.0","main":"extension.cjs","engines":{"vscode":"*"},"contributes":{"commands":[{"command":"progress.begin","title":"Progress begin"},{"command":"progress.step","title":"Progress step"},{"command":"progress.finish","title":"Progress finish"},{"command":"progress.fail","title":"Progress fail"}]}}

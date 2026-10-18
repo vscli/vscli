@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
+pub const MAX_CATALOG: usize = 2048;
 pub const MAX_ENABLED: usize = 128;
-pub const MAX_SELECTED: usize = 8;
+pub const MAX_SELECTED: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Scope {
@@ -117,12 +118,14 @@ impl Event {
 pub struct Metadata {
     pub package: Package,
     pub dependencies: BTreeSet<String>,
+    pub languages: BTreeSet<String>,
     pub events: BTreeSet<Event>,
     pub unsupported_events: BTreeSet<String>,
     pub commands: BTreeMap<String, String>,
     pub keybindings: Value,
     pub code: bool,
     pub blocked: Option<String>,
+    pub manifest_warnings: Vec<String>,
 }
 fn strings(value: &Value, limit: usize, name: &str) -> Result<Vec<String>> {
     if value.is_null() {
@@ -151,6 +154,7 @@ impl Metadata {
     /// Read a selected generation in a background planning worker.
     pub fn selected(package: &Package) -> Result<Self> {
         let item = Installed {
+            enabled: true,
             id: package.id.clone(),
             version: package.version.clone(),
             path: package.path.clone(),
@@ -164,8 +168,14 @@ impl Metadata {
         Ok(metadata)
     }
     pub fn installed(item: &Installed) -> Result<Self> {
+        Self::installed_with_defaults(item, &mut crate::extension_manifest::Defaults::default())
+    }
+    pub(crate) fn installed_with_defaults(
+        item: &Installed,
+        defaults: &mut crate::extension_manifest::Defaults,
+    ) -> Result<Self> {
         validate_id(&item.id)?;
-        let manifest = &item.manifest;
+        let manifest = defaults.localize(&item.path, &item.manifest);
         let mut dependencies = BTreeSet::new();
         for id in strings(
             &manifest["extensionDependencies"],
@@ -210,6 +220,7 @@ impl Metadata {
                 events.insert(Event::Command(id.into()));
             }
         }
+        let mut contributed_languages = BTreeSet::new();
         let languages = &manifest["contributes"]["languages"];
         if !languages.is_null() {
             let values = languages
@@ -225,6 +236,7 @@ impl Metadata {
                 if id.is_empty() || id.len() > 1024 {
                     bail!("Invalid contributed language ID");
                 }
+                contributed_languages.insert(id.into());
                 events.insert(Event::Language(id.into()));
             }
         }
@@ -253,12 +265,14 @@ impl Metadata {
         Ok(Self {
             package: Package::installed(item),
             dependencies,
+            languages: contributed_languages,
             events,
             unsupported_events,
             commands,
             keybindings: manifest["contributes"]["keybindings"].clone(),
             code,
             blocked,
+            manifest_warnings: std::mem::take(&mut defaults.warnings),
         })
     }
     pub fn matches(&self, event: &Event) -> bool {
@@ -282,7 +296,7 @@ pub fn plan(
     retained: &[Metadata],
     roots: &BTreeSet<String>,
 ) -> Result<Plan> {
-    if catalog.len() > MAX_ENABLED || enabled.len() > MAX_ENABLED || retained.len() > MAX_SELECTED {
+    if catalog.len() > MAX_CATALOG || enabled.len() > MAX_ENABLED || retained.len() > MAX_SELECTED {
         bail!("Extension activation catalog budget exceeded");
     }
     let mut available = catalog.clone();
@@ -342,7 +356,7 @@ fn visit(
         bail!("Extension {id} cannot activate: {reason}");
     }
     if visiting.len() >= MAX_SELECTED {
-        bail!("Extension dependency closure exceeds eight selected packages");
+        bail!("Extension dependency closure exceeds 128 selected packages");
     }
     visiting.push(id.into());
     for dependency in &metadata.dependencies {
@@ -351,7 +365,7 @@ fn visit(
     visiting.pop();
     if ordered.len() >= MAX_SELECTED {
         bail!(
-            "Extension cohort exceeds eight selected packages; stop a cohort before selecting more"
+            "Extension cohort exceeds 128 selected packages; stop a cohort before selecting more"
         );
     }
     finished.insert(id.into());
@@ -365,9 +379,31 @@ mod tests {
     use serde_json::json;
     fn metadata(id: &str, dependencies: &[&str]) -> Metadata {
         let (publisher, name) = id.split_once('.').unwrap();
-        Metadata::installed(&Installed { id: id.into(), version: "1.0.0".into(),
+        Metadata::installed(&Installed { enabled: true, id: id.into(), version: "1.0.0".into(),
             path: format!("/snapshot/{id}").into(), source: "fixture".into(), sha256: "hash".into(), compatibility: "fixture".into(),
             manifest: json!({"publisher":publisher,"name":name,"main":"main.cjs","extensionDependencies":dependencies}) }).unwrap()
+    }
+    #[test]
+    fn registered_languages_require_contributions_not_activation_events() {
+        let item = Installed {
+            enabled: true,
+            id: "test.languages".into(),
+            version: "1.0.0".into(),
+            path: "/snapshot/test.languages".into(),
+            source: "fixture".into(),
+            sha256: "hash".into(),
+            compatibility: "fixture".into(),
+            manifest: json!({"publisher":"test","name":"languages","main":"main.cjs",
+                "activationEvents":["onLanguage:unregistered"],
+                "contributes":{"languages":[{"id":"registered"},{"id":"cpp"}]}}),
+        };
+        let metadata = Metadata::installed(&item).unwrap();
+        assert_eq!(
+            metadata.languages,
+            BTreeSet::from(["registered".into(), "cpp".into()])
+        );
+        assert!(metadata.matches(&Event::Language("unregistered".into())));
+        assert!(!metadata.languages.contains("unregistered"));
     }
     #[test]
     fn consent_defaults_disabled_and_workspace_override_does_not_change_global_state() {
@@ -412,6 +448,7 @@ mod tests {
     #[test]
     fn contribution_events_are_inferred_and_unsupported_events_remain_explicit() {
         let mut item = Installed {
+            enabled: true,
             id: "test.events".into(),
             version: "1.0.0".into(),
             path: "/snapshot".into(),
@@ -440,6 +477,32 @@ mod tests {
         assert!(Metadata::installed(&item).is_err());
     }
     #[test]
+    fn ninety_package_dependency_closure_is_complete_and_dependencies_precede_roots() {
+        let catalog = (0..90)
+            .map(|index| {
+                let id = format!("test.p{index:03}");
+                let next = format!("test.p{:03}", index + 1);
+                let dependencies = if index < 89 {
+                    vec![next.as_str()]
+                } else {
+                    Vec::new()
+                };
+                (id.clone(), metadata(&id, &dependencies))
+            })
+            .collect::<BTreeMap<_, _>>();
+        let enabled = catalog.keys().cloned().collect();
+        let result = plan(
+            &catalog,
+            &enabled,
+            &[],
+            &BTreeSet::from(["test.p000".into()]),
+        )
+        .unwrap();
+        assert_eq!(result.ordered.len(), 90);
+        assert_eq!(result.ordered.first().unwrap().package.id, "test.p089");
+        assert_eq!(result.ordered.last().unwrap().package.id, "test.p000");
+    }
+    #[test]
     fn disabled_missing_cyclic_and_oversized_dependency_graphs_do_not_create_a_plan() {
         let mut catalog = BTreeMap::from([("test.a".into(), metadata("test.a", &["test.b"]))]);
         let roots = BTreeSet::from(["test.a".into()]);
@@ -464,7 +527,7 @@ mod tests {
                 .to_string()
                 .contains("cycle")
         );
-        let catalog = (0..9)
+        let catalog = (0..129)
             .map(|i| {
                 let id = format!("test.p{i}");
                 (id.clone(), metadata(&id, &[]))
@@ -475,7 +538,7 @@ mod tests {
             plan(&catalog, &enabled, &[], &enabled)
                 .unwrap_err()
                 .to_string()
-                .contains("eight")
+                .contains("budget")
         );
     }
 }

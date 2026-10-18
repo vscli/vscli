@@ -1,5 +1,6 @@
 //! Responsive native welcome page; image preparation lives in `brand`.
 use super::*;
+use ratatui::text::Text;
 use std::path::{Path, PathBuf};
 use unicode_width::UnicodeWidthStr;
 
@@ -34,6 +35,25 @@ fn recent_parent_label(parent: &Path, workspace: &Path, width: u16) -> String {
     format!("…{}", &text[start..])
 }
 
+fn literal_path_lines(text: &str, width: u16) -> Text<'static> {
+    if width == 0 {
+        return Text::default();
+    }
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    let mut used = 0;
+    for grapheme in text.graphemes(true) {
+        if used + grapheme.width() > usize::from(width) {
+            lines.push(Line::raw(std::mem::take(&mut line)));
+            used = 0;
+        }
+        line.push_str(grapheme);
+        used += grapheme.width();
+    }
+    lines.push(Line::raw(line));
+    Text::from(lines)
+}
+
 pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     let colors = app.theme.colors;
     let width = area.width.saturating_sub(4).min(88);
@@ -51,7 +71,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     } else {
         0
     };
-    let height = (header + 1 + 7 + recent + footer).min(area.height);
+    let height = (header + 1 + 8 + recent + footer).min(area.height);
     let content = Rect::new(
         area.x + area.width.saturating_sub(width) / 2,
         area.y + area.height.saturating_sub(height) / 2,
@@ -96,6 +116,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     let body_width = if wide { width / 2 - 2 } else { width };
     let context = app.context();
     for (i, (label, command)) in [
+        ("Import from VS Code", "vscli.migration.import"),
         ("New File", "workbench.action.files.newUntitledFile"),
         ("Open File", "workbench.action.files.openFile"),
         ("Open Recent File", "workbench.action.openRecent"),
@@ -188,16 +209,21 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
         if y + 5 <= area.bottom() {
             let user = app.user_settings_path().map_or_else(
                 || "Unavailable · use --settings PATH".into(),
-                |path| clean(&path.to_string_lossy()),
+                |path| {
+                    recent_parent_label(
+                        &path,
+                        Path::new("."),
+                        width.saturating_mul(2).saturating_sub(2),
+                    )
+                },
             );
             frame.render_widget(
                 Paragraph::new("User settings · JSON").style(Style::default().fg(colors.muted)),
                 Rect::new(content.x, y + 1, width, 1),
             );
             frame.render_widget(
-                Paragraph::new(user)
-                    .style(Style::default().fg(colors.foreground))
-                    .wrap(Wrap { trim: false }),
+                Paragraph::new(literal_path_lines(&user, width))
+                    .style(Style::default().fg(colors.foreground)),
                 Rect::new(content.x, y + 2, width, 2),
             );
             frame.render_widget(
@@ -262,6 +288,34 @@ mod tests {
     }
 
     #[test]
+    fn long_unbroken_profile_path_keeps_the_settings_filename_visible() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
+        let settings = app
+            .workspace
+            .root
+            .join("profile".repeat(30))
+            .join("settings.json");
+        app.configure_settings(Some(settings.clone())).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(150, 38)).unwrap();
+        terminal
+            .draw(|frame| super::super::draw(frame, &mut app))
+            .unwrap();
+        let compact: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .flat_map(|cell| cell.symbol().chars())
+            .filter(|character| !character.is_whitespace())
+            .collect();
+        assert!(compact.contains("…"));
+        assert!(compact.contains("settings.json"));
+        assert_eq!(app.user_settings_path(), Some(settings));
+        assert!(app.documents.is_empty());
+    }
+
+    #[test]
     fn welcome_actions_preserve_hidden_dirty_buffers_and_resize_invalidates_hitboxes() {
         let root = tempfile::tempdir().unwrap();
         let mut app = App::new(root.path().into(), crate::keys::Profile::Linux);
@@ -269,7 +323,7 @@ mod tests {
         hidden.insert("dirty ", false);
         let id = hidden.id;
         app.hidden_documents.push(hidden);
-        let settings = root.path().join("actual-profile/settings.json");
+        let settings = app.workspace.root.join("actual-profile/settings.json");
         app.configure_settings(Some(settings.clone())).unwrap();
         let mut terminal = Terminal::new(TestBackend::new(150, 38)).unwrap();
         terminal.draw(|f| super::super::draw(f, &mut app)).unwrap();
@@ -277,10 +331,24 @@ mod tests {
             .backend()
             .buffer()
             .content
-            .iter()
+            .chunks(150)
+            // The explorer border is outside the welcome content. Including
+            // it between rows corrupts the reconstructed wrapped path.
+            .flat_map(|row| row[26..].iter())
             .map(|c| c.symbol())
             .collect();
-        assert!(text.contains(&settings.to_string_lossy().to_string()));
+        // The settings path may wrap across footer rows on native temp roots.
+        let compact: String = text
+            .chars()
+            .filter(|character| !character.is_whitespace())
+            .collect();
+        let label = recent_parent_label(&settings, Path::new("."), 174);
+        let expected: String = label.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(
+            compact.contains(&expected),
+            "settings={settings:?}; label={label:?}; rendered={text:?}"
+        );
+        assert!(compact.contains("settings.json"));
         assert!(text.contains("ctrl+,"));
         assert!(app.documents.is_empty());
         let inspector = app

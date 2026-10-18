@@ -1,0 +1,27 @@
+{
+  "publisher": "fixture",
+  "name": "navigation-registry",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "contributes": {
+    "commands": [
+      {"command":"navigationRegistry.prepare","title":"Navigation registry prepare retained targets"},
+      {"command":"navigationRegistry.source","title":"Navigation registry show source"},
+      {"command":"navigationRegistry.queryCppEarly","title":"Navigation registry query cpp early"},
+      {"command":"navigationRegistry.queryCppWildcard","title":"Navigation registry query cpp wildcard"},
+      {"command":"navigationRegistry.queryCppThird","title":"Navigation registry query cpp third"},
+      {"command":"navigationRegistry.queryRustWildcard","title":"Navigation registry query rust wildcard"},
+      {"command":"navigationRegistry.queryRustNone","title":"Navigation registry query rust none"},
+      {"command":"navigationRegistry.registerThird","title":"Navigation registry register third"},
+      {"command":"navigationRegistry.disposeWildcard","title":"Navigation registry dispose wildcard"},
+      {"command":"navigationRegistry.disposeThird","title":"Navigation registry dispose third"},
+      {"command":"navigationRegistry.nativeEarly","title":"Navigation registry verify native early"},
+      {"command":"navigationRegistry.nativeWildcard","title":"Navigation registry verify native wildcard"},
+      {"command":"navigationRegistry.nativeThird","title":"Navigation registry verify native third"},
+      {"command":"navigationRegistry.targetClean","title":"Navigation registry verify target Undo"},
+      {"command":"navigationRegistry.targetDirty","title":"Navigation registry verify target Redo"},
+      {"command":"navigationRegistry.sourceClean","title":"Navigation registry verify source Undo"},
+      {"command":"navigationRegistry.sourceDirty","title":"Navigation registry verify source Redo"}
+    ]
+  }
+}

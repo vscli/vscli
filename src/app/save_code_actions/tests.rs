@@ -430,7 +430,10 @@ fn admitted_edit_survives_as_unsaved_work_when_post_action_sync_exceeds_transpor
     // The real peer has acknowledged receiving the smaller initial document.
     // Its edit keeps the native document below32MiB but pushes didChange over
     // the independent16MiB protocol frame limit, so publication must fail.
-    f.app.saving.actions.active.as_mut().unwrap().started = Instant::now();
+    // Isolate post-action publication from the separately tested participant
+    // deadline: the 15 MiB real-peer fixture can exceed it on a loaded CI host.
+    f.app.saving.actions.active.as_mut().unwrap().started =
+        Instant::now() + Duration::from_secs(60);
     let added = "y".repeat(1536 * 1024);
     f.release(
         first,

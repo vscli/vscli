@@ -4,6 +4,13 @@ const assert = require('node:assert/strict');
 const { createApi } = require('./api.cjs');
 const { Uri, Range, Position } = require('./api-types.cjs');
 function initial() { return { generation: 1, documents: [], active: null, selections: [] }; }
+test('file participant reset is listed, reserved and delegated without an editor or arguments',async()=>{
+ const calls=[],runtime=createApi(async(method,params)=>{calls.push({method,params});return null;},()=>{},{session:9,reservedCommands:['files.participants.resetChoice']});runtime.sync(initial());
+ const api=runtime.forExtension('test.owner');assert.ok((await api.commands.getCommands()).includes('files.participants.resetChoice'));
+ assert.throws(()=>api.commands.registerCommand('files.participants.resetChoice',()=>{}),/reserved/);
+ await api.commands.executeCommand('files.participants.resetChoice');assert.equal(calls.length,1);assert.equal(calls[0].method,'nativeCommand');assert.deepEqual(calls[0].params,{session:9,owner:'test.owner',generation:1,args:{id:'files.participants.resetChoice'}});
+ await assert.rejects(api.commands.executeCommand('files.participants.resetChoice',true),/arguments/);assert.equal(calls.length,1);
+});
 test('hidden open mirrors before events and promise; show reuses identity and native command mirrors', async () => {
   const calls = [];
   let runtime;
@@ -32,8 +39,8 @@ test('hidden open mirrors before events and promise; show reuses identity and na
   await api.commands.executeCommand('undo');
   assert.equal(calls[2][1].generation, 3); assert.equal(calls[2][1].owner, 'test.owner');
   const count = calls.length;
-  await assert.rejects(api.window.showTextDocument('/new/file', { preserveFocus: true }), /preserveFocus/);
-  await assert.rejects(api.window.showTextDocument('/new/file', { viewColumn: api.ViewColumn.One }), /active editor group/);
+  await assert.rejects(api.window.showTextDocument('/new/file', { preserveFocus: 'yes' }), /preserveFocus/);
+  await assert.rejects(api.window.showTextDocument('/new/file', { viewColumn: api.ViewColumn.Five }), /viewColumn/);
   await assert.rejects(api.workspace.openTextDocument({ content: 'no' }), /untitled/);
   await assert.rejects(api.commands.executeCommand('undo', 1), /arguments/);
   await assert.rejects(api.commands.executeCommand('workbench.action.tasks.runTask'), /unregistered/);

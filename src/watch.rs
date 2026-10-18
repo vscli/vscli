@@ -139,6 +139,7 @@ pub struct ReadRequest {
     pub revision: u64,
     pub saved_revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub save_generation: u64,
     pub publication_epoch: u64,
     pub path: PathBuf,
@@ -149,6 +150,7 @@ pub struct Snapshot {
     pub revision: u64,
     pub saved_revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub save_generation: u64,
     pub publication_epoch: u64,
     pub path: PathBuf,
@@ -175,6 +177,7 @@ impl DiskJob {
                 revision,
                 saved_revision,
                 text_epoch,
+                resource_epoch,
                 save_generation,
                 publication_epoch,
                 path,
@@ -188,6 +191,7 @@ impl DiskJob {
                         revision,
                         saved_revision,
                         text_epoch,
+                        resource_epoch,
                         save_generation,
                         publication_epoch,
                         path,
@@ -250,18 +254,25 @@ fn read_change(
 pub(crate) struct SaveConflictProof {
     pub path: PathBuf,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub save_generation: u64,
 }
 impl SaveConflictProof {
     pub fn current(&self, document: &crate::document::Document) -> bool {
         document.path.as_ref() == Some(&self.path)
             && document.text_epoch() == self.text_epoch
+            && document.resource_epoch() == self.resource_epoch
             && document.save_generation() == self.save_generation
     }
 }
 pub struct Notice {
     pub(crate) text: String,
     pub(crate) save_conflict: Option<SaveConflictProof>,
+}
+
+pub(crate) struct Publication {
+    pub epoch: u64,
+    pub result: std::result::Result<(), String>,
 }
 
 pub struct State {
@@ -275,6 +286,7 @@ pub struct State {
     pub publication_epoch: u64,
     pub publication_disabled: bool,
     pub notices: std::collections::HashMap<u64, Notice>,
+    pub(crate) publications: std::collections::HashMap<u64, Publication>,
 }
 impl State {
     pub fn new(root: PathBuf) -> Self {
@@ -289,6 +301,7 @@ impl State {
             publication_epoch: 1,
             publication_disabled: false,
             notices: std::collections::HashMap::new(),
+            publications: std::collections::HashMap::new(),
         }
     }
 }

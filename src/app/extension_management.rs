@@ -74,6 +74,17 @@ impl Job {
     }
 }
 impl App {
+    pub fn configure_locale(&mut self, locale: &str) -> Result<()> {
+        if self.extension_host.is_some()
+            || self.extension_job.is_some()
+            || self.extension_retirement.is_some()
+        {
+            anyhow::bail!("Change the preferred language before starting extensions");
+        }
+        self.extension_locale =
+            crate::extensions::parse_locale(locale).map_err(anyhow::Error::msg)?;
+        Ok(())
+    }
     pub(super) fn manage_extension(&mut self, action: Action) {
         if self.extension_job.is_some() {
             self.message = "An extension operation is already running".into();
@@ -175,20 +186,29 @@ impl App {
         if self.extension_job.is_some() || self.extension_retirement.is_some() {
             anyhow::bail!("An extension operation or retirement is already running");
         }
-        if packages.is_empty() || packages.len() > 8 {
-            anyhow::bail!("Select between one and eight code extensions");
+        if packages.is_empty() || packages.len() > crate::extension_activation::MAX_SELECTED {
+            anyhow::bail!("Select between one and 128 code extensions");
         }
         packages.sort_by(|a, b| a.id.cmp(&b.id));
         if packages.windows(2).any(|pair| pair[0].id == pair[1].id) {
             anyhow::bail!("Duplicate selected extension");
         }
+        self.refresh_extension_editor_inventory();
         let mut prepared = crate::extensions::Client::prepare_with_hidden(
             &self.documents,
             &self.hidden_documents,
             self.active,
             &self.settings,
         )?
-        .with_storage_root(self.extension_services.config_root.clone());
+        .with_editor_inventory(
+            self.extension_editor_inventory.clone(),
+            &self.documents,
+            &self.hidden_documents,
+        )?
+        .with_editor_tabs(self.extension_editor_tabs.clone())?
+        .with_file_participation()
+        .with_storage_root(self.extension_services.config_root.clone())
+        .with_locale(&self.extension_locale)?;
         if let Some(activation) = activation {
             prepared = prepared.with_activation(activation)?;
         }
@@ -201,6 +221,9 @@ impl App {
         let root = self.workspace.root.clone();
         self.cancel_extension_prompt();
         self.cancel_extension_services();
+        if let Some(host) = &self.extension_host {
+            self.retire_api_document_customer(host.session);
+        }
         let previous = self.extension_host.take().map(|mut host| {
             host.cancel_prompts();
             host
@@ -258,6 +281,7 @@ impl App {
         }
     }
     pub(super) fn retire_extension_host(&mut self, mut host: crate::extensions::Client) {
+        self.retire_api_document_customer(host.session);
         self.clear_active_extension_bindings();
         self.cancel_extension_prompt();
         self.cancel_extension_services();

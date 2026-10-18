@@ -1,0 +1,55 @@
+{
+  "stable": "1.141.0",
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "sources": [
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/workspaceEdit.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/workspaceEdit.ts",
+      "bytes": 8327,
+      "sha256": "325fc4e16df3c524a33049ee55657ff4f124ca6fee74e3c0daec5a3eb993e8be"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/textEdit.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/textEdit.ts",
+      "bytes": 2387,
+      "sha256": "8d0b30ef773a43acc9f61557b48f837b3e7306ed460bfc61968fb3e6ccf225fb"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/snippetTextEdit.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/snippetTextEdit.ts",
+      "bytes": 1343,
+      "sha256": "fbd9ea10d392eb5906c8964186d1244a4bef7cefb3816d83427d286d8c5175d9"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/notebooks.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/notebooks.ts",
+      "bytes": 8500,
+      "sha256": "c4a90d7c04bf4fa283217155674a54d57634962fb255b127908db56af5ce7dfa"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypeConverters.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypeConverters.ts",
+      "bytes": 155704,
+      "sha256": "d61eb0ecb7dd822fec63da45e49be1e0510985753adc83c8a35d7cf100b9f396"
+    },
+    {
+      "path": "src/vscode-dts/vscode.d.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vscode-dts/vscode.d.ts",
+      "bytes": 742274,
+      "sha256": "a4321528e86dcdcb8450287f2a263055c46a622119cdb186de85ac3b19ce9608"
+    },
+    {
+      "path": "LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/LICENSE.txt",
+      "bytes": 1088,
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/es5ClassCompat.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/es5ClassCompat.ts",
+      "bytes": 1176,
+      "sha256": "583e6a3a68d89ec9e63316943ec021ecede29592c24929b954b00dc4a1715502"
+    }
+  ],
+  "qualification": "Immutable source receipts for the source-guided implementation; executed local evidence and outstanding qualification are recorded separately in docs/EDIT_API.md."
+}

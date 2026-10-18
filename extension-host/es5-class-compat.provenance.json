@@ -1,0 +1,127 @@
+{
+  "stable": "1.141.0",
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "sources": [
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes.ts",
+      "bytes": 110689,
+      "sha256": "4e5f4635e6fc23fd82707bcf47d2bb5a27ef81f89eac88ff4e0ae2cc92518acc",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/es5ClassCompat.ts",
+      "bytes": 1176,
+      "sha256": "583e6a3a68d89ec9e63316943ec021ecede29592c24929b954b00dc4a1715502",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/es5ClassCompat.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/position.ts",
+      "bytes": 5119,
+      "sha256": "0ea510e28831180e378efe9c20e8e8b666d5102b44ef1a2470905505a7ba2476",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/position.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/range.ts",
+      "bytes": 4699,
+      "sha256": "29247138cd98d009c356155d304745d36cff0d3c4f19b1117ab364446f779a38",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/range.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/selection.ts",
+      "bytes": 2767,
+      "sha256": "b4f72c89c11ec845b309402015d34e4676afe2e672acc2fd0d9ea56e3297fdd5",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/selection.ts"
+    },
+    {
+      "path": "src/vs/base/common/cancellation.ts",
+      "bytes": 5417,
+      "sha256": "0ed0f0be5f9ac280fe1e45c0e81568825283d2c8dd17d2c2b03c21c1912a8c3b",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/cancellation.ts"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHost.api.impl.ts",
+      "bytes": 133853,
+      "sha256": "a5329ce4e987afa0d2b823461e8a7b83e0bdc6a739245334ad730644f55b2879",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHost.api.impl.ts"
+    },
+    {
+      "path": "LICENSE.txt",
+      "bytes": 1088,
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/LICENSE.txt"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/diagnostic.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/diagnostic.ts",
+      "bytes": 2961,
+      "sha256": "9cdd4cb0cfae247de2d7e641be59b8bde0ca82ad24950fa40d43d6ab803dd990"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/location.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/location.ts",
+      "bytes": 1355,
+      "sha256": "6c543b0c0a4b6236dd98326eaef7726126057d7eada8ff97fe898c03708649b4"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/markdownString.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/markdownString.ts",
+      "bytes": 2711,
+      "sha256": "aaf1832518eb4adb568d0081564cdf6a4d64219de92ada4824224b335c3863ad"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/snippetString.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/snippetString.ts",
+      "bytes": 2618,
+      "sha256": "5afeda4e1b644376374d49d671995d3e35d8fad71645bfc9b72976e6637feb11"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/symbolInformation.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/symbolInformation.ts",
+      "bytes": 2276,
+      "sha256": "446a6ad8dcabccc8747a48187c6e19d2b85fbbcdeba4634dad0eaf5282b8f41c"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/codeActionKind.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/codeActionKind.ts",
+      "bytes": 2205,
+      "sha256": "b015165145939b7c38d16f7f2fbe325a587e875e35ee4a789cfe469bc709f0f9"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/textEdit.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/textEdit.ts",
+      "bytes": 2387,
+      "sha256": "8d0b30ef773a43acc9f61557b48f837b3e7306ed460bfc61968fb3e6ccf225fb"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/workspaceEdit.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/workspaceEdit.ts",
+      "bytes": 8327,
+      "sha256": "325fc4e16df3c524a33049ee55657ff4f124ca6fee74e3c0daec5a3eb993e8be"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/notebooks.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/notebooks.ts",
+      "bytes": 8500,
+      "sha256": "c4a90d7c04bf4fa283217155674a54d57634962fb255b127908db56af5ce7dfa"
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes/snippetTextEdit.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes/snippetTextEdit.ts",
+      "bytes": 1343,
+      "sha256": "fbd9ea10d392eb5906c8964186d1244a4bef7cefb3816d83427d286d8c5175d9"
+    },
+    {
+      "path": "src/vs/base/common/event.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/event.ts",
+      "bytes": 64554,
+      "sha256": "90252004ebb0dcb55cf7a544c314a76d674c1a55dd2e0c4a74f395c8e7da87b2"
+    },
+    {
+      "path": "src/vs/base/common/uri.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/uri.ts",
+      "bytes": 23307,
+      "sha256": "65bc6eefd07704297435d71a9da87dec1ca9103c0575bf29ce00f291a24114c9"
+    }
+  ],
+  "qualification": "Immutable source receipts; local executed evidence and remaining qualification are recorded in docs/EXTENSION_API.md."
+}

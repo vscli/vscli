@@ -1,0 +1,72 @@
+'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
+
+// Source-guided compatibility implementation (MIT).
+/*
+MIT License
+
+Copyright (c) 2015 - present Microsoft Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+// Compatibility builder; parsing and native insertion remain separate services.
+// Compared with microsoft/vscode 2a59476c9bfcb90b3ddc372c36762471b7dfad1c
+// src/vs/workbench/api/common/extHostTypes/snippetString.ts.
+class SnippetString {
+  constructor(value) { this.value = value || ''; this._tabstop = 1; }
+  static isSnippetString(value) {
+    return value instanceof SnippetString || !!value && typeof value === 'object' && typeof value.value === 'string';
+  }
+  static _escape(value) { return value.replace(/[$}\\]/g, '\\$&'); }
+  appendText(value) { this.value += SnippetString._escape(value); return this; }
+  appendTabstop(number = this._tabstop++) { this.value += `$${number}`; return this; }
+  appendPlaceholder(value, number = this._tabstop++) {
+    if (typeof value === 'function') {
+      const nested = new SnippetString();
+      nested._tabstop = this._tabstop;
+      value(nested);
+      this._tabstop = nested._tabstop;
+      value = nested.value;
+    } else value = SnippetString._escape(value);
+    this.value += `\${${number}:${value}}`;
+    return this;
+  }
+  appendChoice(values, number = this._tabstop++) {
+    const value = values.map(item => item.replace(/[|\\,]/g, '\\$&')).join(',');
+    this.value += `\${${number}|${value}|}`;
+    return this;
+  }
+  appendVariable(name, defaultValue) {
+    if (typeof defaultValue === 'function') {
+      const nested = new SnippetString();
+      nested._tabstop = this._tabstop;
+      defaultValue(nested);
+      this._tabstop = nested._tabstop;
+      defaultValue = nested.value;
+    } else if (typeof defaultValue === 'string') defaultValue = defaultValue.replace(/[$}]/g, '\\$&');
+    this.value += `\${${name}${defaultValue ? `:${defaultValue}` : ''}}`;
+    return this;
+  }
+}
+
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [SnippetString]) es5ClassCompat(value);
+
+module.exports = { SnippetString };

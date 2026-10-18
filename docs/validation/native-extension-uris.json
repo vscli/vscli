@@ -1,0 +1,113 @@
+{
+  "schema": "vscli-native-extension-uri-validation-v1",
+  "base_commit": "3f1bfa09d073c56d5461777a4fab5a154a97355b",
+  "scope": "Native/public extension path and URI formatting; cached opens, workspace edits and unchanged native model identity. LSP wire spelling and native filesystem paths remain independent. Actual Windows qualification awaits fresh CI.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1694,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "74a351870ee457fbe0ccf76ebb406815b1b2f3a54be6ca1b65850e148739bb56"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "81ba4b71f57602a24f6bc3805279a3ace66b41dcee770d0f2df05cb5cceee57c"
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked",
+      "passed": 1651,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 68,
+      "library_passed": 1298,
+      "checked_source_sha256": "8176018cad59c3acfd3d0f27b19030f0d5e8a2482801e46299a93e5de14f999b",
+      "log": "/tmp/vscli-windows-path-final-rust.log"
+    },
+    {
+      "command": "cargo test --locked --test extension_host public_file_uri_roundtrip",
+      "passed": 1,
+      "failed": 0,
+      "checked_source_sha256": "74a351870ee457fbe0ccf76ebb406815b1b2f3a54be6ca1b65850e148739bb56",
+      "log": "/tmp/vscli-windows-path-final-focused.log"
+    },
+    {
+      "command": "node --test extension-host/*.test.cjs",
+      "passed": 799,
+      "failed": 0,
+      "log": "/tmp/vscli-windows-path-full-host.log"
+    },
+    {
+      "command": "cargo test --locked --lib native_extension_file_uri_spelling_matches_the_upstream_uri_formatter",
+      "passed": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-windows-path-formatter-tests.log"
+    },
+    {
+      "command": "cargo test --locked --lib app::themes::",
+      "passed": 12,
+      "failed": 0,
+      "log": "/tmp/vscli-startup-theme-notice-tests.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-windows-path-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-windows-path-build.log"
+    }
+  ],
+  "terminal_checks": [
+    {
+      "command": "python3 tests/pty_smoke.py target/debug/vscli",
+      "passed_scenarios": 35,
+      "result": "passed",
+      "log": "/tmp/vscli-windows-path-core-pty.log"
+    },
+    {
+      "command": "python3 tests/extension_documents_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "result": "passed",
+      "log": "/tmp/vscli-windows-path-documents-pty.log"
+    },
+    {
+      "command": "python3 tests/extension_cohort_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "result": "passed",
+      "log": "/tmp/vscli-windows-path-cohort-pty.log"
+    }
+  ],
+  "final_test_delta": "After the full regression, Clippy requested comparison with native text directly instead of allocating a temporary String in one test assertion. Runtime sources and the binary are unchanged; that focused test and final Clippy pass on the final source digest. Full-regression source identity is recorded separately.",
+  "windows_controls": "A Windows-only native test validates drive/UNC verbatim-path conversion, package wire descriptors and unchanged native identity. It has not run on this Linux host.",
+  "observations": [
+    "Windows at 417a83d passed Node tests and failed 51 native tests, including invalid international domain names from file://%3F authorities and extra cached document acquisitions",
+    "Upstream URI default formatting encodes drive colons and reserved filename characters; native extension mirrors now use that spelling",
+    "Public cached open and WorkspaceEdit on a real reserved filename preserve one model and exact Unicode/CRLF save/public Undo bytes locally"
+  ],
+  "remaining": [
+    "Fresh exact-head Windows, macOS and Linux required checks",
+    "Broader remote/custom filesystem and platform-native path qualification",
+    "Entire stable extension API and personal user/built-in extension workflows",
+    "Full profile/visual/keybinding fidelity and release artifacts"
+  ]
+}

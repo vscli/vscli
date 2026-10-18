@@ -1,0 +1,88 @@
+{
+  "schema": "vscli-portable-profile-validation-v1",
+  "base_commit": "4e7017f77e54c24f06f2a9b453be3e19ac41aca2",
+  "scope": "Portable source application inference integrated with existing independent native migration; full stable API and complete setup compatibility remain required.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1737,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "917099221bc02c27183a75367d2c33132e1095913e1c9e8372404211ab4d1784"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "c3b44c05d71957e15fb9751b72be2aa84cd92978599e36d56d3323d64b86ffd7"
+  },
+  "criteria": {
+    "passed": 4,
+    "total": 4,
+    "items": [
+      "Adjacent source application and version discovery follows standard portable and channel layouts",
+      "Missing or ambiguous adjacent applications remain explicit and shared profile roots are inspected once",
+      "Actual independent portable profile and built-in copy uses native theme/shortcuts/save/Undo without Node or code grants",
+      "Relevant controls, full native regression, formatting and strict locked Clippy pass on the recorded source"
+    ]
+  },
+  "reference": "https://code.visualstudio.com/docs/setup/portable",
+  "checks": [
+    {
+      "command": "cargo test --locked --lib migration::discovery::tests",
+      "passed": 4,
+      "failed": 0,
+      "log": "/tmp/vscli-portable-app-controls.log",
+      "cohort_note": "These controls preceded the final shared-root inspection deduplication; all are included in the final full suite."
+    },
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --all-targets --locked --no-fail-fast",
+      "passed": 1670,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 72,
+      "library_passed": 1311,
+      "log": "/tmp/vscli-portable-profile-final-rust.log"
+    },
+    {
+      "command": "python3 tests/portable_profile_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-portable-profile-final-pty.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-portable-profile-final-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-portable-profile-final-build.log"
+    }
+  ],
+  "qualification_conditions": [
+    "Three filesystem layout fixtures run on the local Linux host; they do not qualify physical Windows/macOS installations.",
+    "The first full 1670-test result is retained as /tmp/vscli-portable-profile-pre-dedup-rust.log; a later correction avoids repeated application inspection across named profiles and the final full result above covers it.",
+    "The synthetic built-in throws if executed; zero grants and a nonexistent Node path keep discovery/migration/native editing independent of source code."
+  ],
+  "outstanding": [
+    "Physical other-platform portable layouts and all custom application/data arrangements",
+    "Exported .code-profile input and complete settings/storage/presentation fidelity",
+    "Personal extension code workflows, entire stable API and complete release gates"
+  ]
+}

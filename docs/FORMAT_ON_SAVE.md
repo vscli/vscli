@@ -7,10 +7,10 @@ a language block such as `[cpp]`. The default is false. `editor.formatOnSaveMode
 defaults to `"file"`; modified-lines modes and an explicitly selected extension
 `editor.defaultFormatter` are read and reported, but are not implemented on save.
 An explicit Save uses the already synchronized native language-server formatter
-for an ordinary named visible model. It then captures a fresh snapshot and uses
+for an ordinary named retained model, including hidden models. It then captures a fresh snapshot and uses
 the existing guarded background save worker. No JavaScript runtime is needed.
 
-After-delay autosaves skip formatting. First save, Save As, hidden targets,
+After-delay autosaves skip formatting. First save, Save As,
 unsupported servers and unsupported formatter selection still save current bytes
 with a bounded skip notice. Formatter errors and invalid edit batches also fall
 back to saving current bytes with a notice. The notice survives the successful
@@ -104,13 +104,20 @@ ranking. Fresh platform qualification remains pending.
 
 ## Outstanding work
 
-Save-time source actions and action resolution/commands, extension formatters and
+Additional source-action mutations and commands, extension formatters and
 `willSaveWaitUntil`, trim-whitespace/final-newline participants, modified-range
 formatting, competing formatter selection, dynamic registration, Save All, and
-Save As/hidden-target participant ownership require separate implementation and
+Save As participant ownership require separate implementation and
 qualification. Each valid participant batch is atomic; an entire asynchronous
 participant chain is not an all-stage rollback or a single Undo transaction.
 This milestone does not establish full VS Code parity.
+
+Retained hidden targets now use the same native participant pipeline without
+being shown. Three actual framed LSP tests pass for hidden actions followed by
+formatting and persistence, edit→Undo invalidation, and canceled action occupancy
+through actual settlement. The broader refactoring-save qualification is recorded
+in [refactoring saves](REFACTORING_SAVES_API.md). Save As still skips language
+participants; its native persistence continuation is a separate capability.
 
 ## Long workspace paths and visible save notices
 

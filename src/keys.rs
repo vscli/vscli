@@ -1,3 +1,4 @@
+mod when;
 use anyhow::{Context, Result, bail};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::{Deserialize, Serialize};
@@ -51,6 +52,7 @@ pub struct Keymap {
     defaults: Vec<Binding>,
     extensions: Vec<Binding>,
     user: Vec<Binding>,
+    conditions: std::sync::Arc<HashMap<String, std::sync::Arc<when::Expr>>>,
 }
 #[derive(Debug, PartialEq)]
 pub enum Resolution {
@@ -67,6 +69,7 @@ impl Keymap {
             defaults: Vec::new(),
             extensions: Vec::new(),
             user: Vec::new(),
+            conditions: Default::default(),
         };
         let p = profile.primary();
         for (key, command) in [
@@ -201,6 +204,11 @@ impl Keymap {
         ] {
             map.add(&key, command, Some("editorTextFocus"));
         }
+        map.add(
+            &format!("{p}+f12"),
+            "editor.action.goToImplementation",
+            Some("editorHasImplementationProvider && editorTextFocus"),
+        );
         map.add(
             &format!("{p}+shift+o"),
             "workbench.action.gotoSymbol",
@@ -588,6 +596,7 @@ impl Keymap {
         );
         map.add("escape", "breadcrumbs.selectEditor", Some(active));
         map.defaults = map.bindings.clone();
+        map.compile_conditions();
         map
     }
     fn add(&mut self, key: &str, command: &str, when: Option<&str>) {
@@ -726,6 +735,20 @@ impl Keymap {
                 self.bindings.push(b);
             }
         }
+        self.compile_conditions();
+    }
+    fn compile_conditions(&mut self) {
+        self.conditions = std::sync::Arc::new(
+            self.bindings
+                .iter()
+                .filter_map(|binding| binding.when.as_ref())
+                .filter_map(|source| {
+                    when::compile(source)
+                        .ok()
+                        .map(|value| (source.clone(), value))
+                })
+                .collect(),
+        );
     }
     pub fn resolve(&self, sequence: &str, context: &HashMap<String, Value>) -> Resolution {
         for b in self.bindings.iter().rev() {
@@ -737,10 +760,12 @@ impl Keymap {
             if !exact && !chord {
                 continue;
             }
-            if b.when
-                .as_ref()
-                .is_some_and(|w| !evaluate(w, context).unwrap_or(false))
-            {
+            if b.when.as_ref().is_some_and(|w| {
+                !self.conditions.get(w).map_or_else(
+                    || evaluate(w, context).unwrap_or(false),
+                    |condition| condition.evaluate(context),
+                )
+            }) {
                 continue;
             }
             if exact {
@@ -858,183 +883,13 @@ fn normalize_sequence(s: &str) -> String {
         .join(" ")
 }
 
-#[derive(Debug, PartialEq)]
-enum Tok {
-    Name(String),
-    Not,
-    And,
-    Or,
-    Eq,
-    Ne,
-    L,
-    R,
-}
+#[cfg(test)]
 const MAX_WHEN_BYTES: usize = 8 * 1024;
-const MAX_WHEN_TOKENS: usize = 1024;
-const MAX_WHEN_DEPTH: usize = 64;
-
-fn lex(s: &str) -> Result<Vec<Tok>> {
-    if s.len() > MAX_WHEN_BYTES {
-        bail!("When expression exceeds 8 KiB");
-    }
-    let chars: Vec<_> = s.chars().collect();
-    let mut i = 0;
-    let mut out = Vec::new();
-    while i < chars.len() {
-        let c = chars[i];
-        if c.is_whitespace() {
-            i += 1;
-            continue;
-        }
-        if out.len() == MAX_WHEN_TOKENS {
-            bail!("When expression exceeds 1024 tokens");
-        }
-        match c {
-            '(' => {
-                out.push(Tok::L);
-                i += 1;
-            }
-            ')' => {
-                out.push(Tok::R);
-                i += 1;
-            }
-            '!' if chars.get(i + 1) != Some(&'=') => {
-                out.push(Tok::Not);
-                i += 1;
-            }
-            '&' | '|' if chars.get(i + 1) == Some(&c) => {
-                out.push(if c == '&' { Tok::And } else { Tok::Or });
-                i += 2;
-            }
-            '=' | '!' if chars.get(i + 1) == Some(&'=') => {
-                out.push(if c == '=' { Tok::Eq } else { Tok::Ne });
-                i += 2;
-                if chars.get(i) == Some(&'=') {
-                    i += 1;
-                }
-            }
-            '\'' | '"' => {
-                let quote = c;
-                i += 1;
-                let start = i;
-                while i < chars.len() && chars[i] != quote {
-                    i += 1;
-                }
-                if i == chars.len() {
-                    bail!("Unclosed string");
-                }
-                out.push(Tok::Name(chars[start..i].iter().collect()));
-                i += 1;
-            }
-            c if c.is_alphanumeric() || c == '_' => {
-                let start = i;
-                while i < chars.len()
-                    && (chars[i].is_alphanumeric() || matches!(chars[i], '_' | '.' | '-'))
-                {
-                    i += 1;
-                }
-                out.push(Tok::Name(chars[start..i].iter().collect()));
-            }
-            _ => bail!(
-                "Only !, &&, ||, ==, != and parentheses are supported in when clauses in this alpha"
-            ),
-        }
-    }
-    Ok(out)
+pub(crate) fn precompile_when(source: &str) -> Result<()> {
+    when::compile(source).map(|_| ())
 }
-pub fn evaluate(s: &str, context: &HashMap<String, Value>) -> Result<bool> {
-    struct Parser<'a> {
-        t: Vec<Tok>,
-        i: usize,
-        c: &'a HashMap<String, Value>,
-        depth: usize,
-    }
-    impl Parser<'_> {
-        fn expr(&mut self) -> Result<bool> {
-            let mut v = self.and()?;
-            while self.t.get(self.i) == Some(&Tok::Or) {
-                self.i += 1;
-                let rhs = self.and()?;
-                v |= rhs;
-            }
-            Ok(v)
-        }
-        fn and(&mut self) -> Result<bool> {
-            let mut v = self.atom()?;
-            while self.t.get(self.i) == Some(&Tok::And) {
-                self.i += 1;
-                let rhs = self.atom()?;
-                v &= rhs;
-            }
-            Ok(v)
-        }
-        fn atom(&mut self) -> Result<bool> {
-            if self.depth > MAX_WHEN_DEPTH {
-                bail!("When expression exceeds 64 nested groups or negations");
-            }
-            self.depth += 1;
-            let result = self.atom_inner();
-            self.depth -= 1;
-            result
-        }
-        fn atom_inner(&mut self) -> Result<bool> {
-            if self.t.get(self.i) == Some(&Tok::Not) {
-                self.i += 1;
-                return Ok(!self.atom()?);
-            }
-            if self.t.get(self.i) == Some(&Tok::L) {
-                self.i += 1;
-                let v = self.expr()?;
-                if self.t.get(self.i) != Some(&Tok::R) {
-                    bail!("Missing )");
-                }
-                self.i += 1;
-                return Ok(v);
-            }
-            let Some(Tok::Name(name)) = self.t.get(self.i) else {
-                bail!("Expected context key");
-            };
-            let value = if name == "true" {
-                Value::Bool(true)
-            } else if name == "false" {
-                Value::Bool(false)
-            } else {
-                self.c.get(name).cloned().unwrap_or(Value::Null)
-            };
-            self.i += 1;
-            if matches!(self.t.get(self.i), Some(Tok::Eq | Tok::Ne)) {
-                let equal = self.t[self.i] == Tok::Eq;
-                self.i += 1;
-                let Some(Tok::Name(rhs)) = self.t.get(self.i) else {
-                    bail!("Expected comparison value");
-                };
-                self.i += 1;
-                let lhs = match value {
-                    Value::String(s) => s,
-                    Value::Null => "undefined".into(),
-                    v => v.to_string(),
-                };
-                return Ok((lhs == *rhs) == equal);
-            }
-            Ok(match value {
-                Value::Bool(b) => b,
-                Value::Null => false,
-                Value::String(s) => !s.is_empty(),
-                _ => true,
-            })
-        }
-    }
-    let mut p = Parser {
-        t: lex(s)?,
-        i: 0,
-        c: context,
-        depth: 0,
-    };
-    let value = p.expr()?;
-    if p.i != p.t.len() {
-        bail!("Unexpected expression token");
-    }
-    Ok(value)
+pub fn evaluate(source: &str, context: &HashMap<String, Value>) -> Result<bool> {
+    Ok(when::compile(source)?.evaluate(context))
 }
 
 #[cfg(test)]
@@ -1117,6 +972,7 @@ mod tests {
                     args,
                 });
             }
+            map.compile_conditions();
             let mut sequences = vec!["".into(), "x".into(), "unbound".into(), "ctrl".into()];
             for binding in &map.bindings {
                 sequences.push(binding.key.clone());
@@ -1318,7 +1174,7 @@ mod tests {
             )
             .unwrap()
         );
-        assert!(evaluate("editorLangId =~ /rust/", &ctx).is_err());
+        assert!(evaluate("editorLangId =~ /rust/", &ctx).unwrap());
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("keys.json");
         std::fs::write(
@@ -1338,15 +1194,25 @@ mod tests {
         let context = HashMap::new();
         for nested in [
             format!("{}true{}", "(".repeat(64), ")".repeat(64)),
-            format!("{}true", "!".repeat(64)),
-            format!("{}{}true{}", "!".repeat(32), "(".repeat(32), ")".repeat(32)),
+            format!("{}true{}", "!(".repeat(64), ")".repeat(64)),
+            format!(
+                "{}{}true{}",
+                "!(".repeat(32),
+                "(".repeat(32),
+                ")".repeat(64)
+            ),
         ] {
             assert!(evaluate(&nested, &context).unwrap());
         }
         for nested in [
             format!("{}true{}", "(".repeat(65), ")".repeat(65)),
-            format!("{}true", "!".repeat(65)),
-            format!("{}{}true{}", "!".repeat(33), "(".repeat(32), ")".repeat(32)),
+            format!("{}true{}", "!(".repeat(65), ")".repeat(65)),
+            format!(
+                "{}{}true{}",
+                "!(".repeat(33),
+                "(".repeat(32),
+                ")".repeat(65)
+            ),
         ] {
             assert!(
                 evaluate(&nested, &context)
@@ -1385,13 +1251,13 @@ mod tests {
         let before = serde_json::to_value(&map.bindings).unwrap();
         let invalid = serde_json::json!([
             {"key":"f9","command":"-user.command"},
-            {"key":"f8","command":"invalid.command","when":format!("{}true", "!".repeat(65))}
+            {"key":"f8","command":"invalid.command","when":format!("{}true{}", "!(".repeat(65), ")".repeat(65))}
         ]);
         std::fs::write(&path, serde_json::to_vec(&invalid).unwrap()).unwrap();
         assert!(format!("{:#}", map.load(&path).unwrap_err()).contains("64 nested"));
         assert_eq!(serde_json::to_value(&map.bindings).unwrap(), before);
         let extension = serde_json::json!([
-            {"key":"f8","command":"invalid.command","when":format!("{}true", "!".repeat(65))}
+            {"key":"f8","command":"invalid.command","when":format!("{}true{}", "!(".repeat(65), ")".repeat(65))}
         ]);
         assert!(
             format!("{:#}", map.set_extension_bindings(extension).unwrap_err())
@@ -1649,6 +1515,58 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn implementation_shortcut_matches_original_platform_key_and_provider_precondition() {
+        for (profile, platform) in [
+            (Profile::Linux, "linux"),
+            (Profile::Windows, "win32"),
+            (Profile::Macos, "darwin"),
+        ] {
+            let map = Keymap::new(profile);
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tests/vscode-reference/baselines/1.95.0/{platform}/inventory.json"
+            ));
+            let inventory: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+            let reference = inventory["bindings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|binding| binding["command"] == "editor.action.goToImplementation")
+                .unwrap();
+            let binding = map
+                .bindings
+                .iter()
+                .find(|binding| binding.command == "editor.action.goToImplementation")
+                .unwrap();
+            assert_eq!(
+                binding.key,
+                normalize_sequence(reference["key"].as_str().unwrap())
+            );
+            assert_eq!(binding.when.as_deref(), reference["when"].as_str());
+            let mut context = HashMap::from([
+                ("editorTextFocus".into(), json!(true)),
+                ("editorHasImplementationProvider".into(), json!(false)),
+            ]);
+            assert!(matches!(
+                map.resolve(&binding.key, &context),
+                Resolution::None
+            ));
+            context.insert("editorHasImplementationProvider".into(), json!(true));
+            assert!(
+                matches!(map.resolve(&binding.key, &context), Resolution::Command(id, _) if id == "editor.action.goToImplementation")
+            );
+            context.insert("editorTextFocus".into(), json!(false));
+            assert!(matches!(
+                map.resolve(&binding.key, &context),
+                Resolution::None
+            ));
+            assert!(!map.bindings.iter().any(|binding| matches!(
+                binding.command.as_str(),
+                "editor.action.goToTypeDefinition" | "editor.action.revealDeclaration"
+            )));
+        }
+    }
+
     #[test]
     fn code_action_shortcuts_match_pinned_platform_keys_and_provider_contexts() {
         for (profile, platform) in [

@@ -1,4 +1,5 @@
 'use strict';
+const limits = require('./limits.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const Module = require('node:module');
@@ -16,8 +17,8 @@ const { createActivation } = require('./activation.cjs');
 // Console output from extensions must never corrupt the protocol stream.
 global.console = new Console(process.stderr, process.stderr);
 const MAX = 16 * 1024 * 1024;
-let buffer = Buffer.alloc(0), nextId = 0, initialized = false, ready = false, runtime, activation, session, root, configuration, activating = 0, activationBusy = false, languageProviders = false;
-const pending = new Map(), packages = [];
+let buffer = Buffer.alloc(0), initialized = false, ready = false, runtime, activation, session, root, configuration, activating = 0, activationBusy = false, languageProviders = false;
+const packages = [];
 function send(message) {
   const body = Buffer.from(JSON.stringify(message));
   if (body.length > MAX || process.stdout.writableLength + body.length > 64 * 1024 * 1024) {
@@ -26,20 +27,8 @@ function send(message) {
   process.stdout.write(`Content-Length: ${body.length}\r\n\r\n`);
   process.stdout.write(body);
 }
-function request(method, params) {
-  if (method === 'prompt' || ['nativeDocumentOpen', 'nativeDocumentShow', 'nativeCommand', 'nativeStateWrite'].includes(method)) {
-    const context = execution.getStore();
-    if (context?.active && Number.isSafeInteger(context.id)) params = { ...params, command: context.id, commandOwner: context.owner };
-  }
-  if (pending.size >= 64) return Promise.reject(new Error('Extension request limit exceeded'));
-  const id = `host-${++nextId}`;
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Native request timed out: ${method}`)); }, method === 'prompt' ? 360000 : 5000);
-    pending.set(id, { resolve, reject, timer });
-    try { send({ id, method, params }); }
-    catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
-  });
-}
+const nativeRequests = require('./native-requests.cjs').createNativeRequests(send, () => execution.getStore());
+const request = nativeRequests.request;
 const originalLoad = Module._load;
 Module._load = function(name, parent, isMain) {
   if (name === 'vscode') {
@@ -57,15 +46,16 @@ function nodes(value) {
   return 1 + Object.values(value).reduce((sum, item) => sum + nodes(item), 0);
 }
 function prepare(inputs, retained = []) {
-  if (!Array.isArray(inputs) || !inputs.length || inputs.length > 8) throw new Error('Select between one and eight code extensions');
+  const defaults = require('./manifest-localization.cjs').createDefaults(retained.reduce((bytes,item)=>bytes+(item.nlsBytes||0),0), text=>console.error(text));
+  if (!Array.isArray(inputs) || !inputs.length || inputs.length > limits.packages) throw new Error('Select between one and 128 code extensions');
   let bytes = 0, count = 0, bindings = 0, contributions = 0;
-  if (inputs.length + retained.length > 8) throw new Error('Extension cohort exceeds eight selected packages');
+  if (inputs.length + retained.length > limits.packages) throw new Error('Extension cohort exceeds 128 selected packages');
   const ids = new Set(retained.map(item => item.id));
   function account(manifest, size) {
     bytes += size; count += nodes(manifest);
     bindings += Array.isArray(manifest.contributes?.keybindings) ? manifest.contributes.keybindings.length : manifest.contributes?.keybindings ? 1 : 0;
     contributions += manifest.contributes?.commands?.length || 0;
-    if (bytes > 8 * 1024 * 1024 || count > 50000 || bindings > 1024 || contributions > 1024) throw new Error('Extension session cumulative manifest or contribution limit exceeded');
+    if (bytes > 8 * 1024 * 1024 || count > limits.manifestNodes || bindings > 1024 || contributions > limits.commands) throw new Error('Extension session cumulative manifest or contribution limit exceeded');
   }
   for (const item of retained) account(item.manifest, item.manifestBytes);
   return inputs.map(input => {
@@ -84,10 +74,12 @@ function prepare(inputs, retained = []) {
     } finally { fs.closeSync(fd); }
     if (size > 1024 * 1024) throw new Error('Extension manifest exceeds 1 MiB');
 
-    const manifest = JSON.parse(contents.subarray(0, size).toString('utf8'));
-    account(manifest, size);
-    const id = `${manifest.publisher}.${manifest.name}`.toLowerCase();
-    if (id !== input.id || manifest.version !== input.version) throw new Error(`Extension identity changed: ${input.id}`);
+    const original = JSON.parse(contents.subarray(0, size).toString('utf8'));
+    const id = `${original.publisher}.${original.name}`.toLowerCase();
+    if (id !== input.id || original.version !== input.version) throw new Error(`Extension identity changed: ${input.id}`);
+    const localized = defaults.localize(folder, original), manifest = localized.manifest;
+    const manifestBytes = Math.max(size, Buffer.byteLength(JSON.stringify(manifest)));
+    account(manifest, manifestBytes);
     if (ids.has(id)) throw new Error(`Duplicate extension: ${id}`);
     ids.add(id);
     if (manifest.enabledApiProposals?.length) throw new Error(`${id}: proposed extension APIs are not implemented`);
@@ -98,7 +90,7 @@ function prepare(inputs, retained = []) {
       const relative = path.relative(folder, fs.realpathSync(entry));
       if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Extension main must be inside its directory');
     } else if (manifest.browser) throw new Error(`${id}: browser-only code is unsupported`);
-    return { id, folder, entry, manifest, manifestBytes: size, subscriptions: [] };
+    return { id, folder, entry, manifest, manifestBytes, nlsBytes: localized.bytes, subscriptions: [] };
   }).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 function dispose(item) {
@@ -122,10 +114,10 @@ function activationHooks() {
       const origin = inherited ? (inherited.active ? inherited : undefined) : (batch?.active ? batch : undefined);
       activating++;
       try {
-        return await inExecution(origin?.id ?? null, origin?.owner ?? item.id, async () => {
+        return await inExecution(origin?.id ?? null, origin?.owner ?? item.id, () => runtime.runWithOwner(item.id, async () => {
           item.extension = require(item.entry);
           return typeof item.extension.activate === 'function' ? await item.extension.activate(context) : item.extension;
-        });
+        }));
       } finally { activating--; }
     },
     failed(item) {
@@ -140,11 +132,11 @@ function activationHooks() {
       }
     },
     listenerError: error => console.error(error),
-    async deactivate(item) { try { await item.extension?.deactivate?.(); } finally { dispose(item); } },
+    async deactivate(item) { try { await runtime.runWithOwner(item.id, () => item.extension?.deactivate?.()); } finally { dispose(item); } },
   };
 }
 async function activateBatch(message, targets) {
-  if (!Array.isArray(targets) || targets.length > 8 || targets.some(id => typeof id !== 'string' || !packages.some(item => item.id === id))) throw new Error('Invalid selected activation targets');
+  if (!Array.isArray(targets) || targets.length > limits.packages || targets.some(id => typeof id !== 'string' || !packages.some(item => item.id === id))) throw new Error('Invalid selected activation targets');
   const origin = { id: message.id, owner: message.params.owner, active: true };
   activationBusy = true;
   try { await activationRequest.run(origin, async () => { for (const id of [...new Set(targets)].sort()) await activation.activate(id); }); }
@@ -158,11 +150,7 @@ function snapshot() {
 }
 async function dispatch(message) {
   if (!message.method) {
-    const call = pending.get(message.id);
-    if (!call) return;
-    pending.delete(message.id); clearTimeout(call.timer);
-    if (message.error) call.reject(new Error(message.error.message));
-    else call.resolve(message.result);
+    nativeRequests.settle(message);
     return;
   }
   let result = null;
@@ -174,18 +162,19 @@ async function dispatch(message) {
         initialized = true; session = message.params.session; languageProviders = message.params.languageProviders === true;
         packages.push(...prepare(message.params.extensions));
         runtime = createApi(request, (method, params) => {
-          if (method === 'nativeSurface') {
+          if (method === 'nativeSurface' || method === 'decorationType') {
             const context = execution.getStore();
             if (context?.active) params = { ...params, command: context.id, commandOwner: context.owner };
           }
           // A failed startup must never publish partially activated command registries.
           if (!['commands', 'languageProviders'].includes(method) || (ready && !activating)) send({ method, params });
-        }, { session, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders });
+        }, { session, contextKeys: message.params.contextKeys === true, configurationWrites: message.params.configurationWrites === true, clipboard: message.params.clipboard === true, locale: message.params.locale, applicationRoot: message.params.applicationRoot, fileParticipants: message.params.fileParticipants === true, sharedGeneratedDocumentLoads: message.params.sharedGeneratedDocumentLoads === true, sharedDocumentLoads: message.params.sharedDocumentLoads === true, reservedCommands: message.params.reservedCommands, extensionState: message.params.extensionState, languageProviders, workspaceEdits: message.params.workspaceEdits === true, workspaceUnopenedEdits: message.params.workspaceUnopenedEdits === true, workspaceEndOfLineEdits: message.params.workspaceEndOfLineEdits === true, workspaceRefactoringSaves: message.params.workspaceRefactoringSaves === true, findFiles: message.params.findFiles === true, virtualDocuments: message.params.virtualDocuments === true, untitledDocuments: message.params.untitledDocuments === true, documentLanguage: message.params.documentLanguage === true, editorSelections: message.params.editorSelections === true, editorOptions: message.params.editorOptions === true, editorReveal: message.params.editorReveal === true, editorDecorations: message.params.editorDecorations === true, editorSnippets: message.params.editorSnippets === true, editorEndOfLineEdits: message.params.editorEndOfLineEdits === true, editorTabs: message.params.editorTabs === true });
         const schemas = packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration)
           ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]);
         root = message.params.root; configuration = message.params.configuration;
         runtime.configure(root, schemas, configuration);
         runtime.configureSurfaces(packages);
+        runtime.configureLocalization(packages);
         runtime.sync(message.params.state);
         activation = createActivation(packages, activationHooks());
         runtime.setActivation(activation);
@@ -195,6 +184,12 @@ async function dispatch(message) {
         break;
       }
       case 'state': if (runtime) runtime.sync(message.params); break;
+      case 'fileOperation': if (runtime) runtime.fileOperation(message.params); break;
+      case 'willFileOperation':
+        if (!ready || message.params.session !== session) throw new Error('File participation session is not ready');
+        result = await runtime.fileParticipation.provide({...message.params,request:message.id});
+        break;
+      case 'cancelFileParticipation': runtime?.fileParticipation.cancel(message.params); break;
       case 'configuration':
         configuration = message.params; if (runtime) runtime.updateConfiguration(configuration); break;
       case 'activate': {
@@ -206,7 +201,7 @@ async function dispatch(message) {
         if (owner !== undefined && owner !== null && (typeof owner !== 'string' || ![...packages, ...items].some(item => item.id === owner))) throw new Error('Activation owner is not selected');
         if (items.length) {
           runtime.configureSurfaces(items);
-          activation.add(items); packages.push(...items); packages.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+          activation.add(items); runtime.configureLocalization(items); packages.push(...items); packages.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
           runtime.configure(root, packages.flatMap(item => Array.isArray(item.manifest.contributes?.configuration) ? item.manifest.contributes.configuration : [item.manifest.contributes?.configuration]), configuration);
         }
         runtime.mergeExtensionState(message.params.extensionState || {});
@@ -219,16 +214,42 @@ async function dispatch(message) {
         if (!runtime.commandSnapshot().some(item => item.id === message.params.command && item.owner === message.params.owner)) throw new Error('Extension command owner changed');
         result = await inExecution(message.id, message.params.owner, () => runtime.api.commands.executeCommand(message.params.command, ...message.params.args));
         break;
+      case 'rankLanguageProviders':
+        if (!ready || !languageProviders || message.params.session !== session) throw new Error('Language provider session is not ready');
+        // Pure trusted metadata selection shares the same stateful registry as
+        // public queries. It invokes no extension callback and owns no callback
+        // slot, command origin or selected extension caller.
+        result = runtime.rankLanguageProviders(message.params);
+        break;
       case 'provideLanguage':
-        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) throw new Error('Language provider session/owner is not ready');
+        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) {
+          runtime?.releaseLanguageProviderRefusal({ ...message.params, request: message.id });
+          throw new Error('Language provider session/owner is not ready');
+        }
         result = await inExecution(message.id, message.params.owner, () => runtime.provideLanguage({ ...message.params, request: message.id }));
         break;
+      case 'provideWorkspaceSymbols':
+      case 'resolveLanguageWorkspaceSymbol':
+      case 'prepareLanguageRename':
+      case 'provideLanguageRename':
+        if (!ready || !languageProviders || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) {
+          runtime?.releaseLanguageProviderRefusal({ ...message.params, request: message.id });
+          throw new Error('Language provider session/owner is not ready');
+        }
+        result = await inExecution(message.id, message.params.owner, () => runtime[message.method]({ ...message.params, request: message.id }));
+        break;
       case 'resolveLanguageCompletion':
-        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) throw new Error('Language provider session/owner is not ready');
+        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) {
+          runtime?.releaseLanguageProviderRefusal({ ...message.params, request: message.id });
+          throw new Error('Language provider session/owner is not ready');
+        }
         result = await inExecution(message.id, message.params.owner, () => runtime.resolveLanguageCompletion({ ...message.params, request: message.id }));
         break;
       case 'resolveLanguageCodeAction':
-        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) throw new Error('Language provider session/owner is not ready');
+        if (!ready || message.params.session !== session || !activation.extension(message.params.owner)?.isActive) {
+          runtime?.releaseLanguageProviderRefusal({ ...message.params, request: message.id });
+          throw new Error('Language provider session/owner is not ready');
+        }
         result = await inExecution(message.id, message.params.owner, () => runtime.resolveLanguageCodeAction({ ...message.params, request: message.id }));
         break;
       case 'cancelLanguageProvider':
@@ -277,4 +298,4 @@ process.stdin.on('data', chunk => {
     }
   } catch (error) { console.error(error); process.exit(1); }
 });
-process.stdin.on('end', () => process.exit(0));
+process.stdin.on('end', () => { nativeRequests.shutdown(); process.exit(0); });

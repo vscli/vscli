@@ -6,11 +6,14 @@ use crate::{
 };
 use anyhow::{Context, ensure};
 
+pub(super) mod document_interests;
+
 const MODELS: usize = 128;
 const PATH_BYTES: usize = 512 * 1024;
 
 struct SaveAsOrigin {
     document: u64,
+    service: Option<document_interests::Interest>,
     pane: Option<u64>,
     membership: Option<crate::editor_groups::Membership>,
     eligibility: super::sticky_tabs::CloseEligibility,
@@ -52,6 +55,7 @@ pub(super) struct Intent {
     pub(super) automatic: Option<Automatic>,
     pub(super) stage: Stage,
     pub(super) notice: Option<String>,
+    service: Option<document_interests::Interest>,
 }
 impl Intent {
     pub(super) fn add_notice(&mut self, notice: impl Into<String>) {
@@ -80,10 +84,13 @@ struct ModelProof {
     id: u64,
     path: Option<PathBuf>,
     text_epoch: u64,
+    resource_epoch: u64,
     save_generation: u64,
 }
 struct Active {
     id: u64,
+    service: Option<document_interests::Interest>,
+    intent: u64,
     snapshot: SaveSnapshot,
     models: Vec<ModelProof>,
     continuation: Option<Continuation>,
@@ -94,6 +101,7 @@ struct Active {
 #[derive(Default)]
 pub(super) struct State {
     worker: Worker,
+    document_interests: document_interests::Interests,
     active: Option<Active>,
     pub(super) latest: Option<Intent>,
     pub(super) formatting: super::save_formatting::State,
@@ -116,6 +124,100 @@ pub(super) struct State {
     autosave_now: Option<std::time::Instant>,
 }
 impl App {
+    pub(super) fn tab_close_generation(&self) -> u64 {
+        self.saving.close_generation
+    }
+
+    pub(super) fn tab_close_pending(
+        &self,
+        member: crate::editor_groups::Membership,
+        generation: u64,
+    ) -> bool {
+        if self.saving.close_generation != generation {
+            return false;
+        }
+        let owns = |continuation: &Option<Continuation>| {
+            continuation.as_ref().is_some_and(|continuation| {
+                continuation.membership == Some(member)
+                    && continuation.generation == generation
+                    && matches!(continuation.action, AfterSave::Close)
+            })
+        };
+        self.api_discard_pending(member, generation)
+            || (self.close_membership == Some(member)
+                && matches!(self.modal, Some(Modal::Confirm(AfterSave::Close))))
+            || (matches!(self.pending, Some(AfterSave::Close))
+                && self.saving.save_as_origin.as_ref().is_some_and(|origin| {
+                    origin.membership == Some(member) && origin.service.is_none()
+                }))
+            || self
+                .saving
+                .active
+                .as_ref()
+                .is_some_and(|active| owns(&active.continuation))
+            || self
+                .saving
+                .latest
+                .as_ref()
+                .is_some_and(|intent| owns(&intent.continuation))
+    }
+
+    /// Retire only this API caller's close interest. A save already authorized
+    /// by the user still publishes its actual disk receipt to the native model.
+    pub(super) fn retire_api_tab_close(
+        &mut self,
+        member: crate::editor_groups::Membership,
+        generation: u64,
+    ) {
+        if self.saving.close_generation != generation {
+            return;
+        }
+        if self.close_membership == Some(member) {
+            self.close_membership = None;
+            if matches!(self.modal, Some(Modal::Confirm(AfterSave::Close))) {
+                self.modal = None;
+            }
+        }
+        if matches!(self.pending, Some(AfterSave::Close))
+            && self
+                .saving
+                .save_as_origin
+                .as_ref()
+                .is_some_and(|origin| origin.membership == Some(member) && origin.service.is_none())
+        {
+            self.pending = None;
+            self.saving.save_as_origin = None;
+            if self
+                .prompt
+                .as_ref()
+                .is_some_and(|prompt| matches!(prompt.kind, PromptKind::SaveAs))
+            {
+                self.prompt = None;
+            }
+        }
+        for continuation in self
+            .saving
+            .active
+            .as_mut()
+            .map(|active| &mut active.continuation)
+            .into_iter()
+            .chain(
+                self.saving
+                    .latest
+                    .as_mut()
+                    .map(|intent| &mut intent.continuation),
+            )
+        {
+            if continuation.as_ref().is_some_and(|continuation| {
+                continuation.membership == Some(member)
+                    && continuation.generation == generation
+                    && matches!(continuation.action, AfterSave::Close)
+            }) {
+                *continuation = None;
+            }
+        }
+    }
+
     #[cfg(test)]
     pub(super) fn replace_save_worker_fixture(&mut self, worker: Worker) {
         assert!(self.saving.active.is_none());
@@ -193,7 +295,10 @@ impl App {
         }
         self.saving.autosave_error = None;
         if self.saves_pending()
+            || self.api_discard_occupied()
+            || self.resource_models_pending()
             || self.file_job.is_some()
+            || self.file_participation_pending()
             || self.saving.closing.is_some()
             || matches!(self.modal, Some(Modal::Confirm(_)))
             || self
@@ -219,6 +324,7 @@ impl App {
             automatic: Some(automatic),
             stage: Stage::Actions,
             notice: None,
+            service: None,
         }) {
             self.saving.autosave.failed(&proof);
             self.message = format!("Save failed; autosave retained unsaved work: {error:#}");
@@ -260,6 +366,7 @@ impl App {
                 previous.filter(|proof| proof.id == doc.id && proof.path == doc.path)
             {
                 proof.text_epoch = doc.text_epoch();
+                proof.resource_epoch = doc.resource_epoch();
                 proof.save_generation = doc.save_generation();
                 proof.dirty = doc.dirty();
                 if refresh {
@@ -278,6 +385,7 @@ impl App {
                     id: doc.id,
                     path: doc.path.clone(),
                     text_epoch: doc.text_epoch(),
+                    resource_epoch: doc.resource_epoch(),
                     save_generation: doc.save_generation(),
                     dirty: doc.dirty(),
                     policy: self.settings.auto_save(language),
@@ -302,10 +410,23 @@ impl App {
             id: snapshot.document_id(),
             path: snapshot.source_path().map(Path::to_owned),
             text_epoch: snapshot.text_epoch(),
+            resource_epoch: snapshot.resource_epoch(),
             save_generation: snapshot.save_generation(),
             dirty: true,
             policy: self.settings.auto_save(language),
         });
+    }
+    pub(super) fn refactoring_save_lane_available(&self) -> bool {
+        !self.saving.shutting_down
+            && !self.api_discard_occupied()
+            && !self.resource_models_pending()
+            && !self.saves_pending()
+            && !self.settings_writes_busy()
+            && self.file_job.is_none()
+            && self.prompt.is_none()
+            && self.modal.is_none()
+            && self.pending.is_none()
+            && self.saving.closing.is_none()
     }
     pub fn saves_pending(&self) -> bool {
         self.saving.worker.busy() || self.saving.latest.is_some()
@@ -338,6 +459,7 @@ impl App {
     }
     pub(super) fn document_save_pending(&self, id: u64) -> bool {
         self.saving.actions.document_pending(id)
+            || self.resource_model_pending(id)
             || self
                 .saving
                 .latest
@@ -373,6 +495,7 @@ impl App {
     pub(super) fn capture_save_as_origin(&mut self) {
         self.saving.save_as_origin = self.active_document().map(|doc| SaveAsOrigin {
             document: doc.id,
+            service: None,
             pane: self.panes.get(self.active_pane).map(|pane| pane.id),
             membership: self.active_tab_membership(),
             eligibility: self.captured_close_eligibility(self.active_tab_membership()),
@@ -380,13 +503,14 @@ impl App {
     }
     pub(super) fn request_native_save(&mut self, after: Option<AfterSave>) -> Result<()> {
         ensure!(
-            self.file_job.is_none(),
+            self.file_job.is_none() && !self.file_participation_pending(),
             "Wait for the file operation to finish before saving"
         );
         let doc = self
             .active_document()
             .context("Open a document before saving")?;
-        if doc.path.is_none() {
+        ensure!(!doc.is_read_only(), "Virtual documents are read-only");
+        if doc.path.is_none() && doc.associated_path().is_none() {
             self.pending = after;
             self.save_as();
             return Ok(());
@@ -394,7 +518,7 @@ impl App {
         let intent = Intent {
             id: 0,
             document: doc.id,
-            destination: None,
+            destination: doc.associated_path().map(Path::to_owned),
             continuation: self.save_continuation(
                 after,
                 self.panes.get(self.active_pane).map(|pane| pane.id),
@@ -403,12 +527,14 @@ impl App {
             automatic: None,
             stage: Stage::Actions,
             notice: None,
+            service: None,
         };
         self.enqueue_native_save(intent)
     }
     pub(super) fn request_native_save_as(&mut self, destination: PathBuf) -> Result<()> {
         let SaveAsOrigin {
             document,
+            service,
             pane,
             membership,
             eligibility,
@@ -417,6 +543,13 @@ impl App {
             .save_as_origin
             .take()
             .context("Save As origin retired; invoke Save As again")?;
+        if let Some(interest) = service {
+            let result = self.accept_document_save_path(interest, destination);
+            if result.is_err() {
+                self.retire_document_save_interest(interest);
+            }
+            return result;
+        }
         let after = self.pending.take();
         let mut continuation = self.save_continuation(after, pane, membership);
         if let Some(continuation) = &mut continuation {
@@ -430,15 +563,20 @@ impl App {
             automatic: None,
             stage: Stage::Actions,
             notice: None,
+            service: None,
         })
     }
     fn enqueue_native_save(&mut self, mut intent: Intent) -> Result<()> {
+        ensure!(
+            !self.resource_model_pending(intent.document),
+            "Wait for the original document reload before saving"
+        );
         ensure!(
             !self.saving.shutting_down,
             "Editor shutdown is settling saves"
         );
         ensure!(
-            self.file_job.is_none(),
+            self.file_job.is_none() && !self.file_participation_pending(),
             "Wait for the file operation to finish before saving"
         );
         let doc = self
@@ -510,6 +648,12 @@ impl App {
         let Some(intent) = self.saving.latest.as_ref().cloned() else {
             return Ok(());
         };
+        // Service admission temporarily borrows the host out of App. Dispatch
+        // after it is returned; do not manufacture a missing-host authority.
+        if self.document_save_waits_for_host(intent.id) {
+            return Ok(());
+        }
+        self.check_document_save_intent(intent.id)?;
         if intent.stage != Stage::Capture
             && intent.automatic.is_none()
             && !self.saving.participant_dispatch
@@ -519,8 +663,13 @@ impl App {
                 .iter()
                 .chain(&self.hidden_documents)
                 .find(|doc| doc.id == intent.document)
-                .and_then(|doc| doc.path.as_deref())
-                .map_or("plaintext", crate::languages::language);
+                .map_or("plaintext", |doc| {
+                    doc.language_override().unwrap_or_else(|| {
+                        doc.path
+                            .as_deref()
+                            .map_or("plaintext", crate::languages::language)
+                    })
+                });
             if self.settings.save_formatting(language) != crate::settings::SaveFormatting::Off
                 || (intent.stage == Stage::Actions
                     && self
@@ -582,6 +731,7 @@ impl App {
                 id: doc.id,
                 path: doc.path.clone(),
                 text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
                 save_generation: doc.save_generation(),
             });
         }
@@ -594,8 +744,11 @@ impl App {
             .worker
             .try_start(id, snapshot.clone(), inventory)?;
         self.saving.next_id = id;
+        self.capture_document_save_worker(intent.id, id);
         self.saving.active = Some(Active {
             id,
+            intent: intent.id,
+            service: intent.service,
             snapshot,
             models,
             continuation: intent.continuation,
@@ -626,6 +779,9 @@ impl App {
             .find(|doc| doc.id == active.snapshot.document_id())
             .context("Save document was closed")?;
         doc.check_save_snapshot(&active.snapshot)?;
+        if active.service.is_some() {
+            self.authorize_document_save_interest(active.id)?;
+        }
         if let Some(automatic) = &active.automatic {
             ensure!(
                 automatic.generation == self.saving.autosave_generation
@@ -635,10 +791,11 @@ impl App {
                     && !matches!(self.modal, Some(Modal::Confirm(_))),
                 "Autosave policy or close ownership changed; automatic save retired"
             );
-            let language = doc
-                .path
-                .as_deref()
-                .map_or("plaintext", crate::languages::language);
+            let language = doc.language_override().unwrap_or_else(|| {
+                doc.path
+                    .as_deref()
+                    .map_or("plaintext", crate::languages::language)
+            });
             ensure!(
                 doc.dirty() && self.settings.auto_save(language) == automatic.proof.policy,
                 "Autosave policy changed; automatic save retired"
@@ -660,7 +817,7 @@ impl App {
                 .find(|proof| proof.id == doc.id)
                 .context("A file model opened during save preparation; retry Save")?;
             ensure!(
-                proof.path.as_ref() == Some(path),
+                proof.path.as_ref() == Some(path) && proof.resource_epoch == doc.resource_epoch(),
                 "A retained file path changed during save preparation; retry Save"
             );
             if doc.id != active.snapshot.document_id()
@@ -682,7 +839,7 @@ impl App {
         Ok(())
     }
     pub(super) fn poll_native_saves(&mut self) -> bool {
-        let mut changed = false;
+        let mut changed = self.poll_document_save_interests();
         if let Some(event) = self.saving.worker.poll() {
             changed = true;
             match event {
@@ -717,6 +874,22 @@ impl App {
                                 .context("Saved model is no longer retained")
                                 .and_then(|doc| doc.publish_save(&snapshot, commit.path.clone()));
                             self.preview_edit_barrier();
+                            let receipt = match &published {
+                                Ok(()) => document_interests::Receipt::Committed {
+                                    document: snapshot.document_id(),
+                                    save_generation: self
+                                        .documents
+                                        .iter()
+                                        .chain(&self.hidden_documents)
+                                        .find(|doc| doc.id == snapshot.document_id())
+                                        .expect("published model retained")
+                                        .save_generation(),
+                                },
+                                Err(error) => document_interests::Receipt::CommittedButUnpublished(
+                                    format!("{error:#}"),
+                                ),
+                            };
+                            self.finish_document_save_interest(id, receipt);
                             if let Err(error) = published {
                                 self.message = format!(
                                     "Saved {}; newer buffer metadata retained: {error:#}",
@@ -766,6 +939,10 @@ impl App {
                             }
                         }
                         Ok(Outcome::Rejected | Outcome::Expired) => {
+                            self.finish_document_save_interest(
+                                id,
+                                document_interests::Receipt::NotSaved,
+                            );
                             self.suppress_failed_save_snapshot(&snapshot);
                             if self.saving.latest.is_none() {
                                 self.message =
@@ -773,6 +950,10 @@ impl App {
                             }
                         }
                         Err(error) => {
+                            self.finish_document_save_interest(
+                                id,
+                                document_interests::Receipt::Failed(error.clone()),
+                            );
                             self.suppress_failed_save_snapshot(&snapshot);
                             self.retain_save_conflict_notice(&snapshot, &error);
                             self.message = format!("Save failed; unsaved work retained: {error}")
@@ -832,6 +1013,9 @@ impl App {
                     {
                         if !self.close_target_eligible(member, continuation.eligibility) {
                             self.reject_protected_close(member, true);
+                            return;
+                        }
+                        if self.defer_api_tab_close_after_save(member, continuation.generation) {
                             return;
                         }
                         self.finish_tab_close_eligible(member, continuation.eligibility);
@@ -939,7 +1123,14 @@ impl App {
         self.pending = None;
         self.close_membership = None;
         self.closing_group = None;
-        self.saving.save_as_origin = None;
+        if let Some(interest) = self
+            .saving
+            .save_as_origin
+            .take()
+            .and_then(|origin| origin.service)
+        {
+            self.retire_document_save_interest(interest);
+        }
         self.saving.closing = None;
         if let Some(active) = self.saving.active.as_mut() {
             active.continuation = None;
@@ -960,11 +1151,15 @@ impl App {
     /// capture the final saved baseline. Unapproved work is retired; an already
     /// authorized commit still publishes its receipt to the original model.
     pub fn settle_persistence(&mut self) {
+        self.settle_extension_file_search();
+        self.settle_virtual_documents();
+        self.settle_workspace_transactions();
         self.saving.shutting_down = true;
         self.saving.latest = None;
         self.cancel_save_code_actions();
         self.cancel_save_formatting();
         self.cancel_save_continuations();
+        self.poll_document_save_interests();
         if let Some(active) = &self.saving.active
             && !active.authorized
         {

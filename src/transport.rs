@@ -13,8 +13,17 @@ use std::{
 };
 const MAX_MESSAGE: usize = 16 * 1024 * 1024;
 const MAX_QUEUED_BYTES: usize = 64 * 1024 * 1024;
+#[derive(Debug)]
+pub(crate) struct OutputBackpressure(&'static str);
+impl std::fmt::Display for OutputBackpressure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.0)
+    }
+}
+impl std::error::Error for OutputBackpressure {}
 enum Outbound {
     Bytes(Vec<u8>),
+    Batch(Vec<Vec<u8>>),
     Saved {
         uri: String,
         committed: Option<ropey::Rope>,
@@ -79,6 +88,22 @@ pub(crate) fn read_message(reader: &mut impl BufRead) -> Result<Value> {
     Ok(serde_json::from_slice(&body)?)
 }
 
+#[cfg(test)]
+struct FixtureWriterPause {
+    entered: SyncSender<()>,
+    release: Receiver<()>,
+}
+#[cfg(test)]
+impl FixtureWriterPause {
+    fn pause(self) {
+        // A dropped observer never blocks cleanup; a held real writer has the
+        // same bounded fixture wait as the actual native persistence worker.
+        if self.entered.try_send(()).is_ok() {
+            let _ = self.release.recv_timeout(std::time::Duration::from_secs(6));
+        }
+    }
+}
+
 pub struct Process {
     child: Child,
     #[cfg(unix)]
@@ -87,6 +112,8 @@ pub struct Process {
     receiver: Receiver<std::result::Result<Value, String>>,
     queued_bytes: Arc<AtomicUsize>,
     stderr: Arc<Mutex<Vec<u8>>>,
+    #[cfg(test)]
+    fixture_writer_pause: Arc<Mutex<Option<FixtureWriterPause>>>,
 }
 impl Process {
     pub fn start(program: &str, args: &[String], root: &Path) -> Result<Self> {
@@ -127,12 +154,26 @@ impl Process {
         let errors = incoming.clone();
         let queued_bytes = Arc::new(AtomicUsize::new(0));
         let pending = queued_bytes.clone();
+        #[cfg(test)]
+        let fixture_writer_pause = Arc::new(Mutex::new(None::<FixtureWriterPause>));
+        #[cfg(test)]
+        let writer_pause = fixture_writer_pause.clone();
         std::thread::spawn(move || {
             for (outbound, reservation) in outgoing {
-                let body = match outbound {
-                    Outbound::Bytes(body) => body,
+                #[cfg(test)]
+                {
+                    // Dequeue has really released one queue slot; keep the
+                    // actual writer occupied before emitting frame bytes.
+                    let pause = writer_pause.lock().ok().and_then(|mut slot| slot.take());
+                    if let Some(pause) = pause {
+                        pause.pause();
+                    }
+                }
+                let bodies = match outbound {
+                    Outbound::Bytes(body) => vec![body],
+                    Outbound::Batch(bodies) => bodies,
                     Outbound::Saved { uri, committed } => match saved_body(uri, committed) {
-                        Ok(body) => body,
+                        Ok(body) => vec![body],
                         Err(error) => {
                             pending.fetch_sub(reservation, Ordering::Relaxed);
                             // No frame bytes were written. Persistence already
@@ -147,8 +188,10 @@ impl Process {
                     },
                 };
                 let result = (|| -> Result<()> {
-                    write!(stdin, "Content-Length: {}\r\n\r\n", body.len())?;
-                    stdin.write_all(&body)?;
+                    for body in bodies {
+                        write!(stdin, "Content-Length: {}\r\n\r\n", body.len())?;
+                        stdin.write_all(&body)?;
+                    }
                     stdin.flush()?;
                     Ok(())
                 })();
@@ -197,7 +240,26 @@ impl Process {
             receiver,
             queued_bytes,
             stderr: stderr_tail,
+            #[cfg(test)]
+            fixture_writer_pause,
         })
+    }
+    /// Pause exactly one actual writer operation after dequeue. This changes
+    /// no queue capacity, byte reservation, framing or admission outcome.
+    #[cfg(test)]
+    pub(crate) fn fixture_gate_writer(&self) -> Result<(Receiver<()>, SyncSender<()>)> {
+        let (entered, observed) = mpsc::sync_channel(1);
+        let (release, resumed) = mpsc::sync_channel(1);
+        let mut slot = self
+            .fixture_writer_pause
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Writer fixture gate mutex poisoned"))?;
+        anyhow::ensure!(slot.is_none(), "Writer fixture gate already installed");
+        *slot = Some(FixtureWriterPause {
+            entered,
+            release: resumed,
+        });
+        Ok((observed, release))
     }
     pub fn send(&self, message: Value) -> Result<()> {
         let bytes = serde_json::to_vec(&message)?;
@@ -206,6 +268,28 @@ impl Process {
             bail!("Protocol message exceeds 16 MiB output limit");
         }
         self.enqueue(Outbound::Bytes(bytes), size)
+    }
+    /// Admit a bounded ordered receipt as one queue item, before its native
+    /// mutation publishes. Capacity failure never sends a supported prefix.
+    pub(crate) fn send_batch(&self, messages: Vec<Value>) -> Result<()> {
+        anyhow::ensure!(
+            !messages.is_empty() && messages.len() <= 3,
+            "Invalid protocol receipt batch"
+        );
+        let mut bodies = Vec::with_capacity(messages.len());
+        let mut size = 0usize;
+        for message in messages {
+            let body = serde_json::to_vec(&message)?;
+            anyhow::ensure!(
+                body.len() <= MAX_MESSAGE,
+                "Protocol batch frame exceeds 16 MiB"
+            );
+            size = size
+                .checked_add(body.len())
+                .context("Protocol batch size overflow")?;
+            bodies.push(body);
+        }
+        self.enqueue(Outbound::Batch(bodies), size)
     }
     /// Enqueue a cheap immutable save snapshot. The existing writer performs
     /// all Rope flattening/JSON escaping; even a control-rich body is capped
@@ -235,7 +319,7 @@ impl Process {
             let next = current
                 .checked_add(size)
                 .filter(|n| *n <= MAX_QUEUED_BYTES)
-                .context("Protocol output byte budget exhausted")?;
+                .ok_or(OutputBackpressure("Protocol output byte budget exhausted"))?;
             match self.queued_bytes.compare_exchange_weak(
                 current,
                 next,
@@ -248,6 +332,12 @@ impl Process {
         }
         if let Err(e) = self.sender.try_send((outbound, size)) {
             self.queued_bytes.fetch_sub(size, Ordering::Relaxed);
+            if matches!(e, mpsc::TrySendError::Full(_)) {
+                return Err(OutputBackpressure(
+                    "Protocol output unavailable: sending on a full channel",
+                )
+                .into());
+            }
             bail!("Protocol output unavailable: {e}");
         }
         Ok(())
@@ -309,6 +399,54 @@ impl Drop for Process {
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn ordered_batch_frames_precede_receipt_and_invalid_last_frame_never_sends_prefix() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = r#"
+import json,sys
+while True:
+ header={}
+ while True:
+  line=sys.stdin.buffer.readline()
+  if not line:sys.exit(0)
+  if line==b'\r\n':break
+  name,value=line.decode().split(':',1);header[name.lower()]=value.strip()
+ value=json.loads(sys.stdin.buffer.read(int(header['content-length'])))
+ body=json.dumps(value).encode();sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(body)).encode()+body);sys.stdout.buffer.flush()
+"#;
+        let process = Process::start(
+            "python3",
+            &["-u".into(), "-c".into(), source.into()],
+            directory.path(),
+        )
+        .unwrap();
+        assert!(
+            process
+                .send_batch(vec![
+                    json!({"id":"forbidden-prefix"}),
+                    json!({"large":"x".repeat(MAX_MESSAGE)})
+                ])
+                .is_err()
+        );
+        process
+            .send_batch(vec![
+                json!({"id":"eol"}),
+                json!({"id":"text"}),
+                json!({"id":"ack"}),
+            ])
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut received = Vec::new();
+        while received.len() < 3 {
+            if let Some(value) = process.receive().unwrap() {
+                received.push(value["id"].as_str().unwrap().to_owned());
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(received, ["eol", "text", "ack"]);
+    }
 
     #[test]
     fn isolated_exit_observation_preserves_leader_until_group_retirement() {

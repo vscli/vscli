@@ -11,7 +11,10 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 mod comments;
+mod decorations;
 mod editing;
+pub(crate) mod editor_options;
+pub(crate) use editor_options::EditorOptionsPatch;
 mod folding;
 pub use comments::CommentOperation;
 pub use folding::{
@@ -19,8 +22,15 @@ pub use folding::{
 };
 pub(crate) mod graphemes;
 mod indentation;
+mod resource;
+pub use resource::{ResourceModelCommit, ResourceModelPrepared, ResourceModelSource};
 mod snippets;
+pub(crate) use snippets::SnippetOptions;
 mod typing;
+pub(crate) mod workspace;
+pub(crate) use workspace::{
+    WorkspaceHistoryDirection, WorkspaceHistoryGroup, WorkspaceSource, WorkspaceTextPrepared,
+};
 
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 1000;
@@ -146,7 +156,17 @@ impl Selection {
 
 #[derive(Clone)]
 struct Snapshot {
+    history_identity: std::sync::Arc<()>,
+    workspace_group: Option<std::sync::Arc<WorkspaceHistoryGroup>>,
+    api_history: Option<std::sync::Arc<()>>,
+    api_open: bool,
+    api_closed: bool,
+    api_owner: std::sync::Arc<()>,
+    api_language_epoch: u64,
+    api_resource_epoch: u64,
+    api_saved_generation: u64,
     text: Rope,
+    eol: String,
     cursor: usize,
     anchor: Option<usize>,
     secondary: Vec<Selection>,
@@ -174,6 +194,11 @@ pub struct ViewState {
     snippet_generation: u64,
     pairs: typing::Pairs,
     folding: folding::View,
+    editor_owner: std::sync::Arc<()>,
+    line_numbers_override: Option<crate::settings::LineNumbers>,
+    cursor_style_override: Option<u8>,
+    explicit_viewport: bool,
+    decorations: decorations::Decorations,
 }
 #[derive(Clone)]
 pub(crate) struct ByteChange {
@@ -193,6 +218,9 @@ struct PositionChange {
     range: Range<usize>,
     added: usize,
     bytes: ByteChange,
+    decoration: decorations::Edit,
+    // EOL conversion keeps the logical line-end position before the newline.
+    preserve_start: bool,
 }
 impl PositionChange {
     fn inverse(&self) -> Self {
@@ -200,20 +228,27 @@ impl PositionChange {
             range: self.range.start..self.range.start + self.added,
             added: self.range.len(),
             bytes: self.bytes.inverse(),
+            decoration: self.decoration.inverse(),
+            preserve_start: self.preserve_start,
         }
     }
     fn map(&self, view: &mut ViewState) {
+        let position = |p| {
+            if self.preserve_start && p == self.range.start {
+                p
+            } else {
+                map_position(p, &self.range, self.added)
+            }
+        };
+        view.explicit_viewport = false;
+        view.decorations.map(&self.decoration);
         view.map_snippet(&self.range, self.added);
         view.pairs.map(&self.range, self.added);
-        view.cursor = map_position(view.cursor, &self.range, self.added);
-        view.anchor = view
-            .anchor
-            .map(|p| map_position(p, &self.range, self.added));
+        view.cursor = position(view.cursor);
+        view.anchor = view.anchor.map(position);
         for selection in &mut view.secondary {
-            selection.cursor = map_position(selection.cursor, &self.range, self.added);
-            selection.anchor = selection
-                .anchor
-                .map(|p| map_position(p, &self.range, self.added));
+            selection.cursor = position(selection.cursor);
+            selection.anchor = selection.anchor.map(position);
             selection.desired_column = None;
         }
         view.desired_column = None;
@@ -230,6 +265,7 @@ pub struct SaveSnapshot {
     target: PathBuf,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     saved_revision: u64,
     save_generation: u64,
     next_save_generation: u64,
@@ -251,6 +287,9 @@ impl SaveSnapshot {
     }
     pub fn text_epoch(&self) -> u64 {
         self.text_epoch
+    }
+    pub fn resource_epoch(&self) -> u64 {
+        self.resource_epoch
     }
     pub fn saved_revision(&self) -> u64 {
         self.saved_revision
@@ -275,6 +314,7 @@ impl std::fmt::Debug for SaveSnapshot {
             .field("target", &self.target)
             .field("revision", &self.revision)
             .field("text_epoch", &self.text_epoch)
+            .field("resource_epoch", &self.resource_epoch)
             .field("saved_revision", &self.saved_revision)
             .field("save_generation", &self.save_generation)
             .field("text_bytes", &self.text.len_bytes())
@@ -305,6 +345,31 @@ fn validate_snapshot_path(path: &Path, canonical: bool) -> Result<()> {
     Ok(())
 }
 
+/// Bounded, normalized provider content prepared away from input/rendering.
+/// Its Rope is private so publication cannot receive an unchecked source.
+#[derive(Debug)]
+pub struct PreparedVirtualContent {
+    text: Rope,
+}
+impl PreparedVirtualContent {
+    pub fn len_bytes(&self) -> usize {
+        self.text.len_bytes()
+    }
+}
+
+/// Exact retained editor view authority, independent of focus and numeric-ID ABA.
+#[derive(Clone)]
+pub(crate) struct EditorViewProof {
+    document: u64,
+    id: u64,
+    owner: std::sync::Arc<()>,
+}
+impl EditorViewProof {
+    pub(crate) fn view_id(&self) -> u64 {
+        self.id
+    }
+}
+
 pub struct Document {
     pub id: u64,
     pub text: Rope,
@@ -312,12 +377,23 @@ pub struct Document {
     active_view: u64,
     other_views: std::collections::HashMap<u64, ViewState>,
     pub path: Option<PathBuf>,
+    resource_epoch: u64,
+    virtual_uri: Option<String>,
+    untitled_uri: Option<String>,
+    associated_path: Option<PathBuf>,
+    api_created_untitled: bool,
+    language_override: Option<String>,
+    language_hint: Option<String>,
+    language_epoch: u64,
+    resource_dirty: bool,
     pub revision: u64,
     pub saved_revision: u64,
     pub disk_content: Option<Rope>,
     pub eol: String,
     pub tab_size: usize,
     pub insert_spaces: bool,
+    indent_size: editor_options::IndentOption,
+    editor_defaults: editor_options::Defaults,
     pub line_numbers: crate::settings::LineNumbers,
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
@@ -364,7 +440,7 @@ impl Document {
     pub(crate) fn open_existing_bounded(path: &Path, limit: u64) -> Result<Self> {
         let path = absolute_path(path)?;
         if !fs::metadata(&path)?.is_file() {
-            bail!("Session target is not a regular file");
+            bail!("Not a regular file: {}", path.display());
         }
         let mut options = fs::OpenOptions::new();
         options.read(true);
@@ -376,8 +452,11 @@ impl Document {
         let file = options.open(&path)?;
         let metadata = file.metadata()?;
         let limit = limit.min(MAX_FILE_BYTES);
-        if !metadata.is_file() || metadata.len() > limit {
-            bail!("Session file exceeds remaining read budget or is not regular");
+        if !metadata.is_file() {
+            bail!("Not a regular file: {}", path.display());
+        }
+        if metadata.len() > limit {
+            bail!("File exceeds remaining read budget");
         }
         let content = read_text(file, limit)?;
         let mut doc = Self::from_rope(content.clone());
@@ -401,6 +480,11 @@ impl Document {
         }
         let next = self.other_views.remove(&id).unwrap_or_else(|| {
             let mut view = self.view.clone();
+            view.editor_owner = std::sync::Arc::new(());
+            view.line_numbers_override = None;
+            view.cursor_style_override = None;
+            view.explicit_viewport = false;
+            view.decorations = decorations::Decorations::default();
             view.cursor_history.clear();
             view.snippet = None;
             view.pairs = typing::Pairs::default();
@@ -451,19 +535,32 @@ impl Document {
             self.byte_changes.pop_front();
         }
     }
-    fn record_change(&mut self, range: Range<usize>, added: usize, added_bytes: usize) {
+    fn record_change(&mut self, range: Range<usize>, replacement: &str, force_move: bool) -> usize {
+        let (added, added_utf16) = replacement.chars().fold((0, 0), |(chars, units), c| {
+            (chars + 1, units + c.len_utf16())
+        });
+        let decoration = decorations::Edit {
+            start: self.text.char_to_utf16_cu(range.start),
+            deleted: self.text.char_to_utf16_cu(range.end)
+                - self.text.char_to_utf16_cu(range.start),
+            added: added_utf16,
+            force_move,
+        };
+        self.view.decorations.map(&decoration);
         self.view.map_snippet(&range, added);
         self.view.pairs.map(&range, added);
         let bytes = ByteChange {
             range: self.text.char_to_byte(range.start)..self.text.char_to_byte(range.end),
-            added: added_bytes,
+            added: replacement.len(),
         };
         self.record_byte_change(bytes.clone());
         self.record_folding_change(range.clone(), added);
         let change = PositionChange {
+            preserve_start: false,
             range,
             added,
             bytes,
+            decoration,
         };
         for view in self.other_views.values_mut() {
             change.map(view);
@@ -471,6 +568,7 @@ impl Document {
         if let Some(snapshot) = self.undo.last_mut() {
             snapshot.changes.push(change);
         }
+        added
     }
     fn replace_undo_snapshot(&mut self, mut original: Snapshot) {
         if let Some(snapshot) = self.undo.last_mut() {
@@ -491,12 +589,23 @@ impl Document {
             active_view: 0,
             other_views: std::collections::HashMap::new(),
             path: None,
+            resource_epoch: 0,
+            virtual_uri: None,
+            untitled_uri: None,
+            associated_path: None,
+            api_created_untitled: false,
+            language_override: None,
+            language_hint: None,
+            language_epoch: 0,
+            resource_dirty: false,
             revision: 0,
             saved_revision: 0,
             disk_content: None,
             eol,
             tab_size: 4,
             insert_spaces: true,
+            indent_size: editor_options::IndentOption::default(),
+            editor_defaults: editor_options::Defaults::default(),
             line_numbers: crate::settings::LineNumbers::On,
             undo: Vec::new(),
             redo: Vec::new(),
@@ -510,6 +619,378 @@ impl Document {
             typing_context: typing::ContextCache::default(),
             language_configuration: None,
         }
+    }
+
+    /// API-created unsaved content, without a synthetic insertion/Undo entry.
+    pub fn from_untitled(
+        uri: Option<String>,
+        content: &str,
+        language: Option<String>,
+        associated_path: Option<PathBuf>,
+    ) -> Result<Self> {
+        if let Some(uri) = &uri
+            && (uri.len() > 4096
+                || uri.contains('\0')
+                || !uri
+                    .split_once(':')
+                    .is_some_and(|(scheme, _)| scheme == "untitled"))
+        {
+            bail!("Untitled resource requires a bounded untitled URI");
+        }
+        if let Some(path) = &associated_path {
+            validate_snapshot_path(path, false)?;
+        }
+        if language
+            .as_ref()
+            .is_some_and(|value| value.is_empty() || value.len() > 128 || value.contains('\0'))
+        {
+            bail!("Document language identifier exceeds bounds");
+        }
+        if content.len() as u64 > MAX_FILE_BYTES || content.contains('\0') {
+            bail!("Untitled content exceeds 32 MiB or contains NUL");
+        }
+        // PieceTreeTextBufferBuilder chooses CRLF only when CR/CRLF account
+        // for more than half the line breaks; a tie chooses LF.
+        let mut total = 0usize;
+        let mut cr = 0usize;
+        let mut chars = content.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\r' {
+                total += 1;
+                cr += 1;
+                if chars.peek() == Some(&'\n') {
+                    chars.next();
+                }
+            } else if ch == '\n' {
+                total += 1;
+            }
+        }
+        let eol = if total == 0 {
+            DEFAULT_EOL
+        } else if cr > total / 2 {
+            "\r\n"
+        } else {
+            "\n"
+        };
+        let mut builder = ropey::RopeBuilder::new();
+        let mut start = 0;
+        let mut breaks = content.char_indices().peekable();
+        while let Some((at, ch)) = breaks.next() {
+            if ch == '\r' || ch == '\n' {
+                builder.append(&content[start..at]);
+                builder.append(eol);
+                start = at + 1;
+                if ch == '\r' && breaks.peek().is_some_and(|(_, next)| *next == '\n') {
+                    let (at, _) = breaks.next().expect("peeked LF");
+                    start = at + 1;
+                }
+            }
+        }
+        builder.append(&content[start..]);
+        let text = builder.finish();
+        if text.len_bytes() as u64 > MAX_FILE_BYTES {
+            bail!("Normalized untitled content exceeds 32 MiB");
+        }
+        let mut doc = Self::from_rope(text);
+        doc.untitled_uri = Some(uri.unwrap_or_else(|| format!("untitled:Untitled-{}", doc.id)));
+        doc.associated_path = associated_path;
+        doc.api_created_untitled = true;
+        doc.revision = 1;
+        doc.next_revision = 2;
+        doc.language_override = language;
+        doc.eol = eol.into();
+        Ok(doc)
+    }
+    pub fn untitled_uri(&self) -> Option<&str> {
+        self.untitled_uri.as_deref()
+    }
+    pub fn associated_path(&self) -> Option<&Path> {
+        self.associated_path.as_deref()
+    }
+    pub(crate) fn api_created_untitled(&self) -> bool {
+        self.api_created_untitled
+    }
+
+    /// A provider-owned resource. Content uses the provider API's LF line model.
+    pub fn from_virtual(uri: String, content: &str) -> Result<Self> {
+        let scheme = uri.split_once(':').map(|(scheme, _)| scheme);
+        if uri.len() > 4096
+            || uri.contains('\0')
+            || !scheme.is_some_and(|scheme| {
+                !scheme.is_empty()
+                    && scheme.as_bytes()[0].is_ascii_alphabetic()
+                    && scheme
+                        .bytes()
+                        .all(|ch| ch.is_ascii_alphanumeric() || b"+-.".contains(&ch))
+                    && !scheme.eq_ignore_ascii_case("file")
+                    && !scheme.eq_ignore_ascii_case("untitled")
+            })
+        {
+            bail!("Virtual document requires a bounded non-file resource URI");
+        }
+        let mut document = Self::from_rope(Self::prepare_virtual_content(content)?.text);
+        document.virtual_uri = Some(uri);
+        document.eol = "\n".into();
+        Ok(document)
+    }
+
+    pub fn virtual_uri(&self) -> Option<&str> {
+        self.virtual_uri.as_deref()
+    }
+    pub fn is_read_only(&self) -> bool {
+        self.virtual_uri.is_some()
+    }
+    pub fn language_override(&self) -> Option<&str> {
+        self.language_override
+            .as_deref()
+            .or(self.language_hint.as_deref())
+    }
+    /// Explicit user selection, excluding language inherited through restoration.
+    pub fn explicit_language_override(&self) -> Option<&str> {
+        self.language_override.as_deref()
+    }
+    pub(crate) fn check_language_override(&self, language: Option<&str>) -> Result<()> {
+        if language
+            .is_some_and(|value| value.is_empty() || value.len() > 128 || value.contains('\0'))
+        {
+            bail!("Document language identifier exceeds bounds");
+        }
+        if self.language_override.as_deref() != language || self.language_hint.is_some() {
+            self.language_epoch
+                .checked_add(1)
+                .context("Document language lifetime exhausted")?;
+        }
+        Ok(())
+    }
+    pub fn set_language_override(&mut self, language: Option<String>) -> Result<()> {
+        if language
+            .as_ref()
+            .is_some_and(|value| value.is_empty() || value.len() > 128 || value.contains('\0'))
+        {
+            bail!("Document language identifier exceeds bounds");
+        }
+        if self.language_override != language || self.language_hint.is_some() {
+            let epoch = self
+                .language_epoch
+                .checked_add(1)
+                .context("Document language lifetime exhausted")?;
+            self.retire_typing_pairs();
+            self.retire_folding_policy();
+            self.language_override = language;
+            self.language_hint = None;
+            self.language_epoch = epoch;
+        }
+        Ok(())
+    }
+    pub(crate) fn language_epoch(&self) -> u64 {
+        self.language_epoch
+    }
+    /// Independent of text/version/history: A→B→A must not renew an old URI proof.
+    pub fn resource_epoch(&self) -> u64 {
+        self.resource_epoch
+    }
+    pub(crate) fn check_resource_change(&self) -> Result<()> {
+        self.resource_epoch
+            .checked_add(1)
+            .context("Document resource lifetime exhausted")?;
+        Ok(())
+    }
+    /// Live resource publication. Constructors may initialize `path` directly;
+    /// existing models must pass through this clock before changing their URI.
+    pub(crate) fn set_resource_path(&mut self, path: Option<PathBuf>) -> Result<()> {
+        if self.path != path {
+            let epoch = self
+                .resource_epoch
+                .checked_add(1)
+                .context("Document resource lifetime exhausted")?;
+            self.retire_typing_pairs();
+            self.retire_folding_policy();
+            self.path = path;
+            self.language_hint = None;
+            self.resource_epoch = epoch;
+        }
+        Ok(())
+    }
+    pub(crate) fn editor_view_identity(&self) -> EditorViewProof {
+        self.editor_view_identity_for(self.active_view)
+            .expect("active view retained")
+    }
+    pub(crate) fn editor_view_identity_for(&self, id: u64) -> Option<EditorViewProof> {
+        let view = if id == self.active_view {
+            Some(&self.view)
+        } else {
+            self.other_views.get(&id)
+        }?;
+        Some(EditorViewProof {
+            document: self.id,
+            id,
+            owner: view.editor_owner.clone(),
+        })
+    }
+    pub(crate) fn editor_view_stamp_for(&self, id: u64) -> Option<(u64, usize)> {
+        let proof = self.editor_view_identity_for(id)?;
+        Some((id, std::sync::Arc::as_ptr(&proof.owner) as usize))
+    }
+    pub(crate) fn editor_selection_count_for(&self, id: u64) -> Option<usize> {
+        let view = if id == self.active_view {
+            Some(&self.view)
+        } else {
+            self.other_views.get(&id)
+        }?;
+        Some(view.secondary.len() + 1)
+    }
+    pub(crate) fn reserve_editor_view(&mut self, id: u64) -> Result<()> {
+        if id != self.active_view && !self.other_views.contains_key(&id) {
+            self.other_views
+                .try_reserve(1)
+                .context("Cannot reserve native editor view")?;
+        }
+        Ok(())
+    }
+    pub(crate) fn editor_view_stamp(&self) -> (u64, usize) {
+        self.editor_view_stamp_for(self.active_view)
+            .expect("active view retained")
+    }
+    pub(crate) fn editor_view_active_current(&self, proof: &EditorViewProof) -> bool {
+        self.active_view == proof.id && self.editor_view_current(proof)
+    }
+    pub(crate) fn editor_view_current(&self, proof: &EditorViewProof) -> bool {
+        if proof.document != self.id {
+            return false;
+        }
+        let view = if proof.id == self.active_view {
+            Some(&self.view)
+        } else {
+            self.other_views.get(&proof.id)
+        };
+        view.is_some_and(|view| std::sync::Arc::ptr_eq(&view.editor_owner, &proof.owner))
+    }
+    pub(crate) fn set_editor_selections(
+        &mut self,
+        proof: &EditorViewProof,
+        selections: Vec<Selection>,
+    ) -> Result<()> {
+        if !self.editor_view_current(proof) || selections.is_empty() || selections.len() > 4096 {
+            bail!("Editor view retired or selection bounds exceeded");
+        }
+        let previous = self.active_view;
+        if proof.id != previous {
+            // Both views already exist; this swaps ownership without allocating
+            // or creating a replacement view, then restores the active one.
+            std::mem::swap(
+                &mut self.view,
+                self.other_views
+                    .get_mut(&proof.id)
+                    .expect("checked retained view"),
+            );
+            self.active_view = proof.id;
+        }
+        self.set_selections(selections);
+        if proof.id != previous {
+            std::mem::swap(
+                &mut self.view,
+                self.other_views.get_mut(&proof.id).expect("retained view"),
+            );
+            self.active_view = previous;
+        }
+        Ok(())
+    }
+
+    fn ensure_writable(&self) -> Result<()> {
+        if self.is_read_only() {
+            bail!("Virtual documents are read-only");
+        }
+        Ok(())
+    }
+    pub fn prepare_virtual_content(content: &str) -> Result<PreparedVirtualContent> {
+        if content.len() as u64 > MAX_FILE_BYTES || content.contains('\0') {
+            bail!("Virtual content exceeds 32 MiB or contains NUL");
+        }
+        let mut builder = ropey::RopeBuilder::new();
+        let mut parts = content.split('\r');
+        builder.append(parts.next().unwrap_or_default());
+        for part in parts {
+            builder.append("\n");
+            builder.append(part.strip_prefix('\n').unwrap_or(part));
+        }
+        Ok(PreparedVirtualContent {
+            text: builder.finish(),
+        })
+    }
+
+    /// Replace provider content without recording a user edit or save receipt.
+    pub fn refresh_virtual_content(&mut self, content: &str) -> Result<bool> {
+        if !self.is_read_only() {
+            bail!("Resource is not a virtual document");
+        }
+        self.refresh_virtual_prepared(Self::prepare_virtual_content(content)?)
+    }
+
+    /// Publish worker-prepared content against the current retained views.
+    pub fn refresh_virtual_prepared(&mut self, prepared: PreparedVirtualContent) -> Result<bool> {
+        if !self.is_read_only() {
+            bail!("Resource is not a virtual document");
+        }
+        let next = prepared.text;
+        if next == self.text {
+            return Ok(false);
+        }
+        let next_revision = self
+            .next_revision
+            .checked_add(1)
+            .context("Document revision exhausted")?;
+        let epoch = self
+            .text_epoch
+            .checked_add(1)
+            .context("Document text epoch exhausted")?;
+        let change = ByteChange {
+            range: 0..self.text.len_bytes(),
+            added: next.len_bytes(),
+        };
+        let decoration = decorations::Edit {
+            start: 0,
+            deleted: self.text.len_utf16_cu(),
+            added: next.len_utf16_cu(),
+            force_move: false,
+        };
+        self.view.decorations.map(&decoration);
+        for view in self.other_views.values_mut() {
+            view.decorations.map(&decoration);
+        }
+        self.text = next;
+        self.revision = self.next_revision;
+        self.next_revision = next_revision;
+        self.saved_revision = self.revision;
+        self.resource_dirty = false;
+        self.text_epoch = epoch;
+        self.disk_content = None;
+        self.eol = "\n".into();
+        self.undo.clear();
+        self.redo.clear();
+        self.typing = None;
+        self.typing_context = typing::ContextCache::default();
+        self.byte_changes.clear();
+        self.byte_changes.push_back((epoch, change));
+        self.folding_changes.clear();
+        self.folding_policy = crate::folding_controller::Lifetime::default();
+        let len = self.len();
+        let last_row = self.line_count() - 1;
+        for view in std::iter::once(&mut self.view).chain(self.other_views.values_mut()) {
+            view.cursor = view.cursor.min(len);
+            view.anchor = view.anchor.map(|pos| pos.min(len));
+            for selection in &mut view.secondary {
+                selection.cursor = selection.cursor.min(len);
+                selection.anchor = selection.anchor.map(|pos| pos.min(len));
+                selection.desired_column = None;
+            }
+            view.top = view.top.min(last_row);
+            view.desired_column = None;
+            view.cursor_history.clear();
+            view.snippet = None;
+            view.pairs = typing::Pairs::default();
+            view.folding = folding::View::default();
+        }
+        Ok(true)
     }
 
     pub fn open(path: &Path) -> Result<Self> {
@@ -539,8 +1020,33 @@ impl Document {
         Ok(doc)
     }
 
+    /// Admit a reload before changing text, history, views or the disk baseline.
+    pub(crate) fn reload_content_checked(&mut self, next: Rope) -> Result<()> {
+        self.ensure_writable()?;
+        if next.len_bytes() as u64 > MAX_FILE_BYTES {
+            bail!("Disk reload exceeds the 32 MiB document budget");
+        }
+        if self.text != next {
+            self.next_revision
+                .checked_add(1)
+                .context("Document revision exhausted")?;
+            self.text_epoch
+                .checked_add(1)
+                .context("Document text epoch exhausted")?;
+        }
+        self.reload_content(next);
+        Ok(())
+    }
+    pub(crate) fn retains_text_history(&self) -> bool {
+        !self.undo.is_empty() || !self.redo.is_empty()
+    }
+
     /// Apply a disk reload as one undoable edit, retaining document and view identity.
     pub fn reload_content(&mut self, next: Rope) {
+        if self.is_read_only() {
+            return;
+        }
+
         let prefix = self
             .text
             .chars()
@@ -564,23 +1070,39 @@ impl Document {
         self.eol = infer_eol(&next, DEFAULT_EOL).into();
         self.disk_content = Some(next);
         self.saved_revision = self.revision;
+        self.resource_dirty = false;
         self.break_group();
     }
 
     pub fn name(&self) -> String {
         self.path
             .as_ref()
+            .or(self.associated_path.as_ref())
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "Untitled".into())
+            .unwrap_or_else(|| {
+                self.virtual_uri
+                    .clone()
+                    .unwrap_or_else(|| "Untitled".into())
+            })
     }
     pub fn dirty(&self) -> bool {
-        self.revision != self.saved_revision
+        if self.resource_dirty {
+            true
+        } else if self.api_created_untitled {
+            self.text_epoch == 0 || !self.is_empty() || self.associated_path.is_some()
+        } else {
+            self.revision != self.saved_revision
+        }
     }
     /// Public document state differs from a clean Untitled tab after Undo:
     /// once edited, its content has still never been persisted to a resource.
     pub fn api_dirty(&self) -> bool {
-        self.dirty() || (self.path.is_none() && self.text_epoch != 0)
+        self.dirty()
+            || (self.path.is_none()
+                && self.virtual_uri.is_none()
+                && !self.api_created_untitled
+                && self.text_epoch != 0)
     }
     pub fn len(&self) -> usize {
         self.text.len_chars()
@@ -644,10 +1166,12 @@ impl Document {
         }
     }
     pub fn indentation(&self) -> String {
+        let indent = self.indent_size();
         if self.insert_spaces {
-            " ".repeat(self.tab_size.clamp(1, 16))
+            " ".repeat(indent)
         } else {
-            "\t".into()
+            "\t".repeat(indent / self.tab_size.clamp(1, 16))
+                + &" ".repeat(indent % self.tab_size.clamp(1, 16))
         }
     }
     pub fn set_indentation(&mut self, tab_size: usize, insert_spaces: bool) {
@@ -693,7 +1217,17 @@ impl Document {
     }
     fn snapshot(&self) -> Snapshot {
         Snapshot {
+            history_identity: std::sync::Arc::new(()),
+            workspace_group: None,
+            api_history: None,
+            api_open: false,
+            api_closed: false,
+            api_owner: self.view.editor_owner.clone(),
+            api_language_epoch: self.language_epoch,
+            api_resource_epoch: self.resource_epoch,
+            api_saved_generation: self.save_generation,
             text: self.text.clone(),
+            eol: self.eol.clone(),
             cursor: self.cursor,
             anchor: self.anchor,
             secondary: self.secondary.clone(),
@@ -707,7 +1241,16 @@ impl Document {
         }
     }
     fn checkpoint(&mut self) {
-        self.undo.push(self.snapshot());
+        let mut snapshot = self.snapshot();
+        if let Some(previous) = self.undo.last()
+            && previous.api_open
+            && self.api_history_current(previous, &snapshot.api_owner, self.active_view)
+            && self.api_group_changes(previous.api_history.as_ref()) < 4096
+        {
+            snapshot.api_history = previous.api_history.clone();
+            snapshot.api_open = true;
+        }
+        self.undo.push(snapshot);
         if self.undo.len() > HISTORY_LIMIT {
             self.undo.remove(0);
         }
@@ -721,8 +1264,44 @@ impl Document {
     }
     pub fn break_group(&mut self) {
         self.typing = None;
+        if let Some(snapshot) = self.undo.last_mut() {
+            snapshot.api_open = false;
+            snapshot.api_closed = true;
+        }
+    }
+    fn api_history_current(
+        &self,
+        snapshot: &Snapshot,
+        owner: &std::sync::Arc<()>,
+        view: u64,
+    ) -> bool {
+        snapshot.workspace_group.is_none()
+            && snapshot.view_id == view
+            && std::sync::Arc::ptr_eq(&snapshot.api_owner, owner)
+            && snapshot.api_language_epoch == self.language_epoch
+            && snapshot.api_resource_epoch == self.resource_epoch
+            && snapshot.api_saved_generation == self.save_generation
+    }
+    fn api_group_changes(&self, group: Option<&std::sync::Arc<()>>) -> usize {
+        let Some(group) = group else {
+            return self.undo.last().map_or(0, |s| s.changes.len());
+        };
+        self.undo
+            .iter()
+            .rev()
+            .take_while(|s| {
+                s.api_history
+                    .as_ref()
+                    .is_some_and(|g| std::sync::Arc::ptr_eq(g, group))
+            })
+            .map(|s| s.changes.len())
+            .sum()
     }
     pub fn insert(&mut self, text: &str, typing: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         if !self.secondary.is_empty() {
             let group = typing
                 && !text.contains(['\n', '\r'])
@@ -757,10 +1336,10 @@ impl Document {
         } else if let Some(snapshot) = self.undo.last_mut() {
             snapshot.after_selections = None;
         }
-        self.record_change(range.clone(), text.chars().count(), text.len());
+        let added = self.record_change(range.clone(), text, false);
         self.text.remove(range.clone());
         self.text.insert(range.start, text);
-        self.cursor = range.start + text.chars().count();
+        self.cursor = range.start + added;
         self.anchor = None;
         self.changed();
         self.typing = if typing {
@@ -770,6 +1349,10 @@ impl Document {
         };
     }
     pub fn newline(&mut self) {
+        if self.is_read_only() {
+            return;
+        }
+
         if !self.secondary.is_empty() {
             self.replace_cursors(|doc, selection| {
                 let row = doc.text.char_to_line(selection.range().start);
@@ -793,14 +1376,73 @@ impl Document {
         self.insert(&format!("{}{}", self.eol, indent), false);
     }
     pub fn undo(&mut self) {
-        self.break_group();
-        if let Some(s) = self.undo.pop() {
-            self.redo.push(self.reverse_snapshot(&s));
-            self.restore(s);
+        if self.is_read_only() {
+            return;
         }
+
+        // Grouped entries require the App to validate every peer first.
+        if self
+            .workspace_history(WorkspaceHistoryDirection::Undo)
+            .is_some()
+        {
+            return;
+        }
+        self.break_group();
+        let Some(last) = self.undo.last() else {
+            return;
+        };
+        let count = last.api_history.as_ref().map_or(1, |group| {
+            self.undo
+                .iter()
+                .rev()
+                .take_while(|s| {
+                    s.api_history
+                        .as_ref()
+                        .is_some_and(|g| std::sync::Arc::ptr_eq(g, group))
+                })
+                .count()
+        });
+        let first = self.undo.len() - count;
+        let extra = self.undo[first + 1..].iter().map(|s| s.changes.len()).sum();
+        let epoch_steps =
+            self.undo[first].changes.len() + extra + usize::from(self.eol != self.undo[first].eol);
+        if self.text_epoch.checked_add(epoch_steps as u64).is_none() {
+            return;
+        }
+        if self.undo[first].changes.try_reserve(extra).is_err() || self.redo.try_reserve(1).is_err()
+        {
+            return;
+        }
+        let mut combined = self.undo.remove(first);
+        for later in self.undo.drain(first..) {
+            combined.changes.extend(later.changes);
+            combined.after_selections = later.after_selections;
+        }
+        if count > 1 {
+            combined.after_selections = None;
+        }
+        self.redo.push(self.reverse_snapshot(&combined));
+        self.restore(combined);
     }
     pub fn redo(&mut self) {
+        if self.is_read_only() {
+            return;
+        }
+
+        if self
+            .workspace_history(WorkspaceHistoryDirection::Redo)
+            .is_some()
+        {
+            return;
+        }
         self.break_group();
+        if self.redo.last().is_some_and(|snapshot| {
+            self.text_epoch
+                .checked_add(snapshot.changes.len() as u64 + u64::from(self.eol != snapshot.eol))
+                .is_none()
+        }) {
+            return;
+        }
         if let Some(s) = self.redo.pop() {
             self.undo.push(self.reverse_snapshot(&s));
             self.restore(s);
@@ -815,7 +1457,17 @@ impl Document {
         let after = target.after_selections.as_ref();
         let primary = after.and_then(|selections| selections.first());
         Snapshot {
+            history_identity: std::sync::Arc::new(()),
+            workspace_group: target.workspace_group.clone(),
+            api_history: target.api_history.clone(),
+            api_open: false,
+            api_closed: true,
+            api_owner: view.editor_owner.clone(),
+            api_language_epoch: self.language_epoch,
+            api_resource_epoch: self.resource_epoch,
+            api_saved_generation: self.save_generation,
             text: self.text.clone(),
+            eol: self.eol.clone(),
             cursor: primary.map_or(view.cursor, |s| s.cursor),
             anchor: primary.map_or(view.anchor, |s| s.anchor),
             secondary: after.map_or_else(|| view.secondary.clone(), |s| s[1..].to_vec()),
@@ -842,6 +1494,12 @@ impl Document {
         }
     }
     fn restore(&mut self, mut s: Snapshot) {
+        if self.eol != s.eol {
+            self.record_byte_change(ByteChange {
+                range: 0..0,
+                added: 0,
+            });
+        }
         for change in s.changes.iter().rev().map(PositionChange::inverse) {
             self.record_byte_change(change.bytes.clone());
             self.record_folding_change(change.range.clone(), change.added);
@@ -851,16 +1509,21 @@ impl Document {
             }
         }
         self.text = s.text;
+        self.eol = s.eol;
         let view = if s.view_id == self.active_view {
             Some(&mut self.view)
         } else {
             self.other_views.get_mut(&s.view_id)
         };
         if let Some(view) = view {
-            if view.pairs.generation == s.pairs.generation {
+            if std::sync::Arc::ptr_eq(&view.editor_owner, &s.api_owner)
+                && view.pairs.generation == s.pairs.generation
+            {
                 view.pairs = s.pairs;
             }
-            if view.snippet_generation == s.snippet_generation {
+            if std::sync::Arc::ptr_eq(&view.editor_owner, &s.api_owner)
+                && view.snippet_generation == s.snippet_generation
+            {
                 if let (Some(previous), Some(current)) = (&mut s.snippet, &view.snippet) {
                     previous.retain_removed_from(current);
                 }
@@ -873,6 +1536,9 @@ impl Document {
             view.cursor_history.clear();
         }
         self.revision = s.revision;
+        if self.revision == self.saved_revision {
+            self.resource_dirty = false;
+        }
         self.observe_folding_selection();
     }
     pub fn move_to(&mut self, pos: usize, select: bool) {
@@ -881,6 +1547,7 @@ impl Document {
         self.observe_folding_selection();
     }
     fn move_to_inner(&mut self, pos: usize, select: bool) {
+        self.resume_editor_cursor_follow();
         self.break_group();
         if select {
             if self.anchor.is_none() {
@@ -1006,6 +1673,10 @@ impl Document {
         self.move_to_inner(if self.cursor == first { start } else { first }, select);
     }
     pub fn backspace(&mut self, word: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         if !self.secondary.is_empty() {
             self.delete_cursors(false, word);
             return;
@@ -1021,6 +1692,10 @@ impl Document {
         self.delete_range(range);
     }
     pub fn delete(&mut self, word: bool) {
+        if self.is_read_only() {
+            return;
+        }
+
         if !self.secondary.is_empty() {
             self.delete_cursors(true, word);
             return;
@@ -1036,6 +1711,10 @@ impl Document {
         self.delete_range(range);
     }
     pub fn delete_range(&mut self, range: Range<usize>) {
+        if self.is_read_only() {
+            return;
+        }
+
         if range.is_empty() {
             return;
         }
@@ -1070,6 +1749,10 @@ impl Document {
         }
     }
     pub fn delete_line(&mut self) {
+        if self.is_read_only() {
+            return;
+        }
+
         let rows = self.all_selected_rows();
         let columns: Vec<_> = self
             .selections()
@@ -1142,6 +1825,10 @@ impl Document {
         rows.into_iter().collect()
     }
     pub fn transform_lines(&mut self, outdent: bool, comment: Option<bool>) {
+        if self.is_read_only() {
+            return;
+        }
+
         let rows = self.all_selected_rows();
         let prefix = match self
             .path
@@ -1177,7 +1864,7 @@ impl Document {
                     1
                 } else {
                     line.chars()
-                        .take(self.tab_size)
+                        .take(self.indent_size())
                         .take_while(|c| *c == ' ')
                         .count()
                 };
@@ -1191,15 +1878,130 @@ impl Document {
         self.apply_changes(changes);
     }
     pub fn apply_changes(&mut self, mut changes: Vec<(Range<usize>, String)>) {
+        changes.sort_by_key(|(r, _)| r.start);
+        self.apply_ordered_changes(changes.into_iter().map(|(r, text)| (r, text, false)));
+    }
+    /// Public editor insert/delete operations request marker movement, while
+    /// replacement and ordinary native edits retain marker-defined stickiness.
+    #[cfg(test)]
+    pub(crate) fn apply_changes_with_marker_semantics(
+        &mut self,
+        mut changes: Vec<(Range<usize>, String, bool)>,
+    ) {
+        changes.sort_by_key(|(r, _, _)| r.start);
+        self.apply_ordered_changes(changes.into_iter());
+    }
+    /// Native editor API edits share the source-owned Undo boundaries used by
+    /// public snippets. Navigation, saves and retired views close that authority.
+    pub(crate) fn apply_editor_changes(
+        &mut self,
+        proof: &EditorViewProof,
+        changes: Vec<(Range<usize>, String, bool)>,
+        undo_stop_before: bool,
+        undo_stop_after: bool,
+    ) -> Result<()> {
+        self.ensure_writable()?;
+        anyhow::ensure!(self.editor_view_current(proof), "Edit editor view retired");
         if changes.is_empty() {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            changes.len() <= 4096
+                && changes
+                    .iter()
+                    .all(|(r, _, _)| r.start <= r.end && r.end <= self.len())
+                && changes
+                    .windows(2)
+                    .all(|pair| pair[0].0.end <= pair[1].0.start
+                        && pair[0].0.start != pair[1].0.start),
+            "Invalid editor scalar changes"
+        );
+        self.next_revision
+            .checked_add(1)
+            .context("Editor revision exhausted")?;
+        self.text_epoch
+            .checked_add(changes.len() as u64)
+            .context("Editor text epoch exhausted")?;
+        let target = self.view_state(Some(proof.id));
+        let mut original = self.snapshot();
+        original.view_id = proof.id;
+        original.cursor = target.cursor;
+        original.anchor = target.anchor;
+        original.secondary = target.secondary.clone();
+        original.api_owner = target.editor_owner.clone();
+        original.snippet = target.snippet.clone();
+        original.snippet_generation = target.snippet_generation;
+        original.pairs = target.pairs.clone();
+        let join = !undo_stop_before
+            && self.undo.last().is_some_and(|s| {
+                !s.api_closed && self.api_history_current(s, &original.api_owner, proof.id)
+            });
+        let group = if join {
+            anyhow::ensure!(
+                self.api_group_changes(self.undo.last().and_then(|s| s.api_history.as_ref()))
+                    .checked_add(changes.len())
+                    .is_some_and(|n| n <= 4096),
+                "Editor Undo group change budget exceeded"
+            );
+            self.undo
+                .last()
+                .and_then(|s| s.api_history.clone())
+                .unwrap_or_else(|| std::sync::Arc::new(()))
+        } else {
+            std::sync::Arc::new(())
+        };
+        self.undo
+            .try_reserve(1)
+            .context("Editor Undo allocation failed")?;
+        original
+            .changes
+            .try_reserve(changes.len())
+            .context("Editor history allocation failed")?;
+        self.byte_changes
+            .try_reserve(changes.len().min(257))
+            .context("Editor journal allocation failed")?;
+        // Admission and reservation complete before changing views or history.
+        let displayed = self.active_view;
+        self.display_view(proof.id);
+        self.typing = None;
+        if join {
+            if let Some(previous) = self.undo.last_mut() {
+                previous.api_history = Some(group.clone());
+            }
+        } else {
+            self.break_group();
+        }
+        self.undo.push(original);
+        if self.undo.len() > HISTORY_LIMIT {
+            self.undo.remove(0);
+        }
+        self.redo.clear();
+        self.apply_ordered_changes_without_checkpoint(changes.into_iter());
+        if let Some(snapshot) = self.undo.last_mut() {
+            snapshot.api_history = Some(group);
+            snapshot.api_open = !undo_stop_after;
+            snapshot.api_closed = undo_stop_after;
+        }
+        self.display_view(displayed);
+        Ok(())
+    }
+    fn apply_ordered_changes(
+        &mut self,
+        changes: impl DoubleEndedIterator<Item = (Range<usize>, String, bool)> + ExactSizeIterator,
+    ) {
+        if self.is_read_only() || changes.len() == 0 {
             return;
         }
-        changes.sort_by_key(|(r, _)| r.start);
         self.checkpoint();
         self.break_group();
-        for (r, text) in changes.into_iter().rev() {
-            let added = text.chars().count();
-            self.record_change(r.clone(), added, text.len());
+        self.apply_ordered_changes_without_checkpoint(changes);
+    }
+    fn apply_ordered_changes_without_checkpoint(
+        &mut self,
+        changes: impl DoubleEndedIterator<Item = (Range<usize>, String, bool)> + ExactSizeIterator,
+    ) {
+        for (r, text, force_move) in changes.rev() {
+            let added = self.record_change(r.clone(), &text, force_move);
             self.cursor = map_position(self.cursor, &r, added);
             self.anchor = self.anchor.map(|p| map_position(p, &r, added));
             for selection in &mut self.secondary {
@@ -1242,6 +2044,10 @@ impl Document {
         }
     }
     pub fn replace_all(&mut self, query: &str, replacement: &str) -> usize {
+        if self.is_read_only() {
+            return 0;
+        }
+
         if query.is_empty() {
             return 0;
         }
@@ -1262,6 +2068,12 @@ impl Document {
     /// Capture an ordinary save or Save As without resolving or reading paths.
     /// The worker must validate aliases, destination baseline and file identity.
     pub fn capture_save(&self, target: PathBuf) -> Result<SaveSnapshot> {
+        self.ensure_writable()?;
+
+        // A worker may resolve a different canonical alias. Reserve the path
+        // clock before allowing any persistence effects, including Save As.
+        self.check_resource_change()?;
+
         validate_snapshot_path(&target, false)?;
         if let Some(path) = &self.path {
             validate_snapshot_path(path, false)?;
@@ -1284,6 +2096,7 @@ impl Document {
             target,
             revision: self.revision,
             text_epoch: self.text_epoch,
+            resource_epoch: self.resource_epoch,
             saved_revision: self.saved_revision,
             save_generation: self.save_generation,
             next_save_generation,
@@ -1294,10 +2107,13 @@ impl Document {
     /// Authorize only the exact captured model state. Undo cannot restore the
     /// monotonic text epoch, even when its bytes and revision match the capture.
     pub fn check_save_snapshot(&self, snapshot: &SaveSnapshot) -> Result<()> {
+        self.ensure_writable()?;
+
         if self.id != snapshot.document_id
             || self.path != snapshot.source_path
             || self.revision != snapshot.revision
             || self.text_epoch != snapshot.text_epoch
+            || self.resource_epoch != snapshot.resource_epoch
             || self.saved_revision != snapshot.saved_revision
             || self.save_generation != snapshot.save_generation
         {
@@ -1313,12 +2129,15 @@ impl Document {
         snapshot: &SaveSnapshot,
         canonical_destination: PathBuf,
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         validate_snapshot_path(&canonical_destination, true)?;
         if canonical_destination.file_name() != snapshot.target.file_name() {
             bail!("Save receipt destination does not match the captured filename");
         }
         if self.id != snapshot.document_id
             || self.path != snapshot.source_path
+            || self.resource_epoch != snapshot.resource_epoch
             || self.save_generation != snapshot.save_generation
             || self.saved_revision != snapshot.saved_revision
         {
@@ -1326,19 +2145,20 @@ impl Document {
                 "Document path or saved baseline changed after save authorization; persisted snapshot retained on disk"
             );
         }
-        if self.path.as_ref() != Some(&canonical_destination) {
-            // Save As changes language semantics without changing text history.
-            self.retire_typing_pairs();
-            self.retire_folding_policy();
-        }
-        self.path = Some(canonical_destination);
+        self.set_resource_path(Some(canonical_destination))?;
+        self.untitled_uri = None;
+        self.associated_path = None;
+        self.api_created_untitled = false;
         self.disk_content = Some(snapshot.text.clone());
         self.saved_revision = snapshot.revision;
+        self.resource_dirty = false;
         self.save_generation = snapshot.next_save_generation;
         self.break_group();
         Ok(())
     }
     pub fn save(&mut self) -> Result<()> {
+        self.ensure_writable()?;
+
         let path = self
             .path
             .clone()
@@ -1346,6 +2166,8 @@ impl Document {
         self.save_to(&path, false)
     }
     pub fn save_to(&mut self, path: &Path, overwrite: bool) -> Result<()> {
+        self.ensure_writable()?;
+
         self.save_to_with_before_persist(path, overwrite, |_| {})
     }
     fn save_to_with_before_persist(
@@ -1354,12 +2176,17 @@ impl Document {
         overwrite: bool,
         before_persist: impl FnOnce(&Path),
     ) -> Result<()> {
+        self.ensure_writable()?;
+
         let save_generation = self
             .save_generation
             .checked_add(1)
             .context("Document save generation exhausted")?;
         let path = absolute_path(path)?;
         let same_path = self.path.as_ref() == Some(&path);
+        if !same_path {
+            self.check_resource_change()?;
+        }
         let create_only = !overwrite && (!same_path || self.disk_content.is_none());
         if !overwrite {
             if same_path {
@@ -1394,15 +2221,13 @@ impl Document {
                 .map_err(|e| e.error)
                 .context("Could not replace the destination file")?;
         }
-        if !same_path {
-            // Save As changes document semantics independently of Undo. A later
-            // return to the old path cannot revive delimiter ownership.
-            self.retire_typing_pairs();
-            self.retire_folding_policy();
-        }
-        self.path = Some(path);
+        self.set_resource_path(Some(path))?;
+        self.untitled_uri = None;
+        self.associated_path = None;
+        self.api_created_untitled = false;
         self.disk_content = Some(self.text.clone());
         self.saved_revision = self.revision;
+        self.resource_dirty = false;
         self.save_generation = save_generation;
         self.break_group();
         Ok(())
@@ -1455,6 +2280,70 @@ fn map_position(p: usize, range: &Range<usize>, added: usize) -> usize {
 #[cfg(test)]
 mod save_snapshot_tests {
     use super::*;
+
+    #[test]
+    fn resource_aba_retires_save_authority_without_changing_text_history_or_baseline() {
+        let (directory, mut document, path) = fixture();
+        document.insert("dirty λ ", false);
+        document.insert("redo ", false);
+        document.undo();
+        let snapshot = document.capture_save(path.clone()).unwrap();
+        let source = document.capture_workspace_source().unwrap();
+        let text = document.text.clone();
+        let baseline = document.disk_content.clone();
+        let proof = (
+            document.id,
+            document.revision,
+            document.text_epoch(),
+            document.saved_revision,
+            document.save_generation(),
+            document.undo.len(),
+            document.redo.len(),
+        );
+        document
+            .set_resource_path(Some(directory.path().join("other.cpp")))
+            .unwrap();
+        document.set_resource_path(Some(path.clone())).unwrap();
+        assert_eq!(document.resource_epoch(), snapshot.resource_epoch() + 2);
+        assert!(document.check_save_snapshot(&snapshot).is_err());
+        assert!(document.publish_save(&snapshot, path.clone()).is_err());
+        assert!(!source.current(&document));
+        assert_eq!(document.text, text);
+        assert_eq!(document.disk_content, baseline);
+        assert_eq!(
+            (
+                document.id,
+                document.revision,
+                document.text_epoch(),
+                document.saved_revision,
+                document.save_generation(),
+                document.undo.len(),
+                document.redo.len()
+            ),
+            proof
+        );
+        assert!(document.dirty());
+        document.redo();
+        assert_eq!(document.text.to_string(), "dirty λ redo 猫🙂 base\r\n");
+        assert_eq!(fs::read(path).unwrap(), "猫🙂 base\r\n".as_bytes());
+    }
+
+    #[test]
+    fn resource_clock_exhaustion_refuses_save_as_before_creating_or_overwriting_files() {
+        let (directory, mut document, path) = fixture();
+        document.insert("dirty ", false);
+        document.resource_epoch = u64::MAX;
+        let destination = directory.path().join("other.cpp");
+        assert!(document.capture_save(destination.clone()).is_err());
+        assert!(document.save_to(&destination, false).is_err());
+        assert!(!destination.exists());
+        fs::write(&destination, "foreign λ\r\n").unwrap();
+        assert!(document.save_to(&destination, true).is_err());
+        assert_eq!(fs::read(destination).unwrap(), "foreign λ\r\n".as_bytes());
+        assert_eq!(document.path.as_ref(), Some(&path));
+        assert_eq!(fs::read(path).unwrap(), "猫🙂 base\r\n".as_bytes());
+        assert!(document.dirty());
+    }
 
     fn fixture() -> (tempfile::TempDir, Document, PathBuf) {
         let directory = tempfile::tempdir().unwrap();
@@ -2302,5 +3191,616 @@ mod tests {
             fs::metadata(target).unwrap().permissions().mode() & 0o777,
             0o640
         );
+    }
+}
+
+#[cfg(test)]
+mod virtual_document_tests {
+    use super::*;
+    use crate::editing_profile::TypingOptions;
+
+    fn state(doc: &Document) -> (String, Vec<Selection>, u64, u64, u64, u64, usize, usize) {
+        (
+            doc.text.to_string(),
+            doc.selections(),
+            doc.revision,
+            doc.saved_revision,
+            doc.text_epoch(),
+            doc.save_generation(),
+            doc.undo.len(),
+            doc.redo.len(),
+        )
+    }
+
+    #[test]
+    fn virtual_edits_and_save_refuse_before_source_or_selection_changes() {
+        let mut doc = Document::from_virtual("test:α".into(), "α😀\r\nβ\rγ").unwrap();
+        assert_eq!(doc.text.to_string(), "α😀\nβ\nγ");
+        assert_eq!(doc.virtual_uri(), Some("test:α"));
+        assert!(doc.is_read_only());
+        assert!(!doc.dirty());
+        assert!(!doc.api_dirty());
+        assert_eq!(doc.eol, "\n");
+        assert_eq!(doc.name(), "test:α");
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        assert_eq!(doc.language_override(), Some("cpp"));
+        doc.set_selections(vec![
+            Selection {
+                cursor: 1,
+                anchor: Some(4),
+                desired_column: None,
+            },
+            Selection::caret(5),
+        ]);
+        let original = state(&doc);
+        doc.insert("bad", false);
+        doc.newline();
+        doc.backspace(false);
+        doc.delete(false);
+        doc.delete_range(0..2);
+        doc.delete_line();
+        doc.transform_lines(false, Some(true));
+        doc.apply_changes(vec![(0..1, "bad".into())]);
+        assert_eq!(doc.replace_all("α", "bad"), 0);
+        doc.replace_cursors(|_, _| panic!("Readonly expansion must not execute"));
+        doc.delete_cursors(true, false);
+        doc.insert_line(true);
+        doc.copy_lines(false);
+        doc.move_lines(false);
+        doc.reload_content(Rope::from_str("disk"));
+        doc.undo();
+        doc.redo();
+        let options = TypingOptions::default();
+        assert!(doc.type_character('(', options, true).is_err());
+        assert!(doc.newline_with_options(options).is_err());
+        assert!(doc.line_break_with_options(options).is_err());
+        assert!(doc.backspace_with_options(options, false).is_err());
+        assert!(doc.comment_lines(CommentOperation::Toggle).is_err());
+        assert!(doc.toggle_block_comment().is_err());
+        let template = crate::snippet::Template::parse("${1:bad}$0").unwrap();
+        assert!(doc.insert_snippet(&template, &Default::default()).is_err());
+        assert!(
+            doc.insert_snippet_command(&template, &Default::default())
+                .is_err()
+        );
+        assert!(
+            doc.insert_snippet_command_resolved(&template, |_, _, _, _, _| {
+                panic!("Readonly resolver must not execute")
+            })
+            .is_err()
+        );
+        assert!(doc.step_snippet(false).is_err());
+        assert!(
+            doc.apply_completion_edits(0..1, vec![], |_, _| {
+                panic!("Readonly completion must not execute")
+            })
+            .is_err()
+        );
+        assert!(doc.capture_workspace_source().is_err());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("untouched.txt");
+        fs::write(&path, "sentinel").unwrap();
+        assert!(doc.save().unwrap_err().to_string().contains("read-only"));
+        assert!(doc.save_to(&path, true).is_err());
+        assert!(doc.capture_save(path.clone()).is_err());
+        // Even a receipt whose public source identity has been forged cannot
+        // turn a provider model into a file-backed model.
+        let mut ordinary = Document::from_text("ordinary");
+        ordinary.id = doc.id;
+        let snapshot = ordinary.capture_save(path.clone()).unwrap();
+        assert!(doc.check_save_snapshot(&snapshot).is_err());
+        assert!(
+            doc.publish_save(&snapshot, fs::canonicalize(&path).unwrap())
+                .is_err()
+        );
+        assert_eq!(fs::read_to_string(path).unwrap(), "sentinel");
+        assert_eq!(state(&doc), original);
+        assert!(doc.path.is_none());
+        assert!(doc.disk_content.is_none());
+        // Navigation remains available.
+        doc.move_to(0, false);
+        assert_eq!(doc.cursor, 0);
+    }
+
+    #[test]
+    fn provider_refresh_retains_shared_identity_and_clamps_all_views_without_undo() {
+        let mut doc = Document::from_virtual("test:shared".into(), "α😀\r\nlong line").unwrap();
+        doc.activate_view(11);
+        doc.set_selections(vec![Selection {
+            cursor: doc.len(),
+            anchor: Some(3),
+            desired_column: Some(20),
+        }]);
+        doc.activate_view(22);
+        doc.set_selections(vec![Selection::caret(8), Selection::caret(5)]);
+        doc.top = 99;
+        let id = doc.id;
+        let old_epoch = doc.text_epoch();
+        let generation = doc.save_generation();
+        let prepared = Document::prepare_virtual_content("猫\r\n").unwrap();
+        // Publication uses the live views, not those at worker submission.
+        doc.move_to(9, false);
+        assert!(doc.refresh_virtual_prepared(prepared).unwrap());
+        assert_eq!(doc.text.to_string(), "猫\n");
+        assert_eq!(doc.id, id);
+        assert_eq!(doc.active_view, 22);
+        assert!(doc.text_epoch() > old_epoch);
+        assert_eq!(doc.save_generation(), generation);
+        assert_eq!(doc.revision, doc.saved_revision);
+        assert!(!doc.api_dirty());
+        assert_eq!(doc.view_state(Some(11)).cursor, 2);
+        assert_eq!(doc.view_state(Some(11)).anchor, Some(2));
+        assert!(
+            doc.selections()
+                .iter()
+                .all(|selection| selection.cursor <= 2)
+        );
+        assert!(doc.top < doc.line_count());
+        assert!(doc.undo.is_empty());
+        assert!(doc.redo.is_empty());
+        let refreshed = state(&doc);
+        assert!(!doc.refresh_virtual_content("猫\n").unwrap());
+        doc.undo();
+        doc.redo();
+        assert_eq!(state(&doc), refreshed);
+        assert!(doc.refresh_virtual_content("bad\0").is_err());
+        assert_eq!(state(&doc), refreshed);
+    }
+
+    #[test]
+    fn virtual_refresh_counter_refusal_and_bad_metadata_are_atomic() {
+        for counter in [false, true] {
+            let mut doc = Document::from_virtual("test:bounded".into(), "old😀").unwrap();
+            doc.move_to(3, true);
+            if counter {
+                doc.text_epoch = u64::MAX;
+            } else {
+                doc.next_revision = u64::MAX;
+            }
+            let original = state(&doc);
+            assert!(doc.refresh_virtual_content("new").is_err());
+            assert_eq!(state(&doc), original);
+            assert_eq!(doc.virtual_uri(), Some("test:bounded"));
+        }
+        for uri in [
+            "file:///tmp/test",
+            "untitled:test",
+            "1bad:value",
+            "missing",
+            "test:\0",
+        ] {
+            assert!(Document::from_virtual(uri.into(), "content").is_err());
+        }
+        let mut doc = Document::from_virtual("test:language".into(), "content").unwrap();
+        doc.set_language_override(Some("rust".into())).unwrap();
+        assert!(doc.set_language_override(Some("".into())).is_err());
+        assert_eq!(doc.language_override(), Some("rust"));
+        let mut ordinary = Document::from_text("source");
+        assert!(ordinary.refresh_virtual_content("provider").is_err());
+        assert_eq!(ordinary.text.to_string(), "source");
+    }
+}
+
+#[cfg(test)]
+mod api_untitled_tests {
+    use super::*;
+
+    #[test]
+    fn api_untitled_initial_content_is_dirty_without_synthetic_undo_and_saves_exactly() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("initial.cpp");
+        let initial = "α😀\r\nβ\r\n";
+        let mut doc = Document::from_untitled(
+            Some("untitled:/initial.cpp".into()),
+            initial,
+            Some("cpp".into()),
+            Some(target.clone()),
+        )
+        .unwrap();
+        let id = doc.id;
+        assert_eq!(doc.name(), "initial.cpp");
+        assert!(doc.path.is_none());
+        assert_eq!(doc.associated_path(), Some(target.as_path()));
+        assert_eq!(doc.untitled_uri(), Some("untitled:/initial.cpp"));
+        assert_eq!(doc.text.to_string(), initial);
+        assert_eq!(doc.eol, "\r\n");
+        assert!(doc.dirty() && doc.api_dirty());
+        assert!(!doc.is_read_only());
+        assert!(doc.undo.is_empty() && doc.redo.is_empty());
+        let initial_epoch = doc.text_epoch();
+        doc.undo();
+        assert_eq!(doc.text_epoch(), initial_epoch);
+        assert_eq!(doc.text.to_string(), initial);
+        doc.insert("new 猫", false);
+        let edited = doc.text.to_string();
+        doc.undo();
+        assert_eq!(doc.text.to_string(), initial);
+        assert!(doc.dirty());
+        doc.redo();
+        assert_eq!(doc.text.to_string(), edited);
+        let snapshot = doc.capture_save(target.clone()).unwrap();
+        // A different model's otherwise plausible receipt cannot erase identity.
+        let other = Document::from_untitled(None, "other", None, None).unwrap();
+        let wrong = other.capture_save(target.clone()).unwrap();
+        assert!(doc.publish_save(&wrong, target.clone()).is_err());
+        assert_eq!(doc.untitled_uri(), Some("untitled:/initial.cpp"));
+        doc.check_save_snapshot(&snapshot).unwrap();
+        fs::write(&target, snapshot.text().to_string()).unwrap();
+        doc.publish_save(&snapshot, fs::canonicalize(&target).unwrap())
+            .unwrap();
+        assert_eq!(doc.id, id);
+        assert!(!doc.dirty() && !doc.api_dirty());
+        assert!(doc.untitled_uri().is_none() && doc.associated_path().is_none());
+        assert_eq!(doc.language_override(), Some("cpp"));
+        assert_eq!(doc.save_generation(), 1);
+        assert_eq!(fs::read_to_string(target).unwrap(), edited);
+        doc.undo();
+        assert_eq!(doc.text.to_string(), initial);
+        assert!(doc.dirty());
+        assert!(doc.untitled_uri().is_none());
+    }
+
+    #[test]
+    fn api_untitled_empty_and_mixed_eol_admission_preserves_source_proofs() {
+        let mut empty = Document::from_untitled(None, "", None, None).unwrap();
+        assert!(empty.dirty() && empty.api_dirty());
+        assert!(
+            empty
+                .untitled_uri()
+                .unwrap()
+                .starts_with("untitled:Untitled-")
+        );
+        empty.undo();
+        assert!(empty.is_empty() && empty.dirty());
+        empty.insert("", false);
+        assert!(empty.dirty());
+        empty.insert("x", false);
+        assert!(empty.dirty());
+        empty.undo();
+        assert!(empty.is_empty() && !empty.dirty() && !empty.api_dirty());
+        empty.redo();
+        assert!(empty.dirty() && empty.api_dirty());
+        let mut associated =
+            Document::from_untitled(None, "", None, Some(PathBuf::from("target.txt"))).unwrap();
+        associated.insert("x", false);
+        associated.undo();
+        assert!(associated.is_empty() && associated.dirty() && associated.api_dirty());
+        for (input, expected, eol) in [
+            ("α\r\nβ\rγ\n", "α\r\nβ\r\nγ\r\n", "\r\n"),
+            ("α\r\nβ\n", "α\nβ\n", "\n"),
+            ("α\rβ\nγ\n", "α\nβ\nγ\n", "\n"),
+        ] {
+            let mut doc = Document::from_untitled(None, input, None, None).unwrap();
+            assert_eq!(doc.text.to_string(), expected);
+            assert_eq!(doc.eol, eol);
+            let source = doc.capture_workspace_source().unwrap();
+            let snapshot = doc.capture_save(PathBuf::from("destination.txt")).unwrap();
+            doc.insert("z", false);
+            doc.undo();
+            assert_eq!(doc.text.to_string(), expected);
+            assert!(!source.current(&doc));
+            assert!(doc.check_save_snapshot(&snapshot).is_err());
+            assert!(doc.dirty());
+        }
+        for uri in ["file:///tmp/a", "test:a", "untitled:\0"] {
+            assert!(Document::from_untitled(Some(uri.into()), "", None, None).is_err());
+        }
+        assert!(Document::from_untitled(None, "bad\0", None, None).is_err());
+        assert!(Document::from_untitled(None, "", Some("".into()), None).is_err());
+    }
+}
+
+#[cfg(test)]
+mod editor_state_tests {
+    use super::*;
+    #[test]
+    fn retained_inactive_selection_update_preserves_active_sibling_and_redo() {
+        let mut doc = Document::from_text("α😀\r\n猫\r\n");
+        doc.activate_view(1);
+        doc.insert("!", false);
+        doc.undo();
+        doc.set_selections(vec![Selection {
+            cursor: 1,
+            anchor: Some(2),
+            desired_column: None,
+        }]);
+        let original = doc.editor_view_identity();
+        doc.activate_view(2);
+        doc.move_to(5, false);
+        let sibling = doc.selections();
+        let before = (
+            doc.id,
+            doc.text.to_string(),
+            doc.revision,
+            doc.text_epoch(),
+            doc.saved_revision,
+            doc.save_generation(),
+            doc.dirty(),
+        );
+        doc.set_editor_selections(&original, vec![Selection::caret(6)])
+            .unwrap();
+        assert_eq!(doc.active_view, 2);
+        assert_eq!(doc.selections(), sibling);
+        assert_eq!(doc.view_state(Some(1)).cursor, 6);
+        assert_eq!(
+            (
+                doc.id,
+                doc.text.to_string(),
+                doc.revision,
+                doc.text_epoch(),
+                doc.saved_revision,
+                doc.save_generation(),
+                doc.dirty()
+            ),
+            before
+        );
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "!α😀\r\n猫\r\n");
+        doc.undo();
+        assert_eq!(doc.text.to_string(), before.1);
+    }
+    #[test]
+    fn exact_view_accessors_never_fabricate_missing_authority_or_change_active_view() {
+        let mut doc = Document::from_text("α😀\r\nsecond");
+        doc.activate_view(1);
+        doc.set_selections(vec![Selection::caret(1), Selection::caret(5)]);
+        let original = doc.editor_view_identity();
+        let stamp = doc.editor_view_stamp();
+        doc.activate_view(2);
+        doc.move_to(2, false);
+        let sibling = doc.selections();
+        assert_eq!(doc.editor_view_stamp_for(1), Some(stamp));
+        assert_eq!(doc.editor_selection_count_for(1), Some(2));
+        assert_eq!(doc.editor_view_identity_for(1).unwrap().view_id(), 1);
+        assert!(doc.editor_view_current(&original));
+        assert!(doc.editor_view_identity_for(99).is_none());
+        assert!(doc.editor_view_stamp_for(99).is_none());
+        assert!(doc.editor_selection_count_for(99).is_none());
+        assert_eq!(doc.active_view, 2);
+        assert_eq!(doc.selections(), sibling);
+        doc.remove_view(1);
+        assert!(doc.editor_view_stamp_for(1).is_none());
+        doc.display_view(1);
+        assert_ne!(doc.editor_view_stamp(), stamp);
+        assert!(!doc.editor_view_current(&original));
+        assert_eq!(doc.text.to_string(), "α😀\r\nsecond");
+        assert!(!doc.dirty());
+    }
+    #[test]
+    fn recreated_view_cannot_reuse_selection_authority() {
+        let mut doc = Document::from_text("abcd");
+        doc.activate_view(5);
+        let proof = doc.editor_view_identity();
+        doc.activate_view(6);
+        doc.remove_view(5);
+        doc.display_view(5);
+        let current = doc.selections();
+        assert!(!doc.editor_view_current(&proof));
+        assert!(
+            doc.set_editor_selections(&proof, vec![Selection::caret(4)])
+                .is_err()
+        );
+        assert_eq!(doc.selections(), current);
+        let new = doc.editor_view_identity();
+        doc.set_editor_selections(&new, vec![Selection::caret(4)])
+            .unwrap();
+        assert_eq!(doc.cursor, 4);
+    }
+    #[test]
+    fn language_clock_aba_noop_and_exhaustion_preserve_text_save_and_redo() {
+        let mut doc = Document::from_virtual("sample:/readonly".into(), "猫😀\r\n").unwrap();
+        let initial = (
+            doc.id,
+            doc.text.to_string(),
+            doc.revision,
+            doc.text_epoch(),
+            doc.saved_revision,
+            doc.save_generation(),
+            doc.dirty(),
+        );
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        let cpp = doc.language_epoch();
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        assert_eq!(doc.language_epoch(), cpp);
+        doc.set_language_override(Some("python".into())).unwrap();
+        doc.set_language_override(Some("cpp".into())).unwrap();
+        assert!(doc.language_epoch() > cpp);
+        assert_eq!(
+            (
+                doc.id,
+                doc.text.to_string(),
+                doc.revision,
+                doc.text_epoch(),
+                doc.saved_revision,
+                doc.save_generation(),
+                doc.dirty()
+            ),
+            initial
+        );
+        doc.language_epoch = u64::MAX;
+        assert!(doc.set_language_override(Some("python".into())).is_err());
+        assert_eq!(doc.language_override(), Some("cpp"));
+        assert!(doc.undo.is_empty() && doc.redo.is_empty());
+        let proof = doc.editor_view_identity();
+        doc.set_editor_selections(&proof, vec![Selection::caret(1)])
+            .unwrap();
+        assert_eq!(doc.cursor, 1);
+        assert_eq!(doc.text.to_string(), initial.1);
+        assert!(doc.is_read_only());
+        let mut editable = Document::from_text("α😀\r\n");
+        editable.insert("changed", false);
+        let edited = editable.text.to_string();
+        editable.undo();
+        let source = editable.text.to_string();
+        let epoch = editable.text_epoch();
+        editable.set_language_override(Some("cpp".into())).unwrap();
+        editable
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        editable.set_language_override(Some("cpp".into())).unwrap();
+        assert_eq!(editable.text_epoch(), epoch);
+        editable.redo();
+        assert_eq!(editable.text.to_string(), edited);
+        editable.undo();
+        assert_eq!(editable.text.to_string(), source);
+    }
+}
+
+#[cfg(test)]
+mod checked_reload_tests {
+    use super::*;
+
+    #[test]
+    fn exhausted_reload_counters_preserve_text_views_baseline_and_both_history_heads() {
+        for revision in [false, true] {
+            let mut doc = Document::from_text("猫🙂\r\noriginal");
+            doc.path = Some(std::env::temp_dir().join("vscli-reload-proof.cpp"));
+            doc.disk_content = Some(doc.text.clone());
+            doc.insert("first ", false);
+            doc.insert("second ", false);
+            doc.undo();
+            if revision {
+                doc.next_revision = u64::MAX;
+            } else {
+                doc.text_epoch = u64::MAX;
+            }
+            let source = doc.capture_workspace_source().unwrap();
+            let text = doc.text.clone();
+            let disk = doc.disk_content.clone();
+            let cursor = doc.cursor;
+            assert!(
+                doc.reload_content_checked(Rope::from_str("external 猫🙂\r\n"))
+                    .is_err()
+            );
+            assert!(source.current(&doc));
+            assert_eq!(doc.text, text);
+            assert_eq!(doc.disk_content, disk);
+            assert_eq!(doc.cursor, cursor);
+        }
+    }
+
+    #[test]
+    fn editor_undo_stops_control_previous_and_following_native_typing_and_redo() {
+        for before in [false, true] {
+            for after in [false, true] {
+                let mut doc = Document::from_text("base");
+                doc.activate_view(1);
+                doc.move_to(4, false);
+                doc.insert("P", true);
+                let proof = doc.editor_view_identity();
+                doc.apply_editor_changes(&proof, vec![(5..5, "A".into(), false)], before, after)
+                    .unwrap();
+                doc.insert("B", true);
+                assert_eq!(doc.text.to_string(), "basePAB");
+                doc.undo();
+                assert_eq!(
+                    doc.text.to_string(),
+                    match (before, after) {
+                        (_, true) => "basePA",
+                        (true, false) => "baseP",
+                        (false, false) => "base",
+                    }
+                );
+                doc.redo();
+                assert_eq!(doc.text.to_string(), "basePAB");
+                assert_eq!(doc.cursor, 7);
+                doc.undo();
+                if after {
+                    doc.undo();
+                }
+                assert_eq!(doc.text.to_string(), if before { "baseP" } else { "base" });
+            }
+        }
+    }
+
+    #[test]
+    fn editor_empty_builder_preserves_open_group_and_native_navigation_closes_it() {
+        let mut doc = Document::from_text("base");
+        doc.move_to(4, false);
+        doc.insert("P", true);
+        let proof = doc.editor_view_identity();
+        doc.apply_editor_changes(&proof, vec![(5..5, "A".into(), false)], false, false)
+            .unwrap();
+        doc.apply_editor_changes(&proof, vec![], true, true)
+            .unwrap();
+        doc.apply_editor_changes(&proof, vec![(6..6, "B".into(), false)], false, false)
+            .unwrap();
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "base");
+        doc.redo();
+        doc.move_to(0, false);
+        doc.apply_editor_changes(&proof, vec![(0..0, "C".into(), false)], false, false)
+            .unwrap();
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "basePAB");
+    }
+
+    #[test]
+    fn editor_inactive_view_history_maps_shared_selections_without_switching_display() {
+        let mut doc = Document::from_text("猫🙂\r\noriginal");
+        doc.activate_view(1);
+        doc.set_selections(vec![Selection {
+            cursor: 2,
+            anchor: Some(1),
+            desired_column: None,
+        }]);
+        let proof = doc.editor_view_identity();
+        doc.activate_view(2);
+        doc.move_to(doc.len(), false);
+        doc.apply_editor_changes(&proof, vec![(0..0, "λ".into(), false)], true, false)
+            .unwrap();
+        assert_eq!(doc.active_view, 2);
+        assert_eq!(doc.cursor, doc.len());
+        assert_eq!(doc.view_state(Some(1)).cursor, 3);
+        assert_eq!(doc.view_state(Some(1)).anchor, Some(2));
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂\r\noriginal");
+        assert_eq!(doc.view_state(Some(1)).cursor, 2);
+        assert_eq!(doc.view_state(Some(1)).anchor, Some(1));
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "λ猫🙂\r\noriginal");
+        assert_eq!(doc.active_view, 2);
+    }
+
+    #[test]
+    fn editor_invalid_changes_and_retired_view_preserve_redo_and_source_identity() {
+        let mut doc = Document::from_text("original");
+        doc.insert("prior", false);
+        doc.undo();
+        let proof = doc.editor_view_identity();
+        let source = doc.capture_workspace_source().unwrap();
+        assert!(
+            doc.apply_editor_changes(&proof, vec![(99..100, "lost".into(), false)], false, false)
+                .is_err()
+        );
+        assert!(source.current(&doc));
+        let foreign = Document::from_text("other").editor_view_identity();
+        assert!(
+            doc.apply_editor_changes(&foreign, vec![(0..0, "lost".into(), false)], false, false)
+                .is_err()
+        );
+        assert!(source.current(&doc));
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "priororiginal");
+    }
+
+    #[test]
+    fn accepted_reload_sets_real_baseline_and_keeps_dirty_prior_text_in_native_undo() {
+        let mut doc = Document::from_text("猫🙂\r\noriginal");
+        doc.path = Some(std::env::temp_dir().join("vscli-reload-proof.cpp"));
+        doc.insert("unsaved ", false);
+        doc.reload_content_checked(Rope::from_str("external 猫🙂\r\n"))
+            .unwrap();
+        assert!(!doc.dirty());
+        assert_eq!(
+            doc.disk_content.as_ref().unwrap().to_string(),
+            "external 猫🙂\r\n"
+        );
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "unsaved 猫🙂\r\noriginal");
+        assert!(doc.dirty());
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "external 猫🙂\r\n");
+        assert!(!doc.dirty());
     }
 }

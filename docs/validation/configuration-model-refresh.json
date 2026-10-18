@@ -1,0 +1,241 @@
+{
+  "schema": "vscli-configuration-model-refresh-validation-v1",
+  "base_commit": "4d69f8d548e7bade097485a51078810020d966e0",
+  "scope": "Complete the usable configuration-write workflow by awaiting current native settings-document refresh before success; full stable API and seamless personal migration remain required.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1765,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "d57ed4c29c63a07246327e179b130579f8f43bdb49627e4074e7ded18d2adbe0"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "f252bfcb213c865ac1a867703c4d73cac8f7a22a859fedecc15998242c02a52d"
+  },
+  "criteria": {
+    "passed": 4,
+    "total": 4,
+    "items": [
+      "Shared and API-hidden clean settings models publish actual text/version events before public void success without switching editors",
+      "An actually held pre-write disk reader retains its slot and cannot acknowledge the post-commit model refresh",
+      "Late unsaved settings edits preserve text/Undo while the public error truthfully reports the already persisted file; distinct hardlinks retain their bytes",
+      "Native shared history/baselines and Unicode CRLF terminal workflows, complete regressions, upstream controls and required style checks pass"
+    ]
+  },
+  "native": {
+    "reports": 77,
+    "passed": 1716,
+    "failed": 0,
+    "ignored": 23,
+    "library": 1344
+  },
+  "host": {
+    "passed": 832,
+    "failed": 0
+  },
+  "new_evidence": {
+    "native_library_tests": 1,
+    "native_library_test_scenarios": 2,
+    "public_native_integration_tests": 3,
+    "terminal_scenarios": 1
+  },
+  "terminal_scenarios": 12,
+  "checks": [
+    {
+      "label": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-fmt.log"
+    },
+    {
+      "label": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-clippy.log"
+    },
+    {
+      "label": "configuration-integration",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "extension_configuration_update"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-configuration-integration.log"
+    },
+    {
+      "label": "build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-build.log"
+    },
+    {
+      "label": "full-native",
+      "command": [
+        "cargo",
+        "test",
+        "--all-targets",
+        "--locked",
+        "--no-fail-fast",
+        "--",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-final-rust.log"
+    },
+    {
+      "label": "all-host",
+      "command": [
+        "node",
+        "scripts/test_extension_host.cjs"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-host-all.log",
+      "passed_tests": 832
+    },
+    {
+      "label": "sort-lines",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "extension_installation",
+        "--test",
+        "extension_host",
+        "upstream_sort_lines",
+        "--",
+        "--ignored"
+      ],
+      "environment": {
+        "VSCLI_TEST_SORT_LINES": "/home/junie/programming/projects/vscli/target/sort-lines-upstream"
+      },
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-sort-lines.log",
+      "passed_tests": 4
+    },
+    {
+      "label": "extension_configuration_update-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_configuration_update_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-extension_configuration_update-pty.log",
+      "passed_scenarios": 3
+    },
+    {
+      "label": "native_configuration-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/native_configuration_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-native_configuration-pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "label": "extension_documents-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_documents_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-extension_documents-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "imported_appearance-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/imported_appearance_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-imported_appearance-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "exported_profile-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/exported_profile_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-exported_profile-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "progress-script-controls",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-configuration-model-script-tests.log",
+      "passed_tests": 28
+    }
+  ],
+  "design": "Reuse the existing one occupied disk reader and source/publication epoch validation. Retain accepted per-model publication receipts only for current model IDs; the native configuration controller waits for its captured target resource and post-commit epoch. No additional IO worker/path is introduced. Hardlinked different resources remain independent after atomic replacement.",
+  "qualification": {
+    "local": "4/4 named local criteria pass. No whole-API row is qualified.",
+    "platforms": "This source is locally tested on Linux. CI for preceding 4d69f8d is still running; it cannot qualify this new cohort.",
+    "release": "No release package, tag or publication created for this source.",
+    "personal": "Synthetic extensions only; personal code remains unactivated."
+  },
+  "remaining": [
+    "Complete configuration schema/default registration, scope and error fidelity",
+    "Dirty-settings prompting/merge and exact event/runtime fidelity",
+    "Multi-root, workspace-file, remote, profile and all default-target semantics",
+    "Broader mutation arbitration and upstream/platform qualification",
+    "Entire stable extension API, personal workflows, arbitrary visual fidelity, storage/accounts and release qualification"
+  ]
+}

@@ -1,0 +1,980 @@
+//! Allocation-prepared text/history leases. No filesystem or active-editor authority.
+//! The App controller publishes the complete cohort only after every lease succeeds.
+use super::*;
+use anyhow::ensure;
+use std::{
+    mem::size_of,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
+
+pub(crate) const MAX_WORKSPACE_EDITS: usize = 4096;
+pub(crate) const MAX_WORKSPACE_METADATA: usize = 8 * 1024 * 1024;
+const MAX_VIEWS: usize = 5;
+const MAX_SELECTIONS: usize = 10_000;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum WorkspaceHistoryDirection {
+    Undo,
+    Redo,
+}
+#[derive(Clone, Debug)]
+pub(crate) struct WorkspaceHistoryMember {
+    pub document: u64,
+    pub before: u64,
+    pub after: u64,
+}
+#[derive(Debug)]
+pub(crate) struct WorkspaceHistoryGroup {
+    pub id: u64,
+    pub members: Vec<WorkspaceHistoryMember>,
+}
+impl WorkspaceHistoryGroup {
+    pub(crate) fn new(id: u64, prepared: &[WorkspaceTextPrepared]) -> Result<Arc<Self>> {
+        ensure!(
+            id != 0 && prepared.len() <= 128,
+            "Invalid workspace history cohort"
+        );
+        let mut members = Vec::new();
+        members
+            .try_reserve_exact(prepared.len())
+            .context("Workspace history allocation refused")?;
+        for text in prepared.iter().filter(|text| text.changed()) {
+            ensure!(
+                !members
+                    .iter()
+                    .any(|member: &WorkspaceHistoryMember| member.document == text.source.document),
+                "Duplicate workspace history member"
+            );
+            members.push(WorkspaceHistoryMember {
+                document: text.source.document,
+                before: text.source.revision,
+                after: text.source.next_revision,
+            });
+        }
+        ensure!(!members.is_empty(), "Empty workspace history group");
+        Ok(Arc::new(Self { id, members }))
+    }
+}
+
+/// Source-only snapshot; view navigation and accepted display publications do not
+/// invalidate it. Baseline publication, path/source edits and history ABA do.
+#[derive(Clone)]
+pub(crate) struct WorkspaceSource {
+    document: u64,
+    text: Rope,
+    path: Option<PathBuf>,
+    eol: String,
+    revision: u64,
+    epoch: u64,
+    resource_epoch: u64,
+    saved_revision: u64,
+    save_generation: u64,
+    resource_dirty: bool,
+    next_revision: u64,
+    undo: Option<Arc<()>>,
+    redo: Option<Arc<()>>,
+    undo_len: usize,
+    redo_len: usize,
+}
+impl WorkspaceSource {
+    pub(crate) fn document(&self) -> u64 {
+        self.document
+    }
+    pub(crate) fn text(&self) -> &Rope {
+        &self.text
+    }
+    pub(crate) fn eol(&self) -> &str {
+        &self.eol
+    }
+    pub(crate) fn current(&self, doc: &Document) -> bool {
+        !doc.is_read_only()
+            && self.document == doc.id
+            && self.path == doc.path
+            && self.eol == doc.eol
+            && self.revision == doc.revision
+            && self.epoch == doc.text_epoch
+            && self.resource_epoch == doc.resource_epoch
+            && self.saved_revision == doc.saved_revision
+            && self.save_generation == doc.save_generation
+            && self.resource_dirty == doc.resource_dirty
+            && self.next_revision == doc.next_revision
+            && self.undo_len == doc.undo.len()
+            && self.redo_len == doc.redo.len()
+            && same_head(
+                self.undo.as_ref(),
+                doc.undo.last().map(|s| &s.history_identity),
+            )
+            && same_head(
+                self.redo.as_ref(),
+                doc.redo.last().map(|s| &s.history_identity),
+            )
+    }
+    pub(crate) fn utf16_offset(&self, row: usize, character: usize) -> Result<usize> {
+        let rope = self.text();
+        ensure!(row < rope.len_lines(), "Workspace line is invalid");
+        let line = rope.line(row);
+        let mut length = line.len_chars();
+        if length > 0 && line.char(length - 1) == '\n' {
+            length -= 1;
+        }
+        if length > 0 && line.char(length - 1) == '\r' {
+            length -= 1;
+        }
+        let logical = line.slice(..length);
+        ensure!(
+            character <= logical.len_utf16_cu(),
+            "Workspace column crosses logical EOL"
+        );
+        let offset = logical.utf16_cu_to_char(character);
+        ensure!(
+            logical.char_to_utf16_cu(offset) == character,
+            "Workspace range splits a surrogate"
+        );
+        Ok(rope.line_to_char(row) + offset)
+    }
+    /// Worker-only Rope preparation. All ranges are scalar/disjoint/coalesced.
+    pub(crate) fn prepare(
+        self,
+        changes: Vec<(Range<usize>, String)>,
+        cancel: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<WorkspaceTextPrepared> {
+        guard(cancel, deadline)?;
+        ensure!(
+            changes.len() <= MAX_WORKSPACE_EDITS,
+            "Workspace text exceeds 4096 edits"
+        );
+        ensure!(
+            changes
+                .iter()
+                .all(|(r, _)| r.start <= r.end && r.end <= self.text.len_chars())
+                && changes
+                    .windows(2)
+                    .all(|pair| pair[0].0.end <= pair[1].0.start
+                        && pair[0].0.start != pair[1].0.start),
+            "Unvalidated workspace scalar edits"
+        );
+        let mut changed = Vec::new();
+        changed
+            .try_reserve_exact(changes.len())
+            .context("Workspace edit allocation refused")?;
+        for (range, text) in changes {
+            guard(cancel, deadline)?;
+            let old = self.text.slice(range.clone());
+            if old.len_bytes() != text.len() || !old.chunks().flat_map(str::bytes).eq(text.bytes())
+            {
+                changed.push((range, text));
+            }
+        }
+        if changed.is_empty() {
+            return Ok(WorkspaceTextPrepared {
+                text: self.text.clone(),
+                eol: self.eol.clone(),
+                source: self,
+                changes: Vec::new(),
+            });
+        }
+        self.next_revision
+            .checked_add(1)
+            .context("Workspace revision identity exhausted")?;
+        self.epoch
+            .checked_add(changed.len() as u64)
+            .context("Workspace text epoch exhausted")?;
+        let removed = changed.iter().try_fold(0usize, |n, (r, _)| {
+            n.checked_add(self.text.slice(r.clone()).len_bytes())
+                .context("Workspace removed bytes overflow")
+        })?;
+        let added = changed.iter().try_fold(0usize, |n, (_, s)| {
+            n.checked_add(s.len())
+                .context("Workspace added bytes overflow")
+        })?;
+        let size = self
+            .text
+            .len_bytes()
+            .checked_sub(removed)
+            .and_then(|n| n.checked_add(added))
+            .context("Workspace result overflow")?;
+        ensure!(
+            size as u64 <= MAX_FILE_BYTES,
+            "Workspace result exceeds 32 MiB"
+        );
+        let mut text = self.text.clone();
+        let mut positions = Vec::new();
+        positions
+            .try_reserve_exact(changed.len())
+            .context("Workspace position allocation refused")?;
+        for (range, replacement) in changed.into_iter().rev() {
+            guard(cancel, deadline)?;
+            let (added, added_utf16) = replacement.chars().fold((0, 0), |(chars, units), c| {
+                (chars + 1, units + c.len_utf16())
+            });
+            let change = PositionChange {
+                preserve_start: false,
+                decoration: decorations::Edit {
+                    start: text.char_to_utf16_cu(range.start),
+                    deleted: text.char_to_utf16_cu(range.end) - text.char_to_utf16_cu(range.start),
+                    added: added_utf16,
+                    force_move: false,
+                },
+                bytes: ByteChange {
+                    range: text.char_to_byte(range.start)..text.char_to_byte(range.end),
+                    added: replacement.len(),
+                },
+                added,
+                range: range.clone(),
+            };
+            text.remove(range.clone());
+            text.insert(range.start, &replacement);
+            positions.push(change);
+        }
+        guard(cancel, deadline)?;
+        Ok(WorkspaceTextPrepared {
+            eol: self.eol.clone(),
+            source: self,
+            text,
+            changes: positions,
+        })
+    }
+}
+fn same_head(a: Option<&Arc<()>>, b: Option<&Arc<()>>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+        _ => false,
+    }
+}
+pub(crate) fn guard(cancel: &AtomicBool, deadline: Instant) -> Result<()> {
+    ensure!(
+        !cancel.load(Ordering::Acquire) && Instant::now() < deadline,
+        "Workspace preparation cancelled or expired"
+    );
+    Ok(())
+}
+pub(crate) struct WorkspaceTextPrepared {
+    source: WorkspaceSource,
+    text: Rope,
+    eol: String,
+    // Actual application order, from right to left; each byte range refers to
+    // that intermediate source, exactly as ordinary native edit history does.
+    changes: Vec<PositionChange>,
+}
+impl WorkspaceTextPrepared {
+    /// Bulk text applies replacements against the original EOL, then the last
+    /// requested EOL. Keep those physical scalar changes in execution order so
+    /// every shared view, decoration and Undo uses the same intermediate text.
+    /// This runs on the workspace worker, under the original request deadline.
+    pub(crate) fn with_eol(
+        mut self,
+        eol: &str,
+        cancel: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<Self> {
+        ensure!(matches!(eol, "\n" | "\r\n"), "Invalid workspace EOL");
+        guard(cancel, deadline)?;
+        if eol == self.eol {
+            return Ok(self);
+        }
+        let mut changes = Vec::new();
+        let mut chars = self.text.chars().enumerate().peekable();
+        while let Some((start, ch)) = chars.next() {
+            if start % 4096 == 0 {
+                guard(cancel, deadline)?;
+            }
+            if ch != '\r' && ch != '\n' {
+                continue;
+            }
+            let mut end = start + 1;
+            if ch == '\r' && chars.peek().is_some_and(|(_, ch)| *ch == '\n') {
+                chars.next();
+                end += 1;
+            }
+            if self.text.slice(start..end).chars().eq(eol.chars()) {
+                continue;
+            }
+            ensure!(
+                self.changes.len() + changes.len() + 1 < MAX_WORKSPACE_EDITS,
+                "Workspace EOL conversion exceeds 4096 scalar edits"
+            );
+            changes
+                .try_reserve(1)
+                .context("Workspace EOL reservation refused")?;
+            changes.push((start..end, eol.to_owned()));
+        }
+        let mut intermediate = self.source.clone();
+        intermediate.text = self.text;
+        let mut converted = intermediate.prepare(changes, cancel, deadline)?;
+        for change in &mut converted.changes {
+            change.preserve_start = true;
+        }
+        self.source
+            .epoch
+            .checked_add(self.changes.len() as u64 + converted.changes.len() as u64 + 1)
+            .context("Workspace EOL epoch exhausted")?;
+        self.source
+            .next_revision
+            .checked_add(1)
+            .context("Workspace EOL revision exhausted")?;
+        self.changes
+            .try_reserve_exact(converted.changes.len())
+            .context("Workspace EOL history reservation refused")?;
+        self.changes.extend(converted.changes);
+        self.text = converted.text;
+        self.eol = eol.to_owned();
+        Ok(self)
+    }
+    pub(super) fn force_resource_markers(&mut self) {
+        for change in &mut self.changes {
+            change.decoration.force_move = true;
+        }
+    }
+    pub(super) fn use_resource_text(&mut self, text: Rope) {
+        debug_assert_eq!(self.text, text);
+        self.text = text;
+    }
+    pub(crate) fn document(&self) -> u64 {
+        self.source.document
+    }
+    pub(crate) fn changed(&self) -> bool {
+        !self.changes.is_empty() || self.eol != self.source.eol
+    }
+    pub(crate) fn bytes(&self) -> usize {
+        self.text.len_bytes()
+    }
+    pub(crate) fn current(&self, doc: &Document) -> bool {
+        self.source.current(doc)
+    }
+}
+
+struct Body {
+    text: Rope,
+    eol: String,
+    resource_dirty: bool,
+    view: ViewState,
+    other_views: std::collections::HashMap<u64, ViewState>,
+    revision: u64,
+    next_revision: u64,
+    epoch: u64,
+    bytes: std::collections::VecDeque<(u64, ByteChange)>,
+    folding: std::collections::VecDeque<folding::Change>,
+}
+/// Prepared from the actual destination's source and current native views.
+/// Held by an exclusive resource commit, never exposed on the extension wire.
+pub(super) struct ResourceBody {
+    body: Body,
+    before: Option<Snapshot>,
+    pub(super) metadata: usize,
+}
+impl ResourceBody {
+    pub(super) fn revision(&self) -> u64 {
+        self.body.revision
+    }
+    pub(super) fn publish(self, document: &mut Document) {
+        if let Some(before) = self.before {
+            document.undo.push(before);
+            if document.undo.len() > HISTORY_LIMIT {
+                document.undo.remove(0);
+            }
+            document.redo.clear();
+        }
+        document.text = self.body.text;
+        document.eol = self.body.eol;
+        document.view = self.body.view;
+        document.other_views = self.body.other_views;
+        document.revision = self.body.revision;
+        document.next_revision = self.body.next_revision;
+        document.text_epoch = self.body.epoch;
+        document.byte_changes = self.body.bytes;
+        document.folding_changes = self.body.folding;
+        document.typing = None;
+    }
+}
+enum HistoryAction {
+    Edit(Snapshot),
+    Move {
+        direction: WorkspaceHistoryDirection,
+        reverse: Snapshot,
+    },
+}
+/// Exclusive lifetime prevents another mutation between preparation and publish.
+pub(crate) struct WorkspaceCommit<'a> {
+    document: &'a mut Document,
+    body: Body,
+    history: HistoryAction,
+    metadata: usize,
+}
+impl WorkspaceCommit<'_> {
+    pub(crate) fn metadata_bytes(&self) -> usize {
+        self.metadata
+    }
+    /// All fallible validation/reservation happens before this infallible move.
+    pub(crate) fn publish(self) {
+        let doc = self.document;
+        match self.history {
+            HistoryAction::Edit(snapshot) => {
+                doc.undo.push(snapshot);
+                if doc.undo.len() > HISTORY_LIMIT {
+                    doc.undo.remove(0);
+                }
+                doc.redo.clear();
+            }
+            HistoryAction::Move {
+                direction: WorkspaceHistoryDirection::Undo,
+                reverse,
+            } => {
+                doc.undo.pop();
+                doc.redo.push(reverse);
+            }
+            HistoryAction::Move {
+                direction: WorkspaceHistoryDirection::Redo,
+                reverse,
+            } => {
+                doc.redo.pop();
+                doc.undo.push(reverse);
+                if doc.undo.len() > HISTORY_LIMIT {
+                    doc.undo.remove(0);
+                }
+            }
+        }
+        doc.text = self.body.text;
+        doc.eol = self.body.eol;
+        doc.resource_dirty = self.body.resource_dirty;
+        doc.view = self.body.view;
+        doc.other_views = self.body.other_views;
+        doc.revision = self.body.revision;
+        doc.next_revision = self.body.next_revision;
+        doc.text_epoch = self.body.epoch;
+        doc.byte_changes = self.body.bytes;
+        doc.folding_changes = self.body.folding;
+        doc.typing = None;
+        // SaveSnapshot/baseline/path/encoding authority is deliberately retained.
+        // Syntax and typing caches qualify their entries by the changed epoch.
+    }
+}
+impl Document {
+    pub(super) fn prepare_resource_body(
+        &mut self,
+        prepared: WorkspaceTextPrepared,
+        eol: String,
+        available: usize,
+    ) -> Result<ResourceBody> {
+        ensure!(
+            prepared.current(self),
+            "Original resource destination changed"
+        );
+        ensure!(
+            matches!(eol.as_str(), "\n" | "\r\n"),
+            "Invalid restored EOL"
+        );
+        let eol_changed = eol != self.eol;
+        let changed = prepared.changed() || eol_changed;
+        let count = prepared.changes.len() + usize::from(eol_changed);
+        self.text_epoch
+            .checked_add(count as u64)
+            .context("Resource text epoch exhausted")?;
+        if changed {
+            self.next_revision
+                .checked_add(1)
+                .context("Resource revision exhausted")?;
+        }
+        let metadata = self.workspace_metadata(count, available)?;
+        let before = if changed {
+            self.undo
+                .try_reserve(1)
+                .context("Resource Undo reservation refused")?;
+            let mut before = self.snapshot();
+            before.changes = prepared.changes.clone();
+            Some(before)
+        } else {
+            None
+        };
+        let mut fork = self.workspace_fork();
+        for change in &prepared.changes {
+            fork.record_byte_change(change.bytes.clone());
+            fork.record_folding_change(change.range.clone(), change.added);
+            change.map(&mut fork.view);
+            for view in fork.other_views.values_mut() {
+                change.map(view);
+            }
+        }
+        if eol_changed {
+            fork.record_byte_change(ByteChange {
+                range: 0..0,
+                added: 0,
+            });
+        }
+        fork.text = prepared.text;
+        fork.eol = eol;
+        if changed {
+            fork.revision = self.next_revision;
+            fork.next_revision = self.next_revision + 1;
+        }
+        fork.observe_folding_selection();
+        Ok(ResourceBody {
+            body: fork.workspace_body(),
+            before,
+            metadata,
+        })
+    }
+    /// The actual workspace worker owns all disk IO and checks cancellation on
+    /// every bounded read. Regular-file checks occur both before and after open.
+    pub(crate) fn open_workspace_existing(
+        path: &Path,
+        available: usize,
+        cancel: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<Self> {
+        guard(cancel, deadline)?;
+        ensure!(
+            path.is_absolute() && fs::metadata(path)?.is_file(),
+            "Workspace target is not a regular file"
+        );
+        let mut options = fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NONBLOCK);
+        }
+        let file = options.open(path).context("Cannot open workspace target")?;
+        let metadata = file.metadata()?;
+        ensure!(
+            metadata.is_file() && metadata.len() <= available as u64,
+            "Workspace file exceeds remaining 4 MiB budget or is not regular"
+        );
+        struct Guarded<'a> {
+            file: fs::File,
+            cancel: &'a AtomicBool,
+            deadline: Instant,
+        }
+        impl Read for Guarded<'_> {
+            fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+                guard(self.cancel, self.deadline).map_err(std::io::Error::other)?;
+                self.file.read(bytes)
+            }
+        }
+        let content = read_text(
+            Guarded {
+                file,
+                cancel,
+                deadline,
+            },
+            available as u64,
+        )?;
+        guard(cancel, deadline)?;
+        let mut doc = Self::from_rope(content.clone());
+        doc.path = Some(path.to_owned());
+        doc.disk_content = Some(content);
+        Ok(doc)
+    }
+    pub(crate) fn capture_workspace_source(&self) -> Result<WorkspaceSource> {
+        self.ensure_writable()?;
+
+        ensure!(
+            self.text.len_bytes() as u64 <= MAX_FILE_BYTES
+                && matches!(self.eol.as_str(), "\n" | "\r\n"),
+            "Unsupported workspace source"
+        );
+        if let Some(path) = &self.path {
+            ensure!(
+                path.as_os_str().len() <= 4096,
+                "Workspace path exceeds 4 KiB"
+            );
+        }
+        Ok(WorkspaceSource {
+            document: self.id,
+            text: self.text.clone(),
+            path: self.path.clone(),
+            eol: self.eol.clone(),
+            revision: self.revision,
+            epoch: self.text_epoch,
+            resource_epoch: self.resource_epoch,
+            saved_revision: self.saved_revision,
+            save_generation: self.save_generation,
+            resource_dirty: self.resource_dirty,
+            next_revision: self.next_revision,
+            undo: self.undo.last().map(|s| s.history_identity.clone()),
+            redo: self.redo.last().map(|s| s.history_identity.clone()),
+            undo_len: self.undo.len(),
+            redo_len: self.redo.len(),
+        })
+    }
+    pub(crate) fn workspace_history(
+        &self,
+        direction: WorkspaceHistoryDirection,
+    ) -> Option<Arc<WorkspaceHistoryGroup>> {
+        let head = match direction {
+            WorkspaceHistoryDirection::Undo => self.undo.last(),
+            WorkspaceHistoryDirection::Redo => self.redo.last(),
+        }?;
+        head.workspace_group.clone()
+    }
+    pub(crate) fn workspace_history_current(
+        &self,
+        group: &Arc<WorkspaceHistoryGroup>,
+        direction: WorkspaceHistoryDirection,
+    ) -> bool {
+        let Some(member) = group
+            .members
+            .iter()
+            .find(|member| member.document == self.id)
+        else {
+            return false;
+        };
+        self.revision
+            == match direction {
+                WorkspaceHistoryDirection::Undo => member.after,
+                WorkspaceHistoryDirection::Redo => member.before,
+            }
+            && self
+                .workspace_history(direction)
+                .is_some_and(|current| Arc::ptr_eq(&current, group))
+    }
+    pub(crate) fn workspace_history_bytes(
+        &self,
+        direction: WorkspaceHistoryDirection,
+    ) -> Result<usize> {
+        let snapshot = match direction {
+            WorkspaceHistoryDirection::Undo => self.undo.last(),
+            WorkspaceHistoryDirection::Redo => self.redo.last(),
+        }
+        .context("Workspace history disappeared")?;
+        Ok(snapshot.text.len_bytes())
+    }
+    pub(crate) fn prepare_workspace_commit<'a>(
+        &'a mut self,
+        prepared: WorkspaceTextPrepared,
+        group: Arc<WorkspaceHistoryGroup>,
+        available: usize,
+    ) -> Result<WorkspaceCommit<'a>> {
+        self.ensure_writable()?;
+
+        ensure!(
+            prepared.changed() && prepared.current(self),
+            "Workspace source changed before publication"
+        );
+        ensure!(
+            group.members.iter().any(|m| m.document == self.id
+                && m.before == self.revision
+                && m.after == self.next_revision),
+            "Workspace history group is foreign"
+        );
+        self.next_revision
+            .checked_add(1)
+            .context("Workspace revision identity exhausted")?;
+        let eol_changed = self.eol != prepared.eol;
+        let count = prepared.changes.len() + usize::from(eol_changed);
+        self.text_epoch
+            .checked_add(count as u64)
+            .context("Workspace text epoch exhausted")?;
+        let metadata = self.workspace_metadata(count, available)?;
+        self.undo
+            .try_reserve(1)
+            .context("Workspace Undo reservation refused")?;
+        let mut before = self.snapshot();
+        before.workspace_group = Some(group);
+        before.changes = prepared.changes.clone();
+        let mut fork = self.workspace_fork();
+        // A transaction changes no selection ordinal or direction. Each live
+        // view is mapped from its current coordinates, even after cursor motion.
+        for change in &prepared.changes {
+            fork.record_byte_change(change.bytes.clone());
+            fork.record_folding_change(change.range.clone(), change.added);
+            change.map(&mut fork.view);
+            for view in fork.other_views.values_mut() {
+                change.map(view);
+            }
+        }
+        if eol_changed {
+            fork.record_byte_change(ByteChange {
+                range: 0..0,
+                added: 0,
+            });
+        }
+        fork.text = prepared.text;
+        fork.eol = prepared.eol;
+        fork.revision = self.next_revision;
+        fork.next_revision = self.next_revision + 1;
+        fork.observe_folding_selection();
+        Ok(WorkspaceCommit {
+            body: fork.workspace_body(),
+            document: self,
+            history: HistoryAction::Edit(before),
+            metadata,
+        })
+    }
+    pub(crate) fn prepare_workspace_history<'a>(
+        &'a mut self,
+        group: &Arc<WorkspaceHistoryGroup>,
+        direction: WorkspaceHistoryDirection,
+        available: usize,
+    ) -> Result<WorkspaceCommit<'a>> {
+        self.ensure_writable()?;
+
+        ensure!(
+            self.workspace_history_current(group, direction),
+            "Workspace history peer changed; undo its independent edit first"
+        );
+        let target = match direction {
+            WorkspaceHistoryDirection::Undo => self.undo.last(),
+            WorkspaceHistoryDirection::Redo => self.redo.last(),
+        }
+        .context("Workspace history disappeared")?;
+        ensure!(
+            target.changes.len() <= MAX_WORKSPACE_EDITS,
+            "Workspace history edit count exceeds 4096"
+        );
+        self.text_epoch
+            .checked_add(target.changes.len() as u64 + u64::from(self.eol != target.eol))
+            .context("Workspace history epoch exhausted")?;
+        let mut metadata = self.workspace_metadata(target.changes.len(), available)?;
+        metadata = metadata
+            .checked_add(snapshot_bytes(target)?)
+            .context("Workspace history metadata overflow")?;
+        ensure!(
+            metadata <= available.min(MAX_WORKSPACE_METADATA),
+            "Workspace history metadata exceeds budget"
+        );
+        let snapshot = target.clone();
+        let reverse = self.reverse_snapshot(&snapshot);
+        match direction {
+            WorkspaceHistoryDirection::Undo => self.redo.try_reserve(1),
+            WorkspaceHistoryDirection::Redo => self.undo.try_reserve(1),
+        }
+        .context("Workspace reverse-history reservation refused")?;
+        let mut fork = self.workspace_fork();
+        fork.restore(snapshot);
+        Ok(WorkspaceCommit {
+            body: fork.workspace_body(),
+            document: self,
+            history: HistoryAction::Move { direction, reverse },
+            metadata,
+        })
+    }
+    fn workspace_metadata(&self, count: usize, available: usize) -> Result<usize> {
+        ensure!(
+            count <= MAX_WORKSPACE_EDITS && self.other_views.len() < MAX_VIEWS,
+            "Workspace view/edit count exceeds bounds"
+        );
+        let mut bytes = 4096usize
+            + self.byte_changes.len() * std::mem::size_of::<(u64, ByteChange)>()
+            + self.folding_changes.len() * std::mem::size_of::<folding::Change>();
+        let mut mapping_units = 0usize;
+        for view in std::iter::once(&self.view).chain(self.other_views.values()) {
+            ensure!(
+                view.secondary.len() < MAX_SELECTIONS && view.cursor_history.len() <= 128,
+                "Workspace view selection metadata exceeds bounds"
+            );
+            let mut selections = view.secondary.len() + 1;
+            for cohort in &view.cursor_history {
+                ensure!(
+                    cohort.len() <= MAX_SELECTIONS,
+                    "Workspace cursor history cohort exceeds bounds"
+                );
+                selections = selections
+                    .checked_add(cohort.len())
+                    .context("Workspace selection count overflow")?;
+            }
+            // Three copies cover mapped live views, checkpoint, reverse state.
+            mapping_units = mapping_units
+                .checked_add(selections)
+                .context("Workspace mapping count overflow")?;
+            let payload = selections
+                .checked_mul(size_of::<Selection>())
+                .and_then(|n| n.checked_mul(3))
+                .context("Workspace view payload overflow")?;
+            bytes = bytes
+                .checked_add(payload + view.cursor_history.len() * size_of::<Vec<Selection>>() * 3)
+                .context("Workspace metadata overflow")?;
+            if let Some(snippet) = &view.snippet {
+                mapping_units = mapping_units
+                    .checked_add(snippet.workspace_metadata()? / 8)
+                    .context("Workspace mapping overflow")?;
+                bytes = bytes
+                    .checked_add(
+                        snippet
+                            .workspace_metadata()?
+                            .checked_mul(3)
+                            .context("Workspace snippet payload overflow")?,
+                    )
+                    .context("Workspace metadata overflow")?;
+            }
+            mapping_units = mapping_units
+                .checked_add(view.pairs.workspace_metadata()? / 8)
+                .context("Workspace mapping overflow")?;
+            bytes = bytes
+                .checked_add(
+                    view.pairs
+                        .workspace_metadata()?
+                        .checked_mul(3)
+                        .context("Workspace pairs payload overflow")?,
+                )
+                .context("Workspace metadata overflow")?;
+            view.snippet_generation
+                .checked_add(count as u64)
+                .context("Workspace snippet generation exhausted")?;
+        }
+        bytes = bytes
+            .checked_add(
+                count
+                    .checked_mul(size_of::<PositionChange>() * 4)
+                    .context("Workspace position payload overflow")?,
+            )
+            .context("Workspace metadata overflow")?;
+        ensure!(
+            mapping_units
+                .checked_mul(count)
+                .is_some_and(|work| work <= 65_536),
+            "Workspace live-view mapping exceeds bounded publication work"
+        );
+        // Journal rings and bounded HashMap/header slack are included above.
+        ensure!(
+            bytes <= available.min(MAX_WORKSPACE_METADATA),
+            "Workspace metadata exceeds 8 MiB"
+        );
+        Ok(bytes)
+    }
+    fn workspace_fork(&self) -> Document {
+        Document {
+            id: self.id,
+            text: self.text.clone(),
+            view: self.view.clone(),
+            active_view: self.active_view,
+            other_views: self.other_views.clone(),
+            path: self.path.clone(),
+            resource_epoch: self.resource_epoch,
+            virtual_uri: self.virtual_uri.clone(),
+            untitled_uri: self.untitled_uri.clone(),
+            associated_path: self.associated_path.clone(),
+            api_created_untitled: self.api_created_untitled,
+            language_override: self.language_override.clone(),
+            language_hint: self.language_hint.clone(),
+            language_epoch: self.language_epoch,
+            resource_dirty: self.resource_dirty,
+            revision: self.revision,
+            saved_revision: self.saved_revision,
+            disk_content: self.disk_content.clone(),
+            eol: self.eol.clone(),
+            tab_size: self.tab_size,
+            insert_spaces: self.insert_spaces,
+            indent_size: self.indent_size,
+            editor_defaults: self.editor_defaults,
+            line_numbers: self.line_numbers,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            next_revision: self.next_revision,
+            text_epoch: self.text_epoch,
+            save_generation: self.save_generation,
+            byte_changes: self.byte_changes.clone(),
+            folding_policy: self.folding_policy.clone(),
+            folding_changes: self.folding_changes.clone(),
+            typing: None,
+            typing_context: typing::ContextCache::default(),
+            language_configuration: self.language_configuration.clone(),
+        }
+    }
+    fn workspace_body(self) -> Body {
+        Body {
+            text: self.text,
+            eol: self.eol,
+            resource_dirty: self.resource_dirty,
+            view: self.view,
+            other_views: self.other_views,
+            revision: self.revision,
+            next_revision: self.next_revision,
+            epoch: self.text_epoch,
+            bytes: self.byte_changes,
+            folding: self.folding_changes,
+        }
+    }
+}
+fn snapshot_bytes(snapshot: &Snapshot) -> Result<usize> {
+    ensure!(
+        snapshot.secondary.len() < MAX_SELECTIONS && snapshot.changes.len() <= MAX_WORKSPACE_EDITS,
+        "Workspace snapshot metadata exceeds bounds"
+    );
+    let mut bytes = snapshot.secondary.len() * size_of::<Selection>()
+        + snapshot.changes.len() * size_of::<PositionChange>()
+        + snapshot.eol.len()
+        + size_of::<Snapshot>();
+    if let Some(after) = &snapshot.after_selections {
+        ensure!(
+            after.len() <= MAX_SELECTIONS,
+            "Workspace endpoint selections exceed bounds"
+        );
+        bytes = bytes
+            .checked_add(after.len() * size_of::<Selection>())
+            .context("Workspace snapshot overflow")?;
+    }
+    if let Some(snippet) = &snapshot.snippet {
+        bytes = bytes
+            .checked_add(snippet.workspace_metadata()?)
+            .context("Workspace snapshot overflow")?;
+    }
+    bytes = bytes
+        .checked_add(snapshot.pairs.workspace_metadata()?)
+        .context("Workspace snapshot overflow")?;
+    Ok(bytes)
+}
+
+mod editor;
+pub(crate) use editor::EditorEolPrepared;
+
+pub(crate) fn normalize_replacement(
+    text: &str,
+    eol: &str,
+    available: usize,
+    cancel: &AtomicBool,
+    deadline: Instant,
+) -> Result<String> {
+    let mut bytes = 0usize;
+    let mut chars = text.chars().peekable();
+    let mut count = 0;
+    while let Some(ch) = chars.next() {
+        if count % 4096 == 0 {
+            crate::document::workspace::guard(cancel, deadline)?;
+        }
+        count += 1;
+        let add = if ch == '\r' || ch == '\n' {
+            if ch == '\r' && chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            eol.len()
+        } else {
+            ch.len_utf8()
+        };
+        bytes = bytes
+            .checked_add(add)
+            .context("Workspace normalization overflow")?;
+        ensure!(
+            bytes <= available,
+            "Workspace normalized text exceeds replacement byte budget"
+        );
+    }
+    let mut result = String::new();
+    result
+        .try_reserve_exact(bytes)
+        .context("Workspace replacement reservation refused")?;
+    let mut chars = text.chars().peekable();
+    let mut count = 0;
+    while let Some(ch) = chars.next() {
+        if count % 4096 == 0 {
+            crate::document::workspace::guard(cancel, deadline)?;
+        }
+        count += 1;
+        if ch == '\r' || ch == '\n' {
+            if ch == '\r' && chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            result.push_str(eol);
+        } else {
+            result.push(ch);
+        }
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests;

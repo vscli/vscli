@@ -1,35 +1,19 @@
 'use strict';
+const { es5ClassCompat } = require('./es5-class-compat.cjs');
 // Original, bounded compatibility values; native code validates wire results.
-const { Position, Range, Disposable, EventEmitter } = require('./api-types.cjs');
+const { Position, Range } = require('./api-types.cjs');
+const { CancellationTokenSource } = require('./cancellation.cjs');
 function enumeration(names) { return Object.freeze(Object.fromEntries(names.map((name, index) => [name, index]))); }
 const CompletionItemKind = enumeration(['Text','Method','Function','Constructor','Field','Variable','Class','Interface','Module','Property','Unit','Value','Enum','Keyword','Snippet','Color','File','Reference','Folder','EnumMember','Constant','Struct','Event','Operator','TypeParameter']);
 const SymbolKind = enumeration(['File','Module','Namespace','Package','Class','Method','Property','Field','Constructor','Enum','Interface','Function','Variable','Constant','String','Number','Boolean','Array','Object','Key','Null','EnumMember','Struct','Event','Operator','TypeParameter']);
 const SymbolTag = Object.freeze({ Deprecated: 1 });
-class MarkdownString {
-  constructor(value = '', supportThemeIcons = false) { this.value = value; this.supportThemeIcons = supportThemeIcons; this.isTrusted = false; this.supportHtml = false; }
-  appendText(value) { this.value += String(value).replace(/[\\`*_{}\[\]()<>#+.!-]/g, '\\$&'); return this; }
-  appendMarkdown(value) { this.value += value; return this; }
-  appendCodeblock(value, language = '') { this.value += `\n\n\`\`\`${language}\n${value}\n\`\`\`\n`; return this; }
-}
-class SnippetString {
-  constructor(value = '') { this.value = value; this._tabstop = 1; }
-  appendText(value) { this.value += String(value).replace(/[\\$}]/g, '\\$&'); return this; }
-  appendTabstop(number = this._tabstop++) { this.value += `$${number}`; return this; }
-  appendPlaceholder(value, number = this._tabstop++) {
-    if (typeof value !== 'string') throw new Error('VSCLI does not implement callback snippet placeholders');
-    this.value += `\${${number}:${value.replace(/[\\$}]/g, '\\$&')}}`; return this;
-  }
-}
+const { MarkdownString } = require('./markdown-string.cjs');
+const { SnippetString } = require('./snippet-string.cjs');
 class CompletionItem { constructor(label, kind) { this.label = label; if (kind !== undefined) this.kind = kind; } }
 class CompletionList { constructor(items = [], isIncomplete = false) { this.items = items; this.isIncomplete = isIncomplete; } }
 class Hover { constructor(contents, range) { this.contents = Array.isArray(contents) ? contents : [contents]; if (range !== undefined) this.range = range; } }
-class Location { constructor(uri, rangeOrPosition) { this.uri = uri; this.range = rangeOrPosition instanceof Position ? new Range(rangeOrPosition, rangeOrPosition) : rangeOrPosition; } }
-class TextEdit {
-  constructor(range, newText) { this.range = range; this.newText = newText; }
-  static replace(range, newText) { return new TextEdit(range, newText); }
-  static insert(position, newText) { return new TextEdit(new Range(position, position), newText); }
-  static delete(range) { return new TextEdit(range, ''); }
-}
+class Location { constructor(uri, rangeOrPosition) { this.uri = uri; if(rangeOrPosition)this.range = rangeOrPosition instanceof Position ? new Range(rangeOrPosition, rangeOrPosition) : rangeOrPosition; } }
+const { TextEdit, SnippetTextEdit, NotebookEdit, NotebookRange, NotebookCellData, NotebookData, NotebookCellKind, EndOfLine } = require('./edit-values.cjs');
 class DocumentSymbol {
   constructor(name, detail, kind, range, selectionRange) {
     Object.assign(this, { name, detail, kind, range, selectionRange, children: [] });
@@ -76,26 +60,11 @@ class SymbolInformation {
 class ParameterInformation { constructor(label, documentation) { this.label = label; if (documentation !== undefined) this.documentation = documentation; } }
 class SignatureInformation { constructor(label, documentation) { this.label = label; this.parameters = []; if (documentation !== undefined) this.documentation = documentation; } }
 class SignatureHelp { constructor() { this.signatures = []; this.activeSignature = 0; this.activeParameter = 0; } }
-class CancellationTokenSource {
-  constructor(parent) {
-    const emitter = new EventEmitter();
-    let canceled = false;
-    const event = (listener, thisArg, disposables) => {
-      if (!canceled) return emitter.event(listener, thisArg, disposables);
-      const timer = setTimeout(() => listener.call(thisArg, undefined), 0);
-      const result = new Disposable(() => clearTimeout(timer));
-      if (disposables) disposables.push(result);
-      return result;
-    };
-    this.token = Object.freeze({ get isCancellationRequested() { return canceled; }, onCancellationRequested: event });
-    this.cancel = () => { if (!canceled) { canceled = true; emitter.fire(undefined); emitter.dispose(); } };
-    const parentListener = parent?.onCancellationRequested(this.cancel);
-    if (parent?.isCancellationRequested) this.cancel();
-    this.dispose = (cancel = false) => { if (cancel) this.cancel(); parentListener?.dispose(); emitter.dispose(); };
-  }
-}
 const CompletionTriggerKind = Object.freeze({ Invoke: 0, TriggerCharacter: 1, TriggerForIncompleteCompletions: 2 });
 const SignatureHelpTriggerKind = Object.freeze({ Invoke: 1, TriggerCharacter: 2, ContentChange: 3 });
 
 const { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit } = require('./code-action-types.cjs');
-module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, SymbolTag, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };
+// Preserve only the classes decorated by pinned upstream.
+for (const value of [CompletionItem, CompletionList, Hover, Location, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp]) es5ClassCompat(value);
+
+module.exports = { CodeAction, CodeActionKind, CodeActionTriggerKind, WorkspaceEdit, CompletionItemKind, SymbolKind, SymbolTag, MarkdownString, SnippetString, CompletionItem, CompletionList, Hover, Location, TextEdit, SnippetTextEdit, NotebookEdit, NotebookRange, NotebookCellData, NotebookData, NotebookCellKind, EndOfLine, DocumentSymbol, SymbolInformation, ParameterInformation, SignatureInformation, SignatureHelp, CancellationTokenSource, CompletionTriggerKind, SignatureHelpTriggerKind };

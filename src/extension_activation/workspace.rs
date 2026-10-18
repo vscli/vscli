@@ -148,6 +148,7 @@ mod tests {
     use serde_json::json;
     fn metadata(events: &[&str]) -> Metadata {
         Metadata::installed(&Installed {
+            enabled: true,
             id: "test.scan".into(),
             version: "1".into(),
             path: "/snapshot".into(),

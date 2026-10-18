@@ -3,14 +3,24 @@ mod breadcrumbs;
 mod code_actions;
 mod completion_edits;
 mod debugger;
+mod document_references;
 mod editor_layout;
 mod extension_activation;
+mod extension_clipboard;
+pub(crate) mod extension_configuration;
+mod extension_editor_presentation;
+mod extension_editor_snippets;
+mod extension_editor_state;
+mod extension_editor_tabs;
+mod extension_file_search;
 mod extension_management;
 mod extension_prompts;
 mod extension_providers;
 mod extension_services;
 pub mod extension_surfaces;
 mod extensions;
+mod file_participant_preferences;
+mod file_participation;
 mod files;
 pub mod keyboard;
 mod language;
@@ -20,6 +30,10 @@ mod navigation_history;
 mod outline;
 mod panes;
 mod preview_tabs;
+mod provider_navigation;
+mod refactoring_saves;
+mod rename;
+mod resource_models;
 mod save_code_actions;
 mod save_formatting;
 mod saving;
@@ -27,8 +41,11 @@ mod settings_persistence;
 mod signature_help;
 mod sticky_tabs;
 mod suggestions;
+mod virtual_documents;
 mod workspace_edits;
+pub(crate) mod workspace_transactions;
 
+mod migration;
 mod session;
 mod snippet_catalogs;
 mod snippets;
@@ -39,6 +56,7 @@ mod terminals;
 mod themes;
 mod typing;
 mod watching;
+mod workspace_symbols;
 use crate::{
     document::Document,
     keys::{self, Keymap, Profile, Resolution},
@@ -123,6 +141,11 @@ pub(crate) fn native_command_ids() -> Vec<String> {
 }
 
 pub const COMMANDS: &[(&str, &str)] = &[
+    ("Preferences: Import from VS Code", "vscli.migration.import"),
+    (
+        "Preferences: Roll Back VS Code Import",
+        "vscli.migration.rollback",
+    ),
     ("View: Keep Editor", "workbench.action.keepEditor"),
     ("View: Pin Editor", "workbench.action.pinEditor"),
     ("View: Unpin Editor", "workbench.action.unpinEditor"),
@@ -340,6 +363,10 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("Focus Breadcrumbs", "breadcrumbs.focus"),
     ("Focus Breadcrumbs and Select", "breadcrumbs.focusAndSelect"),
     (
+        "Reset choice for 'File operation needs preview'",
+        "files.participants.resetChoice",
+    ),
+    (
         "Language: Parameter Hints",
         "editor.action.triggerParameterHints",
     ),
@@ -353,6 +380,18 @@ pub const COMMANDS: &[(&str, &str)] = &[
         "editor.action.revealDefinition",
     ),
     ("Language: Find References", "editor.action.goToReferences"),
+    (
+        "Language: Go to Implementation",
+        "editor.action.goToImplementation",
+    ),
+    (
+        "Language: Go to Type Definition",
+        "editor.action.goToTypeDefinition",
+    ),
+    (
+        "Language: Go to Declaration",
+        "editor.action.revealDeclaration",
+    ),
     ("Language: Format Document", "editor.action.formatDocument"),
     ("Language: Rename Symbol", "editor.action.rename"),
     ("Language: Quick Fix", "editor.action.quickFix"),
@@ -394,6 +433,9 @@ pub enum PromptKind {
     Snippet,
     Theme,
     ThemeFile,
+    VscodeImportPath,
+    VscodeExtensionsPath,
+    VscodeApplicationPath,
     Open,
     SaveAs,
     Find,
@@ -430,6 +472,7 @@ impl Prompt {
         let limit = match self.kind {
             PromptKind::Extension(_) => crate::extensions::MAX_PROMPT_TEXT,
             PromptKind::Symbols | PromptKind::SearchExtensions => 1024,
+            PromptKind::Rename => 64 * 1024,
             _ => usize::MAX,
         };
         if (if self.select_all { 0 } else { self.text.len() }) + text.len() > limit {
@@ -453,6 +496,13 @@ pub enum AfterSave {
     CloseAll,
 }
 pub enum Modal {
+    Migration {
+        generation: u64,
+        title: String,
+        text: String,
+        scroll: usize,
+    },
+    FileEditReview(crate::file_edit_review::dialog::Dialog),
     ExtensionTree,
     ExtensionSurfaces(extension_surfaces::Picker),
     ExtensionsLoading(u64),
@@ -474,6 +524,11 @@ pub enum Modal {
         text: String,
         scroll: usize,
     },
+    Documentation {
+        title: String,
+        model: crate::documentation::Document,
+        scroll: usize,
+    },
     Git,
     Debug {
         section: usize,
@@ -485,7 +540,11 @@ pub enum Modal {
         selected: usize,
     },
     Confirm(AfterSave),
-    Revert,
+    Revert {
+        document: u64,
+        resource_epoch: u64,
+        name: String,
+    },
     Trash(PathBuf),
     Tasks {
         tasks: Vec<crate::tasks::Task>,
@@ -517,6 +576,9 @@ struct ClosingGroup {
 }
 
 pub struct App {
+    extension_editor_inventory: crate::extensions::editor_inventory::Inventory,
+    extension_editor_tabs: crate::extensions::editor_tabs::Inventory,
+    extension_editor_viewports: extension_editor_presentation::Viewports,
     pub panes: Vec<Pane>,
     pub active_pane: usize,
     pub pane_areas: Vec<Rect>,
@@ -537,7 +599,16 @@ pub struct App {
     pub documents: Vec<Document>,
     pub(crate) hidden_documents: Vec<Document>,
     extension_services: extension_services::State,
+    api_documents: document_references::State,
+    extension_file_search: extension_file_search::State,
+    virtual_documents: virtual_documents::State,
+    workspace_transactions: workspace_transactions::State,
+    resource_models: resource_models::State,
+    file_participant_preferences: file_participant_preferences::State,
+    file_participation: file_participation::State,
     extension_providers: extension_providers::State,
+    provider_navigation: provider_navigation::State,
+    rename: rename::State,
     actions: actions::State,
     pub active: usize,
     pub workspace: Workspace,
@@ -574,6 +645,7 @@ pub struct App {
     pub extensions_directory: Option<PathBuf>,
     pub extension_registry: crate::extension_registry::Registry,
     pub extension_node: String,
+    extension_locale: String,
     activation: extension_activation::State,
     extension_job: Option<extension_management::Job>,
     extension_retirement: Option<std::sync::mpsc::Receiver<()>>,
@@ -596,13 +668,17 @@ pub struct App {
     outline: outline::State,
     breadcrumbs: breadcrumbs::State,
     symbols: symbols::State,
+    workspace_symbols: workspace_symbols::State,
     theme_state: themes::State,
+    migration: migration::State,
     pub settings: crate::settings::Settings,
     pub imported_keybinding_notices: Vec<String>,
     settings_loader: Option<crate::settings::Loader>,
     settings_error: Option<String>,
     settings_user: Option<PathBuf>,
     settings_writes: settings_persistence::State,
+    extension_configuration: extension_configuration::State,
+    extension_clipboard: extension_clipboard::State,
     saving: saving::State,
     pub diagnostics: HashMap<PathBuf, crate::lsp::DiagnosticPublication>,
     pub editor_area: Rect,
@@ -612,7 +688,6 @@ pub struct App {
     pub breadcrumbs_picker_area: Rect,
     pub(crate) breadcrumbs_hits: Vec<(Rect, usize)>,
     pub(crate) breadcrumbs_presented: Option<u64>,
-    pub tab_area: Rect,
     pub pending: Option<AfterSave>,
     snippet_pending: Option<snippets::Pending>,
     snippet_catalog: snippet_catalogs::State,
@@ -621,21 +696,46 @@ pub struct App {
 }
 impl Drop for App {
     fn drop(&mut self) {
+        self.settle_migration();
+        self.settle_symbols();
+        self.settle_extension_file_search();
+        self.settle_virtual_documents();
+        self.settle_api_discard();
+        self.retire_file_participation();
+        self.settle_workspace_transactions();
+        self.settle_resource_models();
         self.shutdown_extensions();
         self.shutdown_language_services();
     }
 }
 impl App {
     pub fn new(root: PathBuf, profile: Profile) -> Self {
+        // Startup resolves aliases once; relative host opens then share the
+        // canonical resource identities used by native document snapshots.
+        let root = std::fs::canonicalize(&root).unwrap_or(root);
         let entries = directory_entries(&root);
+        let editor_groups = crate::editor_groups::Groups::with_empty_group();
+        let mut editor_layout = crate::editor_layout::Layout::default();
+        let group = editor_groups
+            .active_group()
+            .expect("native workbench starts with one actual group");
+        let plan = editor_layout
+            .prepare_flat(&[group], crate::editor_layout::Axis::Columns)
+            .expect("initial one-group layout is bounded and valid");
+        editor_layout
+            .commit(plan)
+            .expect("initial layout plan owns its unchanged origin");
         Self {
+            extension_editor_inventory: crate::extensions::editor_inventory::Inventory::default(),
+            extension_editor_tabs: crate::extensions::editor_tabs::Inventory::default(),
+            extension_editor_viewports: extension_editor_presentation::Viewports::default(),
             panes: Vec::new(),
             active_pane: 0,
             pane_areas: Vec::new(),
             horizontal_split: false,
             next_pane_id: 2,
-            editor_groups: crate::editor_groups::Groups::default(),
-            editor_layout: crate::editor_layout::Layout::default(),
+            editor_groups,
+            editor_layout,
             editor_presentation: crate::editor_presentation::Presentation::default(),
             editor_geometry_inputs: None,
             pending_editor_resize: None,
@@ -649,7 +749,16 @@ impl App {
             documents: Vec::new(),
             hidden_documents: Vec::new(),
             extension_services: extension_services::State::default(),
+            api_documents: document_references::State::default(),
+            extension_file_search: extension_file_search::State::default(),
+            virtual_documents: virtual_documents::State::default(),
+            workspace_transactions: workspace_transactions::State::default(),
+            resource_models: resource_models::State::default(),
+            file_participant_preferences: file_participant_preferences::State::default(),
+            file_participation: file_participation::State::default(),
             extension_providers: extension_providers::State::default(),
+            provider_navigation: provider_navigation::State::default(),
+            rename: rename::State::default(),
             actions: actions::State::default(),
             active: 0,
             workspace: Workspace::new(root.clone()),
@@ -688,6 +797,7 @@ impl App {
             extensions_directory: crate::extension_store::default_directory(),
             extension_registry: crate::extension_registry::Registry::default(),
             extension_node: "node".into(),
+            extension_locale: "en".into(),
             activation: extension_activation::State::default(),
             extension_job: None,
             extension_retirement: None,
@@ -708,13 +818,17 @@ impl App {
             outline: outline::State::default(),
             breadcrumbs: breadcrumbs::State::default(),
             symbols: symbols::State::default(),
+            workspace_symbols: workspace_symbols::State::default(),
             theme_state: themes::State::default(),
+            migration: migration::State::default(),
             settings: crate::settings::Settings::default(),
             imported_keybinding_notices: Vec::new(),
             settings_loader: None,
             settings_error: None,
             settings_user: None,
             settings_writes: settings_persistence::State::default(),
+            extension_configuration: extension_configuration::State::default(),
+            extension_clipboard: extension_clipboard::State::default(),
             saving: saving::State::default(),
             diagnostics: HashMap::new(),
             editor_area: Rect::default(),
@@ -724,7 +838,6 @@ impl App {
             breadcrumbs_picker_area: Rect::default(),
             breadcrumbs_hits: Vec::new(),
             breadcrumbs_presented: None,
-            tab_area: Rect::default(),
             pending: None,
             snippet_pending: None,
             snippet_catalog: snippet_catalogs::State::default(),
@@ -742,7 +855,10 @@ impl App {
         let changed = self.workspace.poll() || changed;
         let changed = self.search.as_mut().is_some_and(|s| s.poll()) || changed;
         let mut changed = actions_changed | brand_changed | changed;
+        changed |= self.poll_migration();
         changed |= self.poll_settings_writes();
+        changed |= self.poll_extension_configuration_writes();
+        changed |= self.poll_extension_clipboard();
         if let Some(result) = self
             .settings_loader
             .as_mut()
@@ -761,6 +877,7 @@ impl App {
                         self.retire_save_code_actions("settings changed during code actions");
                         self.retire_save_formatting("settings changed during formatting");
                         let previous = std::mem::replace(&mut self.settings, settings);
+                        self.refresh_theme_customizations();
                         if !self.settings.editor_preview().enabled
                             && let Err(error) = self.keep_preview_tabs()
                         {
@@ -769,10 +886,11 @@ impl App {
                             );
                         }
                         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
-                            let language = doc
-                                .path
-                                .as_deref()
-                                .map_or("plaintext", crate::languages::language);
+                            let language = doc.language_override().unwrap_or_else(|| {
+                                doc.path
+                                    .as_deref()
+                                    .map_or("plaintext", crate::languages::language)
+                            });
                             if previous.typing(language) != self.settings.typing(language) {
                                 doc.retire_typing_pairs();
                             }
@@ -805,12 +923,22 @@ impl App {
         changed |= self.poll_native_saves();
         changed |= self.poll_git();
         changed |= self.poll_files();
+        changed |= self.poll_resource_models();
+        changed |= self.poll_file_participant_preferences();
         changed |= self.poll_watching();
         changed |= self.poll_debugger();
         changed |= self.poll_extension_management();
+        changed |= self.poll_api_discard();
+        changed |= self.poll_api_document_references(
+            self.extension_host.as_ref().map(|host| host.session),
+            std::time::Instant::now(),
+        );
         changed |= self.poll_extensions();
+        changed |= self.poll_native_file_participation();
         changed |= self.poll_extension_activation();
         changed |= self.poll_extension_providers();
+        changed |= self.poll_refactoring_saves();
+        changed |= self.poll_rename();
         changed |= self.poll_extension_surfaces();
         changed |= self.poll_snippet();
         changed |= self.poll_snippet_catalog();
@@ -875,6 +1003,7 @@ impl App {
             }
         };
         self.settings_profile_loaded();
+        self.refresh_theme_customizations();
         if !self.settings.editor_preview().enabled {
             self.keep_preview_tabs()?;
         }
@@ -991,7 +1120,7 @@ impl App {
             .documents
             .iter()
             .chain(&self.hidden_documents)
-            .find(|doc| doc.path == d.path)
+            .find(|doc| same_document_resource(doc, &d))
             .unwrap_or(&d);
         intent.validate(target)?;
         self.settings.apply(&mut d);
@@ -1008,20 +1137,24 @@ impl App {
             .documents
             .iter()
             .chain(&self.hidden_documents)
-            .find(|old| old.path == d.path)
+            .find(|old| same_document_resource(old, &d))
             .map_or(d.id, |old| old.id);
         self.can_admit_editor(id)?;
         let mut d = if let Some(index) = self
             .hidden_documents
             .iter()
-            .position(|doc| doc.path == d.path)
+            .position(|doc| same_document_resource(doc, &d))
         {
             self.hidden_documents.remove(index)
         } else {
             d
         };
         let configuration_error = self.configure_document_language(&mut d).err();
-        if let Some(index) = self.documents.iter().position(|old| old.path == d.path) {
+        if let Some(index) = self
+            .documents
+            .iter()
+            .position(|old| same_document_resource(old, &d))
+        {
             self.active = index;
         } else {
             self.documents.push(d);
@@ -1105,7 +1238,7 @@ impl App {
     }
     pub fn context(&self) -> HashMap<String, Value> {
         let breadcrumbs = self.breadcrumbs_view();
-        HashMap::from([
+        let mut context = HashMap::from([
             ("breadcrumbsPossible".into(), json!(breadcrumbs.possible)),
             ("breadcrumbsVisible".into(), json!(breadcrumbs.visible)),
             (
@@ -1206,6 +1339,27 @@ impl App {
                 ),
             ),
             (
+                "editorHasImplementationProvider".into(),
+                json!(self.has_navigation_provider(
+                    crate::extension_providers::Kind::Implementation,
+                    "implementationProvider"
+                )),
+            ),
+            (
+                "editorHasTypeDefinitionProvider".into(),
+                json!(self.has_navigation_provider(
+                    crate::extension_providers::Kind::TypeDefinition,
+                    "typeDefinitionProvider"
+                )),
+            ),
+            (
+                "editorHasDeclarationProvider".into(),
+                json!(self.has_navigation_provider(
+                    crate::extension_providers::Kind::Declaration,
+                    "declarationProvider"
+                )),
+            ),
+            (
                 "editorHasSelection".into(),
                 json!(
                     self.active_document()
@@ -1241,16 +1395,72 @@ impl App {
                 "isWindows".into(),
                 json!(self.keymap.profile == Profile::Windows),
             ),
-        ])
+        ]);
+        context.insert("workspaceFolderCount".into(), json!(1));
+        context.insert("isWeb".into(), json!(false));
+        context.insert(
+            "isMacNative".into(),
+            json!(self.keymap.profile == Profile::Macos),
+        );
+        context.insert(
+            "resourceSet".into(),
+            json!(self.active_document().is_some()),
+        );
+        for key in [
+            "resourceScheme",
+            "resourceFilename",
+            "resourceExtname",
+            "resourceLangId",
+        ] {
+            context.insert(key.into(), Value::Null);
+        }
+        if let Some(document) = self.active_document()
+            && let Ok(uri) = crate::extensions::document_uri(document)
+            && let Ok(uri) = url::Url::parse(&uri)
+        {
+            let decoded = percent_encoding::percent_decode_str(uri.path()).decode_utf8_lossy();
+            let path = Path::new(decoded.as_ref());
+            context.insert("resourceScheme".into(), json!(uri.scheme()));
+            context.insert(
+                "resourceFilename".into(),
+                json!(
+                    path.file_name()
+                        .map(|name| name.to_string_lossy())
+                        .unwrap_or_default()
+                ),
+            );
+            context.insert(
+                "resourceExtname".into(),
+                json!(
+                    path.extension()
+                        .map(|extension| format!(".{}", extension.to_string_lossy()))
+                        .unwrap_or_default()
+                ),
+            );
+            context.insert("resourceLangId".into(), json!(self.language()));
+        }
+        if let Some(host) = &self.extension_host {
+            // Native focused-editor facts take precedence over root extension
+            // keys, as scoped editor contexts do over the workbench root.
+            for (key, value) in host.context_keys.values() {
+                context.entry(key.clone()).or_insert_with(|| value.clone());
+            }
+        }
+        context
     }
     pub fn language(&self) -> &str {
-        self.active_document()
-            .and_then(|d| d.path.as_deref())
-            .map_or("plaintext", crate::lsp::language)
+        self.active_document().map_or("plaintext", |d| {
+            d.language_override()
+                .unwrap_or_else(|| d.path.as_deref().map_or("plaintext", crate::lsp::language))
+        })
     }
 
     pub fn event(&mut self, event: Event) {
         self.observe_editor_geometry();
+        if self.rename_escape(&event) {
+            return;
+        }
+        self.rename_ui_event(&event);
         self.breadcrumbs_ui_event(&event);
         self.observe_navigation(navigation_history::Reason::Ordinary);
         if matches!(&event, Event::Paste(_))
@@ -1286,6 +1496,8 @@ impl App {
     fn event_inner(&mut self, event: Event) {
         match event {
             Event::Resize(_, _) => {
+                self.extension_editor_viewports =
+                    extension_editor_presentation::Viewports::default();
                 self.invalidate_editor_presentation();
                 self.tab_hits.clear();
                 self.welcome_actions.clear();
@@ -1492,6 +1704,13 @@ impl App {
     fn key(&mut self, key: KeyEvent) {
         let token = keys::token(key);
         self.last_key = Some(key);
+        if key.code == KeyCode::Esc
+            && self.modal.is_none()
+            && self.prompt.is_none()
+            && self.escape_file_participation()
+        {
+            return;
+        }
         if key.code == KeyCode::Esc && self.escape_save_code_actions() {
             return;
         }
@@ -1660,6 +1879,7 @@ impl App {
         self.observe_editor_geometry();
     }
     fn execute_inner(&mut self, command: &str, command_args: Option<Value>) {
+        self.cancel_rename();
         self.advance_signature_interaction(command);
         if suggestions::command(command) || signature_help::command(command) {
             self.advance_suggestion_interaction();
@@ -1705,8 +1925,11 @@ impl App {
                 | "jumpToNextSnippetPlaceholder"
                 | "jumpToPrevSnippetPlaceholder"
                 | "leaveSnippet"
-        ) && let Some(doc) = self.documents.get_mut(self.active)
+        ) && !self.is_extension_command(command)
+            && let Some(doc) = self.documents.get_mut(self.active)
         {
+            // Extension callbacks own their requested Undo boundaries. Closing
+            // the group here would defeat TextEditor.edit undoStopBefore=false.
             doc.break_group();
         }
         if command == "cursorUndo" {
@@ -1754,6 +1977,8 @@ impl App {
                 text: format!("{}\n\nNative palette: editor background/foreground/selection/current line, shared panels, line numbers and accent.\nSyntax colors map to 14 native categories; this is not TextMate scope parity.\n\n{}", self.theme.name, self.theme.warnings.join("\n")),
                 scroll: 0,
             }),
+            "vscli.migration.import" => self.open_vscode_import(),
+            "vscli.migration.rollback" => self.rollback_vscode_import(),
             "vscli.theme.load" => self.start_prompt(PromptKind::ThemeFile, String::new()),
             "vscli.debug.evaluate" => self.start_prompt(PromptKind::DebugEvaluate, String::new()),
             "explorer.newFile" => self.start_prompt(
@@ -1784,6 +2009,9 @@ impl App {
                 }
             }
             "workbench.files.action.refreshFilesExplorer" => self.refresh_files(),
+            "files.participants.resetChoice" => {
+                if let Err(error)=self.reset_file_participant_choice() {self.message=format!("Cannot reset file-operation choice: {error:#}");}
+            },
             "workbench.action.keepEditor" => self.keep_active_editor(),
             "workbench.action.splitEditor" | "workbench.action.splitEditorRight" => {
                 self.split_editor(false)
@@ -1866,9 +2094,12 @@ impl App {
                 "textDocument/completion",
                 json!({"context":{"triggerKind":1}}),
             ),
-            "editor.action.revealDefinition" => {
+            "editor.action.revealDefinition" | "editor.action.goToDeclaration" => {
                 self.language_request("textDocument/definition", Value::Null)
             }
+            "editor.action.goToImplementation" => self.language_request("textDocument/implementation", Value::Null),
+            "editor.action.goToTypeDefinition" => self.language_request("textDocument/typeDefinition", Value::Null),
+            "editor.action.revealDeclaration" => self.language_request("textDocument/declaration", Value::Null),
             "editor.action.goToReferences" => self.language_request(
                 "textDocument/references",
                 json!({"context":{"includeDeclaration":true}}),
@@ -1881,10 +2112,7 @@ impl App {
             "workbench.action.showAllSymbols" => self.start_symbols(true),
             "editor.action.quickFix" => self.request_code_actions(None),
             "editor.action.refactor" => self.request_code_actions(Some("refactor")),
-            "editor.action.rename" => self.start_prompt(
-                PromptKind::Rename,
-                self.doc().selected_text().unwrap_or_default(),
-            ),
+            "editor.action.rename" => self.start_rename(),
             "workbench.actions.view.problems" => self.show_problems(),
             "editor.action.insertSnippet" => self.insert_snippet(&args),
             "jumpToNextSnippetPlaceholder" | "jumpToPrevSnippetPlaceholder" => {
@@ -1939,7 +2167,11 @@ impl App {
                 self.request_close(AfterSave::Quit)
             }
             "workbench.action.closeAllEditors" => self.begin_close_editor_batch(true),
-            "workbench.action.files.revert" => self.modal = Some(Modal::Revert),
+            "workbench.action.files.revert" => {
+                if let Some(document) = self.active_document() {
+                    self.modal = Some(Modal::Revert {document: document.id, resource_epoch: document.resource_epoch(), name: document.name()});
+                } else { self.message = "Open a file before reverting".into(); }
+            }
             "workbench.action.openRecent" => self.start_prompt(PromptKind::RecentFiles, String::new()),
             "workbench.action.reopenClosedEditor" => self.reopen_closed(),
             "workbench.action.quickOpen" => self.start_prompt(PromptKind::QuickOpen, String::new()),
@@ -1968,7 +2200,7 @@ impl App {
             "workbench.action.openGlobalKeybindings" => self.modal = Some(Modal::Keys),
             "vscli.keyboardInspector" => self.open_keyboard_inspector(),
             "vscli.help" => self.modal = Some(Modal::Help),
-            "undo" => self.doc_mut().undo(),
+            "undo" => self.undo_editor(),
             "vscli.settings.report" => {
                 self.modal = Some(Modal::Text {
                     title: "Settings Compatibility".into(),
@@ -1994,7 +2226,7 @@ impl App {
                     if let Err(error) = result { self.message = format!("Cannot open settings: {error:#}"); }
                 } else { self.message = "Settings location unavailable; use --settings PATH".into(); }
             }
-            "redo" => self.doc_mut().redo(),
+            "redo" => self.redo_editor(),
             "editor.action.selectAll" => self.doc_mut().select_all(),
             "expandLineSelection" => self.doc_mut().select_line(),
             "deleteLeft" => self.backspace_editor(false),
@@ -2124,6 +2356,28 @@ impl App {
             _ => self.execute_extension(command, command_args),
         }
     }
+    fn has_navigation_provider(
+        &self,
+        kind: crate::extension_providers::Kind,
+        capability: &str,
+    ) -> bool {
+        self.has_extension_provider(kind)
+            || self.active_document().is_some_and(|doc| {
+                let language = doc.language_override().unwrap_or_else(|| {
+                    doc.path
+                        .as_deref()
+                        .map_or("plaintext", crate::languages::language)
+                });
+                self.lsp.as_ref().is_some_and(|client| {
+                    client.ready
+                        && (client.language == language
+                            || client.language == "cpp" && language == "c")
+                        && (client.capabilities[capability] == true
+                            || client.capabilities[capability].is_object())
+                })
+            })
+    }
+
     fn requires_editor(command: &str) -> bool {
         command.starts_with("editor.")
             || command.starts_with("cursor")
@@ -2157,11 +2411,16 @@ impl App {
             )
     }
     fn save_as(&mut self) {
+        if self.active_document().is_some_and(Document::is_read_only) {
+            self.message = "Virtual documents are read-only".into();
+            return;
+        }
         self.capture_save_as_origin();
         let path = self
             .doc()
             .path
             .clone()
+            .or_else(|| self.doc().associated_path().map(Path::to_owned))
             .unwrap_or_else(|| self.workspace.root.join("untitled.txt"));
         self.start_prompt(PromptKind::SaveAs, path.to_string_lossy().into_owned());
     }
@@ -2217,8 +2476,12 @@ impl App {
     fn remove_active(&mut self) {
         if let Some(document) = self.active_document().map(|doc| doc.id) {
             if self.group_fallback {
+                if let Err(error) = self.prepare_api_tab_retention(document) {
+                    self.message = format!("Close refused; native buffer retained: {error:#}");
+                    return;
+                }
                 self.record_closed();
-                self.documents.remove(self.active);
+                self.remove_or_retain_api_document(self.active);
                 self.active = self.active.min(self.documents.len().saturating_sub(1));
                 self.sync_pane();
             } else {
@@ -2231,7 +2494,13 @@ impl App {
                 }
                 // Public fixtures and newly promoted hidden models may not
                 // have an installed membership yet.
-                self.documents.retain(|doc| doc.id != document);
+                if let Some(index) = self.documents.iter().position(|doc| doc.id == document) {
+                    if let Err(error) = self.prepare_api_tab_retention(document) {
+                        self.message = format!("Close refused; native buffer retained: {error:#}");
+                        return;
+                    }
+                    self.remove_or_retain_api_document(index);
+                }
                 self.project_editor_groups();
             }
         }
@@ -2312,6 +2581,16 @@ impl App {
         }
     }
     fn modal_key(&mut self, key: KeyEvent) {
+        if matches!(self.modal, Some(Modal::Migration { .. })) {
+            self.migration_key(key);
+            return;
+        }
+        if matches!(self.modal, Some(Modal::FileEditReview(_))) {
+            if let Some(Modal::FileEditReview(dialog)) = self.modal.take() {
+                self.file_edit_review_key(key, dialog);
+            }
+            return;
+        }
         if key.code == KeyCode::Esc {
             if matches!(self.modal, Some(Modal::Confirm(_))) {
                 self.cancel_save_continuations();
@@ -2329,6 +2608,7 @@ impl App {
         }
         let modal = self.modal.take().unwrap();
         match modal {
+            Modal::FileEditReview(dialog) => self.file_edit_review_key(key, dialog),
             Modal::ExtensionSurfaces(picker) => self.surface_picker_key(key, picker),
             Modal::ExtensionTree => self.surface_tree_key(key),
             Modal::ExtensionsLoading(id) => self.modal = Some(Modal::ExtensionsLoading(id)),
@@ -2358,6 +2638,27 @@ impl App {
                 self.modal = Some(Modal::Text {
                     title,
                     text,
+                    scroll,
+                });
+            }
+            Modal::Documentation {
+                title,
+                model,
+                mut scroll,
+            } => {
+                match key.code {
+                    KeyCode::Up => scroll = scroll.saturating_sub(1),
+                    KeyCode::Down => scroll = scroll.saturating_add(1),
+                    KeyCode::PageUp => scroll = scroll.saturating_sub(15),
+                    KeyCode::PageDown => scroll = scroll.saturating_add(15),
+                    KeyCode::Home => scroll = 0,
+                    KeyCode::End => scroll = model.display.lines().count().saturating_sub(1),
+                    _ => {}
+                }
+                scroll = scroll.min(model.display.lines().count().saturating_sub(1));
+                self.modal = Some(Modal::Documentation {
+                    title,
+                    model,
                     scroll,
                 });
             }
@@ -2573,6 +2874,9 @@ impl App {
             Modal::Confirm(action) => match key.code {
                 KeyCode::Enter | KeyCode::Char('s' | 'S') => self.save(Some(action)),
                 KeyCode::Char('d' | 'D') => {
+                    if self.begin_api_discard(action.clone()) {
+                        return;
+                    }
                     if matches!(action, AfterSave::Close) {
                         self.complete_close(action);
                     } else {
@@ -2583,25 +2887,22 @@ impl App {
                 KeyCode::Char('c' | 'C') => self.cancel_save_continuations(),
                 _ => self.modal = Some(Modal::Confirm(action)),
             },
-            Modal::Revert => match key.code {
+            Modal::Revert {
+                document,
+                resource_epoch,
+                name,
+            } => match key.code {
                 KeyCode::Char('y' | 'Y') => {
-                    if let Some(path) = self.doc().path.clone() {
-                        match crate::document::read_disk(&path) {
-                            Ok(Some(content)) => {
-                                self.doc_mut().reload_content(content);
-                                self.message = "Reloaded from disk".into();
-                            }
-                            Ok(None) => {
-                                self.message = "File no longer exists; buffer retained".into()
-                            }
-                            Err(e) => self.message = format!("Reload failed: {e:#}"),
-                        }
-                    } else {
-                        self.message = "Untitled file has no disk version".into();
-                    }
+                    self.start_resource_model_reload(document, resource_epoch);
                 }
                 KeyCode::Char('n' | 'N') => {}
-                _ => self.modal = Some(Modal::Revert),
+                _ => {
+                    self.modal = Some(Modal::Revert {
+                        document,
+                        resource_epoch,
+                        name,
+                    })
+                }
             },
             other => self.modal = Some(other),
         }
@@ -2752,6 +3053,13 @@ impl App {
             PromptKind::Theme => self.accept_theme(&p.text, p.selected),
             PromptKind::StopExtension => self.stop_selected_extension(p.text.trim()),
             PromptKind::ThemeFile => self.load_theme(self.resolve_path(&p.text)),
+            PromptKind::VscodeImportPath => self.import_vscode_path(self.resolve_path(&p.text)),
+            PromptKind::VscodeApplicationPath => {
+                self.set_import_application_path(self.resolve_path(&p.text))
+            }
+            PromptKind::VscodeExtensionsPath => {
+                self.set_import_extension_directory(self.resolve_path(&p.text))
+            }
             PromptKind::DebugEvaluate => {
                 if let Some(client) = self.debugger.as_mut() {
                     if let Err(e) = client.evaluate(&p.text) {
@@ -2781,9 +3089,7 @@ impl App {
                 }
             }
             PromptKind::Rename => {
-                if !p.text.trim().is_empty() {
-                    self.language_request("textDocument/rename", json!({"newName":p.text}));
-                }
+                self.accept_rename_name(p.text);
             }
             PromptKind::WorkspaceSearch => {
                 if p.text.is_empty() {
@@ -3112,9 +3418,60 @@ fn clipboard_command(name: &str, args: &[&str], input: Option<&str>) -> Option<S
     }
 }
 
+fn same_document_resource(left: &Document, right: &Document) -> bool {
+    left.id == right.id
+        || left
+            .untitled_uri()
+            .is_some_and(|uri| right.untitled_uri() == Some(uri))
+        || left
+            .untitled_uri()
+            .is_some_and(|uri| right.untitled_uri() == Some(uri))
+        || left
+            .virtual_uri()
+            .is_some_and(|uri| right.virtual_uri() == Some(uri))
+        || left
+            .path
+            .as_ref()
+            .is_some_and(|path| right.path.as_ref() == Some(path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fallback_virtual_tabs_keep_untitled_and_distinct_resource_identities() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.group_fallback = true;
+        let mut ordinary = Document::from_text("ordinary 猫");
+        ordinary.insert("dirty ", false);
+        let original_id = ordinary.id;
+        app.install_open_document(ordinary).unwrap();
+        let first = Document::from_virtual("test:/first.cpp".into(), "first").unwrap();
+        let first_id = first.id;
+        app.install_open_document(first).unwrap();
+        let second = Document::from_virtual("test:/second.cpp".into(), "second").unwrap();
+        let second_id = second.id;
+        app.install_open_document(second).unwrap();
+        assert_eq!(app.documents.len(), 3);
+        assert_eq!(app.doc().id, second_id);
+        app.install_open_document(
+            Document::from_virtual("test:/first.cpp".into(), "replacement").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(app.doc().id, first_id);
+        assert_eq!(app.doc().text.to_string(), "first");
+        let ordinary = app
+            .documents
+            .iter_mut()
+            .find(|doc| doc.id == original_id)
+            .unwrap();
+        assert_eq!(ordinary.text.to_string(), "dirty ordinary 猫");
+        assert!(ordinary.dirty());
+        ordinary.undo();
+        assert_eq!(ordinary.text.to_string(), "ordinary 猫");
+    }
+
     #[test]
     fn actual_mru_reservation_refusal_does_not_publish_new_untitled_or_touch_original_redo() {
         let root = tempfile::tempdir().unwrap();
@@ -3235,6 +3592,7 @@ mod tests {
                 app.configure_extension_activation(Some(&dir.path().join("config")));
                 app.modal = Some(Modal::Extensions {
                     items: vec![crate::extension_store::Installed {
+                        enabled: true,
                         id: "test.modifiers".into(),
                         version: "1".into(),
                         path: dir.path().join("package"),

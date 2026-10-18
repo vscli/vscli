@@ -1,0 +1,236 @@
+{
+  "schema": "vscli-editor-undo-stops-validation-v1",
+  "base_commit": "e7d1ef263c7a1324a3bf35718c55d2580508a2d1",
+  "scope": "Public TextEditor.edit Undo-stop options and empty builders through native command dispatch/history; entire stable API and personal migration remain required.",
+  "reference": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTextEditor.ts",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1753,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "4c1c9db8d76b408462635bb36606c854e983418a04597ab29bc6842424f35695"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "2e9640a4fcb081e29fc13bfa5d4ace5d9bf3a0ed0443fa168f1b6e6b85afef04"
+  },
+  "criteria": {
+    "passed": 4,
+    "total": 4,
+    "items": [
+      "Public options retain defaults/coercion and one-read capture; stale getters and empty builders dispatch no partial work",
+      "All four Undo-stop pairs join or separate actual native typing with shared CRLF save/Undo/Redo",
+      "Inactive views and invalid captures retain display, selections, identity and native Redo",
+      "Complete native/host regressions, unchanged Sort Lines controls, ten terminal scenarios and required style checks retain source evidence"
+    ]
+  },
+  "checks": [
+    {
+      "label": "extension_editor_undo-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_undo_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-extension_editor_undo-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_editor_eol-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_eol_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-extension_editor_eol-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "extension_editor_position-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_position_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-extension_editor_position-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "extension_editor_snippets-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_snippets_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-extension_editor_snippets-pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "label": "extension_editor_decorations-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_decorations_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-extension_editor_decorations-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "sort-lines",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "extension_installation",
+        "--test",
+        "extension_host",
+        "upstream_sort_lines",
+        "--",
+        "--ignored"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-sort-lines.log"
+    },
+    {
+      "label": "virtual-native",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "extension_virtual_documents"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-virtual-native.log"
+    },
+    {
+      "label": "virtual-pty",
+      "command": [
+        "python3",
+        "tests/extension_virtual_documents_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-virtual-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "host-all",
+      "command": [
+        "node",
+        "scripts/test_extension_host.cjs"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-host-all.log",
+      "passed": 822
+    },
+    {
+      "label": "final-rust",
+      "command": [
+        "cargo",
+        "test",
+        "--all-targets",
+        "--locked",
+        "--no-fail-fast"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-final-rust.log",
+      "reports": 75,
+      "passed": 1690,
+      "failed": 0,
+      "ignored": 23,
+      "library_passed": 1327
+    },
+    {
+      "label": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-fmt.log"
+    },
+    {
+      "label": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-undo-clippy.log"
+    },
+    {
+      "label": "progress-controls",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "passed": 28,
+      "log": "/tmp/vscli-editor-undo-script-tests.log"
+    }
+  ],
+  "qualification_conditions": [
+    "Final full native regression passes on the recorded source: four new native document cases and one actual selected-host/App integration are included. The latter exercises all four stop pairs.",
+    "Three new host cases cover option capture, reentrant source refusal and empty builders. The final complete host run includes the readonly no-op case.",
+    "Eleven actual terminal scenarios cover undo stops (2), existing EOL (1), Position replacements (1), snippets (4), decorations (2) and virtual documents (1).",
+    "Ten adjacent terminal scenarios and the four unchanged Sort Lines controls ran before the test-only read-only fixture correction. Production Rust/host implementation and their fixtures did not change afterward. The final native/host regression and the affected native/terminal virtual workflows run after that correction.",
+    "The existing snippet history grouping is reused. Native ordinary navigation/palette boundaries, owner/model/view/version/resource/save proofs and callback capacity are retained. Empty API builders do not authorize a native mutation.",
+    "These are named local Linux workflows, not qualification of all global Undo/history or the whole stable API. Personal code remains unactivated."
+  ],
+  "failed_observations_retained": [
+    {
+      "log": "/tmp/vscli-editor-undo-integration.log",
+      "observed": "The first real App case with false/false retains P after Undo instead of reverting preceding typing: generic command dispatch had closed its history before the extension callback.",
+      "repair": "Known registered/dormant extension commands leave Undo boundaries to their edit options; native command boundaries remain. All four App pairs and contributed F9 now pass."
+    },
+    {
+      "log": "/tmp/vscli-editor-undo-final-rust-initial.log",
+      "observed": "Initial full native run has 1689 passes, one failure and 23 ignored: the prior virtual-document fixture expects an empty edit to return false.",
+      "repair": "Pinned upstream _applyEdit returns true before native dispatch for an empty builder. Correct only that assertion, retaining mutating-edit=false, save=false, exact content/version, native model/history and original disk checks. Final full native regression passes."
+    }
+  ],
+  "previous_completed_ci": {
+    "head_sha": "e7d1ef263c7a1324a3bf35718c55d2580508a2d1",
+    "conclusion": "success",
+    "html_url": "https://github.com/vscli/vscli/actions/runs/39125088837"
+  },
+  "outstanding": [
+    "TextEditorEdit.setEndOfLine and its EOL-before-text history/event ordering",
+    "Full model-global grouping across arbitrary views and lifecycle transitions",
+    "Incremental change-event fidelity, exotic UTF-16/private transport behavior and remaining edit-builder contracts",
+    "Fresh three-platform CI and release qualification; whole stable API and seamless personal migration"
+  ]
+}

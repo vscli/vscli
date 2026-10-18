@@ -1,4 +1,7 @@
 //! Native stdio LSP transport. Subprocess I/O never blocks the input/render loop.
+#[cfg(test)]
+#[path = "lsp_rename_tests.rs"]
+mod rename_tests;
 use crate::document::{Document, Selection};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -44,6 +47,8 @@ pub struct Request {
     pub document_id: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
+    pub(crate) language_epoch: u64,
     pub(crate) server: Arc<()>,
     pub(crate) sync_version: i64,
     pub cursor: usize,
@@ -59,6 +64,7 @@ pub struct Snapshot {
     pub id: u64,
     pub revision: u64,
     pub text_epoch: u64,
+    pub resource_epoch: u64,
     pub version: i64,
 }
 #[derive(Clone, Debug)]
@@ -80,6 +86,7 @@ pub enum Event {
     SymbolFailure(Request, String),
     FormattingResult(Request, Result<Value, String>),
     ActionResult(Request, Result<Value, String>),
+    RenameResult(Request, Result<Value, String>),
     Diagnostics(DiagnosticPublication),
     Message(String),
 }
@@ -87,6 +94,9 @@ struct Synced {
     id: u64,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
+    language_epoch: u64,
+    language: String,
     version: i64,
     path: PathBuf,
 }
@@ -217,6 +227,7 @@ pub struct Client {
     signature_occupied: Option<u64>,
     signature_timed_out: bool,
     symbol_slot: Option<SymbolSlot>,
+    rename_slot: Option<SymbolSlot>,
     formatting_slot: Option<FormattingSlot>,
     synced: HashMap<String, Synced>,
     next_id: u64,
@@ -232,6 +243,23 @@ pub fn file_uri(path: &Path) -> Result<String> {
     Url::from_file_path(path)
         .map(String::from)
         .map_err(|_| anyhow::anyhow!("Not an absolute file path: {}", path.display()))
+}
+
+/// Native canonical paths retain Windows' verbatim prefix for filesystem work.
+/// Public extension paths use the ordinary path encoded by the existing URL
+/// converter, so URI.file never mistakes that prefix for a UNC authority.
+pub(crate) fn extension_host_path(path: &Path) -> Result<PathBuf> {
+    #[cfg(windows)]
+    {
+        Url::from_file_path(path)
+            .map_err(|_| anyhow::anyhow!("Invalid extension filesystem path"))?
+            .to_file_path()
+            .map_err(|_| anyhow::anyhow!("Invalid extension file URI"))
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(path.to_owned())
+    }
 }
 pub fn uri_path(uri: &str) -> Result<PathBuf> {
     let path = Url::parse(uri)?
@@ -408,6 +436,7 @@ impl Client {
             signature_occupied: None,
             signature_timed_out: false,
             symbol_slot: None,
+            rename_slot: None,
             formatting_slot: None,
             synced: HashMap::new(),
             next_id: 1,
@@ -431,7 +460,7 @@ impl Client {
                     "signatureHelp":{"signatureInformation":{"documentationFormat":["plaintext"],"parameterInformation":{"labelOffsetSupport":true},"activeParameterSupport":true},"contextSupport":true},
                     "completion":{"contextSupport":true,"completionItem":{"snippetSupport":true,"documentationFormat":["plaintext","markdown"],"resolveSupport":{"properties":["detail","documentation","additionalTextEdits"]}}},
                     "documentSymbol":{"hierarchicalDocumentSymbolSupport":true},
-                    "definition":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{},
+                    "definition":{"linkSupport":true}, "implementation":{"linkSupport":true}, "typeDefinition":{"linkSupport":true}, "declaration":{"linkSupport":true}, "references":{}, "formatting":{}, "rename":{"prepareSupport":true,"prepareSupportDefaultBehavior":1,"honorsChangeAnnotations":false},
                     "codeAction":{"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["","quickfix","refactor","refactor.extract","refactor.inline","refactor.rewrite","source","source.organizeImports","source.fixAll"]}},"isPreferredSupport":true,"disabledSupport":true,"dataSupport":true,"resolveSupport":{"properties":["edit"]}}
                 }
             }
@@ -459,6 +488,14 @@ impl Client {
         Ok((id, next))
     }
     pub fn sync(&mut self, documents: &[Document]) -> Result<()> {
+        self.sync_documents(documents.iter())
+    }
+    /// Retained hidden models share their actual document/server identity with
+    /// visible models; save participants must not open copies or show editors.
+    pub fn sync_retained(&mut self, documents: &[Document], hidden: &[Document]) -> Result<()> {
+        self.sync_documents(documents.iter().chain(hidden))
+    }
+    fn sync_documents<'a>(&mut self, documents: impl Iterator<Item = &'a Document>) -> Result<()> {
         if !self.ready {
             return Ok(());
         }
@@ -467,12 +504,22 @@ impl Client {
             let Some(path) = &doc.path else {
                 continue;
             };
-            let lang = language(path);
+            let lang = doc.language_override().unwrap_or_else(|| language(path));
             if lang != self.language && !(self.language == "cpp" && lang == "c") {
                 continue;
             }
             let uri = file_uri(path)?;
             open.push(uri.clone());
+            // Language changes are distinct server document lifetimes even when
+            // content/version remain untouched or metadata changed A→B→A.
+            if self.synced.get(&uri).is_some_and(|old| {
+                old.language != lang
+                    || old.language_epoch != doc.language_epoch()
+                    || old.resource_epoch != doc.resource_epoch()
+            }) {
+                self.notify("textDocument/didClose", json!({"textDocument":{"uri":uri}}))?;
+                self.synced.remove(&uri);
+            }
             match self.synced.get(&uri) {
                 None => {
                     let version = self.allocate_document_version()?;
@@ -483,6 +530,9 @@ impl Client {
                             id: doc.id,
                             revision: doc.revision,
                             text_epoch: doc.text_epoch(),
+                            resource_epoch: doc.resource_epoch(),
+                            language_epoch: doc.language_epoch(),
+                            language: lang.into(),
                             version,
                             path: path.clone(),
                         },
@@ -491,6 +541,7 @@ impl Client {
                 Some(old)
                     if old.revision != doc.revision
                         || old.text_epoch != doc.text_epoch()
+                        || old.resource_epoch != doc.resource_epoch()
                         || old.id != doc.id =>
                 {
                     let version = self.allocate_document_version()?;
@@ -501,6 +552,9 @@ impl Client {
                             id: doc.id,
                             revision: doc.revision,
                             text_epoch: doc.text_epoch(),
+                            resource_epoch: doc.resource_epoch(),
+                            language_epoch: doc.language_epoch(),
+                            language: lang.into(),
                             version,
                             path: path.clone(),
                         },
@@ -538,11 +592,14 @@ impl Client {
             && doc.id == publication.snapshot.id
             && doc.revision == publication.snapshot.revision
             && doc.text_epoch() == publication.snapshot.text_epoch
+            && doc.resource_epoch() == publication.snapshot.resource_epoch
             && self.synced.get(&publication.uri).is_some_and(|synced| {
                 synced.path == publication.path
                     && synced.id == publication.snapshot.id
                     && synced.revision == publication.snapshot.revision
                     && synced.text_epoch == publication.snapshot.text_epoch
+                    && synced.resource_epoch == publication.snapshot.resource_epoch
+                    && synced.language_epoch == doc.language_epoch()
                     && synced.version == publication.snapshot.version
             })
     }
@@ -556,6 +613,7 @@ impl Client {
                         && synced.id == snapshot.id
                         && synced.revision == snapshot.revision
                         && synced.text_epoch == snapshot.text_epoch
+                        && synced.resource_epoch == snapshot.resource_epoch
                         && synced.version == snapshot.version
                 })
     }
@@ -595,11 +653,14 @@ impl Client {
                 && synced.id == request.document_id
                 && synced.revision == request.revision
                 && synced.text_epoch == request.text_epoch
+                && synced.resource_epoch == request.resource_epoch
+                && synced.language_epoch == request.language_epoch
                 && synced.version == request.sync_version
                 && request.workspace.get(&request.path).is_none_or(|snapshot| {
                     snapshot.id == synced.id
                         && snapshot.revision == synced.revision
                         && snapshot.text_epoch == synced.text_epoch
+                        && snapshot.resource_epoch == synced.resource_epoch
                         && snapshot.version == synced.version
                 })
         })
@@ -673,6 +734,23 @@ impl Client {
         if !self.ready {
             bail!("Language server is still initializing");
         }
+        let rename = matches!(method, "textDocument/prepareRename" | "textDocument/rename");
+        if rename {
+            self.ensure_rename_available()?;
+            let object = extra.as_object().context("Invalid rename parameters")?;
+            if method == "textDocument/prepareRename" {
+                if !self.rename_preparation_supported() || !object.is_empty() {
+                    bail!("Rename preparation is not advertised or has unsupported parameters");
+                }
+            } else if object.len() != 1
+                || object
+                    .get("newName")
+                    .and_then(Value::as_str)
+                    .is_none_or(|name| name.len() > 64 * 1024)
+            {
+                bail!("Rename requires one string newName of at most 64 KiB");
+            }
+        }
         let formatting = method == "textDocument/formatting";
         if formatting {
             self.ensure_formatting_available()?;
@@ -716,11 +794,20 @@ impl Client {
             .synced
             .get(&uri)
             .context("This language server does not handle this file type")?;
-        if (formatting || method == "textDocument/codeAction")
+        if synced.resource_epoch != doc.resource_epoch()
+            || synced.language_epoch != doc.language_epoch()
+            || synced.language != doc.language_override().unwrap_or_else(|| language(&path))
+        {
+            bail!(
+                "Document language has not been synchronized; retry after language synchronization"
+            );
+        }
+        if (formatting || rename || method == "textDocument/codeAction")
             && (synced.id != doc.id
                 || synced.path != path
                 || synced.revision != doc.revision
-                || synced.text_epoch != doc.text_epoch())
+                || synced.text_epoch != doc.text_epoch()
+                || synced.resource_epoch != doc.resource_epoch())
         {
             bail!("Document has not been synchronized; retry after language synchronization");
         }
@@ -748,10 +835,10 @@ impl Client {
         if method == "textDocument/documentSymbol" {
             self.ensure_symbol_available()?;
         }
-        if is_action && self.synced.len() > 128 {
+        if (is_action || rename) && self.synced.len() > 128 {
             bail!("Code actions support at most 128 synchronized buffers");
         }
-        if is_action {
+        if is_action || rename {
             let mut paths = 0usize;
             for synced in self.synced.values() {
                 let bytes = synced.path.as_os_str().len();
@@ -761,7 +848,7 @@ impl Client {
                 }
             }
         }
-        let workspace = if is_action {
+        let workspace = if is_action || rename {
             self.synced
                 .values()
                 .map(|s| {
@@ -771,6 +858,7 @@ impl Client {
                             id: s.id,
                             revision: s.revision,
                             text_epoch: s.text_epoch,
+                            resource_epoch: s.resource_epoch,
                             version: s.version,
                         },
                     )
@@ -797,6 +885,8 @@ impl Client {
                 document_id: doc.id,
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
+                language_epoch: doc.language_epoch(),
                 server: self.identity.clone(),
                 sync_version,
                 cursor: doc.cursor,
@@ -814,6 +904,13 @@ impl Client {
         );
         if method == "textDocument/signatureHelp" {
             self.signature_occupied = Some(id);
+        }
+        if rename {
+            self.rename_slot = Some(SymbolSlot {
+                token: id,
+                canceled: false,
+                timed_out: false,
+            });
         }
         if method == "textDocument/documentSymbol" {
             self.symbol_slot = Some(SymbolSlot {
@@ -887,7 +984,7 @@ impl Client {
         self.request(
             "textDocument/formatting",
             doc,
-            json!({"options":{"tabSize":doc.tab_size,"insertSpaces":doc.insert_spaces}}),
+            json!({"options":{"tabSize":doc.indent_size(),"insertSpaces":doc.insert_spaces}}),
         )?;
         Ok(token)
     }
@@ -903,6 +1000,48 @@ impl Client {
     }
     pub(crate) fn symbol_available(&self) -> bool {
         self.ready && self.symbol_slot.is_none() && self.pending.len() < 32
+    }
+    pub(crate) fn supports_rename(&self) -> bool {
+        matches!(
+            self.capabilities.get("renameProvider"),
+            Some(Value::Bool(true)) | Some(Value::Object(_))
+        )
+    }
+    pub(crate) fn rename_preparation_supported(&self) -> bool {
+        self.supports_rename() && self.capabilities["renameProvider"]["prepareProvider"] == true
+    }
+    fn ensure_rename_available(&self) -> Result<()> {
+        if !self.ready || !self.supports_rename() {
+            bail!("Language server does not provide rename");
+        }
+        if self.rename_slot.is_some() || self.pending.len() >= 32 {
+            bail!("Previous rename request is awaiting actual response or server restart");
+        }
+        Ok(())
+    }
+    pub(crate) fn request_rename(
+        &mut self,
+        document: &Document,
+        new_name: Option<&str>,
+        view: Option<u64>,
+    ) -> Result<u64> {
+        let token = self.next_id;
+        let (method, params) = match new_name {
+            None => ("textDocument/prepareRename", json!({})),
+            Some(name) => ("textDocument/rename", json!({"newName":name})),
+        };
+        self.request_in_view(method, document, params, view)?;
+        Ok(token)
+    }
+    pub(crate) fn cancel_rename_request(&mut self, token: u64) -> Result<()> {
+        if let Some(slot) = &mut self.rename_slot
+            && slot.token == token
+            && !slot.canceled
+        {
+            slot.canceled = true;
+            self.notify("$/cancelRequest", json!({"id":token}))?;
+        }
+        Ok(())
     }
     pub(crate) fn symbol_channel_closed(&self) -> bool {
         self.symbol_slot.as_ref().is_some_and(|slot| slot.timed_out)
@@ -946,6 +1085,8 @@ impl Client {
                 document_id: 0,
                 revision: 0,
                 text_epoch: 0,
+                resource_epoch: 0,
+                language_epoch: 0,
                 server: self.identity.clone(),
                 sync_version: 0,
                 cursor: 0,
@@ -1205,6 +1346,10 @@ impl Client {
             .filter(|(id, r)| {
                 r.started.elapsed() > Duration::from_secs(15)
                     && !self
+                        .rename_slot
+                        .as_ref()
+                        .is_some_and(|slot| slot.token == **id && slot.timed_out)
+                    && !self
                         .formatting_slot
                         .as_ref()
                         .is_some_and(|slot| slot.token == **id && slot.timed_out)
@@ -1220,6 +1365,19 @@ impl Client {
             .map(|(id, _)| *id)
             .collect::<Vec<_>>()
         {
+            if let Some(slot) = &mut self.rename_slot
+                && slot.token == id
+            {
+                slot.timed_out = true;
+                let notify = !slot.canceled;
+                slot.canceled = true;
+                if notify {
+                    events.push(Event::RenameResult(self.pending.get(&id).unwrap().clone(),
+                        Err("Rename request timed out; awaiting actual response or language server restart".into())));
+                    self.notify("$/cancelRequest", json!({"id":id}))?;
+                }
+                continue;
+            }
             if let Some(slot) = &mut self.formatting_slot
                 && slot.token == id
             {
@@ -1348,6 +1506,7 @@ impl Client {
                                         id: synced.id,
                                         revision: synced.revision,
                                         text_epoch: synced.text_epoch,
+                                        resource_epoch: synced.resource_epoch,
                                         version: synced.version,
                                     },
                                     versioned: params.get("version").is_some(),
@@ -1434,6 +1593,39 @@ impl Client {
                     continue;
                 }
                 if self
+                    .rename_slot
+                    .as_ref()
+                    .is_some_and(|slot| slot.token == id)
+                {
+                    let result = message.get("result");
+                    let error = message.get("error");
+                    let completed = message["jsonrpc"] == "2.0"
+                        && (matches!((result, error), (Some(_), None))
+                            || matches!((result,error),(None,Some(error)) if error["code"].as_i64().is_some_and(|code| i32::try_from(code).is_ok()) && error["message"].as_str().is_some()));
+                    if !completed {
+                        continue;
+                    }
+                    let slot = self.rename_slot.take().unwrap();
+                    let request = self
+                        .pending
+                        .remove(&id)
+                        .context("Rename response lost original request")?;
+                    if !slot.canceled && !slot.timed_out {
+                        let response = if let Some(error) = error {
+                            Err(error["message"]
+                                .as_str()
+                                .unwrap()
+                                .chars()
+                                .take(4096)
+                                .collect())
+                        } else {
+                            Ok(result.unwrap().clone())
+                        };
+                        events.push(Event::RenameResult(request, response));
+                    }
+                    continue;
+                }
+                if self
                     .symbol_slot
                     .as_ref()
                     .is_some_and(|slot| slot.token == id)
@@ -1512,7 +1704,7 @@ pub(crate) mod formatting_tests {
     use super::*;
     const PEER: &str = r#"
 import json,sys
-held={}; calls=[]; cancellations=[]
+held={}; calls=[]; cancellations=[]; lifecycle=[]
 def send(message):
     data=json.dumps(message).encode()
     sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(data)).encode()+data)
@@ -1530,12 +1722,13 @@ while True:
     method,ident,params=message.get('method'),message.get('id'),message.get('params',{})
     if method=='initialize':
         reply({'id':ident,'result':{'capabilities':{'textDocumentSync':1,'documentFormattingProvider':json.loads(sys.argv[1])}}})
+    elif method in ['textDocument/didOpen','textDocument/didChange','textDocument/didClose']: lifecycle.append({'method':method,'params':params})
     elif method=='textDocument/formatting':
         held[ident]=params; calls.append({'id':ident,'params':params}); notice('held-%d'%ident)
     elif method=='$/cancelRequest': cancellations.append(params['id']); notice('ignored-cancel-%d'%params['id'])
     elif method=='fixture/message': send(params)
     elif method=='fixture/ack': notice('ack')
-    elif method=='fixture/state': notice('formatter-state:'+json.dumps({'calls':calls,'cancellations':cancellations}))
+    elif method=='fixture/state': notice('formatter-state:'+json.dumps({'calls':calls,'cancellations':cancellations,'lifecycle':lifecycle}))
     elif method=='fixture/release':
         held.pop(params['id'],None)
         if params.get('fail'): reply({'id':params['id'],'error':{'code':-32603,'message':params.get('message','fixture formatting failed')}})
@@ -1630,6 +1823,124 @@ while True:
     }
 
     #[test]
+    fn resource_aba_reopens_server_document_and_retires_actual_held_reply() {
+        let (root, mut doc) = fixture();
+        doc.insert("dirty ", false);
+        let original_path = doc.path.clone().unwrap();
+        let moved = root.path().join("moved.cpp");
+        let proof = (doc.id, doc.revision, doc.text_epoch());
+        let mut client = start(root.path(), &doc);
+        let token = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, token);
+        let original = client.pending[&token].clone();
+        std::fs::rename(&original_path, &moved).unwrap();
+        doc.set_resource_path(Some(moved.clone())).unwrap();
+        std::fs::rename(&moved, &original_path).unwrap();
+        doc.set_resource_path(Some(original_path.clone())).unwrap();
+        assert!(
+            client
+                .request("textDocument/hover", &doc, json!({}))
+                .is_err()
+        );
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(!client.request_current(&original));
+        let wire = state(&mut client);
+        let lifecycle = wire["lifecycle"].as_array().unwrap();
+        assert_eq!(lifecycle.len(), 3);
+        assert_eq!(lifecycle[1]["method"], "textDocument/didClose");
+        assert_eq!(lifecycle[2]["method"], "textDocument/didOpen");
+        assert!(
+            lifecycle[2]["params"]["textDocument"]["version"]
+                .as_i64()
+                .unwrap()
+                > original.sync_version
+        );
+        assert!(
+            !client.formatting_available(),
+            "held process callback still occupies its slot"
+        );
+        client
+            .notify("fixture/release", json!({"id":token}))
+            .unwrap();
+        let events = until(&mut client, |client, _| client.formatting_available());
+        assert!(events.iter().any(|event| matches!(event, Event::FormattingResult(reply,Ok(_)) if reply.token==token && !client.request_current(reply))));
+        assert_eq!((doc.id, doc.revision, doc.text_epoch()), proof);
+        assert!(doc.dirty());
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂 original\r\n");
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "dirty 猫🙂 original\r\n");
+        assert_eq!(
+            std::fs::read(original_path).unwrap(),
+            "猫🙂 original\r\n".as_bytes()
+        );
+    }
+    #[test]
+    fn language_override_reopens_server_document_and_metadata_aba_retires_held_reply() {
+        let (root, mut doc) = fixture();
+        doc.insert("dirty ", false);
+        let mut client = start(root.path(), &doc);
+        let id = doc.id;
+        let revision = doc.revision;
+        let epoch = doc.text_epoch();
+        let token = client.request_document_formatting(&doc).unwrap();
+        held(&mut client, token);
+        let original = client.pending[&token].clone();
+        doc.set_language_override(Some("c".into())).unwrap();
+        assert!(
+            client
+                .request("textDocument/hover", &doc, json!({}))
+                .is_err()
+        );
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(!client.request_current(&original));
+        let wire = state(&mut client);
+        let lifecycle = wire["lifecycle"].as_array().unwrap();
+        assert_eq!(lifecycle.len(), 3);
+        assert_eq!(lifecycle[0]["method"], "textDocument/didOpen");
+        assert_eq!(lifecycle[0]["params"]["textDocument"]["languageId"], "cpp");
+        assert_eq!(lifecycle[1]["method"], "textDocument/didClose");
+        assert_eq!(lifecycle[2]["params"]["textDocument"]["languageId"], "c");
+        assert!(
+            lifecycle[2]["params"]["textDocument"]["version"]
+                .as_i64()
+                .unwrap()
+                > original.sync_version
+        );
+        doc.set_language_override(Some("python".into())).unwrap();
+        doc.set_language_override(Some("c".into())).unwrap();
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert_eq!(state(&mut client)["lifecycle"].as_array().unwrap().len(), 5);
+        assert!(!client.request_current(&original));
+        assert!(
+            !client.formatting_available(),
+            "actual held callback keeps its slot"
+        );
+        client
+            .notify("fixture/release", json!({"id":token}))
+            .unwrap();
+        let events = until(&mut client, |client, _| client.formatting_available());
+        assert!(events.iter().any(|event| matches!(event, Event::FormattingResult(reply,Ok(_)) if reply.token==token && !client.request_current(reply))));
+        assert_eq!(
+            (doc.id, doc.revision, doc.text_epoch()),
+            (id, revision, epoch)
+        );
+        assert!(doc.dirty());
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂 original\r\n");
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "dirty 猫🙂 original\r\n");
+        assert_eq!(
+            std::fs::read(doc.path.as_ref().unwrap()).unwrap(),
+            "猫🙂 original\r\n".as_bytes()
+        );
+        // An override to a language this server does not handle closes it.
+        doc.set_language_override(Some("python".into())).unwrap();
+        client.sync(std::slice::from_ref(&doc)).unwrap();
+        assert!(client.synced.is_empty());
+        assert_eq!(state(&mut client)["lifecycle"].as_array().unwrap().len(), 6);
+    }
+    #[test]
     fn shared_manual_save_formatter_lane_has_exact_params_and_typed_results() {
         let (root, mut doc) = fixture();
         doc.set_indentation(8, false);
@@ -1660,8 +1971,18 @@ while True:
             .unwrap();
         let events = until(&mut client, |client, _| client.formatting_available());
         assert!(events.iter().any(|event| matches!(event,Event::FormattingResult(request,Ok(value)) if request.token == token && request.view == Some(17) && value == &replacement && client.request_current(request))));
+        let view = doc.editor_view_identity();
+        doc.apply_editor_options(
+            &view,
+            &serde_json::from_value(json!({"indentSize":2})).unwrap(),
+        )
+        .unwrap();
         let save = client.request_document_formatting(&doc).unwrap();
         held(&mut client, save);
+        assert_eq!(
+            state(&mut client)["calls"][1]["params"]["options"],
+            json!({"tabSize":2,"insertSpaces":false})
+        );
         assert!(
             client
                 .request(
@@ -2368,6 +2689,34 @@ mod tests {
     use super::*;
     use crate::transport::read_message;
     use std::io::BufReader;
+    #[cfg(windows)]
+    #[test]
+    fn native_verbatim_paths_serialize_as_public_file_paths_without_changing_native_identity() {
+        for (native, public) in [
+            (r"\\?\C:\work\space 猫#%.txt", r"C:\work\space 猫#%.txt"),
+            (
+                r"\\?\UNC\server\share\space 猫#%.txt",
+                r"\\server\share\space 猫#%.txt",
+            ),
+        ] {
+            let original = PathBuf::from(native);
+            assert_eq!(extension_host_path(&original).unwrap(), Path::new(public));
+            assert_eq!(
+                file_uri(&original).unwrap(),
+                file_uri(Path::new(public)).unwrap()
+            );
+            let package = crate::extensions::Package {
+                id: "fixture.path".into(),
+                version: "1.0.0".into(),
+                path: original.clone(),
+                sha256: None,
+            };
+            let wire = serde_json::to_value(&package).unwrap();
+            assert_eq!(wire["path"].as_str(), Some(public));
+            assert_eq!(package.path, original);
+        }
+    }
+
     #[test]
     fn signature_actual_slot_survives_cancellation_and_timeout_until_exact_release() {
         const PEER: &str = r#"
@@ -2940,3 +3289,7 @@ mod action_lane_tests;
 #[cfg(test)]
 #[path = "lsp/group_view_tests.rs"]
 mod group_view_tests;
+
+#[cfg(test)]
+#[path = "lsp/retained_tests.rs"]
+mod retained_tests;

@@ -60,6 +60,7 @@ pub enum LanguageAction {
     DiagnosticLocation {
         document: u64,
         text_epoch: u64,
+        resource_epoch: u64,
         range: lsp::Range,
     },
     Completion {
@@ -76,7 +77,9 @@ impl App {
         let Some(client) = self.lsp.as_mut() else {
             return false;
         };
-        let events = client.sync(&self.documents).and_then(|_| client.poll());
+        let events = client
+            .sync_retained(&self.documents, &self.hidden_documents)
+            .and_then(|_| client.poll());
         match events {
             Err(error) => {
                 self.language_service_failed(&format!("{error:#}"));
@@ -117,6 +120,12 @@ impl App {
                                 self.save_code_actions_result(request, result);
                             } else if let Err(error) = self.native_action_result(request, result) {
                                 self.message = format!("Native code action response: {error:#}");
+                            }
+                        }
+                        Event::RenameResult(request, result) => {
+                            if let Err(error) = self.native_rename_reply(request, result) {
+                                self.cancel_rename();
+                                self.message = format!("Rename: {error:#}");
                             }
                         }
                         Event::FormattingResult(request, result) => {
@@ -186,20 +195,25 @@ impl App {
         if self.extension_language_request(method, extra.clone()) {
             return;
         }
+        self.language_request_native(method, extra);
+    }
+    pub(super) fn language_request_native(&mut self, method: &str, extra: Value) {
         let Some(client) = self.lsp.as_mut() else {
             self.message =
                 "Language server not ready; use Language: Server Status or Language: Restart Server"
                     .into();
             return;
         };
-        match client.sync(&self.documents).and_then(|_| {
-            client.request_in_view(
-                method,
-                &self.documents[self.active],
-                extra,
-                self.panes.get(self.active_pane).map(|pane| pane.id),
-            )
-        }) {
+        match client
+            .sync_retained(&self.documents, &self.hidden_documents)
+            .and_then(|_| {
+                client.request_in_view(
+                    method,
+                    &self.documents[self.active],
+                    extra,
+                    self.panes.get(self.active_pane).map(|pane| pane.id),
+                )
+            }) {
             Ok(()) => self.message = format!("Language request: {method}"),
             Err(error) => self.message = format!("Language request failed: {error:#}"),
         }
@@ -207,7 +221,7 @@ impl App {
     pub(super) fn language_saved_snapshot(&mut self, path: &Path, committed: &ropey::Rope) {
         if let Some(client) = self.lsp.as_mut()
             && let Err(error) = client
-                .sync(&self.documents)
+                .sync_retained(&self.documents, &self.hidden_documents)
                 .and_then(|_| client.saved_snapshot(path, committed))
         {
             self.message = format!("File saved; language server notification failed: {error:#}");
@@ -218,6 +232,8 @@ impl App {
             || self.doc().id != request.document_id
             || self.doc().revision != request.revision
             || self.doc().text_epoch() != request.text_epoch
+            || self.doc().resource_epoch() != request.resource_epoch
+            || self.doc().language_epoch() != request.language_epoch
             || self.doc().path.as_ref() != Some(&request.path)
             || self
                 .lsp
@@ -267,13 +283,17 @@ impl App {
                 if self.doc().cursor != request.cursor {
                     return Ok(());
                 }
-                self.modal = Some(Modal::Text {
+                self.modal = Some(Modal::Documentation {
                     title: " Hover · Esc closes ".into(),
                     scroll: 0,
-                    text: content_text(&response["contents"]),
+                    model: crate::documentation::Document::hover(&response["contents"])?,
                 });
             }
-            "textDocument/definition" | "textDocument/references" => {
+            "textDocument/definition"
+            | "textDocument/implementation"
+            | "textDocument/typeDefinition"
+            | "textDocument/declaration"
+            | "textDocument/references" => {
                 let values = response
                     .as_array()
                     .cloned()
@@ -299,7 +319,13 @@ impl App {
                             range.start.line + 1,
                             range.start.character + 1
                         ),
-                        action: LanguageAction::Location { path, range },
+                        action: LanguageAction::Location {
+                            path,
+                            range: lsp::Range {
+                                start: range.start,
+                                end: range.start,
+                            },
+                        },
                     });
                 }
                 if items.len() == 1 {
@@ -344,6 +370,7 @@ impl App {
             LanguageAction::DiagnosticLocation {
                 document,
                 text_epoch,
+                resource_epoch,
                 range,
             } => {
                 let doc = self
@@ -352,7 +379,7 @@ impl App {
                     .chain(&self.hidden_documents)
                     .find(|doc| doc.id == *document)
                     .context("Problem document was closed; reopen Problems")?;
-                if doc.text_epoch() != *text_epoch {
+                if doc.text_epoch() != *text_epoch || doc.resource_epoch() != *resource_epoch {
                     bail!("Problem document changed; reopen Problems");
                 }
                 let offset = lsp::offset(doc, range.start)?;
@@ -581,6 +608,7 @@ impl App {
                     action: LanguageAction::DiagnosticLocation {
                         document: doc.id,
                         text_epoch: doc.text_epoch(),
+                        resource_epoch: doc.resource_epoch(),
                         range: diagnostic.range,
                     },
                 });
@@ -599,19 +627,6 @@ impl App {
         });
     }
 }
-pub(super) fn content_text(value: &Value) -> String {
-    if let Some(text) = value.as_str() {
-        text.to_owned()
-    } else if let Some(items) = value.as_array() {
-        items
-            .iter()
-            .map(content_text)
-            .collect::<Vec<_>>()
-            .join("\n\n")
-    } else {
-        value["value"].as_str().unwrap_or("").to_owned()
-    }
-}
 
 #[cfg(test)]
 mod diagnostic_tests {
@@ -625,6 +640,7 @@ mod diagnostic_tests {
                 id: 1,
                 revision: 0,
                 text_epoch: 0,
+                resource_epoch: 0,
                 version: 1,
             },
             versioned: true,
@@ -702,6 +718,7 @@ mod diagnostic_tests {
         let action = LanguageAction::DiagnosticLocation {
             document: id,
             text_epoch: epoch,
+            resource_epoch: 0,
             range: lsp::Range {
                 start: lsp::Position {
                     line: 1,

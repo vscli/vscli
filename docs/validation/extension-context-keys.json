@@ -1,0 +1,89 @@
+{
+  "schema": "vscli-extension-context-keys-validation-v1",
+  "base_commit": "0e901ff",
+  "scope": "Public setContext command and native session context integration; every remaining stable API family remains required.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1709,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "dbc960164b909048580feae1e497ca6bbc0cf6cb8b082a18aa1d0081c4424099"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "a26784871385a5e779bb8b63a59820e14b9bb94881da350645376dfb5e7e464b"
+  },
+  "criteria": {
+    "passed": 4,
+    "total": 4,
+    "items": [
+      "Public setContext values, URI normalization, removal and void result before promise completion",
+      "Bounded shared queue, unknown-outcome timeout, malformed receipt and stale owner/session refusal",
+      "Native module/activation context and conditional shortcut use without replacing editor facts",
+      "Native shared identity, edit/save/Undo, restart and terminal invocation trace with required checks"
+    ]
+  },
+  "checks": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --all-targets --locked",
+      "passed": 1659,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 70,
+      "library_passed": 1304,
+      "log": "/tmp/vscli-context-keys-final-rust.log"
+    },
+    {
+      "command": "node --test extension-host/*.test.cjs",
+      "passed": 811,
+      "failed": 0,
+      "new_context_controls": 6,
+      "log": "/tmp/vscli-context-keys-qualified-host.log",
+      "source_cohort_sha256": "a30fadcdface1bb15e1fb445439375caca008d82aa460a0d29458a2d68c66005",
+      "later_delta": "Only the Rust theme test helper changed before the final Rust source cohort; host JavaScript is unchanged."
+    },
+    {
+      "command": "python3 tests/extension_context_keys_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-context-keys-final-pty.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-context-keys-final-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-context-keys-final-build.log"
+    }
+  ],
+  "qualification_conditions": [
+    "Final Rust suite uses four test threads; the preceding default-parallel run timed out in a theme fixture after 1303 other library cases passed. Its failed log remains /tmp/vscli-context-keys-qualified-rust.log.",
+    "The theme helper now waits for actual pending/deferred completion and uses a test-only 30-second watchdog. Production timeouts are unchanged."
+  ],
+  "outstanding": [
+    "Complete native expression parser/coercions and context-key population/scoped hierarchy",
+    "Lifecycle equivalence of global context across extension host restart/failure; current values are session-local",
+    "Other executeCommand targets and the complete stable extension API",
+    "Personal code extension qualification and fresh exact-head platform/release checks"
+  ]
+}

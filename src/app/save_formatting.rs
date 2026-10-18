@@ -1,6 +1,7 @@
 //! One save participant; actual formatter capacity belongs to the LSP client.
 use super::*;
 use crate::{lsp::Request, settings::SaveFormatting};
+use anyhow::Context as _;
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -17,6 +18,7 @@ struct Pending {
     server: Arc<()>,
     document: u64,
     path: PathBuf,
+    resource_epoch: u64,
     revision: u64,
     epoch: u64,
     saved_revision: u64,
@@ -80,8 +82,10 @@ impl App {
                 .iter()
                 .chain(&self.hidden_documents)
                 .any(|doc| {
-                    doc.id == pending.document
+                    !doc.is_read_only()
+                        && doc.id == pending.document
                         && doc.path.as_ref() == Some(&pending.path)
+                        && doc.resource_epoch() == pending.resource_epoch
                         && doc.revision == pending.revision
                         && doc.text_epoch() == pending.epoch
                         && doc.saved_revision == pending.saved_revision
@@ -112,10 +116,11 @@ impl App {
         else {
             return Ok(false);
         };
-        let language = doc
-            .path
-            .as_deref()
-            .map_or("plaintext", crate::languages::language);
+        let language = doc.language_override().unwrap_or_else(|| {
+            doc.path
+                .as_deref()
+                .map_or("plaintext", crate::languages::language)
+        });
         match self.settings.save_formatting(language) {
             SaveFormatting::Off => return Ok(false),
             SaveFormatting::Unavailable(notice) => {
@@ -128,11 +133,8 @@ impl App {
             self.formatting_skip("settings failed to load");
             return Ok(false);
         }
-        if intent.destination.is_some()
-            || doc.path.is_none()
-            || !self.documents.iter().any(|visible| visible.id == doc.id)
-        {
-            self.formatting_skip("first save, Save As and hidden targets are not qualified yet");
+        if intent.destination.is_some() || doc.path.is_none() {
+            self.formatting_skip("first save and Save As are not qualified yet");
             return Ok(false);
         }
         let Some(client) = &mut self.lsp else {
@@ -150,6 +152,7 @@ impl App {
             self.formatting_skip(notice);
             return Ok(false);
         }
+        client.sync_retained(&self.documents, &self.hidden_documents)?;
         let server = client.identity();
         let token = match client.request_document_formatting(doc) {
             Ok(token) => token,
@@ -168,6 +171,7 @@ impl App {
             server,
             document: doc.id,
             path: doc.path.clone().expect("named target checked"),
+            resource_epoch: doc.resource_epoch(),
             revision: doc.revision,
             epoch: doc.text_epoch(),
             saved_revision: doc.saved_revision,
@@ -206,6 +210,7 @@ impl App {
                         .is_some_and(|client| client.request_current(&request))
                     && request.document_id == pending.document
                     && request.text_epoch == pending.epoch
+                    && request.resource_epoch == pending.resource_epoch
             });
         if !current {
             self.retire_save_formatting("document or server ownership changed");
@@ -225,7 +230,15 @@ impl App {
             return;
         }
         self.saving.formatting.active = None;
+        let intent = self
+            .saving
+            .latest
+            .as_ref()
+            .expect("current formatting intent")
+            .id;
+        let mut synchronization_failed = false;
         let result = result.map_err(anyhow::Error::msg).and_then(|edits| {
+            self.check_document_save_intent(intent)?;
             let doc = self
                 .documents
                 .iter_mut()
@@ -233,11 +246,29 @@ impl App {
                 .find(|doc| doc.id == request.document_id)
                 .ok_or_else(|| anyhow::anyhow!("Formatting model retired"))?;
             let changes = crate::save_formatting_edits::stage(doc, &edits)?;
+            let old_epoch = doc.text_epoch();
+            let old_revision = doc.revision;
             doc.apply_changes(changes);
+            self.advance_document_save_owned_edit(intent, old_epoch, old_revision)?;
             self.preview_edit_barrier();
+            // The actual disk worker must capture only after the server has
+            // observed the owned formatting edit on this same retained model.
+            let synchronized = self
+                .lsp
+                .as_mut()
+                .context("Native server disconnected")?
+                .sync_retained(&self.documents, &self.hidden_documents);
+            if let Err(error) = synchronized {
+                synchronization_failed = true;
+                return Err(error);
+            }
             Ok(())
         });
-        if let Some(intent) = &mut self.saving.latest {
+        if synchronization_failed {
+            self.saving.latest = None;
+            self.message =
+                "Save retired; unsaved work retained: formatting synchronization failed".into();
+        } else if let Some(intent) = &mut self.saving.latest {
             intent.stage = saving::Stage::Capture;
         }
         if let Err(error) = result {

@@ -2,6 +2,7 @@
 const { AsyncLocalStorage } = require('node:async_hooks');
 const { Uri, Disposable } = require('./api-types.cjs');
 const { supported } = require('./api.cjs');
+const limits = require('./limits.cjs');
 
 // Only selected immutable descriptors enter this registry. Exports stay in this
 // process; activation replies must never serialize another package's API object.
@@ -10,7 +11,7 @@ function createActivation(items, hooks) {
   const order = [], listeners = new Set();
   let calls = 0;
   function validate(proposed) {
-    if (proposed.size > 8) throw new Error('Extension cohort exceeds eight selected packages');
+    if (proposed.size > limits.packages) throw new Error('Extension cohort exceeds 128 selected packages');
     const done = new Set(), stack = [];
     function visit(id) {
       if (done.has(id)) return;
@@ -28,7 +29,7 @@ function createActivation(items, hooks) {
     for (const item of values) {
       if (proposed.has(item.id)) throw new Error(`Extension snapshot already selected: ${item.id}`);
       const dependencies = item.manifest.extensionDependencies ?? [];
-      if (!Array.isArray(dependencies) || dependencies.length > 8 || dependencies.some(id => typeof id !== 'string' || !/^[\w-]{1,100}\.[\w-]{1,100}$/.test(id))) {
+      if (!Array.isArray(dependencies) || dependencies.length > limits.packages || dependencies.some(id => typeof id !== 'string' || !/^[\w-]{1,100}\.[\w-]{1,100}$/.test(id))) {
         throw new Error(`${item.id}: invalid extension dependencies`);
       }
       proposed.set(item.id, { item, dependencies: [...new Set(dependencies.map(id => id.toLowerCase()))].sort(), state: 'dormant', value: undefined, error: undefined, promise: undefined, facade: undefined });
@@ -64,7 +65,7 @@ function createActivation(items, hooks) {
     if (!entry) throw new Error(`Extension is not selected: ${id}`);
     if (entry.state === 'active') return entry.value;
     if (entry.state === 'failed') throw entry.error;
-    if (calls >= 64) throw new Error('Extension activation call limit exceeded');
+    if (calls >= limits.activationCalls) throw new Error('Extension activation call limit exceeded');
     const release = edge(lineage.getStore(), id);
     calls++;
     try {

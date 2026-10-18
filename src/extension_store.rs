@@ -1,4 +1,7 @@
 //! Native VSIX storage. Installation never executes package code or lifecycle scripts.
+mod directories;
+pub use directories::DirectorySource;
+
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,10 +20,10 @@ const MAX_FILE: u64 = 32 * 1024 * 1024;
 const MAX_MANIFEST: u64 = 1024 * 1024;
 const MAX_ENTRIES: usize = 20_000;
 const MAX_LIST_BYTES: usize = 8 * 1024 * 1024;
-const MAX_LIST_NODES: usize = 50_000;
+const MAX_LIST_NODES: usize = 250_000;
 
 pub fn default_directory() -> Option<PathBuf> {
-    directories::ProjectDirs::from("org", "vscli", "vscli")
+    ::directories::ProjectDirs::from("org", "vscli", "vscli")
         .map(|d| d.data_local_dir().join("extensions"))
 }
 
@@ -33,9 +36,16 @@ pub struct Installed {
     pub source: String,
     pub sha256: String,
     pub compatibility: String,
+    #[serde(default = "enabled_by_default")]
+    pub enabled: bool,
+}
+fn enabled_by_default() -> bool {
+    true
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct Package {
+    #[serde(default = "enabled_by_default")]
+    enabled: bool,
     id: String,
     version: String,
     directory: String,
@@ -132,6 +142,7 @@ impl Store {
             bail!("Installed extension manifest identity changed");
         }
         Ok(Installed {
+            enabled: package.enabled,
             id,
             version,
             path,
@@ -152,7 +163,7 @@ impl Store {
             nodes = nodes.saturating_add(manifest_nodes(&package.manifest));
             if bytes > MAX_LIST_BYTES || nodes > MAX_LIST_NODES {
                 bail!(
-                    "Installed manifest list exceeds the 8 MiB / 50,000 JSON-node metadata budget; use an extension ID directly or remove packages"
+                    "Installed manifest list exceeds the 8 MiB / 250,000 JSON-node metadata budget; use an extension ID directly or remove packages"
                 );
             }
             installed.push(package);
@@ -288,6 +299,10 @@ impl Store {
         let directory = format!("package-{}", uuid::Uuid::new_v4());
         let destination = self.root.join(&directory);
         let package = Package {
+            enabled: registry
+                .packages
+                .get(&id)
+                .is_none_or(|entry| entry.current.enabled),
             id: id.clone(),
             version,
             directory,

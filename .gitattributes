@@ -18,3 +18,9 @@ tests/vscode-reference/** -text
 /tests/vscode-reference/observations/1.95.0/save-configuration-diagnostics/67ab795/win32/**/capture.log whitespace=cr-at-eol
 # Bind the corrected sticky observer to exact source bytes on all platforms.
 /tests/vscode-reference-sticky-monotonic-candidate/** -text
+# Preserve immutable API source/signature hashes across checkout platforms.
+/docs/extension-api/** -text
+# Keep copied sources and generated signature reports out of code-language totals.
+/docs/extension-api/*/current/** linguist-generated=true
+/docs/extension-api/*/upstream/** linguist-vendored=true
+/docs/extension-api/*/*.json linguist-generated=true

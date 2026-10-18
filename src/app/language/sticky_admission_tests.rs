@@ -183,6 +183,7 @@ fn hidden_diagnostic_jump_rejects_real_mru_reservation_without_model_focus_or_ca
         .language_action(&LanguageAction::DiagnosticLocation {
             document: hidden_id,
             text_epoch: hidden_epoch,
+            resource_epoch: 0,
             range: lsp::Range {
                 start: lsp::Position {
                     line: 0,
@@ -232,6 +233,7 @@ fn hidden_diagnostic_jump_rejects_real_mru_reservation_without_model_focus_or_ca
         .language_action(&LanguageAction::DiagnosticLocation {
             document: fixture.b_id,
             text_epoch: current_epoch,
+            resource_epoch: fixture.app.doc().resource_epoch(),
             range: lsp::Range {
                 start: lsp::Position {
                     line: 1,

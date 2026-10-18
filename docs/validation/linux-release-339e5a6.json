@@ -1,0 +1,259 @@
+{
+  "revision": "339e5a60dea032545eddaad53fee083fd99d1001",
+  "archive": "/tmp/vscli-export-release-l0ib4isl/archives/339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "archive_sha256": "cb6fac6634a9dbee50f84f5882e4f673885e96104146fd40242d6348a4c39cd1",
+  "archive_bytes": 11503117,
+  "extracted_binary": "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli",
+  "binary_sha256": "e9d21f94ce14c26344f38600a00eb2d5515e743143ca403e5aaf5d0d983f75d0",
+  "checksums_and_revision_verified": true,
+  "licenses_and_dependency_notices": "present",
+  "source_clean": true,
+  "extracted_no_node_doctor": "passed",
+  "doctor_log": "/tmp/vscli-password-release-doctor.log",
+  "release_tag_created": false,
+  "published": false,
+  "schema": "vscli-local-release-rehearsal-v1",
+  "build_log": "/tmp/vscli-password-release-build.log",
+  "package_log": "/tmp/vscli-password-release-package.log",
+  "terminal_checks": [
+    {
+      "script": "tests/pty_smoke.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/pty_smoke.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-pty_smoke.log",
+      "passed_scenarios": 35
+    },
+    {
+      "script": "tests/migration_blockers_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/migration_blockers_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-migration_blockers_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/exported_profile_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/exported_profile_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-exported_profile_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/profile_migration_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/profile_migration_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-profile_migration_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/builtin_profile_migration_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/builtin_profile_migration_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-builtin_profile_migration_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/portable_profile_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/portable_profile_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-portable_profile_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/extension_editor_eol_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_eol_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_editor_eol_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/extension_editor_position_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_position_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_editor_position_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/extension_editor_undo_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_undo_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_editor_undo_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/extension_editor_set_eol_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_set_eol_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_editor_set_eol_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/extension_configuration_update_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_configuration_update_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_configuration_update_pty.log",
+      "passed_scenarios": 3
+    },
+    {
+      "script": "tests/extension_clipboard_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_clipboard_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_clipboard_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/extension_manifest_labels_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_manifest_labels_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_manifest_labels_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/extension_context_keys_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_context_keys_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_context_keys_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/native_configuration_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/native_configuration_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-native_configuration_pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "script": "tests/extension_editor_snippets_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_snippets_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_editor_snippets_pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "script": "tests/extension_documents_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_documents_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_documents_pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "script": "tests/imported_appearance_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/imported_appearance_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-imported_appearance_pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "script": "tests/extension_prompts_pty.py",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_prompts_pty.py",
+        "/tmp/vscli-export-release-l0ib4isl/unpacked-339e5a6/vscli-0.1.0-x86_64-unknown-linux-gnu/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-339-release-extension_prompts_pty.log",
+      "passed_scenarios": 4
+    }
+  ],
+  "total_terminal_scenarios_passed": 72,
+  "clipboard_isolation": "Private synthetic helper executables and data files; personal OS clipboard was not accessed",
+  "previous_receipt": "/tmp/vscli-export-release-l0ib4isl/receipt-8b6910c.json",
+  "preserved_previous_archive": "/tmp/vscli-export-release-l0ib4isl/archives/8b6910c/vscli-0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "preserved_user_release_binary_sha256": "0327d581a1ea84e0523614bdf8e99afddd00ce5ac38c1732ae30fa6861138d6c",
+  "platform_qualification": "Fresh actual Windows verified-window control and complete exact-head platform CI pending",
+  "outstanding": [
+    "Whole stable API and seamless personal extension/proposed API/visual/configuration/account/storage migration",
+    "Windows/macOS release artifacts",
+    "Reviewed version and publication gates"
+  ]
+}

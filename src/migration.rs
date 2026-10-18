@@ -1,4 +1,11 @@
 //! Read-only migration preview and atomic activation of versioned imported profile copies.
+pub mod application;
+pub mod discovery;
+pub mod export;
+pub mod packages;
+#[cfg(test)]
+mod profile_tests;
+
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -13,17 +20,25 @@ const MAX_TOTAL: usize = 16 * MAX_FILE;
 #[derive(Serialize)]
 pub struct Report {
     pub source: PathBuf,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<discovery::Source>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<packages::Inventory>,
+    pub unresolved_extensions: Vec<String>,
     pub files: Vec<PathBuf>,
     pub bytes: usize,
     pub notices: Vec<String>,
     pub activated_profile: Option<PathBuf>,
+    pub extensions_imported: usize,
+    pub extensions_execution_enabled: usize,
 }
 pub struct Preview {
     pub report: Report,
     files: Vec<(PathBuf, Vec<u8>)>,
     theme: Option<(String, PathBuf)>,
+    source_roots: Vec<PathBuf>,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Active {
     schema: u32,
     profile: String,
@@ -72,17 +87,55 @@ pub fn preview_with_extensions(
     profile: crate::keys::Profile,
     extensions: Option<&Path>,
 ) -> Result<Preview> {
+    preview_layout(source, profile, extensions, None, None)
+}
+pub fn preview_profile(
+    source: &discovery::Source,
+    profile: crate::keys::Profile,
+) -> Result<Preview> {
+    if source.user.is_file() {
+        return export::preview_source(source, profile);
+    }
+    let inventory = packages::inventory(source)?;
+    let mut preview = preview_layout(
+        &source.user,
+        profile,
+        Some(&source.extensions),
+        Some(source.clone()),
+        Some(&inventory),
+    )?;
+    preview.report.extensions = Some(inventory);
+    if let Some(application) = &source.application {
+        preview.source_roots.push(application.root.clone());
+    }
+    Ok(preview)
+}
+fn preview_layout(
+    source: &Path,
+    profile: crate::keys::Profile,
+    extensions: Option<&Path>,
+    layout: Option<discovery::Source>,
+    inventory: Option<&packages::Inventory>,
+) -> Result<Preview> {
     let source = fs::canonicalize(source).context("Cannot open VS Code User directory")?;
     if !source.is_dir() {
         bail!("VS Code User path must be a directory");
     }
+    let directory = |kind: &str| {
+        layout
+            .as_ref()
+            .map_or(source.as_path(), |layout| layout.resource_directory(kind))
+    };
     let mut paths = Vec::new();
-    for name in ["settings.json", "keybindings.json"] {
-        if source.join(name).is_file() {
+    for name in ["settings.json", "keybindings.json", "tasks.json"] {
+        if directory(name.strip_suffix(".json").unwrap())
+            .join(name)
+            .is_file()
+        {
             paths.push(PathBuf::from(name));
         }
     }
-    let snippets = source.join("snippets");
+    let snippets = directory("snippets").join("snippets");
     let mut snippet_count = 0;
     if snippets.is_dir() {
         for (index, entry) in fs::read_dir(&snippets)?.enumerate() {
@@ -105,7 +158,7 @@ pub fn preview_with_extensions(
             }
         }
     }
-    if paths.is_empty() {
+    if paths.is_empty() && layout.is_none() {
         bail!(
             "No settings.json, keybindings.json or snippet files in {}",
             source.display()
@@ -115,19 +168,37 @@ pub fn preview_with_extensions(
     let mut result = Preview {
         report: Report {
             source: source.clone(),
+            profile: layout.clone(),
+            extensions: None,
+            unresolved_extensions: Vec::new(),
             files: paths.clone(),
             bytes: 0,
             notices: Vec::new(),
             activated_profile: None,
+            extensions_imported: 0,
+            extensions_execution_enabled: 0,
         },
         files: Vec::new(),
         theme: None,
+        source_roots: vec![
+            layout
+                .as_ref()
+                .map_or(source.clone(), |layout| layout.default_user.clone()),
+        ],
     };
     let mut selected_theme = None;
-    let native = crate::keys::Keymap::new(profile);
+    let _profile = profile;
+    let native_commands = crate::app::native_command_ids();
     for path in paths {
+        let kind = if path.starts_with("snippets") {
+            "snippets"
+        } else {
+            path.file_stem()
+                .and_then(|name| name.to_str())
+                .unwrap_or("")
+        };
         let bytes = read(
-            &source.join(&path),
+            &directory(kind).join(&path),
             MAX_FILE.min(MAX_TOTAL.saturating_sub(result.report.bytes)),
         )?;
         result.report.bytes += bytes.len();
@@ -154,15 +225,18 @@ pub fn preview_with_extensions(
                     result.report.notices.push(format!("Keybinding {:?} is preserved but skipped by the native resolver: {error:#}", binding.key));
                 }
                 let command = binding.command.trim_start_matches('-');
-                if !native.bindings.iter().any(|rule| rule.command == command)
-                    && !crate::app::COMMANDS.iter().any(|(_, id)| *id == command)
-                {
+                if !native_commands.iter().any(|id| id == command) {
                     result.report.notices.push(format!(
                         "Keybinding command {command:?} has no native implementation; preserved"
                     ));
                 }
             }
             result.report.notices.push("Imported shortcut contexts and physical terminal delivery require qualification; preserving a rule does not implement its command".into());
+        } else if path == Path::new("tasks.json") {
+            if !value.is_object() {
+                bail!("tasks.json must contain an object");
+            }
+            result.report.notices.push("User tasks.json is preserved; native task execution currently reads workspace .vscode/tasks.json".into());
         } else if !value.is_object() {
             bail!("Snippet file {} must contain an object", path.display());
         }
@@ -173,7 +247,30 @@ pub fn preview_with_extensions(
             directories::BaseDirs::new().map(|dirs| dirs.home_dir().join(".vscode/extensions"));
         let directory = extensions.or(default_extensions.as_deref());
         if let Some(directory) = directory {
-            match snapshot_theme(directory, &name) {
+            let snapshot = if let Some(inventory) = inventory {
+                snapshot_package_themes(
+                    inventory
+                        .selected
+                        .iter()
+                        .filter(|package| package.enabled)
+                        .map(|package| package.path.clone())
+                        .collect(),
+                    &name,
+                )
+                .and_then(|found| {
+                    // An explicit unpacked theme directory remains a supported
+                    // data-only source when no authoritative user index exists.
+                    // This fallback never registers or executes package code.
+                    if found.is_none() && !inventory.index.exists() {
+                        snapshot_theme(directory, &name)
+                    } else {
+                        Ok(found)
+                    }
+                })
+            } else {
+                snapshot_theme(directory, &name)
+            };
+            match snapshot {
                 Ok(Some((relative, files, warnings))) => {
                     result.report.notices.extend(warnings);
                     for (path, bytes) in files {
@@ -190,17 +287,100 @@ pub fn preview_with_extensions(
             }
         }
     }
-    result.report.notices.push("Original files and unknown settings are retained byte-for-byte. Extension code, profiles, accounts and sync are not executed or imported by this operation.".into());
+    result.report.notices.push("Original files and unknown settings are retained byte-for-byte. Registered extension inventory is separate from package import and explicit code activation; accounts and sync are not imported.".into());
     Ok(result)
+}
+#[derive(Clone, Copy, Default)]
+pub struct ApplyOptions {
+    pub import_extensions: bool,
+    pub activate_extensions: bool,
+}
+#[derive(Serialize, Deserialize)]
+struct Previous {
+    schema: u32,
+    pointer: Option<Active>,
+}
+struct ImportLease(fs::File);
+impl Drop for ImportLease {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
+fn import_lease(root: &Path) -> Result<ImportLease> {
+    fs::create_dir_all(root)?;
+    let path = root.join(".migration.lock");
+    if fs::symlink_metadata(&path).is_ok_and(|metadata| !metadata.is_file()) {
+        bail!("Migration lease must be a regular file");
+    }
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(path)?;
+    file.try_lock()
+        .context("Another migration or rollback is running")?;
+    Ok(ImportLease(file))
 }
 impl Preview {
     /// Prepare every file before activating the profile with a single atomic pointer replacement.
-    pub fn apply(mut self, root: &Path) -> Result<Report> {
+    pub fn apply(self, root: &Path) -> Result<Report> {
+        self.apply_controlled(
+            root,
+            ApplyOptions::default(),
+            &std::sync::atomic::AtomicBool::new(false),
+            &mut |_, _, _| {},
+        )
+    }
+    pub fn apply_controlled(
+        mut self,
+        root: &Path,
+        options: ApplyOptions,
+        cancel: &std::sync::atomic::AtomicBool,
+        progress: &mut dyn FnMut(usize, usize, &str),
+    ) -> Result<Report> {
+        if options.activate_extensions && !options.import_extensions {
+            bail!("Code activation requires extension import");
+        }
+        if options.import_extensions && !self.report.unresolved_extensions.is_empty() {
+            bail!(
+                "Exported extensions are unresolved; no profile was activated:\n{}",
+                self.report.unresolved_extensions.join("\n")
+            );
+        }
+        if options.activate_extensions {
+            let blocked: Vec<_> = self
+                .report
+                .extensions
+                .iter()
+                .flat_map(|inventory| &inventory.selected)
+                .filter(|package| package.code && package.enabled)
+                .flat_map(|package| {
+                    package
+                        .runtime_blockers
+                        .iter()
+                        .map(|reason| format!("{}: {reason}", package.id))
+                })
+                .collect();
+            if !blocked.is_empty() {
+                bail!(
+                    "Imported code activation is blocked; the active profile was not changed. Copy without code activation to retain the packages:\n{}",
+                    blocked.join("\n")
+                );
+            }
+        }
         let root = destination_path(root)?;
-        if root.starts_with(&self.report.source) {
+        if self
+            .source_roots
+            .iter()
+            .any(|source| root.starts_with(source))
+        {
             bail!("Import destination must be outside the original VS Code User directory");
         }
-        fs::create_dir_all(&root)?;
+        let _lease = import_lease(&root)?;
+        let previous = read_active_pointer(&root)?;
+        // Validate the current profile before creating a new activation chain.
+        active_directory(&root)?;
         let imports = root.join("imports");
         if imports.exists() || fs::symlink_metadata(&imports).is_ok() {
             managed_directory(&imports)?;
@@ -219,6 +399,52 @@ impl Preview {
                 .open(path)?;
             file.write_all(bytes)?;
             file.sync_all()?;
+        }
+        if options.import_extensions {
+            let inventory = self
+                .report
+                .extensions
+                .as_ref()
+                .context("Preview has no registered extension inventory")?;
+            // Refuse an unsupported explicit execution cohort before copying
+            // any package payload; the active profile remains untouched.
+            let mut preferences = crate::extension_activation::Preferences::default();
+            for package in &inventory.selected {
+                if package.code && options.activate_extensions && package.enabled {
+                    preferences.set(&package.id, true)?;
+                    self.report.extensions_execution_enabled += 1;
+                }
+            }
+            let grants = serde_json::to_vec_pretty(&preferences)?;
+            let sources: Vec<_> = inventory
+                .selected
+                .iter()
+                .map(|package| crate::extension_store::DirectorySource {
+                    enabled: package.enabled,
+                    path: package.path.clone(),
+                    id: package.id.clone(),
+                    version: package.version.clone(),
+                    manifest_sha256: package.manifest_sha256.clone(),
+                })
+                .collect();
+            let store = crate::extension_store::Store::new(staging.path().join("extensions"));
+            let installed = store.import_directories(&sources, cancel, progress)?;
+            self.report.extensions_imported = installed.len();
+            write_new(&staging.path().join("extensions-enabled.json"), &grants)?;
+            write_new(
+                &staging.path().join("extension-migration.json"),
+                &serde_json::to_vec_pretty(inventory)?,
+            )?;
+        }
+        write_new(
+            &staging.path().join("previous-profile.json"),
+            &serde_json::to_vec(&Previous {
+                schema: 1,
+                pointer: previous,
+            })?,
+        )?;
+        if cancel.load(std::sync::atomic::Ordering::Acquire) {
+            bail!("Migration canceled before profile activation");
         }
         let id = uuid::Uuid::new_v4().to_string();
         let destination = imports.join(&id);
@@ -243,6 +469,68 @@ impl Preview {
         Ok(self.report)
     }
 }
+fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
+    let mut file = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()?;
+    Ok(())
+}
+fn read_active_pointer(root: &Path) -> Result<Option<Active>> {
+    let path = root.join("active-profile.json");
+    if !path.try_exists()? {
+        return Ok(None);
+    }
+    let active: Active = serde_json::from_slice(&read(&path, 4096)?)?;
+    if active.schema != 1
+        || active.profile.len() != 36
+        || uuid::Uuid::parse_str(&active.profile).is_err()
+    {
+        bail!("Invalid imported-profile pointer");
+    }
+    Ok(Some(active))
+}
+pub fn rollback(root: &Path) -> Result<PathBuf> {
+    let root = destination_path(root)?;
+    let _lease = import_lease(&root)?;
+    let current = read_active_pointer(&root)?.context("No imported profile is active")?;
+    let directory = active_directory(&root)?;
+    let previous: Previous =
+        serde_json::from_slice(&read(&directory.join("previous-profile.json"), 4096)?)?;
+    if previous.schema != 1 {
+        bail!("Unsupported previous-profile schema");
+    }
+    if let Some(pointer) = previous.pointer {
+        if pointer.schema != 1
+            || pointer.profile.len() != 36
+            || uuid::Uuid::parse_str(&pointer.profile).is_err()
+            || pointer.profile == current.profile
+        {
+            bail!("Invalid previous profile");
+        }
+        let imports = root.join("imports");
+        managed_directory(&imports)?;
+        let previous = imports.join(&pointer.profile);
+        managed_directory(&previous)?;
+        let mut temporary = tempfile::NamedTempFile::new_in(&root)?;
+        temporary.write_all(&serde_json::to_vec_pretty(&pointer)?)?;
+        temporary.as_file().sync_all()?;
+        temporary
+            .persist(root.join("active-profile.json"))
+            .map_err(|error| error.error)?;
+        Ok(previous)
+    } else {
+        fs::remove_file(root.join("active-profile.json"))?;
+        Ok(root)
+    }
+}
+pub fn imported_extensions_directory(profile: &Path) -> Option<PathBuf> {
+    let path = profile.join("extensions");
+    path.join("registry.json").is_file().then_some(path)
+}
+
 fn managed_directory(path: &Path) -> Result<()> {
     if !fs::symlink_metadata(path)?.file_type().is_dir() {
         bail!(
@@ -303,8 +591,15 @@ fn snapshot_theme(directory: &Path, selected: &str) -> Result<Option<ThemeSnapsh
             bail!("Theme discovery exceeds 128 extension packages");
         }
     }
+    snapshot_package_themes(packages, selected)
+}
+fn snapshot_package_themes(
+    mut packages: Vec<PathBuf>,
+    selected: &str,
+) -> Result<Option<ThemeSnapshot>> {
     packages.sort();
     let mut manifest_bytes = 0;
+    let mut defaults = crate::extension_manifest::Defaults::default();
     for package in packages {
         let manifest_path = package.join("package.json");
         if !manifest_path.is_file() {
@@ -325,6 +620,7 @@ fn snapshot_theme(directory: &Path, selected: &str) -> Result<Option<ThemeSnapsh
             Ok(manifest) => manifest,
             Err(_) => continue,
         };
+        let manifest = defaults.localize(&package, &manifest);
         let Some(themes) = manifest
             .pointer("/contributes/themes")
             .and_then(Value::as_array)
@@ -613,7 +909,7 @@ mod tests {
             fs::read_to_string(target.join("active-profile.json/sentinel")).unwrap(),
             "untouched"
         );
-        for entry in fs::read_dir(target.join("imports")).unwrap() {
+        for entry in fs::read_dir(target.join("imports")).into_iter().flatten() {
             let entry = entry.unwrap();
             assert!(!entry.file_name().to_string_lossy().starts_with(".staging-"));
             assert_eq!(

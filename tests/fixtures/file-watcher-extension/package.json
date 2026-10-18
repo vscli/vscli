@@ -1,0 +1,37 @@
+{
+  "publisher": "test",
+  "name": "file-watcher",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "engines": {
+    "vscode": "*"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "watch.arm",
+        "title": "Watch files arm"
+      },
+      {
+        "command": "watch.dispose",
+        "title": "Watch files dispose"
+      },
+      {
+        "command": "watch.verify",
+        "title": "Watch files verify"
+      },
+      {
+        "command": "watch.clean",
+        "title": "Watch files clean identity"
+      },
+      {
+        "command": "watch.change",
+        "title": "Watch files await change"
+      },
+      {
+        "command": "watch.delete",
+        "title": "Watch files await delete"
+      }
+    ]
+  }
+}

@@ -123,8 +123,9 @@ remains unqualified. Directory-sync failures after successful persistence are
 reported as durability warnings. Advisory locking cannot exclude an
 uncooperative writer racing the final filesystem check and rename.
 
-Settings patches and ordinary native saves cooperate via the same canonical
-`.vscli-write.lock` protocol, but each has its own one-worker lane. There is no
+Settings patches and ordinary native saves share a canonical-resource lock in
+memory, matching the resource-map approach in VS Code's disk provider. No
+persistent save-lock file is created. Each still has its own one-worker lane. There is no
 global one-worker claim across the two. Successful document commits force a
 fresh settings-loader read, including after a profile change.
 
@@ -190,3 +191,18 @@ platform requirement is satisfied for that head. PR #64 subsequently qualified
 head `6ceac94b7c28038feaf0ee9abf4fdcb6e93435e3` in run 38032272972,
 including the long-workspace-path notice regression, before its protected-main
 merge. Neither result qualifies later source-action changes automatically.
+
+
+## Admission evidence and actual save effects
+
+macOS main CI at `4d69f8d` captured an explicit `source.organizeImports` provider
+request but retained `imports=0` after Save in `object-fixall-first`. The policy
+consumer incorrectly inferred non-admission from that missing applied marker.
+The exact artifact reproduces the failure locally. The comparison now uses an
+exact kind request or an actual applied kind as positive admission evidence; a
+broad parent query alone does not establish child inclusion. Original captured
+source, outputs and the separately named 52 text/history snapshots plus six
+after-delay snapshots remain intact. All 31 nonignored reference consumer tests
+pass against the same macOS artifact (three ignored). The cause of the upstream
+combined-action application difference remains unresolved; this test repair does
+not qualify combined-effect parity. [Evidence](validation/save-policy-admission.json).

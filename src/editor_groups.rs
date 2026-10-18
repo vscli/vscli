@@ -117,6 +117,7 @@ impl UiProof {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GroupProof {
+    owner: std::sync::Arc<()>,
     group: GroupId,
     generation: u64,
     members: Vec<Membership>,
@@ -159,6 +160,8 @@ pub struct Change {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Groups {
+    owner: std::sync::Arc<()>,
+    retain_empty: bool,
     groups: Vec<Group>,
     active: Option<GroupId>,
     generation: u64,
@@ -170,6 +173,8 @@ pub struct Groups {
 impl Default for Groups {
     fn default() -> Self {
         Self {
+            owner: std::sync::Arc::new(()),
+            retain_empty: false,
             groups: Vec::new(),
             active: None,
             generation: 0,
@@ -196,6 +201,29 @@ fn increment(value: u64, what: &str) -> Result<u64> {
         .with_context(|| format!("Editor-group {what} exhausted"))
 }
 impl Groups {
+    /// Native workbench mode owns an actual empty group, including Welcome.
+    /// The legacy pure trace engine keeps Default's historical zero-group mode.
+    pub fn with_empty_group() -> Self {
+        Self {
+            retain_empty: true,
+            groups: vec![Group {
+                id: GroupId(1),
+                tabs: Vec::new(),
+                active: TabId(0),
+                recent: Vec::new(),
+                membership_generation: 0,
+                preview: None,
+                sticky_count: 0,
+            }],
+            active: Some(GroupId(1)),
+            next_group: 2,
+            recent_groups: vec![GroupId(1)],
+            ..Self::default()
+        }
+    }
+    pub(crate) fn lifetime(&self) -> std::sync::Arc<()> {
+        self.owner.clone()
+    }
     /// Actual activation order, independent of sequential layout order.
     pub fn group_mru(&self) -> &[GroupId] {
         &self.recent_groups
@@ -242,13 +270,15 @@ impl Groups {
     /// Called only after validated open/focus/close/split publication. Front
     /// no-ops do no allocation or shifting; mode-only changes never call it.
     fn touch_active(&mut self) {
+        if let Some(id) = self.active
+            && self.recent_groups.first() != Some(&id)
+        {
+            self.recent_groups.retain(|group| *group != id);
+            self.recent_groups.insert(0, id);
+        }
         let Some(member) = self.active_membership() else {
             return;
         };
-        if self.recent_groups.first() != Some(&member.group) {
-            self.recent_groups.retain(|group| *group != member.group);
-            self.recent_groups.insert(0, member.group);
-        }
         if self.recent_memberships.first() != Some(&member) {
             self.recent_memberships.retain(|current| *current != member);
             self.recent_memberships.insert(0, member);
@@ -304,21 +334,23 @@ impl Groups {
     pub fn group_proof(&self, id: GroupId) -> Result<GroupProof> {
         let group = self.group(id).context("Editor group was closed")?;
         Ok(GroupProof {
+            owner: self.owner.clone(),
             group: id,
             generation: group.membership_generation,
             members: group.tabs.iter().map(|tab| group.membership(tab)).collect(),
         })
     }
     pub fn group_proof_current(&self, proof: &GroupProof) -> bool {
-        self.group(proof.group).is_some_and(|group| {
-            group.membership_generation == proof.generation
-                && group.tabs.len() == proof.members.len()
-                && group
-                    .tabs
-                    .iter()
-                    .zip(&proof.members)
-                    .all(|(tab, member)| group.membership(tab) == *member)
-        })
+        std::sync::Arc::ptr_eq(&self.owner, &proof.owner)
+            && self.group(proof.group).is_some_and(|group| {
+                group.membership_generation == proof.generation
+                    && group.tabs.len() == proof.members.len()
+                    && group
+                        .tabs
+                        .iter()
+                        .zip(&proof.members)
+                        .all(|(tab, member)| group.membership(tab) == *member)
+            })
     }
     pub fn membership_current(&self, member: Membership) -> bool {
         self.locate(member).is_ok()
@@ -561,8 +593,7 @@ impl Groups {
                 .tabs
                 .iter()
                 .position(|tab| tab.id == group.active)
-                .unwrap()
-                + 1;
+                .map_or(0, |position| position + 1);
             position = position.max(group.sticky_count);
             if let Some(old) = admission.replacement {
                 let member = group.membership(&group.tabs[old]);
@@ -734,7 +765,23 @@ impl Groups {
     }
     pub fn focus_group(&mut self, id: GroupId) -> Result<Change> {
         let group = self.group(id).context("Editor group was closed")?;
-        self.focus(group.membership(group.active().expect("nonempty group")))
+        if let Some(tab) = group.active() {
+            return self.focus(group.membership(tab));
+        }
+        if self.active == Some(id) {
+            return Ok(self.unchanged());
+        }
+        let generation = increment(self.generation, "interaction generation")?;
+        let previous = self.active_membership();
+        self.active = Some(id);
+        self.touch_active();
+        self.generation = generation;
+        Ok(Change {
+            changed: true,
+            previous,
+            active: None,
+            ..Change::default()
+        })
     }
     pub fn focus(&mut self, member: Membership) -> Result<Change> {
         let (index, _) = self.locate(member)?;
@@ -772,11 +819,21 @@ impl Groups {
             Navigate::Next if tab + 1 < self.groups[group].tabs.len() => tab += 1,
             Navigate::Previous if tab > 0 => tab -= 1,
             Navigate::Next => {
-                group = (group + 1) % self.groups.len();
+                for _ in 0..self.groups.len() {
+                    group = (group + 1) % self.groups.len();
+                    if !self.groups[group].tabs.is_empty() {
+                        break;
+                    }
+                }
                 tab = 0;
             }
             Navigate::Previous => {
-                group = (group + self.groups.len() - 1) % self.groups.len();
+                for _ in 0..self.groups.len() {
+                    group = (group + self.groups.len() - 1) % self.groups.len();
+                    if !self.groups[group].tabs.is_empty() {
+                        break;
+                    }
+                }
                 tab = self.groups[group].tabs.len() - 1;
             }
         }
@@ -849,7 +906,8 @@ impl Groups {
     pub fn close(&mut self, member: Membership) -> Result<Change> {
         let (index, tab) = self.locate(member)?;
         let generation = increment(self.generation, "interaction generation")?;
-        let remove_group = self.groups[index].tabs.len() == 1;
+        let remove_group =
+            self.groups[index].tabs.len() == 1 && !(self.retain_empty && self.groups.len() == 1);
         let membership_generation = if remove_group {
             None
         } else {
@@ -870,7 +928,7 @@ impl Groups {
             }
             group.recent.retain(|id| *id != member.tab);
             if group.active == member.tab {
-                group.active = group.recent[0];
+                group.active = group.recent.first().copied().unwrap_or(TabId(0));
             }
             group.membership_generation = membership_generation.unwrap();
         }
@@ -895,13 +953,45 @@ impl Groups {
             self.group_proof_current(proof),
             "Editor group membership changed"
         );
-        let generation = increment(self.generation, "interaction generation")?;
-        let previous = self.active_membership();
         let index = self
             .groups
             .iter()
             .position(|group| group.id == proof.group)
             .unwrap();
+        if self.retain_empty && self.groups.len() == 1 {
+            if self.groups[index].tabs.is_empty() {
+                return Ok(self.unchanged());
+            }
+            let generation = increment(self.generation, "interaction generation")?;
+            let membership_generation = increment(
+                self.groups[index].membership_generation,
+                "membership generation",
+            )?;
+            let previous = self.active_membership();
+            let removed = self.groups[index]
+                .tabs
+                .iter()
+                .map(|tab| self.groups[index].membership(tab))
+                .collect();
+            let group = &mut self.groups[index];
+            group.tabs.clear();
+            group.recent.clear();
+            group.active = TabId(0);
+            group.preview = None;
+            group.sticky_count = 0;
+            group.membership_generation = membership_generation;
+            self.recent_memberships.clear();
+            self.generation = generation;
+            return Ok(Change {
+                changed: true,
+                previous,
+                active: None,
+                removed,
+                ..Change::default()
+            });
+        }
+        let generation = increment(self.generation, "interaction generation")?;
+        let previous = self.active_membership();
         let removed = self.remove_group(index);
         self.touch_active();
         self.generation = generation;
@@ -956,7 +1046,8 @@ impl Groups {
             return Ok(self.unchanged());
         }
         let generation = increment(self.generation, "interaction generation")?;
-        let remove_group = selected.len() == self.groups[index].tabs.len();
+        let remove_group = selected.len() == self.groups[index].tabs.len()
+            && !(self.retain_empty && self.groups.len() == 1);
         let membership_generation = if remove_group {
             None
         } else {
@@ -982,7 +1073,7 @@ impl Groups {
                 group.preview = None;
             }
             if selected.contains(&group.active) {
-                group.active = group.recent[0];
+                group.active = group.recent.first().copied().unwrap_or(TabId(0));
             }
             group.membership_generation = membership_generation.unwrap();
             self.recent_memberships
@@ -1009,6 +1100,24 @@ impl Groups {
             restored.len() <= MAX_GROUPS,
             "Editor group limit reached (4)"
         );
+        let empty = [RestoreGroup {
+            documents: Vec::new(),
+            active: 0,
+            recent: Vec::new(),
+        }];
+        if self.retain_empty
+            && restored.is_empty()
+            && self.groups.len() == 1
+            && self.groups[0].tabs.is_empty()
+        {
+            ensure!(active_group == 0, "Invalid empty editor-group layout");
+            return Ok(self.unchanged());
+        }
+        let restored = if self.retain_empty && restored.is_empty() {
+            &empty[..]
+        } else {
+            restored
+        };
         if restored.is_empty() {
             ensure!(active_group == 0, "Invalid empty editor-group layout");
             if self.groups.is_empty() {
@@ -1020,7 +1129,8 @@ impl Groups {
         let mut count = 0;
         for group in restored {
             ensure!(
-                !group.documents.is_empty() && group.documents.len() <= MAX_TABS_PER_GROUP,
+                (!group.documents.is_empty() || self.retain_empty)
+                    && group.documents.len() <= MAX_TABS_PER_GROUP,
                 "Editor group requires 1–128 tabs"
             );
             let mut documents = HashSet::new();
@@ -1032,13 +1142,15 @@ impl Groups {
                 "Invalid or duplicate group document identity"
             );
             ensure!(
-                group.active < group.documents.len(),
+                group.active < group.documents.len()
+                    || (self.retain_empty && group.documents.is_empty() && group.active == 0),
                 "Invalid active editor tab"
             );
             let mut recent = HashSet::new();
             ensure!(
                 group.recent.len() == group.documents.len()
-                    && group.recent.first() == Some(&group.active)
+                    && (group.recent.first() == Some(&group.active)
+                        || (self.retain_empty && group.documents.is_empty()))
                     && group
                         .recent
                         .iter()
@@ -1079,7 +1191,7 @@ impl Groups {
                     tab
                 })
                 .collect();
-            let active = tabs[restored.active].id;
+            let active = tabs.get(restored.active).map_or(TabId(0), |tab| tab.id);
             let recent = restored
                 .recent
                 .iter()
@@ -2518,5 +2630,136 @@ mod tests {
         assert_eq!(groups.membership_mru().len(), MAX_MEMBERSHIPS);
         assert_eq!(groups.membership_mru()[0].document, 10000);
         invariant(&groups);
+    }
+}
+
+#[cfg(test)]
+mod empty_workbench_tests {
+    use super::*;
+    #[test]
+    fn native_welcome_group_is_real_and_last_close_keeps_its_identity() {
+        let mut groups = Groups::with_empty_group();
+        let id = groups.active_group().unwrap();
+        assert_eq!(groups.groups().len(), 1);
+        assert_eq!(groups.group(id).unwrap().tabs().len(), 0);
+        assert!(groups.active_membership().is_none());
+        let empty = groups.group_proof(id).unwrap();
+        let change = groups.open(7).unwrap();
+        assert!(change.created_groups.is_empty());
+        let member = change.active.unwrap();
+        assert_eq!(member.group, id);
+        assert!(!groups.group_proof_current(&empty));
+        let change = groups.close(member).unwrap();
+        assert_eq!(change.removed, vec![member]);
+        assert!(change.removed_groups.is_empty());
+        assert_eq!(groups.active_group(), Some(id));
+        assert!(groups.group(id).unwrap().tabs().is_empty());
+        assert!(!groups.membership_current(member));
+        let fresh = groups.open(7).unwrap().active.unwrap();
+        assert_eq!(fresh.group, id);
+        assert_ne!(fresh.tab, member.tab);
+        let proof = groups.group_proof(id).unwrap();
+        let change = groups.close_group(&proof).unwrap();
+        assert!(change.removed_groups.is_empty());
+        assert_eq!(groups.group(id).unwrap().tabs().len(), 0);
+        let proof = groups.group_proof(id).unwrap();
+        let before = groups.clone();
+        assert!(!groups.close_group(&proof).unwrap().changed);
+        assert_eq!(groups, before);
+    }
+    #[test]
+    fn native_import_empty_focus_and_navigation_have_no_phantom_membership() {
+        let mut groups = Groups::with_empty_group();
+        groups
+            .import(
+                &[
+                    RestoreGroup {
+                        documents: vec![7],
+                        active: 0,
+                        recent: vec![0],
+                    },
+                    RestoreGroup {
+                        documents: Vec::new(),
+                        active: 0,
+                        recent: Vec::new(),
+                    },
+                    RestoreGroup {
+                        documents: vec![8],
+                        active: 0,
+                        recent: vec![0],
+                    },
+                ],
+                0,
+            )
+            .unwrap();
+        let middle = groups.groups()[1].id();
+        let right = groups.groups()[2].id();
+        groups.navigate(Navigate::Next).unwrap();
+        assert_eq!(groups.active_group(), Some(right));
+        assert!(groups.focus_group(middle).unwrap().changed);
+        assert_eq!(groups.active_group(), Some(middle));
+        assert!(groups.active_membership().is_none());
+        assert_eq!(groups.group_mru().first(), Some(&middle));
+        groups.open(9).unwrap();
+        assert_eq!(groups.active_membership().unwrap().document, 9);
+        let change = groups.import(&[], 0).unwrap();
+        assert_eq!(change.created_groups.len(), 1);
+        assert_eq!(groups.groups().len(), 1);
+        assert!(groups.groups()[0].tabs().is_empty());
+        assert!(groups.active_group().is_some());
+        let before = groups.clone();
+        assert!(!groups.import(&[], 0).unwrap().changed);
+        assert_eq!(groups, before);
+    }
+    #[test]
+    fn retained_empty_close_clocks_and_late_import_validation_are_atomic() {
+        let mut groups = Groups::with_empty_group();
+        let member = groups.open(7).unwrap().active.unwrap();
+        groups.fixture_exhaust_membership_generation(member.group);
+        let before = groups.clone();
+        assert!(groups.close(member).is_err());
+        assert_eq!(groups, before);
+        let proof = groups.group_proof(member.group).unwrap();
+        assert!(groups.close_group(&proof).is_err());
+        assert_eq!(groups, before);
+        assert!(
+            groups
+                .import(
+                    &[
+                        RestoreGroup {
+                            documents: Vec::new(),
+                            active: 0,
+                            recent: Vec::new()
+                        },
+                        RestoreGroup {
+                            documents: Vec::new(),
+                            active: 1,
+                            recent: Vec::new()
+                        }
+                    ],
+                    0
+                )
+                .is_err()
+        );
+        assert_eq!(groups, before);
+        let other = Groups::with_empty_group();
+        assert!(!other.group_proof_current(&proof));
+        let mut cloned = groups.clone();
+        assert!(cloned.group_proof_current(&proof));
+        cloned.generation = u64::MAX;
+        assert!(cloned.close(member).is_err());
+    }
+    #[test]
+    fn native_full_nonsticky_subset_retains_last_empty_and_nonlast_close_removes() {
+        let mut groups = Groups::with_empty_group();
+        let first = groups.open(7).unwrap().active.unwrap();
+        let second = groups.split_active().unwrap().active.unwrap();
+        let change = groups.close(first).unwrap();
+        assert_eq!(change.removed_groups, vec![first.group]);
+        let proof = groups.group_proof(second.group).unwrap();
+        let change = groups.close_memberships(&proof, &[second]).unwrap();
+        assert!(change.removed_groups.is_empty());
+        assert_eq!(groups.active_group(), Some(second.group));
+        assert!(groups.group(second.group).unwrap().tabs().is_empty());
     }
 }

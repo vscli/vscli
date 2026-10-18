@@ -1,0 +1,1142 @@
+{
+  "schema": "vscli-stable-behavior-progress-v1",
+  "scope": "entire-stable",
+  "reference": "VS Code 1.141.0, commit 2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "rules": [
+    "Every pinned declaration and member/overload/type row appears in the generated report, including unassessed rows.",
+    "Unassessed is a tracking gap, not a claim that existing code is absent.",
+    "Passed criteria describe named local workflows under their documented bounds. They do not qualify a whole API.",
+    "Test totals are regression evidence, not API completion percentages. Never erase remaining contracts when landing a slice.",
+    "Frozen 1.141.0 audit artifacts remain unchanged. Reconcile prior implementations into this live ledger incrementally."
+  ],
+  "namespaces": [
+    "vscode.authentication",
+    "vscode.chat",
+    "vscode.commands",
+    "vscode.comments",
+    "vscode.debug",
+    "vscode.env",
+    "vscode.extensions",
+    "vscode.l10n",
+    "vscode.languages",
+    "vscode.lm",
+    "vscode.notebooks",
+    "vscode.scm",
+    "vscode.tasks",
+    "vscode.tests",
+    "vscode.window",
+    "vscode.workspace"
+  ],
+  "contracts": [
+    {
+      "id": "native-file-participants",
+      "api_ids": [
+        "vscode.workspace.onWillCreateFiles",
+        "vscode.workspace.onWillRenameFiles",
+        "vscode.workspace.onWillDeleteFiles",
+        "vscode.FileWillCreateEvent.waitUntil",
+        "vscode.FileWillRenameEvent.waitUntil",
+        "vscode.FileWillDeleteEvent.waitUntil"
+      ],
+      "criteria": [
+        {
+          "name": "Original file preflight precedes public callbacks",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-file-participants.json",
+              "needle": "1604"
+            }
+          ]
+        },
+        {
+          "name": "Reviewed ordinary-text contributions reach shared and hidden models before original file effects",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/NATIVE_FILE_PARTICIPANTS.md",
+              "needle": "Undo"
+            },
+            {
+              "file": "tests/file_participants_pty.py",
+              "needle": "PASS:"
+            }
+          ]
+        },
+        {
+          "name": "Timeout and Escape retain actual callback occupancy",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-file-participants.json",
+              "needle": "783"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Resource, snippet, notebook and EOL participant contributions",
+        "Bulk public-operation arbitration and file history",
+        "Upstream-runtime and other-platform qualification"
+      ]
+    },
+    {
+      "id": "workspace-eol-edits",
+      "api_ids": [
+        "vscode.workspace.applyEdit",
+        "vscode.WorkspaceEdit.set",
+        "vscode.TextEdit.setEndOfLine",
+        "vscode.TextEdit.newEol",
+        "vscode.TextDocument.eol",
+        "vscode.EndOfLine.LF",
+        "vscode.EndOfLine.CRLF"
+      ],
+      "criteria": [
+        {
+          "name": "Negotiated public conversion preserves ordinary, compound and EOL order",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "extension-host/workspace-edits.test.cjs",
+              "needle": "negotiated EOL requests retain original order"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Native text replacements precede the last EOL request",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn eol_after_text_last_request_wins"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Shared selections and native identity survive EOL Undo/Redo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn eol_conversion_maps_both_shared_reversed_selections"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "EOL-only changes without line breaks are versioned and affect future Enter",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn eol_only_without_line_breaks"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Same-EOL no-op preserves Redo and original native proofs",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn same_eol_request_is_no_op"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Unopened files use real hidden model receipts and grouped history",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/unopened_tests.rs",
+              "needle": "fn unopened_eol_conversion_has_native_receipts"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Stale replies and conversion bounds refuse the complete cohort",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn eol_held_worker_reply_refuses_target_edit_undo_aba"
+            },
+            {
+              "file": "src/app/workspace_transactions/tests.rs",
+              "needle": "fn excessive_eol_mapping_refuses_whole_cohort"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        },
+        {
+          "name": "Actual terminal workflow observes final mirrors before true, grouped Undo/Redo and exact saved LF bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "tests/extension_workspace_edits_pty.py",
+              "needle": "PASS: negotiated public EOL after text"
+            },
+            {
+              "file": "docs/validation/workspace-eol-edits.json",
+              "needle": "vscli-workspace-eol-validation-v1"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "All other applyEdit edit kinds and annotation review",
+        "Incremental change-event fidelity",
+        "Large EOL conversions beyond the bounded 4096 scalar/history steps",
+        "Exotic invalid-enum conversion behavior and upstream-runtime/platform qualification"
+      ],
+      "validation_receipt": "docs/validation/workspace-eol-edits.json"
+    },
+    {
+      "id": "ordered-resource-apply",
+      "api_ids": [
+        "vscode.workspace.applyEdit",
+        "vscode.WorkspaceEdit.createFile",
+        "vscode.WorkspaceEdit.renameFile",
+        "vscode.WorkspaceEdit.deleteFile"
+      ],
+      "criteria": [
+        {
+          "name": "Public create, edit, rename, edit, delete workflow with native model/events/history",
+          "state": "pending"
+        }
+      ],
+      "remaining": [
+        "Integrate prepared journals with actual native model lifetimes and complete private retired history/views",
+        "Conditional destination reuse and dirty source transfer",
+        "Ordered text/file groups, partial receipts and public Undo/Redo",
+        "Review annotations and negotiate the usable gateway",
+        "Trash, non-Linux, cross-volume and custom filesystem backends"
+      ]
+    },
+    {
+      "id": "extension-message-localization",
+      "api_ids": [
+        "vscode.l10n.t",
+        "vscode.l10n.bundle",
+        "vscode.l10n.uri",
+        "vscode.env.appName",
+        "vscode.env.appRoot",
+        "vscode.env.appHost",
+        "vscode.env.language",
+        "vscode.env.uiKind",
+        "vscode.env.remoteName"
+      ],
+      "criteria": [
+        {
+          "name": "Public translation overloads, translator comments and fallback",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "All three t overloads"
+            }
+          ]
+        },
+        {
+          "name": "Selected package bundle, URI and bounded load refusal",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "Owner bundles and URI"
+            }
+          ]
+        },
+        {
+          "name": "Preferred language reaches module evaluation and native metadata",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "Preferred language and metadata"
+            }
+          ]
+        },
+        {
+          "name": "Native editing, original bytes and explicit restart preserve language/identity",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "Native edit/save/Undo"
+            }
+          ]
+        },
+        {
+          "name": "CLI translation and no-Node editing pass required local checks",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-localization.json",
+              "needle": "CLI rendering"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Built-in language-pack bundle locations and manifest package.nls localization",
+        "Automatic migration of the source application locale/argv and native interface translations",
+        "Other environment, telemetry, URI-handler, clipboard and remote services",
+        "Entire stable API, required proposed APIs and personal user/built-in workflows",
+        "Failing exact-head platform CI and release artifacts"
+      ],
+      "validation_receipt": "docs/validation/extension-localization.json"
+    },
+    {
+      "id": "extension-context-key-command",
+      "api_ids": [
+        "vscode.commands.executeCommand",
+        "vscode.commands.getCommands"
+      ],
+      "criteria": [
+        {
+          "name": "Public setContext values, URI normalization, removal and void result before promise completion",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-context-keys.json",
+              "needle": "Public setContext values, URI normalization, removal and void result before promise completion"
+            }
+          ]
+        },
+        {
+          "name": "Bounded shared queue, unknown-outcome timeout, malformed receipt and stale owner/session refusal",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-context-keys.json",
+              "needle": "Bounded shared queue, unknown-outcome timeout, malformed receipt and stale owner/session refusal"
+            }
+          ]
+        },
+        {
+          "name": "Native module/activation context and conditional shortcut use without replacing editor facts",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-context-keys.json",
+              "needle": "Native module/activation context and conditional shortcut use without replacing editor facts"
+            }
+          ]
+        },
+        {
+          "name": "Native shared identity, edit/save/Undo, restart and terminal invocation trace with required checks",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/extension-context-keys.json",
+              "needle": "Native shared identity, edit/save/Undo, restart and terminal invocation trace with required checks"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Complete native expression parser/coercions and context-key population/scoped hierarchy",
+        "Lifecycle equivalence of global context across extension host restart/failure; current values are session-local",
+        "Other executeCommand targets and the complete stable extension API",
+        "Personal code extension qualification and fresh exact-head platform/release checks"
+      ],
+      "validation_receipt": "docs/validation/extension-context-keys.json"
+    },
+    {
+      "id": "native-context-conditions",
+      "api_ids": [
+        "vscode.commands.executeCommand"
+      ],
+      "criteria": [
+        {
+          "name": "Pinned upstream differential evidence for boolean, equality, numeric, membership and supported regex conditions",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-when-expressions.json",
+              "needle": "Pinned upstream differential evidence for boolean, equality, numeric, membership and supported regex conditions"
+            }
+          ]
+        },
+        {
+          "name": "Imported rule diagnostics preserve source bytes, precedence and explicit removals",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-when-expressions.json",
+              "needle": "Imported rule diagnostics preserve source bytes, precedence and explicit removals"
+            }
+          ]
+        },
+        {
+          "name": "Native resource context and public extension values control actual terminal edit/save/Undo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-when-expressions.json",
+              "needle": "Native resource context and public extension values control actual terminal edit/save/Undo"
+            }
+          ]
+        },
+        {
+          "name": "Full native regression, formatting and strict locked Clippy on the recorded source",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/native-when-expressions.json",
+              "needle": "Full native regression, formatting and strict locked Clippy on the recorded source"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Complete JavaScript RegExp UTF-16/Unicode, lookaround/backreference and coercion behavior",
+        "All config/workbench context values and scoped context hierarchy",
+        "Full keybinding resolver/chord/removal equivalence and physical terminal delivery",
+        "Whole stable API, personal code workflows and exact-head platform release gates"
+      ],
+      "validation_receipt": "docs/validation/native-when-expressions.json"
+    },
+    {
+      "id": "default-manifest-label-integration",
+      "api_ids": [
+        "vscode.extensions.getExtension",
+        "vscode.Extension.packageJSON"
+      ],
+      "criteria": [
+        {
+          "name": "Bounded packaged default labels match the reused upstream normalizer and preserve source/fallbacks",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "Bounded packaged default labels match the reused upstream normalizer and preserve source/fallbacks"
+            }
+          ]
+        },
+        {
+          "name": "Native installed theme and dormant command catalogues include translated labels beyond package 128",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "Native installed theme and dormant command catalogues include translated labels beyond package 128"
+            }
+          ]
+        },
+        {
+          "name": "Imported theme settings without a separate ID and public packageJSON/running commands reach real native editing",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "Imported theme settings without a separate ID and public packageJSON/running commands reach real native editing"
+            }
+          ]
+        },
+        {
+          "name": "No-Node and optional-host terminal journeys retain colors, restart, Unicode/CRLF save/Undo and original bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "No-Node and optional-host terminal journeys retain colors, restart, Unicode/CRLF save/Undo and original bytes"
+            }
+          ]
+        },
+        {
+          "name": "Native/host regression, formatting and strict locked Clippy pass on the recorded cohorts",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/default-manifest-labels.json",
+              "needle": "Native/host regression, formatting and strict locked Clippy pass on the recorded cohorts"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Preferred-language package.nls.<locale>.json files and built-in language-pack resolution",
+        "Full icon/font/layout/custom-CSS/TextMate/semantic presentation and all personal extension workflows",
+        "Source-theme snapshot declaration limits and installed theme picker capacity qualification beyond this cohort",
+        "Whole stable API and fresh exact-head platform/release checks"
+      ],
+      "validation_receipt": "docs/validation/default-manifest-labels.json"
+    },
+    {
+      "id": "editor-edit-eol-normalization",
+      "api_ids": [
+        "vscode.TextEditor.edit",
+        "vscode.TextEditorEdit.insert",
+        "vscode.TextEditorEdit.replace"
+      ],
+      "criteria": [
+        {
+          "name": "Public multiline editor edits normalize using private original EOL before native dispatch",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-edit-eol.json",
+              "needle": "Public multiline editor edits normalize using private original EOL before native dispatch"
+            }
+          ]
+        },
+        {
+          "name": "Raw/expanded text bounds and public metadata tampering reject without partial native work",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-edit-eol.json",
+              "needle": "Raw/expanded text bounds and public metadata tampering reject without partial native work"
+            }
+          ]
+        },
+        {
+          "name": "Actual native model, exact save bytes, shared identity and Undo agree with public CRLF text",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-edit-eol.json",
+              "needle": "Actual native model, exact save bytes, shared identity and Undo agree with public CRLF text"
+            }
+          ]
+        },
+        {
+          "name": "Unchanged pinned Sort Lines, full native/host regressions, terminal integrity and required style checks retain source evidence",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-edit-eol.json",
+              "needle": "Unchanged pinned Sort Lines, full native/host regressions, terminal integrity and required style checks retain source evidence"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Remaining edit-builder/global-history contracts and full EOL qualification",
+        "Direct private transport/bypass contracts, unpaired UTF-16 and broader mixed-source EOL behavior",
+        "Actual Windows repair-head CI, personal code workflows, full stable API and release qualification"
+      ],
+      "validation_receipt": "docs/validation/editor-edit-eol.json"
+    },
+    {
+      "id": "editor-position-replace",
+      "api_ids": [
+        "vscode.TextEditor.edit",
+        "vscode.TextEditorEdit.replace"
+      ],
+      "criteria": [
+        {
+          "name": "Branded Position, Range and Selection inputs retain clamping, original EOL and replacement marker semantics",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-position-replace.json",
+              "needle": "Branded Position, Range and Selection inputs retain clamping, original EOL and replacement marker semantics"
+            }
+          ]
+        },
+        {
+          "name": "Late builders and source-changing argument getters reject before unauthorized or partial dispatch",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-position-replace.json",
+              "needle": "Late builders and source-changing argument getters reject before unauthorized or partial dispatch"
+            }
+          ]
+        },
+        {
+          "name": "Native shared identity, event-before-answer, UTF-16/clamped positions and exact save/Undo/Redo reach a terminal workflow",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-position-replace.json",
+              "needle": "Native shared identity, event-before-answer, UTF-16/clamped positions and exact save/Undo/Redo reach a terminal workflow"
+            }
+          ]
+        },
+        {
+          "name": "Pinned unchanged Sort Lines controls, complete native/host regressions, formatting and strict Clippy retain source evidence",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-position-replace.json",
+              "needle": "Pinned unchanged Sort Lines controls, complete native/host regressions, formatting and strict Clippy retain source evidence"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Fresh three-platform CI for this new source",
+        "Remaining edit-builder/global-history contracts and full EOL qualification",
+        "Unpaired UTF-16, private transport/bypass contracts and full platform/runtime qualification",
+        "Whole stable API and seamless personal extension/visual/storage migration"
+      ],
+      "validation_receipt": "docs/validation/editor-position-replace.json"
+    },
+    {
+      "id": "editor-undo-stops",
+      "api_ids": [
+        "vscode.TextEditor.edit"
+      ],
+      "criteria": [
+        {
+          "name": "Public options retain defaults/coercion and one-read capture; stale getters and empty builders dispatch no partial work",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-undo-stops.json",
+              "needle": "Public options retain defaults/coercion and one-read capture; stale getters and empty builders dispatch no partial work"
+            }
+          ]
+        },
+        {
+          "name": "All four Undo-stop pairs join or separate actual native typing with shared CRLF save/Undo/Redo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-undo-stops.json",
+              "needle": "All four Undo-stop pairs join or separate actual native typing with shared CRLF save/Undo/Redo"
+            }
+          ]
+        },
+        {
+          "name": "Inactive views and invalid captures retain display, selections, identity and native Redo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-undo-stops.json",
+              "needle": "Inactive views and invalid captures retain display, selections, identity and native Redo"
+            }
+          ]
+        },
+        {
+          "name": "Complete native/host regressions, unchanged Sort Lines controls, ten terminal scenarios and required style checks retain source evidence",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-undo-stops.json",
+              "needle": "Complete native/host regressions, unchanged Sort Lines controls, ten terminal scenarios and required style checks retain source evidence"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Full editor EOL qualification beyond the named ordered native workflows",
+        "Full model-global grouping across arbitrary views and lifecycle transitions",
+        "Incremental change-event fidelity, exotic UTF-16/private transport behavior and remaining edit-builder contracts",
+        "Fresh three-platform CI and release qualification; whole stable API and seamless personal migration"
+      ],
+      "validation_receipt": "docs/validation/editor-undo-stops.json"
+    },
+    {
+      "id": "editor-eol-and-text",
+      "api_ids": [
+        "vscode.TextEditor.edit",
+        "vscode.TextEditorEdit.setEndOfLine",
+        "vscode.TextDocument.eol",
+        "vscode.EndOfLine.LF",
+        "vscode.EndOfLine.CRLF"
+      ],
+      "criteria": [
+        {
+          "name": "Negotiated public EOL builders enforce enum, last-request, original-source and lifetime contracts before dispatch",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "Negotiated public EOL builders enforce enum, last-request, original-source and lifetime contracts before dispatch"
+            }
+          ]
+        },
+        {
+          "name": "Native EOL precedes text and acknowledgement with original-version FIFO, normalization and correct Undo/Redo boundaries",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "Native EOL precedes text and acknowledgement with original-version FIFO, normalization and correct Undo/Redo boundaries"
+            }
+          ]
+        },
+        {
+          "name": "One actual worker retains bounded intent/capacity and stale edit-Undo replies preserve original work and Redo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "One actual worker retains bounded intent/capacity and stale edit-Undo replies preserve original work and Redo"
+            }
+          ]
+        },
+        {
+          "name": "Shared inactive views retain logical line-end carets and reversed selections; EOL-only and same-EOL behavior retain native identity/history",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "Shared inactive views retain logical line-end carets and reversed selections; EOL-only and same-EOL behavior retain native identity/history"
+            }
+          ]
+        },
+        {
+          "name": "Complete native/host regressions, unchanged upstream controls, actual terminal integrity and required style checks retain source evidence",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "Complete native/host regressions, unchanged upstream controls, actual terminal integrity and required style checks retain source evidence"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Conversions beyond the combined 4096 scalar/history steps, 8 MiB metadata and bounded live-view mapping",
+        "Complete model-global grouping, EOL/snippet/marker presentation and exact incremental/EOL change-event payloads",
+        "Arbitrary private transport, unpaired UTF-16, mixed physical EOL and unsupported editor backends",
+        "Full arbitration with other native/workspace mutation families",
+        "Fresh upstream-runtime/platform/release qualification; whole stable API and seamless personal migration"
+      ],
+      "validation_receipt": "docs/validation/editor-set-eol.json"
+    },
+    {
+      "id": "native-configuration-update",
+      "api_ids": [
+        "vscode.workspace.getConfiguration",
+        "vscode.workspace.onDidChangeConfiguration",
+        "vscode.WorkspaceConfiguration.update",
+        "vscode.WorkspaceConfiguration.inspect",
+        "vscode.ConfigurationTarget.Global",
+        "vscode.ConfigurationTarget.Workspace",
+        "vscode.ConfigurationTarget.WorkspaceFolder"
+      ],
+      "criteria": [
+        {
+          "name": "Public JSON values, undefined removal, target overloads and captured language overrides reach real profile/workspace files",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "Public JSON values, undefined removal, target overloads and captured language overrides reach real profile/workspace files"
+            }
+          ]
+        },
+        {
+          "name": "JSONC spans preserve unrelated comments, Unicode/CRLF and native model history; missing removal/no-op preserve directories or identity",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "JSONC spans preserve unrelated comments, Unicode/CRLF and native model history; missing removal/no-op preserve directories or identity"
+            }
+          ]
+        },
+        {
+          "name": "Original profile A\u2192B\u2192A, owner retirement, new dirty model and external-file races refuse unapproved work while retaining actual worker capacity",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "Original profile A\u2192B\u2192A, owner retirement, new dirty model and external-file races refuse unapproved work while retaining actual worker capacity"
+            }
+          ]
+        },
+        {
+          "name": "Native reload and configuration/editor events precede void success; terminal editing and no-Node restart retain actual persisted language behavior",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "Native reload and configuration/editor events precede void success; terminal editing and no-Node restart retain actual persisted language behavior"
+            }
+          ]
+        },
+        {
+          "name": "Complete host/native regressions, unchanged upstream controls, adjacent migration/settings terminal checks, formatting and strict locked Clippy pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-update.json",
+              "needle": "Complete host/native regressions, unchanged upstream controls, adjacent migration/settings terminal checks, formatting and strict locked Clippy pass"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Complete schema/default registration and scope/error fidelity",
+        "Dirty-settings prompting/merge behavior",
+        "Multi-root, workspace-file, remote, profile and full default-target semantics",
+        "Exact configuration event/runtime and other-platform qualification",
+        "Large value/file limits and broader settings/model-operation arbitration",
+        "Entire stable extension API, personal code workflows, visual fidelity, storage/accounts and cross-platform release gates"
+      ],
+      "validation_receipt": "docs/validation/configuration-update.json"
+    },
+    {
+      "id": "configuration-model-refresh",
+      "api_ids": [
+        "vscode.WorkspaceConfiguration.update",
+        "vscode.workspace.onDidChangeTextDocument",
+        "vscode.TextDocument.getText",
+        "vscode.TextDocument.isDirty",
+        "vscode.TextDocument.version"
+      ],
+      "criteria": [
+        {
+          "name": "Shared and API-hidden clean settings models publish actual text/version events before public void success without switching editors",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-model-refresh.json",
+              "needle": "Shared and API-hidden clean settings models publish actual text/version events before public void success without switching editors"
+            }
+          ]
+        },
+        {
+          "name": "An actually held pre-write disk reader retains its slot and cannot acknowledge the post-commit model refresh",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-model-refresh.json",
+              "needle": "An actually held pre-write disk reader retains its slot and cannot acknowledge the post-commit model refresh"
+            }
+          ]
+        },
+        {
+          "name": "Late unsaved settings edits preserve text/Undo while the public error truthfully reports the already persisted file; distinct hardlinks retain their bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-model-refresh.json",
+              "needle": "Late unsaved settings edits preserve text/Undo while the public error truthfully reports the already persisted file; distinct hardlinks retain their bytes"
+            }
+          ]
+        },
+        {
+          "name": "Native shared history/baselines and Unicode CRLF terminal workflows, complete regressions, upstream controls and required style checks pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-model-refresh.json",
+              "needle": "Native shared history/baselines and Unicode CRLF terminal workflows, complete regressions, upstream controls and required style checks pass"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Complete configuration schema/default registration, scope and error fidelity",
+        "Dirty-settings prompting/merge and exact event/runtime fidelity",
+        "Multi-root, workspace-file, remote, profile and all default-target semantics",
+        "Broader mutation arbitration and upstream/platform qualification",
+        "Entire stable extension API, personal workflows, arbitrary visual fidelity, storage/accounts and release qualification"
+      ],
+      "validation_receipt": "docs/validation/configuration-model-refresh.json"
+    },
+    {
+      "id": "native-system-clipboard",
+      "api_ids": [
+        "vscode.env.clipboard",
+        "vscode.Clipboard.readText",
+        "vscode.Clipboard.writeText"
+      ],
+      "criteria": [
+        {
+          "name": "Frozen original-owner clipboard read/string and write/void contracts validate bounds and well-formed UTF-16 before native dispatch",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "Frozen original-owner clipboard read/string and write/void contracts validate bounds and well-formed UTF-16 before native dispatch"
+            }
+          ]
+        },
+        {
+          "name": "The existing one-permit native clipboard worker retains real process and pipe occupancy through read/write cancellation and descendant retirement",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "The existing one-permit native clipboard worker retains real process and pipe occupancy through read/write cancellation and descendant retirement"
+            }
+          ]
+        },
+        {
+          "name": "Actual child helpers, unavailable-backend errors, retired callers and eight FIFO reads preserve native dirty models, history and original disk bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "Actual child helpers, unavailable-backend errors, retired callers and eight FIFO reads preserve native dirty models, history and original disk bytes"
+            }
+          ]
+        },
+        {
+          "name": "Public clipboard and native Ctrl+V share isolated helpers through Unicode CRLF save/Undo/Redo, restart without Node and adjacent integration workflows",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "Public clipboard and native Ctrl+V share isolated helpers through Unicode CRLF save/Undo/Redo, restart without Node and adjacent integration workflows"
+            }
+          ]
+        },
+        {
+          "name": "Complete native/host regressions, unchanged upstream controls, terminal checks, formatting and strict locked Clippy pass on the recorded final source",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/clipboard-api.json",
+              "needle": "Complete native/host regressions, unchanged upstream controls, terminal checks, formatting and strict locked Clippy pass on the recorded final source"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Native Windows clipboard ABI/runtime and actual OS/display-server qualification",
+        "Larger values, arbitrary UTF-16 strings and full runtime behavior",
+        "Simultaneous clipboard mutations, helper daemon behavior and wider lifecycle qualification",
+        "Remaining environment APIs and the entire stable extension API",
+        "Personal extension workflows/proposals, arbitrary visual/configuration fidelity, storage/accounts and cross-platform release qualification"
+      ],
+      "validation_receipt": "docs/validation/clipboard-api.json"
+    },
+    {
+      "id": "windows-system-clipboard",
+      "api_ids": [
+        "vscode.env.clipboard",
+        "vscode.Clipboard.readText",
+        "vscode.Clipboard.writeText"
+      ],
+      "criteria": [
+        {
+          "name": "Windows clipboard operations are integrated with the existing native worker and typed bounded UTF-16/thread/ownership guards",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/windows-clipboard.json",
+              "needle": "Windows clipboard operations are integrated with the existing native worker and typed bounded UTF-16/thread/ownership guards"
+            }
+          ]
+        },
+        {
+          "name": "Portable Windows-path metadata checking and shared native cancellation/queue/history controls pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/windows-clipboard.json",
+              "needle": "Portable Windows-path metadata checking and shared native cancellation/queue/history controls pass"
+            }
+          ]
+        },
+        {
+          "name": "A gated inherited-pipe fixture removes shell/background-stdin and fixed-delay assumptions while retaining real capacity assertions",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/windows-clipboard.json",
+              "needle": "A gated inherited-pipe fixture removes shell/background-stdin and fixed-delay assumptions while retaining real capacity assertions"
+            }
+          ]
+        },
+        {
+          "name": "Complete Linux native/host regressions, terminal workflows, formatting and strict locked Clippy pass on the recorded source",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/windows-clipboard.json",
+              "needle": "Complete Linux native/host regressions, terminal workflows, formatting and strict locked Clippy pass on the recorded source"
+            }
+          ]
+        },
+        {
+          "name": "Actual Windows CI compiles and links the backend and passes its isolated OS clipboard control",
+          "state": "pending"
+        }
+      ],
+      "remaining": [
+        "Actual Windows ABI/link/runtime control and complete platform CI",
+        "Unexplained preceding macOS library abort; fresh diagnostics and regression qualification",
+        "Actual desktop clipboard behavior beyond the named synthetic control, native foreground Copy/Paste integration and broader OS/helper arbitration",
+        "Arbitrary UTF-16/larger data and whole environment/stable API contracts",
+        "Personal workflows/proposals, visual/configuration/account/storage fidelity and cross-platform release qualification"
+      ],
+      "validation_receipt": "docs/validation/windows-clipboard.json"
+    },
+    {
+      "id": "input-box-password",
+      "api_ids": [
+        "vscode.window.showInputBox",
+        "vscode.InputBoxOptions.password",
+        "vscode.window.showQuickPick"
+      ],
+      "criteria": [
+        {
+          "name": "Password intent is captured once and strictly typed; exact accepted Unicode data uses the existing native transport",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Password intent is captured once and strictly typed; exact accepted Unicode data uses the existing native transport"
+            }
+          ]
+        },
+        {
+          "name": "Native normal/narrow/scrolled rendering masks initial, typed and pasted graphemes while editing the actual value",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Native normal/narrow/scrolled rendering masks initial, typed and pasted graphemes while editing the actual value"
+            }
+          ]
+        },
+        {
+          "name": "Actual terminal screen and raw output hide synthetic secrets, and extension acceptance/cancellation preserve disk bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Actual terminal screen and raw output hide synthetic secrets, and extension acceptance/cancellation preserve disk bytes"
+            }
+          ]
+        },
+        {
+          "name": "Original caller leases reject retained handles, getter renewal and delayed item/reply continuations; cancellation/stop retain document identity, revision and Undo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Original caller leases reject retained handles, getter renewal and delayed item/reply continuations; cancellation/stop retain document identity, revision and Undo"
+            }
+          ]
+        },
+        {
+          "name": "Complete all-target native/host regressions, prompt terminal workflows, documentation, formatting and strict locked Clippy pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Complete all-target native/host regressions, prompt terminal workflows, documentation, formatting and strict locked Clippy pass"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "validateInput, valueSelection, cancellation tokens, ignoreFocusOut and createInputBox",
+        "Remaining entire Quick Input and stable extension API contracts",
+        "Exact graphical appearance, accessibility and upstream-runtime differential qualification",
+        "Fresh platform CI for this source and cross-platform release artifacts",
+        "Personal extension/proposed API workflows, visual/configuration/account/storage migration"
+      ],
+      "validation_receipt": "docs/validation/input-box-password.json"
+    },
+    {
+      "id": "window-progress",
+      "api_ids": [
+        "vscode.window.withProgress",
+        "vscode.ProgressLocation.Window",
+        "vscode.Progress.report",
+        "vscode.ProgressOptions.title"
+      ],
+      "criteria": [
+        {
+          "name": "Window task lifetime reaches actual native status rendering and returns exact callback values/errors",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Window task lifetime reaches actual native status rendering and returns exact callback values/errors"
+            }
+          ]
+        },
+        {
+          "name": "Reports coalesce without serializing task values; message/type/byte bounds refuse malformed input",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Reports coalesce without serializing task values; message/type/byte bounds refuse malformed input"
+            }
+          ]
+        },
+        {
+          "name": "Eight shared actual tasks retain capacity through owner retirement; original caller/getter/delegation guards refuse renewed authority",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Eight shared actual tasks retain capacity through owner retirement; original caller/getter/delegation guards refuse renewed authority"
+            }
+          ]
+        },
+        {
+          "name": "Native shared dirty identity/revision/Undo/disk and empty-workbench behavior survive completion/failure/stop; terminal editing and no-Node restart pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Native shared dirty identity/revision/Undo/disk and empty-workbench behavior survive completion/failure/stop; terminal editing and no-Node restart pass"
+            }
+          ]
+        },
+        {
+          "name": "Complete all-target Rust/host regression, terminal workflows, documentation, formatting and strict locked Clippy pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/window-progress.json",
+              "needle": "Complete all-target Rust/host regression, terminal workflows, documentation, formatting and strict locked Clippy pass"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Notification percentage/cancellation, Source Control and contributed-view progress",
+        "Graphical/theme-icon/accessibility behavior and pinned upstream runtime qualification",
+        "Fresh complete exact-head platform CI and Windows clipboard control",
+        "Whole stable API, personal extension/proposed API workflows and visual/configuration/account/storage migration",
+        "Windows/macOS artifacts and reviewed release publication gates"
+      ],
+      "validation_receipt": "docs/validation/window-progress.json"
+    }
+  ],
+  "next_batch": {
+    "name": "Ordered public resource edits (retained API batch; migration/release takes priority)",
+    "criteria": [
+      "Public create \u2192 text edit \u2192 rename \u2192 text edit \u2192 delete runs through the native ordered controller.",
+      "Original caller/model/resource/settings proofs authorize effects; annotation review and will-file participants run at the proper boundary.",
+      "Dirty shared/hidden models, conditional destination identity, retired history/views and recovery archives preserve unsaved work.",
+      "Mirrors and genuine operation events precede success; public Undo/Redo follows file-group semantics separately from internal rollback.",
+      "Malformed or unsupported late edit kinds never cause a silently applied supported prefix; partial physical failures have truthful receipts.",
+      "Named data-integrity tests, an actual public terminal journey, required formatting and strict Clippy pass on one recorded source/binary cohort."
+    ]
+  }
+}

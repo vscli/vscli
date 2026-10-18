@@ -1,0 +1,73 @@
+{
+  "schema": "vscli-platform-test-receipts-v1",
+  "base_commit": "8b6910cab3d2bbc760834183ca603f556af51540",
+  "scope": "Test qualification repairs; no production backend or watcher event implementation changes. Whole stable API and seamless migration remain required.",
+  "source_cohort": {
+    "files": 1772,
+    "sha256": "f906fd1717bb2f35a790fd3f0fd7684f5dbc202cb43d80ed05ab82beb5d67776",
+    "selection": "git ls-files --cached --others --exclude-standard over recorded runtime/test roots",
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))"
+  },
+  "observed_failures": {
+    "run": "https://github.com/vscli/vscli/actions/runs/39168456942",
+    "linux": "Complete main job succeeds",
+    "macos": "Library suite succeeds; watcher times out after a target write with an unrelated later create status visible. Exact ordering was not captured.",
+    "windows": "Native suite and initial real OS Unicode/CRLF write/read succeed; same-process contention expectation fails because another read succeeds."
+  },
+  "repairs": [
+    "Pin the first actually created URI and arm subsequent change/delete phases. Continue identity checks/counting on unrelated callbacks, verify actual changed bytes/deletion, and retain disk/history/disposal oracles.",
+    "Use a separate gated clipboard-holder process with actual ready/release receipts and successful child exit. Retain native timeout/refusal and subsequent cancellation/boundary/empty controls."
+  ],
+  "local_native": {
+    "reports": 68,
+    "passed": 1679,
+    "failed": 0,
+    "ignored": 23
+  },
+  "checks": [
+    {
+      "command": "cargo test --locked --no-fail-fast -- --test-threads=4",
+      "exit_code": 0,
+      "log": "/tmp/vscli-platform-receipt-rust.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "exit_code": 0,
+      "log": "/tmp/vscli-platform-receipt-fmt.log"
+    },
+    {
+      "command": "python3 tests/extension_file_watchers_pty.py <extracted optimized 8b6910c binary>",
+      "exit_code": 0,
+      "log": "/tmp/vscli-platform-receipt-watcher-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "command": "Python compile / fixture JavaScript syntax checks",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "exit_code": 0,
+      "log": "/tmp/vscli-platform-receipt-clippy.log"
+    }
+  ],
+  "pending": [
+    "Fresh complete macOS/Windows CI and isolated Windows clipboard controls",
+    "Prior macOS SIGABRT cause remains unestablished; fresh library pass does not prove a repair",
+    "Whole API and seamless personal extension/visual/storage migration"
+  ]
+}

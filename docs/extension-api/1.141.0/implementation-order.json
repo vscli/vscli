@@ -1,0 +1,67 @@
+{
+  "contract": "vscli-extension-api-implementation-order-v1",
+  "scope": "Entire stable VS Code 1.141.0 vscode.d.ts; all 16 namespaces and every class/interface/enum/value/signature remain in inventory. Proposed APIs are separately listed, not silently folded into stable.",
+  "rules": [
+    "A method name or constructible DTO is not a passed semantic contract. Qualify individual overloads and fields.",
+    "Preserve native operation without a JS runtime; the compatibility process owns extension execution only.",
+    "All mutation flows cross typed native transaction gateways with model/group/owner/session/version/policy proofs; no filesystem work in input/render.",
+    "Bound actual work, retained original objects, queued intent and normalized results; logical cancellation does not free an occupied callback.",
+    "Use pure contract tests, framed host integration and PTY journeys locally; genuine upstream qualification only remotely per current user instruction. Retain all historical raw observations.",
+    "Do not raise vscode.version or remove missing-API rejection to suggest compatibility. An explicit unimplemented result remains preferable to silent success.",
+    "Treat API surfaces and package/runtime compatibility as separate gates: engine versions, dependencies, Node/Electron assumptions, native binaries, activation events, manifest contributions and marketplace licensing remain explicit."
+  ],
+  "phases": [
+    {
+      "priority": 1,
+      "name": "Exact document/editor/workspace gateway and extension boot essentials",
+      "namespaces": ["workspace","window","commands","extensions","env","l10n"],
+      "features": ["Complete Position/Range/Selection/Uri/Disposable/events and heavily used exported data types/enums", "ExtensionContext storage/log locations, extension metadata, Memento and asynchronous secrets gateway", "TextDocument.save/getWordRangeAtPosition and incremental change/save reasons", "openTextDocument content/untitled/custom schemes and showTextDocument overloads", "Distinct TextEditor handle per exact group membership; selection setter, selections/options/viewColumn/visibleRanges/revealRange/insertSnippet", "workspace.applyEdit including guarded multi-document edits and resource operations; complete TextEditorEdit undo/EOL semantics", "Configuration.update wired to native persistent writer and target/scope events", "Workspace fs/search/watch/resource events and multi-root identity", "Environment/clipboard/openExternal/URI handler/localization and original command delegation/execute-provider commands"],
+      "reuse": ["src/document.rs and native save/write receipts", "src/app/workspace_edits.rs, settings_persistence.rs, save participant pipelines", "editor Groups membership/UI proof and bounded native file-open/save workers", "extension-host document-services/configuration/activation/Memento facades"],
+      "qualification": ["Actual unchanged language-server extension activation smoke, no fabricated supported APIs", "Hidden/shared group handles, edit→Undo stale reply, pending SaveAs owner, URI virtual file and workspace edit no-clobber integrity", "Cancellation/error/dispose event order and mutation rejection preserves text/selections/Undo/Redo/disk"]
+    },
+    {
+      "priority": 2,
+      "name": "All language provider families and complete existing provider contracts",
+      "namespaces": ["languages"],
+      "features": ["match/getLanguages/setTextDocumentLanguage/setLanguageConfiguration and full selectors", "Completion overloads, insert/replace, commit characters, commands, snippet fields and complete contexts", "Rename/prepareRename, range/on-type formatting, implementation/type/declaration and workspace symbols", "Semantic tokens, inlay hints, document links/colors and color presentations", "Folding/selection/linked editing/call hierarchy/type hierarchy", "Document paste/drop providers, related metadata, cancellation and resolver lifetimes", "Diagnostic result fields/aggregation/events and signature/hover/definition virtual-resource contracts"],
+      "reuse": ["extension-host/providers.cjs retained completion/action/signature/symbol helpers", "native typed LSP/provider lanes, document mutation staging and Outline/display engines"],
+      "qualification": ["Per-provider typed DTO and all overload validation; getter/reentrant/circular data adversaries", "Original object resolution identity, owner disable/unload/re-register A→B→A, timeout until actual callback settles", "Native clangd and unchanged language extensions through real callbacks, visible editor UX and Undo integrity"]
+    },
+    {
+      "priority": 3,
+      "name": "Complete common window presentation and resource UI APIs",
+      "namespaces": ["window","workspace"],
+      "features": ["Stateful QuickPick/InputBox, multi-selection, buttons, validation, cancellation and message choices/modal overloads", "Progress, dialogs, decoration types, themes/icons/color events and accessibility metadata", "Complete TreeView/TreeItem/provider reveal/getParent/resolve/multi-select/checkbox/drag-drop", "LogOutputChannel and standard output overloads", "tabGroups/tab events/editor visible/selection/options/ranges lifecycle", "WebviewPanel/WebviewView, custom editors and serializers with isolated HTML/DOM execution where required"],
+      "reuse": ["Native modal/keyboard/layout surfaces and extension owner-scoped handles", "src/app/editor_groups / Outline / breadcrumbs presentation proofs"],
+      "qualification": ["Terminal focus/keyboard/mouse and cancellation journeys", "Widget/provider disposal while callbacks are held; cross-group view equality does not reauthorize old handle", "HTML-dependent surfaces require a real isolated browser-capable adapter; terminal presentation adaptation and API behavior are distinct qualification scopes"]
+    },
+    {
+      "priority": 4,
+      "name": "Tooling workflow APIs connected to native engines",
+      "namespaces": ["tasks","debug","scm","tests","window","env"],
+      "features": ["Terminal/Pseudoterminal profiles/providers/environment-variable collections and shell integration", "Task providers, Shell/Process/CustomExecution, lifecycle/termination and problem matchers", "Debug configuration/adapter descriptors/trackers/sessions/breakpoints/variables/console", "SourceControl resources/groups/input/quick diffs and repository-owned commands", "Test controllers/items/profiles/runs/results/coverage and native discovery/execution"],
+      "qualification": ["Process termination retains actual ownership, output and PTY restoration", "Native existing task/DAP/git features are not automatically extension API implementations", "Multiple providers/projects, cancellation, failure and dispose do not lose dirty models or route to wrong workspace"]
+    },
+    {
+      "priority": 5,
+      "name": "Structured content and review model APIs",
+      "namespaces": ["notebooks","comments","workspace","window"],
+      "features": ["Notebook serializer/controller/kernel/cells/output/status/edits/events and documents", "Comment controllers/threads/replies/reactions/menus and resource identity", "Custom/virtual editor persistence, text/content providers and complete file-operation hooks"],
+      "qualification": ["Cell/group identity and compound Undo are distinct from plain TextDocument identity", "Serializer save receipt and provider waitUntil edits remain bounded and owner-guarded", "Round-trip structured bytes, virtual-resource reveal, crash/restart and disposal preserve unsaved content"]
+    },
+    {
+      "priority": 6,
+      "name": "Authentication and modern stable AI APIs",
+      "namespaces": ["authentication","chat","lm","env"],
+      "features": ["Authentication provider/session/request changes and secrets-backed storage", "Chat participants/requests/response stream/follow-ups and feedback", "Language model selection/chat/tool invocation/token counting and stable MCP/model-provider registrations", "Environment telemetry and controlled account/workspace trust integration"],
+      "qualification": ["Model/provider/session identities, tokens/secrets, consent callbacks, bounded streams and owner teardown", "No invented availability/success for unavailable external service or credential", "Current stable API is substantially broader than the older 1.95 host claim; keep latest signatures explicit"]
+    },
+    {
+      "priority": 7,
+      "name": "Whole stable-surface conformance and explicit proposals",
+      "namespaces": ["workspace","window","commands","extensions","env","l10n","languages","tasks","debug","scm","tests","notebooks","comments","authentication","chat","lm"],
+      "features": ["Close every retained stable declaration/member/overload row with named qualification or documented adaptation", "Representative unchanged extension corpus across installed platforms, including dependencies/native binaries", "Separately opt-in versioned proposed API contracts; no default proposal exposure", "Complete contribution/activation/runtime compatibility inventory and Open VSX/package updates"],
+      "qualification": ["Fresh remote headless reference cohorts and native comparisons once feature work is ready", "No scalar compatibility percentage: track per-API overload, package and workflow evidence", "Terminal cannot manufacture a graphical DOM or intercepted key; isolate appropriate adapter without blocking the native core"]
+    }
+  ]
+}

@@ -30,6 +30,7 @@ impl App {
                     && doc.revision == snapshot.revision()
                     && doc.saved_revision == snapshot.saved_revision()
                     && doc.text_epoch() == snapshot.text_epoch()
+                    && doc.resource_epoch() == snapshot.resource_epoch()
                     && doc.save_generation() == snapshot.save_generation()
             })
         {
@@ -40,6 +41,7 @@ impl App {
                     save_conflict: Some(SaveConflictProof {
                         path: path.to_owned(),
                         text_epoch: doc.text_epoch(),
+                        resource_epoch: doc.resource_epoch(),
                         save_generation: doc.save_generation(),
                     }),
                 },
@@ -110,6 +112,7 @@ impl App {
         }
         if !self.watch.publication_disabled
             && self.file_job.is_none()
+            && !self.file_participation_pending()
             && self.watch.disk.is_none()
             && ((self.watch.pending & CONTENT != 0 && settled)
                 || self.watch.last_read.elapsed() >= Duration::from_secs(2))
@@ -124,6 +127,7 @@ impl App {
                         revision: d.revision,
                         saved_revision: d.saved_revision,
                         text_epoch: d.text_epoch(),
+                        resource_epoch: d.resource_epoch(),
                         save_generation: d.save_generation(),
                         publication_epoch: self.watch.publication_epoch,
                         path,
@@ -135,7 +139,7 @@ impl App {
             self.watch.pending &= !CONTENT;
             self.watch.last_read = Instant::now();
         }
-        if self.file_job.is_some() {
+        if self.file_job.is_some() || self.file_participation_pending() {
             return changed;
         }
         for _ in 0..4 {
@@ -168,11 +172,33 @@ impl App {
             if doc.revision != result.revision
                 || doc.saved_revision != result.saved_revision
                 || doc.text_epoch() != result.text_epoch
+                || doc.resource_epoch() != result.resource_epoch
                 || doc.save_generation() != result.save_generation
             {
                 self.watch.pending |= CONTENT;
                 continue;
             }
+            // Only a current, actually read snapshot can acknowledge a model
+            // refresh. Retired publication epochs and changed source proofs
+            // above never satisfy a settings-write receipt.
+            let refreshed = match &result.content {
+                Ok(DiskChange::Unchanged) => Ok(()),
+                Ok(DiskChange::Changed(Some(_))) if !doc.dirty() => Ok(()),
+                Ok(DiskChange::Changed(Some(_))) => {
+                    Err("Unsaved settings edits retained after the file write".into())
+                }
+                Ok(DiskChange::Changed(None)) => {
+                    Err("Settings file was removed before model refresh".into())
+                }
+                Err(error) => Err(format!("Settings model refresh failed: {error}")),
+            };
+            self.watch.publications.insert(
+                doc.id,
+                crate::watch::Publication {
+                    epoch: result.publication_epoch,
+                    result: refreshed,
+                },
+            );
             let preserve_save_failure = self.watch.notices.get(&doc.id).is_some_and(|notice| {
                 notice
                     .save_conflict
@@ -240,6 +266,12 @@ impl App {
                 changed = true;
             }
         }
+        self.watch.publications.retain(|id, _| {
+            self.documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .any(|doc| doc.id == *id)
+        });
         self.watch.notices.retain(|id, _| {
             self.documents
                 .iter()
@@ -389,7 +421,7 @@ mod tests {
         until(&mut app, |a| a.message.contains("unsaved edits retained"));
         assert_eq!(app.doc().text.to_string(), "original");
         assert!(app.doc_mut().save().is_err());
-        let added = dir.path().join("added.txt");
+        let added = app.workspace.root.join("added.txt");
         std::fs::write(&added, "new").unwrap();
         until(&mut app, |a| a.workspace.files.contains(&added));
         std::fs::remove_file(&added).unwrap();
@@ -412,11 +444,16 @@ mod tests {
         assert_eq!(app.doc().text.to_string(), "preserve me");
         assert!(app.doc_mut().save().is_err());
         std::fs::write(&path, "restored").unwrap();
-        app.modal = Some(Modal::Revert);
+        app.modal = Some(Modal::Revert {
+            document: app.doc().id,
+            resource_epoch: app.doc().resource_epoch(),
+            name: app.doc().name(),
+        });
         app.event(crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('y'),
             KeyModifiers::NONE,
         )));
+        until(&mut app, |app| app.message == "Reloaded from disk");
         assert_eq!(app.doc().id, id);
         assert!(app.panes.iter().all(|p| p.document == id));
         assert_eq!(app.doc().text.to_string(), "restored");
@@ -441,6 +478,7 @@ mod tests {
             revision: doc.revision,
             saved_revision: doc.saved_revision,
             text_epoch: doc.text_epoch(),
+            resource_epoch: doc.resource_epoch(),
             save_generation: doc.save_generation(),
             publication_epoch: app.watch.publication_epoch,
             path: doc.path.clone().unwrap(),
@@ -470,6 +508,41 @@ mod tests {
         }
     }
 
+    #[test]
+    fn held_disk_reply_cannot_publish_after_resource_aba_with_equal_text_proofs() {
+        let original = "original 猫🙂\r\n";
+        let (_directory, mut app, path) = clean_fixture(original);
+        let proof = (
+            app.doc().id,
+            app.doc().revision,
+            app.doc().text_epoch(),
+            app.doc().save_generation(),
+        );
+        let baseline = app.doc().disk_content.clone();
+        std::fs::write(&path, "external λ\r\n").unwrap();
+        let release = hold_sampled_disk_reply(&mut app);
+        let original_path = app.doc().path.clone();
+        app.doc_mut()
+            .set_resource_path(Some(path.with_file_name("moved.json")))
+            .unwrap();
+        app.doc_mut().set_resource_path(original_path).unwrap();
+        release.send(()).unwrap();
+        drain_retained_job(&mut app);
+        assert_eq!(
+            (
+                app.doc().id,
+                app.doc().revision,
+                app.doc().text_epoch(),
+                app.doc().save_generation()
+            ),
+            proof
+        );
+        assert_eq!(app.doc().text.to_string(), original);
+        assert_eq!(app.doc().disk_content, baseline);
+        assert!(!app.doc().dirty());
+        assert_eq!(std::fs::read(path).unwrap(), "external λ\r\n".as_bytes());
+        assert_ne!(app.watch.pending & CONTENT, 0);
+    }
     #[test]
     fn held_disk_reply_cannot_revive_revision_after_edit_undo_or_destroy_redo() {
         let original = "original 猫\r\n";

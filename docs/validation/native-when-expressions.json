@@ -1,0 +1,95 @@
+{
+  "schema": "vscli-native-when-expressions-validation-v1",
+  "base_commit": "4e6f8b3641b3cbf3fe09406a47f185159aeb02b0",
+  "scope": "Native imported/contributed conditions integrated with public context values; complete stable API and migration scope retained.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1724,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "2e81303dd888e2ee96bb7490369cf0e59a9809ff891a686eeef95f20c544fe52"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "e9b087844c314d2f8af166ab21d383bd2cfb5f7611ce7472b2ae52a4cf389477"
+  },
+  "criteria": {
+    "passed": 4,
+    "total": 4,
+    "items": [
+      "Pinned upstream differential evidence for boolean, equality, numeric, membership and supported regex conditions",
+      "Imported rule diagnostics preserve source bytes, precedence and explicit removals",
+      "Native resource context and public extension values control actual terminal edit/save/Undo",
+      "Full native regression, formatting and strict locked Clippy on the recorded source"
+    ]
+  },
+  "upstream": {
+    "repository": "https://github.com/microsoft/vscode",
+    "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+    "oracle": "tests/upstream/context-key-oracle",
+    "exact_evaluations": 600,
+    "expression_cases": 40,
+    "json_context_cases": 15,
+    "qualification": "Listed targeted cases; not whole context/regex/keybinding parity"
+  },
+  "checks": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --all-targets --locked",
+      "passed": 1661,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 71,
+      "library_passed": 1304,
+      "log": "/tmp/vscli-when-final-rust.log"
+    },
+    {
+      "command": "python3 tests/when_expressions_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "failed": 0,
+      "log": "/tmp/vscli-when-final-pty.log"
+    },
+    {
+      "command": "python3 tests/extension_context_keys_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-when-final-context-pty.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-when-final-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-when-final-build.log"
+    }
+  ],
+  "conditions": [
+    "Four Rust test threads; same test watchdog and production deadlines as the preceding checkpoint",
+    "Previously qualified 811 host tests are historical evidence on unchanged production host JavaScript; the native fixture added three activation context values",
+    "An initial PTY invocation selected the old default worktree binary because this harness accepts a positional binary, not VSCLI_BIN; corrected explicit-binary runs above passed"
+  ],
+  "outstanding": [
+    "Complete JavaScript RegExp lookaround/backreferences, UTF-16/Unicode and number/string coercion behavior",
+    "Full config/workbench context population, scoped hierarchy, resolver removal/chord behavior and terminal key delivery",
+    "Personal extension workflows, whole stable API, all platform release gates"
+  ]
+}

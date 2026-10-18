@@ -108,13 +108,21 @@ server transitions; real-clangd qualification exercises opening C++ and paramete
 hints without `--lsp`. Installed rust-analyzer launch selection is implemented,
 while broad real Rust project behavior remains outstanding qualification.
 
+Native document and settings saves now coordinate through an in-memory resource
+map, following the pinned VS Code disk provider approach. They create no persistent
+per-document sidecar or separate lock directory. Original disk/model identity and
+content checks remain; other editor processes are external writers. Atomic writes
+still use transient adjacent files. See [save locking and integrity](SAVE_LOCKS.md).
+
 Native LSP save notifications honor static server options and can carry an exact
 committed Rope independently of newer live text. Serialization runs on the bounded
 transport writer; oversize escaping cannot publish a partial frame. Four framed
 subprocess tests qualify capability forms, snapshot ownership, lifecycle guards
 and overflow recovery. Native asynchronous Save/Save As now routes receipts
-through this snapshot-aware notification path. Broader save participants, dynamic
-registration and one extension save event per disk commit remain unqualified;
+through this snapshot-aware notification path. Native synchronization now retains
+hidden models for save actions/formatters and sends their owned didChange before
+disk capture; focused framed tests cover that path. Broader extension save
+participants, dynamic registration and one extension save event per disk commit remain unqualified;
 the current mirror can coalesce multiple commits. See
 [native language-server behavior](USAGE.md#language-servers) and the
 [save automation boundary](SAVE_AUTOMATION_PLAN.md).
@@ -144,7 +152,12 @@ remain incomplete.
 
 Native LSP document/workspace symbol search supports bounded hierarchical and flat
 responses, UTF-16 navigation, dirty shared buffers and asynchronous existing-file
-loads. Range-less WorkspaceSymbol resolve remains unsupported. A separate native
+loads. Range-less native LSP WorkspaceSymbol resolve remains unsupported.
+The optional [extension workspace-symbol route](WORKSPACE_SYMBOLS_API.md)
+supports global queries without editors, original-object lazy resolution and
+hidden indexing without changing the native picker or focus. Arbitrary native
+URI editor backends and mixed native/extension aggregation remain incomplete.
+A separate native
 [Outline section](OUTLINE.md) was merged in [PR #60](https://github.com/vscli/vscli/pull/60): hierarchical
 trees, collapse/expand, enclosing-symbol following and guarded identifier-start
 reveal. Native and extension ownership lanes are bounded; stale/loading trees
@@ -183,7 +196,7 @@ merged after [all six fresh required checks](https://github.com/vscli/vscli/acti
 passed, including Linux, macOS and Windows pinned provider comparisons. This evidence does not
 establish full Breadcrumbs UI or unchanged-extension compatibility.
 
-Optional selected extensions dispatch completion, hover, definitions, references, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers; aggregation/fallback for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).
+Optional selected extensions dispatch completion, hover, definitions, references, implementation, type definition, declaration, formatting, document symbols, signature help and bounded code actions into native UI. Native context/version checks guard responses and picker acceptance; edits preserve EOL and undo. Synthetic native/PTY qualification covers these subsets; unchanged NPM Intellisense, SQL Formatter, Write Good and the official code-action sample have named workflow evidence. Code actions combine matching providers with native LSP; navigation aggregates matching extension providers. Mixed native/extension navigation aggregation and aggregation for other kinds and complete extension-language parity remain outstanding. See [implementation and evidence](EXTENSION_PROVIDERS.md).
 
 ## Feature disposition
 
@@ -301,7 +314,7 @@ The implemented independent CommonJS JavaScript shim in `extension-host/*.cjs`
 supplies the `vscode` module inside the optional Node.js process and connects to
 native services through a versioned broker protocol. Its documented subset covers
 activation, disposables/events/cancellation, commands, configuration, shared document
-mirrors, Mementos, seven language-provider routes, diagnostic collections and native prompts/surfaces.
+mirrors, Mementos, thirteen language-provider routes, diagnostic collections and native prompts/surfaces.
 Broader workspace/resource, provider and UI behavior remains staged. Contracts
 remain pinned to VS Code 1.95.0; a version string is not an API compatibility claim.
 
@@ -314,6 +327,11 @@ Use protocol handles for providers, documents, and UI objects; preserve identity
 Extension dependencies may expose arbitrary in-memory APIs to each other. Begin with compatible dependency groups in the same host. Per-extension isolation would require additional semantics and may break these APIs. Native Node modules also require an OS, architecture, and runtime ABI match; a supported JavaScript entry point does not guarantee that bundled binaries load.
 
 ## Reuse versus independent shim
+
+The active objective is now the entire stable extension API. The bounded-shim
+preference below is an original feasibility hypothesis, not a scope limit or a
+completed architecture comparison. Reassess pinned upstream host/type/converter
+reuse against that full objective; the extraction comparison remains outstanding.
 
 Make this a Phase 0 decision with a two-week initial timebox inside the broader feasibility phase:
 
@@ -439,3 +457,36 @@ continue to use revision cleanliness, so that same tab has no modified marker.
 The pinned preview corpus observes both flags separately. Optional-host document
 snapshots now preserve this distinction without changing text, Undo/Redo or
 version ownership. Initial untouched empty Untitled documents remain clean.
+
+The [rename provider milestone](RENAME_PROVIDERS_API.md) adds public prepare/execute
+queries, original F2 preparation and atomic grouped text edits across dirty, shared,
+hidden and unopened local files. Rich query values are retained independently of
+native application. Default multi-resource text refactorings now use a
+[native save continuation](REFACTORING_SAVES_API.md) under the exact-true root
+policy, including actual hidden LSP participants and owned Save As transitions.
+Post-publication save failure retains applied edits and successful peer commits
+with a warning. Public workspace EOL edits now share native worker preparation,
+identity, grouped Undo/Redo and save behavior; conversion remains bounded to 4,096
+scalar/history steps. Resource/snippet/annotation/notebook apply backends and
+extension save participants remain unfinished; full rename/API parity is not
+claimed. Current save-continuation evidence is 719 host and 1,389 Rust all-target tests
+passing across 67 reports (1,040 library tests; 23 ignored cases grant no
+qualification), including 20 focused native cases. Seven selected API tests and
+seven PTY journeys pass, as do fresh build, formatting and strict locked all-target
+Clippy. Fresh rename/direct-save/native save-participant terminal regressions
+also pass, for 34 terminal journeys combined; exact script counts remain in the
+refactoring save contract. The independent native LSP route requires no Node runtime.
+
+
+Extension configuration updates now use the native settings writer for bounded
+local profile/workspace JSON values and language overrides. They await actual
+persistence and native reload; dirty settings refuse without overwriting unsaved
+work. [Behavior and remaining qualification](CONFIGURATION_API.md) distinguish
+this usable path from complete settings or extension compatibility.
+
+
+The optional host's [system clipboard bridge](CLIPBOARD_API.md) supports bounded
+public asynchronous reads/writes through native helper receipts. Isolated helper
+and terminal tests cover Unicode/CRLF native paste, history and no-Node restart.
+Actual display-server and Windows clipboard qualification remain open; unavailable
+backends return errors and preserve native editing.

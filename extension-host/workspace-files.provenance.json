@@ -1,0 +1,47 @@
+{
+  "upstream_revision": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "sources": [
+    {
+      "path": "src/vs/workbench/api/common/extHostWorkspace.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostWorkspace.ts",
+      "sha256": "4195dc64e15b4ec80c5e6892012b3acbbd06fd6e66d9171a7ea4a3399c55a21d",
+      "bytes": 51488
+    },
+    {
+      "path": "src/vs/workbench/api/browser/mainThreadWorkspace.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/browser/mainThreadWorkspace.ts",
+      "sha256": "e3e79b6555c47eb3a47446670ec43a1ffb48c5deaf8ce7ac1284fea851bd190e",
+      "bytes": 15122
+    },
+    {
+      "path": "src/vs/workbench/services/search/common/queryBuilder.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/services/search/common/queryBuilder.ts",
+      "sha256": "f85b6d3293655a2d9adee3d75a20c0c1c3a2158524fa72595a1595bce5e9025a",
+      "bytes": 27924
+    },
+    {
+      "path": "src/vs/base/common/glob.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/base/common/glob.ts",
+      "sha256": "bc2fb44be304cc9c139c1410f690172e90e163e0f4bcda74ad2700b2abd21921",
+      "bytes": 27489
+    },
+    {
+      "path": "src/vs/workbench/contrib/search/browser/search.contribution.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/contrib/search/browser/search.contribution.ts",
+      "sha256": "5eb7b5a70bc8469d6bbbb74887c4d109050ec73353dc444a252aa0bfab32058b",
+      "bytes": 13098
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypeConverters.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypeConverters.ts",
+      "sha256": "d61eb0ecb7dd822fec63da45e49be1e0510985753adc83c8a35d7cf100b9f396",
+      "bytes": 155704
+    },
+    {
+      "path": "src/vs/workbench/api/common/extHostTypes.ts",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTypes.ts",
+      "sha256": "4e5f4635e6fc23fd82707bcf47d2bb5a27ef81f89eac88ff4e0ae2cc92518acc",
+      "bytes": 110689
+    }
+  ]
+}

@@ -1,11 +1,24 @@
 //! Optional isolated CommonJS extension host. Rust owns document transactions.
+pub(crate) mod context_keys;
+mod decorations;
 mod diagnostics;
+mod document_loads;
+mod editor_edits;
+pub(crate) mod editor_inventory;
+pub(crate) mod editor_state;
+pub(crate) mod editor_tabs;
+mod file_operations;
+mod file_participation;
+mod owner_lifetimes;
 mod prompts;
 pub(crate) mod providers;
 pub(crate) mod services;
 mod surfaces;
+pub(crate) mod text_content;
+pub(crate) mod untitled;
 use crate::{document::Document, lsp, settings::Settings, transport::Process};
 use anyhow::{Context, Result, bail};
+pub use file_participation::FileParticipationTicket;
 pub use prompts::{MAX_PROMPT_TEXT, NativePrompt, PromptType};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -23,13 +36,23 @@ pub use surfaces::{
 
 const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
-const MAX_PACKAGES: usize = 8;
+const MAX_PACKAGES: usize = crate::extension_activation::MAX_SELECTED;
+pub(crate) const MAX_COMMANDS: usize = 4096;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Package {
     pub id: String,
     pub version: String,
+    #[serde(serialize_with = "serialize_host_path")]
     pub path: PathBuf,
     pub sha256: Option<String>,
+}
+fn serialize_host_path<S: serde::Serializer>(
+    path: &Path,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    lsp::extension_host_path(path)
+        .map_err(serde::ser::Error::custom)?
+        .serialize(serializer)
 }
 impl Package {
     pub fn read(path: &Path) -> Result<Self> {
@@ -112,7 +135,7 @@ fn manifest_nodes(value: &Value) -> usize {
 }
 fn validate_packages(packages: &[Package]) -> Result<Vec<Package>> {
     if packages.is_empty() || packages.len() > MAX_PACKAGES {
-        bail!("Select between one and eight code extensions");
+        bail!("Select between one and 128 code extensions");
     }
     let mut selected = packages.to_vec();
     selected.sort_by(|a, b| a.id.cmp(&b.id));
@@ -125,8 +148,8 @@ fn validate_packages(packages: &[Package]) -> Result<Vec<Package>> {
         let (size, manifest) = read_manifest(&package.path)?;
         bytes += size;
         nodes += manifest_nodes(&manifest);
-        if bytes > 8 * 1024 * 1024 || nodes > 50_000 {
-            bail!("Extension session manifest budget exceeded (8 MiB / 50,000 nodes)");
+        if bytes > 8 * 1024 * 1024 || nodes > 250_000 {
+            bail!("Extension session manifest budget exceeded (8 MiB / 250,000 nodes)");
         }
         let id = format!(
             "{}.{}",
@@ -144,8 +167,19 @@ fn validate_packages(packages: &[Package]) -> Result<Vec<Package>> {
         };
         bindings += count(&manifest["contributes"]["keybindings"]);
         commands += count(&manifest["contributes"]["commands"]);
-        if bindings > 1024 || commands > 1024 {
+        if bindings > 1024 || commands > MAX_COMMANDS {
             bail!("Extension session contribution limit exceeded");
+        }
+        // This preflight runs in preparation/startup, before input/rendering
+        // installs contributed rules. Reuse its parsed conditions at admission.
+        let raw_bindings = &manifest["contributes"]["keybindings"];
+        let entries: Vec<_> = raw_bindings
+            .as_array()
+            .map_or_else(|| vec![raw_bindings], |values| values.iter().collect());
+        for binding in entries {
+            if let Some(source) = binding["when"].as_str() {
+                let _ = crate::keys::precompile_when(source);
+            }
         }
     }
     Ok(selected)
@@ -158,10 +192,14 @@ struct Registration {
 
 #[derive(Clone)]
 struct Mirror {
+    language_epoch: u64,
+    editor_view: crate::document::EditorViewProof,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
     save_generation: u64,
     uri: String,
+    eol: String,
     version: u64,
 }
 struct Pending {
@@ -170,21 +208,79 @@ struct Pending {
     started: Instant,
 }
 #[derive(Deserialize)]
+struct NativeTextEdit {
+    #[serde(flatten)]
+    edit: lsp::TextEdit,
+    #[serde(default, rename = "forceMoveMarkers")]
+    force_move_markers: bool,
+}
+#[derive(Deserialize)]
 struct Edit {
+    #[serde(default)]
+    editor: Option<String>,
     session: u64,
     owner: String,
     document: u64,
     version: u64,
-    edits: Vec<lsp::TextEdit>,
+    edits: Vec<NativeTextEdit>,
+    #[serde(default = "default_undo_stop", rename = "undoStopBefore")]
+    undo_stop_before: bool,
+    #[serde(default = "default_undo_stop", rename = "undoStopAfter")]
+    undo_stop_after: bool,
+    #[serde(default, rename = "setEndOfLine")]
+    set_end_of_line: Option<u8>,
+}
+fn default_undo_stop() -> bool {
+    true
 }
 pub struct Prepared {
+    locale: String,
+    file_participation: bool,
     storage_root: Option<PathBuf>,
+    editor_inventory: Option<editor_inventory::Inventory>,
+    editor_tabs: Option<editor_tabs::Inventory>,
     mirror: MirrorState,
     state: Value,
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
     activation: Option<Vec<String>>,
 }
+pub fn parse_locale(value: &str) -> std::result::Result<String, String> {
+    let mut parts = value.split('-');
+    let first = parts.next().unwrap_or("");
+    if value.len() > 64
+        || !(2..=8).contains(&first.len())
+        || !first.bytes().all(|byte| byte.is_ascii_alphabetic())
+        || parts.any(|part| {
+            part.is_empty()
+                || part.len() > 8
+                || !part.bytes().all(|byte| byte.is_ascii_alphanumeric())
+        })
+    {
+        return Err(
+            "Expected a preferred language tag such as en, fr or zh-CN (at most 64 bytes)".into(),
+        );
+    }
+    Ok(value.into())
+}
 impl Prepared {
+    pub fn with_locale(mut self, locale: &str) -> Result<Self> {
+        self.locale = parse_locale(locale).map_err(anyhow::Error::msg)?;
+        Ok(self)
+    }
+    /// Opt in to the experimental native participant coordinator transport.
+    /// Core Explorer does not use it until contributed-edit application is wired.
+    pub fn with_file_participation(mut self) -> Self {
+        self.file_participation = true;
+        self
+    }
+    pub(crate) fn with_editor_tabs(mut self, inventory: editor_tabs::Inventory) -> Result<Self> {
+        let wire = inventory.wire()?;
+        self.state["tabs"] = wire.clone();
+        self.mirror.tabs_stamp = wire;
+        self.mirror.tabs = Some(inventory.clone());
+        self.editor_tabs = Some(inventory);
+        Ok(self)
+    }
     /// Select lazy roots; omitted roots preserve explicit eager startup.
     pub fn with_activation(mut self, ids: Vec<String>) -> Result<Self> {
         if ids.len() > MAX_PACKAGES {
@@ -198,6 +294,8 @@ impl Prepared {
     }
 }
 pub struct ActivationRequest {
+    /// Worker-validated registered languages admitted with this selected cohort.
+    pub registered_languages: HashSet<String>,
     /// Prepared in the activation worker, never from the native input path.
     pub surface_declarations: surfaces::SurfaceDeclarations,
     pub additions: Vec<Package>,
@@ -205,14 +303,31 @@ pub struct ActivationRequest {
     pub owner: Option<String>,
 }
 pub struct Client {
+    editor_edits: editor_edits::State,
+    editor_inventory: Option<editor_inventory::Inventory>,
+    editor_tabs: Option<editor_tabs::Inventory>,
+    decorations: decorations::Registry,
     diagnostics: diagnostics::State,
     providers: providers::State,
     services: std::collections::VecDeque<services::NativeService>,
+    document_loads: document_loads::Loads,
+    file_operations: file_operations::Queue,
+    file_participation: file_participation::State,
+    workspace_edit_context: Option<crate::app::workspace_transactions::CaptureContext>,
+    configuration_write_context: Option<crate::app::extension_configuration::WriteContext>,
+    file_search_context: Option<crate::workspace_file_search::Context>,
+    owner_lifetimes: owner_lifetimes::OwnerLifetimes,
+    text_content_registry: text_content::Registry,
+    untitled_context: Option<untitled::CreationContext>,
+    next_untitled_name: u64,
+    editor_state_context: Option<editor_state::Context>,
+    selected_languages: HashSet<String>,
     state_store: Option<crate::extension_state::Store>,
     // Drop the process before deleting its embedded runtime files on Windows.
     process: Process,
     _runtime: tempfile::TempDir,
     mirror: MirrorState,
+    mirror_suspended: bool,
     configuration: Arc<Vec<serde_json::Map<String, Value>>>,
     pending: HashMap<u64, Pending>,
     prompts: std::collections::VecDeque<NativePrompt>,
@@ -220,6 +335,7 @@ pub struct Client {
     next_id: u64,
     heartbeat: Instant,
     pub keybindings: Option<Value>,
+    pub(crate) context_keys: context_keys::Keys,
     pub ready: bool,
     pub commands: Vec<(String, String)>,
     pub identity: String,
@@ -231,6 +347,15 @@ pub struct Client {
     titles: HashMap<(String, String), String>,
 }
 impl Client {
+    pub(crate) fn set_editor_tabs(&mut self, inventory: editor_tabs::Inventory) {
+        if self.editor_tabs.is_some() {
+            self.editor_tabs = Some(inventory);
+        }
+    }
+    /// Admission uses the last accepted mirror, never a newer unpublished cohort.
+    pub(crate) fn editor_tabs(&self) -> Option<&editor_tabs::Inventory> {
+        self.mirror.tabs.as_ref()
+    }
     pub fn start(
         node: &str,
         extension: &Path,
@@ -275,7 +400,11 @@ impl Client {
         let refs: Vec<_> = documents.iter().chain(hidden).collect();
         let (mirror, state) = MirrorState::default().next_refs(&refs, documents.get(active))?;
         Ok(Prepared {
+            locale: "en".into(),
+            file_participation: false,
             storage_root: None,
+            editor_inventory: None,
+            editor_tabs: None,
             mirror,
             state,
             configuration: settings.extension_layers().clone(),
@@ -304,15 +433,74 @@ impl Client {
             .transpose()?;
         let extension_state = services::initial_state(state_store.as_ref(), &packages)?;
         let surfaces = SurfaceState::for_packages(&packages)?;
+        let selected_languages = selected_languages(&packages)?;
         static NEXT_SESSION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let session = NEXT_SESSION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let runtime = tempfile::tempdir()?;
         for (name, source) in [
             (
+                "manifest-localization.cjs",
+                include_str!("../extension-host/manifest-localization.cjs"),
+            ),
+            (
+                "upstream-manifest-nls.cjs",
+                include_str!("../extension-host/upstream-manifest-nls.cjs"),
+            ),
+            (
+                "localization.cjs",
+                include_str!("../extension-host/localization.cjs"),
+            ),
+            ("limits.cjs", include_str!("../extension-host/limits.cjs")),
+            (
+                "editor-presentation.cjs",
+                include_str!("../extension-host/editor-presentation.cjs"),
+            ),
+            (
                 "api-types.cjs",
                 include_str!("../extension-host/api-types.cjs"),
             ),
             ("api.cjs", include_str!("../extension-host/api.cjs")),
+            (
+                "caller-context.cjs",
+                include_str!("../extension-host/caller-context.cjs"),
+            ),
+            (
+                "es5-class-compat.cjs",
+                include_str!("../extension-host/es5-class-compat.cjs"),
+            ),
+            (
+                "edit-types.cjs",
+                include_str!("../extension-host/edit-types.cjs"),
+            ),
+            (
+                "edit-values.cjs",
+                include_str!("../extension-host/edit-values.cjs"),
+            ),
+            ("uri.cjs", include_str!("../extension-host/uri.cjs")),
+            (
+                "workspace-scope.cjs",
+                include_str!("../extension-host/workspace-scope.cjs"),
+            ),
+            (
+                "document-types.cjs",
+                include_str!("../extension-host/document-types.cjs"),
+            ),
+            (
+                "document-types.LICENSE.txt",
+                include_str!("../extension-host/document-types.LICENSE.txt"),
+            ),
+            (
+                "filesystem.cjs",
+                include_str!("../extension-host/filesystem.cjs"),
+            ),
+            (
+                "filesystem.LICENSE.txt",
+                include_str!("../extension-host/filesystem.LICENSE.txt"),
+            ),
+            (
+                "coordinates.cjs",
+                include_str!("../extension-host/coordinates.cjs"),
+            ),
             (
                 "code-action-types.cjs",
                 include_str!("../extension-host/code-action-types.cjs"),
@@ -330,12 +518,48 @@ impl Client {
                 include_str!("../extension-host/diagnostics.cjs"),
             ),
             (
+                "cancellation.cjs",
+                include_str!("../extension-host/cancellation.cjs"),
+            ),
+            (
                 "provider-types.cjs",
                 include_str!("../extension-host/provider-types.cjs"),
             ),
             (
+                "markdown-string.cjs",
+                include_str!("../extension-host/markdown-string.cjs"),
+            ),
+            (
+                "snippet-string.cjs",
+                include_str!("../extension-host/snippet-string.cjs"),
+            ),
+            (
                 "providers.cjs",
                 include_str!("../extension-host/providers.cjs"),
+            ),
+            (
+                "navigation-providers.cjs",
+                include_str!("../extension-host/navigation-providers.cjs"),
+            ),
+            (
+                "language-selector.cjs",
+                include_str!("../extension-host/language-selector.cjs"),
+            ),
+            (
+                "provider-order.cjs",
+                include_str!("../extension-host/provider-order.cjs"),
+            ),
+            (
+                "workspace-symbols.cjs",
+                include_str!("../extension-host/workspace-symbols.cjs"),
+            ),
+            (
+                "rename-providers.cjs",
+                include_str!("../extension-host/rename-providers.cjs"),
+            ),
+            (
+                "workspace-edit-values.cjs",
+                include_str!("../extension-host/workspace-edit-values.cjs"),
             ),
             (
                 "signatures.cjs",
@@ -347,6 +571,22 @@ impl Client {
                 "document-services.cjs",
                 include_str!("../extension-host/document-services.cjs"),
             ),
+            (
+                "editor-decorations.cjs",
+                include_str!("../extension-host/editor-decorations.cjs"),
+            ),
+            (
+                "editor-snippets.cjs",
+                include_str!("../extension-host/editor-snippets.cjs"),
+            ),
+            (
+                "editor-tabs.cjs",
+                include_str!("../extension-host/editor-tabs.cjs"),
+            ),
+            (
+                "tab-inputs.cjs",
+                include_str!("../extension-host/tab-inputs.cjs"),
+            ),
             ("memento.cjs", include_str!("../extension-host/memento.cjs")),
             (
                 "surfaces.cjs",
@@ -357,8 +597,52 @@ impl Client {
                 include_str!("../extension-host/configuration.cjs"),
             ),
             (
+                "clipboard.cjs",
+                include_str!("../extension-host/clipboard.cjs"),
+            ),
+            (
                 "activation.cjs",
                 include_str!("../extension-host/activation.cjs"),
+            ),
+            (
+                "native-requests.cjs",
+                include_str!("../extension-host/native-requests.cjs"),
+            ),
+            (
+                "workspace-edits.cjs",
+                include_str!("../extension-host/workspace-edits.cjs"),
+            ),
+            (
+                "workspace-files.cjs",
+                include_str!("../extension-host/workspace-files.cjs"),
+            ),
+            (
+                "file-watchers.cjs",
+                include_str!("../extension-host/file-watchers.cjs"),
+            ),
+            (
+                "file-operations.cjs",
+                include_str!("../extension-host/file-operations.cjs"),
+            ),
+            (
+                "file-participants.cjs",
+                include_str!("../extension-host/file-participants.cjs"),
+            ),
+            (
+                "file-participation.cjs",
+                include_str!("../extension-host/file-participation.cjs"),
+            ),
+            (
+                "watcher-glob.cjs",
+                include_str!("../extension-host/watcher-glob.cjs"),
+            ),
+            (
+                "local-file-watcher.cjs",
+                include_str!("../extension-host/local-file-watcher.cjs"),
+            ),
+            (
+                "text-content-providers.cjs",
+                include_str!("../extension-host/text-content-providers.cjs"),
             ),
             ("host.cjs", include_str!("../extension-host/host.cjs")),
         ] {
@@ -377,13 +661,30 @@ impl Client {
             root,
         )?;
         let mut client = Self {
+            editor_edits: editor_edits::State::default(),
+            editor_inventory: prepared.editor_inventory,
+            editor_tabs: prepared.editor_tabs,
             diagnostics: diagnostics::State::default(),
+            decorations: decorations::Registry::default(),
             providers: providers::State::default(),
             services: services::empty_queue(),
+            document_loads: document_loads::Loads::default(),
+            file_operations: file_operations::Queue::default(),
+            file_participation: file_participation::State::new(prepared.file_participation),
+            workspace_edit_context: None,
+            configuration_write_context: None,
+            file_search_context: None,
+            text_content_registry: text_content::Registry::default(),
+            untitled_context: None,
+            next_untitled_name: 0,
+            editor_state_context: None,
+            selected_languages,
+            owner_lifetimes: owner_lifetimes::OwnerLifetimes::new(&packages),
             state_store,
             process,
             _runtime: runtime,
             mirror: prepared.mirror,
+            mirror_suspended: false,
             configuration: prepared.configuration,
             pending: HashMap::new(),
             prompts: std::collections::VecDeque::new(),
@@ -391,6 +692,7 @@ impl Client {
             next_id: 0,
             heartbeat: Instant::now(),
             keybindings: None,
+            context_keys: context_keys::Keys::default(),
             ready: false,
             commands: Vec::new(),
             identity: packages
@@ -407,11 +709,33 @@ impl Client {
         };
         client.request(
             "initialize",
-            json!({"protocol":4, "session": session, "extensions": client.packages,
-                "languageProviders": true, "reservedCommands": crate::app::native_command_ids(), "root": root, "state": prepared.state,
+            json!({"protocol":4, "session": session, "extensions": client.packages, "fileParticipants":client.file_participation.enabled,
+                "contextKeys": true, "configurationWrites": true, "clipboard":true, "locale": prepared.locale, "applicationRoot": lsp::extension_host_path(std::env::current_exe()?.parent().context("No application root")?)?, "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorEndOfLineEdits":true, "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
+    }
+    #[cfg(test)]
+    pub(crate) fn fixture_gate_native_writer(
+        &self,
+    ) -> Result<(
+        std::sync::mpsc::Receiver<()>,
+        std::sync::mpsc::SyncSender<()>,
+    )> {
+        self.process.fixture_gate_writer()
+    }
+    #[cfg(test)]
+    pub(crate) fn fixture_native_output_barrier(&mut self) -> Result<()> {
+        self.request("ping", json!({"session":self.session}))
+    }
+    #[cfg(test)]
+    pub(crate) fn fixture_native_output_probe(&self) -> Result<()> {
+        // Real harmless notifications fill the existing transport queue. They
+        // carry no request id, register no callback, and cannot mutate models.
+        self.process
+            .send(json!({"method":"cancelLanguageProvider", "params":{
+                "session":self.session, "owner":self.packages[0].id, "request":0,
+            }}))
     }
     fn request(&mut self, method: &str, params: Value) -> Result<()> {
         if self.pending.len() >= 64 {
@@ -431,7 +755,7 @@ impl Client {
         Ok(())
     }
     pub fn busy(&self) -> bool {
-        !self.pending.is_empty()
+        !self.pending.is_empty() || self.editor_edits.busy()
     }
     pub(crate) fn validate_selected_owner(&self, session: u64, owner: &str) -> Result<()> {
         if session != self.session || !self.packages.iter().any(|p| p.id == owner) {
@@ -478,6 +802,10 @@ impl Client {
                 pending.method.as_str(),
                 "execute"
                     | "provideLanguage"
+                    | "provideWorkspaceSymbols"
+                    | "resolveLanguageWorkspaceSymbol"
+                    | "prepareLanguageRename"
+                    | "provideLanguageRename"
                     | "resolveLanguageCompletion"
                     | "resolveLanguageCodeAction"
                     | "treeChildren"
@@ -520,6 +848,7 @@ impl Client {
         settings: &Settings,
     ) -> Result<()> {
         let ActivationRequest {
+            registered_languages,
             surface_declarations,
             additions,
             targets,
@@ -548,6 +877,13 @@ impl Client {
         {
             bail!("Activation targets and owner must be selected");
         }
+        if registered_languages.len() > MAX_PACKAGES * 128
+            || registered_languages
+                .iter()
+                .any(|id| id.is_empty() || id.len() > 128 || id.contains('\0'))
+        {
+            bail!("Registered language contribution bounds exceeded");
+        }
         let declarations = self.surfaces.stage_declarations(surface_declarations)?;
         self.sync_with_hidden(documents, hidden, active)?;
         self.sync_configuration(settings)?;
@@ -557,6 +893,9 @@ impl Client {
             "extensions":additions, "activate":targets, "extensionState":extension_state}),
         )?;
         self.surfaces.commit_declarations(declarations);
+        self.selected_languages
+            .extend(registered_languages.iter().cloned());
+        self.owner_lifetimes.admit_selected(&packages);
         self.packages = packages;
         self.identity = self
             .packages
@@ -606,9 +945,11 @@ impl Client {
                 bail!("Invalid extension activation registry");
             }
         }
+        self.owner_lifetimes.publish(&states);
         for (owner, state) in &states {
             if matches!(state.as_str(), "failed" | "disposed") {
                 self.surfaces.remove_owner(owner);
+                self.decorations.remove_owner(owner);
                 self.diagnostics.remove_owner(owner);
             }
         }
@@ -645,6 +986,12 @@ impl Client {
         let args: Vec<_> = args.into_iter().collect();
         self.request("execute", json!({"session":self.session, "owner":self.command_owners[command], "command":command, "args":args}))
     }
+    pub(crate) fn selected_language_known(&self, language: &str) -> bool {
+        self.selected_languages.contains(language)
+    }
+    pub(crate) fn mark_api_selections(&mut self, document: u64) {
+        self.mirror.api_selections.insert(document);
+    }
     pub(crate) fn sync_with_hidden(
         &mut self,
         documents: &[Document],
@@ -653,8 +1000,43 @@ impl Client {
     ) -> Result<()> {
         let refs: Vec<_> = documents.iter().chain(hidden).collect();
         let active = documents.get(active);
-        if MirrorState::stamp_refs(&refs, active) != self.mirror.last_stamp {
-            let (next, state) = self.mirror.next_refs(&refs, active)?;
+        check_mirror_budget(&refs)?;
+        let editor_stamp = self
+            .editor_inventory
+            .as_ref()
+            .map(|inventory| inventory.stamp(&refs))
+            .transpose()?;
+        let tabs_stamp = self
+            .editor_tabs
+            .as_ref()
+            .map(editor_tabs::Inventory::wire)
+            .transpose()?;
+        if MirrorState::stamp_refs(&refs, active) != self.mirror.last_stamp
+            || !self.mirror.api_selections.is_empty()
+            || !self.mirror.api_editor_selections.is_empty()
+            || editor_stamp
+                .as_ref()
+                .is_some_and(|stamp| *stamp != self.mirror.editor_stamp)
+            || tabs_stamp
+                .as_ref()
+                .is_some_and(|stamp| *stamp != self.mirror.tabs_stamp)
+        {
+            let (mut next, mut state) = self.mirror.next_refs_with_inventory_stamps(
+                &refs,
+                active,
+                editor_stamp.as_ref(),
+                tabs_stamp.as_ref(),
+            )?;
+            if let Some(inventory) = &self.editor_inventory {
+                state["editors"] = inventory.wire(&refs, &next.api_editor_selections)?;
+                state["activeEditor"] = json!(inventory.active);
+                next.editors = inventory.frames.clone();
+                next.api_editor_selections.clear();
+            }
+            if let Some(stamp) = tabs_stamp {
+                state["tabs"] = stamp;
+                next.tabs = self.editor_tabs.clone();
+            }
             self.process
                 .send(json!({"method":"state", "params":state}))?;
             self.mirror = next;
@@ -667,7 +1049,7 @@ impl Client {
     }
     fn apply_edit_with_hidden(
         &self,
-        edit: Edit,
+        mut edit: Edit,
         documents: &mut [Document],
         hidden: &mut [Document],
     ) -> Result<bool> {
@@ -693,14 +1075,35 @@ impl Client {
         else {
             return Ok(false);
         };
-        if edit.version != mirror.version
+        if doc.is_read_only()
+            || match &edit.editor {
+                Some(editor) => editor.len() > 128 || !self.editor_view_live(editor, doc),
+                None => self.editor_inventory_explicit(),
+            }
+            || edit.version != mirror.version
             || doc.revision != mirror.revision
             || doc.text_epoch() != mirror.text_epoch
+            || doc.resource_epoch() != mirror.resource_epoch
+            || doc.eol != mirror.eol
             || document_uri(doc)? != mirror.uri
         {
             return Ok(false);
         }
-        let changes = lsp::edits(doc, edit.edits)?;
+        // Keep per-edit marker semantics paired through native range sorting.
+        edit.edits.sort_by_key(|item| {
+            (
+                item.edit.range.start.line,
+                item.edit.range.start.character,
+                item.edit.range.end.line,
+                item.edit.range.end.character,
+            )
+        });
+        let force = edit
+            .edits
+            .iter()
+            .map(|item| item.force_move_markers)
+            .collect::<Vec<_>>();
+        let changes = lsp::edits(doc, edit.edits.into_iter().map(|item| item.edit).collect())?;
         let removed: usize = changes
             .iter()
             .map(|(range, _)| doc.text.slice(range.clone()).len_bytes())
@@ -709,12 +1112,25 @@ impl Client {
         if total - removed + added > MAX_DOCUMENT_BYTES {
             bail!("Extension edit exceeds the 4 MiB mirror budget");
         }
-        doc.apply_changes(changes);
+        let proof = match &edit.editor {
+            Some(editor) => self.editor_view_source(editor, doc)?,
+            None => doc.editor_view_identity(),
+        };
+        doc.apply_editor_changes(
+            &proof,
+            changes
+                .into_iter()
+                .zip(force)
+                .map(|((range, text), force)| (range, text, force))
+                .collect(),
+            edit.undo_stop_before,
+            edit.undo_stop_after,
+        )?;
         Ok(true)
     }
     fn register_commands(&mut self, value: Value) -> Result<()> {
         let registrations: Vec<Registration> = serde_json::from_value(value)?;
-        if registrations.len() > 1024 {
+        if registrations.len() > MAX_COMMANDS {
             bail!("Extension command limit exceeded");
         }
         let mut commands = Vec::new();
@@ -760,16 +1176,58 @@ impl Client {
         active: usize,
         settings: &Settings,
     ) -> Result<Vec<String>> {
-        self.sync_with_hidden(documents, hidden, active)?;
-        self.sync_configuration(settings)?;
-        if self.ready
+        let mut messages = Vec::new();
+        let mut operation_state_ready = false;
+        let refs = documents.iter().chain(hidden.iter()).collect::<Vec<_>>();
+        match check_mirror_budget(&refs).and_then(|()| {
+            self.editor_inventory
+                .as_ref()
+                .map_or(Ok(()), |inventory| inventory.validate(&refs))
+        }) {
+            Ok(()) => {
+                match self.sync_with_hidden(documents, hidden, active) {
+                    Ok(()) => operation_state_ready = true,
+                    Err(error)
+                        if error
+                            .downcast_ref::<crate::transport::OutputBackpressure>()
+                            .is_some() => {}
+                    Err(error) => return Err(error),
+                }
+                if self.mirror_suspended {
+                    messages.push("Extension document mirrors resumed".into());
+                }
+                self.mirror_suspended = false;
+            }
+            Err(error) => {
+                if !self.mirror_suspended {
+                    messages.push(format!("Extension document mirrors paused: {error}"));
+                }
+                self.mirror_suspended = true;
+            }
+        }
+        if let Err(error) = self.sync_configuration(settings) {
+            if error
+                .downcast_ref::<crate::transport::OutputBackpressure>()
+                .is_some()
+            {
+                operation_state_ready = false;
+            } else {
+                return Err(error);
+            }
+        }
+        self.poll_file_participation(documents, hidden, Instant::now())?;
+        if operation_state_ready
+            && self.ready
             && self.pending.is_empty()
             && self.heartbeat.elapsed() >= Duration::from_secs(5)
         {
             self.request("ping", json!({"session":self.session}))?;
             self.heartbeat = Instant::now();
         }
-        let mut messages = Vec::new();
+        if operation_state_ready && self.ready && !self.mirror_suspended {
+            self.flush_file_operations()?;
+            self.flush_file_participation()?;
+        }
         for _ in 0..16 {
             let Some(mut message) = self.process.receive()? else {
                 break;
@@ -782,15 +1240,76 @@ impl Client {
                         }
                         self.register_activation(&message["params"]["activation"])?;
                     }
-                    "nativeDocumentOpen" | "nativeDocumentShow" | "nativeCommand"
-                    | "nativeStateWrite" => {
+                    "nativeContextSet" => {
+                        let id = message["id"]
+                            .as_str()
+                            .filter(|id| !id.is_empty() && id.len() <= 128)
+                            .map(str::to_owned);
+                        let result = if id.is_some() {
+                            self.set_context_request(message["params"].take())
+                        } else {
+                            Err(anyhow::anyhow!("Invalid context request ID"))
+                        };
+                        let response = match result {
+                            Ok(()) => json!({"id":id,"result":null}),
+                            Err(error) => {
+                                json!({"id":id,"error":{"message":services::bounded_error(&error)}})
+                            }
+                        };
+                        self.process.send(response)?;
+                    }
+                    "nativeDocumentOpen"
+                    | "nativeDocumentLoad"
+                    | "nativeDocumentLoadBegin"
+                    | "nativeDocumentLoadCancel"
+                    | "nativeVirtualDocumentLoad"
+                    | "nativeUntitledDocumentLoad"
+                    | "nativeDocumentShow"
+                    | "nativeCommand"
+                    | "nativeStateWrite"
+                    | "nativeConfigurationUpdate"
+                    | "nativeClipboardRead"
+                    | "nativeClipboardWrite"
+                    | "nativeDocumentSave"
+                    | "nativeWorkspaceApplyEdit"
+                    | "nativeFindFiles"
+                    | "nativeVirtualDocumentOpen"
+                    | "nativeUntitledDocumentOpen"
+                    | "nativeVirtualDocumentChange"
+                    | "nativeDocumentLanguage"
+                    | "nativeEditorSelections"
+                    | "nativeEditorOptions"
+                    | "nativeEditorReveal"
+                    | "nativeEditorDecorations"
+                    | "nativeEditorInsertSnippet"
+                    | "nativeTabsClose" => {
                         let method = method.to_owned();
                         let id = message["id"].clone();
-                        if let Err(error) =
-                            self.queue_service(&method, id.clone(), message["params"].take())
-                        {
+                        if let Err(error) = self.queue_service_with_models(
+                            &method,
+                            id.clone(),
+                            message["params"].take(),
+                            documents,
+                            hidden,
+                        ) {
                             self.process
-                                .send(json!({"id":id,"error":{"message":format!("{error:#}")}}))?;
+                                .send(json!({"id":id,"error":{"message":services::bounded_error(&error)}}))?;
+                        }
+                    }
+                    "textContentProviders" => {
+                        if let Err(error) =
+                            self.register_text_content_providers(message["params"].take())
+                        {
+                            messages.push(format!(
+                                "Text content provider registry rejected: {error:#}"
+                            ));
+                        }
+                    }
+                    "cancelNativeFindFiles" => {
+                        if let Err(error) = self.cancel_native_file_search(message["params"].take())
+                        {
+                            messages
+                                .push(format!("File discovery cancellation rejected: {error:#}"));
                         }
                     }
                     "diagnosticCollections" => {
@@ -805,6 +1324,11 @@ impl Client {
                             messages.push(format!("Extension surface rejected: {error:#}"));
                         }
                     }
+                    "decorationType" => {
+                        if let Err(error) = self.decoration_update(message["params"].take()) {
+                            messages.push(format!("Extension decoration type rejected: {error:#}"));
+                        }
+                    }
                     "prompt" => {
                         let id = message["id"].clone();
                         if let Err(error) = self.queue_prompt(id.clone(), message["params"].take())
@@ -814,6 +1338,20 @@ impl Client {
                         }
                     }
                     "edit" => {
+                        if !message["params"]["setEndOfLine"].is_null() || self.editor_edits.busy()
+                        {
+                            let id = message["id"].clone();
+                            if let Err(error) = self.queue_editor_eol(
+                                id.clone(),
+                                message["params"].take(),
+                                documents,
+                                hidden,
+                            ) {
+                                self.process
+                                    .send(json!({"id":id,"error":{"message":error.to_string()}}))?;
+                            }
+                            continue;
+                        }
                         let result = if message["params"]["edits"]
                             .as_array()
                             .is_some_and(|edits| edits.len() > 4096)
@@ -844,6 +1382,12 @@ impl Client {
                     }
                     "symbolsReleased" => {
                         self.symbols_released(message["params"].take())?;
+                    }
+                    "languageProviderReleased" => {
+                        self.language_provider_released(message["params"].take())?;
+                    }
+                    "fileParticipantReleased" => {
+                        self.file_participation_released(&message["params"])?;
                     }
                     "languageProviders" => {
                         if message["params"]["session"].as_u64() != Some(self.session) {
@@ -886,9 +1430,28 @@ impl Client {
             } else if let Some(id) = message["id"].as_u64()
                 && let Some(pending) = self.pending.remove(&id)
             {
+                if pending.method == "willFileOperation" {
+                    self.file_participation_response(id, message, documents, hidden);
+                    continue;
+                }
+                if pending.method == "rankLanguageProviders" {
+                    self.provider_rank_response(id, message)?;
+                    continue;
+                }
                 if matches!(
                     pending.method.as_str(),
-                    "provideLanguage" | "resolveLanguageCompletion" | "resolveLanguageCodeAction"
+                    "provideWorkspaceSymbols" | "resolveLanguageWorkspaceSymbol"
+                ) {
+                    self.workspace_symbol_response(id, message)?;
+                    continue;
+                }
+                if matches!(
+                    pending.method.as_str(),
+                    "provideLanguage"
+                        | "prepareLanguageRename"
+                        | "provideLanguageRename"
+                        | "resolveLanguageCompletion"
+                        | "resolveLanguageCodeAction"
                 ) {
                     self.provider_response(id, message)?;
                     continue;
@@ -943,7 +1506,7 @@ impl Client {
                         }
                         bindings.push((owner.to_owned(), item["keybindings"].clone()));
                         if let Some(contributions) = item["contributions"].as_array() {
-                            if contributions.len() > 1024 {
+                            if contributions.len() > MAX_COMMANDS {
                                 bail!("Extension command contribution limit exceeded");
                             }
                             for contribution in contributions {
@@ -976,19 +1539,27 @@ impl Client {
                     self.ready = true;
                     messages.push(format!(
                         "Extension ready: {} ({} commands)",
-                        self.identity,
+                        if self.identity.len() > 64 {
+                            format!("{} packages", self.packages.len())
+                        } else {
+                            self.identity.clone()
+                        },
                         self.commands.len()
                     ));
                 }
             }
         }
+        self.poll_editor_eol(documents, hidden, active)?;
         self.expire_prompts()?;
+        self.expire_document_save_path_waits();
         self.expire_language_providers()?;
         if self.process.exited() {
             bail!("Extension process exited\n{}", self.process.stderr_tail());
         }
         if self.pending.iter().any(|(id, p)| {
             p.started.elapsed() > Duration::from_secs(30)
+                && p.method != "willFileOperation"
+                && !self.document_save_command_waiting(*id)
                 && !self
                     .prompts
                     .iter()
@@ -1001,13 +1572,26 @@ impl Client {
 }
 #[derive(Clone, Default)]
 struct MirrorState {
+    tabs_stamp: Value,
+    tabs: Option<editor_tabs::Inventory>,
+    editor_stamp: Value,
+    editors: Vec<editor_inventory::Frame>,
+    api_editor_selections: HashSet<String>,
     mirrors: HashMap<u64, Mirror>,
     generation: u64,
+    // A measured viewport does not change the source or editor identity used by
+    // showTextDocument. Retain only the contiguous generation interval for that
+    // case; source, selections, options, and membership changes reset it.
+    show_generation_floor: u64,
     last_stamp: Value,
+    api_selections: HashSet<u64>,
 }
 impl MirrorState {
     fn stamp_refs(documents: &[&Document], active: Option<&Document>) -> Value {
-        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.save_generation(), d.path, d.dirty()])).collect::<Vec<_>>(),
+        if check_mirror_budget(documents).is_err() {
+            return Value::Null;
+        }
+        json!({"documents": documents.iter().map(|d| json!([d.id, d.revision, d.text_epoch(), d.resource_epoch(), d.save_generation(), d.path, d.virtual_uri(), d.untitled_uri(), d.language_override(), d.language_epoch(), d.dirty(), d.eol, selections(d), d.editor_view_stamp()])).collect::<Vec<_>>(),
             "active": active.map(|d| d.id), "selections": active.map(selections)})
     }
     #[cfg(test)]
@@ -1019,10 +1603,84 @@ impl MirrorState {
         documents: &[&Document],
         active: Option<&Document>,
     ) -> Result<(Self, Value)> {
+        self.next_refs_with_editor_stamp(documents, active, None)
+    }
+    fn next_refs_with_editor_stamp(
+        &self,
+        documents: &[&Document],
+        active: Option<&Document>,
+        editor_stamp: Option<&Value>,
+    ) -> Result<(Self, Value)> {
+        self.next_refs_with_inventory_stamps(documents, active, editor_stamp, None)
+    }
+    fn next_refs_with_inventory_stamps(
+        &self,
+        documents: &[&Document],
+        active: Option<&Document>,
+        editor_stamp: Option<&Value>,
+        tabs_stamp: Option<&Value>,
+    ) -> Result<(Self, Value)> {
+        check_mirror_budget(documents)?;
+        let tabs_unchanged = tabs_stamp.map_or(self.tabs_stamp.is_null(), |stamp| {
+            Self::show_tabs_stamp(stamp) == Self::show_tabs_stamp(&self.tabs_stamp)
+        });
+        let viewport_only = tabs_unchanged
+            && editor_stamp.is_some_and(|stamp| {
+                !self.editor_stamp.is_null()
+                    && Self::stamp_refs(documents, active) == self.last_stamp
+                    && self.api_selections.is_empty()
+                    && self.api_editor_selections.is_empty()
+                    && Self::show_editor_stamp(stamp) == Self::show_editor_stamp(&self.editor_stamp)
+            });
         // Only publish the new baseline after the transport accepts the update.
         let mut next = self.clone();
         let state = next.state(documents, active)?;
+        if viewport_only {
+            next.show_generation_floor = self.show_generation_floor;
+        }
+        if let Some(stamp) = editor_stamp {
+            next.editor_stamp = stamp.clone();
+        }
+        if let Some(stamp) = tabs_stamp {
+            next.tabs_stamp = stamp.clone();
+        }
         Ok((next, state))
+    }
+    fn show_editor_stamp(stamp: &Value) -> Value {
+        let mut stamp = stamp.clone();
+        if let Some(editors) = stamp["editors"].as_array_mut() {
+            for editor in editors {
+                if let Some(editor) = editor.as_object_mut() {
+                    editor.remove("visibleRanges");
+                }
+            }
+        }
+        stamp
+    }
+    /// Presentation flags do not retarget showTextDocument. Keep exact group
+    /// and tab lifetimes, resource identity, order and active membership; only
+    /// independent labels/dirty/pin/preview metadata may span this interval.
+    fn show_tabs_stamp(stamp: &Value) -> Value {
+        let mut stamp = stamp.clone();
+        if let Some(groups) = stamp["groups"].as_array_mut() {
+            for group in groups {
+                if let Some(tabs) = group["tabs"].as_array_mut() {
+                    for tab in tabs {
+                        if let Some(tab) = tab.as_object_mut() {
+                            for field in ["label", "isDirty", "isPinned", "isPreview"] {
+                                tab.remove(field);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stamp
+    }
+    fn show_generation_current(&self, generation: Option<u64>) -> bool {
+        generation.is_some_and(|generation| {
+            generation >= self.show_generation_floor && generation <= self.generation
+        })
     }
     fn state(&mut self, documents: &[&Document], active: Option<&Document>) -> Result<Value> {
         if documents.iter().map(|d| d.text.len_bytes()).sum::<usize>() > MAX_DOCUMENT_BYTES {
@@ -1034,35 +1692,54 @@ impl MirrorState {
         for doc in documents {
             let uri = document_uri(doc)?;
             let needs_text = self.mirrors.get(&doc.id).is_none_or(|old| {
-                old.revision != doc.revision || old.text_epoch != doc.text_epoch()
+                old.revision != doc.revision
+                    || old.text_epoch != doc.text_epoch()
+                    || old.resource_epoch != doc.resource_epoch()
+                    || old.eol != doc.eol
             });
             let mirror = self.mirrors.entry(doc.id).or_insert_with(|| Mirror {
+                editor_view: doc.editor_view_identity(),
+                language_epoch: doc.language_epoch(),
                 revision: doc.revision,
                 text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
                 save_generation: doc.save_generation(),
                 uri: uri.clone(),
+                eol: doc.eol.clone(),
                 version: 1,
             });
             if mirror.revision != doc.revision
                 || mirror.text_epoch != doc.text_epoch()
+                || mirror.resource_epoch != doc.resource_epoch()
                 || mirror.uri != uri
+                || mirror.eol != doc.eol
             {
                 mirror.version += 1;
                 mirror.revision = doc.revision;
                 mirror.text_epoch = doc.text_epoch();
+                mirror.resource_epoch = doc.resource_epoch();
                 mirror.uri = uri.clone();
+                mirror.eol = doc.eol.clone();
             }
+            mirror.editor_view = doc.editor_view_identity();
+            mirror.language_epoch = doc.language_epoch();
             mirror.save_generation = doc.save_generation();
             let mut snapshot = json!({"savedGeneration": mirror.save_generation, "id":doc.id, "uri":uri, "version":mirror.version,
-                "languageId":doc.path.as_deref().map_or("plaintext", lsp::language), "isDirty":doc.api_dirty()});
+                "languageEpoch":doc.language_epoch(), "selections":selections(doc), "languageId":doc.language_override().unwrap_or_else(||doc.path.as_deref().map_or("plaintext", lsp::language)), "isDirty":doc.api_dirty(), "isReadonly":doc.is_read_only(),
+                "eol":if doc.eol == "\r\n" {2} else {1}, "encoding":"utf8"});
+            if self.api_selections.contains(&doc.id) {
+                snapshot["selectionKind"] = 3.into();
+            }
             if needs_text {
                 snapshot["text"] = doc.text.to_string().into();
             }
             snapshots.push(snapshot);
         }
+        self.api_selections.clear();
         let ids: HashSet<_> = documents.iter().map(|d| d.id).collect();
         self.mirrors.retain(|id, _| ids.contains(id));
         self.generation += 1;
+        self.show_generation_floor = self.generation;
         self.last_stamp = Self::stamp_refs(documents, active);
         Ok(
             json!({"generation":self.generation, "documents":snapshots, "active":active.map(|d|d.id),
@@ -1070,20 +1747,371 @@ impl MirrorState {
         )
     }
 }
-fn document_uri(doc: &Document) -> Result<String> {
-    doc.path
-        .as_deref()
-        .map_or_else(|| Ok(format!("untitled:vscli-{}", doc.id)), lsp::file_uri)
+pub(crate) fn document_uri(doc: &Document) -> Result<String> {
+    if let Some(uri) = doc.virtual_uri() {
+        return Ok(uri.to_owned());
+    }
+    if let Some(uri) = doc.untitled_uri() {
+        return Ok(uri.to_owned());
+    }
+    doc.path.as_deref().map_or_else(
+        || Ok(format!("untitled:vscli-{}", doc.id)),
+        extension_file_uri,
+    )
+}
+pub(crate) fn extension_file_uri(path: &Path) -> Result<String> {
+    let uri = url::Url::from_file_path(path)
+        .map_err(|_| anyhow::anyhow!("Invalid native extension file path"))?;
+    Ok(extension_file_uri_url(&uri))
+}
+fn extension_file_uri_url(uri: &url::Url) -> String {
+    // Match the vendored upstream URI's default file formatting. LSP wire
+    // spelling stays independent; native extension mirrors use this one key.
+    const PATH: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+        .remove(b'-')
+        .remove(b'_')
+        .remove(b'.')
+        .remove(b'~')
+        .remove(b'/');
+    let mut path: Vec<u8> = percent_encoding::percent_decode_str(uri.path()).collect();
+    if path.len() >= 3 && path[0] == b'/' && path[1].is_ascii_alphabetic() && path[2] == b':' {
+        path[1].make_ascii_lowercase();
+    }
+    format!(
+        "file://{}{}",
+        uri.host_str().unwrap_or(""),
+        percent_encoding::percent_encode(&path, PATH)
+    )
+}
+fn selected_languages(packages: &[Package]) -> Result<HashSet<String>> {
+    let mut languages = HashSet::new();
+    for package in packages {
+        let manifest = package.manifest()?;
+        let declared = &manifest["contributes"]["languages"];
+        if !declared.is_null() {
+            let values = declared
+                .as_array()
+                .context("Invalid selected language contribution table")?;
+            if values.len() > 128 {
+                bail!("Selected language contributions exceed 128 entries");
+            }
+            for value in values {
+                let id = value["id"]
+                    .as_str()
+                    .context("Invalid selected contributed language")?;
+                if id.is_empty() || id.len() > 128 || id.contains('\0') {
+                    bail!("Contributed language identifier exceeds bounds");
+                }
+                languages.insert(id.to_owned());
+            }
+        }
+    }
+    Ok(languages)
+}
+fn check_mirror_budget(documents: &[&Document]) -> Result<()> {
+    if documents
+        .iter()
+        .map(|doc| doc.text.len_bytes())
+        .sum::<usize>()
+        > MAX_DOCUMENT_BYTES
+    {
+        bail!("Extension document mirrors admit at most 4 MiB total");
+    }
+    if documents.len() > 128
+        || documents.iter().any(|doc| doc.secondary.len() >= 10_000)
+        || documents
+            .iter()
+            .map(|doc| doc.secondary.len() + 1)
+            .sum::<usize>()
+            > 16_384
+    {
+        bail!(
+            "Document mirrors admit 128 models, 10,000 selections/model and 16,384 total selections"
+        );
+    }
+    Ok(())
 }
 fn selections(doc: &Document) -> Vec<Value> {
-    std::iter::once((doc.anchor.unwrap_or(doc.cursor), doc.cursor))
-        .chain(doc.secondary.iter().map(|s|(s.anchor.unwrap_or(s.cursor),s.cursor)))
-        .map(|(anchor,active)|json!({"anchor":lsp::position(doc,anchor),"active":lsp::position(doc,active)})).collect()
+    selections_for(doc, None)
+}
+fn selections_for(doc: &Document, view: Option<u64>) -> Vec<Value> {
+    // Scan each requested physical line prefix once, retaining caller order.
+    // Aggregate source admission precedes calls from transport preparation.
+    let view = doc.view_state(view);
+    let selections = std::iter::once((view.anchor.unwrap_or(view.cursor), view.cursor))
+        .chain(view.secondary.iter().map(|selection| {
+            (
+                selection.anchor.unwrap_or(selection.cursor),
+                selection.cursor,
+            )
+        }))
+        .collect::<Vec<_>>();
+    let mut points = selections
+        .iter()
+        .flat_map(|(anchor, active)| [*anchor, *active])
+        .enumerate()
+        .map(|(index, offset)| (offset.min(doc.len()), index))
+        .collect::<Vec<_>>();
+    points.sort_by_key(|(offset, _)| *offset);
+    let mut positions = vec![
+        lsp::Position {
+            line: 0,
+            character: 0
+        };
+        points.len()
+    ];
+    let mut row = usize::MAX;
+    let mut cursor = 0;
+    let mut units = 0;
+    for (offset, index) in points {
+        let next_row = doc.text.char_to_line(offset);
+        if row != next_row {
+            row = next_row;
+            cursor = doc.line_start(row);
+            units = 0;
+        }
+        units += doc
+            .text
+            .slice(cursor..offset)
+            .chars()
+            .map(char::len_utf16)
+            .sum::<usize>();
+        cursor = offset;
+        positions[index] = lsp::Position {
+            line: row,
+            character: units,
+        };
+    }
+    (0..selections.len())
+        .map(|index| json!({"anchor":positions[index*2],"active":positions[index*2+1]}))
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    #[test]
+    fn native_extension_file_uri_spelling_matches_the_upstream_uri_formatter() {
+        let inputs = [
+            "file:///C:/work/space%20%E7%8C%AB%23%25.rs",
+            "file:///tmp/a:b@c[de](f)!g'*.rs",
+            "file://server/share/a%20b",
+            "file:///tmp/%25literal%2Fpart~.rs",
+        ];
+        let formatted: Vec<_> = inputs
+            .iter()
+            .map(|uri| extension_file_uri_url(&url::Url::parse(uri).unwrap()))
+            .collect();
+        let script = "const {Uri}=require(process.argv[1]);process.stdout.write(JSON.stringify(JSON.parse(process.argv[2]).map(value=>Uri.parse(value).toString())));";
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(script)
+            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("extension-host/uri.cjs"))
+            .arg(serde_json::to_string(&inputs).unwrap())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let upstream: Vec<String> = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(formatted, upstream);
+    }
+    #[test]
+    fn show_generation_tolerates_only_contiguous_measured_viewport_updates() {
+        let mut docs = [Document::from_text("dirty 猫🙂\r\n")];
+        let stamp = json!({"activeEditor":"editor-1","editors":[{
+            "id":"editor-1","document":docs[0].id,"viewColumn":1,
+            "selections":[],"options":{"tabSize":4},"visibleRanges":[]}]});
+        let (first, _) = MirrorState::default()
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&stamp))
+            .unwrap();
+        let mut measured = stamp.clone();
+        measured["editors"][0]["visibleRanges"] =
+            json!([{"start":{"line":0,"character":0},"end":{"line":1,"character":0}}]);
+        let (second, _) = first
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&measured))
+            .unwrap();
+        assert!(second.show_generation_current(Some(first.generation)));
+        measured["editors"][0]["visibleRanges"] = json!([]);
+        let (third, _) = second
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&measured))
+            .unwrap();
+        assert!(third.show_generation_current(Some(first.generation)));
+        assert!(!third.show_generation_current(None));
+        assert!(!third.show_generation_current(Some(0)));
+        assert!(!third.show_generation_current(Some(third.generation + 1)));
+        for (field, value) in [
+            ("id", json!("editor-replaced")),
+            ("viewColumn", json!(2)),
+            ("options", json!({"tabSize":8})),
+            (
+                "selections",
+                json!([{"anchor":{"line":0,"character":0},"active":{"line":0,"character":1}}]),
+            ),
+        ] {
+            let mut changed = measured.clone();
+            changed["editors"][0][field] = value;
+            let (next, _) = third
+                .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&changed))
+                .unwrap();
+            assert!(
+                !next.show_generation_current(Some(third.generation)),
+                "{field}"
+            );
+        }
+        let mut changed = measured.clone();
+        changed["activeEditor"] = Value::Null;
+        let (next, _) = third
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&changed))
+            .unwrap();
+        assert!(!next.show_generation_current(Some(third.generation)));
+        let mut api = third.clone();
+        api.api_editor_selections.insert("editor-1".into());
+        let (next, _) = api
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&measured))
+            .unwrap();
+        assert!(!next.show_generation_current(Some(third.generation)));
+        docs[0].insert("X", false);
+        docs[0].undo();
+        let (next, _) = third
+            .next_refs_with_editor_stamp(&[&docs[0]], docs.first(), Some(&measured))
+            .unwrap();
+        assert!(
+            !next.show_generation_current(Some(third.generation)),
+            "source ABA"
+        );
+    }
+    #[test]
+    fn tab_metadata_preserves_show_interval_but_actual_membership_changes_retire_it() {
+        let docs = [Document::from_text("猫🙂\r\n")];
+        let mut groups = crate::editor_groups::Groups::with_empty_group();
+        let member = groups.open(docs[0].id).unwrap().active.unwrap();
+        let mut inventory = editor_tabs::Inventory::default();
+        inventory.observe(&groups, &[&docs[0]]).unwrap();
+        let tabs = inventory.wire().unwrap();
+        let stamp = json!({"activeEditor":"editor-1","editors":[{
+            "id":"editor-1","document":docs[0].id,"viewColumn":1,
+            "selections":[],"options":{"tabSize":4},"visibleRanges":[]}]});
+        let (first, _) = MirrorState::default()
+            .next_refs_with_inventory_stamps(&[&docs[0]], docs.first(), Some(&stamp), Some(&tabs))
+            .unwrap();
+        let mut measured = stamp.clone();
+        measured["editors"][0]["visibleRanges"] =
+            json!([{"start":{"line":0,"character":0},"end":{"line":1,"character":0}}]);
+        let (second, _) = first
+            .next_refs_with_inventory_stamps(
+                &[&docs[0]],
+                docs.first(),
+                Some(&measured),
+                Some(&tabs),
+            )
+            .unwrap();
+        assert!(second.show_generation_current(Some(first.generation)));
+        groups.set_sticky(member, true).unwrap();
+        inventory.observe(&groups, &[&docs[0]]).unwrap();
+        let changed_tabs = inventory.wire().unwrap();
+        assert_ne!(changed_tabs, tabs);
+        let (third, state) = second
+            .next_refs_with_inventory_stamps(
+                &[&docs[0]],
+                docs.first(),
+                Some(&stamp),
+                Some(&changed_tabs),
+            )
+            .unwrap();
+        assert!(third.show_generation_current(Some(first.generation)));
+        assert!(third.show_generation_current(Some(second.generation)));
+        assert_eq!(third.tabs_stamp, changed_tabs);
+        // A new shared membership retires old Show requests even if the test's
+        // visible-editor/document stamp has not advanced yet.
+        groups.split_active().unwrap();
+        inventory.observe(&groups, &[&docs[0]]).unwrap();
+        let topology = inventory.wire().unwrap();
+        let (fourth, _) = third
+            .next_refs_with_inventory_stamps(
+                &[&docs[0]],
+                docs.first(),
+                Some(&measured),
+                Some(&topology),
+            )
+            .unwrap();
+        assert!(!fourth.show_generation_current(Some(third.generation)));
+        assert!(!fourth.show_generation_current(Some(first.generation)));
+        assert_eq!(state["documents"][0]["version"], 1);
+        assert_eq!(docs[0].text.to_string(), "猫🙂\r\n");
+        assert!(!docs[0].dirty());
+    }
+    #[test]
+    fn prepared_tab_inventory_contains_real_empty_group_and_original_published_proof() {
+        let groups = crate::editor_groups::Groups::with_empty_group();
+        let mut inventory = editor_tabs::Inventory::default();
+        inventory.observe(&groups, &[]).unwrap();
+        let expected = inventory.wire().unwrap();
+        let prepared = Client::prepare(&[], 0, &Settings::default())
+            .unwrap()
+            .with_editor_tabs(inventory)
+            .unwrap();
+        assert_eq!(prepared.state["tabs"], expected);
+        assert_eq!(prepared.mirror.tabs_stamp, expected);
+        assert_eq!(prepared.state["tabs"]["groups"][0]["tabs"], json!([]));
+        let id = expected["groups"][0]["id"].as_str().unwrap().to_owned();
+        let capture = prepared
+            .mirror
+            .tabs
+            .as_ref()
+            .unwrap()
+            .capture_published("groups", &[id])
+            .unwrap();
+        assert!(capture.current(prepared.editor_tabs.as_ref().unwrap(), &groups));
+    }
+    #[test]
+    fn editor_state_mirrors_inactive_selections_language_and_command_kind_without_text_version() {
+        let mut documents = vec![Document::from_text("α😀\r\n"), Document::from_text("other")];
+        let (mut first, _) = MirrorState::default().next(&documents, 1).unwrap();
+        documents[0].set_selections(vec![crate::document::Selection {
+            cursor: 2,
+            anchor: Some(0),
+            desired_column: None,
+        }]);
+        documents[0]
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        first.api_selections.insert(documents[0].id);
+        let (next, state) = first.next(&documents, 1).unwrap();
+        assert_eq!(state["active"], documents[1].id);
+        assert_eq!(state["documents"][0]["version"], 1);
+        assert_eq!(state["documents"][0]["languageId"], "python");
+        assert_eq!(state["documents"][0]["languageEpoch"], 1);
+        assert_eq!(state["documents"][0]["selectionKind"], 3);
+        assert_eq!(
+            state["documents"][0]["selections"],
+            json!([{"anchor":{"line":0,"character":0},"active":{"line":0,"character":3}}])
+        );
+        assert!(state["documents"][0].get("text").is_none());
+        assert!(!first.api_selections.is_empty());
+        assert!(next.api_selections.is_empty());
+        let (_, later) = next.next(&documents, 1).unwrap();
+        assert!(later["documents"][0].get("selectionKind").is_none());
+    }
+    #[test]
+    fn editor_state_selected_languages_validate_actual_manifest_identity_and_table() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("package.json");
+        fs::write(&path, serde_json::to_vec(&json!({"publisher":"fixture","name":"language","version":"1.0.0","contributes":{"languages":[{"id":"fixture-language"}]}})).unwrap()).unwrap();
+        let package = Package::read(dir.path()).unwrap();
+        assert!(
+            selected_languages(std::slice::from_ref(&package))
+                .unwrap()
+                .contains("fixture-language")
+        );
+        fs::write(&path, serde_json::to_vec(&json!({"publisher":"fixture","name":"language","version":"2.0.0","contributes":{"languages":[{"id":"fixture-language"}]}})).unwrap()).unwrap();
+        assert!(selected_languages(std::slice::from_ref(&package)).is_err());
+        fs::write(&path, serde_json::to_vec(&json!({"publisher":"fixture","name":"language","version":"1.0.0","contributes":{"languages":{}}})).unwrap()).unwrap();
+        assert!(selected_languages(std::slice::from_ref(&package)).is_err());
+    }
     #[test]
     fn hidden_models_have_no_active_editor_and_keep_versions_when_shown() {
         let hidden = vec![Document::from_text("hidden α\r\n")];
@@ -1153,6 +2181,29 @@ mod tests {
         assert_eq!(redone["documents"][0]["version"], 4);
     }
     #[test]
+    fn mirror_eol_metadata_is_versioned_without_modifying_document_or_disk() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("eol.txt");
+        let original = "猫🙂\r\nsecond\nthird";
+        std::fs::write(&file, original).unwrap();
+        let mut docs = vec![Document::open_existing(&file).unwrap()];
+        let (first, initial) = MirrorState::default().next(&docs, 0).unwrap();
+        assert_eq!(initial["documents"][0]["eol"], 2);
+        assert_eq!(initial["documents"][0]["encoding"], "utf8");
+        let stamp = MirrorState::stamp_refs(&[&docs[0]], Some(&docs[0]));
+        let revision = docs[0].revision;
+        docs[0].eol = "\n".into();
+        assert_ne!(stamp, MirrorState::stamp_refs(&[&docs[0]], Some(&docs[0])));
+        let (_, updated) = first.next(&docs, 0).unwrap();
+        assert_eq!(updated["documents"][0]["version"], 2);
+        assert_eq!(updated["documents"][0]["eol"], 1);
+        assert_eq!(updated["documents"][0]["text"], original);
+        assert_eq!(updated["documents"][0]["isDirty"], false);
+        assert_eq!(docs[0].revision, revision);
+        assert_eq!(docs[0].text.to_string(), original);
+        assert_eq!(std::fs::read_to_string(file).unwrap(), original);
+    }
+    #[test]
     fn path_dirty_and_lifecycle_updates_preserve_content_identity() {
         let directory = tempfile::tempdir().unwrap();
         let mut docs = vec![Document::from_text("original")];
@@ -1210,6 +2261,10 @@ mod tests {
         )
         .unwrap();
         let edit = |session, owner| Edit {
+            editor: None,
+            set_end_of_line: None,
+            undo_stop_before: true,
+            undo_stop_after: true,
             session,
             owner,
             document: documents[0].id,
@@ -1225,6 +2280,10 @@ mod tests {
                 .unwrap()
         );
         let edit = Edit {
+            editor: None,
+            set_end_of_line: None,
+            undo_stop_before: true,
+            undo_stop_after: true,
             session: client.session,
             owner: "unknown.owner".into(),
             document: documents[0].id,
@@ -1232,9 +2291,37 @@ mod tests {
             edits: Vec::new(),
         };
         assert!(!client.apply_edit(edit, &mut documents).unwrap());
+        let original_eol = documents[0].eol.clone();
+        documents[0].eol = if original_eol == "\r\n" { "\n" } else { "\r\n" }.into();
+        let stale_eol_edit = Edit {
+            editor: None,
+            set_end_of_line: None,
+            undo_stop_before: true,
+            undo_stop_after: true,
+            session: client.session,
+            owner: client.packages[0].id.clone(),
+            document: documents[0].id,
+            version: 1,
+            edits: vec![
+                serde_json::from_value(json!({
+                    "range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},
+                    "newText":"stale eol"
+                }))
+                .unwrap(),
+            ],
+        };
+        assert!(!client.service_document_current(&documents[0], 1));
+        assert!(!client.apply_edit(stale_eol_edit, &mut documents).unwrap());
+        assert_eq!(documents[0].text.to_string(), "original");
+        documents[0].eol = original_eol;
+        assert!(client.service_document_current(&documents[0], 1));
         documents[0].insert("transient", false);
         documents[0].undo();
         let edit = Edit {
+            editor: None,
+            set_end_of_line: None,
+            undo_stop_before: true,
+            undo_stop_after: true,
             session: client.session,
             owner: client.packages[0].id.clone(),
             document: documents[0].id,

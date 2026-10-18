@@ -64,13 +64,34 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
-      - run: node --test extension-host/api-types.test.cjs extension-host/api.test.cjs extension-host/configuration.test.cjs extension-host/host.test.cjs extension-host/prompts.test.cjs extension-host/activation.test.cjs extension-host/activation-host.test.cjs extension-host/document-services.test.cjs extension-host/memento.test.cjs extension-host/surfaces.test.cjs
-      - run: node --test extension-host/providers.test.cjs extension-host/provider-wire.test.cjs
-      - run: node --test extension-host/diagnostics.test.cjs
-      - run: node --test extension-host/code-actions.test.cjs extension-host/fixture-evidence.test.cjs
-      - run: node --test extension-host/signatures.test.cjs
-      - run: node --test extension-host/symbols.test.cjs
-      - run: cargo test --locked
+      - name: Run all extension host contracts
+        run: node scripts/test_extension_host.cjs
+      - name: Collect every native test binary failure
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test --locked --no-fail-fast -- --test-threads=4 --nocapture
+      - name: Exercise the isolated native Windows clipboard
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        env:
+          VSCLI_TEST_WINDOWS_CLIPBOARD: '1'
+        run: cargo test --locked --lib snippet_clipboard::windows_ci::isolated_windows_clipboard_preserves_unicode_crlf_empty_text_and_canceled_write -- --exact --ignored
+      - name: Preserve native macOS crash diagnostics
+        if: always() && runner.os == 'macOS'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-crash-reports-macos
+          path: ~/Library/Logs/DiagnosticReports/vscli*
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Exercise document references through aliased temporary directories
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          reference_tmp=$(mktemp -d "$RUNNER_TEMP/vscli-paths.XXXXXX")
+          mkdir "$reference_tmp/physical"
+          ln -s "$reference_tmp/physical" "$reference_tmp/alias"
+          TMPDIR="$reference_tmp/alias" cargo test --locked --lib document_references
       - run: cargo build --locked
       - run: node --test tests/vscode-reference/compare.test.cjs tests/vscode-reference/supervisor.test.cjs tests/vscode-reference/diagnostics-compare.test.cjs tests/vscode-reference/outline-settlement.test.cjs
       - run: npm ci --ignore-scripts --no-audit --no-fund
@@ -170,12 +191,15 @@ jobs:
         working-directory: tests/vscode-reference-save-actions-stable-configuration-candidate
       - name: Check bounded stable save setup and diagnostic contracts
         run: node --test tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-readiness.test.cjs tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-diagnostics.test.cjs tests/vscode-reference-save-actions-stable-configuration-candidate/save-configuration-ready.test.cjs
+      - name: Check trusted fresh CI capture preparation
+        run: python3 -m unittest discover -s tests -p 'prepare_save_reference_ci_test.py'
       - name: Check lossless stable reference staging
         run: python3 -m unittest discover -s tests -p 'stage_save_actions_reference_test.py'
       - name: Record independently trusted checked-out revision
+        id: record_stable_revision
         env:
           CANDIDATE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: node -e "const fs=require('node:fs');const revision=process.env.CANDIDATE_REVISION;if(!/^[0-9a-f]{40}$/.test(revision)||require('node:child_process').execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()!==revision)throw Error('Checked-out revision differs from trusted workflow revision');fs.mkdirSync('target/vscode-reference',{recursive:true});fs.mkdirSync('target/save-actions-stable-configuration',{recursive:true});fs.writeFileSync('target/save-actions-stable-configuration/candidate-revision.txt',revision+'\n')"
+        run: python3 tests/prepare_save_reference_ci.py
       - name: Observe stable code-actions-on-save contracts (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 6
@@ -191,7 +215,7 @@ jobs:
           set -o pipefail
           node tests/vscode-reference-save-actions-stable-configuration-candidate/save-code-actions-run.cjs target/save-actions-stable-configuration/result 2>&1 | tee target/save-actions-stable-configuration/capture.log
       - name: Stage every available stable save result and source
-        if: always()
+        if: always() && steps.record_stable_revision.outcome == 'success'
         run: python3 tests/stage_save_actions_reference.py tests/vscode-reference-save-actions-stable-configuration-candidate target/save-actions-stable-configuration target/save-actions-stable-reference-artifact
       - name: Admit complete stable save source, revision and metadata
         env:
@@ -204,7 +228,7 @@ jobs:
           VSCLI_SAVE_ACTIONS_STABLE_EXPECTED_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
         run: cargo test --locked --test save_code_actions_reference
       - name: Preserve all stable save evidence on success or failure
-        if: always()
+        if: always() && steps.record_stable_revision.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stable-save-reference-${{ matrix.os }}
@@ -219,6 +243,15 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 5
         run: python3 -u tests/pty_smoke.py target/debug/vscli
+      - name: Run native profile migration workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 3
+        run: |
+          python3 -u tests/profile_migration_pty.py target/debug/vscli
+          python3 -u tests/builtin_profile_migration_pty.py target/debug/vscli
+          python3 -u tests/portable_profile_pty.py target/debug/vscli
+          python3 -u tests/exported_profile_pty.py target/debug/vscli
+          python3 -u tests/migration_blockers_pty.py target/debug/vscli
       - name: Run native code action queue workflow
         if: runner.os != 'Windows'
         timeout-minutes: 2
@@ -368,6 +401,29 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/extension_documents_pty.py target/debug/vscli
+      - name: Run extension context and complex conditional shortcut workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: |
+          python3 -u tests/extension_context_keys_pty.py target/debug/vscli
+          python3 -u tests/when_expressions_pty.py target/debug/vscli
+      - name: Run packaged default labels and editor EOL workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: |
+          python3 -u tests/extension_manifest_labels_pty.py target/debug/vscli
+          python3 -u tests/extension_editor_eol_pty.py target/debug/vscli
+          python3 -u tests/extension_editor_position_pty.py target/debug/vscli
+          python3 -u tests/extension_editor_undo_pty.py target/debug/vscli
+          python3 -u tests/extension_editor_set_eol_pty.py target/debug/vscli
+      - name: Run extension configuration write and native reload workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/extension_configuration_update_pty.py target/debug/vscli
+      - name: Run extension clipboard and native paste workflows
+        if: runner.os != 'Windows'
+        timeout-minutes: 2
+        run: python3 -u tests/extension_clipboard_pty.py target/debug/vscli
       - name: Run native extension language provider workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2
@@ -376,6 +432,9 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 2
         run: python3 -u tests/extension_surfaces_pty.py target/debug/vscli
+      - name: Run public Window progress and native editing workflows
+        if: runner.os != 'Windows'
+        run: python3 -u tests/extension_progress_pty.py target/debug/vscli
       - name: Check syntax colors during terminal edits
         if: runner.os != 'Windows'
         timeout-minutes: 2
@@ -510,32 +569,32 @@ jobs:
           VSCLI_NPM_INTELLISENSE: ${{ github.workspace }}/target/npm-intellisense-upstream
           VSCLI_SQL_FORMATTER: ${{ github.workspace }}/target/sql-formatter-upstream
       - name: Prepare pinned unchanged Write Good Linter
-        run: python3 tests/prepare_write_good.py
+        run: python3 tests/prepare_write_good.py "${{ runner.temp }}/vscli-write-good-upstream"
       - name: Qualify unchanged linter diagnostics against native buffers
         run: cargo test --locked --test write_good -- --ignored
         env:
-          VSCLI_WRITE_GOOD: ${{ github.workspace }}/target/write-good-upstream
+          VSCLI_WRITE_GOOD: ${{ runner.temp }}/vscli-write-good-upstream
       - name: Qualify unchanged linter diagnostics in the terminal
         timeout-minutes: 2
         run: python3 -u tests/write_good_pty.py target/debug/vscli
         env:
-          VSCLI_WRITE_GOOD: ${{ github.workspace }}/target/write-good-upstream
+          VSCLI_WRITE_GOOD: ${{ runner.temp }}/vscli-write-good-upstream
       - name: Verify unchanged linter source and dependencies after qualification
-        run: python3 tests/prepare_write_good.py --verify-only
+        run: python3 tests/prepare_write_good.py "${{ runner.temp }}/vscli-write-good-upstream" --verify-only
       - name: Prepare pinned unchanged official code action sample
-        run: python3 tests/prepare_code_actions_sample.py
+        run: python3 tests/prepare_code_actions_sample.py "${{ runner.temp }}/vscli-code-actions-sample-upstream"
       - name: Qualify official code action sample against native buffers
         run: cargo test --locked --test code_actions_sample -- --ignored
         env:
-          VSCLI_CODE_ACTIONS_SAMPLE: ${{ github.workspace }}/target/code-actions-sample-upstream/code-actions-sample
+          VSCLI_CODE_ACTIONS_SAMPLE: ${{ runner.temp }}/vscli-code-actions-sample-upstream/code-actions-sample
       - name: Qualify official code action sample in the terminal
         timeout-minutes: 2
         run: python3 -u tests/code_actions_sample_pty.py target/debug/vscli
         env:
-          VSCLI_CODE_ACTIONS_SAMPLE: ${{ github.workspace }}/target/code-actions-sample-upstream/code-actions-sample
+          VSCLI_CODE_ACTIONS_SAMPLE: ${{ runner.temp }}/vscli-code-actions-sample-upstream/code-actions-sample
       - name: Qualify actual clangd alongside extension code action providers
         run: cargo test --locked --test extension_code_actions -- --ignored
         env:
           VSCLI_CLANGD: clangd
       - name: Verify unchanged official sample after qualification
-        run: python3 tests/prepare_code_actions_sample.py --verify-only
+        run: python3 tests/prepare_code_actions_sample.py "${{ runner.temp }}/vscli-code-actions-sample-upstream" --verify-only

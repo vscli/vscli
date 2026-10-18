@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LineNumbers {
     #[default]
     On,
@@ -274,6 +274,8 @@ const SUPPORTED: &[&str] = &[
     "editor.defaultFormatter",
     "editor.codeActionsOnSave",
     "editor.tabSize",
+    "editor.indentSize",
+    "editor.cursorStyle",
     "editor.insertSpaces",
     "editor.lineNumbers",
     "editor.quickSuggestions",
@@ -292,8 +294,11 @@ const SUPPORTED: &[&str] = &[
     "breadcrumbs.filePath",
     "breadcrumbs.symbolPath",
     "files.autoSave",
+    "files.refactoring.autoSave",
+    "files.participants.timeout",
     "files.autoSaveDelay",
     "workbench.colorTheme",
+    "workbench.colorCustomizations",
     "workbench.editor.enablePreview",
     "workbench.editor.enablePreviewFromQuickOpen",
     "workbench.editor.preventPinnedEditorClose",
@@ -390,6 +395,21 @@ impl Settings {
     pub fn extension_layers(&self) -> &Arc<Vec<Map<String, Value>>> {
         &self.layers
     }
+    /// Root-scoped file-operation callback budget. Zero disables delivery;
+    /// malformed or unrepresentable winning values never enable a lower layer.
+    pub(crate) fn file_participant_timeout(&self) -> Option<std::time::Duration> {
+        let value = self
+            .layers
+            .iter()
+            .rev()
+            .find_map(|layer| layer.get("files.participants.timeout"));
+        let milliseconds = match value {
+            None => 60_000.0,
+            Some(value) => value.as_f64()?,
+        };
+        (milliseconds.is_finite() && milliseconds > 0.0 && milliseconds <= i32::MAX as f64)
+            .then(|| std::time::Duration::from_millis((milliseconds as u64).max(1)))
+    }
     fn validate(&mut self, values: &Map<String, Value>, source: &str) {
         self.validate_scoped(values, source, false);
     }
@@ -410,6 +430,10 @@ impl Settings {
                     "workbench.editor.enablePreview"
                         | "workbench.editor.enablePreviewFromQuickOpen"
                         | "workbench.editor.preventPinnedEditorClose"
+                        | "files.refactoring.autoSave"
+                        | "files.participants.timeout"
+                        | "workbench.colorTheme"
+                        | "workbench.colorCustomizations"
                 )
             {
                 self.warnings.push(format!(
@@ -420,6 +444,8 @@ impl Settings {
                 self.warnings.push(format!(
                     "{source}: {key} is not a native setting; extensions may read it"
                 ));
+            } else if key == "workbench.colorCustomizations" && value.is_object() {
+                self.warnings.push(format!("{source}: color customizations apply to the native palette; unmapped surfaces appear in Preferences: Color Theme Report"));
             } else if !valid(key, value) {
                 self.warnings.push(if key == "files.autoSaveDelay" {
                     format!("{source}: invalid value for {key}; native autosave disabled (delay must be 0–86400000 ms)")
@@ -911,10 +937,11 @@ impl Settings {
     }
 
     pub fn apply(&self, doc: &mut crate::document::Document) {
-        let language = doc
-            .path
-            .as_deref()
-            .map_or("plaintext", crate::languages::language);
+        let language = doc.language_override().unwrap_or_else(|| {
+            doc.path
+                .as_deref()
+                .map_or("plaintext", crate::languages::language)
+        });
         let tab_size = self
             .value("editor.tabSize", language)
             .and_then(Value::as_u64)
@@ -923,8 +950,7 @@ impl Settings {
             .value("editor.insertSpaces", language)
             .and_then(Value::as_bool)
             .unwrap_or(true);
-        doc.set_indentation(tab_size, insert_spaces);
-        doc.line_numbers = match self
+        let line_numbers = match self
             .value("editor.lineNumbers", language)
             .and_then(Value::as_str)
         {
@@ -933,6 +959,31 @@ impl Settings {
             Some("interval") => LineNumbers::Interval,
             _ => LineNumbers::On,
         };
+        let indent_size = self
+            .value("editor.indentSize", language)
+            .and_then(Value::as_u64)
+            .map_or(
+                crate::document::editor_options::IndentOption::default(),
+                |n| crate::document::editor_options::IndentOption::Number(n as usize),
+            );
+        let cursor_style = match self
+            .value("editor.cursorStyle", language)
+            .and_then(Value::as_str)
+        {
+            Some("block") => 2,
+            Some("underline") => 3,
+            Some("line-thin") => 4,
+            Some("block-outline") => 5,
+            Some("underline-thin") => 6,
+            _ => 1,
+        };
+        doc.set_editor_defaults(
+            tab_size,
+            indent_size,
+            insert_spaces,
+            line_numbers,
+            cursor_style,
+        );
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -968,7 +1019,7 @@ fn valid(key: &str, value: &Value) -> bool {
             }
             _ => false,
         },
-        "editor.formatOnSave" => value.is_boolean(),
+        "editor.formatOnSave" | "files.refactoring.autoSave" => value.is_boolean(),
         "editor.formatOnSaveMode" => matches!(
             value.as_str(),
             Some("file" | "modifications" | "modificationsIfAvailable")
@@ -986,10 +1037,14 @@ fn valid(key: &str, value: &Value) -> bool {
         "files.autoSaveDelay" => value
             .as_u64()
             .is_some_and(|delay| delay <= crate::autosave::MAX_DELAY_MS.into()),
+        "files.participants.timeout" => value
+            .as_f64()
+            .is_some_and(|value| value.is_finite() && value >= 0.0 && value <= i32::MAX as f64),
         "workbench.editor.preventPinnedEditorClose" => {
             PreventPinnedEditorClose::parse(value).is_some()
         }
         "workbench.colorTheme" => value.is_string(),
+        "workbench.colorCustomizations" => value.is_object(),
         "workbench.editor.enablePreview" | "workbench.editor.enablePreviewFromQuickOpen" => {
             value.is_boolean()
         }
@@ -1012,6 +1067,14 @@ fn valid(key: &str, value: &Value) -> bool {
                     <= 16384
         }),
         "editor.tabSize" => value.as_u64().is_some_and(|n| (1..=16).contains(&n)),
+        "editor.indentSize" => {
+            value.as_str() == Some("tabSize")
+                || value.as_u64().is_some_and(|n| (1..=16).contains(&n))
+        }
+        "editor.cursorStyle" => matches!(
+            value.as_str(),
+            Some("line" | "block" | "underline" | "line-thin" | "block-outline" | "underline-thin")
+        ),
         "editor.insertSpaces"
         | "editor.quickSuggestions"
         | "editor.suggestOnTriggerCharacters"
@@ -2595,5 +2658,154 @@ mod sticky_close_policy_tests {
                 invalid
             );
         }
+    }
+    #[test]
+    fn explicit_document_language_controls_settings_without_changing_text_history() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        std::fs::write(&path, r#"{"editor.tabSize":4,"[cpp]":{"editor.tabSize":2},"[python]":{"editor.tabSize":8,"editor.insertSpaces":false,"editor.lineNumbers":"relative"}}"#).unwrap();
+        let settings = Settings::load_editor(&[path]).unwrap();
+        let mut doc = crate::document::Document::from_text("猫🙂\r\noriginal\r\n");
+        doc.path = Some(root.path().join("original.cpp"));
+        doc.insert("dirty ", false);
+        let id = doc.id;
+        let version = doc.revision;
+        let epoch = doc.text_epoch();
+        settings.apply(&mut doc);
+        assert_eq!(doc.tab_size, 2);
+        doc.set_language_override(Some("python".into())).unwrap();
+        settings.apply(&mut doc);
+        assert_eq!(doc.tab_size, 8);
+        assert!(!doc.insert_spaces);
+        assert!(matches!(doc.line_numbers, LineNumbers::Relative));
+        assert_eq!(
+            (doc.id, doc.revision, doc.text_epoch()),
+            (id, version, epoch)
+        );
+        assert!(doc.dirty());
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂\r\noriginal\r\n");
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "dirty 猫🙂\r\noriginal\r\n");
+    }
+}
+
+#[cfg(test)]
+mod editor_option_defaults_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn scoped_defaults_resolve_indent_and_preserve_explicit_view_presentation_and_history() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        std::fs::write(&path, r#"{"editor.tabSize":8,"editor.indentSize":"tabSize","editor.cursorStyle":"line","[cpp]":{"editor.tabSize":4,"editor.indentSize":2,"editor.cursorStyle":"underline-thin","editor.lineNumbers":"interval"}}"#).unwrap();
+        let settings = Settings::load_editor(std::slice::from_ref(&path)).unwrap();
+        let mut doc = crate::document::Document::from_text("α😀\r\n\t猫\r\n");
+        doc.path = Some(root.path().join("main.cpp"));
+        doc.activate_view(1);
+        doc.insert("!", false);
+        doc.undo();
+        let proof = doc.editor_view_identity();
+        let state = (
+            doc.id,
+            doc.revision,
+            doc.text_epoch(),
+            doc.save_generation(),
+            doc.selections(),
+        );
+        settings.apply(&mut doc);
+        assert_eq!(
+            doc.editor_options_for(1).unwrap(),
+            json!({"tabSize":4,"indentSize":2,"originalIndentSize":2,"insertSpaces":true,"cursorStyle":6,"lineNumbers":3})
+        );
+        doc.apply_editor_options(
+            &proof,
+            &serde_json::from_value(json!({"cursorStyle":5,"lineNumbers":0})).unwrap(),
+        )
+        .unwrap();
+        doc.set_language_override(Some("plaintext".into())).unwrap();
+        settings.apply(&mut doc);
+        assert_eq!(
+            doc.editor_options_for(1).unwrap(),
+            json!({"tabSize":8,"indentSize":8,"originalIndentSize":"tabSize","insertSpaces":true,"cursorStyle":5,"lineNumbers":0})
+        );
+        doc.activate_view(2);
+        assert_eq!(doc.editor_options_for(2).unwrap()["cursorStyle"], 1);
+        assert_eq!(doc.editor_options_for(2).unwrap()["lineNumbers"], 1);
+        doc.activate_view(1);
+        assert_eq!(
+            (
+                doc.id,
+                doc.revision,
+                doc.text_epoch(),
+                doc.save_generation(),
+                doc.selections()
+            ),
+            state
+        );
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "!α😀\r\n\t猫\r\n");
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "α😀\r\n\t猫\r\n");
+        std::fs::write(
+            &path,
+            r#"{"editor.indentSize":17,"editor.cursorStyle":"beam"}"#,
+        )
+        .unwrap();
+        let invalid = Settings::load_editor(&[path]).unwrap();
+        assert_eq!(invalid.warnings.len(), 2);
+        invalid.apply(&mut doc);
+        assert_eq!(doc.indent_size(), 4);
+        assert_eq!(doc.editor_cursor_style(), 5);
+    }
+}
+
+#[cfg(test)]
+mod file_participant_timeout_tests {
+    use super::*;
+    #[test]
+    fn winning_root_timeout_defaults_disables_and_never_falls_back_from_invalid_values() {
+        assert_eq!(
+            Settings::default().file_participant_timeout(),
+            Some(std::time::Duration::from_secs(60))
+        );
+        let directory = tempfile::tempdir().unwrap();
+        let base = directory.path().join("base.json");
+        let override_ = directory.path().join("override.json");
+        std::fs::write(&base, r#"{"files.participants.timeout":1234}"#).unwrap();
+        for (value, expected) in [
+            (serde_json::json!(0), None),
+            (serde_json::json!(5.9), Some(5)),
+            (serde_json::json!(0.5), Some(1)),
+            (serde_json::json!(null), None),
+            (serde_json::json!("bad"), None),
+            (serde_json::json!(-1), None),
+            (serde_json::json!(2_147_483_648u64), None),
+        ] {
+            std::fs::write(
+                &override_,
+                serde_json::to_vec(&serde_json::json!({"files.participants.timeout":value}))
+                    .unwrap(),
+            )
+            .unwrap();
+            let settings = Settings::load(&[base.clone(), override_.clone()]).unwrap();
+            assert_eq!(
+                settings.file_participant_timeout(),
+                expected.map(std::time::Duration::from_millis)
+            );
+        }
+        std::fs::write(&override_, r#"{"[cpp]":{"files.participants.timeout":0}}"#).unwrap();
+        let settings = Settings::load(&[base, override_]).unwrap();
+        assert_eq!(
+            settings.file_participant_timeout(),
+            Some(std::time::Duration::from_millis(1234))
+        );
+        assert!(
+            settings
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("root-scoped files.participants.timeout"))
+        );
     }
 }

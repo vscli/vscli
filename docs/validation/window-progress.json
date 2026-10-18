@@ -1,0 +1,116 @@
+{
+  "schema": "vscli-window-progress-validation-v1",
+  "base_commit": "be096ca",
+  "scope": "Public withProgress at Window location reuses existing owned native status infrastructure. Notification, SourceControl and view locations and the whole stable API/migration remain required.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1777,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "d36f996baab00a81d99495630e1cbbc7f2e19d065672a1ebdc17c0a427ec6da5"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "b75e4875d1b10ba651d9aead1cbded78e0ab650c65fca19b83fded37c9c6cdde"
+  },
+  "criteria": {
+    "passed": 5,
+    "total": 5,
+    "items": [
+      {
+        "name": "Window task lifetime reaches actual native status rendering and returns exact callback values/errors",
+        "state": "passed"
+      },
+      {
+        "name": "Reports coalesce without serializing task values; message/type/byte bounds refuse malformed input",
+        "state": "passed"
+      },
+      {
+        "name": "Eight shared actual tasks retain capacity through owner retirement; original caller/getter/delegation guards refuse renewed authority",
+        "state": "passed"
+      },
+      {
+        "name": "Native shared dirty identity/revision/Undo/disk and empty-workbench behavior survive completion/failure/stop; terminal editing and no-Node restart pass",
+        "state": "passed"
+      },
+      {
+        "name": "Complete all-target Rust/host regression, terminal workflows, documentation, formatting and strict locked Clippy pass",
+        "state": "passed"
+      }
+    ]
+  },
+  "native": {
+    "reports": 78,
+    "passed": 1721,
+    "failed": 0,
+    "ignored": 23,
+    "library": 1347
+  },
+  "host": {
+    "passed": 845,
+    "failed": 0
+  },
+  "terminal_scenarios": 3,
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked --no-fail-fast -- --test-threads=4",
+      "exit_code": 0,
+      "log": "/tmp/vscli-window-progress-final-rust.log"
+    },
+    {
+      "command": "node scripts/test_extension_host.cjs",
+      "exit_code": 0,
+      "log": "/tmp/vscli-window-progress-final-host.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "exit_code": 0,
+      "log": "/tmp/vscli-window-progress-build.log"
+    },
+    {
+      "command": "python3 -u tests/extension_progress_pty.py <recorded debug binary>",
+      "exit_code": 0,
+      "passed_scenarios": 3,
+      "log": "/tmp/vscli-window-progress-pty.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "exit_code": 0,
+      "log": "/tmp/vscli-window-progress-final-fmt.log"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "exit_code": 0,
+      "log": "/tmp/vscli-window-progress-final-clippy.log"
+    },
+    {
+      "command": "python3 -m unittest discover -s scripts -p 'test_*.py'",
+      "exit_code": 0,
+      "passed_tests": 28,
+      "log": "/tmp/vscli-window-progress-script-tests.log"
+    }
+  ],
+  "initial_observations": [
+    "The first getter-retirement host control incorrectly counted the required owner-cleanup command snapshot as progress UI. It now requires zero nativeSurface effects and zero task invocations; cleanup notifications remain intact."
+  ],
+  "remaining": [
+    "Notification percentage/cancellation, Source Control and contributed-view progress",
+    "Graphical/theme-icon/accessibility behavior and pinned upstream runtime qualification",
+    "Fresh complete exact-head platform CI and Windows clipboard control",
+    "Whole stable API, personal extension/proposed API workflows and visual/configuration/account/storage migration",
+    "Windows/macOS artifacts and reviewed release publication gates"
+  ]
+}

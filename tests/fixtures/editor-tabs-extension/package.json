@@ -1,0 +1,90 @@
+{
+  "publisher": "fixture",
+  "name": "editor-tabs",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "editorTabs.setup",
+        "title": "Editor tabs setup inventory"
+      },
+      {
+        "command": "editorTabs.history",
+        "title": "Editor tabs verify dirty shared history"
+      },
+      {
+        "command": "editorTabs.clean",
+        "title": "Editor tabs verify clean history"
+      },
+      {
+        "command": "editorTabs.pinned",
+        "title": "Editor tabs verify pinned"
+      },
+      {
+        "command": "editorTabs.unpinned",
+        "title": "Editor tabs verify unpinned"
+      },
+      {
+        "command": "editorTabs.closeClean",
+        "title": "Editor tabs close clean array group"
+      },
+      {
+        "command": "editorTabs.welcome",
+        "title": "Editor tabs close welcome"
+      },
+      {
+        "command": "editorTabs.peer",
+        "title": "Editor tabs prepare protected peer"
+      },
+      {
+        "command": "editorTabs.cancel",
+        "title": "Editor tabs close dirty cancel"
+      },
+      {
+        "command": "editorTabs.discard",
+        "title": "Editor tabs close dirty discard"
+      },
+      {
+        "command": "editorTabs.saved",
+        "title": "Editor tabs close dirty save"
+      },
+      {
+        "command": "editorTabs.peerClean",
+        "title": "Editor tabs verify peer clean"
+      },
+      {
+        "command": "editorTabs.peerDirty",
+        "title": "Editor tabs verify peer dirty"
+      },
+      {
+        "command": "editorTabs.untitled",
+        "title": "Editor tabs prepare untitled"
+      },
+      {
+        "command": "editorTabs.cancelUntitled",
+        "title": "Editor tabs close untitled cancel"
+      },
+      {
+        "command": "editorTabs.saveUntitled",
+        "title": "Editor tabs close untitled save"
+      },
+      {
+        "command": "editorTabs.original",
+        "title": "Editor tabs restore original"
+      },
+      {
+        "command": "editorTabs.dirty",
+        "title": "Editor tabs verify original dirty"
+      },
+      {
+        "command": "editorTabs.showPeer",
+        "title": "Editor tabs show protected peer"
+      },
+      {
+        "command": "editorTabs.reopenDiscarded",
+        "title": "Editor tabs reopen discarded"
+      }
+    ]
+  }
+}

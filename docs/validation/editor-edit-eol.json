@@ -1,0 +1,108 @@
+{
+  "schema": "vscli-editor-edit-eol-validation-v1",
+  "base_commit": "875f8fa",
+  "scope": "Correct public TextEditor.edit newline normalization; complete TextEditorEdit and full stable API scope remain open.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1741,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "73737ec1680d836e6cd68833463a0130ed50ae29cbdc931955972f19d6ed417d"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "5331d82f57e843083a253d2babe975d9f3a40d839c2d3fae5827ef2a8436ff2d"
+  },
+  "criteria": {
+    "passed": 4,
+    "total": 4,
+    "items": [
+      "Public multiline editor edits normalize using private original EOL before native dispatch",
+      "Raw/expanded text bounds and public metadata tampering reject without partial native work",
+      "Actual native model, exact save bytes, shared identity and Undo agree with public CRLF text",
+      "Unchanged pinned Sort Lines, full native/host regressions, terminal integrity and required style checks retain source evidence"
+    ]
+  },
+  "observed_regression": {
+    "windows_run": 39074839956,
+    "failed_native_cases": 3,
+    "failed_binaries": 2,
+    "cases": "One five-second save-fixture watchdog; two associated untitled cases where public CRLF text and raw LF native buffers disagreed",
+    "local_reproduction": "A CRLF file on Linux receives literal LF/CR/CRLF public editor inserts; the public mirror normalizes while the native rope retained mixed bytes",
+    "before_fix_log": "/tmp/vscli-editor-eol-regression-before.log",
+    "watchdog": "Test-only save scheduling watchdog changes from 5 to 30 seconds. Actual save gates, byte/selection/history proofs and production deadlines remain unchanged; the cause of the preceding scheduling timeout is not established."
+  },
+  "checks": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --all-targets --locked --no-fail-fast",
+      "passed": 1671,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 73,
+      "library_passed": 1311,
+      "log": "/tmp/vscli-editor-eol-final-rust.log",
+      "source_cohort_sha256": "ee69c834d08b4da4ad721d22a6d9eba31f5abbfc6f78e397581447609eae0f2f",
+      "later_delta": "Only ignored Sort Lines CRLF expected-output assertions and the CI EOL PTY step changed after this full run; production Rust and host JavaScript are unchanged."
+    },
+    {
+      "command": "node scripts/test_extension_host.cjs",
+      "passed": 816,
+      "failed": 0,
+      "new_eol_controls": 2,
+      "log": "/tmp/vscli-editor-eol-host.log"
+    },
+    {
+      "command": "cargo test --locked --test extension_editor_eol --test extension_untitled_documents",
+      "passed": 5,
+      "failed": 0,
+      "log": "/tmp/vscli-editor-eol-native.log"
+    },
+    {
+      "command": "VSCLI_TEST_SORT_LINES=<pinned compiled source> cargo test --locked --test extension_installation --test extension_host upstream_sort_lines -- --ignored",
+      "passed": 4,
+      "failed": 0,
+      "log": "/tmp/vscli-editor-eol-sort-lines.log",
+      "upstream_commit": "eaf02bb141f1853d571b1e97574c6857e80a727c",
+      "source_changed": false,
+      "includes": "Local VSIX install, explicit CLI grant/lazy activation and exact CRLF save/Undo on unchanged Sort Lines 1.12.0"
+    },
+    {
+      "command": "python3 tests/extension_editor_eol_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "failed": 0,
+      "log": "/tmp/vscli-editor-eol-pty.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-editor-eol-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-editor-eol-build.log"
+    }
+  ],
+  "outstanding": [
+    "TextEditorEdit.setEndOfLine, nondefault undo-stop options and remaining edit-builder contracts",
+    "Direct private transport/bypass contracts, unpaired UTF-16 and broader mixed-source EOL behavior",
+    "Actual Windows repair-head CI, personal code workflows, full stable API and release qualification"
+  ]
+}

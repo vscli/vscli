@@ -141,6 +141,8 @@ def run():
             save(app, source, "猫🙂 «»\r\n".encode())
             command(app, "Extensions: Show Installed Extensions")
             wait_screen(app, "Installed Extensions")
+            wait_screen(app, "fixture.native@1.0.0", "Delete remove",
+                        absent=("Command Palette", "Extensions · Loading"))
             app.send("d")
             wait_screen(app, "Disabled fixture.native;")
             wait_screen(app, READY)

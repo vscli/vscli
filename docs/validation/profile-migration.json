@@ -1,0 +1,129 @@
+{
+  "schema": "vscli-profile-migration-validation-v1",
+  "base_commit": "bf0ba451d2fc50d1a0cea795de2de43b6a66b106",
+  "scope": "Guided default/named profile discovery, local package snapshots, explicit initial code grants, native live apply and rollback. Full API and personal extension workflows remain open.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1682,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "ffe92ac1056e8f1378e16654aa1c131f8eee35a62131b1176e1b760741a96dd9"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "36983ce3cfcb408863e26c5c2e4317141b3a14688e4c16821d7adecf66cfe693"
+  },
+  "environment": {
+    "platform": "Linux-7.2.8-arch1-2-x86_64-with-glibc2.44",
+    "rust": "rustc 1.99.0 (b940084d7 2026-09-28) (Arch Linux rust 1:1.99.0-1)"
+  },
+  "qualification": "Local Linux only; personal code not activated. No complete migration, API, source-disabled declarative filtering, cross-platform or release-artifact qualification.",
+  "batch_criteria": {
+    "passed": 6,
+    "total": 6,
+    "definition": "docs/MIGRATION_RELEASE_PLAN.md#guided-profile-and-local-package-migration"
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked",
+      "passed": 1642,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 67,
+      "library_passed": 1292,
+      "log": "/tmp/vscli-profile-migration-qualified-rust.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-profile-migration-final-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-profile-migration-final-build.log"
+    },
+    {
+      "command": "python3 scripts/test_extension_api_progress.py",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "terminal_checks": [
+    {
+      "command": "python3 tests/pty_smoke.py target/debug/vscli",
+      "passed_scenarios": 35,
+      "result": "passed",
+      "log": "/tmp/vscli-profile-migration-qualified-smoke.log"
+    },
+    {
+      "command": "python3 tests/profile_migration_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "result": "passed",
+      "log": "/tmp/vscli-profile-migration-qualified-pty.log"
+    },
+    {
+      "command": "python3 tests/imported_appearance_pty.py target/debug/vscli",
+      "passed_scenarios": 1,
+      "result": "passed",
+      "log": "/tmp/vscli-profile-migration-qualified-appearance.log"
+    },
+    {
+      "command": "python3 tests/welcome_brand_pty.py target/debug/vscli",
+      "passed_scenarios": 2,
+      "result": "passed",
+      "log": "/tmp/vscli-profile-migration-qualified-welcome.log"
+    }
+  ],
+  "personal_profile_check": {
+    "registered_versions": 93,
+    "distinct_registered_ids": 90,
+    "copied_ids": 90,
+    "all_selected_versions_match": true,
+    "all_manifest_byte_hashes_match_preview": true,
+    "configuration_bytes_match_source": true,
+    "code_execution_grants": 0,
+    "source_disabled_ids": 1,
+    "all_extension_workflows_qualified": false,
+    "native_startup_with_full_copied_inventory_without_node": true,
+    "unicode_crlf_edit_save_undo": true,
+    "native_installed_package_list": true,
+    "raw_directory_distinct_ids": 99,
+    "code_packages": 80,
+    "contributed_commands": 1683,
+    "contributed_keybindings": 169,
+    "packages_requesting_proposed_apis": 13,
+    "private_inputs": "Personal settings, package list and copied packages remain outside the repository."
+  },
+  "host_javascript": "Unchanged; earlier host qualification retains its own source cohort.",
+  "remaining": [
+    "Entire stable extension API and required proposed APIs",
+    "Personal package runtime workflows and interactions",
+    "Selected host eight-package and command/manifest budgets",
+    "Complete disabled declarative contribution behavior",
+    "Extension state and exported .code-profile migration",
+    "Source engine resolution and platform-native package qualification",
+    "Cursor/overview ruler, token fidelity, fonts/icons/layout/custom CSS and optional rich presentation",
+    "macOS/Windows, release artifacts and recovery qualification"
+  ]
+}

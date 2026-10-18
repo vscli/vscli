@@ -1,0 +1,7 @@
+{
+  "publisher": "fixture", "name": "markdown-display", "version": "1.0.0",
+  "main": "extension.cjs", "contributes": { "commands": [
+    {"command":"markdown.inspect", "title":"Markdown inspect unchanged dirty model"},
+    {"command":"unsafe", "title":"Markdown forbidden link target"}
+  ]}
+}

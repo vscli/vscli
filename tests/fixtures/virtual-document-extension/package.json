@@ -1,0 +1,46 @@
+{
+  "publisher": "fixture",
+  "name": "virtual-documents",
+  "version": "1.0.0",
+  "main": "extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "virtual.open",
+        "title": "Virtual document open"
+      },
+      {
+        "command": "virtual.readonly",
+        "title": "Virtual document verify readonly"
+      },
+      {
+        "command": "virtual.refresh",
+        "title": "Virtual document refresh"
+      },
+      {
+        "command": "virtual.hold",
+        "title": "Virtual document hold refresh"
+      },
+      {
+        "command": "virtual.latest",
+        "title": "Virtual document latest refresh"
+      },
+      {
+        "command": "virtual.dispose",
+        "title": "Virtual document dispose provider"
+      },
+      {
+        "command": "virtual.original",
+        "title": "Virtual document show original"
+      },
+      {
+        "command": "virtual.dirty",
+        "title": "Virtual document verify original dirty"
+      },
+      {
+        "command": "virtual.clean",
+        "title": "Virtual document verify original clean"
+      }
+    ]
+  }
+}

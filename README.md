@@ -1,75 +1,175 @@
 # VSCLI
 
+**A native terminal editor with familiar VS Code workflows.**
+
 [![CI](https://github.com/vscli/vscli/actions/workflows/ci.yml/badge.svg)](https://github.com/vscli/vscli/actions/workflows/ci.yml)
 
-VSCLI is a native Rust terminal editor working toward the VS Code workflow. **An evolving editor alpha is implemented.** Edit UTF-8 files with multiple cursors, independent group tabs and shared split views, search workspaces, navigate symbols, run shells/tasks, and inspect or stage Git changes. Installed clangd (C/C++) and rust-analyzer (Rust) start automatically when a saved file is selected; completion appears in a native caret popup as you type, with Tab/Enter acceptance. Core editing needs no Node.js, browser or account.
+Open a project, find files, edit across split panes, and run commands without
+leaving your terminal. VSCLI is written in Rust. Core editing needs no Node.js,
+browser, or account.
+
+**Currently in alpha.** Everyday editing is available, while VS Code feature and
+extension compatibility are still being built. See [current limits](#current-limits)
+before making it your main editor.
+
+## What you can do
+
+- **Edit with familiar controls:** multiple cursors, selections, Undo/Redo,
+  comments, snippets, and find/replace.
+- **Move around your project:** file Explorer, quick open, workspace search,
+  symbol navigation, Outline, and Breadcrumbs.
+- **Work across files:** independent tabs and split panes sharing the same
+  document, with Save/Discard/Cancel when closing unsaved work.
+- **Get language help:** completion, diagnostics, navigation, and formatting
+  through installed language servers.
+- **Keep tools close:** an integrated terminal, shell tasks from
+  `.vscode/tasks.json`, and Git status, diffs, staging, and commits.
+- **Bring your preferences:** preview and import supported VS Code settings,
+  keybindings, snippets, and color themes.
+
+The [user guide](docs/USAGE.md) covers these workflows in detail.
+
+## Install from source
+
+You'll need Git, Rust installed through rustup, and your platform's native build
+tools. The repository selects its pinned Rust toolchain automatically
+(currently 1.99.0).
+
+```sh
+git clone https://github.com/vscli/vscli.git
+cd vscli
+cargo install --path . --locked
+vscli .
+```
+
+Make sure Cargo's binary directory is on your `PATH`. To try VSCLI without
+installing it:
 
 ```sh
 cargo build --release --locked
 ./target/release/vscli .
-# Or open files directly:
-./target/release/vscli src/main.rs README.md
 ```
 
-Press **F1** for commands, **Ctrl+P** for quick open, **Ctrl+S** to save, and **Ctrl+Shift+W** to exit. macOS uses the corresponding Command bindings; use `--keymap macos` when your local keyboard is macOS but the editor runs remotely. The empty welcome screen offers recent files, clickable actions and the active settings path, with graphical or cell-based artwork. F1 → Keyboard Inspector shows themed keycaps, received modifiers and the resolved command; it diagnoses delivered input, not physical keys intercepted by the terminal.
+## Your first session
 
-Read the [usage and testing guide](docs/USAGE.md) for the full implemented feature list, shortcuts, recovery behavior, and limitations. `vscli --doctor` prints local environment diagnostics and keybinding/recovery paths; the welcome screen shows the active settings path.
-
-Native navigation includes [Back/Forward history](docs/NAVIGATION_HISTORY.md),
-[Outline](docs/OUTLINE.md) and [Breadcrumbs](docs/BREADCRUMBS.md). Breadcrumbs
-file trails work without Node or a language server; current native or extension
-symbols supply a guarded sibling picker.
-[Editor groups](docs/EDITOR_GROUPS.md) retain independent tabs, historical views
-and MRU closing. Native previews support Keep Editor and permanent edit promotion;
-delayed Save→Close targets the original tab.
-The Breadcrumbs toggle now saves its root setting through
-[native background settings persistence](docs/SETTINGS_PERSISTENCE.md), preserving
-comments and guarding unsaved settings buffers.
-Opt-in native save actions support fix-all, organize-imports and file formatting.
-Legacy boolean exclusions retain raw imported settings; see the
-[save-action contract](docs/CODE_ACTIONS_ON_SAVE.md) and
-[reference qualification](docs/SAVE_REFERENCE_VALIDATION.md).
-
-This alpha implements a **subset** of VS Code commands and bindings. Native language features include diagnostics, completion, explicit parameter hints, symbols, navigation, formatting and limited rename/refactoring. One native language server is active per window; manual configuration and disable controls remain available. Clean-file session restoration is opt-in and separate from dirty-buffer crash recovery. Native debugging supports breakpoints, stepping, stack/variables and expression evaluation through an explicitly configured stdio adapter; Python/debugpy is tested.
-
-An optional Node.js **CommonJS compatibility host** runs up to eight authorized packages with supported lazy activation. Its bounded subset includes shared documents/edits, configuration/Mementos, seven language-provider routes, diagnostic collections, native prompts and output/status/tree surfaces. Native Open VSX installation, themes and snippet catalogs work without code activation. See [extension compatibility](docs/EXTENSIONS.md), [diagnostic scope](docs/DIAGNOSTICS.md) and [named provider workflows](docs/EXTENSION_PROVIDERS.md): installing or activating an extension does not establish that all its features work.
-
-Full keybinding behavior and extension compatibility remain project goals. CI covers Linux, macOS and Windows, with Unix PTY workflows on Linux/macOS. Physical keyboard/layout, arbitrary terminal graphics and Windows ConPTY qualification remain incomplete; folding and many advanced IDE workflows remain outstanding. Resolved completion and linked snippet/import insertion follow the [bounded IntelliSense contract](docs/COMPLETIONS.md).
-
-## Development
-
-Use the pinned Rust toolchain. See [contributing](CONTRIBUTING.md) for atomic commits, checks, review, and release publishing.
+Open a project directory or individual files:
 
 ```sh
-cargo fmt --all --check
-cargo test --locked
-cargo clippy --all-targets --locked -- -D warnings
-# Optional real-server test, requires clangd:
-cargo test --test language_server real_clangd -- --ignored
-# Optional real-debugger test, requires debugpy in the chosen Python:
-VSCLI_TEST_PYTHON=/path/to/python cargo test --test debug_adapter -- --ignored
-cargo build --locked
-python3 tests/pty_smoke.py target/debug/vscli
+vscli .
+vscli src/main.rs README.md
 ```
 
-The PTY tests require Unix and Python 3 and edit only temporary files. They exercise the actual binary, including a forced crash and recovery. Unit tests also cover randomized edits, Unicode, undo, external modifications, permissions, symlinks, keybinding contexts, and rendering at small sizes.
+Press **F1** to discover commands, **Ctrl+P** to find a file, and **Ctrl+S** to
+save. On macOS, use the Command shortcuts below. Starting without a file opens
+the welcome screen; **Ctrl+N** / **Cmd+N** creates a new buffer.
 
-## Project direction
+| Action | Linux / Windows | macOS |
+| --- | --- | --- |
+| Command palette | F1 or Ctrl+Shift+P | F1 or Cmd+Shift+P |
+| Quick open | Ctrl+P | Cmd+P |
+| Save / Save As | Ctrl+S / Ctrl+Shift+S | Cmd+S / Cmd+Shift+S |
+| Undo / Redo | Ctrl+Z / Ctrl+Y | Cmd+Z / Cmd+Shift+Z |
+| Find in file | Ctrl+F | Cmd+F |
+| Search workspace | Ctrl+Shift+F | Cmd+Shift+F |
+| Settings | Ctrl+, | Cmd+, |
+| Close tab | Ctrl+W | Cmd+W |
+| Exit | Ctrl+Shift+W | Cmd+Shift+W |
 
-The implementation uses a Rust editor and terminal interface with an optional isolated Node.js compatibility process. Core editing must work without that process. A completely JavaScript-free application cannot also run arbitrary existing JavaScript extensions unchanged.
+If a shortcut doesn't arrive as expected, open **F1 → Keyboard Inspector** to see
+what your terminal sends. For a remote session, choose your local keyboard's
+profile, for example `vscli --keymap macos .`.
 
-The product promise should be **a fast terminal IDE with exact VS Code keybindings on qualified terminal configurations and a growing, verified set of extensions**. Exact platform defaults and unchanged user bindings are a firm design requirement. Broad feature and extension compatibility remains staged; exact keyboard parity cannot be claimed on arbitrary unconfigured terminals.
+Clean-file session restoration is opt-in: launch with `vscli --restore-session .`.
+Recovery of unsaved buffers after a crash is enabled separately by default.
 
-The longer-term design lives in:
+## Coming from VS Code?
 
-1. [Completion criteria](docs/RELEASE_CHECKLIST.md): the active full-project goal and remaining release requirements.
-2. [Architecture](docs/ARCHITECTURE.md): product scope, technical decisions, process boundaries, editing model, terminal experience, and performance budgets.
-3. [Compatibility](docs/COMPATIBILITY.md): keybindings, configuration, extension execution, distribution, and a measurable compatibility contract.
-4. [Current parity plan](docs/PARITY_PLAN.md): implemented subsets, remaining scope and next priorities.
-5. [Original roadmap](docs/ROADMAP.md): feasibility experiments, release gates, initial estimates and open-source stewardship.
+Choose **Import from VS Code** on the welcome screen, or run
+**F1 → Preferences: Import from VS Code**. Pick a local profile, review its
+configuration and extensions, then apply a separate native copy. Open documents
+and unsaved edits stay in place. Code activation is a separate choice in review.
+Review names known activation blockers; you can still copy packages with code
+activation off. Other extension features may also remain unsupported.
 
-The architecture documents describe the intended larger IDE; not every component is implemented in this alpha. Their timelines and performance budgets are planning targets, not measured results.
+CLI equivalents:
 
-See [performance evidence](docs/PERFORMANCE.md) for the reproducible PTY benchmark, comparison boundaries, and remaining qualification. No fastest-editor claim is established.
+```sh
+vscli --list-vscode-profiles
+vscli --import-vscode
+vscli --import-vscode --import-extensions --apply-import
+```
 
-Original project code is available under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option. Dependencies retain their own licenses; exact versions are recorded in Cargo.lock.
+Use `--vscode-profile NAME` to choose a named profile, or pass a User directory
+or exported `.code-profile` file after `--import-vscode`. In the native picker,
+**P** accepts either path. Exported extension requirements resolve against your
+registered local packages; the review lists anything missing before package import.
+Add `--activate-imported-extensions` only when you want
+source-enabled code extensions to activate. To restore the previous profile,
+use **Preferences: Roll Back VS Code Import** or `vscli --rollback-import`.
+
+Discovery also looks for the source application so its built-in extensions can
+come across. If it is missing or ambiguous, press **B** on the profile picker or
+pass `--vscode-application /path/to/Code` (an executable, installation directory or
+`resources/app` root). Source-disabled native data stays disabled; copying packages
+without code activation still makes enabled themes, snippets and typing data available.
+
+Your original VS Code files stay unchanged. Unsupported behavior is reported;
+copying an extension does not establish that all its features work. See the
+[migration and theme guide](docs/IMPORT_AND_THEMES.md) for setup and current limits.
+
+Use **F1 → Preferences: Color Theme** to choose a built-in or installed theme.
+Imported `workbench.colorCustomizations` applies to supported native colors,
+including theme-specific overrides. Themes and snippet packages work without Node.js.
+See the [migration release plan](docs/MIGRATION_RELEASE_PLAN.md) for the complete
+setup migration goal.
+
+## Language support and extensions
+
+Install `clangd` for C/C++ or `rust-analyzer` for Rust and put it on your `PATH`.
+VSCLI starts the appropriate installed server when you open a saved file. Other
+servers can be configured with `--lsp`; see [language setup](docs/USAGE.md#language-servers).
+Language servers are not downloaded automatically.
+
+Browse packages with **F1 → Extensions: Search Open VSX**, or install a local
+`.vsix` with **Extensions: Install from VSIX**. Installation does not execute
+extension code. Open the installed list with **Ctrl+Shift+X** / **Cmd+Shift+X**
+to review a package and explicitly activate it.
+
+Code extensions use an optional Node.js process and currently support a subset
+of the VS Code API. An installed extension may have features that don't work yet;
+Microsoft Marketplace access is not implemented. Read the
+[extension compatibility guide](docs/EXTENSIONS.md) before relying on a package.
+The entire stable extension API remains the implementation goal, tracked in
+[API progress](docs/extension-api/PROGRESS.md).
+
+## Current limits
+
+- Files must be UTF-8, contain no NUL bytes, and be at most 32 MiB when opened.
+- Some shortcuts depend on enhanced terminal keyboard reporting. Keyboard
+  layouts, multiplexers, and Windows terminal workflows still need broader testing.
+- Native language support runs one language server per window at a time.
+- Rich webviews, notebooks, and complete VS Code settings and extension
+  compatibility are still in progress.
+- Windows system clipboard integration is not implemented. Linux uses
+  `wl-copy`/`wl-paste` or `xclip` when available; an internal clipboard remains
+  available without them.
+
+VSCLI checks for external file changes before saving and periodically snapshots
+unsaved buffers for crash recovery. The latest edits may not reach a recovery
+snapshot; save regularly. See [saving and recovery](docs/USAGE.md#saving-and-recovery)
+for the behavior and remaining limits.
+
+## Help and feedback
+
+Run `vscli --help` for launch options or `vscli --doctor` for environment
+diagnostics and configuration paths. For bugs, [open an issue](https://github.com/vscli/vscli/issues)
+with your OS, terminal, VSCLI version, and steps to reproduce.
+
+Want to contribute? Start with [CONTRIBUTING.md](CONTRIBUTING.md). The
+[release checklist](docs/RELEASE_CHECKLIST.md), [architecture](docs/ARCHITECTURE.md),
+and [feature backlog](docs/FEATURE_TODO.md) describe the wider project.
+
+## License
+
+Original project code is available under [MIT](LICENSE-MIT) or
+[Apache 2.0](LICENSE-APACHE), at your option. Dependencies retain their own licenses.

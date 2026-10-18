@@ -58,7 +58,7 @@ struct Change {
 #[derive(PartialEq)]
 struct CommandContext {
     workspace: PathBuf,
-    document: Option<(u64, u64, u64, Option<PathBuf>)>,
+    document: Option<(u64, u64, u64, u64, Option<PathBuf>)>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
     groups: crate::editor_groups::UiProof,
@@ -74,9 +74,15 @@ impl CommandContext {
         }
         Ok(Self {
             workspace: app.workspace.root.clone(),
-            document: app
-                .active_document()
-                .map(|doc| (doc.id, doc.revision, doc.text_epoch(), doc.path.clone())),
+            document: app.active_document().map(|doc| {
+                (
+                    doc.id,
+                    doc.revision,
+                    doc.text_epoch(),
+                    doc.resource_epoch(),
+                    doc.path.clone(),
+                )
+            }),
             selections: app
                 .active_document()
                 .map_or_else(Vec::new, Document::selections),
@@ -131,18 +137,20 @@ fn load(
         .map(|directory| Store::new(directory.into()).list())
         .transpose()?
         .unwrap_or_default();
-    if installed.len() > lifecycle::MAX_ENABLED {
-        anyhow::bail!("Extension activation catalog exceeds 128 installed packages");
+    if installed.len() > lifecycle::MAX_CATALOG {
+        anyhow::bail!("Extension activation catalog exceeds 2048 installed packages");
     }
     let language_configurations =
         crate::language_configuration::Catalog::load(&installed, &global, &local);
     notices.extend(language_configurations.warnings.iter().cloned());
+    let mut manifest_defaults = crate::extension_manifest::Defaults::default();
     for installed in installed {
-        if catalog.len() >= lifecycle::MAX_ENABLED {
-            anyhow::bail!("Extension activation catalog exceeds 128 installed packages");
+        if catalog.len() >= lifecycle::MAX_CATALOG {
+            anyhow::bail!("Extension activation catalog exceeds 2048 installed packages");
         }
-        match Metadata::installed(&installed) {
+        match Metadata::installed_with_defaults(&installed, &mut manifest_defaults) {
             Ok(metadata) => {
+                notices.extend(metadata.manifest_warnings.iter().cloned());
                 if enabled.contains(&installed.id) {
                     if let Some(reason) = &metadata.blocked {
                         notices.push(format!("{}: {reason}", installed.id));
@@ -167,9 +175,9 @@ fn load(
     for package in retained {
         catalog.insert(package.id.clone(), Metadata::selected(package)?);
     }
-    if catalog.len() > lifecycle::MAX_ENABLED {
+    if catalog.len() > lifecycle::MAX_CATALOG {
         anyhow::bail!(
-            "Extension activation catalog exceeds 128 packages including retained snapshots"
+            "Extension activation catalog exceeds 2048 packages including retained snapshots"
         );
     }
     let matches = lifecycle::workspace::scan(workspace, &catalog, &enabled);
@@ -185,7 +193,7 @@ fn load(
     })
 }
 impl App {
-    /// Always use the native user root, never a repository file or copied import profile.
+    /// Use the selected native extension profile root, never a repository file.
     pub fn configure_extension_activation(&mut self, config_root: Option<&Path>) {
         self.activation.configured = true;
         self.activation.config_root = config_root.map(Path::to_owned);
@@ -198,6 +206,11 @@ impl App {
                 &self.activation.workspace,
                 &id.to_ascii_lowercase(),
             )
+    }
+    pub(super) fn registered_document_language(&self, language: &str) -> bool {
+        self.activation.catalog.iter().any(|(id, metadata)| {
+            self.extension_enabled(id) && metadata.languages.contains(language)
+        })
     }
     pub fn extension_activation_notices(&self) -> &[String] {
         &self.activation.notices
@@ -215,19 +228,21 @@ impl App {
         self.refresh_document_language_configurations();
     }
     pub(super) fn configure_document_language(&self, doc: &mut Document) -> Result<()> {
-        let language = doc
-            .path
-            .as_deref()
-            .map_or("plaintext", crate::languages::language);
+        let language = doc.language_override().unwrap_or_else(|| {
+            doc.path
+                .as_deref()
+                .map_or("plaintext", crate::languages::language)
+        });
         doc.set_language_configuration(self.language_configuration(language))
     }
     pub(super) fn refresh_document_language_configurations(&mut self) {
         let catalog = Arc::clone(&self.activation.language_configurations);
         for doc in self.documents.iter_mut().chain(&mut self.hidden_documents) {
-            let language = doc
-                .path
-                .as_deref()
-                .map_or("plaintext", crate::languages::language);
+            let language = doc.language_override().unwrap_or_else(|| {
+                doc.path
+                    .as_deref()
+                    .map_or("plaintext", crate::languages::language)
+            });
             if let Err(error) = doc.set_language_configuration(catalog.for_language(language)) {
                 self.message = format!("Native language configuration rejected: {error:#}");
             }
@@ -393,6 +408,12 @@ impl App {
             self.refresh_extension_catalog();
         }
     }
+    pub(super) fn is_extension_command(&self, command: &str) -> bool {
+        self.extension_host
+            .as_ref()
+            .is_some_and(|host| host.command_owner(command).is_some())
+            || (self.activation.loaded && self.activation.owners.contains_key(command))
+    }
     pub(super) fn queue_extension_command(&mut self, command: &str, args: &Option<Value>) -> bool {
         if !self.activation.configured
             || (!self.activation.loaded
@@ -511,7 +532,9 @@ impl App {
                     {
                         continue;
                     }
-                    if owners.len() >= 1024 || bytes + id.len() + owner.len() > 256 * 1024 {
+                    if owners.len() >= crate::extensions::MAX_COMMANDS
+                        || bytes + id.len() + owner.len() > 1024 * 1024
+                    {
                         limited = true;
                         continue;
                     }
@@ -529,7 +552,9 @@ impl App {
                 }
                 let title: String = title.chars().take(128).collect();
                 let label = format!("Extension: {title} [{owner}]");
-                if commands.len() >= 1024 || bytes + label.len() + id.len() > 256 * 1024 {
+                if commands.len() >= crate::extensions::MAX_COMMANDS
+                    || bytes + label.len() + id.len() > 1024 * 1024
+                {
                     limited = true;
                     break;
                 }
@@ -544,7 +569,7 @@ impl App {
         self.activation.owners = owners;
         self.activation.notices = snapshot.notices;
         if limited && self.activation.notices.len() < 128 {
-            self.activation.notices.push("Dormant command catalog reached its 1024-command / 256 KiB budget; excess commands are unavailable".into());
+            self.activation.notices.push("Dormant command catalog reached its 4096-command / 1 MiB budget; excess commands are unavailable".into());
         }
         self.refresh_dormant_bindings();
         if let Some(notice) = self.activation.notices.first() {
@@ -788,9 +813,12 @@ impl App {
             .iter()
             .chain(&self.hidden_documents)
             .map(|doc| {
-                doc.path
-                    .as_deref()
-                    .map_or("plaintext", crate::lsp::language)
+                doc.language_override()
+                    .unwrap_or_else(|| {
+                        doc.path
+                            .as_deref()
+                            .map_or("plaintext", crate::lsp::language)
+                    })
                     .to_owned()
             })
             .collect();
@@ -918,13 +946,23 @@ impl App {
             .map(|item| item.package.clone())
             .collect();
         let targets = vec![owner.to_owned()];
+        self.refresh_extension_editor_inventory();
         if let Some(host) = &mut self.extension_host {
+            host.set_editor_inventory(self.extension_editor_inventory.clone());
+            host.set_editor_tabs(self.extension_editor_tabs.clone());
             let additions = packages
                 .iter()
                 .filter(|package| !host.packages.iter().any(|old| old.id == package.id))
                 .cloned()
                 .collect();
             let request = ActivationRequest {
+                registered_languages: plan
+                    .ordered
+                    .iter()
+                    .flat_map(|item| item.languages.iter())
+                    .filter(|id| id.len() <= 128 && !id.contains('\0'))
+                    .cloned()
+                    .collect(),
                 surface_declarations: declarations,
                 additions,
                 targets,
@@ -1120,12 +1158,14 @@ mod tests {
                 sha256: None,
             },
             dependencies: BTreeSet::new(),
+            languages: BTreeSet::new(),
             events: BTreeSet::new(),
             unsupported_events: BTreeSet::new(),
             commands: BTreeMap::new(),
             keybindings: Value::Null,
             code: true,
             blocked: None,
+            manifest_warnings: Vec::new(),
         }
     }
     fn app(root: &Path) -> App {
@@ -1135,6 +1175,40 @@ mod tests {
         app.activation.configured = true;
         app.activation.loaded = true;
         app
+    }
+    #[test]
+    fn large_imported_dormant_command_catalog_retains_commands_after_the_old_limit() {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = app(root.path());
+        let mut global = Preferences::default();
+        let catalog = (0..90)
+            .map(|index| {
+                let owner = format!("cohort.p{index:03}");
+                global.set(&owner, true).unwrap();
+                let mut item = metadata(&owner);
+                for command in 0..20 {
+                    let id = format!("{owner}.c{command}");
+                    item.commands
+                        .insert(id.clone(), format!("Cohort {index} command {command}"));
+                    item.events.insert(ActivationEvent::Command(id));
+                }
+                (owner, item)
+            })
+            .collect();
+        app.publish_activation_catalog(Snapshot {
+            global,
+            workspace: Preferences::default(),
+            catalog,
+            matched: BTreeSet::new(),
+            notices: Vec::new(),
+            language_configurations: Default::default(),
+        });
+        assert_eq!(app.activation.commands.len(), 1800);
+        assert_eq!(app.activation.owners.len(), 1800);
+        assert_eq!(app.activation.owners["cohort.p089.c19"], "cohort.p089");
+        assert!(app.activation.notices.is_empty());
+        assert!(app.extension_host.is_none());
+        assert_eq!(app.doc().text.to_string(), "unsaved 猫");
     }
     #[test]
     fn stopped_plan_cannot_start_a_host_or_consume_a_later_native_document() {

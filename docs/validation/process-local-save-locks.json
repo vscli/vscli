@@ -1,0 +1,127 @@
+{
+  "schema": "vscli-process-local-save-locks-validation-v1",
+  "base_commit": "7e39248bfed0bc1637a84746ac659631aed3aeea",
+  "scope": "Document/Save As/autosave/refactoring saves and native settings patches use shared process-local resource locks. No persistent save sidecars or separate lock directory. This is not whole extension API or platform qualification.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1674,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "7c38dc3a7447ec9b47d371136311a26b5dd2777f3673701a7bc66fa36075e8c8"
+  },
+  "binary": {
+    "path": "target/debug/vscli",
+    "sha256": "2376f7db4b292fd40bdc40388066f6b374bc6950fefeeaf890f77b6b0b207773"
+  },
+  "environment": {
+    "platform": "Linux-7.2.8-arch1-2-x86_64-with-glibc2.44",
+    "rust": "rustc 1.99.0 (b940084d7 2026-09-28) (Arch Linux rust 1:1.99.0-1)"
+  },
+  "source_reference": {
+    "url": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/platform/files/node/diskFileSystemProvider.ts",
+    "observation": "resourceLocks stores per-resource Barrier instances in memory; disposal removes the entry and opens the barrier. Atomic writes use transient adjacent files."
+  },
+  "checks": [
+    {
+      "command": "cargo test --all-targets --locked -- --test-threads=2",
+      "passed": 1615,
+      "failed": 0,
+      "ignored": 23,
+      "reports": 67,
+      "library_passed": 1266,
+      "log": "/tmp/vscli-save-lock-rust.log"
+    },
+    {
+      "command": "cargo test --lib --locked persistence -- --test-threads=2",
+      "passed": 18,
+      "failed": 0,
+      "log": "/tmp/vscli-save-lock-focused.log"
+    },
+    {
+      "command": "cargo test --lib --locked settings_writer -- --test-threads=2",
+      "passed": 24,
+      "failed": 0,
+      "log": "/tmp/vscli-save-lock-settings.log"
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "log": "/tmp/vscli-save-lock-clippy.log"
+    },
+    {
+      "command": "cargo build --locked",
+      "result": "passed",
+      "log": "/tmp/vscli-save-lock-build.log"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "terminal_commands": [
+    "python3 tests/save_automation_pty.py target/debug/vscli",
+    "python3 tests/settings_persistence_pty.py target/debug/vscli",
+    "python3 tests/extension_workspace_edits_pty.py target/debug/vscli --eol"
+  ],
+  "terminal_receipts": [
+    {
+      "log": "/tmp/vscli-save-lock-save-pty.log",
+      "results": [
+        "PASS: native async Save/Save As, Unicode/CRLF Undo/Redo, independent old resource, close/reopen and disk restart",
+        "PASS: Ctrl+S/typing burst and A\u2192B\u2192A retain latest native text, independent model ownership and Undo/Redo",
+        "PASS: dirty Close Cancel preserves bytes; Close Save commits before last-tab welcome and reopening",
+        "PASS: Quit Save and immediate Save\u2192Quit exit only after exact bytes persist and terminal mode restores",
+        "PASS: afterDelay root persistence/restart, C++ off override and unsaved Untitled never receives an invented disk path",
+        "PASS: C++ language afterDelay over root off, text-epoch Undo/Redo rescheduling and independent disabled plain-text model",
+        "PASS: autosave external-change failure preserves foreign disk bytes and dirty Unicode/CRLF model history recoverable through Save As"
+      ]
+    },
+    {
+      "log": "/tmp/vscli-save-lock-settings-pty.log",
+      "results": [
+        "PASS: F1 Breadcrumbs toggle persists exact Unicode/CRLF JSONC; restart and original Ctrl+Shift+Period restore it without changing source Undo/Redo",
+        "PASS: workspace Breadcrumbs winner is persisted in its own JSONC file while user settings and native Unicode/CRLF history remain intact",
+        "PASS: dirty settings buffers refuse persistence, keep Breadcrumbs enabled, and retain exact original bytes and native Undo/Redo"
+      ]
+    },
+    {
+      "log": "/tmp/vscli-save-lock-eol-pty.log",
+      "results": [
+        "PASS: negotiated public EOL after text, last EOL wins, pre-ack mirrors/events, hidden model identity, grouped CRLF/LF Undo/Redo and actual LF disk saves"
+      ]
+    }
+  ],
+  "integrity_evidence": [
+    "Three new resource-map controls cover same-resource exclusion, independent resources, waiter handoff, canonical parent aliases, panic release and no filesystem artifacts.",
+    "Existing save/settings shutdown and coordination controls now inspect the actual shared in-memory guard and require absent sidecars rather than creating or expecting them.",
+    "Existing external write/delete/native replacement, parent lifetime, hardlink alias, dirty history, cancellation and no-clobber checks remain enabled in the full suite.",
+    "Legacy sidecar files and symlinks are ignored and preserved; matching suffixes are never deleted automatically.",
+    "All save and settings terminal sessions explicitly reject leftover *.vscli-write.lock or .tmp* files after shutdown."
+  ],
+  "reused_evidence": {
+    "description": "Host JavaScript modules are unchanged from base commit 7e39248. Its 797-test host receipt remains historical evidence and was not rerun for this native-only locking change.",
+    "receipt": "docs/validation/workspace-eol-edits.json"
+  },
+  "limits": [
+    "Cross-process writers are external; original baseline/identity checks remain but the final check-to-rename race is not excluded.",
+    "One-second bounded worker wait and 128 active resource locks are native adaptations.",
+    "Windows/macOS runtime qualification and full upstream-runtime comparison remain open.",
+    "Old sidecars remain on disk until deliberately removed after closing older instances."
+  ]
+}

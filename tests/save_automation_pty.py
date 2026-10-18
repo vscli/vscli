@@ -109,6 +109,8 @@ def editor(root, name, *, settings=None, setup=True, discard=False):
         yield app, source, second, case
         if not app.automation_closed:
             finish(app, discard=discard)
+        assert not list(case.rglob('*.vscli-write.lock')), 'Native save left persistent lock files in the project'
+        assert not list(case.rglob('.tmp*')), 'Native save left temporary files after shutdown'
         completed = True
     except BaseException:
         print(f"Save automation PTY failure ({name}):\n{app.screen.text()}", file=sys.stderr)

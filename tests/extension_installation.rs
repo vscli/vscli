@@ -203,7 +203,13 @@ exports.activate = context => {
   for (const [id, fn] of Object.entries({
     inventory: () => vscode.window.showInformationMessage(JSON.stringify({documents:vscode.workspace.textDocuments.length,active:vscode.window.activeTextEditor?.document.getText() ?? null})),
     capture: () => { captured = vscode.window.activeTextEditor; vscode.window.showInformationMessage('captured'); },
-    stale: async () => vscode.window.showInformationMessage('closed edit=' + await captured.edit(edit => edit.insert(new vscode.Position(0,0), 'lost')))
+    stale: async () => {
+      let called=false,rejected=false;
+      try { await captured.edit(edit => { called=true;edit.insert(new vscode.Position(0,0),'lost'); }); }
+      catch(error) { require('node:assert/strict').match(error.message,/no longer open/);rejected=true; }
+      require('node:assert/strict').equal(called,false);require('node:assert/strict').equal(rejected,true);
+      return vscode.window.showInformationMessage('closed edit rejected before callback');
+    }
   })) context.subscriptions.push(vscode.commands.registerCommand('fixture.' + id, fn));
 };"#).unwrap();
     zip.finish().unwrap();
@@ -258,7 +264,9 @@ exports.activate = context => {
         a.message.contains("\"documents\":0,\"active\":null")
     });
     app.execute("fixture.stale", serde_json::Value::Null);
-    until(&mut app, |a| a.message == "closed edit=false");
+    until(&mut app, |a| {
+        a.message == "closed edit rejected before callback"
+    });
     assert!(app.documents.is_empty());
     assert_eq!(fs::read_to_string(&path).unwrap(), "original");
 }
@@ -469,7 +477,7 @@ fn upstream_sort_lines_inferred_command_activates_only_after_cli_enable_and_pres
     assert!(app.extension_host.is_none());
     assert_eq!(app.keymap.shortcut("sortLines.sortLines"), "f9");
     app.event(Event::Key(KeyEvent::new(KeyCode::F(9), KeyModifiers::NONE)));
-    while app.doc().text != "apple\npear\nzebra" {
+    while app.doc().text != "apple\r\npear\r\nzebra" {
         app.poll();
         assert!(Instant::now() < deadline, "{}", app.message);
         std::thread::sleep(Duration::from_millis(2));
@@ -478,7 +486,7 @@ fn upstream_sort_lines_inferred_command_activates_only_after_cli_enable_and_pres
     assert_eq!(fs::read_to_string(&file).unwrap(), original);
     app.execute("workbench.action.files.save", serde_json::Value::Null);
     settle_save(&mut app);
-    assert_eq!(fs::read_to_string(&file).unwrap(), "apple\npear\nzebra");
+    assert_eq!(fs::read_to_string(&file).unwrap(), "apple\r\npear\r\nzebra");
     app.doc_mut().undo();
     assert_eq!(app.doc().text.to_string(), original);
     app.execute("workbench.action.files.save", serde_json::Value::Null);

@@ -1,0 +1,38 @@
+{
+  "schema": "vscli-save-policy-admission-repair-v1",
+  "observed_commit": "4d69f8d548e7bade097485a51078810020d966e0",
+  "ci": "https://github.com/vscli/vscli/actions/runs/39163687080",
+  "job": "https://github.com/vscli/vscli/actions/runs/39163687080/job/117782101608",
+  "artifact": "stable-save-reference-macos-14",
+  "artifact_evidence_sha256": "2f82f1b8809cabbeeabbb40500dd7693055a4450356a92bfc384de0d17cf4ecd",
+  "observed": {
+    "case": "object-fixall-first",
+    "source_requests": [
+      "source.fixAll",
+      "source.organizeImports"
+    ],
+    "saved_text": "fix=1\r\nimports=0\r\nchild=1\r\nother=0\r\n猫🙂\r\nλ🙂",
+    "finding": "Exact organizeImports request proves policy admission; absent imports edit is a separate application outcome, with cause unresolved."
+  },
+  "change": "Policy comparison accepts an exact kind request or an actual applied kind marker as positive admission evidence. Broad parent requests alone do not infer child inclusion. Complete captured source/output and native named text/history comparisons are unchanged.",
+  "checks": [
+    {
+      "command": "cargo test --locked --test save_code_actions_reference",
+      "artifact_directory": "/tmp/vscli-configuration-ci-macos-staged",
+      "trusted_revision": "4d69f8d548e7bade097485a51078810020d966e0",
+      "passed": 31,
+      "ignored": 3,
+      "exit_code": 0,
+      "log": "/tmp/vscli-save-policy-admission-final.log"
+    }
+  ],
+  "retained_failures": [
+    "/tmp/vscli-configuration-ci-macos.log",
+    "/tmp/vscli-save-policy-admission-before.log",
+    "/tmp/vscli-save-policy-admission-after.log"
+  ],
+  "remaining": [
+    "Why the observed upstream multi-action imports edit was not applied remains unresolved",
+    "Combined multi-action text/history parity, whole stable API and fresh platform CI remain required"
+  ]
+}

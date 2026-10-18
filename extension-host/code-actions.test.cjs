@@ -40,7 +40,7 @@ test('resolve cancellation and deadlines retain real occupied callback slots',as
 test('array/URI getters, registration disposal and mutation cannot retain stale handles',async()=>{
   const f=fixture();let registration;f.providers.forOwner('test.actions').registerCodeActionsProvider('cpp',{provideCodeActions(){const action=f.action('disposed');Object.defineProperty(action,'title',{get(){registration.dispose();return 'stale';}});return [action];},resolveCodeAction(){}});registration={dispose:()=>f.providers.disposeOwner('test.actions')};await assert.rejects(f.providers.provide(f.request(1)),/stale|canceled/);assert.equal(f.providers.retainedActionCount(),0);
   const g=fixture();g.providers.forOwner('test.actions').registerCodeActionsProvider('cpp',{provideCodeActions(){const values=[g.edited('grow')];Object.defineProperty(values,0,{get(){values.length=1000000000;return g.edited('x');}});return values;}});await assert.rejects(g.providers.provide(g.request(1)),/changed during/);
-  const uri=Uri.parse('untitled:a'),b=Uri.parse('untitled:b'),edit=new types.WorkspaceEdit();let reads=0;uri.toString=()=>reads++===0?'untitled:a':'untitled:b';edit.replace(uri,new Range(0,0,0,0),'x');assert.equal(reads,1);assert.equal(edit.get(b).length,0);
+  const uri=Uri.parse('untitled:a'),b=Uri.parse('untitled:b'),edit=new types.WorkspaceEdit();let reads=0;uri.toString=()=>reads++===0?'untitled:a':'untitled:b';edit.replace(uri,new Range(0,0,0,0),'x');assert.equal(reads,1);assert.equal(edit.get(b).length,1); // Upstream retains the URI reference, not an insertion-time key.
 });
 test('current diagnostic context preserves exact objects and custom fix information',async()=>{
   const runtime=createApi(()=>{},()=>{},{session:7,languageProviders:true}),api=runtime.forExtension('test.actions'),state={generation:1,documents:[{id:1,uri:'untitled:doc',version:1,text:'猫🙂x',languageId:'plaintext',isDirty:true}],active:1,selections:[]};runtime.sync(state);const diagnostic=new api.Diagnostic(new Range(0,1,0,3),'fix');diagnostic.fixInfo={closure:()=>42};const collection=api.languages.createDiagnosticCollection();collection.set(api.workspace.textDocuments[0].uri,[diagnostic]);let observed;
@@ -62,4 +62,26 @@ test('action cache enforces the global2400 handle cohort and completed origins r
   for(let i=0;i<8;i++)await f.providers.provide({...f.request(i+1),request:100+i});
   assert.equal(f.providers.retainedActionCount(),2400);await assert.rejects(f.providers.provide({...f.request(9),request:109}),/2400/);assert.equal(f.providers.retainedActionCount(),2400);
   for(let i=0;i<8;i++)f.providers.cancel({session:7,owner:'test.actions',request:100+i});assert.equal(f.providers.retainedActionCount(),0);
+});
+
+
+test('mixed workspace actions reject their entire native edit when any operation lacks a backend', async () => {
+  const f = fixture();
+  f.providers.forOwner('test.actions').registerCodeActionsProvider('cpp', {
+    provideCodeActions() {
+      return ['eol', 'snippet', 'notebook', 'metadata', 'file'].map(kind => {
+        const action = f.edited(kind), changes = action.edit, target = f.documents[0].uri;
+        if (kind === 'eol') changes.set(target, [types.TextEdit.setEndOfLine(2)]);
+        if (kind === 'snippet') changes.set(target, [types.SnippetTextEdit.insert(new (require('./api-types.cjs').Position)(0, 0), new types.SnippetString('$1'))]);
+        if (kind === 'notebook') changes.set(target, [types.NotebookEdit.insertCells(0, [new types.NotebookCellData(2, 'cell', 'cpp')])]);
+        if (kind === 'metadata') changes.replace(target, new Range(0, 0, 0, 1), 'x', { label: 'Confirm', needsConfirmation: true });
+        if (kind === 'file') changes.createFile(Uri.parse('file:///new.cpp'));
+        return action;
+      });
+    },
+  });
+  const rows = await f.providers.provide(f.request(1));
+  assert.equal(rows.length, 5);
+  for (const row of rows) { assert(row.disabled, row.title); assert.equal(row.edit, undefined, row.title); }
+  assert.equal(f.documents[0].getText(), '猫🙂x\r\nsecond'); assert.equal(f.documents[0].version, 3); assert(f.documents[0].isDirty);
 });

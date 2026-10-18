@@ -1,0 +1,26 @@
+{
+  "repository": "https://github.com/microsoft/vscode",
+  "commit": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+  "license": "MIT",
+  "compiler": "TypeScript transpileModule (CommonJS, ES2022), test-only; runtime does not load this oracle",
+  "source_sha256": {
+    "vs/base/common/charCode.ts": "ddb45e08c0f66a253a52ca5eaafc705687ceda45229ce5c9a1aa64d0fb34e510",
+    "vs/platform/contextkey/common/scanner.ts": "d26faea0a81798a70810a3f72dc950a9c9eefa29bb42f708a99ce65e0cca8300",
+    "vs/platform/contextkey/common/contextkey.ts": "a3c2b571413942c559a0f31b569531bd28018126ef8f2a6cce1d2e506ccd31a2"
+  },
+  "shims": [
+    "platform flags from Node process.platform; browser flags false",
+    "Diagnostic formatting/errors/whitespace helper",
+    "Unused service decorator identity; no context service implementation"
+  ],
+  "compiled_sha256": {
+    "vs/nls.js": "c4454c9519492eb2736e84b01a553c230bb49bd1d2c4df3368b99dfa9cb92dc7",
+    "vs/base/common/platform.js": "9a658ca2e273f08d2c4b5b1db8a66cfc126a16ec619d9bd8e68f6a2db4be606a",
+    "vs/base/common/charCode.js": "eb5c72699e3ec756e428b0522008bd61628e640dfe7c9ca9f38acae4cfb1fa9c",
+    "vs/base/common/errors.js": "36c84270efa517a4caeb832e70bc4dfc2c7285fdac8f727ca66b91263bb7bf54",
+    "vs/base/common/strings.js": "30c372f60d6b17542e41f98e3731f84bf47e167732303516eac268e6a8581aff",
+    "vs/platform/instantiation/common/instantiation.js": "15127bcd6553a1f27cc44798bb55d583dbbb8f354b8fa5f2fc006ed737bc650a",
+    "vs/platform/contextkey/common/scanner.js": "1b88a79fd3e61eb714372cf266b98bd4f0da545dc5e320d3d94842af6b33bd8e",
+    "vs/platform/contextkey/common/contextkey.js": "fec5be4e99dc50945d2219166c18f858ebb8e0c9f7daf766d143e2dc3c631b6e"
+  }
+}

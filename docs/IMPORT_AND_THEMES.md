@@ -1,10 +1,14 @@
 # Importing VS Code configuration and color themes
 
-VSCLI can preview and copy a VS Code **User directory** without modifying it.
+VSCLI can preview and copy a VS Code **User directory** or exported **.code-profile** file without modifying it.
 The report separates copied data from implemented behavior. The native editor and
 theme loader do not need Node or execute extension code.
 
 ```sh
+# Discover local installations and named profiles, or preview the default profile.
+vscli --list-vscode-profiles
+vscli --import-vscode
+vscli --import-vscode --vscode-profile 'My Profile'
 # Read-only preview; use the User directory containing settings.json and snippets/.
 vscli --import-vscode /path/to/Code/User
 # Explicitly activate a versioned native profile copy.
@@ -13,10 +17,20 @@ vscli --import-vscode /path/to/Code/User --apply-import
 vscli --import-vscode /path/to/Code/User --vscode-extensions /path/to/extensions --apply-import
 ```
 
+The welcome screen's **Import from VS Code** action and
+**F1 → Preferences: Import from VS Code** provide native profile selection and
+review. **P** chooses a custom User directory or `.code-profile` file; **E** chooses its extension folder;
+**B** chooses the source application and its built-in packages.
+In review, **I** includes local packages and **A** explicitly allows source-enabled
+code packages to activate. **Enter** applies. Configuration loads in the current
+window without replacing open models or discarding unsaved edits. Escape cancels
+preparation; a completed atomic activation is still reported if cancellation
+arrives after commit. Workers retain their slot until they actually finish.
+
 `--config-dir /path/to/native-config` isolates the destination and subsequent
 startup. Without it, the OS-native VSCLI configuration directory is used.
 The preview prints JSON with source files, byte count and compatibility notices.
-Settings, keybindings and direct `snippets/*.json` / `*.code-snippets` files are
+Settings, keybindings, user tasks and direct `snippets/*.json` / `*.code-snippets` files are
 copied byte-for-byte, including comments and unknown values. Invalid JSONC or
 invalid top-level types fail before activation. Unsupported keybinding expressions
 remain in the copied file and are skipped by the native imported-profile loader;
@@ -35,8 +49,11 @@ package. Absolute includes and symlink aliases are reported instead of being cop
 with broken references; relative include files retain their original bytes. Theme imports and automatic
 imported-keybinding loads reject nonregular files before opening them. Missing, invalid or unsupported themes are reported; configuration import
 can still succeed. Built-in themes shipped inside the VS Code application are not
-automatically discovered by this directory scan. Extension executable code,
-accounts, sync data and the entire VS Code profile system are not migrated.
+automatically discovered by this directory scan. Registered named profiles and
+per-resource inheritance flags are supported. User `tasks.json` is preserved;
+native task execution still reads workspace `.vscode/tasks.json`. Accounts,
+Settings Sync, complete profile management and extension storage migration remain
+outstanding.
 
 All copied files are prepared and synced in a temporary directory, then renamed
 into `imports/<uuid>`. A single atomic `active-profile.json` replacement activates
@@ -53,11 +70,135 @@ directory; imported theme paths remain valid when the working directory changes.
 `--keybindings` override their respective imported files.
 
 Limits: 128 snippet files, 4096 inspected directory entries, 1 MiB per configuration
-file and 16 MiB of copied configuration/theme bytes. Theme discovery examines at
-most 128 extension packages and 128 theme declarations per package. Selected theme
+file and 16 MiB of copied configuration/theme bytes. Source-theme snapshots inspect at most 128 declarations per package; explicit
+unindexed-folder scans inspect 128 packages. The installed native theme picker
+considers up to 2,048 packages and reports its 1,024-choice limit. Selected theme
 snapshots contain at most eight files and 4 MiB. Limits fail or report incomplete
 coverage explicitly. Imported user snippets are available through **Insert Snippet**;
 copying bytes alone does not provide completion snippets.
+
+## Exported profiles
+
+Use VS Code's profile export, then choose its `.code-profile` file with **P** or:
+
+```sh
+vscli --import-vscode /path/to/My.code-profile --vscode-extensions /path/to/extensions
+vscli --import-vscode /path/to/My.code-profile --vscode-extensions /path/to/extensions --import-extensions --apply-import
+```
+
+The importer decodes the upstream JSON-string resource wrappers. Settings, keys,
+tasks and direct snippet contents retain their UTF-8 bytes, comments and line endings.
+The complete original export is also copied as `source.code-profile`, including
+unknown fields and unapplied state. Null or absent configuration resources remain
+absent. Global workbench state, account reconnection, secrets and extension storage
+are not applied. A different or absent exported keyboard platform produces a notice;
+physical keys are not translated automatically. User tasks remain preserved data.
+
+Requested IDs resolve only against the registered local package index and any
+selected application. A pinned version selects that exact version, including an
+older installed version. Unpinned requests select the highest registered version
+for the requested release channel and this editor's platform. Source-disabled
+requests stay disabled. Unrelated user packages are excluded. Enabled built-ins
+are normally omitted by VS Code exports; choose **B** on the profile picker or
+`--vscode-application PATH` to include the source application's defaults. An export
+alone does not contain its extension packages or all machine-specific settings.
+
+Preview lists unresolved versions, channels, platforms and required dependencies.
+Package import fails before changing the destination when any remain unresolved;
+**I** in review or omitting `--import-extensions` allows an explicit configuration-only
+import. No automatic registry downloads or version substitutions occur. Exported
+application-wide scope is retained and reported; the native copy is profile-scoped.
+
+The original export plus decoded configuration/theme bytes share the 16 MiB budget;
+each decoded configuration file allows 1 MiB, with 128 direct snippet files and
+2,048 extension requests. Unsafe, nested, device or case-colliding snippet names
+fail preview before activation. This implements the pinned
+[profile template](https://github.com/microsoft/vscode/blob/1.95.0/src/vs/workbench/services/userDataProfile/browser/userDataProfileImportExportService.ts)
+and its settings/keybindings/snippets/extension resource format. It does not
+establish complete setup, extension workflow or visual compatibility.
+
+## Local extension packages and rollback
+
+Add `--import-extensions` to copy registered local packages together with the
+configuration. Add `--activate-imported-extensions` with `--apply-import` to grant
+source-enabled code packages permission to activate. Without that grant,
+installation does not start code. Source-disabled code packages remain ungranted.
+
+Review and the JSON inventory identify known code activation blockers per package.
+Packages requesting proposed APIs are currently rejected by the compatibility host;
+an explicit bulk activation request now fails before writing the destination or
+changing the active profile. Leave **A** unchecked, or omit
+`--activate-imported-extensions`, to copy all selected packages without granting
+execution. Source-disabled packages retain their state and do not block grants
+for other packages. The original manifests and configuration remain unchanged.
+An empty blocker list does not qualify the stable API, engine, native backend or
+an extension's workflows. Current detection covers declared proposed API requests;
+other failures remain explicit outstanding qualification.
+
+Native review shows the source filename separately from its full location, so
+long temporary or custom parent paths do not hide the export's filename. The
+complete location remains in the preview report. Terminal regression fixtures use
+a long parent path on every platform.
+
+```sh
+vscli --import-vscode --import-extensions --apply-import
+vscli --import-vscode --import-extensions --activate-imported-extensions --apply-import
+vscli --rollback-import
+```
+
+The registered profile index supplies identity, version and paths. When it holds
+multiple versions, migration selects the highest registered version for this
+platform and reports the reconciliation. Original version metadata remains in
+`extension-migration.json`. Source application engine-version selection and
+cross-platform native binaries need further qualification. Unregistered folders
+are reported rather than silently installed. No registry download is required.
+
+Disabled identifiers are read from a private snapshot of the profile's SQLite
+database and WAL. The importer queries extension disablement, not account or
+secret records, and creates no SQLite sidecars in the original User directory.
+The source package manifest must still match its preview. Packages are streamed
+into independent native generations; executable modes and confined relative links
+are retained. Special files and escaping/absolute links fail the import.
+
+A profile's settings, packages, initial execution grants and rollback reference
+are staged before its active pointer is atomically replaced. A failed or canceled
+copy leaves the previous active profile intact. Native startup and CLI package
+operations select the imported package store unless `--extensions-dir` overrides
+it. Rollback selects the preceding profile without deleting either generation,
+including modified imported settings. Existing native settings are restored when
+rolling back the first import. Earlier copies made before rollback metadata was
+implemented cannot automatically roll back.
+
+Current local-copy bounds are 2,048 packages, 16 GiB total bytes, 2 GiB per file,
+one million entries and 64 MiB of path metadata; directory nesting is bounded at
+64 levels. State database/WAL snapshots each allow 256 MiB. These are explicit
+errors, not truncation. Installation does not qualify a package's runtime API,
+services, complete disabled declarative-contribution behavior or visual fidelity.
+The selected code host admits up to 128 packages, 4,096 commands and 250,000
+manifest JSON nodes within its 8 MiB aggregate manifest budget. Callback/service
+queues keep separate bounds. Personal runtime workflows and remaining APIs are
+still release gaps.
+
+## Personal color customizations
+
+Imported `workbench.colorCustomizations` now applies to the native palette below.
+Global values are followed by matching theme blocks such as `[My Theme]`,
+`[One][Two]` and `[*Dark*]`; wildcards work at the edges of theme names.
+User/workspace objects merge before matching the active theme's settings ID.
+Theme-specific values override global values, including workspace globals.
+
+RGBA values blend against the final customized editor background. `"default"`
+selects the native built-in light/dark default for the mapped color. Invalid
+entries retain the theme color and produce a notice. These built-in defaults and
+shared native surfaces are approximations, not the complete VS Code color registry.
+
+Changes and removals reload in the background, and switching themes recalculates
+customizations from the original theme. Stale appearance replies cannot replace
+newer settings. Source theme/configuration files are never rewritten to apply
+colors. F1 → Preferences: Color Theme Report lists unmapped surfaces.
+
+The [migration release plan](MIGRATION_RELEASE_PLAN.md) retains full profile,
+appearance, keybinding and extension migration requirements beyond this slice.
 
 ## Native color themes
 
@@ -104,3 +245,92 @@ and selected-theme snapshots after source removal. PTY workflows exercise actual
 imported settings/bindings, custom RGB output, theme selection, restart persistence
 and failed-load behavior. These are native behavior tests, not differential proof
 of VS Code theme parity.
+
+
+## Source application and built-in packages
+
+Local discovery also inspects the corresponding application without running it.
+If several installations match, choose the intended executable, installation
+folder or `resources/app` directory with **B** on the profile picker, or pass:
+
+```sh
+vscli --import-vscode --vscode-application /path/to/Code --import-extensions --apply-import
+```
+
+The preview counts registered user versions, source built-ins and selected IDs
+separately. The combined inventory keeps the newest available version of a
+duplicate ID and prefers a built-in on an equal version. Source engine validity
+and native binaries still need qualification. A configuration-only import can
+snapshot a selected built-in theme without starting its code.
+
+Copying retains source enablement independently of execution consent. Native
+snippets, themes and typing configurations skip source-disabled packages;
+source-enabled data remains usable without granting its package's code access.
+The installed metadata catalogue admits 2,048 packages within its existing byte
+and JSON-node limits. Selected code sessions remain bounded at 128 packages with
+separately bounded callback queues. An explicit grant cohort beyond its supported
+size is refused before payload copying, preserving the active profile.
+
+Local qualification covers a synthetic application and a private copy of all
+184 selected IDs from the actual setup: 95 source built-ins yield 94 selected
+built-in IDs alongside 90 selected user IDs. Versions, manifest hashes, enabled
+state and configuration bytes match; native launch, installed listing and
+Unicode/CRLF save/Undo work without Node. All 113 code packages remain ungranted.
+This does not qualify their execution, all declarative contribution kinds,
+workspace enablement overrides across every consumer, native language packs,
+TextMate grammars, fonts/icons, arbitrary CSS or the entire stable API. See
+[built-in migration receipts](validation/builtin-profile-migration.json).
+
+
+An explicitly supplied unpacked theme directory still works for configuration-only
+imports when no authoritative user extension index exists. Only its selected
+contained JSON theme/include data is copied; its code remains unregistered.
+
+## Packaged default labels
+
+Native theme discovery covers the installed catalogue of up to 2,048 packages,
+including packages after the previous 128-package boundary. Packaged
+`package.nls.json` messages resolve `%key%` labels before theme selection and
+settings-based theme snapshots; a label without a separate theme ID is supported.
+Native dormant commands and the optional host's running commands/public
+`Extension.packageJSON` use the same default-message behavior. Original package
+and translation bytes remain unchanged, and native theme discovery needs no
+JavaScript runtime or code execution grant.
+
+String entries and objects with a `message` field are supported. Missing or empty
+translations retain their placeholders. Malformed/unreadable/oversized bundles
+retain original labels; native discovery reports a notice. Default bundles and normalized manifests are each limited to 1 MiB, with an
+8 MiB default-bundle budget per loader. An invalid expansion retains the entire original
+manifest. The optional host reuses the pinned upstream normalizer.
+
+This checkpoint covers packaged default messages. Preferred-language manifest
+files, built-in language-pack resolution, icon themes, custom CSS, full token and
+layout fidelity and the complete stable extension API remain requirements.
+[Validation evidence](validation/default-manifest-labels.json).
+
+## Portable installations
+
+When VSCLI receives `VSCODE_PORTABLE`, discovery includes that data directory's
+profiles and registered user extensions. It now also locates the adjacent source
+application and built-ins without launching VS Code. This follows the standard
+[portable layouts](https://code.visualstudio.com/docs/setup/portable): an in-place
+`data` directory on Windows/Linux, or the channel-specific data directory beside
+the application bundle on macOS. Named profiles sharing the same portable root
+reuse one application inspection. Missing or ambiguous adjacent applications
+produce a notice and remain selectable through **B** in native import review or
+`--vscode-application`.
+
+For example, on a Unix shell:
+
+```sh
+VSCODE_PORTABLE=/path/to/VSCode/data vscli --list-vscode-profiles
+VSCODE_PORTABLE=/path/to/VSCode/data vscli --import-vscode --vscode-profile 'VS Code Portable:default'
+```
+
+The local terminal check covers adjacent built-in discovery, independent package
+and byte-exact configuration copies, imported theme/shortcut use and Unicode/CRLF
+save/Undo without Node or code grants. The three layout fixtures run on the local
+host; they do not qualify physical Windows/macOS installations, every custom
+portable arrangement or those extensions' runtime workflows. Exported
+`.code-profile` files remain an outstanding input format.
+[Portable migration receipts](validation/portable-profile.json).

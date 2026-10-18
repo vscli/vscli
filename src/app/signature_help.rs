@@ -14,6 +14,8 @@ struct Context {
     document: u64,
     revision: u64,
     text_epoch: u64,
+    resource_epoch: u64,
+    language_epoch: u64,
     path: Option<PathBuf>,
     selections: Vec<crate::document::Selection>,
     pane: Option<u64>,
@@ -38,6 +40,8 @@ impl Context {
             document: doc.id,
             revision: doc.revision,
             text_epoch: doc.text_epoch(),
+            resource_epoch: doc.resource_epoch(),
+            language_epoch: doc.language_epoch(),
             path: doc.path.clone(),
             selections: doc.selections(),
             pane: app.panes.get(app.active_pane).map(|pane| pane.id),
@@ -51,6 +55,8 @@ impl Context {
             self.document == doc.id
                 && self.revision == doc.revision
                 && self.text_epoch == doc.text_epoch()
+                && self.resource_epoch == doc.resource_epoch()
+                && self.language_epoch == doc.language_epoch()
                 && self.path == doc.path
                 && self.pane == app.panes.get(app.active_pane).map(|pane| pane.id)
                 && self.workspace == app.workspace.root
@@ -259,7 +265,9 @@ impl App {
             });
         }
         let path = doc.path.as_ref()?;
-        let language = crate::lsp::language(path);
+        let language = doc
+            .language_override()
+            .unwrap_or_else(|| crate::lsp::language(path));
         let client = self.lsp.as_ref()?;
         let capabilities = native_triggers(&client.capabilities["signatureHelpProvider"])?;
         (client.ready
@@ -710,7 +718,7 @@ impl App {
                 let doc = &self.documents[self.active];
                 let client = self.lsp.as_mut().unwrap();
                 client
-                    .sync(&self.documents)
+                    .sync_retained(&self.documents, &self.hidden_documents)
                     .and_then(|_| {
                         client.request_signature_help(
                             doc,
@@ -887,5 +895,116 @@ impl App {
             Origin::Provider(ticket.clone()),
             result.as_ref().map_err(String::as_str),
         )
+    }
+}
+
+#[cfg(test)]
+pub(super) mod metadata_tests {
+    use super::*;
+    const PEER: &str = r#"
+import json,sys
+def send(message):
+    data=json.dumps({'jsonrpc':'2.0',**message}).encode()
+    sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(data)).encode()+data)
+    sys.stdout.buffer.flush()
+while True:
+    headers={}
+    while True:
+        line=sys.stdin.buffer.readline()
+        if not line: sys.exit(0)
+        if line==b'\r\n': break
+        key,value=line.decode().split(':',1)
+        headers[key.lower()]=value.strip()
+    message=json.loads(sys.stdin.buffer.read(int(headers['content-length'])))
+    method,ident=message.get('method'),message.get('id')
+    if method=='initialize': send({'id':ident,'result':{'capabilities':{'textDocumentSync':1,'completionProvider':{},'signatureHelpProvider':{'triggerCharacters':['(']}}}})
+    elif method=='textDocument/signatureHelp': send({'id':ident,'result':{'signatures':[{'label':'native(alpha)'}]}})
+    elif method=='textDocument/completion': send({'id':ident,'result':[{'label':'nativeCompletion','insertText':'nativeCompletion'}]})
+    elif method=='shutdown': send({'id':ident,'result':None})
+    elif method=='exit': break
+"#;
+    pub(crate) fn fixture() -> (tempfile::TempDir, App) {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("metadata.cpp");
+        std::fs::write(&path, "α😀\r\n").unwrap();
+        let mut app = App::new(root.path().into(), Profile::Linux);
+        app.open(&path).unwrap();
+        app.doc_mut().insert("seed", false);
+        app.doc_mut().undo();
+        let mut client = crate::lsp::Client::start(
+            if cfg!(windows) { "python" } else { "python3" },
+            &["-u".into(), "-c".into(), PEER.into()],
+            root.path(),
+            "cpp".into(),
+        )
+        .unwrap();
+        crate::lsp::outline_tests::until(&mut client, |client, _| client.ready);
+        client.sync(&app.documents).unwrap();
+        app.lsp = Some(client);
+        (root, app)
+    }
+    pub(crate) fn response(app: &mut App, method: &str) -> (crate::lsp::Request, Value) {
+        let events = crate::lsp::outline_tests::until(app.lsp.as_mut().unwrap(), |_, events| {
+            events.iter().any(|event|matches!(event,crate::lsp::Event::Response(request,_) if request.method==method))
+        });
+        events
+            .into_iter()
+            .find_map(|event| match event {
+                crate::lsp::Event::Response(request, value) if request.method == method => {
+                    Some((request, value))
+                }
+                _ => None,
+            })
+            .expect("actual framed reply")
+    }
+    pub(crate) fn assert_source_and_redo(app: &mut App, id: u64, epoch: u64) {
+        assert_eq!(app.doc().id, id);
+        assert_eq!(app.doc().text_epoch(), epoch);
+        assert_eq!(app.doc().text.to_string(), "α😀\r\n");
+        assert_eq!(
+            std::fs::read(app.doc().path.as_ref().unwrap()).unwrap(),
+            "α😀\r\n".as_bytes()
+        );
+        app.doc_mut().redo();
+        assert_eq!(app.doc().text.to_string(), "seedα😀\r\n");
+    }
+    #[test]
+    fn native_hint_uses_effective_language_when_extension_disagrees() {
+        let (_root, mut app) = fixture();
+        let id = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        app.doc_mut()
+            .set_language_override(Some("python".into()))
+            .unwrap();
+        app.lsp.as_mut().unwrap().language = "python".into();
+        assert!(app.has_signature_provider());
+        app.request_signature();
+        let (request, value) = response(&mut app, "textDocument/signatureHelp");
+        app.signature_response(&request, &value).unwrap();
+        assert!(app.signature_help().is_some());
+        assert_source_and_redo(&mut app, id, epoch);
+    }
+    #[test]
+    fn accepted_native_hint_is_inert_after_language_aba_with_same_client_and_text() {
+        let (_root, mut app) = fixture();
+        let id = app.doc().id;
+        let epoch = app.doc().text_epoch();
+        let selections = app.doc().selections();
+        app.request_signature();
+        let (request, value) = response(&mut app, "textDocument/signatureHelp");
+        app.signature_response(&request, &value).unwrap();
+        assert!(app.signature_help().is_some());
+        app.doc_mut()
+            .set_language_override(Some("c".into()))
+            .unwrap();
+        app.doc_mut()
+            .set_language_override(Some("cpp".into()))
+            .unwrap();
+        assert!(app.has_signature_provider());
+        assert!(app.signature_help().is_none());
+        assert!(app.poll_signature());
+        assert!(app.signature.active.is_none());
+        assert_eq!(app.doc().selections(), selections);
+        assert_source_and_redo(&mut app, id, epoch);
     }
 }

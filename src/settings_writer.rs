@@ -1,10 +1,10 @@
 //! Bounded two-phase settings persistence. All filesystem work stays on one worker.
 //!
-//! Preparation may create parent directories and a stable adjacent lock file,
+//! Preparation may create parent directories and hold an in-memory resource lock,
 //! but leaves settings bytes unchanged until explicit UI authorization. The
-//! lock coordinates cooperating writers; an uncooperative writer can still
+//! lock coordinates this process's writers; an external writer can still
 //! race the final baseline check and atomic rename.
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
@@ -27,11 +27,17 @@ const MODELS: usize = 128;
 const MODEL_PATH_BYTES: usize = 512 * 1024;
 
 #[derive(Clone)]
+struct Patch {
+    key: String,
+    value: Option<Value>,
+    language: Option<String>,
+    configuration: bool,
+}
+#[derive(Clone)]
 pub struct Intent {
     path: PathBuf,
     profile: u64,
-    key: String,
-    value: Value,
+    patch: Patch,
     models: Vec<(u64, PathBuf)>,
 }
 impl Intent {
@@ -43,14 +49,65 @@ impl Intent {
             !key.is_empty() && key.len() <= KEY_BYTES && !key.contains('\0'),
             "Setting key must contain 1–1024 bytes without NUL"
         );
+        ensure!(
+            !value.is_array() && !value.is_object(),
+            "Settings writer accepts scalar values only"
+        );
         value_bytes(&value)?;
         Ok(Self {
             path,
             profile,
-            key,
-            value,
+            patch: Patch {
+                key,
+                value: Some(value),
+                language: None,
+                configuration: false,
+            },
             models: Vec::new(),
         })
+    }
+    pub(crate) fn configuration(
+        path: PathBuf,
+        profile: u64,
+        key: String,
+        value: Option<Value>,
+        language: Option<String>,
+    ) -> Result<Self> {
+        let mut intent = Self::new(path, profile, key, Value::Null)?;
+        if let Some(language) = &language {
+            ensure!(
+                !language.is_empty()
+                    && language.len() <= 128
+                    && !language.contains(['[', ']'])
+                    && !language.as_bytes().contains(&0),
+                "Invalid settings override language"
+            );
+        }
+        if let Some(value) = &value {
+            value_bytes(value)?;
+            let mut pending = vec![(value, 0usize)];
+            let mut nodes = 0usize;
+            while let Some((value, depth)) = pending.pop() {
+                nodes += 1;
+                ensure!(
+                    nodes <= 4096 && depth < 64,
+                    "Configuration value exceeds node/depth budget"
+                );
+                match value {
+                    Value::Array(values) => {
+                        pending.extend(values.iter().map(|value| (value, depth + 1)))
+                    }
+                    Value::Object(values) => {
+                        pending.extend(values.values().map(|value| (value, depth + 1)))
+                    }
+                    _ => {}
+                }
+            }
+        }
+        intent.patch.value = value;
+        intent.patch.language = language;
+        intent.patch.configuration = true;
+        Ok(intent)
     }
     /// Snapshot all retained file-backed models. The worker resolves aliases;
     /// the UI later validates returned matching IDs and their dirty/epoch state.
@@ -65,7 +122,7 @@ struct Batch {
     id: u64,
     path: PathBuf,
     profile: u64,
-    patches: Vec<(String, Value)>,
+    patches: Vec<Patch>,
     models: Vec<(u64, PathBuf)>,
 }
 impl Batch {
@@ -78,8 +135,13 @@ impl Batch {
             "Settings batch exceeds 16 keys"
         );
         let mut bytes = 0;
-        for (_, value) in &self.patches {
-            bytes += value_bytes(value)?;
+        for patch in &self.patches {
+            bytes += patch
+                .value
+                .as_ref()
+                .map(value_bytes)
+                .transpose()?
+                .unwrap_or(0);
             ensure!(bytes <= VALUE_BYTES, "Settings batch values exceed 64 KiB");
         }
         validate_models(&self.models)?;
@@ -136,10 +198,6 @@ impl Write for Count {
     }
 }
 fn value_bytes(value: &Value) -> Result<usize> {
-    ensure!(
-        !value.is_array() && !value.is_object(),
-        "Settings writer accepts scalar values only"
-    );
     if let Value::String(text) = value {
         ensure!(text.len() <= VALUE_BYTES, "Setting value exceeds 64 KiB");
     }
@@ -160,6 +218,7 @@ pub struct PreparedInfo {
 }
 #[derive(Debug)]
 pub enum Outcome {
+    Unchanged,
     Committed {
         path: PathBuf,
         sha256: [u8; 32],
@@ -255,10 +314,14 @@ impl Writer {
         // A newer UI inventory supersedes the previous snapshot even when
         // scalar patches from the same unapproved target are carried forward.
         batch.models = intent.models;
-        if let Some((_, value)) = batch.patches.iter_mut().find(|(key, _)| key == &intent.key) {
-            *value = intent.value;
+        if let Some(patch) = batch
+            .patches
+            .iter_mut()
+            .find(|patch| patch.key == intent.patch.key && patch.language == intent.patch.language)
+        {
+            *patch = intent.patch;
         } else {
-            batch.patches.push((intent.key, intent.value));
+            batch.patches.push(intent.patch);
         }
         batch.validate()?;
         if self.pending.is_none() {
@@ -429,21 +492,15 @@ fn message(error: impl std::fmt::Display) -> String {
     text
 }
 
-struct LockedFile(File);
-impl Drop for LockedFile {
-    fn drop(&mut self) {
-        let _ = self.0.unlock();
-    }
-}
-fn open_regular(path: &Path, lock: bool) -> Result<File> {
+fn open_regular(path: &Path) -> Result<File> {
     if let Ok(metadata) = fs::symlink_metadata(path) {
         ensure!(
             metadata.file_type().is_file(),
-            "Settings payload/lock must be a regular file; symlinks are refused"
+            "Settings payload must be a regular file; symlinks are refused"
         );
     }
     let mut options = OpenOptions::new();
-    options.read(true).write(lock).create(lock).truncate(false);
+    options.read(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
@@ -460,14 +517,14 @@ fn open_regular(path: &Path, lock: bool) -> Result<File> {
     let metadata = file.metadata()?;
     ensure!(
         metadata.file_type().is_file(),
-        "Settings payload/lock must be a regular file"
+        "Settings payload must be a regular file"
     );
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
         ensure!(
             metadata.file_attributes() & 0x400 == 0,
-            "Settings payload/lock must not be a reparse point"
+            "Settings payload must not be a reparse point"
         );
     }
     Ok(file)
@@ -540,7 +597,7 @@ fn file_identity(file: &File) -> Result<FileIdentity> {
     #[cfg(not(any(unix, windows)))]
     {
         let _ = file;
-        bail!("Native file identity unavailable; settings write refused")
+        anyhow::bail!("Native file identity unavailable; settings write refused")
     }
 }
 fn open_directory(path: &Path) -> Result<File> {
@@ -612,7 +669,7 @@ impl Baseline {
                 "Settings target must be a regular file; symlinks are refused"
             ),
         }
-        let mut file = open_regular(path, false)?;
+        let mut file = open_regular(path)?;
         let metadata = file.metadata()?;
         ensure!(metadata.len() <= FILE_BYTES as u64, "Settings exceed 1 MiB");
         let signature = Signature::with_metadata(&file, &metadata)?;
@@ -625,7 +682,7 @@ impl Baseline {
             Signature::of(&file)? == signature,
             "Settings changed while being read"
         );
-        let named = open_regular(path, false)?;
+        let named = open_regular(path)?;
         ensure!(
             Signature::of(&named)? == signature,
             "Settings target changed while being read"
@@ -686,7 +743,7 @@ fn matching_models(
             match fs::symlink_metadata(path) {
                 Ok(_) => {
                     let canonical = fs::canonicalize(path)?;
-                    let file = open_regular(&canonical, false)?;
+                    let file = open_regular(&canonical)?;
                     let identity = file_identity(&file)?;
                     Ok(canonical == target
                         || matches!(baseline,
@@ -741,6 +798,14 @@ fn work(
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
+    if batch
+        .patches
+        .iter()
+        .all(|patch| patch.configuration && patch.value.is_none())
+        && !requested_parent.try_exists()?
+    {
+        return Ok(Outcome::Unchanged);
+    }
     fs::create_dir_all(requested_parent)?;
     let parent = fs::canonicalize(requested_parent)?;
     let parent_handle = open_directory(&parent)?;
@@ -752,39 +817,46 @@ fn work(
             .context("Missing settings filename")?,
     );
     validate_path(&path)?;
-    let mut lock_name = path.file_name().unwrap().to_os_string();
-    lock_name.push(".vscli-write.lock");
-    let lock_path = parent.join(lock_name);
-    validate_path(&lock_path)?;
-    let lock = open_regular(&lock_path, true)?;
-    let deadline = Instant::now() + Duration::from_secs(1);
-    loop {
-        match lock.try_lock() {
-            Ok(()) => break,
-            Err(fs::TryLockError::WouldBlock) if Instant::now() < deadline => {
-                thread::sleep(Duration::from_millis(10))
-            }
-            Err(error) => bail!("Settings lock unavailable: {error}"),
-        }
-    }
-    let lock_guard = LockedFile(lock);
-    let lock_identity = file_identity(&lock_guard.0)?;
+    let _lock = crate::persistence::WriteLock::acquire(&path)?;
     let baseline = Baseline::read(&path)?;
     let matching_models = matching_models(&batch.models, &path, &baseline)?;
     if let Baseline::Present { permissions, .. } = &baseline {
         ensure!(!permissions.readonly(), "Settings file is read-only");
     }
     let mut bytes = baseline.input().to_vec();
-    for (key, value) in &batch.patches {
-        bytes = crate::settings_write::patch(&bytes, key, value)?;
+    for patch in &batch.patches {
+        bytes = if patch.configuration {
+            crate::settings_write::patch_configuration(
+                &bytes,
+                &patch.key,
+                patch.value.as_ref(),
+                patch.language.as_deref(),
+            )?
+        } else {
+            crate::settings_write::patch(
+                &bytes,
+                &patch.key,
+                patch
+                    .value
+                    .as_ref()
+                    .context("Missing scalar setting value")?,
+            )?
+        };
     }
     ensure!(bytes.len() <= FILE_BYTES, "Patched settings exceed 1 MiB");
-    let mut temporary = tempfile::NamedTempFile::new_in(&parent)?;
-    temporary.write_all(&bytes)?;
-    if let Baseline::Present { permissions, .. } = &baseline {
-        temporary.as_file().set_permissions(permissions.clone())?;
-    }
-    temporary.as_file().sync_all()?;
+    let unchanged =
+        batch.patches.iter().all(|patch| patch.configuration) && bytes == baseline.input();
+    let temporary = if unchanged {
+        None
+    } else {
+        let mut temporary = tempfile::NamedTempFile::new_in(&parent)?;
+        temporary.write_all(&bytes)?;
+        if let Baseline::Present { permissions, .. } = &baseline {
+            temporary.as_file().set_permissions(permissions.clone())?;
+        }
+        temporary.as_file().sync_all()?;
+        Some(temporary)
+    };
     let expires_at = Instant::now() + authorization;
     let info = PreparedInfo {
         id: batch.id,
@@ -826,12 +898,10 @@ fn work(
         file_identity(&current_parent)? == parent_identity,
         "Settings parent directory identity changed after preparation"
     );
-    let current_lock = open_regular(&lock_path, false)
-        .context("Settings lock pathname disappeared or became invalid")?;
-    ensure!(
-        file_identity(&current_lock)? == lock_identity,
-        "Settings lock pathname no longer names the owned lock"
-    );
+    if unchanged {
+        return Ok(Outcome::Unchanged);
+    }
+    let temporary = temporary.context("Missing prepared settings content")?;
     match baseline {
         Baseline::Missing => {
             temporary
@@ -893,15 +963,113 @@ mod tests {
         }
     }
     fn assert_unlocked(path: &Path) {
-        let mut name = path.file_name().unwrap().to_os_string();
-        name.push(".vscli-write.lock");
-        let lock = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(path.with_file_name(name))
+        drop(crate::persistence::WriteLock::try_acquire(path).unwrap());
+    }
+
+    #[test]
+    fn configuration_values_and_removal_reuse_real_authorization_and_preserve_jsonc_bytes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        let original = "{\r\n // keep 猫🙂\r\n '[cpp]':{\"extension.flags\":false, /*keep*/ 'editor.tabSize':2},\r\n root:'unchanged',\r\n}\r\n";
+        fs::write(&path, original).unwrap();
+        let mut writer = Writer::default();
+        let value = serde_json::json!({"enabled":true,"list":["λ🙂",null]});
+        let id = writer
+            .request(
+                Intent::configuration(
+                    path.clone(),
+                    1,
+                    "extension.flags".into(),
+                    Some(value.clone()),
+                    Some("cpp".into()),
+                )
+                .unwrap(),
+            )
             .unwrap();
-        lock.try_lock().unwrap();
-        lock.unlock().unwrap();
+        prepared(&mut writer, id);
+        assert_eq!(fs::read(&path).unwrap(), original.as_bytes());
+        writer.authorize(id).unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Committed { .. }
+        ));
+        let expected = original.replacen("false", &serde_json::to_string(&value).unwrap(), 1);
+        assert_eq!(fs::read(&path).unwrap(), expected.as_bytes());
+        let id = writer
+            .request(
+                Intent::configuration(
+                    path.clone(),
+                    1,
+                    "extension.flags".into(),
+                    None,
+                    Some("cpp".into()),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        prepared(&mut writer, id);
+        writer.authorize(id).unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Committed { .. }
+        ));
+        let actual = fs::read_to_string(&path).unwrap();
+        assert!(actual.contains("// keep 猫🙂\r\n"));
+        assert!(actual.contains("/*keep*/ 'editor.tabSize':2"));
+        let parsed: Value = crate::jsonc::parse(&actual).unwrap();
+        assert_eq!(parsed["root"], "unchanged");
+        assert!(parsed["[cpp]"].get("extension.flags").is_none());
+        assert_unlocked(&path);
+    }
+
+    #[test]
+    fn configuration_missing_removal_creates_no_project_directory_and_existing_noop_keeps_identity()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join(".vscode/settings.json");
+        let mut writer = Writer::default();
+        let id = writer
+            .request(Intent::configuration(path.clone(), 1, "missing".into(), None, None).unwrap())
+            .unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Unchanged
+        ));
+        assert!(!path.parent().unwrap().exists());
+        fs::create_dir(path.parent().unwrap()).unwrap();
+        let original = b"{ /* keep */ existing: true }\r\n";
+        fs::write(&path, original).unwrap();
+        let identity = file_identity(&File::open(&path).unwrap()).unwrap();
+        let id = writer
+            .request(Intent::configuration(path.clone(), 1, "missing".into(), None, None).unwrap())
+            .unwrap();
+        prepared(&mut writer, id);
+        writer.authorize(id).unwrap();
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Unchanged
+        ));
+        assert!(file_identity(&File::open(&path).unwrap()).unwrap() == identity);
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert_eq!(fs::read_dir(path.parent().unwrap()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn configuration_removal_does_not_overwrite_an_external_change_after_preparation() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("settings.json");
+        fs::write(&path, b"{target:[1,2],other:true}\n").unwrap();
+        let mut writer = Writer::default();
+        let id = writer
+            .request(Intent::configuration(path.clone(), 1, "target".into(), None, None).unwrap())
+            .unwrap();
+        prepared(&mut writer, id);
+        let external = b"{target:[3,4],other:'external'}\r\n";
+        fs::write(&path, external).unwrap();
+        writer.authorize(id).unwrap();
+        assert!(finished(&mut writer, id).is_err());
+        assert_eq!(fs::read(&path).unwrap(), external);
+        assert_unlocked(&path);
     }
     #[test]
     fn explicit_authorization_preserves_every_other_jsonc_crlf_byte_and_permissions() {
@@ -962,8 +1130,8 @@ mod tests {
         assert_unlocked(&path);
         assert_eq!(
             fs::read_dir(root.path()).unwrap().count(),
-            2,
-            "only payload and stable lock may remain"
+            1,
+            "only the payload may remain"
         );
     }
     #[test]
@@ -1043,7 +1211,7 @@ mod tests {
     }
     #[cfg(unix)]
     #[test]
-    fn symlink_payload_and_lock_never_redirect_the_write() {
+    fn symlink_payload_is_refused_and_legacy_lock_symlink_never_redirects_the_write() {
         use std::os::unix::fs::symlink;
         for payload in [true, false] {
             let root = tempfile::tempdir().unwrap();
@@ -1058,9 +1226,26 @@ mod tests {
             }
             let mut writer = Writer::default();
             let id = writer.request(intent(&path, 1, "x", json!(true))).unwrap();
-            assert!(finished(&mut writer, id).is_err());
+            if payload {
+                assert!(finished(&mut writer, id).is_err());
+            } else {
+                prepared(&mut writer, id);
+                writer.authorize(id).unwrap();
+                assert!(matches!(
+                    finished(&mut writer, id).unwrap(),
+                    Outcome::Committed { .. }
+                ));
+                assert!(
+                    fs::symlink_metadata(root.path().join("settings.json.vscli-write.lock"))
+                        .unwrap()
+                        .file_type()
+                        .is_symlink()
+                );
+            }
             assert_eq!(fs::read(&other).unwrap(), b"{}\n");
-            assert_eq!(fs::read(&path).unwrap(), b"{}\n");
+            if payload {
+                assert_eq!(fs::read(&path).unwrap(), b"{}\n");
+            }
         }
     }
     #[test]
@@ -1222,7 +1407,12 @@ mod tests {
             id: 1,
             path: path.clone(),
             profile: 1,
-            patches: vec![("x".into(), json!(true))],
+            patches: vec![Patch {
+                key: "x".into(),
+                value: Some(json!(true)),
+                language: None,
+                configuration: false,
+            }],
             models: Vec::new(),
         };
         let mut writer = Writer {
@@ -1243,7 +1433,7 @@ mod tests {
         assert!(!writer.busy());
         assert_eq!(fs::read(&path).unwrap(), b"{}\n");
         assert_unlocked(&path);
-        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
     }
     #[test]
     fn replacement_with_identical_bytes_retires_the_prepared_baseline() {
@@ -1253,12 +1443,12 @@ mod tests {
         let mut writer = Writer::default();
         let id = writer.request(intent(&path, 1, "x", json!(1))).unwrap();
         prepared(&mut writer, id);
-        let original_handle = open_regular(&path, false).unwrap();
+        let original_handle = open_regular(&path).unwrap();
         let original_identity = file_identity(&original_handle).unwrap();
         let mut replacement = tempfile::NamedTempFile::new_in(root.path()).unwrap();
         replacement.write_all(b"{\"x\":0}\n").unwrap();
         replace_existing(replacement, &path).unwrap();
-        let replacement_handle = open_regular(&path, false).unwrap();
+        let replacement_handle = open_regular(&path).unwrap();
         assert!(file_identity(&replacement_handle).unwrap() != original_identity);
         assert!(file_identity(&original_handle).unwrap() == original_identity);
         writer.authorize(id).unwrap();
@@ -1272,7 +1462,7 @@ mod tests {
         let path = root.path().join("settings.json");
         let original = "{ // 猫🙂\r\n  \"breadcrumbs.enabled\": true\r\n}\r\n";
         fs::write(&path, original).unwrap();
-        let mut reader = open_regular(&path, false).unwrap();
+        let mut reader = open_regular(&path).unwrap();
         let identity = file_identity(&reader).unwrap();
         let mut writer = Writer::default();
         let id = writer
@@ -1285,7 +1475,7 @@ mod tests {
             Outcome::Committed { .. }
         ));
         assert!(file_identity(&reader).unwrap() == identity);
-        let current = open_regular(&path, false).unwrap();
+        let current = open_regular(&path).unwrap();
         assert!(file_identity(&current).unwrap() != identity);
         let mut old_bytes = Vec::new();
         reader.read_to_end(&mut old_bytes).unwrap();
@@ -1301,7 +1491,7 @@ mod tests {
         }
         assert_unlocked(&path);
         assert!(!writer.busy());
-        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
     }
     #[test]
     fn failed_replacement_cleans_source_temporary_without_touching_destination() {
@@ -1351,7 +1541,7 @@ mod tests {
     }
     #[cfg(unix)]
     #[test]
-    fn replaced_parent_identity_rejects_even_identical_hardlinked_payload_and_lock() {
+    fn replaced_parent_identity_rejects_even_an_identical_hardlinked_payload() {
         let root = tempfile::tempdir().unwrap();
         let parent = root.path().join("settings");
         let moved = root.path().join("moved");
@@ -1363,14 +1553,9 @@ mod tests {
         prepared(&mut writer, id);
         fs::rename(&parent, &moved).unwrap();
         fs::create_dir(&parent).unwrap();
-        // Keep the exact payload/lock inodes so only the directory lifetime
+        // Keep the exact payload inode so only the directory lifetime
         // changed. Matching pathname and payload bytes are insufficient.
         fs::hard_link(moved.join("settings.json"), &path).unwrap();
-        fs::hard_link(
-            moved.join("settings.json.vscli-write.lock"),
-            parent.join("settings.json.vscli-write.lock"),
-        )
-        .unwrap();
         writer.authorize(id).unwrap();
         assert!(
             finished(&mut writer, id)
@@ -1383,27 +1568,30 @@ mod tests {
     }
     #[cfg(unix)]
     #[test]
-    fn replaced_lock_path_refuses_overwrite_while_replacement_lock_is_owned_elsewhere() {
+    fn legacy_sidecar_is_ignored_and_preserved_while_the_process_lock_stays_held() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("settings.json");
         let lock_path = root.path().join("settings.json.vscli-write.lock");
         fs::write(&path, b"{}\n").unwrap();
+        fs::write(&lock_path, b"legacy file; preserve").unwrap();
         let mut writer = Writer::default();
         let id = writer.request(intent(&path, 1, "x", json!(true))).unwrap();
         prepared(&mut writer, id);
-        fs::remove_file(&lock_path).unwrap();
-        let replacement = open_regular(&lock_path, true).unwrap();
-        // A second cooperating writer could acquire this new lock despite
-        // the first worker still holding the old, unlinked lock inode.
-        replacement.try_lock().unwrap();
+        assert!(crate::persistence::WriteLock::try_acquire(&path).is_err());
+        fs::write(&lock_path, b"changed legacy file; preserve").unwrap();
         writer.authorize(id).unwrap();
-        assert!(
-            finished(&mut writer, id)
-                .unwrap_err()
-                .contains("owned lock")
+        assert!(matches!(
+            finished(&mut writer, id).unwrap(),
+            Outcome::Committed { .. }
+        ));
+        assert_eq!(
+            crate::jsonc::parse::<Value>(&fs::read_to_string(&path).unwrap()).unwrap(),
+            json!({"x":true})
         );
-        assert_eq!(fs::read(&path).unwrap(), b"{}\n");
-        replacement.unlock().unwrap();
+        assert_eq!(
+            fs::read(&lock_path).unwrap(),
+            b"changed legacy file; preserve"
+        );
         assert_unlocked(&path);
     }
     #[cfg(windows)]
@@ -1417,7 +1605,7 @@ mod tests {
     }
     #[cfg(windows)]
     #[test]
-    fn windows_symlink_payload_and_lock_are_refused_when_creation_is_permitted() {
+    fn windows_symlink_payload_is_refused_and_legacy_lock_is_ignored_when_permitted() {
         use std::os::windows::fs::symlink_file;
         for payload in [true, false] {
             let root = tempfile::tempdir().unwrap();
@@ -1436,9 +1624,26 @@ mod tests {
             }
             let mut writer = Writer::default();
             let id = writer.request(intent(&path, 1, "x", json!(true))).unwrap();
-            assert!(finished(&mut writer, id).is_err());
+            if payload {
+                assert!(finished(&mut writer, id).is_err());
+            } else {
+                prepared(&mut writer, id);
+                writer.authorize(id).unwrap();
+                assert!(matches!(
+                    finished(&mut writer, id).unwrap(),
+                    Outcome::Committed { .. }
+                ));
+                assert!(
+                    fs::symlink_metadata(&link)
+                        .unwrap()
+                        .file_type()
+                        .is_symlink()
+                );
+            }
             assert_eq!(fs::read(&other).unwrap(), b"{}\n");
-            assert_eq!(fs::read(&path).unwrap(), b"{}\n");
+            if payload {
+                assert_eq!(fs::read(&path).unwrap(), b"{}\n");
+            }
         }
     }
     #[cfg(windows)]
@@ -1639,7 +1844,7 @@ mod tests {
         assert!(error.contains("close the unresolved model"));
         assert_eq!(fs::read(&path).unwrap(), b"{}\n");
         assert_unlocked(&path);
-        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
     }
     #[cfg(unix)]
     #[test]

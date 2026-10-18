@@ -8,6 +8,7 @@ const MAX_KEY_BYTES: usize = 1024;
 
 struct Root {
     target: Option<Range<usize>>,
+    removal: Vec<Range<usize>>,
     first: Option<(usize, String)>,
     last: Option<(usize, bool)>,
     close: usize,
@@ -18,30 +19,84 @@ struct Root {
 /// Every original byte outside the replaced value is retained. Insertion adds
 /// a separating comma before trailing comments, leaving those comments intact.
 pub fn patch(input: &[u8], key: &str, value: &Value) -> Result<Vec<u8>> {
+    ensure!(
+        !value.is_array() && !value.is_object(),
+        "Setting patches require a scalar value"
+    );
+    patch_value(input, key, Some(value), true)
+}
+
+/// General extension configuration writes retain every byte outside the selected
+/// value/property. Language blocks use the same parser and patcher recursively.
+pub(crate) fn patch_configuration(
+    input: &[u8],
+    key: &str,
+    value: Option<&Value>,
+    language: Option<&str>,
+) -> Result<Vec<u8>> {
+    ensure!(input.len() <= MAX_BYTES, "Settings exceed 1 MiB");
+    ensure!(
+        !key.is_empty() && key.len() <= MAX_KEY_BYTES && !key.as_bytes().contains(&0),
+        "Invalid setting key"
+    );
+    if let Some(language) = language {
+        ensure!(
+            !language.is_empty() && language.len() <= 128 && !language.contains(['[', ']', '\0']),
+            "Invalid settings override language"
+        );
+        let block = format!("[{language}]");
+        let text = std::str::from_utf8(input).context("Settings must contain UTF-8")?;
+        let parsed: Value = crate::jsonc::parse(text).context("Invalid settings JSON5")?;
+        let root = properties(text, &block)?;
+        if let Some(span) = root.target {
+            ensure!(
+                parsed.get(&block).is_some_and(Value::is_object),
+                "Language settings block must be an object"
+            );
+            let patched = patch_value(&input[span.clone()], key, value, false)?;
+            let size = input.len() - span.len() + patched.len();
+            ensure!(size <= MAX_BYTES, "Patched settings exceed 1 MiB");
+            let mut output = Vec::with_capacity(size);
+            output.extend_from_slice(&input[..span.start]);
+            output.extend(patched);
+            output.extend_from_slice(&input[span.end..]);
+            return Ok(output);
+        }
+        let Some(value) = value else {
+            return Ok(input.to_vec());
+        };
+        let mut object = serde_json::Map::new();
+        object.insert(key.into(), value.clone());
+        return patch_value(input, &block, Some(&Value::Object(object)), false);
+    }
+    patch_value(input, key, value, false)
+}
+
+fn patch_value(input: &[u8], key: &str, value: Option<&Value>, scalar: bool) -> Result<Vec<u8>> {
     ensure!(input.len() <= MAX_BYTES, "Settings exceed 1 MiB");
     ensure!(
         !key.is_empty() && key.len() <= MAX_KEY_BYTES,
         "Setting key must contain 1–1024 bytes"
-    );
-    ensure!(
-        !value.is_array() && !value.is_object(),
-        "Setting patches require a scalar value"
     );
     let text = std::str::from_utf8(input).context("Settings must contain UTF-8")?;
     let parsed: Value = crate::jsonc::parse(text).context("Invalid settings JSON5")?;
     let object = parsed
         .as_object()
         .context("Settings must be a root object")?;
-    let encoded = encode(value)?;
+    let encoded = value.map(encode).transpose()?.unwrap_or_default();
     let root = properties(text, key)?;
     let close = root.close;
     let mut edits = Vec::<(usize, usize, Vec<u8>)>::new();
-    if let Some(target) = root.target {
+    if value.is_none() {
+        for range in root.removal {
+            edits.push((range.start, range.end, Vec::new()));
+        }
+    } else if let Some(target) = root.target {
         let current = object
             .get(key)
             .context("Setting key span did not match parsed input")?;
         ensure!(
-            !current.is_array() && !current.is_object(),
+            !scalar || (!current.is_array() && !current.is_object()),
             "Existing setting target must be scalar"
         );
         edits.push((target.start, target.end, encoded));
@@ -112,7 +167,7 @@ pub fn patch(input: &[u8], key: &str, value: &Value) -> Result<Vec<u8>> {
     let checked: Value = crate::jsonc::parse(std::str::from_utf8(&output)?)
         .context("Patched settings are invalid JSON5")?;
     ensure!(
-        checked.get(key) == Some(value),
+        checked.get(key) == value,
         "Patched setting does not match requested value"
     );
     Ok(output)
@@ -147,10 +202,12 @@ fn properties(text: &str, target: &str) -> Result<Root> {
     index += 1;
     let mut result = Root {
         target: None,
+        removal: Vec::new(),
         first: None,
         last: None,
         close: 0,
     };
+    let mut previous_comma = None;
     loop {
         index = trivia(text, index)?;
         if bytes.get(index) == Some(&b'}') {
@@ -209,6 +266,10 @@ fn properties(text: &str, target: &str) -> Result<Root> {
                 "Duplicate target setting keys are ambiguous"
             );
             result.target = Some(value_start..value_end);
+            result.removal.push(key_start..value_end);
+            if let Some(separator) = comma.or(previous_comma) {
+                result.removal.push(separator..separator + 1);
+            }
         }
         if result.first.is_none() {
             let spacing = &text[colon + 1..value_start];
@@ -220,6 +281,7 @@ fn properties(text: &str, target: &str) -> Result<Root> {
             result.first = Some((key_start, separator));
         }
         result.last = Some((value_end, comma.is_some()));
+        previous_comma = comma;
     }
 }
 
@@ -525,5 +587,107 @@ mod tests {
             "]".repeat(64)
         );
         assert!(patch(too_deep.as_bytes(), "target", &json!(true)).is_err());
+    }
+
+    #[test]
+    fn configuration_composite_values_replace_only_the_selected_jsonc_span() {
+        let original = "{\r\n // keep 猫🙂\r\n 'extension.flags': { /* old value */ enabled:false },\r\n untouched:[1,/*keep*/2],\r\n}\r\n";
+        let value = json!({"enabled":true,"modes":["λ🙂",null,2]});
+        let actual =
+            patch_configuration(original.as_bytes(), "extension.flags", Some(&value), None)
+                .unwrap();
+        let expected = original.replace(
+            "{ /* old value */ enabled:false }",
+            &serde_json::to_string(&value).unwrap(),
+        );
+        assert_eq!(actual, expected.as_bytes());
+        assert_eq!(
+            crate::jsonc::parse::<Value>(&expected).unwrap()["extension.flags"],
+            value
+        );
+    }
+
+    #[test]
+    fn configuration_removal_keeps_comments_and_valid_first_middle_last_and_single_properties() {
+        for (input, key, expected) in [
+            (
+                "{/*before*/a:1,/*between*/b:2/*after*/}",
+                "a",
+                "{/*before*//*between*/b:2/*after*/}",
+            ),
+            (
+                "{a:1,/*before*/b:[2,3],/*after*/c:4}",
+                "b",
+                "{a:1,/*before*//*after*/c:4}",
+            ),
+            (
+                "{a:1,/*before*/b:{x:2}/*after*/}",
+                "b",
+                "{a:1/*before*//*after*/}",
+            ),
+            (
+                "{\r\n // before\r\n a:null, // after\r\n}\r\n",
+                "a",
+                "{\r\n // before\r\n  // after\r\n}\r\n",
+            ),
+        ] {
+            let actual = patch_configuration(input.as_bytes(), key, None, None).unwrap();
+            assert_eq!(actual, expected.as_bytes());
+            assert!(
+                crate::jsonc::parse::<Value>(expected)
+                    .unwrap()
+                    .get(key)
+                    .is_none()
+            );
+        }
+    }
+
+    #[test]
+    fn configuration_language_update_and_removal_keep_root_and_other_override_bytes() {
+        let original = "{\r\n '[cpp]':{'extension.flags':false, /*keep*/ 'editor.tabSize':2},\r\n 'extension.flags':'root', '[rust]':{'extension.flags':true},\r\n}\r\n";
+        let value = json!(["猫🙂", false]);
+        let actual = patch_configuration(
+            original.as_bytes(),
+            "extension.flags",
+            Some(&value),
+            Some("cpp"),
+        )
+        .unwrap();
+        let expected = original.replacen("false", &serde_json::to_string(&value).unwrap(), 1);
+        assert_eq!(actual, expected.as_bytes());
+        let removed = patch_configuration(&actual, "extension.flags", None, Some("cpp")).unwrap();
+        let parsed: Value = crate::jsonc::parse(std::str::from_utf8(&removed).unwrap()).unwrap();
+        assert!(parsed["[cpp]"].get("extension.flags").is_none());
+        assert_eq!(parsed["[cpp]"]["editor.tabSize"], 2);
+        assert_eq!(parsed["extension.flags"], "root");
+        assert!(std::str::from_utf8(&removed).unwrap().contains("/*keep*/"));
+    }
+
+    #[test]
+    fn configuration_missing_removal_is_byte_exact_and_ambiguous_or_invalid_language_blocks_refuse()
+    {
+        let original = b"{ /* preserve */ target: true }\r\n";
+        for language in [None, Some("cpp")] {
+            assert_eq!(
+                patch_configuration(original, "missing", None, language).unwrap(),
+                original
+            );
+        }
+        for input in [
+            "{'[cpp]':false}",
+            "{'[cpp]':{},'[cpp]':{}}",
+            "{'[cpp]':{target:1,target:2}}",
+        ] {
+            assert!(
+                patch_configuration(input.as_bytes(), "target", Some(&json!(true)), Some("cpp"))
+                    .is_err()
+            );
+        }
+        for language in ["", "cpp]", "[cpp", "a\0b"] {
+            assert!(
+                patch_configuration(original, "target", Some(&json!(true)), Some(language))
+                    .is_err()
+            );
+        }
     }
 }

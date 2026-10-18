@@ -35,6 +35,8 @@ pub struct Hint {
     pub label: String,
     pub parameter: Option<Range<usize>>,
     pub documentation: String,
+    pub documentation_parts: Vec<crate::documentation::Part>,
+    pub display_documentation: String,
     pub signature: usize,
     pub count: usize,
 }
@@ -66,6 +68,7 @@ impl Model {
             bail!("Signature help exceeds 32 signatures");
         }
         let mut bytes = 0usize;
+        let mut display_bytes = 0usize;
         let mut hints = Vec::with_capacity(signatures.len());
         for (signature, item) in signatures.iter().enumerate() {
             index(item.get("activeParameter"))?;
@@ -94,11 +97,14 @@ impl Model {
                     parameter_range(label, &parameter["label"])?;
                 }
             }
-            hints.push(Hint::selected(
-                signatures,
-                signature,
-                value.get("activeParameter"),
-            )?);
+            let hint = Hint::selected(signatures, signature, value.get("activeParameter"))?;
+            display_bytes = display_bytes
+                .checked_add(hint.display_documentation.len())
+                .context("Signature documentation size overflow")?;
+            if display_bytes > 256 * 1024 {
+                bail!("Signature display documentation exceeds 256 KiB");
+            }
+            hints.push(hint);
         }
         let selected = if requested < hints.len() {
             requested
@@ -151,18 +157,11 @@ fn index(value: Option<&Value>) -> Result<usize> {
             .context("Invalid active signature or parameter")
     })
 }
+fn typed_documentation(value: Option<&Value>) -> Result<crate::documentation::Part> {
+    crate::documentation::Part::parse(value, crate::documentation::Kind::Plaintext, 8192)
+}
 fn documentation(value: Option<&Value>) -> Result<String> {
-    let Some(value) = value else {
-        return Ok(String::new());
-    };
-    let text = value
-        .as_str()
-        .or_else(|| value.get("value").and_then(Value::as_str))
-        .context("Invalid signature documentation")?;
-    if text.len() > 8192 {
-        bail!("Signature documentation exceeds 8 KiB")
-    }
-    Ok(text.into())
+    Ok(typed_documentation(value)?.source)
 }
 fn byte_offset(text: &str, units: usize) -> Result<usize> {
     let mut offset = 0;
@@ -231,7 +230,12 @@ impl Hint {
         let label = selected["label"]
             .as_str()
             .context("Missing signature label")?;
-        let mut docs = documentation(selected.get("documentation"))?;
+        let first = typed_documentation(selected.get("documentation"))?;
+        let mut docs = first.source.clone();
+        let mut parts = Vec::with_capacity(2);
+        if !first.source.is_empty() {
+            parts.push(first);
+        }
         let mut parameter = None;
         if let Some(parameters) = selected["parameters"]
             .as_array()
@@ -244,15 +248,19 @@ impl Hint {
                 0
             }];
             parameter = Some(parameter_range(label, &selected["label"])?);
-            let detail = documentation(selected.get("documentation"))?;
-            if !detail.is_empty() {
+            let detail = typed_documentation(selected.get("documentation"))?;
+            if !detail.source.is_empty() {
                 if !docs.is_empty() {
                     docs.push('\n');
                 }
-                docs.push_str(&detail);
+                docs.push_str(&detail.source);
+                parts.push(detail);
             }
         }
+        let projected = crate::documentation::Document::from_parts(parts, "\n", 16385)?;
         Ok(Self {
+            documentation_parts: projected.parts,
+            display_documentation: projected.display,
             label: label.into(),
             parameter,
             documentation: docs,
@@ -400,5 +408,34 @@ mod tests {
         assert!(Hint::parse(&Value::Null).unwrap().is_none());
         let hint=Hint::parse(&json!({"activeSignature":9,"activeParameter":9,"signatures":[{"label":"f(int x)","parameters":[{"label":"int x"}]}]})).unwrap().unwrap();
         assert_eq!(&hint.label[hint.parameter.unwrap()], "int x");
+    }
+}
+
+#[cfg(test)]
+mod documentation_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn mixed_signature_and_parameter_docs_retain_kind_without_cross_decoding() {
+        let raw = json!({"signatures":[{"label":"f(int x)","documentation":{"kind":"markdown","value":"signature&nbsp;\\~literal\\~"},"parameters":[{"label":"int x","documentation":{"kind":"plaintext","value":"&nbsp; \\*literal\\*"}}]}]});
+        let model = Model::parse(&raw).unwrap().unwrap();
+        let hint = model.hint();
+        assert_eq!(
+            hint.documentation,
+            "signature&nbsp;\\~literal\\~\n&nbsp; \\*literal\\*"
+        );
+        assert_eq!(
+            hint.display_documentation,
+            "signature ~literal~\n&nbsp; \\*literal\\*"
+        );
+        assert_eq!(
+            hint.documentation_parts[0].kind,
+            crate::documentation::Kind::Markdown
+        );
+        assert_eq!(
+            hint.documentation_parts[1].kind,
+            crate::documentation::Kind::Plaintext
+        );
+        assert_eq!(model.context()["signatures"], raw["signatures"]);
     }
 }
