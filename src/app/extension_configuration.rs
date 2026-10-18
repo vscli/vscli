@@ -113,6 +113,9 @@ struct Active {
     models: super::settings_persistence::WriteModels,
     id: u64,
     reload: Option<Arc<()>>,
+    configuration_loaded: bool,
+    refresh: Vec<(u64, PathBuf)>,
+    refresh_epoch: Option<u64>,
     ready: Option<std::result::Result<(), String>>,
     refusal: Option<String>,
 }
@@ -170,6 +173,9 @@ impl App {
             models,
             id,
             reload: None,
+            configuration_loaded: false,
+            refresh: Vec::new(),
+            refresh_epoch: None,
             ready: None,
             refusal: None,
         });
@@ -204,6 +210,24 @@ impl App {
                             "Configuration write admission retired"
                         );
                         self.authorize_settings_write_models(&info, &active.models)?;
+                        // A hardlink at a different resource keeps its own disk
+                        // bytes after atomic replacement. Refresh only the
+                        // actual target resource, including canonical aliases.
+                        active.refresh = self
+                            .documents
+                            .iter()
+                            .chain(&self.hidden_documents)
+                            .filter(|doc| info.matching_models.contains(&doc.id))
+                            .filter_map(|doc| {
+                                doc.path
+                                    .as_ref()
+                                    .filter(|path| {
+                                        **path == info.canonical_path
+                                            || **path == active.capture.path
+                                    })
+                                    .map(|path| (doc.id, path.clone()))
+                            })
+                            .collect();
                         self.invalidate_disk_watch_publications()?;
                         self.extension_configuration.writer.authorize(info.id)
                     })();
@@ -215,20 +239,30 @@ impl App {
                 Event::Finished { id, result } => {
                     if id == active.id {
                         let committed = matches!(&result, Ok(Outcome::Committed { .. }));
-                        if committed {
-                            let _ = self.invalidate_disk_watch_publications();
-                        }
+                        let refresh = if committed {
+                            self.invalidate_disk_watch_publications()
+                        } else {
+                            Ok(())
+                        };
                         match result {
-                            Ok(Outcome::Committed{..}|Outcome::Unchanged) if active.refusal.is_none() && caller_current && active.capture.current(self)=>{
-                                let reload=self.settings_reload_identity();
-                                match self.settings_loader.as_mut().context("Settings loader is unavailable").and_then(crate::settings::Loader::force_reload) {
-                                    Ok(())=>active.reload=Some(reload),
-                                    Err(error)=>active.ready=Some(Err(format!("Setting persisted; reload failed: {error:#}"))),
+                            Ok(Outcome::Committed { .. } | Outcome::Unchanged)
+                                if active.refusal.is_none() && caller_current && active.capture.current(self) =>
+                            {
+                                let reload = self.settings_reload_identity();
+                                let reload_result = refresh.and_then(|()| {
+                                    active.refresh_epoch = Some(self.watch.publication_epoch);
+                                    self.settings_loader.as_mut()
+                                        .context("Settings loader is unavailable")?
+                                        .force_reload()
+                                });
+                                match reload_result {
+                                    Ok(()) => active.reload = Some(reload),
+                                    Err(error) => active.ready = Some(Err(format!("Setting persisted; refresh failed: {error:#}"))),
                                 }
                             }
-                            Ok(Outcome::Committed{..})=>active.ready=Some(Err("Configuration write completed for its original profile after caller retirement".into())),
-                            Ok(_)=>active.ready=Some(Err(active.refusal.clone().unwrap_or_else(||"Configuration write was not authorized".into()))),
-                            Err(error)=>active.ready=Some(Err(error)),
+                            Ok(Outcome::Committed { .. }) => active.ready = Some(Err("Configuration write completed for its original profile after caller retirement".into())),
+                            Ok(_) => active.ready = Some(Err(active.refusal.clone().unwrap_or_else(|| "Configuration write was not authorized".into()))),
+                            Err(error) => active.ready = Some(Err(error)),
                         }
                     }
                 }
@@ -238,17 +272,50 @@ impl App {
             && !Arc::ptr_eq(reload, &self.settings_reload_identity())
         {
             active.reload = None;
-            active.ready = Some(
-                if caller_current && active.capture.current(self) && self.settings_error.is_none() {
-                    Ok(())
-                } else {
-                    Err(
-                        "Setting persisted; original configuration reload/caller is unavailable"
-                            .into(),
-                    )
-                },
-            );
+            if caller_current && active.capture.current(self) && self.settings_error.is_none() {
+                active.configuration_loaded = true;
+            } else {
+                active.ready = Some(Err(
+                    "Setting persisted; original configuration reload/caller is unavailable".into(),
+                ));
+            }
             changed = true;
+        }
+        if active.configuration_loaded && active.ready.is_none() {
+            let epoch = active
+                .refresh_epoch
+                .expect("Loaded configuration has a refresh epoch");
+            let mut refreshed = true;
+            for (id, path) in &active.refresh {
+                // A closed or moved original model cannot redirect this receipt
+                // to a new model which happens to reuse its target path.
+                if !self
+                    .documents
+                    .iter()
+                    .chain(&self.hidden_documents)
+                    .any(|doc| doc.id == *id && doc.path.as_ref() == Some(path))
+                {
+                    continue;
+                }
+                match self
+                    .watch
+                    .publications
+                    .get(id)
+                    .filter(|stamp| stamp.epoch >= epoch)
+                {
+                    Some(stamp) => {
+                        if let Err(error) = &stamp.result {
+                            active.ready = Some(Err(format!("Setting persisted; {error}")));
+                            break;
+                        }
+                    }
+                    None => refreshed = false,
+                }
+            }
+            if refreshed && active.ready.is_none() {
+                active.ready = Some(Ok(()));
+            }
+            changed |= active.ready.is_some();
         }
         if !self.extension_configuration.writer.busy()
             && (!caller_current || !active.capture.current(self))
@@ -318,6 +385,156 @@ impl App {
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};
+    #[test]
+    fn actual_retained_disk_reader_cannot_acknowledge_before_target_model_refresh_or_overwrite_late_edits()
+     {
+        use crate::watch::{DiskChange, DiskJob, ReadRequest};
+        use std::sync::mpsc;
+        for dirty_after_commit in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let root = std::fs::canonicalize(directory.path()).unwrap();
+            let path = root.join("settings.json");
+            let original = "{\"fixture.value\":\"before\"}\r\n";
+            std::fs::write(&path, original).unwrap();
+            let mut app = App::new(root, crate::keys::Profile::Linux);
+            app.configure_settings(Some(path.clone())).unwrap();
+            app.open(&path).unwrap();
+            let package = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/configuration-update-extension");
+            app.start_extension_packages(vec![crate::extensions::Package::read(&package).unwrap()])
+                .unwrap();
+            let deadline = Instant::now() + Duration::from_secs(15);
+            while app.extension_host.as_ref().is_none_or(|host| !host.ready) {
+                app.poll();
+                assert!(Instant::now() < deadline, "{}", app.message);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            // Replace any settled prior watch read with an actual held reader
+            // sampled before the configuration request, at its original epoch.
+            while app.watch.disk.is_some() {
+                app.poll_watching();
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            let doc = app.doc();
+            let id = doc.id;
+            let epoch = app.watch.publication_epoch;
+            let request = ReadRequest {
+                id,
+                revision: doc.revision,
+                saved_revision: doc.saved_revision,
+                text_epoch: doc.text_epoch(),
+                resource_epoch: doc.resource_epoch(),
+                save_generation: doc.save_generation(),
+                publication_epoch: epoch,
+                path: path.clone(),
+                baseline: doc.disk_content.clone(),
+            };
+            let (entered_tx, entered) = mpsc::sync_channel(1);
+            let (release, gate) = mpsc::sync_channel(1);
+            app.watch.disk = Some(DiskJob::start_with_read(vec![request], move |path, _| {
+                let content = crate::document::read_disk(path)?;
+                entered_tx.send(()).unwrap();
+                gate.recv_timeout(Duration::from_secs(10)).unwrap();
+                Ok(DiskChange::Changed(content))
+            }));
+            entered.recv_timeout(Duration::from_secs(10)).unwrap();
+            app.execute(
+                if dirty_after_commit {
+                    "fixture.configuration.race"
+                } else {
+                    "fixture.configuration.clean"
+                },
+                Value::Null,
+            );
+            while app
+                .extension_configuration
+                .active
+                .as_ref()
+                .is_none_or(|active| !active.configuration_loaded)
+            {
+                app.poll();
+                assert!(Instant::now() < deadline, "{}", app.message);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            assert!(!app.extension_configuration.writer.busy());
+            assert!(
+                app.extension_configuration
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .ready
+                    .is_none()
+            );
+            assert!(app.extension_host.as_ref().unwrap().service().is_some());
+            assert!(
+                std::fs::read_to_string(&path)
+                    .unwrap()
+                    .contains("after-clean")
+            );
+            assert_eq!(app.doc().text.to_string(), original);
+            let required = app
+                .extension_configuration
+                .active
+                .as_ref()
+                .unwrap()
+                .refresh_epoch
+                .unwrap();
+            assert!(required > epoch);
+            if dirty_after_commit {
+                app.doc_mut().insert("late ", true);
+            }
+            release.send(()).unwrap();
+            while app.watch.disk.is_some() {
+                app.poll_watching();
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            assert!(
+                app.watch
+                    .publications
+                    .get(&id)
+                    .is_none_or(|stamp| stamp.epoch < required)
+            );
+            app.poll_extension_configuration_writes();
+            assert!(
+                app.extension_configuration
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .ready
+                    .is_none()
+            );
+            let message = if dirty_after_commit {
+                "Late configuration edits preserved"
+            } else {
+                "Open configuration refreshed"
+            };
+            while app.message != message {
+                app.poll();
+                assert!(Instant::now() < deadline, "{}", app.message);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            assert!(!app.extension_configuration.busy());
+            assert_eq!(app.doc().id, id);
+            if dirty_after_commit {
+                assert_eq!(app.doc().text.to_string(), format!("late {original}"));
+                assert!(app.doc().dirty());
+                app.execute("undo", Value::Null);
+                assert_eq!(app.doc().text.to_string(), original);
+            } else {
+                assert!(app.doc().text.to_string().contains("after-clean"));
+                assert!(!app.doc().dirty());
+            }
+            assert!(
+                std::fs::read_to_string(&path)
+                    .unwrap()
+                    .contains("after-clean")
+            );
+            app.execute("vscli.extensions.stop", Value::Null);
+        }
+    }
+
     #[test]
     fn retired_profile_round_trip_owner_and_newly_dirty_target_cannot_authorize_original_configuration_work()
      {

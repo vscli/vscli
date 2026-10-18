@@ -357,3 +357,11 @@ The preceding EOL/picker head `6e61761` now has complete successful Linux, macOS
 and Windows [main CI](https://github.com/vscli/vscli/actions/runs/39153168639) and
 [dedicated CI](https://github.com/vscli/vscli/actions/runs/39153168576). This is
 historical evidence for that head; the configuration-write source needs fresh CI.
+
+
+Open settings-model integration passes **4/4 local criteria** on the recorded
+1,716-test Rust / 832-test host cohort, with twelve terminal scenarios. A real
+held pre-write reader cannot acknowledge a newer write; shared/hidden clean
+settings refresh before public success, and late dirty edits retain native history
+with an explicit already-persisted error. Hardlink resources remain independent.
+[Receipts and remaining qualification](validation/configuration-model-refresh.json).

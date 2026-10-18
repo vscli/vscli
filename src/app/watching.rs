@@ -178,6 +178,27 @@ impl App {
                 self.watch.pending |= CONTENT;
                 continue;
             }
+            // Only a current, actually read snapshot can acknowledge a model
+            // refresh. Retired publication epochs and changed source proofs
+            // above never satisfy a settings-write receipt.
+            let refreshed = match &result.content {
+                Ok(DiskChange::Unchanged) => Ok(()),
+                Ok(DiskChange::Changed(Some(_))) if !doc.dirty() => Ok(()),
+                Ok(DiskChange::Changed(Some(_))) => {
+                    Err("Unsaved settings edits retained after the file write".into())
+                }
+                Ok(DiskChange::Changed(None)) => {
+                    Err("Settings file was removed before model refresh".into())
+                }
+                Err(error) => Err(format!("Settings model refresh failed: {error}")),
+            };
+            self.watch.publications.insert(
+                doc.id,
+                crate::watch::Publication {
+                    epoch: result.publication_epoch,
+                    result: refreshed,
+                },
+            );
             let preserve_save_failure = self.watch.notices.get(&doc.id).is_some_and(|notice| {
                 notice
                     .save_conflict
@@ -245,6 +266,12 @@ impl App {
                 changed = true;
             }
         }
+        self.watch.publications.retain(|id, _| {
+            self.documents
+                .iter()
+                .chain(&self.hidden_documents)
+                .any(|doc| doc.id == *id)
+        });
         self.watch.notices.retain(|id, _| {
             self.documents
                 .iter()

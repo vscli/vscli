@@ -270,6 +270,11 @@ pub struct Notice {
     pub(crate) save_conflict: Option<SaveConflictProof>,
 }
 
+pub(crate) struct Publication {
+    pub epoch: u64,
+    pub result: std::result::Result<(), String>,
+}
+
 pub struct State {
     pub monitor: Monitor,
     pub paths: Vec<PathBuf>,
@@ -281,6 +286,7 @@ pub struct State {
     pub publication_epoch: u64,
     pub publication_disabled: bool,
     pub notices: std::collections::HashMap<u64, Notice>,
+    pub(crate) publications: std::collections::HashMap<u64, Publication>,
 }
 impl State {
     pub fn new(root: PathBuf) -> Self {
@@ -295,6 +301,7 @@ impl State {
             publication_epoch: 1,
             publication_disabled: false,
             notices: std::collections::HashMap::new(),
+            publications: std::collections::HashMap::new(),
         }
     }
 }

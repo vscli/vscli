@@ -27,6 +27,14 @@
       {
         "command": "fixture.configuration.refused",
         "title": "Refuse dirty configuration"
+      },
+      {
+        "command": "fixture.configuration.clean",
+        "title": "Refresh open configuration"
+      },
+      {
+        "command": "fixture.configuration.race",
+        "title": "Preserve late configuration edits"
       }
     ]
   }

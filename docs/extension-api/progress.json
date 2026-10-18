@@ -792,13 +792,73 @@
       ],
       "remaining": [
         "Complete schema/default registration and scope/error fidelity",
-        "Dirty-settings prompting/merge behavior and immediate open clean settings TextDocument reload",
+        "Dirty-settings prompting/merge behavior",
         "Multi-root, workspace-file, remote, profile and full default-target semantics",
         "Exact configuration event/runtime and other-platform qualification",
         "Large value/file limits and broader settings/model-operation arbitration",
         "Entire stable extension API, personal code workflows, visual fidelity, storage/accounts and cross-platform release gates"
       ],
       "validation_receipt": "docs/validation/configuration-update.json"
+    },
+    {
+      "id": "configuration-model-refresh",
+      "api_ids": [
+        "vscode.WorkspaceConfiguration.update",
+        "vscode.workspace.onDidChangeTextDocument",
+        "vscode.TextDocument.getText",
+        "vscode.TextDocument.isDirty",
+        "vscode.TextDocument.version"
+      ],
+      "criteria": [
+        {
+          "name": "Shared and API-hidden clean settings models publish actual text/version events before public void success without switching editors",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-model-refresh.json",
+              "needle": "Shared and API-hidden clean settings models publish actual text/version events before public void success without switching editors"
+            }
+          ]
+        },
+        {
+          "name": "An actually held pre-write disk reader retains its slot and cannot acknowledge the post-commit model refresh",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-model-refresh.json",
+              "needle": "An actually held pre-write disk reader retains its slot and cannot acknowledge the post-commit model refresh"
+            }
+          ]
+        },
+        {
+          "name": "Late unsaved settings edits preserve text/Undo while the public error truthfully reports the already persisted file; distinct hardlinks retain their bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-model-refresh.json",
+              "needle": "Late unsaved settings edits preserve text/Undo while the public error truthfully reports the already persisted file; distinct hardlinks retain their bytes"
+            }
+          ]
+        },
+        {
+          "name": "Native shared history/baselines and Unicode CRLF terminal workflows, complete regressions, upstream controls and required style checks pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/configuration-model-refresh.json",
+              "needle": "Native shared history/baselines and Unicode CRLF terminal workflows, complete regressions, upstream controls and required style checks pass"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Complete configuration schema/default registration, scope and error fidelity",
+        "Dirty-settings prompting/merge and exact event/runtime fidelity",
+        "Multi-root, workspace-file, remote, profile and all default-target semantics",
+        "Broader mutation arbitration and upstream/platform qualification",
+        "Entire stable extension API, personal workflows, arbitrary visual fidelity, storage/accounts and release qualification"
+      ],
+      "validation_receipt": "docs/validation/configuration-model-refresh.json"
     }
   ],
   "next_batch": {

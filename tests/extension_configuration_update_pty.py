@@ -29,7 +29,7 @@ def run():
         file.write_bytes(original)
         app = Editor(root, '--config-dir', config, '--extension', fixture, file, enhanced=True)
         try:
-            wait_screen(app, '3 commands', timeout=15)
+            wait_screen(app, '5 commands', timeout=15)
             app.send('dirty ')
             command(app, 'Write extension configuration')
             wait_screen(app, 'Configuration roundtrip persisted', timeout=15)
@@ -74,7 +74,7 @@ def run():
         user.write_bytes(original)
         app = Editor(root, '--config-dir', config, '--extension', fixture, user, enhanced=True)
         try:
-            wait_screen(app, '3 commands', timeout=15)
+            wait_screen(app, '5 commands', timeout=15)
             app.send('unsaved ')
             command(app, 'Refuse dirty configuration')
             wait_screen(app, 'Dirty configuration preserved', timeout=15)
@@ -88,6 +88,31 @@ def run():
             finish_after_failure(app)
             raise
         print('PASS: dirty settings refuse extension persistence while exact disk bytes and native Undo remain intact')
+    with tempfile.TemporaryDirectory(prefix='vscli-configuration-clean-') as temporary:
+        root = Path(temporary)
+        config = root / 'profile'
+        config.mkdir()
+        user = config / 'settings.json'
+        original = b'{"fixture.value":"before"}\r\n'
+        user.write_bytes(original)
+        app = Editor(root, '--config-dir', config, '--extension', fixture, user, enhanced=True)
+        try:
+            wait_screen(app, '5 commands', timeout=15)
+            command(app, 'Refresh open configuration')
+            wait_screen(app, 'Open configuration refreshed', 'after-clean', timeout=15)
+            updated = user.read_bytes()
+            assert b'after-clean' in updated and updated.endswith(b'\r\n')
+            app.send(CTRL_Z)
+            wait_screen(app, 'before', absent=('after-clean',))
+            assert user.read_bytes() == updated
+            app.send(b'\x1b[122;6u')
+            wait_screen(app, 'after-clean')
+            assert user.read_bytes() == updated
+            app.finish()
+        except BaseException:
+            finish_after_failure(app)
+            raise
+        print('PASS: open settings text and change event precede public success; native Undo/Redo retains exact persisted CRLF bytes')
     assert all(hashlib.sha256(p.read_bytes()).digest() == digest for p, digest in originals.items())
 
 

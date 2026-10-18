@@ -130,3 +130,75 @@ fn dirty_shared_settings_buffer_refuses_public_write_without_losing_model_histor
     assert_eq!(app.doc().text.to_string(), dirty);
     app.execute("vscli.extensions.stop", Value::Null);
 }
+
+#[test]
+fn open_clean_settings_mirrors_and_native_undo_are_current_before_public_configuration_success() {
+    let root = tempfile::tempdir().unwrap();
+    let mut app = ready(root.path());
+    let path = root.path().join("profile/settings.json");
+    app.open(&path).unwrap();
+    app.execute("workbench.action.splitEditor", Value::Null);
+    let id = app.doc().id;
+    let original = app.doc().text.to_string();
+    app.execute("fixture.configuration.clean", Value::Null);
+    until(&mut app, |app| {
+        app.message == "Open configuration refreshed"
+    });
+    let updated = std::fs::read_to_string(&path).unwrap();
+    assert!(updated.contains("after-clean"));
+    assert_eq!(app.doc().text.to_string(), updated);
+    assert_eq!(app.doc().id, id);
+    assert!(!app.doc().dirty());
+    app.execute("undo", Value::Null);
+    assert_eq!(app.doc().text.to_string(), original);
+    assert!(app.doc().dirty());
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), updated);
+    app.execute("redo", Value::Null);
+    assert_eq!(app.doc().text.to_string(), updated);
+    assert!(!app.doc().dirty());
+    app.execute("vscli.extensions.stop", Value::Null);
+}
+#[test]
+fn api_hidden_clean_settings_are_refreshed_without_showing_or_redirecting_the_active_document() {
+    let root = tempfile::tempdir().unwrap();
+    let mut app = ready(root.path());
+    let id = app.doc().id;
+    let original = app.doc().text.to_string();
+    let path = root.path().join("profile/settings.json");
+    app.execute("fixture.configuration.clean", serde_json::json!(path));
+    until(&mut app, |app| {
+        app.message == "Open configuration refreshed"
+    });
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().text.to_string(), original);
+    assert!(
+        std::fs::read_to_string(path)
+            .unwrap()
+            .contains("after-clean")
+    );
+    app.execute("vscli.extensions.stop", Value::Null);
+}
+
+#[cfg(unix)]
+#[test]
+fn atomic_settings_replacement_does_not_redirect_a_different_hardlinked_resource_or_its_clean_model()
+ {
+    let root = tempfile::tempdir().unwrap();
+    let mut app = ready(root.path());
+    let path = root.path().join("profile/settings.json");
+    let alias = root.path().join("hardlink.json");
+    std::fs::hard_link(&path, &alias).unwrap();
+    let original = std::fs::read_to_string(&alias).unwrap();
+    app.open(&alias).unwrap();
+    let id = app.doc().id;
+    app.execute("fixture.configuration.roundtrip", Value::Null);
+    until(&mut app, |app| {
+        app.message == "Configuration roundtrip persisted"
+    });
+    assert_eq!(std::fs::read_to_string(&alias).unwrap(), original);
+    assert_eq!(app.doc().text.to_string(), original);
+    assert_eq!(app.doc().id, id);
+    assert!(!app.doc().dirty());
+    assert!(std::fs::read_to_string(path).unwrap().contains("null"));
+    app.execute("vscli.extensions.stop", Value::Null);
+}

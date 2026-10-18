@@ -36,6 +36,23 @@ exports.activate=context=>{
   assert.equal(editor.options.tabSize,3);
   return v.window.showInformationMessage('Language configuration persisted');
  });
+ register('clean',async path=>{
+  const document=typeof path==='string' ? await v.workspace.openTextDocument(v.Uri.file(path)) : v.window.activeTextEditor.document;
+  const before=document.getText(),version=document.version,events=[];
+  assert(before.includes('"before"'));assert.equal(document.isDirty,false);
+  const listener=v.workspace.onDidChangeTextDocument(event=>{if(event.document===document)events.push(document.getText());});
+  try {
+   assert.equal(await v.workspace.getConfiguration('fixture').update('value','after-clean',true),undefined);
+   assert(document.getText().includes('"after-clean"'));assert(document.version>version);
+   assert.equal(document.isDirty,false);assert(events.some(text=>text.includes('"after-clean"')));
+   assert.equal(v.workspace.getConfiguration('fixture').inspect('value').globalValue,'after-clean');
+  } finally {listener.dispose();}
+  return v.window.showInformationMessage('Open configuration refreshed');
+ });
+ register('race',async()=>{
+  await assert.rejects(v.workspace.getConfiguration('fixture').update('value','after-clean',true),/Setting persisted;.*Unsaved settings edits retained/);
+  return v.window.showInformationMessage('Late configuration edits preserved');
+ });
  register('refused',async()=>{
   await assert.rejects(v.workspace.getConfiguration('fixture').update('value','forbidden',true),/unsaved changes/);
   return v.window.showInformationMessage('Dirty configuration preserved');

@@ -1,5 +1,16 @@
 # Stable API delivery progress
 
+The open-settings integration follow-up passes **4/4 local criteria**. Shared and
+API-hidden settings text/version events now precede configuration-write success;
+an actual held reader cannot satisfy a newer write's receipt. Late dirty edits
+remain intact and the error identifies the file already persisted. Native history
+and distinct hardlinks remain correct. The recorded source passes **1,716 Rust
+tests across 77 reports** (1,344 library; 23 ignored), **832 host tests**, four
+unchanged Sort Lines controls, twelve terminal scenarios, formatting and strict
+locked Clippy. [Evidence](../validation/configuration-model-refresh.json).
+Complete settings/schema, upstream/platform and full API/migration qualification
+remain open.
+
 The native configuration-write batch passes **5/5 local criteria**. Public JSON
 values/removal, local targets and language overrides reach actual native settings
 persistence, reload and pre-receipt events. The recorded source passes **1,712 Rust
