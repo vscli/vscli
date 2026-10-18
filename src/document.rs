@@ -1876,12 +1876,107 @@ impl Document {
     }
     /// Public editor insert/delete operations request marker movement, while
     /// replacement and ordinary native edits retain marker-defined stickiness.
+    #[cfg(test)]
     pub(crate) fn apply_changes_with_marker_semantics(
         &mut self,
         mut changes: Vec<(Range<usize>, String, bool)>,
     ) {
         changes.sort_by_key(|(r, _, _)| r.start);
         self.apply_ordered_changes(changes.into_iter());
+    }
+    /// Native editor API edits share the source-owned Undo boundaries used by
+    /// public snippets. Navigation, saves and retired views close that authority.
+    pub(crate) fn apply_editor_changes(
+        &mut self,
+        proof: &EditorViewProof,
+        changes: Vec<(Range<usize>, String, bool)>,
+        undo_stop_before: bool,
+        undo_stop_after: bool,
+    ) -> Result<()> {
+        self.ensure_writable()?;
+        anyhow::ensure!(self.editor_view_current(proof), "Edit editor view retired");
+        if changes.is_empty() {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            changes.len() <= 4096
+                && changes
+                    .iter()
+                    .all(|(r, _, _)| r.start <= r.end && r.end <= self.len())
+                && changes
+                    .windows(2)
+                    .all(|pair| pair[0].0.end <= pair[1].0.start
+                        && pair[0].0.start != pair[1].0.start),
+            "Invalid editor scalar changes"
+        );
+        self.next_revision
+            .checked_add(1)
+            .context("Editor revision exhausted")?;
+        self.text_epoch
+            .checked_add(changes.len() as u64)
+            .context("Editor text epoch exhausted")?;
+        let target = self.view_state(Some(proof.id));
+        let mut original = self.snapshot();
+        original.view_id = proof.id;
+        original.cursor = target.cursor;
+        original.anchor = target.anchor;
+        original.secondary = target.secondary.clone();
+        original.api_owner = target.editor_owner.clone();
+        original.snippet = target.snippet.clone();
+        original.snippet_generation = target.snippet_generation;
+        original.pairs = target.pairs.clone();
+        let join = !undo_stop_before
+            && self.undo.last().is_some_and(|s| {
+                !s.api_closed && self.api_history_current(s, &original.api_owner, proof.id)
+            });
+        let group = if join {
+            anyhow::ensure!(
+                self.api_group_changes(self.undo.last().and_then(|s| s.api_history.as_ref()))
+                    .checked_add(changes.len())
+                    .is_some_and(|n| n <= 4096),
+                "Editor Undo group change budget exceeded"
+            );
+            self.undo
+                .last()
+                .and_then(|s| s.api_history.clone())
+                .unwrap_or_else(|| std::sync::Arc::new(()))
+        } else {
+            std::sync::Arc::new(())
+        };
+        self.undo
+            .try_reserve(1)
+            .context("Editor Undo allocation failed")?;
+        original
+            .changes
+            .try_reserve(changes.len())
+            .context("Editor history allocation failed")?;
+        self.byte_changes
+            .try_reserve(changes.len().min(257))
+            .context("Editor journal allocation failed")?;
+        // Admission and reservation complete before changing views or history.
+        let displayed = self.active_view;
+        self.display_view(proof.id);
+        self.typing = None;
+        if join {
+            if let Some(previous) = self.undo.last_mut() {
+                previous.api_history = Some(group.clone());
+            }
+        } else {
+            self.break_group();
+        }
+        self.undo.push(original);
+        if self.undo.len() > HISTORY_LIMIT {
+            self.undo.remove(0);
+        }
+        self.redo.clear();
+        self.apply_ordered_changes_without_checkpoint(changes.into_iter());
+        if let Some(snapshot) = self.undo.last_mut() {
+            snapshot.api_history = Some(group);
+            snapshot.api_open = !undo_stop_after;
+            snapshot.api_closed = undo_stop_after;
+        }
+        self.display_view(displayed);
+        Ok(())
     }
     fn apply_ordered_changes(
         &mut self,
@@ -3575,6 +3670,111 @@ mod checked_reload_tests {
             assert_eq!(doc.disk_content, disk);
             assert_eq!(doc.cursor, cursor);
         }
+    }
+
+    #[test]
+    fn editor_undo_stops_control_previous_and_following_native_typing_and_redo() {
+        for before in [false, true] {
+            for after in [false, true] {
+                let mut doc = Document::from_text("base");
+                doc.activate_view(1);
+                doc.move_to(4, false);
+                doc.insert("P", true);
+                let proof = doc.editor_view_identity();
+                doc.apply_editor_changes(&proof, vec![(5..5, "A".into(), false)], before, after)
+                    .unwrap();
+                doc.insert("B", true);
+                assert_eq!(doc.text.to_string(), "basePAB");
+                doc.undo();
+                assert_eq!(
+                    doc.text.to_string(),
+                    match (before, after) {
+                        (_, true) => "basePA",
+                        (true, false) => "baseP",
+                        (false, false) => "base",
+                    }
+                );
+                doc.redo();
+                assert_eq!(doc.text.to_string(), "basePAB");
+                assert_eq!(doc.cursor, 7);
+                doc.undo();
+                if after {
+                    doc.undo();
+                }
+                assert_eq!(doc.text.to_string(), if before { "baseP" } else { "base" });
+            }
+        }
+    }
+
+    #[test]
+    fn editor_empty_builder_preserves_open_group_and_native_navigation_closes_it() {
+        let mut doc = Document::from_text("base");
+        doc.move_to(4, false);
+        doc.insert("P", true);
+        let proof = doc.editor_view_identity();
+        doc.apply_editor_changes(&proof, vec![(5..5, "A".into(), false)], false, false)
+            .unwrap();
+        doc.apply_editor_changes(&proof, vec![], true, true)
+            .unwrap();
+        doc.apply_editor_changes(&proof, vec![(6..6, "B".into(), false)], false, false)
+            .unwrap();
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "base");
+        doc.redo();
+        doc.move_to(0, false);
+        doc.apply_editor_changes(&proof, vec![(0..0, "C".into(), false)], false, false)
+            .unwrap();
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "basePAB");
+    }
+
+    #[test]
+    fn editor_inactive_view_history_maps_shared_selections_without_switching_display() {
+        let mut doc = Document::from_text("猫🙂\r\noriginal");
+        doc.activate_view(1);
+        doc.set_selections(vec![Selection {
+            cursor: 2,
+            anchor: Some(1),
+            desired_column: None,
+        }]);
+        let proof = doc.editor_view_identity();
+        doc.activate_view(2);
+        doc.move_to(doc.len(), false);
+        doc.apply_editor_changes(&proof, vec![(0..0, "λ".into(), false)], true, false)
+            .unwrap();
+        assert_eq!(doc.active_view, 2);
+        assert_eq!(doc.cursor, doc.len());
+        assert_eq!(doc.view_state(Some(1)).cursor, 3);
+        assert_eq!(doc.view_state(Some(1)).anchor, Some(2));
+        doc.undo();
+        assert_eq!(doc.text.to_string(), "猫🙂\r\noriginal");
+        assert_eq!(doc.view_state(Some(1)).cursor, 2);
+        assert_eq!(doc.view_state(Some(1)).anchor, Some(1));
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "λ猫🙂\r\noriginal");
+        assert_eq!(doc.active_view, 2);
+    }
+
+    #[test]
+    fn editor_invalid_changes_and_retired_view_preserve_redo_and_source_identity() {
+        let mut doc = Document::from_text("original");
+        doc.insert("prior", false);
+        doc.undo();
+        let proof = doc.editor_view_identity();
+        let source = doc.capture_workspace_source().unwrap();
+        assert!(
+            doc.apply_editor_changes(&proof, vec![(99..100, "lost".into(), false)], false, false)
+                .is_err()
+        );
+        assert!(source.current(&doc));
+        let foreign = Document::from_text("other").editor_view_identity();
+        assert!(
+            doc.apply_editor_changes(&foreign, vec![(0..0, "lost".into(), false)], false, false)
+                .is_err()
+        );
+        assert!(source.current(&doc));
+        doc.redo();
+        assert_eq!(doc.text.to_string(), "priororiginal");
     }
 
     #[test]

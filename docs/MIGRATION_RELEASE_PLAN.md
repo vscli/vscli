@@ -305,3 +305,18 @@ journeys, archive checksums and embedded revision checks, without a tag or publi
 [Completed platform run](https://github.com/vscli/vscli/actions/runs/39080068658).
 Entire stable API, personal extension workflows, richer presentation/storage and
 other-platform release artifacts remain open requirements.
+
+## Public editor Undo-stop integration
+
+The `e7d1ef2` Position-replacement checkpoint passes complete Linux/macOS/Windows
+CI. The next local Undo-stop batch passes **4/4 named criteria**, including all
+four option pairs through actual native command dispatch and shared history,
+empty-builder behavior, eleven terminal scenarios and original-byte protection.
+There are **1,690 passing Rust tests** across 75 reports (1,327 library; 23 ignored)
+and **822 passing host tests**; formatting and strict locked Clippy pass.
+The first failing App case exposed an extra command-dispatch history boundary;
+its repair is exercised through contributed F9. A prior read-only fixture now
+matches upstream's successful no-op behavior while real edits and saves still
+refuse. [Source and retained observations](validation/editor-undo-stops.json).
+Fresh platform CI for this source, `setEndOfLine` ordering, entire stable API and
+seamless personal extension/visual/storage migration remain required.

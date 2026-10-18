@@ -14,6 +14,9 @@ entry. Native editing, snippet/completion insertion, workspace text edits and
 file-save capture/publication reject read-only virtual models. Public
 `TextDocument.save()` returns false; it does not open Save As or write a file.
 An editable copy through Save As is separate, unimplemented work.
+An empty `TextEditor.edit` builder returns true without native dispatch or any
+model/history changes, including on read-only documents. A builder requesting an
+actual mutation still resolves false and saves remain refused.
 
 Disposing a provider removes its registration and retires its pending refresh
 interest. It does not close or erase already retained documents: their cached

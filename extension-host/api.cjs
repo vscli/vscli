@@ -504,10 +504,15 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           if (!record || record.isClosed || workspaceEditMirrors.get(id)?.model !== document) throw new Error('Document is no longer open');
           if (!current()) throw new Error('Text editor is no longer available');
         } catch (error) { return Promise.reject(error); }
-        if (options && (options.undoStopBefore === false || options.undoStopAfter === false)) {
-          return Promise.reject(new Error('VSCLI does not yet support grouped extension undo stops'));
-        }
         const capturedSource = documentMirrorRecords.get(document), version = capturedSource.version;
+        let undoStopBefore = true, undoStopAfter = true;
+        try {
+          if (options !== undefined) {
+            if (!options || (typeof options !== 'object' && typeof options !== 'function')) throw new TypeError('Edit options must be an object');
+            undoStopBefore = Boolean(options.undoStopBefore);
+            undoStopAfter = Boolean(options.undoStopAfter);
+          }
+        } catch (error) { return Promise.reject(error); }
         const edits = [];
         let editBytes = 0;
         let valid = true;
@@ -554,7 +559,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           ownerGuard();
           if (!current() || workspaceEditMirrors.get(id)?.model !== document || documentMirrorRecords.get(document)?.version !== version || documentMirrorRecords.get(document)?.languageEpoch !== capturedSource.languageEpoch) throw new Error('Text editor source changed during edit capture');
         } catch (error) { return Promise.reject(error); }
-        return request('edit', { session: sessionOptions.session, owner, document: id, version, edits,
+        if (edits.length === 0) return Promise.resolve(true);
+        return request('edit', { session: sessionOptions.session, owner, document: id, version, edits, undoStopBefore, undoStopAfter,
           ...(privateState.nativeId === undefined ? {} : {editor:privateState.nativeId}) }).then(result => { ownerGuard(); return result.applied; });
       },
     });

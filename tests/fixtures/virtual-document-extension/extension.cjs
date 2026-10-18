@@ -62,7 +62,7 @@ exports.activate=context=>{
  register('readonly',async()=>{
   const text=firstNormalized,version=document.version,editor=v.window.activeTextEditor;
   virtualIdentity(text);assert.equal(await editor.edit(edit=>edit.insert(new v.Position(0,0),'forbidden ')),false);
-  assert.equal(await editor.edit(()=>{}),false);assert.equal(await document.save(),false);
+  assert.equal(await editor.edit(()=>{}),true,'empty builder succeeds without native editing, including on read-only models');assert.equal(await document.save(),false);
   virtualIdentity(text);assert.equal(document.version,version);
   await v.window.showInformationMessage('API virtual readonly;edit=false;save=false');
  });

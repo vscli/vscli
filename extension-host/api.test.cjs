@@ -94,7 +94,7 @@ test('an older edit response cannot replace a newer document notification', asyn
   const runtime = createApi(async () => ({ applied: true, state: old }), () => {});
   runtime.sync(old);
   const editor = runtime.api.window.activeTextEditor;
-  const edit = editor.edit(() => {});
+  const edit = editor.edit(builder => builder.insert(new runtime.api.Position(0, 0), 'pending'));
   runtime.sync({ ...old, generation: 2, documents: [{ ...old.documents[0], version: 2, text: 'newer' }] });
   await edit;
   assert.equal(editor.document.getText(), 'newer');

@@ -1917,8 +1917,11 @@ impl App {
                 | "jumpToNextSnippetPlaceholder"
                 | "jumpToPrevSnippetPlaceholder"
                 | "leaveSnippet"
-        ) && let Some(doc) = self.documents.get_mut(self.active)
+        ) && !self.is_extension_command(command)
+            && let Some(doc) = self.documents.get_mut(self.active)
         {
+            // Extension callbacks own their requested Undo boundaries. Closing
+            // the group here would defeat TextEditor.edit undoStopBefore=false.
             doc.break_group();
         }
         if command == "cursorUndo" {

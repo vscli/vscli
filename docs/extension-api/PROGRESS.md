@@ -1,5 +1,15 @@
 # Stable API delivery progress
 
+The editor Undo-stop batch passes **4/4 local criteria**: captured options and
+no-op builders, all four native typing/API boundary pairs, shared/inactive-view
+history integrity, and regression/style checks. The final source passes **1,690
+Rust tests across 75 reports** (1,327 library; 23 ignored), **822 host tests**,
+four unchanged Sort Lines controls and eleven terminal scenarios. A generic native
+command boundary was repaired after a failing integration case. A read-only
+fixture's empty-edit expectation was corrected against pinned upstream behavior,
+with real mutation/save refusals retained. [Evidence](../validation/editor-undo-stops.json).
+`setEndOfLine`, complete global history and the rest of the API remain open.
+
 The latest local editor-position batch passes **4/4 criteria**: branded position,
 range and selection handling; retained source/lifetime checks; native shared-model
 save/Undo/Redo and terminal delivery; and regression/style evidence. There are

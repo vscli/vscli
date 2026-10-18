@@ -541,7 +541,7 @@
         }
       ],
       "remaining": [
-        "TextEditorEdit.setEndOfLine, nondefault undo-stop options and remaining edit-builder contracts",
+        "TextEditorEdit.setEndOfLine and remaining edit-builder/global-history contracts",
         "Direct private transport/bypass contracts, unpaired UTF-16 and broader mixed-source EOL behavior",
         "Actual Windows repair-head CI, personal code workflows, full stable API and release qualification"
       ],
@@ -597,17 +597,72 @@
       ],
       "remaining": [
         "Fresh three-platform CI for this new source",
-        "TextEditorEdit.setEndOfLine, nondefault undo-stop flags and remaining edit-builder contracts",
+        "TextEditorEdit.setEndOfLine and remaining edit-builder/global-history contracts",
         "Unpaired UTF-16, private transport/bypass contracts and full platform/runtime qualification",
         "Whole stable API and seamless personal extension/visual/storage migration"
       ],
       "validation_receipt": "docs/validation/editor-position-replace.json"
+    },
+    {
+      "id": "editor-undo-stops",
+      "api_ids": [
+        "vscode.TextEditor.edit"
+      ],
+      "criteria": [
+        {
+          "name": "Public options retain defaults/coercion and one-read capture; stale getters and empty builders dispatch no partial work",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-undo-stops.json",
+              "needle": "Public options retain defaults/coercion and one-read capture; stale getters and empty builders dispatch no partial work"
+            }
+          ]
+        },
+        {
+          "name": "All four Undo-stop pairs join or separate actual native typing with shared CRLF save/Undo/Redo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-undo-stops.json",
+              "needle": "All four Undo-stop pairs join or separate actual native typing with shared CRLF save/Undo/Redo"
+            }
+          ]
+        },
+        {
+          "name": "Inactive views and invalid captures retain display, selections, identity and native Redo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-undo-stops.json",
+              "needle": "Inactive views and invalid captures retain display, selections, identity and native Redo"
+            }
+          ]
+        },
+        {
+          "name": "Complete native/host regressions, unchanged Sort Lines controls, ten terminal scenarios and required style checks retain source evidence",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-undo-stops.json",
+              "needle": "Complete native/host regressions, unchanged Sort Lines controls, ten terminal scenarios and required style checks retain source evidence"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "TextEditorEdit.setEndOfLine and its EOL-before-text history/event ordering",
+        "Full model-global grouping across arbitrary views and lifecycle transitions",
+        "Incremental change-event fidelity, exotic UTF-16/private transport behavior and remaining edit-builder contracts",
+        "Fresh three-platform CI and release qualification; whole stable API and seamless personal migration"
+      ],
+      "validation_receipt": "docs/validation/editor-undo-stops.json"
     }
   ],
   "next_batch": {
     "name": "Ordered public resource edits (retained API batch; migration/release takes priority)",
     "criteria": [
-      "Public create \u2192 text edit \u2192 rename \u2192 text edit \u2192 delete runs through the native ordered controller.",
+      "Public create → text edit → rename → text edit → delete runs through the native ordered controller.",
       "Original caller/model/resource/settings proofs authorize effects; annotation review and will-file participants run at the proper boundary.",
       "Dirty shared/hidden models, conditional destination identity, retired history/views and recovery archives preserve unsaved work.",
       "Mirrors and genuine operation events precede success; public Undo/Redo follows file-group semantics separately from internal rollback.",

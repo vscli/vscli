@@ -7,10 +7,15 @@ The optional host implements source-guided `TextEdit`, `SnippetTextEdit`,
 Creating an object does not edit a native document or write a file.
 
 `TextEdit` supports replace/insert/delete/setEndOfLine, mutable fields and JSON.
+
 Snippet edits retain their snippet and whitespace settings. Notebook edits retain
 cell arrays and metadata references. TextEdit, WorkspaceEdit and NotebookEdit
 support the upstream ES5 function-subclass call/apply convention. All extension
 facades and provider adapters use the same constructors.
+
+`TextEditor.edit` supports native before/after Undo-stop options and no-op builder
+handling. [Editor Undo boundaries](EDITOR_UNDO_STOPS_API.md) records the usable
+subset and remaining EOL, global-history and platform obligations.
 
 `WorkspaceEdit` stores operations in order. Following the actual pinned source,
 `set(uri, edits)` appends; an empty array is a no-op, while null/undefined removes

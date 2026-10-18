@@ -408,6 +408,12 @@ impl App {
             self.refresh_extension_catalog();
         }
     }
+    pub(super) fn is_extension_command(&self, command: &str) -> bool {
+        self.extension_host
+            .as_ref()
+            .is_some_and(|host| host.command_owner(command).is_some())
+            || (self.activation.loaded && self.activation.owners.contains_key(command))
+    }
     pub(super) fn queue_extension_command(&mut self, command: &str, args: &Option<Value>) -> bool {
         if !self.activation.configured
             || (!self.activation.loaded

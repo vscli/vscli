@@ -398,6 +398,7 @@ jobs:
           python3 -u tests/extension_manifest_labels_pty.py target/debug/vscli
           python3 -u tests/extension_editor_eol_pty.py target/debug/vscli
           python3 -u tests/extension_editor_position_pty.py target/debug/vscli
+          python3 -u tests/extension_editor_undo_pty.py target/debug/vscli
       - name: Run native extension language provider workflows
         if: runner.os != 'Windows'
         timeout-minutes: 2

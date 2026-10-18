@@ -222,6 +222,13 @@ struct Edit {
     document: u64,
     version: u64,
     edits: Vec<NativeTextEdit>,
+    #[serde(default = "default_undo_stop", rename = "undoStopBefore")]
+    undo_stop_before: bool,
+    #[serde(default = "default_undo_stop", rename = "undoStopAfter")]
+    undo_stop_after: bool,
+}
+fn default_undo_stop() -> bool {
+    true
 }
 pub struct Prepared {
     locale: String,
@@ -1094,13 +1101,20 @@ impl Client {
         if total - removed + added > MAX_DOCUMENT_BYTES {
             bail!("Extension edit exceeds the 4 MiB mirror budget");
         }
-        doc.apply_changes_with_marker_semantics(
+        let proof = match &edit.editor {
+            Some(editor) => self.editor_view_source(editor, doc)?,
+            None => doc.editor_view_identity(),
+        };
+        doc.apply_editor_changes(
+            &proof,
             changes
                 .into_iter()
                 .zip(force)
                 .map(|((range, text), force)| (range, text, force))
                 .collect(),
-        );
+            edit.undo_stop_before,
+            edit.undo_stop_after,
+        )?;
         Ok(true)
     }
     fn register_commands(&mut self, value: Value) -> Result<()> {
@@ -2219,6 +2233,8 @@ mod tests {
         .unwrap();
         let edit = |session, owner| Edit {
             editor: None,
+            undo_stop_before: true,
+            undo_stop_after: true,
             session,
             owner,
             document: documents[0].id,
@@ -2235,6 +2251,8 @@ mod tests {
         );
         let edit = Edit {
             editor: None,
+            undo_stop_before: true,
+            undo_stop_after: true,
             session: client.session,
             owner: "unknown.owner".into(),
             document: documents[0].id,
@@ -2246,6 +2264,8 @@ mod tests {
         documents[0].eol = if original_eol == "\r\n" { "\n" } else { "\r\n" }.into();
         let stale_eol_edit = Edit {
             editor: None,
+            undo_stop_before: true,
+            undo_stop_after: true,
             session: client.session,
             owner: client.packages[0].id.clone(),
             document: documents[0].id,
@@ -2267,6 +2287,8 @@ mod tests {
         documents[0].undo();
         let edit = Edit {
             editor: None,
+            undo_stop_before: true,
+            undo_stop_after: true,
             session: client.session,
             owner: client.packages[0].id.clone(),
             document: documents[0].id,

@@ -41,6 +41,7 @@ test('public edit insert/delete force markers while replace omits flag, awaiting
   }).then(result => { settled = true; return result; });
   assert.deepEqual(f.calls, [{method: 'edit', params: {
     session: 31, owner: 'marker.owner', document: 17, version: 7, editor: 'original-pane',
+    undoStopBefore: true, undoStopAfter: true,
     edits: [
       {range: {start: {line: 0, character: 8}, end: {line: 0, character: 8}}, newText: 'λ', forceMoveMarkers: true},
       {range: {start: {line: 1, character: 0}, end: {line: 1, character: 2}}, newText: '', forceMoveMarkers: true},
@@ -139,4 +140,40 @@ test('Position getter reentrancy cannot replace an edit capture with a newer sou
   Object.defineProperties(point,{line:{get(){if(!changed){changed=true;f.document.version++;f.sync();}return 0;}},character:{get(){return 0;}}});
   await assert.rejects(f.editor.edit(builder=>builder.replace(point,'stale')),/source changed/);
   assert.equal(f.calls.length,0);assert.equal(f.editor.document.getText(),'猫🙂alpha\r\nsecond\r\n');
+});
+
+test('editor undo-stop options snapshot each getter once before callback and preserve defaults and coercion', async () => {
+  for (const [options, before, after] of [[undefined,true,true],[{},false,false],
+    [{undoStopBefore:false,undoStopAfter:true},false,true],
+    [{undoStopBefore:1,undoStopAfter:0},true,false]]) {
+    const f=fixture();
+    const done=f.editor.edit(builder=>builder.insert(new Position(0,0),'x'),options);
+    assert.equal(f.calls[0].params.undoStopBefore,before);
+    assert.equal(f.calls[0].params.undoStopAfter,after);
+    f.receipt.resolve({applied:true});assert.equal(await done,true);
+  }
+  const f=fixture(),reads=[];
+  const options={get undoStopBefore(){reads.push('before');return false;},get undoStopAfter(){reads.push('after');return true;}};
+  const done=f.editor.edit(builder=>{assert.deepEqual(reads,['before','after']);builder.insert(new Position(0,0),'x');},options);
+  assert.deepEqual(reads,['before','after']);f.receipt.resolve({applied:true});assert.equal(await done,true);
+});
+
+test('undo-stop getter changes to the captured source reject the whole edit before native dispatch', async () => {
+  const f=fixture();
+  await assert.rejects(f.editor.edit(builder=>builder.insert(new Position(0,0),'lost'),{
+    get undoStopBefore(){f.document.version++;f.sync();return false;},undoStopAfter:false,
+  }),/source changed/);
+  assert.equal(f.calls.length,0);
+  for (const options of [null, false, 'invalid']) {
+    await assert.rejects(f.editor.edit(()=>assert.fail('invalid options ran callback'),options),/options must be an object/);
+  }
+  assert.equal(f.calls.length,0);
+});
+
+test('empty editor builders skip native work and undo boundaries', async () => {
+  for (const isReadonly of [false,true]) {
+    const f=fixture();f.document.isReadonly=isReadonly;f.sync();
+    assert.equal(await f.editor.edit(()=>{}, {undoStopBefore:true,undoStopAfter:true}),true);
+    assert.equal(f.calls.length,0);
+  }
 });
