@@ -67,7 +67,23 @@ jobs:
       - name: Run all extension host contracts
         run: node scripts/test_extension_host.cjs
       - name: Collect every native test binary failure
-        run: cargo test --locked --no-fail-fast
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test --locked --no-fail-fast -- --test-threads=4 --nocapture
+      - name: Exercise the isolated native Windows clipboard
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        env:
+          VSCLI_TEST_WINDOWS_CLIPBOARD: '1'
+        run: cargo test --locked --lib snippet_clipboard::windows_ci::isolated_windows_clipboard_preserves_unicode_crlf_empty_text_and_canceled_write -- --exact --ignored
+      - name: Preserve native macOS crash diagnostics
+        if: always() && runner.os == 'macOS'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-crash-reports-macos
+          path: ~/Library/Logs/DiagnosticReports/vscli*
+          if-no-files-found: warn
+          retention-days: 7
       - name: Exercise document references through aliased temporary directories
         if: runner.os == 'Linux'
         shell: bash

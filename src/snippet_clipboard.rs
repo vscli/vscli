@@ -2,16 +2,24 @@
 //! occupied worker merely because its native receipt has retired.
 use anyhow::{Result, bail};
 use std::{
-    io::{Read, Write},
-    process::{Command, Stdio},
     sync::{
         Arc, OnceLock,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver},
     },
     thread::{self, JoinHandle},
+};
+#[cfg(windows)]
+#[path = "snippet_clipboard/windows.rs"]
+mod windows;
+
+#[cfg(any(not(windows), test))]
+use std::{
+    io::{Read, Write},
+    process::{Command, Stdio},
     time::{Duration, Instant},
 };
+
 pub(crate) const MAX_BYTES: usize = 1024 * 1024;
 static BUSY: OnceLock<Arc<AtomicBool>> = OnceLock::new();
 struct Slot(Arc<AtomicBool>);
@@ -47,15 +55,7 @@ impl Worker {
             BUSY.get_or_init(|| Arc::new(AtomicBool::new(false)))
                 .clone(),
             move |sender, cancel, slot| {
-                let candidates: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
-                    &[("pbcopy", &[])]
-                } else {
-                    &[
-                        ("wl-copy", &[]),
-                        ("xclip", &["-selection", "clipboard", "-in"]),
-                    ]
-                };
-                let _ = sender.send(transfer_commands(candidates, &cancel, &slot, Some(&text)));
+                let _ = sender.send(write_platform(&cancel, &slot, &text));
             },
         )
     }
@@ -135,16 +135,52 @@ impl Drop for Worker {
     }
 }
 fn read_platform(cancel: &AtomicBool, slot: &Arc<Slot>) -> Result<Option<String>, String> {
-    let candidates: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
-        &[("pbpaste", &[])]
-    } else {
-        &[
-            ("wl-paste", &["--no-newline"]),
-            ("xclip", &["-selection", "clipboard", "-out"]),
-        ]
-    };
-    read_commands(candidates, cancel, slot)
+    #[cfg(windows)]
+    {
+        let _ = slot;
+        windows::read(cancel)
+            .map(Some)
+            .map_err(|error| format!("Windows clipboard: {error:#}"))
+    }
+    #[cfg(not(windows))]
+    {
+        let candidates: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
+            &[("pbpaste", &[])]
+        } else {
+            &[
+                ("wl-paste", &["--no-newline"]),
+                ("xclip", &["-selection", "clipboard", "-out"]),
+            ]
+        };
+        read_commands(candidates, cancel, slot)
+    }
 }
+fn write_platform(
+    cancel: &AtomicBool,
+    slot: &Arc<Slot>,
+    text: &str,
+) -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        let _ = slot;
+        windows::write(text, cancel)
+            .map(|()| Some(String::new()))
+            .map_err(|error| format!("Windows clipboard: {error:#}"))
+    }
+    #[cfg(not(windows))]
+    {
+        let candidates: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
+            &[("pbcopy", &[])]
+        } else {
+            &[
+                ("wl-copy", &[]),
+                ("xclip", &["-selection", "clipboard", "-in"]),
+            ]
+        };
+        transfer_commands(candidates, cancel, slot, Some(text))
+    }
+}
+#[cfg(not(windows))]
 fn read_commands(
     candidates: &[(&str, &[&str])],
     cancel: &AtomicBool,
@@ -152,6 +188,7 @@ fn read_commands(
 ) -> Result<Option<String>, String> {
     transfer_commands(candidates, cancel, slot, None)
 }
+#[cfg(any(not(windows), test))]
 fn transfer_commands(
     candidates: &[(&str, &[&str])],
     cancel: &AtomicBool,
@@ -450,7 +487,7 @@ mod tests {
             Some(Arc::from(text)),
         )
         .unwrap();
-        let deadline = Instant::now() + Duration::from_secs(3);
+        let deadline = Instant::now() + Duration::from_secs(10);
         let result = loop {
             if let Some(result) = worker.try_finish() {
                 break result;
@@ -463,11 +500,21 @@ mod tests {
         drop(worker);
         assert!(!busy.load(Ordering::Acquire));
         assert!(Worker::start_write(Arc::from("x".repeat(MAX_BYTES + 1))).is_err());
+        let release = root.path().join("release");
+        // The child inherits the actual pipe directly, independently of shell
+        // background-stdin rules. It cannot drain it until the test releases it.
+        // Removing the temporary root during unwinding also releases the child.
+        let helper = "import os,pathlib,sys,time\nif os.fork(): os._exit(0)\nrelease,root=map(pathlib.Path,sys.argv[1:])\nwhile root.is_dir() and not release.exists(): time.sleep(0.01)\nsys.stdin.buffer.read()\nos._exit(0)\n";
         let mut worker = Worker::start_commands(
             busy.clone(),
             vec![(
-                "/bin/sh".into(),
-                vec!["-c".into(), "(sleep 1; cat >/dev/null) <&0 & exit 0".into()],
+                "python3".into(),
+                vec![
+                    "-c".into(),
+                    helper.into(),
+                    release.to_str().unwrap().into(),
+                    root.path().to_str().unwrap().into(),
+                ],
             )],
             Some(Arc::from("x".repeat(MAX_BYTES))),
         )
@@ -484,9 +531,76 @@ mod tests {
         drop(worker);
         assert!(busy.load(Ordering::Acquire));
         assert!(Worker::start_with(busy.clone(), |_, _, _| {}).is_err());
+        std::fs::write(release, []).unwrap();
         while busy.load(Ordering::Acquire) {
             assert!(Instant::now() < deadline);
             thread::sleep(Duration::from_millis(1));
         }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_ci {
+    use super::*;
+    #[test]
+    #[ignore = "requires an explicitly isolated Windows CI clipboard; never runs on a personal desktop by default"]
+    fn isolated_windows_clipboard_preserves_unicode_crlf_empty_text_and_canceled_write() {
+        assert_eq!(std::env::var("GITHUB_ACTIONS").as_deref(), Ok("true"));
+        assert_eq!(
+            std::env::var("VSCLI_TEST_WINDOWS_CLIPBOARD").as_deref(),
+            Ok("1")
+        );
+        fn finish(mut worker: Worker) -> Result<Option<String>> {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            loop {
+                if let Some(result) = worker.try_finish() {
+                    return result;
+                }
+                assert!(Instant::now() < deadline);
+                thread::sleep(Duration::from_millis(1));
+            }
+        }
+        let text = "VSCLI isolated CI clipboard 猫🙂\r\nsecond\r\n";
+        assert_eq!(
+            finish(Worker::start_write(Arc::from(text)).unwrap())
+                .unwrap()
+                .as_deref(),
+            Some("")
+        );
+        assert_eq!(
+            finish(Worker::start().unwrap()).unwrap().as_deref(),
+            Some(text)
+        );
+        let held = windows::hold_open_for_test().unwrap();
+        let error = finish(Worker::start().unwrap()).unwrap_err().to_string();
+        assert!(error.contains("Cannot open Windows clipboard"), "{error}");
+        drop(held);
+        let canceled = AtomicBool::new(true);
+        assert!(windows::write("forbidden", &canceled).is_err());
+        assert_eq!(
+            finish(Worker::start().unwrap()).unwrap().as_deref(),
+            Some(text)
+        );
+        let boundary = "x".repeat(MAX_BYTES);
+        assert_eq!(
+            finish(Worker::start_write(Arc::from(boundary.as_str())).unwrap())
+                .unwrap()
+                .as_deref(),
+            Some("")
+        );
+        assert!(
+            finish(Worker::start().unwrap()).unwrap().as_deref() == Some(boundary.as_str()),
+            "Windows clipboard boundary string changed"
+        );
+        assert_eq!(
+            finish(Worker::start_write(Arc::from("")).unwrap())
+                .unwrap()
+                .as_deref(),
+            Some("")
+        );
+        assert_eq!(
+            finish(Worker::start().unwrap()).unwrap().as_deref(),
+            Some("")
+        );
     }
 }

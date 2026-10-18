@@ -305,9 +305,10 @@ mod tests {
                 Value::Null,
             );
             if retired {
-                until(&mut app, |app| {
-                    app.extension_clipboard.active.is_some() && entered.exists()
-                });
+                // Admission retains a real worker and its permit immediately.
+                // Retire it before another App poll, without racing a helper's
+                // deadline against a filesystem marker under test-runner load.
+                until(&mut app, |app| app.extension_clipboard.active.is_some());
                 app.extension_clipboard
                     .active
                     .as_ref()

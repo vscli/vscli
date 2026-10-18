@@ -17,9 +17,20 @@ Malformed or oversized native receipts cannot release a timed-out request slot.
 
 macOS selects `pbcopy`/`pbpaste`; Linux selects `wl-copy`/`wl-paste` or `xclip`.
 Missing or failing helpers report an unavailable system clipboard; the API does
-not claim a successful OS write through the editor's internal fallback. A native
-Windows backend and real desktop/display-server clipboard qualification remain
-required. Retired original owners/sessions cannot borrow a new caller's authority.
+not claim a successful OS write through the editor's internal fallback.
+
+Windows uses native `CF_UNICODETEXT` access on the same worker, without a shell or
+JavaScript runtime. An invisible message-only owner supplies the required write
+ownership. Movable, zeroed memory is prepared before clearing, unlocked before
+transfer, and freed privately only if ownership has not passed to Windows. Reads
+scan a bounded NUL-terminated UTF-16 prefix and reject malformed/oversized text.
+Clipboard-open contention observes cancellation and a bounded wait. Thread-bound
+guards close the clipboard and destroy the private owner; failures after clearing
+report possible effects. An explicit isolated Windows CI control covers real OS
+Unicode/CRLF, empty and boundary strings, contention and cancellation. It is
+ignored locally unless explicitly selected in the isolated CI environment. Native
+Windows linking/runtime and actual desktop/display-server qualification remain
+separate gates; portable type checking alone is insufficient. Retired original owners/sessions cannot borrow a new caller's authority.
 An already authorized system write may have completed when a caller retires;
 errors do not imply that the global clipboard was rolled back.
 

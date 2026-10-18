@@ -1,5 +1,15 @@
 # Stable API delivery progress
 
+The native Windows clipboard follow-up has **4/5 criteria passed locally**; actual
+Windows CI compilation/linking and the isolated OS control are pending. Source
+and portable metadata checks cover native ownership, bounded UTF-16 access and
+thread lifetime. Shared controls, **1,719 Linux Rust tests** (77 reports; 23 ignored),
+**837 host tests**, nine terminal scenarios, formatting and strict Clippy pass.
+The preceding Linux inherited-pipe fixture is now explicitly gated. A separate
+macOS library SIGABRT remains unexplained; fatal-output and crash-report collection
+are enabled for fresh CI. [Evidence](../validation/windows-clipboard.json).
+No Windows runtime or complete platform qualification is claimed yet.
+
 The system-clipboard bridge passes **5/5 local criteria**. Frozen original-owner
 reads/writes use the existing bounded native helper worker; unavailable backends
 refuse, and malformed/late replies retain actual occupancy. Native paste,

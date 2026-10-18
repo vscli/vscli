@@ -1,0 +1,218 @@
+{
+  "schema": "vscli-windows-clipboard-validation-v1",
+  "base_commit": "ac45ea45aa8e05345343759b17bcf858f294c4ca",
+  "scope": "Native Windows backend for env.clipboard and snippet reads; actual Windows execution is a required pending gate, and whole stable API/seamless migration remain required.",
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1772,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "32da2aca5b0176f133b01d4501b0c1c95ee23bd32351be3a494146d072c19212"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "705f2686f0ac2ca27472e09b4fdbb598c40bf5d82d18f5a9d7ef26b56cc51e51"
+  },
+  "criteria": {
+    "passed": 4,
+    "total": 5,
+    "items": [
+      {
+        "name": "Windows clipboard operations are integrated with the existing native worker and typed bounded UTF-16/thread/ownership guards",
+        "state": "passed"
+      },
+      {
+        "name": "Portable Windows-path metadata checking and shared native cancellation/queue/history controls pass",
+        "state": "passed"
+      },
+      {
+        "name": "A gated inherited-pipe fixture removes shell/background-stdin and fixed-delay assumptions while retaining real capacity assertions",
+        "state": "passed"
+      },
+      {
+        "name": "Complete Linux native/host regressions, terminal workflows, formatting and strict locked Clippy pass on the recorded source",
+        "state": "passed"
+      },
+      {
+        "name": "Actual Windows CI compiles and links the backend and passes its isolated OS clipboard control",
+        "state": "pending"
+      }
+    ]
+  },
+  "native": {
+    "reports": 77,
+    "passed": 1719,
+    "failed": 0,
+    "ignored": 23,
+    "library": 1347
+  },
+  "host": {
+    "passed": 837,
+    "failed": 0
+  },
+  "terminal_scenarios": 9,
+  "checks": [
+    {
+      "label": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-final-fmt.log"
+    },
+    {
+      "label": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-final-clippy.log"
+    },
+    {
+      "label": "native-controls",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "clipboard",
+        "--",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-final-native-controls.log"
+    },
+    {
+      "label": "rust",
+      "command": [
+        "cargo",
+        "test",
+        "--all-targets",
+        "--locked",
+        "--no-fail-fast",
+        "--",
+        "--test-threads=4"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-final-rust.log"
+    },
+    {
+      "label": "build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-final-build.log"
+    },
+    {
+      "label": "extension_clipboard-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_clipboard_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-extension_clipboard-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_editor_snippets-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_editor_snippets_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-extension_editor_snippets-pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "label": "extension_configuration_update-pty",
+      "command": [
+        "python3",
+        "-u",
+        "tests/extension_configuration_update_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-extension_configuration_update-pty.log",
+      "passed_scenarios": 3
+    },
+    {
+      "label": "host",
+      "command": [
+        "node",
+        "scripts/test_extension_host.cjs"
+      ],
+      "exit_code": 0,
+      "passed_tests": 837,
+      "log": "/tmp/vscli-windows-clipboard-host-all.log"
+    },
+    {
+      "label": "portable-windows-path-metadata",
+      "exit_code": 0,
+      "log": "/tmp/vscli-windows-clipboard-type-check.log",
+      "scope": "Linux rustc with forced Windows cfg, metadata emission only; not Windows ABI, linking or execution"
+    },
+    {
+      "label": "progress-script-controls",
+      "exit_code": 0,
+      "passed_tests": 28,
+      "log": "/tmp/vscli-windows-clipboard-script-tests.log"
+    }
+  ],
+  "windows_ci": {
+    "state": "pending",
+    "test": "snippet_clipboard::windows_ci::isolated_windows_clipboard_preserves_unicode_crlf_empty_text_and_canceled_write",
+    "scope": "Explicit isolated GitHub Windows runner only: synthetic Unicode/CRLF, exact boundary and empty data, contention and canceled writes. Never reads the initial clipboard; ignored by default on local desktops."
+  },
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-openclipboard",
+    "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setclipboarddata",
+    "https://learn.microsoft.com/en-us/windows/win32/dataxchg/using-the-clipboard"
+  ],
+  "preceding_ci": {
+    "run": "https://github.com/vscli/vscli/actions/runs/39166441452",
+    "windows": "success",
+    "linux": "New inherited-pipe fixture failed with Broken pipe under the runner shell. A directly inherited, explicitly gated Python descendant replaces that shell/timing assumption.",
+    "macos": "Library test process aborted with SIGABRT and no captured cause. Backtrace/nocapture and macOS crash-report collection are added; the cause remains unresolved.",
+    "dedicated": "All three platforms pass dedicated run 39166441580."
+  },
+  "retained_logs": [
+    "/tmp/vscli-clipboard-ci-linux.log",
+    "/tmp/vscli-clipboard-ci-macos.log"
+  ],
+  "remaining": [
+    "Actual Windows ABI/link/runtime control and complete platform CI",
+    "Unexplained preceding macOS library abort; fresh diagnostics and regression qualification",
+    "Actual desktop clipboard behavior beyond the named synthetic control, native foreground Copy/Paste integration and broader OS/helper arbitration",
+    "Arbitrary UTF-16/larger data and whole environment/stable API contracts",
+    "Personal workflows/proposals, visual/configuration/account/storage fidelity and cross-platform release qualification"
+  ]
+}

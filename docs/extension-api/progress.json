@@ -920,13 +920,75 @@
         }
       ],
       "remaining": [
-        "Native Windows clipboard backend and actual OS/display-server qualification",
+        "Native Windows clipboard ABI/runtime and actual OS/display-server qualification",
         "Larger values, arbitrary UTF-16 strings and full runtime behavior",
         "Simultaneous clipboard mutations, helper daemon behavior and wider lifecycle qualification",
         "Remaining environment APIs and the entire stable extension API",
         "Personal extension workflows/proposals, arbitrary visual/configuration fidelity, storage/accounts and cross-platform release qualification"
       ],
       "validation_receipt": "docs/validation/clipboard-api.json"
+    },
+    {
+      "id": "windows-system-clipboard",
+      "api_ids": [
+        "vscode.env.clipboard",
+        "vscode.Clipboard.readText",
+        "vscode.Clipboard.writeText"
+      ],
+      "criteria": [
+        {
+          "name": "Windows clipboard operations are integrated with the existing native worker and typed bounded UTF-16/thread/ownership guards",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/windows-clipboard.json",
+              "needle": "Windows clipboard operations are integrated with the existing native worker and typed bounded UTF-16/thread/ownership guards"
+            }
+          ]
+        },
+        {
+          "name": "Portable Windows-path metadata checking and shared native cancellation/queue/history controls pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/windows-clipboard.json",
+              "needle": "Portable Windows-path metadata checking and shared native cancellation/queue/history controls pass"
+            }
+          ]
+        },
+        {
+          "name": "A gated inherited-pipe fixture removes shell/background-stdin and fixed-delay assumptions while retaining real capacity assertions",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/windows-clipboard.json",
+              "needle": "A gated inherited-pipe fixture removes shell/background-stdin and fixed-delay assumptions while retaining real capacity assertions"
+            }
+          ]
+        },
+        {
+          "name": "Complete Linux native/host regressions, terminal workflows, formatting and strict locked Clippy pass on the recorded source",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/windows-clipboard.json",
+              "needle": "Complete Linux native/host regressions, terminal workflows, formatting and strict locked Clippy pass on the recorded source"
+            }
+          ]
+        },
+        {
+          "name": "Actual Windows CI compiles and links the backend and passes its isolated OS clipboard control",
+          "state": "pending"
+        }
+      ],
+      "remaining": [
+        "Actual Windows ABI/link/runtime control and complete platform CI",
+        "Unexplained preceding macOS library abort; fresh diagnostics and regression qualification",
+        "Actual desktop clipboard behavior beyond the named synthetic control, native foreground Copy/Paste integration and broader OS/helper arbitration",
+        "Arbitrary UTF-16/larger data and whole environment/stable API contracts",
+        "Personal workflows/proposals, visual/configuration/account/storage fidelity and cross-platform release qualification"
+      ],
+      "validation_receipt": "docs/validation/windows-clipboard.json"
     }
   ],
   "next_batch": {

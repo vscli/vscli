@@ -380,3 +380,13 @@ unapplied edit. The locally reproduced comparison is repaired without modifying
 source captures or output/history oracles. Dedicated Windows capture failed during
 its VS Code download before any target began; this is separate from native tests.
 Fresh feature-head platform runs are required.
+
+
+Native Windows clipboard access now has integrated worker-backed read/write and
+snippet support, with explicit ownership/allocation guards. **4/5 local criteria**
+pass; actual Windows linking/runtime is pending the isolated runner control. The
+Linux cohort passes 1,719 Rust tests, 837 host tests and nine terminal scenarios.
+The Linux inherited-pipe fixture uses a controlled descendant and explicit release.
+The prior macOS library SIGABRT has no established cause; fresh CI captures fatal
+output and crash reports. These are separate qualification gates.
+[Exact scope/evidence](validation/windows-clipboard.json).
