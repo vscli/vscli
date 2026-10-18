@@ -424,3 +424,15 @@ actual watcher terminal journey, formatting and strict all-target Clippy. The
 preceding 1,719 all-target count includes additional example-target controls;
 these are distinct commands/cohorts. [Test receipts](validation/platform-test-receipts.json)
 retain the observed failures and fresh platform gates.
+
+
+## Native masked extension input
+
+The Input Box password batch passes **5/5 local criteria**: typed/captured intent,
+native masked rendering with real editing, raw terminal secrecy and exact values,
+original caller/document/history lifetime, and regression/documentation checks.
+All 1,720 Rust all-target tests, 840 host tests and four prompt terminal journeys
+pass; formatting and strict Clippy pass. The implementation extends the existing
+native prompt controller and transports rather than adding another foundation.
+[Source/binary evidence](validation/input-box-password.json) keeps full Quick Input,
+fresh platform CI and personal authentication/visual/storage migration open.

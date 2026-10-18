@@ -1081,12 +1081,18 @@ fn draw_prompt(frame: &mut Frame, app: &App) {
     if inner.width == 0 || inner.height == 0 {
         return;
     }
-    let cursor_width = display_width(&p.text[..p.cursor]);
+    let password = matches!(&p.kind, PromptKind::Extension(request) if request.spec.password);
+    let masked;
+    let (text, cursor_width) = if password {
+        masked = "*".repeat(p.text.graphemes(true).count());
+        (masked.as_str(), p.text[..p.cursor].graphemes(true).count())
+    } else {
+        (p.text.as_str(), display_width(&p.text[..p.cursor]))
+    };
     let available = inner.width.saturating_sub(3) as usize;
     let skip = cursor_width.saturating_sub(available);
     let mut visual = 0;
-    let shown: String = p
-        .text
+    let shown: String = text
         .graphemes(true)
         .filter_map(|g| {
             let old = visual;

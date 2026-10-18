@@ -75,7 +75,7 @@ test('failed owners cannot issue fresh requests or revive registrations from ret
   assert.throws(() => stale.commands.registerCommand('late', () => {}), /not active/);
   assert.throws(() => stale.workspace.onDidChangeConfiguration(() => {}), /not active/);
   await assert.rejects(stale.commands.executeCommand('partial'), /not active/);
-  await assert.rejects(stale.window.showInputBox(), /not active/);
+  await assert.rejects(stale.window.showInputBox(), /retired/);
   await assert.rejects(stale.window.showInformationMessage('late'), /not active/);
   assert.equal(requests, 0);
   assert.deepEqual(runtime.commandSnapshot(), []);

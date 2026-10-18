@@ -1,5 +1,15 @@
 # Stable API delivery progress
 
+The Input Box password follow-up passes **5/5 local criteria**. Native masked
+rendering covers initial, typed and pasted graphemes, narrow windows and scrolling;
+exact acceptance, cancellation/stop and native document revision/history remain
+correct. Cached prompt handles and asynchronous continuations retain original
+caller leases. The recorded source passes **1,720 Rust tests across 77 reports**
+(1,347 library; 23 ignored), **840 host tests**, four actual terminal journeys,
+formatting and strict locked Clippy. [Evidence](../validation/input-box-password.json)
+records the synthetic raw-output checks and outstanding Quick Input, upstream,
+platform and whole API/migration contracts.
+
 The native Windows clipboard follow-up has **4/5 criteria passed locally**; actual
 Windows CI compilation/linking and the isolated OS control are pending. Source
 and portable metadata checks cover native ownership, bounded UTF-16 access and

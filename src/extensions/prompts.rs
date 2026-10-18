@@ -34,6 +34,8 @@ pub struct PromptSpec {
     #[serde(default)]
     pub value: String,
     #[serde(default)]
+    pub password: bool,
+    #[serde(default)]
     pub items: Vec<QuickPickItem>,
     #[serde(default)]
     pub match_on_description: bool,
@@ -95,6 +97,9 @@ impl Client {
         )?;
         if spec.items.len() > 128 || spec.kind == PromptType::InputBox && !spec.items.is_empty() {
             bail!("Invalid extension prompt item count");
+        }
+        if spec.kind == PromptType::QuickPick && spec.password {
+            bail!("Quick Pick cannot request password input");
         }
         let texts = [&spec.title, &spec.prompt, &spec.place_holder, &spec.value]
             .into_iter()
@@ -307,6 +312,12 @@ mod tests {
         assert!(client.queue_prompt(json!("two"), invalid).is_err());
         let mut invalid = request();
         invalid["items"] = json!(vec![json!({"label":"x"}); 129]);
+        assert!(client.queue_prompt(json!("two"), invalid).is_err());
+        let mut invalid = request();
+        invalid["password"] = json!(true);
+        assert!(client.queue_prompt(json!("two"), invalid).is_err());
+        let mut invalid = request();
+        invalid["password"] = json!("true");
         assert!(client.queue_prompt(json!("two"), invalid).is_err());
         for i in 1..8 {
             client

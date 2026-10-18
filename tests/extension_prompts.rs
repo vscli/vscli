@@ -51,6 +51,11 @@ exports.activate = context => {
     const values = await Promise.all([vscode.window.showInputBox({title:'First'}),vscode.window.showInputBox({title:'Second'})]);
     await vscode.window.showInformationMessage('queue=' + JSON.stringify(values));
   });
+  register('password', async () => {
+    const value = await vscode.window.showInputBox({title:'Synthetic password',password:true,value:'SYNTHETIC初🙂'});
+    if(value !== undefined) require('node:assert/strict').equal(value,'oken猫🙂👩‍💻!');
+    await vscode.window.showInformationMessage(value === undefined ? 'password canceled' : 'password accepted');
+  });
   register('crash', () => process.exit(7));
 };
 "#).unwrap();
@@ -63,6 +68,73 @@ exports.activate = context => {
         app.extension_host.as_ref().is_some_and(|host| host.ready)
     });
     app
+}
+#[test]
+fn password_input_masks_graphemes_and_preserves_exact_input_cancellation_and_native_history() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut app = fixture(directory.path());
+    let id = app.doc().id;
+    let version = app.doc().revision;
+    fn masked(app: &mut App) {
+        use ratatui::{Terminal, backend::TestBackend};
+        for width in [120, 25] {
+            let mut terminal = Terminal::new(TestBackend::new(width, 32)).unwrap();
+            terminal.draw(|frame| vscli::ui::draw(frame, app)).unwrap();
+            let screen: String = terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect();
+            assert!(screen.contains("***"), "{screen}");
+            for secret in ["SYNTHETIC", "初", "token", "oken", "猫", "🙂", "👩", "💻"] {
+                assert!(
+                    !screen.contains(secret),
+                    "Password appeared on screen: {secret}"
+                );
+            }
+        }
+    }
+    app.execute("prompts.password", Value::Null);
+    until(&mut app, extension_prompt);
+    masked(&mut app);
+    app.event(Event::Paste("token".repeat(200)));
+    masked(&mut app);
+    app.event(Event::Key(KeyEvent::new(
+        KeyCode::Char('a'),
+        KeyModifiers::CONTROL,
+    )));
+    app.event(Event::Paste("token猫e\u{301}👩‍💻".into()));
+    masked(&mut app);
+    key(&mut app, KeyCode::Left);
+    key(&mut app, KeyCode::Backspace);
+    app.event(Event::Paste("🙂".into()));
+    key(&mut app, KeyCode::Home);
+    key(&mut app, KeyCode::Delete);
+    key(&mut app, KeyCode::End);
+    key(&mut app, KeyCode::Char('!'));
+    masked(&mut app);
+    key(&mut app, KeyCode::Enter);
+    until(&mut app, |app| app.message == "password accepted");
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().revision, version);
+    assert_eq!(app.doc().text.to_string(), "original");
+    app.execute("prompts.password", Value::Null);
+    until(&mut app, extension_prompt);
+    masked(&mut app);
+    key(&mut app, KeyCode::Esc);
+    until(&mut app, |app| app.message == "password canceled");
+    assert_eq!(app.doc().revision, version);
+    app.execute("prompts.password", Value::Null);
+    until(&mut app, extension_prompt);
+    masked(&mut app);
+    app.execute("vscli.extensions.stop", Value::Null);
+    assert!(app.prompt.is_none());
+    assert_eq!(app.doc().revision, version);
+    app.doc_mut().undo();
+    assert_eq!(app.doc().id, id);
+    assert_eq!(app.doc().text.to_string(), "");
 }
 #[test]
 fn quick_pick_input_unicode_edits_cancel_and_undo_preserve_native_identity() {

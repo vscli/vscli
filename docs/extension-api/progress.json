@@ -989,6 +989,74 @@
         "Personal workflows/proposals, visual/configuration/account/storage fidelity and cross-platform release qualification"
       ],
       "validation_receipt": "docs/validation/windows-clipboard.json"
+    },
+    {
+      "id": "input-box-password",
+      "api_ids": [
+        "vscode.window.showInputBox",
+        "vscode.InputBoxOptions.password",
+        "vscode.window.showQuickPick"
+      ],
+      "criteria": [
+        {
+          "name": "Password intent is captured once and strictly typed; exact accepted Unicode data uses the existing native transport",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Password intent is captured once and strictly typed; exact accepted Unicode data uses the existing native transport"
+            }
+          ]
+        },
+        {
+          "name": "Native normal/narrow/scrolled rendering masks initial, typed and pasted graphemes while editing the actual value",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Native normal/narrow/scrolled rendering masks initial, typed and pasted graphemes while editing the actual value"
+            }
+          ]
+        },
+        {
+          "name": "Actual terminal screen and raw output hide synthetic secrets, and extension acceptance/cancellation preserve disk bytes",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Actual terminal screen and raw output hide synthetic secrets, and extension acceptance/cancellation preserve disk bytes"
+            }
+          ]
+        },
+        {
+          "name": "Original caller leases reject retained handles, getter renewal and delayed item/reply continuations; cancellation/stop retain document identity, revision and Undo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Original caller leases reject retained handles, getter renewal and delayed item/reply continuations; cancellation/stop retain document identity, revision and Undo"
+            }
+          ]
+        },
+        {
+          "name": "Complete all-target native/host regressions, prompt terminal workflows, documentation, formatting and strict locked Clippy pass",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/input-box-password.json",
+              "needle": "Complete all-target native/host regressions, prompt terminal workflows, documentation, formatting and strict locked Clippy pass"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "validateInput, valueSelection, cancellation tokens, ignoreFocusOut and createInputBox",
+        "Remaining entire Quick Input and stable extension API contracts",
+        "Exact graphical appearance, accessibility and upstream-runtime differential qualification",
+        "Fresh platform CI for this source and cross-platform release artifacts",
+        "Personal extension/proposed API workflows, visual/configuration/account/storage migration"
+      ],
+      "validation_receipt": "docs/validation/input-box-password.json"
     }
   ],
   "next_batch": {

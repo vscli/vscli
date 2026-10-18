@@ -16,7 +16,7 @@ def fixture(root):
     folder.mkdir()
     manifest = {'publisher': 'fixture', 'name': 'prompts', 'version': '1.0.0', 'main': 'extension.cjs',
                 'contributes': {'commands': [{'command': 'prompts.' + name, 'title': 'Prompt ' + name}
-                                             for name in ('edit', 'cancel', 'queue', 'crash', 'unsupported')],
+                                             for name in ('edit', 'cancel', 'queue', 'crash', 'unsupported', 'password')],
                                 'keybindings': [{'key': 'f6', 'command': 'prompts.edit'}]}}
     (folder / 'package.json').write_text(json.dumps(manifest))
     (folder / 'extension.cjs').write_text(r"""
@@ -42,8 +42,13 @@ exports.activate = context => {
    await vscode.window.showInformationMessage('queued='+JSON.stringify(values));
  });
  register('unsupported', async()=> {
-   try {await vscode.window.showInputBox({title:'Must not appear',password:true});}
-   catch(error){ await vscode.window.showInformationMessage('password rejected'); }
+   try {await vscode.window.showInputBox({title:'Must not appear',validateInput(){}});}
+   catch(error){ await vscode.window.showInformationMessage('validation rejected'); }
+ });
+ register('password', async()=> {
+   const value=await vscode.window.showInputBox({title:'Synthetic password',password:true,value:'SYNTHETIC初🙂'});
+   if(value !== undefined) require('node:assert/strict').equal(value,'oken猫🙂👩‍💻!');
+   await vscode.window.showInformationMessage(value===undefined?'password canceled':'password accepted');
  });
  register('crash', async()=> {
    await vscode.window.showInputBox({title:'Crash pending'});
@@ -58,7 +63,7 @@ def run(root):
     file = root / 'shared.txt'
     file.write_text('original')
     app = Editor(root, '--extension', extension, file, enhanced=True)
-    wait(app, '(5 commands)')
+    wait(app, '(6 commands)')
     app.send(b'\x1b[17~')  # F6 avoids searching the native palette.
     wait(app, 'Choose native item')
     wait(app, 'Two 猫')
@@ -82,9 +87,40 @@ def run(root):
     app.send(b'\x1b')
     wait(app, 'cancel result=undefined')
     command(app, 'Prompt unsupported')
-    wait(app, 'password rejected')
+    wait(app, 'validation rejected')
     assert 'Must not appear' not in app.screen.text()
-    print('PASS: native Quick Pick item details/filtering, Unicode Input Box, atomic edit/save/undo, cancellation and unsupported password rejection')
+    print('PASS: native Quick Pick item details/filtering, Unicode Input Box, atomic edit/save/undo, cancellation and unsupported validation rejection')
+
+    command(app, 'Prompt password')
+    wait(app, 'Synthetic password')
+    def hidden():
+        app.read()
+        for secret in ('SYNTHETIC', '初', 'token', 'oken', '猫', '🙂', '👩', '💻'):
+            assert secret not in app.screen.text(), (secret, app.screen.text())
+        for secret in ('SYNTHETIC', '初', 'token', 'oken', '👩', '💻'):
+            assert secret.encode() not in bytes(app.output), secret
+    hidden()
+    app.paste('token' * 200)
+    wait(app, '********')
+    hidden()
+    app.send(b'\x01')
+    app.paste('token猫e\u0301👩‍💻')
+    wait(app, '********')
+    hidden()
+    app.send(b'\x1b[D\x7f')  # Left then grapheme-aware Backspace.
+    app.paste('🙂')
+    app.send(b'\x1b[H\x1b[3~\x1b[F!')
+    hidden()
+    app.send(b'\r')
+    wait(app, 'password accepted')
+    assert file.read_bytes() == b'original'
+    command(app, 'Prompt password')
+    wait(app, 'Synthetic password')
+    hidden()
+    app.send(b'\x1b')
+    wait(app, 'password canceled')
+    assert file.read_bytes() == b'original'
+    print('PASS: password prompts hide initial/typed/pasted Unicode in screen and raw terminal output, return exact edited graphemes and cancel without document changes')
 
     # Two awaited requests share one FIFO native prompt slot.
     app.send(b'\x1bOP')
@@ -111,7 +147,7 @@ def run(root):
     app.send(CTRL_Z)
     save(app, file, 'original')
     command(app, 'Extensions: Restart Selected Session')
-    wait(app, '(5 commands)')
+    wait(app, '(6 commands)')
     command(app, 'Prompt cancel')
     wait(app, 'Cancel input')
     app.send(b'\x1b')

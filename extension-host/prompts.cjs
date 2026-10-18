@@ -1,5 +1,5 @@
 'use strict';
-function createPrompts(request, session, owner, budget) {
+function createPrompts(request, session, owner, budget, guard = () => {}) {
   const text = (value, name) => {
     if (value === undefined) return '';
     if (typeof value !== 'string' || Buffer.byteLength(value) > 4096) throw new Error(`Invalid or oversized prompt ${name}`);
@@ -14,17 +14,21 @@ function createPrompts(request, session, owner, budget) {
     return value;
   }
   async function run(kind, source, input, token) {
+    guard();
     if (token !== undefined) throw new Error('VSCLI prompt cancellation tokens are not implemented');
     if (budget.pending >= 8) throw new Error('Extension prompt queue limit reached');
     budget.pending++;
     let bytes = 0, charged = false;
     try {
       const quick = kind === 'quickPick';
-      const opts = options(input, quick ? ['title', 'placeHolder', 'matchOnDescription', 'matchOnDetail', 'canPickMany', 'ignoreFocusOut'] : ['title', 'placeHolder', 'prompt', 'value', 'ignoreFocusOut']);
+      const opts = options(input, quick ? ['title', 'placeHolder', 'matchOnDescription', 'matchOnDetail', 'canPickMany', 'ignoreFocusOut'] : ['title', 'placeHolder', 'prompt', 'value', 'password', 'ignoreFocusOut']);
       if (opts.canPickMany) throw new Error('VSCLI multi-select prompts are not implemented');
       if (opts.ignoreFocusOut) throw new Error('VSCLI ignoreFocusOut prompts are not implemented');
+      const password = quick ? false : opts.password;
+      if (password !== undefined && typeof password !== 'boolean') throw new Error('Invalid prompt password');
       for (const name of ['canPickMany', 'ignoreFocusOut', 'matchOnDescription', 'matchOnDetail']) if (opts[name] !== undefined && typeof opts[name] !== 'boolean') throw new Error(`Invalid prompt ${name}`);
       const raw = quick ? await source : [];
+      guard();
       if (!Array.isArray(raw) || raw.length > 128) throw new Error('Extension prompt item limit exceeded');
       const original = raw.slice();
       const items = original.map(item => {
@@ -33,12 +37,14 @@ function createPrompts(request, session, owner, budget) {
         if (item.kind !== undefined || item.picked || item.alwaysShow || item.buttons !== undefined) throw new Error('VSCLI advanced QuickPick items are not implemented');
         return { label: text(item.label, 'label'), description: text(item.description, 'description'), detail: text(item.detail, 'detail') };
       });
-      const params = { session, owner, kind, items, title: text(opts.title, 'title'), placeHolder: text(opts.placeHolder, 'placeHolder'), prompt: text(opts.prompt, 'prompt'), value: text(opts.value, 'value'), matchOnDescription: !!opts.matchOnDescription, matchOnDetail: !!opts.matchOnDetail };
+      const params = { session, owner, kind, items, title: text(opts.title, 'title'), placeHolder: text(opts.placeHolder, 'placeHolder'), prompt: text(opts.prompt, 'prompt'), value: text(opts.value, 'value'), password: !!password, matchOnDescription: !!opts.matchOnDescription, matchOnDetail: !!opts.matchOnDetail };
       bytes = Buffer.byteLength(JSON.stringify(params));
       if (budget.bytes + bytes > 64 * 1024) throw new Error('Extension prompt presentation exceeds 64 KiB session budget');
       budget.bytes += bytes;
       charged = true;
+      guard();
       const result = await request('prompt', params);
+      guard();
       if (result?.value === null || result?.value === undefined) return undefined;
       if (quick) {
         if (!Number.isInteger(result.value) || result.value < 0 || result.value >= original.length) throw new Error('Invalid native QuickPick response');

@@ -696,7 +696,8 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           ...(sessionOptions.documentLanguage ? {setTextDocumentLanguage:(document,language)=>documentServices.setTextDocumentLanguage(owner,document,language)} : {}) }),
         window: supported('window', {
           tabGroups:editorTabs.forOwner(owner),
-          ...createPrompts(request, sessionOptions.session, owner, promptBudget),
+          ...createPrompts(request, sessionOptions.session, owner, promptBudget,
+            callers.bind(owner,()=>{assertOwner(owner);sessionOptions.assertOwner?.(owner);})),
           showTextDocument: services.showTextDocument,
           ...surfaces.forExtension(owner),
           ...decorations.forOwner(owner),
