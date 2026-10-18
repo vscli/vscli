@@ -219,6 +219,8 @@ struct PositionChange {
     added: usize,
     bytes: ByteChange,
     decoration: decorations::Edit,
+    // EOL conversion keeps the logical line-end position before the newline.
+    preserve_start: bool,
 }
 impl PositionChange {
     fn inverse(&self) -> Self {
@@ -227,22 +229,26 @@ impl PositionChange {
             added: self.range.len(),
             bytes: self.bytes.inverse(),
             decoration: self.decoration.inverse(),
+            preserve_start: self.preserve_start,
         }
     }
     fn map(&self, view: &mut ViewState) {
+        let position = |p| {
+            if self.preserve_start && p == self.range.start {
+                p
+            } else {
+                map_position(p, &self.range, self.added)
+            }
+        };
         view.explicit_viewport = false;
         view.decorations.map(&self.decoration);
         view.map_snippet(&self.range, self.added);
         view.pairs.map(&self.range, self.added);
-        view.cursor = map_position(view.cursor, &self.range, self.added);
-        view.anchor = view
-            .anchor
-            .map(|p| map_position(p, &self.range, self.added));
+        view.cursor = position(view.cursor);
+        view.anchor = view.anchor.map(position);
         for selection in &mut view.secondary {
-            selection.cursor = map_position(selection.cursor, &self.range, self.added);
-            selection.anchor = selection
-                .anchor
-                .map(|p| map_position(p, &self.range, self.added));
+            selection.cursor = position(selection.cursor);
+            selection.anchor = selection.anchor.map(position);
             selection.desired_column = None;
         }
         view.desired_column = None;
@@ -550,6 +556,7 @@ impl Document {
         self.record_byte_change(bytes.clone());
         self.record_folding_change(range.clone(), added);
         let change = PositionChange {
+            preserve_start: false,
             range,
             added,
             bytes,

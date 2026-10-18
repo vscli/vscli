@@ -10,7 +10,7 @@ function held() {
   return {promise, resolve};
 }
 
-function fixture() {
+function fixture(editorEndOfLineEdits = true) {
   const receipt = held(), calls = [];
   const document = {id: 17, uri: Uri.file('/tmp/marker-semantics.cpp').toString(),
     text: '猫🙂alpha\r\nsecond\r\n', version: 7, languageId: 'cpp', languageEpoch: 2,
@@ -18,7 +18,7 @@ function fixture() {
   const runtime = createApi((method, params) => {
     calls.push({method, params});
     return receipt.promise;
-  }, () => {}, {session: 31});
+  }, () => {}, {session: 31, editorEndOfLineEdits});
   let generation = 0;
   const sync = () => runtime.sync({generation: ++generation, documents: [document],
     editors: [{id: 'original-pane', document: 17, viewColumn: 1,
@@ -176,4 +176,44 @@ test('empty editor builders skip native work and undo boundaries', async () => {
     assert.equal(await f.editor.edit(()=>{}, {undoStopBefore:true,undoStopAfter:true}),true);
     assert.equal(f.calls.length,0);
   }
+});
+
+test('editor EOL builders validate enums, retain only the last request and await native mirrors', async () => {
+  const f=fixture();
+  const done=f.editor.edit(builder=>{
+    builder.setEndOfLine(2);builder.insert(new Position(0,3),'\nX');builder.setEndOfLine(1);
+  },{undoStopBefore:false,undoStopAfter:true});
+  assert.equal(f.calls[0].params.setEndOfLine,1);
+  assert.equal(f.calls[0].params.edits[0].newText,'\r\nX');
+  assert.equal(f.calls[0].params.undoStopBefore,false);
+  assert.equal(f.editor.document.eol,2,'native EOL is not simulated locally');
+  f.document.eol=1;f.document.text='猫🙂\nXalpha\nsecond\n';f.document.version++;f.sync();
+  f.receipt.resolve({applied:true});assert.equal(await done,true);
+  assert.equal(f.editor.document.eol,1);assert.equal(f.editor.document.getText(),f.document.text);
+});
+
+test('EOL-only editor requests retain explicit native work even for the current EOL', async () => {
+  const f=fixture();let retained;
+  const done=f.editor.edit(builder=>{retained=builder;builder.setEndOfLine(2);});
+  assert.equal(f.calls.length,1);assert.deepEqual(f.calls[0].params.edits,[]);
+  assert.equal(f.calls[0].params.setEndOfLine,2);
+  assert.throws(()=>retained.setEndOfLine(1),/only valid during/);
+  f.receipt.resolve({applied:true});assert.equal(await done,true);
+});
+
+test('invalid or stale EOL builders reject the entire text/EOL capture before dispatch', async () => {
+  for (const value of [0,3,'1',null,undefined,NaN]) {
+    const f=fixture();
+    await assert.rejects(f.editor.edit(builder=>{builder.insert(new Position(0,0),'lost');builder.setEndOfLine(value);}),/Invalid endOfLine/);
+    assert.equal(f.calls.length,0);
+  }
+  const f=fixture();
+  await assert.rejects(f.editor.edit(builder=>{builder.setEndOfLine(1);f.document.version++;f.sync();}),/source changed/);
+  assert.equal(f.calls.length,0);assert.equal(f.editor.document.eol,2);
+});
+
+test('editor EOL requires the negotiated native backend before sending any text prefix', async () => {
+  const f=fixture(false);
+  await assert.rejects(f.editor.edit(builder=>{builder.insert(new Position(0,0),'lost');builder.setEndOfLine(1);}),/not implemented by this host/);
+  assert.equal(f.calls.length,0);assert.equal(f.editor.document.eol,2);
 });

@@ -1,6 +1,7 @@
 //! Retained native text cohorts: one actual preparation, atomic publication,
 //! and peer-validated grouped history. Optional-host framing remains separate.
 use super::*;
+use crate::document::workspace::normalize_replacement as normalize;
 use crate::{
     document::{
         WorkspaceHistoryDirection, WorkspaceHistoryGroup, WorkspaceSource, WorkspaceTextPrepared,
@@ -1220,83 +1221,7 @@ fn prepare(capture: Arc<Capture>, cancel: &AtomicBool) -> Result<Prepared> {
     })
 }
 fn offset(source: &WorkspaceSource, position: Position) -> Result<usize> {
-    let rope = source.text();
-    ensure!(
-        position.line < rope.len_lines(),
-        "Workspace line is invalid"
-    );
-    let line = rope.line(position.line);
-    let mut length = line.len_chars();
-    if length > 0 && line.char(length - 1) == '\n' {
-        length -= 1;
-    }
-    if length > 0 && line.char(length - 1) == '\r' {
-        length -= 1;
-    }
-    let logical = line.slice(..length);
-    ensure!(
-        position.character <= logical.len_utf16_cu(),
-        "Workspace column crosses logical EOL"
-    );
-    let offset = logical.utf16_cu_to_char(position.character);
-    ensure!(
-        logical.char_to_utf16_cu(offset) == position.character,
-        "Workspace range splits a surrogate"
-    );
-    Ok(rope.line_to_char(position.line) + offset)
-}
-fn normalize(
-    text: &str,
-    eol: &str,
-    available: usize,
-    cancel: &AtomicBool,
-    deadline: Instant,
-) -> Result<String> {
-    let mut bytes = 0usize;
-    let mut chars = text.chars().peekable();
-    let mut count = 0;
-    while let Some(ch) = chars.next() {
-        if count % 4096 == 0 {
-            crate::document::workspace::guard(cancel, deadline)?;
-        }
-        count += 1;
-        let add = if ch == '\r' || ch == '\n' {
-            if ch == '\r' && chars.peek() == Some(&'\n') {
-                chars.next();
-            }
-            eol.len()
-        } else {
-            ch.len_utf8()
-        };
-        bytes = bytes
-            .checked_add(add)
-            .context("Workspace normalization overflow")?;
-        ensure!(
-            bytes <= available,
-            "Workspace normalized text exceeds 2 MiB"
-        );
-    }
-    let mut result = String::new();
-    result
-        .try_reserve_exact(bytes)
-        .context("Workspace replacement reservation refused")?;
-    let mut chars = text.chars().peekable();
-    let mut count = 0;
-    while let Some(ch) = chars.next() {
-        if count % 4096 == 0 {
-            crate::document::workspace::guard(cancel, deadline)?;
-        }
-        count += 1;
-        if ch == '\r' || ch == '\n' {
-            if ch == '\r' && chars.peek() == Some(&'\n') {
-                chars.next();
-            }
-            result.push_str(eol);
-        } else {
-            result.push(ch);
-        }
-    }
-    Ok(result)
+    source.utf16_offset(position.line, position.character)
 }
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

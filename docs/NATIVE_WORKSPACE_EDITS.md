@@ -61,8 +61,9 @@ changing its EOL convention; requesting its existing convention leaves it intact
 EOL conversion shares the existing 4,096 scalar/history-step and bounded view
 mapping limits, including ordinary replacements and the EOL metadata step. A
 larger conversion refuses the entire cohort without changing peers or history.
-This limit remains a full-API obligation. `TextEditorEdit.setEndOfLine`, EOL edits
-returned by file participants, exotic invalid-enum conversion, upstream-runtime
+This limit remains a full-API obligation. `TextEditorEdit.setEndOfLine` uses the
+separate [editor EOL path](EDITOR_EOL_API.md), whose EOL-before-text order differs
+from bulk workspace edits. EOL edits returned by file participants, exotic invalid-enum conversion, upstream-runtime
 comparison and other-platform qualification remain outstanding.
 
 Single-resource `{isRefactoring:true}` edits remain unsaved under default,

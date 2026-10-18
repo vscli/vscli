@@ -3,6 +3,7 @@ pub(crate) mod context_keys;
 mod decorations;
 mod diagnostics;
 mod document_loads;
+mod editor_edits;
 pub(crate) mod editor_inventory;
 pub(crate) mod editor_state;
 pub(crate) mod editor_tabs;
@@ -226,6 +227,8 @@ struct Edit {
     undo_stop_before: bool,
     #[serde(default = "default_undo_stop", rename = "undoStopAfter")]
     undo_stop_after: bool,
+    #[serde(default, rename = "setEndOfLine")]
+    set_end_of_line: Option<u8>,
 }
 fn default_undo_stop() -> bool {
     true
@@ -300,6 +303,7 @@ pub struct ActivationRequest {
     pub owner: Option<String>,
 }
 pub struct Client {
+    editor_edits: editor_edits::State,
     editor_inventory: Option<editor_inventory::Inventory>,
     editor_tabs: Option<editor_tabs::Inventory>,
     decorations: decorations::Registry,
@@ -652,6 +656,7 @@ impl Client {
             root,
         )?;
         let mut client = Self {
+            editor_edits: editor_edits::State::default(),
             editor_inventory: prepared.editor_inventory,
             editor_tabs: prepared.editor_tabs,
             diagnostics: diagnostics::State::default(),
@@ -699,7 +704,7 @@ impl Client {
         client.request(
             "initialize",
             json!({"protocol":4, "session": session, "extensions": client.packages, "fileParticipants":client.file_participation.enabled,
-                "contextKeys": true, "locale": prepared.locale, "applicationRoot": lsp::extension_host_path(std::env::current_exe()?.parent().context("No application root")?)?, "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
+                "contextKeys": true, "locale": prepared.locale, "applicationRoot": lsp::extension_host_path(std::env::current_exe()?.parent().context("No application root")?)?, "sharedGeneratedDocumentLoads": true, "sharedDocumentLoads": true, "languageProviders": true, "workspaceEdits": true, "workspaceUnopenedEdits": true, "workspaceEndOfLineEdits": true, "workspaceRefactoringSaves": true, "findFiles": true, "virtualDocuments": true, "untitledDocuments": true, "documentLanguage": true, "editorSelections": true, "editorOptions":client.editor_inventory_explicit(), "editorReveal":client.editor_inventory_explicit(), "editorDecorations":client.editor_inventory_explicit(), "editorSnippets":client.editor_inventory_explicit(), "editorEndOfLineEdits":true, "editorTabs":client.editor_tabs.is_some(), "reservedCommands": crate::app::native_command_ids(), "root": lsp::extension_host_path(root)?, "state": prepared.state,
                 "configuration": client.configuration.as_ref(), "activate": prepared.activation, "extensionState": extension_state}),
         )?;
         Ok(client)
@@ -744,7 +749,7 @@ impl Client {
         Ok(())
     }
     pub fn busy(&self) -> bool {
-        !self.pending.is_empty()
+        !self.pending.is_empty() || self.editor_edits.busy()
     }
     pub(crate) fn validate_selected_owner(&self, session: u64, owner: &str) -> Result<()> {
         if session != self.session || !self.packages.iter().any(|p| p.id == owner) {
@@ -1324,6 +1329,20 @@ impl Client {
                         }
                     }
                     "edit" => {
+                        if !message["params"]["setEndOfLine"].is_null() || self.editor_edits.busy()
+                        {
+                            let id = message["id"].clone();
+                            if let Err(error) = self.queue_editor_eol(
+                                id.clone(),
+                                message["params"].take(),
+                                documents,
+                                hidden,
+                            ) {
+                                self.process
+                                    .send(json!({"id":id,"error":{"message":error.to_string()}}))?;
+                            }
+                            continue;
+                        }
                         let result = if message["params"]["edits"]
                             .as_array()
                             .is_some_and(|edits| edits.len() > 4096)
@@ -1521,6 +1540,7 @@ impl Client {
                 }
             }
         }
+        self.poll_editor_eol(documents, hidden, active)?;
         self.expire_prompts()?;
         self.expire_document_save_path_waits();
         self.expire_language_providers()?;
@@ -2233,6 +2253,7 @@ mod tests {
         .unwrap();
         let edit = |session, owner| Edit {
             editor: None,
+            set_end_of_line: None,
             undo_stop_before: true,
             undo_stop_after: true,
             session,
@@ -2251,6 +2272,7 @@ mod tests {
         );
         let edit = Edit {
             editor: None,
+            set_end_of_line: None,
             undo_stop_before: true,
             undo_stop_after: true,
             session: client.session,
@@ -2264,6 +2286,7 @@ mod tests {
         documents[0].eol = if original_eol == "\r\n" { "\n" } else { "\r\n" }.into();
         let stale_eol_edit = Edit {
             editor: None,
+            set_end_of_line: None,
             undo_stop_before: true,
             undo_stop_after: true,
             session: client.session,
@@ -2287,6 +2310,7 @@ mod tests {
         documents[0].undo();
         let edit = Edit {
             editor: None,
+            set_end_of_line: None,
             undo_stop_before: true,
             undo_stop_after: true,
             session: client.session,

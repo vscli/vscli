@@ -23,6 +23,7 @@ impl std::fmt::Display for OutputBackpressure {
 impl std::error::Error for OutputBackpressure {}
 enum Outbound {
     Bytes(Vec<u8>),
+    Batch(Vec<Vec<u8>>),
     Saved {
         uri: String,
         committed: Option<ropey::Rope>,
@@ -168,10 +169,11 @@ impl Process {
                         pause.pause();
                     }
                 }
-                let body = match outbound {
-                    Outbound::Bytes(body) => body,
+                let bodies = match outbound {
+                    Outbound::Bytes(body) => vec![body],
+                    Outbound::Batch(bodies) => bodies,
                     Outbound::Saved { uri, committed } => match saved_body(uri, committed) {
-                        Ok(body) => body,
+                        Ok(body) => vec![body],
                         Err(error) => {
                             pending.fetch_sub(reservation, Ordering::Relaxed);
                             // No frame bytes were written. Persistence already
@@ -186,8 +188,10 @@ impl Process {
                     },
                 };
                 let result = (|| -> Result<()> {
-                    write!(stdin, "Content-Length: {}\r\n\r\n", body.len())?;
-                    stdin.write_all(&body)?;
+                    for body in bodies {
+                        write!(stdin, "Content-Length: {}\r\n\r\n", body.len())?;
+                        stdin.write_all(&body)?;
+                    }
                     stdin.flush()?;
                     Ok(())
                 })();
@@ -264,6 +268,28 @@ impl Process {
             bail!("Protocol message exceeds 16 MiB output limit");
         }
         self.enqueue(Outbound::Bytes(bytes), size)
+    }
+    /// Admit a bounded ordered receipt as one queue item, before its native
+    /// mutation publishes. Capacity failure never sends a supported prefix.
+    pub(crate) fn send_batch(&self, messages: Vec<Value>) -> Result<()> {
+        anyhow::ensure!(
+            !messages.is_empty() && messages.len() <= 3,
+            "Invalid protocol receipt batch"
+        );
+        let mut bodies = Vec::with_capacity(messages.len());
+        let mut size = 0usize;
+        for message in messages {
+            let body = serde_json::to_vec(&message)?;
+            anyhow::ensure!(
+                body.len() <= MAX_MESSAGE,
+                "Protocol batch frame exceeds 16 MiB"
+            );
+            size = size
+                .checked_add(body.len())
+                .context("Protocol batch size overflow")?;
+            bodies.push(body);
+        }
+        self.enqueue(Outbound::Batch(bodies), size)
     }
     /// Enqueue a cheap immutable save snapshot. The existing writer performs
     /// all Rope flattening/JSON escaping; even a control-rich body is capped
@@ -373,6 +399,54 @@ impl Drop for Process {
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn ordered_batch_frames_precede_receipt_and_invalid_last_frame_never_sends_prefix() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = r#"
+import json,sys
+while True:
+ header={}
+ while True:
+  line=sys.stdin.buffer.readline()
+  if not line:sys.exit(0)
+  if line==b'\r\n':break
+  name,value=line.decode().split(':',1);header[name.lower()]=value.strip()
+ value=json.loads(sys.stdin.buffer.read(int(header['content-length'])))
+ body=json.dumps(value).encode();sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n'%len(body)).encode()+body);sys.stdout.buffer.flush()
+"#;
+        let process = Process::start(
+            "python3",
+            &["-u".into(), "-c".into(), source.into()],
+            directory.path(),
+        )
+        .unwrap();
+        assert!(
+            process
+                .send_batch(vec![
+                    json!({"id":"forbidden-prefix"}),
+                    json!({"large":"x".repeat(MAX_MESSAGE)})
+                ])
+                .is_err()
+        );
+        process
+            .send_batch(vec![
+                json!({"id":"eol"}),
+                json!({"id":"text"}),
+                json!({"id":"ack"}),
+            ])
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut received = Vec::new();
+        while received.len() < 3 {
+            if let Some(value) = process.receive().unwrap() {
+                received.push(value["id"].as_str().unwrap().to_owned());
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(received, ["eol", "text", "ack"]);
+    }
 
     #[test]
     fn isolated_exit_observation_preserves_leader_until_group_retirement() {

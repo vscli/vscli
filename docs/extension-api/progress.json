@@ -211,7 +211,6 @@
       ],
       "remaining": [
         "All other applyEdit edit kinds and annotation review",
-        "TextEditorEdit.setEndOfLine",
         "Incremental change-event fidelity",
         "Large EOL conversions beyond the bounded 4096 scalar/history steps",
         "Exotic invalid-enum conversion behavior and upstream-runtime/platform qualification"
@@ -541,7 +540,7 @@
         }
       ],
       "remaining": [
-        "TextEditorEdit.setEndOfLine and remaining edit-builder/global-history contracts",
+        "Remaining edit-builder/global-history contracts and full EOL qualification",
         "Direct private transport/bypass contracts, unpaired UTF-16 and broader mixed-source EOL behavior",
         "Actual Windows repair-head CI, personal code workflows, full stable API and release qualification"
       ],
@@ -597,7 +596,7 @@
       ],
       "remaining": [
         "Fresh three-platform CI for this new source",
-        "TextEditorEdit.setEndOfLine and remaining edit-builder/global-history contracts",
+        "Remaining edit-builder/global-history contracts and full EOL qualification",
         "Unpaired UTF-16, private transport/bypass contracts and full platform/runtime qualification",
         "Whole stable API and seamless personal extension/visual/storage migration"
       ],
@@ -651,12 +650,82 @@
         }
       ],
       "remaining": [
-        "TextEditorEdit.setEndOfLine and its EOL-before-text history/event ordering",
+        "Full editor EOL qualification beyond the named ordered native workflows",
         "Full model-global grouping across arbitrary views and lifecycle transitions",
         "Incremental change-event fidelity, exotic UTF-16/private transport behavior and remaining edit-builder contracts",
         "Fresh three-platform CI and release qualification; whole stable API and seamless personal migration"
       ],
       "validation_receipt": "docs/validation/editor-undo-stops.json"
+    },
+    {
+      "id": "editor-eol-and-text",
+      "api_ids": [
+        "vscode.TextEditor.edit",
+        "vscode.TextEditorEdit.setEndOfLine",
+        "vscode.TextDocument.eol",
+        "vscode.EndOfLine.LF",
+        "vscode.EndOfLine.CRLF"
+      ],
+      "criteria": [
+        {
+          "name": "Negotiated public EOL builders enforce enum, last-request, original-source and lifetime contracts before dispatch",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "Negotiated public EOL builders enforce enum, last-request, original-source and lifetime contracts before dispatch"
+            }
+          ]
+        },
+        {
+          "name": "Native EOL precedes text and acknowledgement with original-version FIFO, normalization and correct Undo/Redo boundaries",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "Native EOL precedes text and acknowledgement with original-version FIFO, normalization and correct Undo/Redo boundaries"
+            }
+          ]
+        },
+        {
+          "name": "One actual worker retains bounded intent/capacity and stale edit-Undo replies preserve original work and Redo",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "One actual worker retains bounded intent/capacity and stale edit-Undo replies preserve original work and Redo"
+            }
+          ]
+        },
+        {
+          "name": "Shared inactive views retain logical line-end carets and reversed selections; EOL-only and same-EOL behavior retain native identity/history",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "Shared inactive views retain logical line-end carets and reversed selections; EOL-only and same-EOL behavior retain native identity/history"
+            }
+          ]
+        },
+        {
+          "name": "Complete native/host regressions, unchanged upstream controls, actual terminal integrity and required style checks retain source evidence",
+          "state": "passed",
+          "evidence": [
+            {
+              "file": "docs/validation/editor-set-eol.json",
+              "needle": "Complete native/host regressions, unchanged upstream controls, actual terminal integrity and required style checks retain source evidence"
+            }
+          ]
+        }
+      ],
+      "remaining": [
+        "Conversions beyond the combined 4096 scalar/history steps, 8 MiB metadata and bounded live-view mapping",
+        "Complete model-global grouping, EOL/snippet/marker presentation and exact incremental/EOL change-event payloads",
+        "Arbitrary private transport, unpaired UTF-16, mixed physical EOL and unsupported editor backends",
+        "Full arbitration with other native/workspace mutation families",
+        "Fresh upstream-runtime/platform/release qualification; whole stable API and seamless personal migration"
+      ],
+      "validation_receipt": "docs/validation/editor-set-eol.json"
     }
   ],
   "next_batch": {

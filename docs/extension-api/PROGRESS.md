@@ -1,5 +1,16 @@
 # Stable API delivery progress
 
+The ordered editor-EOL batch passes **5/5 local criteria**. Negotiated builders,
+EOL-before-text mirrors and history, concurrent editor request order, retained
+worker/source proofs and shared line-end selections reach actual native saving
+and Undo/Redo. The recorded source passes **1,701 Rust tests across 76 reports**
+(1,335 library; 23 ignored), **826 host tests**, four unchanged Sort Lines controls
+and seventeen terminal scenarios, plus formatting and strict locked Clippy.
+[Evidence](../validation/editor-set-eol.json) retains the initial caret-mapping
+failure and preceding macOS picker-readiness failure. Larger conversions, exact
+event payloads, broader mutation arbitration and whole-API/platform qualification
+remain required.
+
 The editor Undo-stop batch passes **4/4 local criteria**: captured options and
 no-op builders, all four native typing/API boundary pairs, shared/inactive-view
 history integrity, and regression/style checks. The final source passes **1,690
@@ -8,7 +19,8 @@ four unchanged Sort Lines controls and eleven terminal scenarios. A generic nati
 command boundary was repaired after a failing integration case. A read-only
 fixture's empty-edit expectation was corrected against pinned upstream behavior,
 with real mutation/save refusals retained. [Evidence](../validation/editor-undo-stops.json).
-`setEndOfLine`, complete global history and the rest of the API remain open.
+The EOL batch above supplies its separate ordered native path; complete
+global history and the rest of the API remain open.
 
 The latest local editor-position batch passes **4/4 criteria**: branded position,
 range and selection handling; retained source/lifetime checks; native shared-model

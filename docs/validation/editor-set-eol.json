@@ -1,0 +1,263 @@
+{
+  "schema": "vscli-editor-set-eol-validation-v1",
+  "base_commit": "0f910207cd2dbcc125f0d7707b1e725e5d224734",
+  "scope": "Negotiated TextEditorEdit.setEndOfLine and ordered native EOL/text history/mirrors; whole stable API and seamless personal migration remain required.",
+  "reference": {
+    "revision": "2a59476c9bfcb90b3ddc372c36762471b7dfad1c",
+    "editor": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/browser/mainThreadEditor.ts",
+    "builder": "https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/workbench/api/common/extHostTextEditor.ts"
+  },
+  "source_cohort": {
+    "roots": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "rust-toolchain.toml",
+      ".cargo",
+      ".github",
+      "src",
+      "extension-host",
+      "tests",
+      "vendor",
+      "examples",
+      "scripts",
+      "assets"
+    ],
+    "selection": "git ls-files --cached --others --exclude-standard; unique existing files, sorted UTF-8 relative paths",
+    "files": 1759,
+    "digest_algorithm": "sha256(concatenate(path UTF-8 + NUL + raw sha256(file bytes)))",
+    "sha256": "6a914390d166663466fec0ff9435001cd2953eddc5664cea7c93919b82e7a5cd"
+  },
+  "binary": {
+    "path": "/home/junie/programming/projects/vscli/target/debug/vscli",
+    "sha256": "29ffa6b05eb86c3932fd6abff599bf9da78740b476c64eb08ec6971b9837b17b"
+  },
+  "criteria": {
+    "passed": 5,
+    "total": 5,
+    "items": [
+      "Negotiated public EOL builders enforce enum, last-request, original-source and lifetime contracts before dispatch",
+      "Native EOL precedes text and acknowledgement with original-version FIFO, normalization and correct Undo/Redo boundaries",
+      "One actual worker retains bounded intent/capacity and stale edit-Undo replies preserve original work and Redo",
+      "Shared inactive views retain logical line-end carets and reversed selections; EOL-only and same-EOL behavior retain native identity/history",
+      "Complete native/host regressions, unchanged upstream controls, actual terminal integrity and required style checks retain source evidence"
+    ]
+  },
+  "checks": [
+    {
+      "label": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-fmt.log"
+    },
+    {
+      "label": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-clippy.log"
+    },
+    {
+      "label": "extension_editor_set_eol-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_set_eol_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-extension_editor_set_eol-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_editor_undo-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_undo_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-extension_editor_undo-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_editor_eol-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_eol_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-extension_editor_eol-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "extension_editor_position-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_position_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-extension_editor_position-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "extension_editor_snippets-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_snippets_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-extension_editor_snippets-pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "label": "extension_editor_decorations-pty",
+      "command": [
+        "python3",
+        "tests/extension_editor_decorations_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-extension_editor_decorations-pty.log",
+      "passed_scenarios": 2
+    },
+    {
+      "label": "extension_workspace_edits-pty",
+      "command": [
+        "python3",
+        "tests/extension_workspace_edits_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-extension_workspace_edits-pty.log",
+      "passed_scenarios": 1
+    },
+    {
+      "label": "native_configuration-pty",
+      "command": [
+        "python3",
+        "tests/native_configuration_pty.py",
+        "/home/junie/programming/projects/vscli/target/debug/vscli"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-native_configuration-pty.log",
+      "passed_scenarios": 4
+    },
+    {
+      "label": "sort-lines",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "extension_installation",
+        "--test",
+        "extension_host",
+        "upstream_sort_lines",
+        "--",
+        "--ignored"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-sort-lines.log"
+    },
+    {
+      "label": "host-all",
+      "command": [
+        "node",
+        "scripts/test_extension_host.cjs"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-host-all.log",
+      "passed": 826
+    },
+    {
+      "label": "final-rust",
+      "command": [
+        "cargo",
+        "test",
+        "--all-targets",
+        "--locked",
+        "--no-fail-fast"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/vscli-editor-set-eol-final-final-rust.log",
+      "reports": 76,
+      "passed": 1701,
+      "failed": 0,
+      "ignored": 23,
+      "library_passed": 1335
+    },
+    {
+      "label": "progress-controls",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "passed": 28,
+      "log": "/tmp/vscli-editor-set-eol-script-tests.log"
+    }
+  ],
+  "qualification_conditions": [
+    "Eight new library cases cover prepared EOL/history (6), actual worker occupancy with edit-Undo ABA (1), and real framed receipt order/invalid-last-frame refusal (1). Three new public host/App integrations cover ordered mixed edits, EOL-only/same-EOL and a later plain editor edit refusing the original version instead of overtaking EOL.",
+    "Four new host cases cover negotiated capability, enum/last-request/lifetime capture, no optimistic EOL updates, EOL-only dispatch and refusal before partial native text work.",
+    "Seventeen actual terminal scenarios run on the final production binary: editor set EOL (2), Undo stops (2), existing EOL normalization (1), Position replacement (1), snippets (4), decorations (2), workspace edits/EOL (1) and native language configuration (4).",
+    "EOL conversion and replacement normalization reuse the existing bounded workspace Rope worker helpers; allocation-prepared native bodies and source-owned snippet history are retained. One EOL worker admits eight intents including actual work, 8 MiB of retained payload and a five-second lifetime. Public ordinary edits queue behind an occupied EOL operation so original versions determine outcome.",
+    "The complete final source digest is verified unchanged after the final native/host/terminal/style pipeline. Original model/view/language/resource/save/history and owner/session proofs authorize publication. The real worker remains occupied after sending its result until its thread actually exits.",
+    "The batch sends up to two ordinary state notifications and the ACK through one bounded transport queue admission before infallible native publication. This qualifies their order and no supported-prefix admission; exact incremental/EOL contentChanges payloads and arbitrary transport/backend behavior remain unqualified.",
+    "Native editing without Node is exercised by the four installed native language-configuration journeys; no personal extension code is activated. No new release archive, tag or publication is created.",
+    "The preceding 525edcc complete main CI passes Linux/Windows, host/native on all three platforms, and the new editor Undo journeys on macOS. macOS fails later at an ambiguous picker-readiness assertion. Separate test commit 0f91020 requires the actual versioned picker before disabling. Fresh exact-head three-platform results remain required."
+  ],
+  "failed_observations_retained": [
+    {
+      "log": "/tmp/vscli-editor-set-eol-document-before-caret-fix.log",
+      "observed": "The initial EOL/native-typing unit case produces basePA\\r\\nB instead of basePAB\\r\\n: ordinary replacement mapping moves a line-end caret beyond the converted newline.",
+      "repair": "Mark EOL position changes to preserve the start boundary in forward and inverse native view mapping. All four history pairs and an inactive/shared reversed-selection regression pass; existing workspace conversion shares the correction."
+    },
+    {
+      "ci_run": 39150765000,
+      "job": 117743757168,
+      "log": "/tmp/vscli-editor-undo-ci-macos-plain.log",
+      "observed": "macOS native_configuration_pty.py waits for Disabled fixture.native after its generic Installed Extensions readiness marker. The retained screen shows the initial installed list and catalog-ready header. The generic marker can also match the command palette before the picker.",
+      "repair": "Use the same versioned-row/controls and absent-palette/loading checks already used for Delete before sending the disable key. Keep the disable receipt, persisted preference, generated-owner retirement, exact disk/history and no-code-execution assertions. Four local journeys pass. The initial suspicion of a catalog-status message overwrite was not established by source inspection."
+    }
+  ],
+  "preceding_ci": {
+    "head_sha": "525edcc4ed9b6241853f6908592169d1bc6cfa22",
+    "url": "https://github.com/vscli/vscli/actions/runs/39150765000",
+    "conclusion": "failure",
+    "linux": "success",
+    "windows": "success",
+    "macos": "failure: native configuration picker readiness",
+    "dedicated_stable_save": {
+      "run": 39150764999,
+      "conclusion": "success"
+    }
+  },
+  "outstanding": [
+    "Conversions beyond the combined 4096 scalar/history steps, 8 MiB metadata and bounded live-view mapping",
+    "Complete model-global grouping, EOL/snippet/marker presentation and exact incremental/EOL change-event payloads",
+    "Arbitrary private transport, unpaired UTF-16, mixed physical EOL and unsupported editor backends",
+    "Full arbitration with other native/workspace mutation families",
+    "Fresh upstream-runtime/platform/release qualification; whole stable API and seamless personal migration"
+  ]
+}

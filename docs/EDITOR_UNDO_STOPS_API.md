@@ -26,7 +26,8 @@ Unicode/CRLF save/Undo/Redo, shared models and contributed F9 dispatch.
 [Recorded validation](validation/editor-undo-stops.json) distinguishes that local
 evidence from fresh platform qualification.
 
-`TextEditorEdit.setEndOfLine`, full model-global grouping across arbitrary views
-and lifecycle transitions, incremental event fidelity, exotic UTF-16/private
+`TextEditorEdit.setEndOfLine` now uses a separate [ordered native EOL path](EDITOR_EOL_API.md).
+Full model-global grouping across arbitrary views and lifecycle transitions,
+incremental event fidelity, exotic UTF-16/private
 transport behavior and the rest of the stable API remain open. The optional
 extension process remains separate from native editing without Node.

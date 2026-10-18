@@ -320,3 +320,22 @@ matches upstream's successful no-op behavior while real edits and saves still
 refuse. [Source and retained observations](validation/editor-undo-stops.json).
 Fresh platform CI for this source, `setEndOfLine` ordering, entire stable API and
 seamless personal extension/visual/storage migration remain required.
+
+## Ordered editor EOL integration
+
+The new EOL batch passes **5/5 local criteria**, with **1,701 Rust tests across
+76 reports** (1,335 library; 23 ignored), **826 host tests**, four unchanged
+Sort Lines controls and seventeen terminal scenarios. Public EOL and text
+notifications precede success, default mixed edits retain separate Undo steps,
+same-EOL requests preserve Redo, and concurrent plain editor edits cannot overtake
+an earlier EOL preparation. Original native source/view/owner proofs and bounded
+actual work remain required. [Evidence](validation/editor-set-eol.json).
+
+The preceding `525edcc` main run passes Linux and Windows. Its macOS host/native
+and editor Undo phases pass, then installed native configuration testing fails at
+disable-picker readiness. The test now waits for the actual versioned package row
+and controls, retaining all effect, disk/history and no-code-execution assertions;
+four local native-configuration journeys pass. A background status-overwrite
+explanation was an initial suspicion and was not established by source inspection.
+Fresh exact-head platform CI, personal extension workflows and complete stable
+API/visual/storage/release qualification remain open. No release is published.

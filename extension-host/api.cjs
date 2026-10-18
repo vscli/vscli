@@ -514,6 +514,7 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           }
         } catch (error) { return Promise.reject(error); }
         const edits = [];
+        let setEndOfLine;
         let editBytes = 0;
         let valid = true;
         const validatePosition = value => {
@@ -538,6 +539,12 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           edits.push({ range: coordinates.range(range, 'Edit'), newText, ...(forceMoveMarkers ? {forceMoveMarkers:true} : {}) });
         };
         const builder = supported('TextEditorEdit', {
+          setEndOfLine: value => {
+            if (!valid) throw new Error('TextEditorEdit is only valid during its callback');
+            if (sessionOptions.editorEndOfLineEdits !== true) throw new Error('Native editor EOL edits are not implemented by this host');
+            if (value !== 1 && value !== 2) throw new TypeError('Invalid endOfLine');
+            setEndOfLine = value;
+          },
           replace: (location, text) => {
             if (!valid) throw new Error('TextEditorEdit is only valid during its callback');
             const range = location instanceof Position ? new Range(location, location) : location;
@@ -559,8 +566,9 @@ function createApi(sendRequest, notify, sessionOptions = {}) {
           ownerGuard();
           if (!current() || workspaceEditMirrors.get(id)?.model !== document || documentMirrorRecords.get(document)?.version !== version || documentMirrorRecords.get(document)?.languageEpoch !== capturedSource.languageEpoch) throw new Error('Text editor source changed during edit capture');
         } catch (error) { return Promise.reject(error); }
-        if (edits.length === 0) return Promise.resolve(true);
+        if (edits.length === 0 && setEndOfLine === undefined) return Promise.resolve(true);
         return request('edit', { session: sessionOptions.session, owner, document: id, version, edits, undoStopBefore, undoStopAfter,
+          ...(setEndOfLine === undefined ? {} : {setEndOfLine}),
           ...(privateState.nativeId === undefined ? {} : {editor:privateState.nativeId}) }).then(result => { ownerGuard(); return result.applied; });
       },
     });

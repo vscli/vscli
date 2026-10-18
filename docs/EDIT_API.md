@@ -15,7 +15,8 @@ facades and provider adapters use the same constructors.
 
 `TextEditor.edit` supports native before/after Undo-stop options and no-op builder
 handling. [Editor Undo boundaries](EDITOR_UNDO_STOPS_API.md) records the usable
-subset and remaining EOL, global-history and platform obligations.
+subset. [Editor EOL changes](EDITOR_EOL_API.md) covers `setEndOfLine` before text,
+separate default Undo steps and remaining global-history/platform obligations.
 
 `WorkspaceEdit` stores operations in order. Following the actual pinned source,
 `set(uri, edits)` appends; an empty array is a no-op, while null/undefined removes

@@ -112,6 +112,29 @@ impl WorkspaceSource {
                 doc.redo.last().map(|s| &s.history_identity),
             )
     }
+    pub(crate) fn utf16_offset(&self, row: usize, character: usize) -> Result<usize> {
+        let rope = self.text();
+        ensure!(row < rope.len_lines(), "Workspace line is invalid");
+        let line = rope.line(row);
+        let mut length = line.len_chars();
+        if length > 0 && line.char(length - 1) == '\n' {
+            length -= 1;
+        }
+        if length > 0 && line.char(length - 1) == '\r' {
+            length -= 1;
+        }
+        let logical = line.slice(..length);
+        ensure!(
+            character <= logical.len_utf16_cu(),
+            "Workspace column crosses logical EOL"
+        );
+        let offset = logical.utf16_cu_to_char(character);
+        ensure!(
+            logical.char_to_utf16_cu(offset) == character,
+            "Workspace range splits a surrogate"
+        );
+        Ok(rope.line_to_char(row) + offset)
+    }
     /// Worker-only Rope preparation. All ranges are scalar/disjoint/coalesced.
     pub(crate) fn prepare(
         self,
@@ -189,6 +212,7 @@ impl WorkspaceSource {
                 (chars + 1, units + c.len_utf16())
             });
             let change = PositionChange {
+                preserve_start: false,
                 decoration: decorations::Edit {
                     start: text.char_to_utf16_cu(range.start),
                     deleted: text.char_to_utf16_cu(range.end) - text.char_to_utf16_cu(range.start),
@@ -281,7 +305,10 @@ impl WorkspaceTextPrepared {
         }
         let mut intermediate = self.source.clone();
         intermediate.text = self.text;
-        let converted = intermediate.prepare(changes, cancel, deadline)?;
+        let mut converted = intermediate.prepare(changes, cancel, deadline)?;
+        for change in &mut converted.changes {
+            change.preserve_start = true;
+        }
         self.source
             .epoch
             .checked_add(self.changes.len() as u64 + converted.changes.len() as u64 + 1)
@@ -890,6 +917,63 @@ fn snapshot_bytes(snapshot: &Snapshot) -> Result<usize> {
         .checked_add(snapshot.pairs.workspace_metadata()?)
         .context("Workspace snapshot overflow")?;
     Ok(bytes)
+}
+
+mod editor;
+pub(crate) use editor::EditorEolPrepared;
+
+pub(crate) fn normalize_replacement(
+    text: &str,
+    eol: &str,
+    available: usize,
+    cancel: &AtomicBool,
+    deadline: Instant,
+) -> Result<String> {
+    let mut bytes = 0usize;
+    let mut chars = text.chars().peekable();
+    let mut count = 0;
+    while let Some(ch) = chars.next() {
+        if count % 4096 == 0 {
+            crate::document::workspace::guard(cancel, deadline)?;
+        }
+        count += 1;
+        let add = if ch == '\r' || ch == '\n' {
+            if ch == '\r' && chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            eol.len()
+        } else {
+            ch.len_utf8()
+        };
+        bytes = bytes
+            .checked_add(add)
+            .context("Workspace normalization overflow")?;
+        ensure!(
+            bytes <= available,
+            "Workspace normalized text exceeds replacement byte budget"
+        );
+    }
+    let mut result = String::new();
+    result
+        .try_reserve_exact(bytes)
+        .context("Workspace replacement reservation refused")?;
+    let mut chars = text.chars().peekable();
+    let mut count = 0;
+    while let Some(ch) = chars.next() {
+        if count % 4096 == 0 {
+            crate::document::workspace::guard(cancel, deadline)?;
+        }
+        count += 1;
+        if ch == '\r' || ch == '\n' {
+            if ch == '\r' && chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            result.push_str(eol);
+        } else {
+            result.push(ch);
+        }
+    }
+    Ok(result)
 }
 
 #[cfg(test)]
