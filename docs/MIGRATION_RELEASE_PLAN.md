@@ -447,3 +447,11 @@ clipboard controls, portable metadata checking including this test guard,
 formatting and strict Clippy pass. Actual fresh Windows execution remains
 required; the batch stays **4/5**, and no backend repair is inferred from a test
 change. [Failure and source receipts](validation/windows-window-holder.json).
+
+
+The extracted optimized Linux archive at `339e5a6` passes **72 terminal scenarios
+across 19 scripts**, including the new masked-input/raw-output workflows. Checksum,
+revision, notices and no-Node doctor checks pass. Earlier archives and the existing
+user release binary remain intact. [Archive and binary receipts](validation/linux-release-339e5a6.json)
+record this exact source, isolated clipboard data and pending platform/publication
+gates. The uncommitted Window-progress implementation is not in this archive.
